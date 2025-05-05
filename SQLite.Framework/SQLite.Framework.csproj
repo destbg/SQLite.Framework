@@ -8,14 +8,6 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PublishAot>true</PublishAot>
-        <IsAotCompatible>true</IsAotCompatible>
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <Title>SQLite.Framework</Title>
-        <PackageProjectUrl>https://github.com/destbg/SQLite.Framework</PackageProjectUrl>
-        <PackageLicenseUrl>MIT</PackageLicenseUrl>
-        <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
-        <RepositoryType>GitHub</RepositoryType>
-        <PackageTags>sqlite database orm</PackageTags>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -28,13 +20,23 @@
             Check the GitHub repository for more information and limitations.
         </Description>
         <Authors>Nikolay Kostadinov</Authors>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Title>SQLite.Framework</Title>
+        <PackageProjectUrl>https://github.com/destbg/SQLite.Framework</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>sqlite database orm</PackageTags>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <IsAotCompatible>true</IsAotCompatible>
+        <PackageVersion>1.0.2</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
-        <Content Include="../README.md">
+        <None Include="../README.md">
             <Pack>true</Pack>
             <PackagePath>\</PackagePath>
-        </Content>
+        </None>
     </ItemGroup>
 
     <ItemGroup>

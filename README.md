@@ -1,6 +1,6 @@
 # SQLite.Framework
 
-A lightweight, experimental ORM for SQLite in .NET MAUI with AOT support and LINQ-style `IQueryable` querying.
+A lightweight, experimental ORM for SQLite, designed for .NET MAUI with AOT support and LINQ-style `IQueryable` querying.
 
 ## Features
 
