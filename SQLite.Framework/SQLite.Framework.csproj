@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+        <OutputType>Library</OutputType>
+        <WarningsAsErrors>nullable</WarningsAsErrors>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+        <IsAotCompatible>true</IsAotCompatible>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <Title>SQLite.Framework</Title>
+        <PackageProjectUrl>https://github.com/destbg/SQLite.Framework</PackageProjectUrl>
+        <PackageLicenseUrl>MIT</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
+        <RepositoryType>GitHub</RepositoryType>
+        <PackageTags>sqlite database orm</PackageTags>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AssemblyName>SQLite.Framework</AssemblyName>
+        <PackageId>SQLite.Framework</PackageId>
+        <AssemblyTitle>SQLite package that supports IQueryable</AssemblyTitle>
+        <Description>SQLite.Framework is a library that provides an ORM solution for SQLite databases.
+            It was designed with the intent to support AOT compilation and be used in .NET MAUI applications.
+            The library is built on top of Microsoft.Data.SQLite and provides an IQueryable interface for querying SQLite databases.
+            Check the GitHub repository for more information and limitations.
+        </Description>
+        <Authors>Nikolay Kostadinov</Authors>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Content Include="../README.md">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Data.SQLite" Version="9.0.4"/>
+    </ItemGroup>
+
+</Project>
