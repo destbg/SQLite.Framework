@@ -29,9 +29,9 @@ dotnet add package SQLite.Framework
        [Key, AutoIncrement]
        public int Id { get; set; }
        public required string Name { get; set; }
+       public required DateTime? BirthDate { get; set; }
    }
    ```
-   Using the required keyword is optional but recommended for better nullability checks (The framework will automatically make them NOT NULL in the database if the required keyword is used).
 
 2. **Initialize the context**:
 
@@ -43,6 +43,15 @@ dotnet add package SQLite.Framework
    var context = new SQLiteDatabase(connection);
    context.Table<Person>().CreateTable();
    ```
+
+    On the table class, you can use the [Table] attribute to specify the table name.
+
+    On the class properties:
+    - The [Column] attribute specifies the column name.
+    - The [NotMapped] attribute ignores the property.
+    - The [Key] attribute specifies the primary key.
+    - The [AutoIncrement] attribute is used to specify that the column should be auto-incremented.
+    - The [Required] attribute is used to specify that the column is NOT NULL (columns are NOT NULL by default, but using the ? operator marks them as nullable).
 
 3. **Query with LINQ**:
 
@@ -69,6 +78,13 @@ dotnet add package SQLite.Framework
         .Select(p => p.Id)
         .ToListAsync();
    ```
+
+## AOT Support
+
+In order to use this library in AOT scenarios, you need to make sure the objects you are querying are either:
+
+- Part of the assembly that is being AOT compiled (in other words it needs to be part of the code you see).
+- Or simply make sure the classes are referenced in your code.
 
 ## Limitations
 
