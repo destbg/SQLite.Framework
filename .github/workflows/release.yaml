@@ -12,19 +12,19 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 9.0.203
     - name: Create NuGet Package
       run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
       working-directory: ./SQLite.Framework      
     - name: Archive NuGet Package
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: SQLite.Framework
         path: ./SQLite.Framework/SQLite.Framework/bin/Release/SQLite.Framework.${{ github.event.release.tag_name }}.nupkg
     - name: Archive NuGet Package
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: SQLite.Framework
         path: ./SQLite.Framework/SQLite.Framework/bin/Release/SQLite.Framework.${{ github.event.release.tag_name }}.nupkg
