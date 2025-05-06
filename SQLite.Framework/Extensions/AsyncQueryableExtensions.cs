@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 
 namespace SQLite.Framework.Extensions;
@@ -10,7 +11,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs an INSERT operation on the database table using the row.
     /// </summary>
-    public static Task<int> AddAsync<T>(this SQLiteTable<T> source, T item)
+    public static Task<int> AddAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, T item)
     {
         return ExecuteAsync(source.Add, source.Database, item);
     }
@@ -18,7 +19,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs an INSERT operation on the database table using the rows.
     /// </summary>
-    public static Task<int> AddRangeAsync<T>(this SQLiteTable<T> source, IEnumerable<T> collection)
+    public static Task<int> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, IEnumerable<T> collection)
     {
         return ExecuteAsync(source.AddRange, source.Database, collection);
     }
@@ -26,7 +27,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs an UPDATE operation on the database table using the row.
     /// </summary>
-    public static Task<int> UpdateAsync<T>(this SQLiteTable<T> source, T item)
+    public static Task<int> UpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, T item)
     {
         return ExecuteAsync(source.Update, source.Database, item);
     }
@@ -34,7 +35,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs an UPDATE operation on the database table using the rows.
     /// </summary>
-    public static Task<int> UpdateRangeAsync<T>(this SQLiteTable<T> source, IEnumerable<T> collection)
+    public static Task<int> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, IEnumerable<T> collection)
     {
         return ExecuteAsync(source.UpdateRange, source.Database, collection);
     }
@@ -42,7 +43,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs a DELETE operation on the database table using the row.
     /// </summary>
-    public static Task<int> RemoveAsync<T>(this SQLiteTable<T> source, T item)
+    public static Task<int> RemoveAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, T item)
     {
         return ExecuteAsync(source.Remove, source.Database, item);
     }
@@ -50,7 +51,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs a DELETE operation on the database table using the primary key.
     /// </summary>
-    public static Task<int> RemoveAsync<T>(this SQLiteTable<T> source, object primaryKey)
+    public static Task<int> RemoveAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, object primaryKey)
     {
         return ExecuteAsync(source.Remove, source.Database, primaryKey);
     }
@@ -58,7 +59,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs a DELETE operation on the database table using the rows.
     /// </summary>
-    public static Task<int> RemoveRangeAsync<T>(this SQLiteTable<T> source, IEnumerable<T> collection)
+    public static Task<int> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, IEnumerable<T> collection)
     {
         return ExecuteAsync(source.RemoveRange, source.Database, collection);
     }
@@ -69,7 +70,7 @@ public static class AsyncQueryableExtensions
     /// <remarks>
     /// WARNING! This will delete all rows in the table.
     /// </remarks>
-    public static Task<int> ClearAsync<T>(this SQLiteTable<T> source)
+    public static Task<int> ClearAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source)
     {
         return ExecuteAsync(source.Clear, source.Database);
     }
@@ -77,7 +78,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Creates the table in the database if it does not exist.
     /// </summary>
-    public static Task<int> CreateTableAsync<T>(this SQLiteTable<T> source)
+    public static Task<int> CreateTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source)
     {
         return ExecuteAsync(source.CreateTable, source.Database);
     }
@@ -85,7 +86,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Deletes the table from the database.
     /// </summary>
-    public static Task<int> DropTableAsync<T>(this SQLiteTable<T> source)
+    public static Task<int> DropTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source)
     {
         return ExecuteAsync(source.DropTable, source.Database);
     }
