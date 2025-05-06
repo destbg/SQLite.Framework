@@ -1,3 +1,4 @@
+using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -16,28 +17,25 @@ namespace SQLite.Framework;
 /// <summary>
 /// Represents a connection to the SQLite database.
 /// </summary>
-public class SQLiteDatabase : IQueryProvider, IDisposable
+public class SQLiteDatabase : SqliteConnection, IQueryProvider
 {
     private readonly Dictionary<Type, TableMapping> tableMappings = [];
-    private readonly SqliteConnection connection;
     private readonly object connectionOpenLock = new();
     private readonly object queryLock = new();
-    private bool isConnectionOpen;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDatabase"/> class.
     /// </summary>
-    public SQLiteDatabase(SqliteConnection connection)
+    public SQLiteDatabase()
     {
-        this.connection = connection;
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDatabase"/> class.
     /// </summary>
     public SQLiteDatabase(string connectionString)
+        : base(connectionString)
     {
-        connection = new SqliteConnection(connectionString);
     }
 
     /// <summary>
@@ -81,17 +79,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public SqliteCommand CreateCommand(string sql, Dictionary<string, object?> parameters)
     {
-        if (!isConnectionOpen)
-        {
-            isConnectionOpen = true;
+        OpenConnection();
 
-            lock (connectionOpenLock)
-            {
-                connection.Open();
-            }
-        }
-
-        SqliteCommand cmd = connection.CreateCommand();
+        SqliteCommand cmd = base.CreateCommand();
         cmd.CommandText = sql;
 
         foreach (KeyValuePair<string, object?> p in parameters)
@@ -192,10 +182,21 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         throw new NotSupportedException("Only generic queries are supported.");
     }
 
-    /// <inheritdoc />
-    public void Dispose()
+    private void OpenConnection()
     {
-        GC.SuppressFinalize(this);
-        connection.Dispose();
+        if (State == ConnectionState.Connecting)
+        {
+            lock (connectionOpenLock)
+            {
+                // Wait for the connection to be opened
+            }
+        }
+        else if (State != ConnectionState.Open)
+        {
+            lock (connectionOpenLock)
+            {
+                Open();
+            }
+        }
     }
 }

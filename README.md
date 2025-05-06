@@ -89,7 +89,6 @@ In order to use this library in AOT scenarios, you need to make sure the objects
 ## Limitations
 
 - **No `GroupBy` support** yet.
-- No transactions either.
 
 ## Contributing
 
