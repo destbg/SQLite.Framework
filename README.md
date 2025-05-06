@@ -29,7 +29,7 @@ dotnet add package SQLite.Framework
        [Key, AutoIncrement]
        public int Id { get; set; }
        public required string Name { get; set; }
-       public required DateTime? BirthDate { get; set; }
+       public DateTime? BirthDate { get; set; }
    }
    ```
 
