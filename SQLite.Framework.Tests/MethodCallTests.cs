@@ -2,12 +2,74 @@ using Microsoft.Data.Sqlite;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 
+// ReSharper disable AccessToDisposedClosure
 // ReSharper disable CompareOfFloatsByEqualityOperator
 
 namespace SQLite.Framework.Tests;
 
 public class MethodCallTests
 {
+    [Fact]
+    public void ListContains()
+    {
+        using SQLiteDatabase db = new("Data Source=:memory:");
+
+        List<int> list = [1, 2, 3];
+
+        using SqliteCommand command = (
+            from book in db.Table<Book>()
+            where list.Contains(book.Id)
+            select book
+        ).ToSqlCommand();
+
+        Assert.Equal(3, command.Parameters.Count);
+        Assert.Equal(1, command.Parameters[0].Value);
+        Assert.Equal(2, command.Parameters[1].Value);
+        Assert.Equal(3, command.Parameters[2].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE b0.BookId IN (@p0, @p1, @p2)
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void QueryableContains()
+    {
+        using SQLiteDatabase db = new("Data Source=:memory:");
+
+        using SqliteCommand command = (
+            from book in db.Table<Book>()
+            where (
+                from b in db.Table<Book>()
+                where b.Title == "test"
+                select b.Title
+            ).Contains("test")
+            select book
+        ).ToSqlCommand();
+
+        Assert.Equal(2, command.Parameters.Count);
+        Assert.Equal("test", command.Parameters[0].Value);
+        Assert.Equal("test", command.Parameters[1].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE @p0 IN (
+                         SELECT b1.BookTitle AS "Title"
+                         FROM "Books" AS b1
+                         WHERE b1.BookTitle = @p1
+                     )
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
     [Fact]
     public void StringContains()
     {

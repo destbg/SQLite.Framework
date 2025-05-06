@@ -38,7 +38,7 @@ internal class SQLTranslator
     public Dictionary<ParameterExpression, Dictionary<string, ColumnMapping>> MethodArguments
     {
         get => visitor.MethodArguments;
-        set => visitor.MethodArguments = value;
+        init => visitor.MethodArguments = value;
     }
 
     public SQLQuery Translate(Expression expression)
@@ -527,8 +527,8 @@ internal class SQLTranslator
             }
             else
             {
-                genericType = GetQueryableType(callExpression.Arguments[0].Type)
-                              ?? GetQueryableType(callExpression.Type)
+                genericType = CommonHelpers.GetQueryableType(callExpression.Arguments[0].Type)
+                              ?? CommonHelpers.GetQueryableType(callExpression.Type)
                               ?? throw new InvalidOperationException("Expression is not an IQueryable.");
             }
 
@@ -594,19 +594,6 @@ internal class SQLTranslator
             sourceParameter,
             selector
         );
-    }
-
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "We are checking the Queryable class")]
-    public static Type? GetQueryableType(Type type)
-    {
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IQueryable<>))
-        {
-            return type.GenericTypeArguments[0];
-        }
-
-        return type.GetInterfaces()
-            .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IQueryable<>))
-            ?.GenericTypeArguments[0];
     }
 
     private static bool IsSelectMethod(string methodName)

@@ -130,7 +130,7 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
         if (expression.Type.IsGenericType)
         {
             Type genericType = expression.Type.GetGenericTypeDefinition();
-            if (SQLTranslator.GetQueryableType(expression.Type) != null || genericType == typeof(IEnumerable<>))
+            if (CommonHelpers.GetQueryableType(expression.Type) != null || genericType == typeof(IEnumerable<>))
             {
                 Type genericElementType = expression.Type.GetGenericArguments()[0];
                 MethodInfo executeQueryMethod = typeof(SQLiteCommandExtensions).GetMethod(

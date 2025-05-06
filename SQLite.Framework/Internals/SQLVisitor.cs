@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -296,6 +297,26 @@ internal class SQLVisitor
             SQLQuery query = translator.Translate(nodeQueryable);
 
             return $"{alias} IN ({Environment.NewLine}{query.Sql}{Environment.NewLine})";
+        }
+        else if (node.Object != null && node.Method.Name == "Contains")
+        {
+            object? value = CommonHelpers.GetConstantValue(node.Object);
+
+            if (value is IEnumerable enumerable)
+            {
+                List<string> parameterNames = [];
+
+                foreach (object obj in enumerable)
+                {
+                    string pName = $"@p{ParamIndex.Index++}";
+                    Parameters[pName] = obj;
+                    parameterNames.Add(pName);
+                }
+
+                string alias = Visit(node.Arguments[0]);
+
+                return $"{alias} IN ({string.Join(", ", parameterNames)})";
+            }
         }
 
         throw new NotSupportedException($"Unsupported method {node.Method.Name}");

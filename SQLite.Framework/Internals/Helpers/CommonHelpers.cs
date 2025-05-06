@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
@@ -91,5 +92,18 @@ internal static class CommonHelpers
         return value.Contains(' ')
             ? $"({value})"
             : value;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "We are checking the Queryable class")]
+    public static Type? GetQueryableType(Type type)
+    {
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IQueryable<>))
+        {
+            return type.GenericTypeArguments[0];
+        }
+
+        return type.GetInterfaces()
+            .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IQueryable<>))
+            ?.GenericTypeArguments[0];
     }
 }
