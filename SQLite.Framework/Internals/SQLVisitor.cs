@@ -20,8 +20,7 @@ internal class SQLVisitor
         ParamIndex = paramIndex;
         TableIndex = tableIndex;
         Level = level;
-
-        methodHandler = new(this, parameters);
+        methodHandler = new(this);
     }
 
     public List<JoinInfo> Joins { get; } = new();
@@ -287,35 +286,30 @@ internal class SQLVisitor
         {
             return methodHandler.HandleDateExtension(node);
         }
-        else if (node.Method.DeclaringType == typeof(Queryable) && node.Method.Name == "Contains")
+        else if (node.Method.DeclaringType == typeof(Guid))
         {
-            // table.OtherTable.Select(x => x.Id).Contains(x.Prop) => alias.Prop LIKE (SELECT Id FROM OtherTable)
-            MethodCallExpression nodeQueryable = (MethodCallExpression)node.Arguments[0];
-            string alias = Visit(node.Arguments[1]);
-
-            SQLTranslator translator = CloneDeeper(Level + 1);
-            SQLQuery query = translator.Translate(nodeQueryable);
-
-            return $"{alias} IN ({Environment.NewLine}{query.Sql}{Environment.NewLine})";
+            return methodHandler.HandleGuidExtension(node);
         }
-        else if (node.Object != null && node.Method.Name == "Contains")
+        else if (node.Method.DeclaringType == typeof(Queryable))
+        {
+            return methodHandler.HandleQueryableExtension(node);
+        }
+        else if (node.Object != null)
         {
             object? value = CommonHelpers.GetConstantValue(node.Object);
 
             if (value is IEnumerable enumerable)
             {
-                List<string> parameterNames = [];
+                return methodHandler.HandleEnumerableExtension(node, enumerable);
+            }
+        }
+        else if (node.Arguments.Count > 0)
+        {
+            object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
 
-                foreach (object obj in enumerable)
-                {
-                    string pName = $"@p{ParamIndex.Index++}";
-                    Parameters[pName] = obj;
-                    parameterNames.Add(pName);
-                }
-
-                string alias = Visit(node.Arguments[0]);
-
-                return $"{alias} IN ({string.Join(", ", parameterNames)})";
+            if (value is IEnumerable enumerable)
+            {
+                return methodHandler.HandleEnumerableExtension(node, enumerable);
             }
         }
 

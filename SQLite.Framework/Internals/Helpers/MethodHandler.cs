@@ -1,17 +1,17 @@
+using System.Collections;
 using System.Linq.Expressions;
 using System.Text;
+using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Helpers;
 
 internal class MethodHandler
 {
     private readonly SQLVisitor visitor;
-    private readonly Dictionary<string, object?> parameters;
 
-    public MethodHandler(SQLVisitor visitor, Dictionary<string, object?> parameters)
+    public MethodHandler(SQLVisitor visitor)
     {
         this.visitor = visitor;
-        this.parameters = parameters;
     }
 
     public string HandleStringExtension(MethodCallExpression node)
@@ -84,7 +84,7 @@ internal class MethodHandler
             }
         }
 
-        throw new NotSupportedException($"Unsupported method {node.Method.Name} for string");
+        throw new NotSupportedException($"Unsupported method {node.Method.Name} for String");
     }
 
     public string HandleMathExtension(MethodCallExpression node)
@@ -121,7 +121,7 @@ internal class MethodHandler
             }
         }
 
-        throw new NotSupportedException($"Unsupported method {node.Method.Name} for math");
+        throw new NotSupportedException($"Unsupported method {node.Method.Name} for Math");
     }
 
     public string HandleDateExtension(MethodCallExpression node)
@@ -132,111 +132,129 @@ internal class MethodHandler
         {
             case nameof(DateTime.Add):
             {
-                if (CommonHelpers.IsConstant(node.Arguments[0]))
-                {
-                    object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    parameters[pName] = $"+{value} seconds";
-                    return $"DATE({alias}, {pName})";
-                }
-
-                string valueSql = visitor.Visit(node.Arguments[0]);
-                return $"DATE({alias}, '+'||{valueSql}||' seconds')";
+                return AppendDateAdd(node, alias, "seconds");
             }
             case nameof(DateTime.AddYears):
             {
-                if (CommonHelpers.IsConstant(node.Arguments[0]))
-                {
-                    object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    parameters[pName] = $"+{value} years";
-                    return $"DATE({alias}, {pName})";
-                }
-
-                string valueSql = visitor.Visit(node.Arguments[0]);
-                return $"DATE({alias}, '+'||{valueSql}||' years')";
+                return AppendDateAdd(node, alias, "years");
             }
             case nameof(DateTime.AddDays):
             {
-                if (CommonHelpers.IsConstant(node.Arguments[0]))
-                {
-                    object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    parameters[pName] = $"+{value} days";
-                    return $"DATE({alias}, {pName})";
-                }
-
-                string valueSql = visitor.Visit(node.Arguments[0]);
-                return $"DATE({alias}, '+'||{valueSql}||' days')";
+                return AppendDateAdd(node, alias, "days");
             }
             case nameof(DateTime.AddHours):
             {
-                if (CommonHelpers.IsConstant(node.Arguments[0]))
-                {
-                    object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    parameters[pName] = $"+{value} hours";
-                    return $"DATE({alias}, {pName})";
-                }
-
-                string valueSql = visitor.Visit(node.Arguments[0]);
-                return $"DATE({alias}, '+'||{valueSql}||' hours')";
+                return AppendDateAdd(node, alias, "hours");
             }
             case nameof(DateTime.AddMinutes):
             {
-                if (CommonHelpers.IsConstant(node.Arguments[0]))
-                {
-                    object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    parameters[pName] = $"+{value} minutes";
-                    return $"DATE({alias}, {pName})";
-                }
-
-                string valueSql = visitor.Visit(node.Arguments[0]);
-                return $"DATE({alias}, '+'||{valueSql}||' minutes')";
+                return AppendDateAdd(node, alias, "minutes");
             }
             case nameof(DateTime.AddSeconds):
             {
-                if (CommonHelpers.IsConstant(node.Arguments[0]))
-                {
-                    object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    parameters[pName] = $"+{value} seconds";
-                    return $"DATE({alias}, {pName})";
-                }
-
-                string valueSql = visitor.Visit(node.Arguments[0]);
-                return $"DATE({alias}, '+'||{valueSql}||' seconds')";
+                return AppendDateAdd(node, alias, "seconds");
             }
             case nameof(DateTime.AddMilliseconds):
             {
-                if (CommonHelpers.IsConstant(node.Arguments[0]))
-                {
-                    object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    parameters[pName] = $"+{value} milliseconds";
-                    return $"DATE({alias}, {pName})";
-                }
-
-                string valueSql = visitor.Visit(node.Arguments[0]);
-                return $"DATE({alias}, '+'||{valueSql}||' milliseconds')";
+                return AppendDateAdd(node, alias, "milliseconds");
             }
             case nameof(DateTime.AddTicks):
             {
-                if (CommonHelpers.IsConstant(node.Arguments[0]))
-                {
-                    object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    parameters[pName] = $"+{value} ticks";
-                    return $"DATE({alias}, {pName})";
-                }
-
-                string valueSql = visitor.Visit(node.Arguments[0]);
-                return $"DATE({alias}, '+'||{valueSql}||' ticks')";
+                return AppendDateAdd(node, alias, "ticks");
             }
         }
 
-        throw new NotSupportedException($"Unsupported method {node.Method.Name} for date");
+        throw new NotSupportedException($"Unsupported method {node.Method.Name} for DateTime");
+    }
+
+    public string HandleGuidExtension(MethodCallExpression node)
+    {
+        string alias = visitor.Visit(node.Object!);
+
+        switch (node.Method.Name)
+        {
+            case nameof(Guid.ToString):
+            {
+                return $"HEX({alias})";
+            }
+            case nameof(Guid.Equals):
+            {
+                string valueSql = visitor.Visit(node.Arguments[0]);
+                return $"{alias} = {valueSql}";
+            }
+        }
+
+        throw new NotSupportedException($"Unsupported method {node.Method.Name} for Guid");
+    }
+
+    public string HandleEnumerableExtension(MethodCallExpression node, IEnumerable enumerable)
+    {
+        if (node.Object == null && CommonHelpers.IsSimple(node.Method.ReturnType))
+        {
+            object? result = node.Method.Invoke(null, [
+                enumerable,
+                ..node.Arguments.Skip(1).Select(CommonHelpers.GetConstantValue)
+            ]);
+            string pName = $"@p{visitor.ParamIndex.Index++}";
+            visitor.Parameters[pName] = result;
+
+            return pName;
+        }
+
+        switch (node.Method.Name)
+        {
+            case nameof(Enumerable.Contains):
+            {
+                List<string> parameterNames = [];
+
+                foreach (object obj in enumerable)
+                {
+                    string pName = $"@p{visitor.ParamIndex.Index++}";
+                    visitor.Parameters[pName] = obj;
+                    parameterNames.Add(pName);
+                }
+
+                string alias = visitor.Visit(node.Arguments[0]);
+
+                return $"{alias} IN ({string.Join(", ", parameterNames)})";
+            }
+        }
+
+        throw new NotSupportedException($"Unsupported method {node.Method.Name} for Enumerable");
+    }
+
+    public string HandleQueryableExtension(MethodCallExpression node)
+    {
+        if (node.Method.Name == nameof(Queryable.All))
+        {
+            throw new NotSupportedException($"Unsupported method {node.Method.Name} for Queryable");
+        }
+
+        MethodCallExpression nodeQueryable = (MethodCallExpression)node.Arguments[0];
+
+        SQLTranslator translator = visitor.CloneDeeper(visitor.Level + 1);
+        SQLQuery query = translator.Translate(nodeQueryable);
+
+        if (node.Arguments.Count == 1)
+        {
+            if (node.Method.Name == nameof(Queryable.Any))
+            {
+                return $"EXISTS ({Environment.NewLine}{query.Sql}{Environment.NewLine})";
+            }
+
+            return $"{Environment.NewLine}{query.Sql}{Environment.NewLine}";
+        }
+
+        switch (node.Method.Name)
+        {
+            case nameof(Queryable.Contains):
+            {
+                string alias = visitor.Visit(node.Arguments[1]);
+                return $"{alias} IN ({Environment.NewLine}{query.Sql}{Environment.NewLine})";
+            }
+        }
+
+        throw new NotSupportedException($"Unsupported method {node.Method.Name} for Queryable");
     }
 
     private string AppendLike(MethodCallExpression node, string alias, Func<object?, string> selectParameter, Func<string, string> selectValue)
@@ -255,7 +273,7 @@ internal class MethodHandler
         {
             object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
             string pName = $"@p{visitor.ParamIndex.Index++}";
-            parameters[pName] = selectParameter(value);
+            visitor.Parameters[pName] = selectParameter(value);
             return $"{alias} LIKE {pName}{noCase}";
         }
 
@@ -288,5 +306,19 @@ internal class MethodHandler
 
         string valueSql = visitor.Visit(node.Arguments[0]);
         return $"{trimType}({alias}, {valueSql})";
+    }
+
+    private string AppendDateAdd(MethodCallExpression node, string alias, string addType)
+    {
+        if (CommonHelpers.IsConstant(node.Arguments[0]))
+        {
+            object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
+            string pName = $"@p{visitor.ParamIndex.Index++}";
+            visitor.Parameters[pName] = $"+{value} {addType}";
+            return $"DATE({alias}, {pName})";
+        }
+
+        string valueSql = visitor.Visit(node.Arguments[0]);
+        return $"DATE({alias}, '+'||{valueSql}||' {addType}')";
     }
 }

@@ -10,6 +10,32 @@ namespace SQLite.Framework.Tests;
 public class MethodCallTests
 {
     [Fact]
+    public void ListMax()
+    {
+        using SQLiteDatabase db = new("Data Source=:memory:");
+
+        List<int> list = [1, 2, 3];
+
+        using SqliteCommand command = (
+            from book in db.Table<Book>()
+            where book.Id == list.Max()
+            select book
+        ).ToSqlCommand();
+
+        Assert.Equal(1, command.Parameters.Count);
+        Assert.Equal(3, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE b0.BookId = @p0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
     public void ListContains()
     {
         using SQLiteDatabase db = new("Data Source=:memory:");
@@ -61,10 +87,42 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE @p0 IN (
+                     WHERE @p1 IN (
                          SELECT b1.BookTitle AS "Title"
                          FROM "Books" AS b1
-                         WHERE b1.BookTitle = @p1
+                         WHERE b1.BookTitle = @p0
+                     )
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void QueryableMax()
+    {
+        using SQLiteDatabase db = new("Data Source=:memory:");
+
+        using SqliteCommand command = (
+            from book in db.Table<Book>()
+            where book.Id == (
+                from b in db.Table<Book>()
+                where b.Title == "test"
+                select b.Id
+            ).Max()
+            select book
+        ).ToSqlCommand();
+
+        Assert.Equal(1, command.Parameters.Count);
+        Assert.Equal("test", command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE b0.BookId = (
+                         SELECT b1.BookId AS "Id"
+                         FROM "Books" AS b1
+                         WHERE b1.BookTitle = @p0
                      )
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

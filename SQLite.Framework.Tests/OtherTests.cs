@@ -10,7 +10,7 @@ namespace SQLite.Framework.Tests;
 public class OtherTests
 {
     [Fact]
-    public void QueryableContains()
+    public void QueryableContainsWithPassingArgument()
     {
         using SQLiteDatabase db = new("Data Source=:memory:");
 
@@ -25,18 +25,18 @@ public class OtherTests
         ).ToSqlCommand();
 
         Assert.Equal(2, command.Parameters.Count);
-        Assert.Equal("test 2", command.Parameters[0].Value);
-        Assert.Equal("test", command.Parameters[1].Value);
+        Assert.Equal("test", command.Parameters[0].Value);
+        Assert.Equal("test 2", command.Parameters[1].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
                             b0.BookTitle AS "Title",
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE @p0 IN (
+                     WHERE @p1 IN (
                          SELECT b1.BookTitle AS "Title"
                          FROM "Books" AS b1
-                         WHERE (b1.BookTitle = @p1) AND (b0.BookAuthorId = b1.BookAuthorId)
+                         WHERE (b1.BookTitle = @p0) AND (b0.BookAuthorId = b1.BookAuthorId)
                      )
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
