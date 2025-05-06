@@ -27,9 +27,7 @@
         <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageTags>sqlite database orm</PackageTags>
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <IsAotCompatible>true</IsAotCompatible>
-        <PackageVersion>1.0.4</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
