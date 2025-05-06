@@ -2,6 +2,8 @@
 
 A lightweight, experimental ORM for SQLite, designed for .NET MAUI with AOT support and LINQ-style `IQueryable` querying.
 
+[![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
+
 ## Features
 
 - **AOT-ready**: Designed for Ahead-Of-Time compilation in .NET MAUI apps.
