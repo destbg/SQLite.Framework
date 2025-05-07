@@ -58,6 +58,18 @@ public class SQLiteTable : BaseSQLiteTable
         string sql = $"DROP TABLE IF EXISTS \"{Table.TableName}\"";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
+
+    /// <summary>
+    /// Performs a DELETE operation on the database table.
+    /// </summary>
+    /// <remarks>
+    /// WARNING! This will delete all rows in the table.
+    /// </remarks>
+    public int Clear()
+    {
+        string sql = $"DELETE FROM \"{Table.TableName}\"";
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
 }
 
 /// <summary>
@@ -186,18 +198,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         return count;
-    }
-
-    /// <summary>
-    /// Performs a DELETE operation on the database table.
-    /// </summary>
-    /// <remarks>
-    /// WARNING! This will delete all rows in the table.
-    /// </remarks>
-    public int Clear()
-    {
-        string sql = $"DELETE FROM \"{Table.TableName}\"";
-        return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
     IEnumerator<T> IEnumerable<T>.GetEnumerator()

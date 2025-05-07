@@ -71,7 +71,7 @@ public static class AsyncQueryableExtensions
     /// <remarks>
     /// WARNING! This will delete all rows in the table.
     /// </remarks>
-    public static Task<int> ClearAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source)
+    public static Task<int> ClearAsync(this SQLiteTable source)
     {
         return ExecuteAsync(source.Clear, source.Database);
     }

@@ -39,6 +39,11 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
     }
 
     /// <summary>
+    /// Returns the cached table mappings in the current database instance.
+    /// </summary>
+    public ICollection<TableMapping> TableMappings => tableMappings.Values;
+
+    /// <summary>
     /// Called when a command is created using the <see cref="CreateCommand(string, Dictionary{string, object?})"/> method.
     /// </summary>
     public event Action<SqliteCommand>? CommandCreated;
