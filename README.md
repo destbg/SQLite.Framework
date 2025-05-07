@@ -41,8 +41,7 @@ dotnet add package SQLite.Framework
    using Microsoft.Data.Sqlite;
    using SQLite.Framework;
 
-   var connection = new SqliteConnection("Data Source=app.db");
-   var context = new SQLiteDatabase(connection);
+   var context = new SQLiteDatabase("Data Source=app.db");
    context.Table<Person>().CreateTable();
    ```
 
