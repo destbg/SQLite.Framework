@@ -11,7 +11,7 @@ A lightweight, experimental ORM for SQLite, designed for .NET MAUI with AOT supp
 - **Inspired by EF & sqlite-net-pcl**: Familiar patterns with minimal overhead.
 
 > **⚠️ Experimental**  
-> This package is new and not recommended for production use.
+> This package is new and not recommended for production use. It may change at any point.
 
 ## Installation
 
