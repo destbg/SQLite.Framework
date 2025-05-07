@@ -39,6 +39,11 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
     }
 
     /// <summary>
+    /// Called when a command is created using the <see cref="CreateCommand(string, Dictionary{string, object?})"/> method.
+    /// </summary>
+    public event Action<SqliteCommand>? CommandCreated;
+
+    /// <summary>
     /// Creates a new table for the specified type.
     /// </summary>
     public TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
@@ -88,6 +93,8 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
         {
             cmd.Parameters.AddWithValue(p.Key, p.Value ?? DBNull.Value);
         }
+
+        CommandCreated?.Invoke(cmd);
 
         return cmd;
     }
