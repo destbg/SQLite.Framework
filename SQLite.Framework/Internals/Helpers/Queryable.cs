@@ -1,9 +1,10 @@
 using System.Collections;
 using System.Linq.Expressions;
+using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Helpers;
 
-internal class Queryable<T> : SQLiteTable, IOrderedQueryable<T>
+internal class Queryable<T> : BaseSQLiteTable, IOrderedQueryable<T>
 {
     public Queryable(SQLiteDatabase database, Expression expression)
         : base(database)

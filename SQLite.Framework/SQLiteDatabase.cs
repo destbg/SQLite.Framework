@@ -58,7 +58,7 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
     }
 
     /// <summary>
-    /// Creates a new table for the specified type.
+    /// Creates a new table mapping for the specified type.
     /// </summary>
     public TableMapping TableMapping<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
     {
@@ -77,6 +77,14 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
     public SQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>()
     {
         return new SQLiteTable<T>(this, TableMapping<T>());
+    }
+
+    /// <summary>
+    /// Creates a new table for the specified type.
+    /// </summary>
+    public SQLiteTable Table([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type)
+    {
+        return new SQLiteTable(this, TableMapping(type));
     }
 
     /// <summary>

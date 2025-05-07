@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Models;
+using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Extensions;
 
@@ -14,7 +15,7 @@ public static class QueryableExtensions
     /// </summary>
     public static SqliteCommand ToSqlCommand<T>(this IQueryable<T> queryable)
     {
-        SQLiteTable table = (SQLiteTable)queryable;
+        BaseSQLiteTable table = (BaseSQLiteTable)queryable;
         SQLTranslator translator = new(table.Database);
         SQLQuery query = translator.Translate(queryable.Expression);
 
@@ -26,7 +27,7 @@ public static class QueryableExtensions
     /// </summary>
     public static string ToSql<T>(this IQueryable<T> queryable)
     {
-        SQLiteTable table = (SQLiteTable)queryable;
+        BaseSQLiteTable table = (BaseSQLiteTable)queryable;
         SQLTranslator translator = new(table.Database);
         SQLQuery query = translator.Translate(queryable.Expression);
 

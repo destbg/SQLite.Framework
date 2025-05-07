@@ -8,38 +8,7 @@ namespace SQLite.Framework;
 /// <summary>
 /// Represents a base class for SQLite tables.
 /// </summary>
-public abstract class SQLiteTable : IQueryable
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SQLiteTable"/> class.
-    /// </summary>
-    protected SQLiteTable(SQLiteDatabase database)
-    {
-        Database = database;
-    }
-
-    /// <summary>
-    /// The SQLite database.
-    /// </summary>
-    public SQLiteDatabase Database { get; }
-
-    /// <inheritdoc />
-    public abstract Type ElementType { get; }
-
-    /// <inheritdoc />
-    public abstract Expression Expression { get; }
-
-    /// <inheritdoc />
-    public abstract IQueryProvider Provider { get; }
-
-    /// <inheritdoc />
-    public abstract IEnumerator GetEnumerator();
-}
-
-/// <summary>
-/// Represents a table in the SQLite database.
-/// </summary>
-public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T> : SQLiteTable, IQueryable<T>
+public class SQLiteTable : BaseSQLiteTable
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteTable{T}"/> class.
@@ -56,13 +25,51 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public TableMapping Table { get; }
 
     /// <inheritdoc />
+    public override Type ElementType => Table.Type;
+
+    /// <inheritdoc />
     public override Expression Expression => Expression.Constant(this);
 
     /// <inheritdoc />
     public override IQueryProvider Provider => Database;
 
     /// <inheritdoc />
-    public override Type ElementType => typeof(T);
+    public override IEnumerator GetEnumerator()
+    {
+        throw new Exception($"Cannot enumerate over the non-generic {nameof(SQLiteTable)} class.");
+    }
+
+    /// <summary>
+    /// Creates the table in the database if it does not exist.
+    /// </summary>
+    public int CreateTable()
+    {
+        string columns = string.Join(", ", Table.Columns.Select(c => c.GetCreateColumnSql()));
+
+        string sql = $"CREATE TABLE IF NOT EXISTS \"{Table.TableName}\" ({columns})";
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Deletes the table from the database.
+    /// </summary>
+    public int DropTable()
+    {
+        string sql = $"DROP TABLE IF EXISTS \"{Table.TableName}\"";
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
+}
+
+/// <summary>
+/// Represents a table in the SQLite database.
+/// </summary>
+public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T> : SQLiteTable, IQueryable<T>
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SQLiteTable{T}"/> class.
+    /// </summary>
+    public SQLiteTable(SQLiteDatabase database, TableMapping table)
+        : base(database, table) { }
 
     /// <summary>
     /// Performs an INSERT operation on the database table using the row.
@@ -190,26 +197,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public int Clear()
     {
         string sql = $"DELETE FROM \"{Table.TableName}\"";
-        return Database.CreateCommand(sql, []).ExecuteNonQuery();
-    }
-
-    /// <summary>
-    /// Creates the table in the database if it does not exist.
-    /// </summary>
-    public int CreateTable()
-    {
-        string columns = string.Join(", ", Table.Columns.Select(c => c.GetCreateColumnSql()));
-
-        string sql = $"CREATE TABLE IF NOT EXISTS \"{Table.TableName}\" ({columns})";
-        return Database.CreateCommand(sql, []).ExecuteNonQuery();
-    }
-
-    /// <summary>
-    /// Deletes the table from the database.
-    /// </summary>
-    public int DropTable()
-    {
-        string sql = $"DROP TABLE IF EXISTS \"{Table.TableName}\"";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 

@@ -251,7 +251,7 @@ internal class SQLVisitor
         {
             // detect the root: SQLiteTable<T>
             object? value = CommonHelpers.GetConstantValue(node);
-            if (value is SQLiteTable table)
+            if (value is BaseSQLiteTable table)
             {
                 AssignTable(table.ElementType);
                 return From!;
