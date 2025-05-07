@@ -74,8 +74,27 @@ internal static class BuildQueryObject
                     if (val != DBNull.Value)
                     {
                         Type targetType = Nullable.GetUnderlyingType(propType) ?? propType;
-                        object converted = Convert.ChangeType(val, targetType);
-                        prop.SetValue(instance, converted);
+                        object? convertedValue;
+
+                        if (targetType.IsEnum)
+                        {
+                            object underlyingType = Convert.ChangeType(val, Enum.GetUnderlyingType(targetType));
+
+                            if (Enum.IsDefined(targetType, underlyingType))
+                            {
+                                convertedValue = Enum.ToObject(targetType, underlyingType);
+                            }
+                            else
+                            {
+                                convertedValue = null;
+                            }
+                        }
+                        else
+                        {
+                            convertedValue = Convert.ChangeType(val, targetType);
+                        }
+
+                        prop.SetValue(instance, convertedValue);
                     }
                 }
             }

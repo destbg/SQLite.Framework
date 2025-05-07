@@ -10,7 +10,7 @@ internal static class CommonHelpers
     public static bool IsSimple(Type t)
     {
         t = Nullable.GetUnderlyingType(t) ?? t;
-        return t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime);
+        return t.IsPrimitive || t.IsEnum || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime);
     }
 
     public static (string Path, ParameterExpression Parameter) ResolveParameterPath(Expression expression)

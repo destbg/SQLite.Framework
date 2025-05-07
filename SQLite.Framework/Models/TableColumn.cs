@@ -49,6 +49,7 @@ public class TableColumn
             not null when type == typeof(uint) => SQLiteColumnType.Integer,
             not null when type == typeof(ulong) => SQLiteColumnType.Integer,
             not null when type == typeof(ushort) => SQLiteColumnType.Integer,
+            not null when type.IsEnum => SQLiteColumnType.Integer,
             _ => throw new NotSupportedException($"The type {type} is not supported.")
         };
     }

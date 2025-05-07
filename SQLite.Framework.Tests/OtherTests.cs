@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Enums;
 
 // ReSharper disable AccessToDisposedClosure
 
@@ -146,5 +147,26 @@ public class OtherTests
         TableMapping secondTableMapping = db.TableMapping<Book>();
 
         Assert.Same(firstTableMapping, secondTableMapping);
+    }
+
+    [Fact]
+    public void CheckEnum()
+    {
+        using SQLiteDatabase db = new("Data Source=:memory:");
+        db.Table<Publisher>().CreateTable();
+
+        db.Table<Publisher>().Add(new Publisher
+        {
+            Id = 1,
+            Name = "test",
+            Type = PublisherType.Magazine
+        });
+
+        Publisher publisher = db.Table<Publisher>().First(f => f.Id == 1);
+
+        Assert.NotNull(publisher);
+        Assert.Equal(1, publisher.Id);
+        Assert.Equal("test", publisher.Name);
+        Assert.Equal(PublisherType.Magazine, publisher.Type);
     }
 }
