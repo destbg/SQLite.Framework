@@ -81,7 +81,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// Initializes a new instance of the <see cref="SQLiteTable{T}"/> class.
     /// </summary>
     public SQLiteTable(SQLiteDatabase database, TableMapping table)
-        : base(database, table) { }
+        : base(database, table)
+    {
+    }
 
     /// <summary>
     /// Performs an INSERT operation on the database table using the row.
@@ -117,13 +119,27 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs an INSERT operation on the database table using the rows.
     /// </summary>
-    public int AddRange(IEnumerable<T> collection)
+    public int AddRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
         int count = 0;
 
-        foreach (T item in collection)
+        if (runInTransaction)
         {
-            count += Add(item);
+            using SQLiteTransaction transaction = Database.BeginTransaction();
+
+            foreach (T item in collection)
+            {
+                count += Add(item);
+            }
+
+            transaction.Commit();
+        }
+        else
+        {
+            foreach (T item in collection)
+            {
+                count += Add(item);
+            }
         }
 
         return count;
@@ -168,13 +184,27 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs an UPDATE operation on the database table using the rows.
     /// </summary>
-    public int UpdateRange(IEnumerable<T> collection)
+    public int UpdateRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
         int count = 0;
 
-        foreach (T item in collection)
+        if (runInTransaction)
         {
-            count += Update(item);
+            using SQLiteTransaction transaction = Database.BeginTransaction();
+
+            foreach (T item in collection)
+            {
+                count += Update(item);
+            }
+
+            transaction.Commit();
+        }
+        else
+        {
+            foreach (T item in collection)
+            {
+                count += Update(item);
+            }
         }
 
         return count;
@@ -200,13 +230,27 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs a DELETE operation on the database table using the rows.
     /// </summary>
-    public int RemoveRange(IEnumerable<T> collection)
+    public int RemoveRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
         int count = 0;
 
-        foreach (T item in collection)
+        if (runInTransaction)
         {
-            count += Remove(Table.PrimaryKey.PropertyInfo.GetValue(item)!);
+            using SQLiteTransaction transaction = Database.BeginTransaction();
+
+            foreach (T item in collection)
+            {
+                count += Remove(Table.PrimaryKey.PropertyInfo.GetValue(item)!);
+            }
+
+            transaction.Commit();
+        }
+        else
+        {
+            foreach (T item in collection)
+            {
+                count += Remove(Table.PrimaryKey.PropertyInfo.GetValue(item)!);
+            }
         }
 
         return count;

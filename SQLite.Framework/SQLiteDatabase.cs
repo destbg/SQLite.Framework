@@ -121,6 +121,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Begins a transaction on the database.
+    /// </summary>
+    public SQLiteTransaction BeginTransaction()
+    {
+        string savepointName = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
+
+        CreateCommand($"SAVEPOINT {savepointName}", []).ExecuteNonQuery();
+        return new SQLiteTransaction(this, savepointName);
+    }
+
+    /// <summary>
     /// Creates a command with the specified SQL and parameters.
     /// </summary>
     public SQLiteCommand CreateCommand(string sql, List<SQLiteParameter> parameters)
@@ -229,7 +240,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         using SQLiteDataReader reader = cmd.ExecuteReader();
 
-        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = [];
+        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns;
 
         if (query.ThrowOnMoreThanOne)
         {

@@ -2,8 +2,6 @@
 using System.Diagnostics;
 using SQLite.Framework;
 
-// 20 seconds for 1000 inserts using Microsoft.Data.Sqlite !!!!
-
 File.Delete("test.db3");
 
 SQLiteDatabase db = new("test.db3");
