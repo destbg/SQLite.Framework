@@ -38,10 +38,9 @@ dotnet add package SQLite.Framework
 2. **Initialize the context**:
 
    ```csharp
-   using Microsoft.Data.Sqlite;
    using SQLite.Framework;
 
-   var context = new SQLiteDatabase("Data Source=app.db");
+   var context = new SQLiteDatabase("app.db");
    context.Table<Person>().CreateTable();
    ```
 

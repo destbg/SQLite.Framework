@@ -6,27 +6,27 @@ namespace SQLite.Framework.Enums;
 public enum SQLiteColumnType
 {
     /// <summary>
-    /// Represents a text column type.
-    /// </summary>
-    Text,
-    
-    /// <summary>
-    /// Represents a blob column type.
-    /// </summary>
-    Blob,
-    
-    /// <summary>
     /// Represents an integer column type.
     /// </summary>
-    Integer,
-    
+    Integer = 1,
+
     /// <summary>
     /// Represents a real column type.
     /// </summary>
-    Real,
-    
+    Real = 2,
+
+    /// <summary>
+    /// Represents a text column type.
+    /// </summary>
+    Text = 3,
+
+    /// <summary>
+    /// Represents a blob column type.
+    /// </summary>
+    Blob = 4,
+
     /// <summary>
     /// Represents a null column type.
     /// </summary>
-    Null,
+    Null = 5,
 }

@@ -1,6 +1,6 @@
-using Microsoft.Data.Sqlite;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
@@ -9,15 +9,15 @@ public class WhereTests
     [Fact]
     public void EqualWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id == 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -33,15 +33,15 @@ public class WhereTests
     [Fact]
     public void NotEqualWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id != 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -57,15 +57,15 @@ public class WhereTests
     [Fact]
     public void GreaterThanWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id > 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -81,15 +81,15 @@ public class WhereTests
     [Fact]
     public void GreaterThanOrEqualWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id >= 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -105,15 +105,15 @@ public class WhereTests
     [Fact]
     public void LessThanWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id < 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -129,15 +129,15 @@ public class WhereTests
     [Fact]
     public void LessThanOrEqualWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id <= 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -153,9 +153,9 @@ public class WhereTests
     [Fact]
     public void AddWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id + 1 > 2
             select book
@@ -178,9 +178,9 @@ public class WhereTests
     [Fact]
     public void SubtractWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id - 1 > 2
             select book
@@ -203,9 +203,9 @@ public class WhereTests
     [Fact]
     public void MultiplyWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id * 1 > 2
             select book
@@ -228,9 +228,9 @@ public class WhereTests
     [Fact]
     public void DivideWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id / 1 > 2
             select book
@@ -253,9 +253,9 @@ public class WhereTests
     [Fact]
     public void AndWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id == 1 && book.AuthorId == 2
             select book
@@ -278,9 +278,9 @@ public class WhereTests
     [Fact]
     public void OrWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id == 1 || book.AuthorId == 2
             select book
@@ -303,15 +303,15 @@ public class WhereTests
     [Fact]
     public void IsWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title == null
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
                             b0.BookTitle AS "Title",
@@ -326,15 +326,15 @@ public class WhereTests
     [Fact]
     public void IsNotWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title != null
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
                             b0.BookTitle AS "Title",
@@ -349,9 +349,9 @@ public class WhereTests
     [Fact]
     public void ConditionalWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where (book.Title != null ? 1 : 2) == 1
             select book
@@ -375,9 +375,9 @@ public class WhereTests
     [Fact]
     public void CoalesceWhere()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where (book.Title ?? "") == "Book"
             select book

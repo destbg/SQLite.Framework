@@ -196,7 +196,11 @@ internal class MethodHandler
                 ..node.Arguments.Skip(1).Select(CommonHelpers.GetConstantValue)
             ]);
             string pName = $"@p{visitor.ParamIndex.Index++}";
-            visitor.Parameters[pName] = result;
+            visitor.Parameters.Add(new SQLiteParameter
+            {
+                Name = pName,
+                Value = result
+            });
 
             return pName;
         }
@@ -210,7 +214,11 @@ internal class MethodHandler
                 foreach (object obj in enumerable)
                 {
                     string pName = $"@p{visitor.ParamIndex.Index++}";
-                    visitor.Parameters[pName] = obj;
+                    visitor.Parameters.Add(new SQLiteParameter
+                    {
+                        Name = pName,
+                        Value = obj
+                    });
                     parameterNames.Add(pName);
                 }
 
@@ -273,7 +281,11 @@ internal class MethodHandler
         {
             object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
             string pName = $"@p{visitor.ParamIndex.Index++}";
-            visitor.Parameters[pName] = selectParameter(value);
+            visitor.Parameters.Add(new SQLiteParameter
+            {
+                Name = pName,
+                Value = selectParameter(value)
+            });
             return $"{alias} LIKE {pName}{noCase}";
         }
 
@@ -314,7 +326,11 @@ internal class MethodHandler
         {
             object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
             string pName = $"@p{visitor.ParamIndex.Index++}";
-            visitor.Parameters[pName] = $"+{value} {addType}";
+            visitor.Parameters.Add(new SQLiteParameter
+            {
+                Name = pName,
+                Value = $"+{value} {addType}"
+            });
             return $"DATE({alias}, {pName})";
         }
 

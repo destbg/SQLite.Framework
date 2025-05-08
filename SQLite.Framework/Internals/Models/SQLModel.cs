@@ -7,7 +7,7 @@ internal class SQLModel
     public required List<string> OrderBys { get; init; }
     public required List<string> Selects { get; init; }
     public required List<(string Sql, bool All)> Unions { get; init; }
-    public required Dictionary<string, object?> Parameters { get; init; }
+    public required List<SQLiteParameter> Parameters { get; init; }
     public required string? From { get; init; }
     public required int? Take { get; init; }
     public required int? Skip { get; init; }

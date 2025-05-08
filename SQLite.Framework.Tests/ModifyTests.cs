@@ -1,5 +1,6 @@
-using Microsoft.Data.Sqlite;
+using SQLite.Framework.Exceptions;
 using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
@@ -8,7 +9,8 @@ public class ModifyTests
     [Fact]
     public void Add()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
+
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
 
@@ -51,7 +53,8 @@ public class ModifyTests
     [Fact]
     public void Update()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
+
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
 
@@ -104,7 +107,8 @@ public class ModifyTests
     [Fact]
     public void Remove()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
+
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
 
@@ -151,7 +155,8 @@ public class ModifyTests
     [Fact]
     public void RemoveSingle()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
+
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
 
@@ -195,7 +200,8 @@ public class ModifyTests
     [Fact]
     public void Clear()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
+
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
 
@@ -227,7 +233,8 @@ public class ModifyTests
     [Fact]
     public void DropTable()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
+
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
 
@@ -255,7 +262,7 @@ public class ModifyTests
             _ = db.Table<Book>().ToList();
             Assert.Fail("Expected exception not thrown.");
         }
-        catch (SqliteException)
+        catch (SQLiteException)
         {
             // Success
         }

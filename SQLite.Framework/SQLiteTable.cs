@@ -99,15 +99,19 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         string columnsString = string.Join(", ", columns.Select(c => c.Name));
         string parametersString = string.Join(", ", columns.Select((_, i) => $"@p{i}"));
 
-        Dictionary<string, object?> parametersDict = [];
+        List<SQLiteParameter> parameters = [];
 
         for (int i = 0; i < values.Length; i++)
         {
-            parametersDict.Add($"@p{i}", values[i]);
+            parameters.Add(new SQLiteParameter
+            {
+                Name = $"@p{i}",
+                Value = values[i]
+            });
         }
 
         string sql = $"INSERT INTO \"{Table.TableName}\" ({columnsString}) VALUES ({parametersString})";
-        return Database.CreateCommand(sql, parametersDict).ExecuteNonQuery();
+        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
     }
 
     /// <summary>
@@ -141,16 +145,24 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         string setClause = string.Join(", ", columns.Select((c, i) => $"{c.Name} = @p{i + 1}"));
         string sql = $"UPDATE \"{Table.TableName}\" SET {setClause} WHERE {Table.PrimaryKey.Name} = @p0";
 
-        Dictionary<string, object?> parametersDict = [];
+        List<SQLiteParameter> parameters = [];
 
         for (int i = 0; i < values.Length; i++)
         {
-            parametersDict.Add($"@p{i + 1}", values[i]);
+            parameters.Add(new SQLiteParameter
+            {
+                Name = $"@p{i + 1}",
+                Value = values[i]
+            });
         }
 
-        parametersDict.Add("@p0", Table.PrimaryKey.PropertyInfo.GetValue(item));
+        parameters.Add(new SQLiteParameter
+        {
+            Name = "@p0",
+            Value = Table.PrimaryKey.PropertyInfo.GetValue(item)
+        });
 
-        return Database.CreateCommand(sql, parametersDict).ExecuteNonQuery();
+        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
     }
 
     /// <summary>
@@ -182,7 +194,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public int Remove(object primaryKey)
     {
         string sql = $"DELETE FROM \"{Table.TableName}\" WHERE {Table.PrimaryKey.Name} = @p0";
-        return Database.CreateCommand(sql, new() { ["@p0"] = primaryKey }).ExecuteNonQuery();
+        return Database.CreateCommand(sql, [new SQLiteParameter { Name = "@p0", Value = primaryKey }]).ExecuteNonQuery();
     }
 
     /// <summary>

@@ -1,7 +1,6 @@
-﻿using Microsoft.Data.Sqlite;
-using SQLite.Framework.Extensions;
-using SQLite.Framework.Tests.DTObjects;
+﻿using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
@@ -10,15 +9,15 @@ public class JoinTests
     [Fact]
     public void RightJoin()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             join author in db.Table<Author>() on book.AuthorId equals author.Id
             select author
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT a1.AuthorId AS "Id",
                             a1.AuthorName AS "Name",
@@ -33,16 +32,16 @@ public class JoinTests
     [Fact]
     public void LeftJoin()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             join author in db.Table<Author>() on book.AuthorId equals author.Id into authorGroup
             from author in authorGroup.DefaultIfEmpty()
             select author
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT a1.AuthorId AS "Id",
                             a1.AuthorName AS "Name",
@@ -57,16 +56,16 @@ public class JoinTests
     [Fact]
     public void TwoJoins()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             join author in db.Table<Author>() on book.AuthorId equals author.Id
             join author2 in db.Table<Author>() on book.AuthorId equals author2.Id
             select author
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT a1.AuthorId AS "Id",
                             a1.AuthorName AS "Name",
@@ -82,9 +81,9 @@ public class JoinTests
     [Fact]
     public void TwoJoinsWithLeft()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             join author in db.Table<Author>() on book.AuthorId equals author.Id
             join author2 in db.Table<Author>() on book.AuthorId equals author2.Id into author2Group
@@ -92,7 +91,7 @@ public class JoinTests
             select author
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT a1.AuthorId AS "Id",
                             a1.AuthorName AS "Name",
@@ -108,14 +107,14 @@ public class JoinTests
     [Fact]
     public void FluentRightJoin()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = db.Table<Book>()
+        SQLiteCommand command = db.Table<Book>()
             .Join(db.Table<Author>(), f => f.AuthorId, f => f.Id, (f, s) => new Testing { Book = f, Author = s })
             .Select(f => f.Author)
             .ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT a1.AuthorId AS "Id",
                             a1.AuthorName AS "Name",

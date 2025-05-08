@@ -26,30 +26,40 @@ public class TableColumn
         PropertyType = type;
         IsPrimaryKey = keyProperty != null;
         IsAutoIncrement = property.GetCustomAttribute<AutoIncrementAttribute>() != null;
-        IsNullable = (property.PropertyType.IsGenericType && property.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
-                     || nullabilityInfoContext.Create(property).ReadState == NullabilityState.Nullable
-                     || property.GetCustomAttribute<RequiredAttribute>() == null;
+        IsNullable = !IsPrimaryKey && (
+            Nullable.GetUnderlyingType(property.PropertyType) != null
+                || nullabilityInfoContext.Create(property).ReadState == NullabilityState.Nullable
+        );
+
+        if (IsNullable && property.GetCustomAttribute<RequiredAttribute>() != null)
+        {
+            IsNullable = false;
+        }
 
         ColumnType = type switch
         {
-            not null when type == typeof(string) => SQLiteColumnType.Text,
-            not null when type == typeof(byte[]) => SQLiteColumnType.Blob,
-            not null when type == typeof(bool) => SQLiteColumnType.Integer,
-            not null when type == typeof(char) => SQLiteColumnType.Text,
-            not null when type == typeof(DateTime) => SQLiteColumnType.Integer,
-            not null when type == typeof(DateTimeOffset) => SQLiteColumnType.Integer,
-            not null when type == typeof(decimal) => SQLiteColumnType.Real,
-            not null when type == typeof(double) => SQLiteColumnType.Real,
-            not null when type == typeof(float) => SQLiteColumnType.Real,
-            not null when type == typeof(Guid) => SQLiteColumnType.Text,
-            not null when type == typeof(int) => SQLiteColumnType.Integer,
-            not null when type == typeof(long) => SQLiteColumnType.Integer,
-            not null when type == typeof(sbyte) => SQLiteColumnType.Integer,
-            not null when type == typeof(short) => SQLiteColumnType.Integer,
-            not null when type == typeof(uint) => SQLiteColumnType.Integer,
-            not null when type == typeof(ulong) => SQLiteColumnType.Integer,
-            not null when type == typeof(ushort) => SQLiteColumnType.Integer,
-            not null when type.IsEnum => SQLiteColumnType.Integer,
+            _ when type == typeof(string) => SQLiteColumnType.Text,
+            _ when type == typeof(byte[]) => SQLiteColumnType.Blob,
+            _ when type == typeof(bool) => SQLiteColumnType.Integer,
+            _ when type == typeof(char) => SQLiteColumnType.Text,
+            _ when type == typeof(DateTime) => SQLiteColumnType.Integer,
+            _ when type == typeof(DateTimeOffset) => SQLiteColumnType.Integer,
+            _ when type == typeof(DateOnly) => SQLiteColumnType.Integer,
+            _ when type == typeof(TimeOnly) => SQLiteColumnType.Integer,
+            _ when type == typeof(Guid) => SQLiteColumnType.Text,
+            _ when type == typeof(TimeSpan) => SQLiteColumnType.Integer,
+            _ when type == typeof(decimal) => SQLiteColumnType.Real,
+            _ when type == typeof(double) => SQLiteColumnType.Real,
+            _ when type == typeof(float) => SQLiteColumnType.Real,
+            _ when type == typeof(byte) => SQLiteColumnType.Integer,
+            _ when type == typeof(int) => SQLiteColumnType.Integer,
+            _ when type == typeof(long) => SQLiteColumnType.Integer,
+            _ when type == typeof(sbyte) => SQLiteColumnType.Integer,
+            _ when type == typeof(short) => SQLiteColumnType.Integer,
+            _ when type == typeof(uint) => SQLiteColumnType.Integer,
+            _ when type == typeof(ulong) => SQLiteColumnType.Integer,
+            _ when type == typeof(ushort) => SQLiteColumnType.Integer,
+            _ when type.IsEnum => SQLiteColumnType.Integer,
             _ => throw new NotSupportedException($"The type {type} is not supported.")
         };
     }
@@ -95,7 +105,7 @@ public class TableColumn
     public string GetCreateColumnSql()
     {
         string columnType = ColumnType.ToString().ToUpperInvariant();
-        string nullability = IsNullable ? "NULL" : "NOT NULL";
+        string nullability = IsPrimaryKey ? string.Empty : IsNullable ? "NULL" : "NOT NULL";
         string primaryKey = IsPrimaryKey ? "PRIMARY KEY" : string.Empty;
         string autoIncrement = IsAutoIncrement ? "AUTOINCREMENT" : string.Empty;
 

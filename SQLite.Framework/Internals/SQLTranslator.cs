@@ -10,7 +10,7 @@ namespace SQLite.Framework.Internals;
 internal class SQLTranslator
 {
     private readonly SQLiteDatabase database;
-    private readonly Dictionary<string, object?> parameters;
+    private readonly List<SQLiteParameter> parameters;
     private readonly SQLVisitor visitor;
     private readonly int level;
     private readonly IndexWrapper paramIndex;
@@ -25,7 +25,7 @@ internal class SQLTranslator
         visitor = new SQLVisitor(database, parameters, paramIndex, tableIndex, level);
     }
 
-    public SQLTranslator(SQLiteDatabase database, Dictionary<string, object?> parameters, IndexWrapper paramIndex, IndexWrapper tableIndex, int level)
+    public SQLTranslator(SQLiteDatabase database, List<SQLiteParameter> parameters, IndexWrapper paramIndex, IndexWrapper tableIndex, int level)
     {
         this.database = database;
         this.parameters = parameters;
@@ -446,7 +446,11 @@ internal class SQLTranslator
                 string columnName = visitor.TableColumns.First().Value.Sql;
 
                 string pName = $"@p{paramIndex.Index++}";
-                parameters[pName] = value;
+                parameters.Add(new SQLiteParameter
+                {
+                    Name = pName,
+                    Value = value
+                });
                 visitor.Wheres.Add($"{columnName} = {pName}");
                 visitor.IsAny = true;
                 break;

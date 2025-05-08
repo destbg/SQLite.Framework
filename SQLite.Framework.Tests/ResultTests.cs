@@ -1,5 +1,7 @@
+using System.Runtime.CompilerServices;
 using SQLite.Framework.Tests.DTObjects;
 using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
@@ -8,7 +10,7 @@ public class ResultTests
     [Fact]
     public void SelectWithAnonymousTypeResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         var list = db.Table<Book>().Select(f => new { f.Id, f.Title }).ToList();
 
@@ -24,7 +26,7 @@ public class ResultTests
     [Fact]
     public void ScalarSelectWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         List<int> list = db.Table<Book>().Select(f => f.Id).ToList();
 
@@ -38,7 +40,7 @@ public class ResultTests
     [Fact]
     public void DeepSelectWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         List<BookDTO> list = (
             from book in db.Table<Book>()
@@ -78,7 +80,7 @@ public class ResultTests
     [Fact]
     public void FirstWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book first = db.Table<Book>().First(f => f.Id == 1);
 
@@ -92,7 +94,7 @@ public class ResultTests
     [Fact]
     public void FirstWithoutResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         try
         {
@@ -108,7 +110,7 @@ public class ResultTests
     [Fact]
     public void FirstOrDefaultWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book? first = db.Table<Book>().FirstOrDefault(f => f.Id == 1);
 
@@ -122,7 +124,7 @@ public class ResultTests
     [Fact]
     public void FirstOrDefaultWithoutResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book? first = db.Table<Book>().FirstOrDefault(f => f.Id == -1);
 
@@ -132,7 +134,7 @@ public class ResultTests
     [Fact]
     public void SingleWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book single = db.Table<Book>().Single(f => f.Id == 1);
 
@@ -146,7 +148,7 @@ public class ResultTests
     [Fact]
     public void SingleWithoutResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         try
         {
@@ -162,7 +164,7 @@ public class ResultTests
     [Fact]
     public void SingleWithMultipleResults()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         try
         {
@@ -178,7 +180,7 @@ public class ResultTests
     [Fact]
     public void SingleOrDefaultWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book? single = db.Table<Book>().SingleOrDefault(f => f.Id == 1);
 
@@ -192,7 +194,7 @@ public class ResultTests
     [Fact]
     public void SingleOrDefaultWithoutResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book? single = db.Table<Book>().SingleOrDefault(f => f.Id == -1);
 
@@ -202,7 +204,7 @@ public class ResultTests
     [Fact]
     public void AnyTrue()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool any = db.Table<Book>().Any(f => f.Id == 1);
 
@@ -212,7 +214,7 @@ public class ResultTests
     [Fact]
     public void AnyFalse()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool any = db.Table<Book>().Any(f => f.Id == -1);
 
@@ -222,7 +224,7 @@ public class ResultTests
     [Fact]
     public void AllTrue()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool all = db.Table<Book>().All(f => f.Title != "Book -1");
 
@@ -232,7 +234,7 @@ public class ResultTests
     [Fact]
     public void AllFalse()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool all = db.Table<Book>().All(f => f.Id != 1);
 
@@ -242,7 +244,7 @@ public class ResultTests
     [Fact]
     public void Count()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         int count = db.Table<Book>().Count(f => f.AuthorId == 1);
 
@@ -252,7 +254,7 @@ public class ResultTests
     [Fact]
     public void Sum()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         double sum = db.Table<Book>().Sum(f => f.Price);
 
@@ -262,7 +264,7 @@ public class ResultTests
     [Fact]
     public void Max()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         double max = db.Table<Book>().Max(f => f.Price);
 
@@ -272,7 +274,7 @@ public class ResultTests
     [Fact]
     public void Min()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         double min = db.Table<Book>().Min(f => f.Price);
 
@@ -282,7 +284,7 @@ public class ResultTests
     [Fact]
     public void Average()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         double average = db.Table<Book>().Average(f => f.Price);
 
@@ -292,7 +294,7 @@ public class ResultTests
     [Fact]
     public void ContainsTrue()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool contains = db.Table<Book>().Select(f => f.Id).Contains(1);
 
@@ -302,16 +304,17 @@ public class ResultTests
     [Fact]
     public void ContainsFalse()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool contains = db.Table<Book>().Select(f => f.Id).Contains(-1);
 
         Assert.False(contains);
     }
 
-    private static SQLiteDatabase SetupDatabase()
+    private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {
-        SQLiteDatabase db = new("Data Source=:memory:");
+        TestDatabase db = new(methodName);
+
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
 

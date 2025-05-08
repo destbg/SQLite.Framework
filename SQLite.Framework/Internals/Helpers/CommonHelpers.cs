@@ -7,10 +7,21 @@ namespace SQLite.Framework.Internals.Helpers;
 
 internal static class CommonHelpers
 {
-    public static bool IsSimple(Type t)
+    public static bool IsSimple(Type type)
     {
-        t = Nullable.GetUnderlyingType(t) ?? t;
-        return t.IsPrimitive || t.IsEnum || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime);
+        type = Nullable.GetUnderlyingType(type) ?? type;
+
+        return type.IsPrimitive
+            || type.IsEnum
+            || type == typeof(byte[])
+            || type == typeof(string)
+            || type == typeof(decimal)
+            || type == typeof(DateTime)
+            || type == typeof(DateTimeOffset)
+            || type == typeof(TimeSpan)
+            || type == typeof(Guid)
+            || type == typeof(DateOnly)
+            || type == typeof(TimeOnly);
     }
 
     public static (string Path, ParameterExpression Parameter) ResolveParameterPath(Expression expression)
