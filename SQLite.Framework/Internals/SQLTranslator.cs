@@ -52,43 +52,46 @@ internal class SQLTranslator
             TranslateOtherExpression(expression);
         }
 
-        SQLModel model = visitor.Build();
+        if (visitor.From == null)
+        {
+            throw new InvalidOperationException("Could not identify FROM clause.");
+        }
 
         string spacing = new(' ', level * 4);
 
-        if (model.Joins.Any(f => f.IsGroupJoin))
+        if (visitor.Joins.Any(f => f.IsGroupJoin))
         {
             throw new NotSupportedException("Group joins that are not turned into LEFT JOIN are not supported.");
         }
 
-        bool useExists = model.IsAny || model.IsAll;
+        bool useExists = visitor.IsAny || visitor.IsAll;
 
-        string joinSql = string.Join(Environment.NewLine + spacing, model.Joins.Select(j =>
+        string joinSql = string.Join(Environment.NewLine + spacing, visitor.Joins.Select(j =>
             $"{j.JoinType} \"{j.TableName}\" AS {j.Alias} ON {j.OnClause}"));
 
-        string whereSql = model.Wheres.Count > 0
-            ? "WHERE " + (model.IsAll
-                ? $"NOT ({string.Join(" AND ", model.Wheres)})"
-                : string.Join(" AND ", model.Wheres))
+        string whereSql = visitor.Wheres.Count > 0
+            ? "WHERE " + (visitor.IsAll
+                ? $"NOT ({string.Join(" AND ", visitor.Wheres)})"
+                : string.Join(" AND ", visitor.Wheres))
             : string.Empty;
 
-        string distinct = model.IsDistinct ? " DISTINCT" : string.Empty;
+        string distinct = visitor.IsDistinct ? " DISTINCT" : string.Empty;
 
-        string selectSql = model.Selects.Count > 0 && !useExists
-            ? string.Join($",{Environment.NewLine}       ", model.Selects)
+        string selectSql = visitor.Selects.Count > 0 && !useExists
+            ? string.Join($",{Environment.NewLine}       ", visitor.Selects)
             : "*";
 
-        string orderBy = model.OrderBys.Count > 0 && !useExists
-            ? "ORDER BY " + string.Join(", ", model.OrderBys)
+        string orderBy = visitor.OrderBys.Count > 0 && !useExists
+            ? "ORDER BY " + string.Join(", ", visitor.OrderBys)
             : string.Empty;
 
-        string limit = model.Take != null ? $"LIMIT {model.Take}" : model.Skip != null ? "LIMIT -1" : string.Empty;
-        string offset = model.Skip != null ? $"OFFSET {model.Skip}" : string.Empty;
+        string limit = visitor.Take != null ? $"LIMIT {visitor.Take}" : visitor.Skip != null ? "LIMIT -1" : string.Empty;
+        string offset = visitor.Skip != null ? $"OFFSET {visitor.Skip}" : string.Empty;
 
         string sql = spacing + string.Join(Environment.NewLine + spacing, new[]
         {
             $"SELECT{distinct} {(useExists ? "1" : selectSql)}",
-            $"FROM {model.From}",
+            $"FROM {visitor.From}",
             joinSql,
             whereSql,
             orderBy,
@@ -96,19 +99,19 @@ internal class SQLTranslator
             offset,
         }.Where(f => !string.IsNullOrEmpty(f)));
 
-        if (model.Unions.Count > 0)
+        if (visitor.Unions.Count > 0)
         {
-            string unions = string.Join(Environment.NewLine + spacing, model.Unions.Select(f =>
+            string unions = string.Join(Environment.NewLine + spacing, visitor.Unions.Select(f =>
                 $"{spacing}UNION{(f.All ? " ALL" : string.Empty)}{Environment.NewLine}{spacing}{f.Sql}"));
 
             sql = $"{sql}{Environment.NewLine}{unions}";
         }
 
-        if (model.IsAny)
+        if (visitor.IsAny)
         {
             sql = $"SELECT EXISTS({sql}) as result";
         }
-        else if (model.IsAll)
+        else if (visitor.IsAll)
         {
             sql = $"SELECT NOT EXISTS({sql}) as result";
         }
@@ -117,8 +120,8 @@ internal class SQLTranslator
         {
             Sql = sql,
             Parameters = parameters,
-            ThrowOnEmpty = model.ThrowOnEmpty,
-            ThrowOnMoreThanOne = model.ThrowOnMoreThanOne,
+            ThrowOnEmpty = visitor.ThrowOnEmpty,
+            ThrowOnMoreThanOne = visitor.ThrowOnMoreThanOne,
         };
     }
 

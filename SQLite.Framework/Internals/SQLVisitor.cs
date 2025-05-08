@@ -44,32 +44,6 @@ internal class SQLVisitor
     public Dictionary<ParameterExpression, Dictionary<string, ColumnMapping>> MethodArguments { get; set; } = [];
     public Dictionary<string, ColumnMapping> TableColumns { get; set; } = [];
 
-    public SQLModel Build()
-    {
-        if (From == null)
-        {
-            throw new InvalidOperationException("Could not identify FROM clause.");
-        }
-
-        return new SQLModel
-        {
-            Parameters = Parameters,
-            From = From,
-            Joins = Joins,
-            Selects = Selects,
-            Unions = Unions,
-            Skip = Skip,
-            Take = Take,
-            Wheres = Wheres,
-            OrderBys = OrderBys,
-            IsAny = IsAny,
-            IsAll = IsAll,
-            IsDistinct = IsDistinct,
-            ThrowOnEmpty = ThrowOnEmpty,
-            ThrowOnMoreThanOne = ThrowOnMoreThanOne,
-        };
-    }
-
     public string Visit(Expression expression)
     {
         ArgumentNullException.ThrowIfNull(expression);
