@@ -26,9 +26,15 @@ public class TableColumn
         PropertyType = type;
         IsPrimaryKey = keyProperty != null;
         IsAutoIncrement = property.GetCustomAttribute<AutoIncrementAttribute>() != null;
-        IsNullable = (property.PropertyType.IsGenericType && property.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
-                     || nullabilityInfoContext.Create(property).ReadState == NullabilityState.Nullable
-                     || property.GetCustomAttribute<RequiredAttribute>() == null;
+        IsNullable = !IsPrimaryKey && (
+            Nullable.GetUnderlyingType(property.PropertyType) != null
+                || nullabilityInfoContext.Create(property).ReadState == NullabilityState.Nullable
+        );
+
+        if (IsNullable && property.GetCustomAttribute<RequiredAttribute>() != null)
+        {
+            IsNullable = false;
+        }
 
         ColumnType = type switch
         {
@@ -99,7 +105,7 @@ public class TableColumn
     public string GetCreateColumnSql()
     {
         string columnType = ColumnType.ToString().ToUpperInvariant();
-        string nullability = IsNullable ? "NULL" : "NOT NULL";
+        string nullability = IsPrimaryKey ? string.Empty : IsNullable ? "NULL" : "NOT NULL";
         string primaryKey = IsPrimaryKey ? "PRIMARY KEY" : string.Empty;
         string autoIncrement = IsAutoIncrement ? "AUTOINCREMENT" : string.Empty;
 
