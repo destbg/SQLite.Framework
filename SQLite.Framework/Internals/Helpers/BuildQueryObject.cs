@@ -2,38 +2,35 @@ using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using SQLite.Framework.Enums;
 
 namespace SQLite.Framework.Internals.Helpers;
 
 internal static class BuildQueryObject
 {
-    public static object? CreateInstance(IDataRecord reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type elementType)
+    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type elementType, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns)
     {
         if (CommonHelpers.IsSimple(elementType))
         {
-            object? v = reader[0];
-            if (v is DBNull)
-            {
-                v = null;
-            }
-
-            return v == null ? null : Convert.ChangeType(v, elementType);
+            SQLiteColumnType columnType = reader.GetColumnType(0);
+            return reader.GetValue(0, columnType, elementType);
         }
 
-        return BuildInternal(elementType, reader, string.Empty);
+        return BuildInternal(elementType, reader, string.Empty, columns);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All types should be part of the client assembly.")]
-    private static object? BuildInternal(Type type, IDataRecord reader, string prefix)
+    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns)
     {
         if (CommonHelpers.IsSimple(type))
         {
             string columnName = prefix.TrimEnd('.');
-            if (reader.HasColumn(columnName))
+            if (columns.TryGetValue(columnName, out (int Index, SQLiteColumnType ColumnType) column))
             {
-                object value = reader[columnName];
-                if (value == DBNull.Value)
+                object? value = reader.GetValue(column.Index, column.ColumnType, type);
+
+                if (value == null)
                 {
                     return null;
                 }
@@ -54,7 +51,7 @@ internal static class BuildQueryObject
             {
                 ParameterInfo p = parameters[i];
                 string paramPrefix = $"{prefix}{p.Name}.";
-                args[i] = BuildInternal(p.ParameterType, reader, paramPrefix);
+                args[i] = BuildInternal(p.ParameterType, reader, paramPrefix, columns);
             }
 
             return ctor.Invoke(args);
@@ -64,14 +61,14 @@ internal static class BuildQueryObject
         foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite))
         {
             Type propType = prop.PropertyType;
-            string columnName = $"{prefix}{prop.Name}";
+            string columnName = prefix + prop.Name;
 
             if (CommonHelpers.IsSimple(propType))
             {
-                if (reader.HasColumn(columnName))
+                if (columns.TryGetValue(columnName, out (int Index, SQLiteColumnType ColumnType) column))
                 {
-                    object val = reader[columnName];
-                    if (val != DBNull.Value)
+                    object? val = reader.GetValue(column.Index, column.ColumnType, propType);
+                    if (val != null)
                     {
                         Type targetType = Nullable.GetUnderlyingType(propType) ?? propType;
                         object? convertedValue;
@@ -107,7 +104,7 @@ internal static class BuildQueryObject
 
                 if (hasNested)
                 {
-                    object? nestedObj = BuildInternal(propType, reader, nestedPrefix);
+                    object? nestedObj = BuildInternal(propType, reader, nestedPrefix, columns);
                     prop.SetValue(instance, nestedObj);
                 }
             }
@@ -121,18 +118,5 @@ internal static class BuildQueryObject
         bool hasAttr = type.GetCustomAttributes(typeof(CompilerGeneratedAttribute), false).Length != 0;
         bool nameOk = type.FullName?.Contains("AnonymousType") ?? false;
         return hasAttr && nameOk;
-    }
-
-    private static bool HasColumn(this IDataRecord reader, string columnName)
-    {
-        for (int i = 0; i < reader.FieldCount; i++)
-        {
-            if (reader.GetName(i).Equals(columnName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

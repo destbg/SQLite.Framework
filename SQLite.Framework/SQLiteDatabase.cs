@@ -1,13 +1,14 @@
-using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
-using Microsoft.Data.Sqlite;
+using SQLite.Framework.Enums;
+using SQLite.Framework.Exceptions;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
+using SQLitePCL;
 
 // ReSharper disable ChangeFieldTypeToSystemThreadingLock
 // ReSharper disable InconsistentlySynchronizedField
@@ -17,26 +18,53 @@ namespace SQLite.Framework;
 /// <summary>
 /// Represents a connection to the SQLite database.
 /// </summary>
-public class SQLiteDatabase : SqliteConnection, IQueryProvider
+public class SQLiteDatabase : IQueryProvider, IDisposable
 {
     private readonly Dictionary<Type, TableMapping> tableMappings = [];
     private readonly object connectionOpenLock = new();
     private readonly object queryLock = new();
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SQLiteDatabase"/> class.
-    /// </summary>
-    public SQLiteDatabase()
+    static SQLiteDatabase()
     {
+        Batteries_V2.Init();
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDatabase"/> class.
     /// </summary>
-    public SQLiteDatabase(string connectionString)
-        : base(connectionString)
+    public SQLiteDatabase(string databasePath)
     {
+        DatabasePath = databasePath;
     }
+
+    /// <summary>
+    /// The connection handle to the SQLite database.
+    /// </summary>
+    /// <remarks>
+    /// This is only set after the connection is opened.
+    /// </remarks>
+    public sqlite3? Handle { get; private set; }
+
+    /// <summary>
+    /// Indicates that the connection is open.
+    /// </summary>
+    [MemberNotNullWhen(true, nameof(Handle))]
+    public bool IsConnected { get; private set; }
+
+    /// <summary>
+    /// Indicates that the connection is being established.
+    /// </summary>
+    public bool IsConnecting { get; private set; }
+
+    /// <summary>
+    /// The connection string to the SQLite database.
+    /// </summary>
+    public SQLiteOpenFlags OpenFlags { get; set; } = SQLiteOpenFlags.Create | SQLiteOpenFlags.ReadWrite;
+
+    /// <summary>
+    /// The connection string to the SQLite database.
+    /// </summary>
+    public string DatabasePath { get; }
 
     /// <summary>
     /// Returns the cached table mappings in the current database instance.
@@ -44,9 +72,9 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
     public ICollection<TableMapping> TableMappings => tableMappings.Values;
 
     /// <summary>
-    /// Called when a command is created using the <see cref="CreateCommand(string, Dictionary{string, object?})"/> method.
+    /// Called when a command is created using the <see cref="CreateCommand"/> method.
     /// </summary>
-    public event Action<SqliteCommand>? CommandCreated;
+    public event Action<SQLiteCommand>? CommandCreated;
 
     /// <summary>
     /// Creates a new table for the specified type.
@@ -95,21 +123,52 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
     /// <summary>
     /// Creates a command with the specified SQL and parameters.
     /// </summary>
-    public SqliteCommand CreateCommand(string sql, Dictionary<string, object?> parameters)
+    public SQLiteCommand CreateCommand(string sql, List<SQLiteParameter> parameters)
     {
         OpenConnection();
 
-        SqliteCommand cmd = base.CreateCommand();
-        cmd.CommandText = sql;
-
-        foreach (KeyValuePair<string, object?> p in parameters)
-        {
-            cmd.Parameters.AddWithValue(p.Key, p.Value ?? DBNull.Value);
-        }
+        SQLiteCommand cmd = new(this, sql, parameters);
 
         CommandCreated?.Invoke(cmd);
 
         return cmd;
+    }
+
+    /// <summary>
+    /// Opens the connection to the SQLite database.
+    /// </summary>
+    public void OpenConnection()
+    {
+        if (IsConnecting)
+        {
+            lock (connectionOpenLock)
+            {
+                // Wait for the connection to be opened
+            }
+        }
+        else if (!IsConnected)
+        {
+            lock (connectionOpenLock)
+            {
+                IsConnecting = true;
+
+                SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
+                    DatabasePath,
+                    out sqlite3 handle,
+                    (int)OpenFlags,
+                    null
+                );
+
+                if (result != SQLiteResult.OK)
+                {
+                    throw new SQLiteException(result, "Unable to open database");
+                }
+
+                Handle = handle;
+                IsConnected = true;
+                IsConnecting = false;
+            }
+        }
     }
 
     /// <summary>
@@ -142,9 +201,9 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
         SQLQuery query = translator.Translate(expression);
 
         Console.WriteLine(query.Sql);
-        foreach (KeyValuePair<string, object?> p in query.Parameters)
+        foreach (SQLiteParameter p in query.Parameters)
         {
-            Console.WriteLine($"  {p.Key} = {p.Value}");
+            Console.WriteLine($"  {p.Name} = {p.Value}");
         }
 
         if (expression.Type.IsGenericType)
@@ -155,26 +214,28 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
                 Type genericElementType = expression.Type.GetGenericArguments()[0];
                 MethodInfo executeQueryMethod = typeof(SQLiteCommandExtensions).GetMethod(
                     nameof(SQLiteCommandExtensions.ExecuteQuery),
-                    new[] { typeof(SqliteCommand) }
+                    new[] { typeof(SQLiteCommand) }
                 )!;
                 MethodInfo genericExecuteQueryMethod = executeQueryMethod.MakeGenericMethod(genericElementType);
 
-                using SqliteCommand command = CreateCommand(query.Sql, query.Parameters);
+                SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
 
                 return (TResult)genericExecuteQueryMethod.Invoke(null, new object[] { command })!;
             }
         }
 
         Type elementType = expression.Type;
-        using SqliteCommand cmd = CreateCommand(query.Sql, query.Parameters);
+        SQLiteCommand cmd = CreateCommand(query.Sql, query.Parameters);
 
-        using SqliteDataReader reader = cmd.ExecuteReader();
+        using SQLiteDataReader reader = cmd.ExecuteReader();
+
+        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = CommandHelpers.GetColumnNames(reader.Statement);
 
         if (query.ThrowOnMoreThanOne)
         {
             if (reader.Read())
             {
-                TResult result = (TResult)BuildQueryObject.CreateInstance(reader, elementType)!;
+                TResult result = (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns)!;
 
                 if (reader.Read())
                 {
@@ -186,7 +247,7 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
         }
         else if (reader.Read())
         {
-            return (TResult)BuildQueryObject.CreateInstance(reader, elementType)!;
+            return (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns)!;
         }
 
         if (query.ThrowOnEmpty)
@@ -202,20 +263,20 @@ public class SQLiteDatabase : SqliteConnection, IQueryProvider
         throw new NotSupportedException("Only generic queries are supported.");
     }
 
-    private void OpenConnection()
+    /// <inheritdoc/>
+    public virtual void Dispose()
     {
-        if (State == ConnectionState.Connecting)
+        if (IsConnected)
         {
+            IsConnected = false;
+
             lock (connectionOpenLock)
             {
-                // Wait for the connection to be opened
-            }
-        }
-        else if (State != ConnectionState.Open)
-        {
-            lock (connectionOpenLock)
-            {
-                Open();
+                if (Handle != null)
+                {
+                    raw.sqlite3_close(Handle);
+                    Handle = null;
+                }
             }
         }
     }

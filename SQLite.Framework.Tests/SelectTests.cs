@@ -1,7 +1,7 @@
-using Microsoft.Data.Sqlite;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.DTObjects;
 using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
@@ -10,14 +10,14 @@ public class SelectTests
     [Fact]
     public void SelectTable()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
                             b0.BookTitle AS "Title",
@@ -31,11 +31,11 @@ public class SelectTests
     [Fact]
     public void DirectSelect()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = db.Table<Book>().ToSqlCommand();
+        SQLiteCommand command = db.Table<Book>().ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
                             b0.BookTitle AS "Title",
@@ -49,9 +49,9 @@ public class SelectTests
     [Fact]
     public void SelectToDTO()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from author in db.Table<Author>()
             select new AuthorDTO
             {
@@ -62,7 +62,7 @@ public class SelectTests
             }
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT a0.AuthorId AS "Id",
                             a0.AuthorEmail AS "Email",
@@ -76,9 +76,9 @@ public class SelectTests
     [Fact]
     public void DistinctSelectToDTO()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from author in db.Table<Author>()
             select new AuthorDTO
             {
@@ -89,7 +89,7 @@ public class SelectTests
             }
         ).Distinct().ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT DISTINCT a0.AuthorId AS "Id",
                             a0.AuthorEmail AS "Email",
@@ -103,9 +103,9 @@ public class SelectTests
     [Fact]
     public void DeepSelectToDTO()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             join author in db.Table<Author>() on book.AuthorId equals author.Id
             select new BookDTO
@@ -122,7 +122,7 @@ public class SelectTests
             }
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
                             b0.BookTitle AS "Title",
@@ -139,9 +139,9 @@ public class SelectTests
     [Fact]
     public void ComplexSelectToDTO()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from author in db.Table<Author>()
             select new AuthorDTO
             {
@@ -170,9 +170,9 @@ public class SelectTests
     [Fact]
     public void MultipleSelects()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from author in db.Table<Author>()
             select new AuthorDTO
             {

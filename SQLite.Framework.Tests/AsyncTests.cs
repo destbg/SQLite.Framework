@@ -1,6 +1,8 @@
+using System.Runtime.CompilerServices;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.DTObjects;
 using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
@@ -9,7 +11,7 @@ public class AsyncTests
     [Fact]
     public async Task ScalarSelectWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         List<int> list = await db.Table<Book>().Select(f => f.Id).ToListAsync();
 
@@ -23,7 +25,7 @@ public class AsyncTests
     [Fact]
     public async Task DeepSelectWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         List<BookDTO> list = await (
             from book in db.Table<Book>()
@@ -64,7 +66,7 @@ public class AsyncTests
     [Fact]
     public async Task FirstWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book first = await db.Table<Book>().FirstAsync(f => f.Id == 1);
 
@@ -78,7 +80,7 @@ public class AsyncTests
     [Fact]
     public async Task FirstWithoutResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         try
         {
@@ -94,7 +96,7 @@ public class AsyncTests
     [Fact]
     public async Task FirstOrDefaultWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book? first = await db.Table<Book>().FirstOrDefaultAsync(f => f.Id == 1);
 
@@ -108,7 +110,7 @@ public class AsyncTests
     [Fact]
     public async Task FirstOrDefaultWithoutResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book? first = await db.Table<Book>().FirstOrDefaultAsync(f => f.Id == -1);
 
@@ -118,7 +120,7 @@ public class AsyncTests
     [Fact]
     public async Task SingleWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book single = await db.Table<Book>().SingleAsync(f => f.Id == 1);
 
@@ -132,7 +134,7 @@ public class AsyncTests
     [Fact]
     public async Task SingleWithoutResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         try
         {
@@ -148,7 +150,7 @@ public class AsyncTests
     [Fact]
     public async Task SingleWithMultipleResults()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         try
         {
@@ -164,7 +166,7 @@ public class AsyncTests
     [Fact]
     public async Task SingleOrDefaultWithResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book? single = await db.Table<Book>().SingleOrDefaultAsync(f => f.Id == 1);
 
@@ -178,7 +180,7 @@ public class AsyncTests
     [Fact]
     public async Task SingleOrDefaultWithoutResult()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         Book? single = await db.Table<Book>().SingleOrDefaultAsync(f => f.Id == -1);
 
@@ -188,7 +190,7 @@ public class AsyncTests
     [Fact]
     public async Task AnyTrue()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool any = await db.Table<Book>().AnyAsync(f => f.Id == 1);
 
@@ -198,7 +200,7 @@ public class AsyncTests
     [Fact]
     public async Task AnyFalse()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool any = await db.Table<Book>().AnyAsync(f => f.Id == -1);
 
@@ -208,7 +210,7 @@ public class AsyncTests
     [Fact]
     public async Task AllTrue()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool all = await db.Table<Book>().AllAsync(f => f.Title != "Book -1");
 
@@ -218,7 +220,7 @@ public class AsyncTests
     [Fact]
     public async Task AllFalse()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool all = await db.Table<Book>().AllAsync(f => f.Id != 1);
 
@@ -228,7 +230,7 @@ public class AsyncTests
     [Fact]
     public async Task Count()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         int count = await db.Table<Book>().CountAsync(f => f.AuthorId == 1);
 
@@ -238,7 +240,7 @@ public class AsyncTests
     [Fact]
     public async Task Sum()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         double sum = await db.Table<Book>().SumAsync(f => f.Price);
 
@@ -248,7 +250,7 @@ public class AsyncTests
     [Fact]
     public async Task Max()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         double max = await db.Table<Book>().MaxAsync(f => f.Price);
 
@@ -258,7 +260,7 @@ public class AsyncTests
     [Fact]
     public async Task Min()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         double min = await db.Table<Book>().MinAsync(f => f.Price);
 
@@ -268,7 +270,7 @@ public class AsyncTests
     [Fact]
     public async Task Average()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         double average = await db.Table<Book>().AverageAsync(f => f.Price);
 
@@ -278,7 +280,7 @@ public class AsyncTests
     [Fact]
     public async Task ContainsTrue()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool contains = await db.Table<Book>().Select(f => f.Id).ContainsAsync(1);
 
@@ -288,16 +290,17 @@ public class AsyncTests
     [Fact]
     public async Task ContainsFalse()
     {
-        using SQLiteDatabase db = SetupDatabase();
+        using TestDatabase db = SetupDatabase();
 
         bool contains = await db.Table<Book>().Select(f => f.Id).ContainsAsync(-1);
 
         Assert.False(contains);
     }
 
-    private static SQLiteDatabase SetupDatabase()
+    private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {
-        SQLiteDatabase db = new("Data Source=:memory:");
+        TestDatabase db = new(methodName);
+
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
 

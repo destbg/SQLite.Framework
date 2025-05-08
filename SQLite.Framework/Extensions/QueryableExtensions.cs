@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
@@ -11,9 +10,9 @@ namespace SQLite.Framework.Extensions;
 public static class QueryableExtensions
 {
     /// <summary>
-    /// Converts the <see cref="IQueryable{T}"/> to a <see cref="SqliteCommand"/>.
+    /// Converts the <see cref="IQueryable{T}"/> to a <see cref="SQLiteCommand"/>.
     /// </summary>
-    public static SqliteCommand ToSqlCommand<T>(this IQueryable<T> queryable)
+    public static SQLiteCommand ToSqlCommand<T>(this IQueryable<T> queryable)
     {
         BaseSQLiteTable table = (BaseSQLiteTable)queryable;
         SQLTranslator translator = new(table.Database);

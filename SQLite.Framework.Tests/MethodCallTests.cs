@@ -1,6 +1,6 @@
-using Microsoft.Data.Sqlite;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Helpers;
 
 // ReSharper disable AccessToDisposedClosure
 // ReSharper disable CompareOfFloatsByEqualityOperator
@@ -12,17 +12,17 @@ public class MethodCallTests
     [Fact]
     public void ListMax()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
         List<int> list = [1, 2, 3];
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id == list.Max()
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(3, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -38,11 +38,11 @@ public class MethodCallTests
     [Fact]
     public void ListContains()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
         List<int> list = [1, 2, 3];
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where list.Contains(book.Id)
             select book
@@ -66,9 +66,9 @@ public class MethodCallTests
     [Fact]
     public void QueryableContains()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where (
                 from b in db.Table<Book>()
@@ -99,9 +99,9 @@ public class MethodCallTests
     [Fact]
     public void QueryableMax()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Id == (
                 from b in db.Table<Book>()
@@ -111,7 +111,7 @@ public class MethodCallTests
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("test", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -131,15 +131,15 @@ public class MethodCallTests
     [Fact]
     public void StringContains()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.Contains("test")
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("%test%", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -155,15 +155,15 @@ public class MethodCallTests
     [Fact]
     public void StringContainsComparison()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.Contains("test", StringComparison.OrdinalIgnoreCase)
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("%test%", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -179,15 +179,15 @@ public class MethodCallTests
     [Fact]
     public void StringStartsWith()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.StartsWith("test")
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("test%", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -203,15 +203,15 @@ public class MethodCallTests
     [Fact]
     public void StringEndsWith()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.EndsWith("test")
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("%test", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -227,15 +227,15 @@ public class MethodCallTests
     [Fact]
     public void StringEquals()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.Equals("test")
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("test", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -251,9 +251,9 @@ public class MethodCallTests
     [Fact]
     public void StringIndexOf()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.IndexOf("test") == 1
             select book
@@ -276,9 +276,9 @@ public class MethodCallTests
     [Fact]
     public void StringReplace()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.Replace("a", "b") == "be"
             select book
@@ -302,15 +302,15 @@ public class MethodCallTests
     [Fact]
     public void StringTrim()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.Trim() == "be"
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("be", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -326,9 +326,9 @@ public class MethodCallTests
     [Fact]
     public void StringTrimOne()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.Trim(' ') == "be"
             select book
@@ -351,9 +351,9 @@ public class MethodCallTests
     [Fact]
     public void StringTrimMultiple()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.Trim(' ', 'a', 'b', 'c') == "be"
             select book
@@ -379,15 +379,15 @@ public class MethodCallTests
     [Fact]
     public void StringTrimStart()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.TrimStart() == "be"
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("be", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -403,15 +403,15 @@ public class MethodCallTests
     [Fact]
     public void StringTrimEnd()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.TrimEnd() == "be"
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("be", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -427,9 +427,9 @@ public class MethodCallTests
     [Fact]
     public void StringSubstring()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.Substring(1) == "be"
             select book
@@ -452,9 +452,9 @@ public class MethodCallTests
     [Fact]
     public void StringSubstringRange()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.Substring(1, 2) == "be"
             select book
@@ -478,15 +478,15 @@ public class MethodCallTests
     [Fact]
     public void StringToUpper()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.ToUpper() == "BE"
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("BE", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -502,15 +502,15 @@ public class MethodCallTests
     [Fact]
     public void StringToLower()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where book.Title.ToLower() == "be"
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal("be", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -526,15 +526,15 @@ public class MethodCallTests
     [Fact]
     public void MathMin()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where Math.Min(book.Id, book.AuthorId) == 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -550,15 +550,15 @@ public class MethodCallTests
     [Fact]
     public void MathMax()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where Math.Max(book.Id, book.AuthorId) == 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -574,15 +574,15 @@ public class MethodCallTests
     [Fact]
     public void MathAbs()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where Math.Abs(book.Id) == 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -598,15 +598,15 @@ public class MethodCallTests
     [Fact]
     public void MathRound()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where Math.Round((double)book.Id) == 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1d, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -622,15 +622,15 @@ public class MethodCallTests
     [Fact]
     public void MathCeiling()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where Math.Ceiling((double)book.Id) == 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1d, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -646,15 +646,15 @@ public class MethodCallTests
     [Fact]
     public void MathFloor()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where Math.Floor((double)book.Id) == 1
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1d, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",

@@ -6,7 +6,7 @@ using SQLite.Framework;
 
 File.Delete("test.db3");
 
-SQLiteDatabase db = new("Data Source=test.db3");
+SQLiteDatabase db = new("test.db3");
 db.Table<TestEntity>().CreateTable();
 
 List<TestEntity> entities = [];
@@ -30,6 +30,6 @@ class TestEntity
 {
     [Key]
     public required int Id { get; set; }
-    
+
     public required string Name { get; set; }
 }

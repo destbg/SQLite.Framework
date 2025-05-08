@@ -1,8 +1,8 @@
-using Microsoft.Data.Sqlite;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Enums;
+using SQLite.Framework.Tests.Helpers;
 
 // ReSharper disable AccessToDisposedClosure
 
@@ -13,9 +13,9 @@ public class OtherTests
     [Fact]
     public void QueryableContainsWithPassingArgument()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             where (
                 from b in db.Table<Book>()
@@ -46,15 +46,15 @@ public class OtherTests
     [Fact]
     public void OrderBys()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = (
+        SQLiteCommand command = (
             from book in db.Table<Book>()
             orderby book.Title, book.Id descending
             select book
         ).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
                             b0.BookTitle AS "Title",
@@ -69,11 +69,11 @@ public class OtherTests
     [Fact]
     public void TakeSkip()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = db.Table<Book>().Take(1).Skip(2).ToSqlCommand();
+        SQLiteCommand command = db.Table<Book>().Take(1).Skip(2).ToSqlCommand();
 
-        Assert.Equal(0, command.Parameters.Count);
+        Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
                             b0.BookTitle AS "Title",
@@ -89,11 +89,11 @@ public class OtherTests
     [Fact]
     public void Union()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = db.Table<Book>().Where(f => f.Id == 1).Union(db.Table<Book>()).ToSqlCommand();
+        SQLiteCommand command = db.Table<Book>().Where(f => f.Id == 1).Union(db.Table<Book>()).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -115,11 +115,11 @@ public class OtherTests
     [Fact]
     public void Concat()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
-        using SqliteCommand command = db.Table<Book>().Where(f => f.Id == 1).Concat(db.Table<Book>()).ToSqlCommand();
+        SQLiteCommand command = db.Table<Book>().Where(f => f.Id == 1).Concat(db.Table<Book>()).ToSqlCommand();
 
-        Assert.Equal(1, command.Parameters.Count);
+        Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
@@ -141,7 +141,7 @@ public class OtherTests
     [Fact]
     public void CheckTableMappingCached()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
 
         TableMapping firstTableMapping = db.TableMapping<Book>();
         TableMapping secondTableMapping = db.TableMapping<Book>();
@@ -152,7 +152,8 @@ public class OtherTests
     [Fact]
     public void CheckEnum()
     {
-        using SQLiteDatabase db = new("Data Source=:memory:");
+        using TestDatabase db = new();
+
         db.Table<Publisher>().CreateTable();
 
         db.Table<Publisher>().Add(new Publisher

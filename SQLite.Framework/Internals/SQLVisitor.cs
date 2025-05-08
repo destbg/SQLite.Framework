@@ -13,7 +13,7 @@ internal class SQLVisitor
     private readonly SQLiteDatabase database;
     private readonly MethodHandler methodHandler;
 
-    public SQLVisitor(SQLiteDatabase database, Dictionary<string, object?> parameters, IndexWrapper paramIndex, IndexWrapper tableIndex, int level)
+    public SQLVisitor(SQLiteDatabase database, List<SQLiteParameter> parameters, IndexWrapper paramIndex, IndexWrapper tableIndex, int level)
     {
         this.database = database;
         Parameters = parameters;
@@ -29,7 +29,7 @@ internal class SQLVisitor
     public List<string> Selects { get; } = new();
     public List<(string Sql, bool All)> Unions { get; } = new();
     public Dictionary<Type, string> TableAliases { get; } = new();
-    public Dictionary<string, object?> Parameters { get; }
+    public List<SQLiteParameter> Parameters { get; }
     public IndexWrapper ParamIndex { get; }
     public IndexWrapper TableIndex { get; }
     public int Level { get; }
@@ -230,7 +230,11 @@ internal class SQLVisitor
         }
 
         string pName = $"@p{ParamIndex.Index++}";
-        Parameters[pName] = CommonHelpers.GetConstantValue(node);
+        Parameters.Add(new SQLiteParameter
+        {
+            Name = pName,
+            Value = CommonHelpers.GetConstantValue(node)
+        });
         return pName;
     }
 
@@ -258,7 +262,11 @@ internal class SQLVisitor
             }
 
             string pName = $"@p{ParamIndex.Index++}";
-            Parameters[pName] = value;
+            Parameters.Add(new SQLiteParameter
+            {
+                Name = pName,
+                Value = value
+            });
             return pName;
         }
 
