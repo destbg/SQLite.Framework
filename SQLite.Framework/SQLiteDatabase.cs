@@ -229,12 +229,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         using SQLiteDataReader reader = cmd.ExecuteReader();
 
-        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = CommandHelpers.GetColumnNames(reader.Statement);
+        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = [];
 
         if (query.ThrowOnMoreThanOne)
         {
             if (reader.Read())
             {
+                columns = CommandHelpers.GetColumnNames(reader.Statement);
+
                 TResult result = (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns)!;
 
                 if (reader.Read())
@@ -247,6 +249,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
         else if (reader.Read())
         {
+            columns = CommandHelpers.GetColumnNames(reader.Statement);
+
             return (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns)!;
         }
 

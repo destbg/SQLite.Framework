@@ -36,6 +36,61 @@ internal static class CommandHelpers
             return null;
         }
 
+        if (type == typeof(DateTime))
+        {
+            if (value is long ticks)
+            {
+                return new DateTime(ticks);
+            }
+            else if (value is string dateString)
+            {
+                return DateTime.Parse(dateString);
+            }
+        }
+        else if (type == typeof(DateTimeOffset))
+        {
+            if (value is long ticks)
+            {
+                return new DateTimeOffset(ticks, TimeSpan.Zero);
+            }
+        }
+        else if (type == typeof(TimeSpan))
+        {
+            if (value is long milliseconds)
+            {
+                return TimeSpan.FromMilliseconds(milliseconds);
+            }
+        }
+        else if (type == typeof(DateOnly))
+        {
+            if (value is long ticks)
+            {
+                return DateOnly.FromDateTime(new DateTime(ticks));
+            }
+        }
+        else if (type == typeof(TimeOnly))
+        {
+            if (value is long ticks)
+            {
+                return TimeOnly.FromDateTime(new DateTime(ticks));
+            }
+        }
+        else if (type == typeof(Guid))
+        {
+            if (value is string guidString)
+            {
+                return Guid.Parse(guidString);
+            }
+        }
+        else if (type == typeof(bool))
+        {
+            return Convert.ToBoolean(value);
+        }
+        else if (type.IsEnum)
+        {
+            return Enum.ToObject(type, value);
+        }
+
         return Convert.ChangeType(value, type);
     }
 

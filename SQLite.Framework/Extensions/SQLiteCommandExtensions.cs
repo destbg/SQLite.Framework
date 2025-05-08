@@ -17,10 +17,15 @@ public static class SQLiteCommandExtensions
     {
         using SQLiteDataReader reader = command.ExecuteReader();
 
-        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = CommandHelpers.GetColumnNames(reader.Statement);
+        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = [];
 
         while (reader.Read())
         {
+            if (columns.Count == 0)
+            {
+                columns = CommandHelpers.GetColumnNames(reader.Statement);
+            }
+
             yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns)!;
         }
     }
