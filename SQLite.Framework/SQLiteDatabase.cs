@@ -211,12 +211,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         SQLTranslator translator = new(this);
         SQLQuery query = translator.Translate(expression);
 
-        Console.WriteLine(query.Sql);
-        foreach (SQLiteParameter p in query.Parameters)
-        {
-            Console.WriteLine($"  {p.Name} = {p.Value}");
-        }
-
         if (expression.Type.IsGenericType)
         {
             Type genericType = expression.Type.GetGenericTypeDefinition();
