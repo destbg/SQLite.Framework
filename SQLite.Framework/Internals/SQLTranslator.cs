@@ -67,7 +67,7 @@ internal class SQLTranslator
         bool useExists = visitor.IsAny || visitor.IsAll;
 
         string joinSql = string.Join(Environment.NewLine + spacing, visitor.Joins.Select(j =>
-            $"{j.JoinType} \"{j.TableName}\" AS {j.Alias} ON {j.OnClause}"));
+            $"{j.JoinType} {j.Sql} AS {j.Alias} ON {j.OnClause}"));
 
         string whereSql = visitor.Wheres.Count > 0
             ? "WHERE " + (visitor.IsAll
@@ -125,7 +125,10 @@ internal class SQLTranslator
         };
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "All types have public properties.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2072", Justification = "All types should have public properties.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2055", Justification = "All types should have public properties.")]
+    [UnconditionalSuppressMessage("Trimming", "IL3050", Justification = "All types should have public properties.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2065", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "The type is an entity.")]
     private void HandleQueryableMethodCall(MethodCallExpression node)
     {
@@ -149,19 +152,60 @@ internal class SQLTranslator
             case nameof(Queryable.Join):
             case nameof(Queryable.GroupJoin):
             {
-                Expression innerExpr = node.Arguments[1];
-                if (innerExpr is not ConstantExpression { Value: IQueryable q })
+                Dictionary<string, ColumnMapping> newTableColumns;
+                string alias;
+                string sql;
+
+                if (CommonHelpers.IsConstant(node.Arguments[1]))
                 {
-                    throw new NotSupportedException($"Unsupported inner source: {innerExpr.NodeType}");
+                    object? innerValue = CommonHelpers.GetConstantValue(node.Arguments[1]);
+
+                    if (innerValue is SQLiteTable table)
+                    {
+                        Type entityType = table.ElementType;
+                        alias = $"{entityType.Name.ToLowerInvariant()[..1]}{tableIndex.Index++}";
+                        visitor.TableAliases[entityType] = alias;
+
+                        TableMapping tableMapping = database.TableMapping(entityType);
+                        newTableColumns = tableMapping.Columns
+                            .ToDictionary(f => f.PropertyInfo.Name, f => new ColumnMapping(alias, f.Name, f.PropertyInfo.Name));
+                        sql = $"\"{table.Table.TableName}\"";
+                    }
+                    else if (innerValue is IQueryable queryable)
+                    {
+                        SQLTranslator innerVisitor = visitor.CloneDeeper(visitor.Level + 1);
+                        SQLQuery query = innerVisitor.Translate(queryable.Expression);
+
+                        Type entityType = queryable.ElementType;
+                        alias = $"{entityType.Name.ToLowerInvariant()[..1]}{tableIndex.Index++}";
+                        visitor.TableAliases[entityType] = alias;
+
+                        newTableColumns = entityType.GetProperties()
+                            .ToDictionary(f => f.Name, f => new ColumnMapping(alias, f.Name, f.Name));
+                        sql = $"({Environment.NewLine}{query.Sql}{Environment.NewLine})";
+                    }
+                    else
+                    {
+                        throw new NotSupportedException($"The type {innerValue?.GetType().Name} is not supported in join.");
+                    }
                 }
+                else if (node.Arguments[1].Type.IsGenericType && node.Arguments[1].Type.GetGenericTypeDefinition() == typeof(IQueryable<>))
+                {
+                    SQLTranslator innerVisitor = visitor.CloneDeeper(visitor.Level + 1);
+                    SQLQuery query = innerVisitor.Translate(node.Arguments[1]);
 
-                Type entityType = q.ElementType;
-                string alias = $"{entityType.Name.ToLowerInvariant()[..1]}{tableIndex.Index++}";
-                visitor.TableAliases[entityType] = alias;
+                    Type entityType = node.Arguments[1].Type.GetGenericArguments()[0];
+                    alias = $"{entityType.Name.ToLowerInvariant()[..1]}{tableIndex.Index++}";
+                    visitor.TableAliases[entityType] = alias;
 
-                TableMapping tableMapping = database.TableMapping(entityType);
-                Dictionary<string, ColumnMapping> newTableColumns = tableMapping.Columns
-                    .ToDictionary(f => f.PropertyInfo.Name, f => new ColumnMapping(alias, f.Name, f.PropertyInfo.Name));
+                    newTableColumns = entityType.GetProperties()
+                        .ToDictionary(f => f.Name, f => new ColumnMapping(alias, f.Name, f.Name));
+                    sql = $"({Environment.NewLine}{query.Sql}{Environment.NewLine})";
+                }
+                else
+                {
+                    throw new NotSupportedException($"The type {node.Arguments[1].GetType().Name} is not supported in join.");
+                }
 
                 LambdaExpression outerKey = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[2]);
                 LambdaExpression innerKey = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[3]);
@@ -177,13 +221,11 @@ internal class SQLTranslator
                 string outerAlias = visitor.ResolveMember(outerKey.Body);
                 string innerAlias = visitor.ResolveMember(innerKey.Body);
 
-                TableMapping table = database.TableMapping(innerKey.Parameters[0].Type);
-
                 visitor.Joins.Add(new JoinInfo
                 {
-                    JoinType = "JOIN",
-                    TableName = table.TableName, // TODO: Instead of table name visit the expression
-                    Alias = visitor.TableAliases[innerKey.Parameters[0].Type],
+                    JoinType = node.Method.Name == nameof(Queryable.GroupJoin) ? "LEFT JOIN" : "JOIN",
+                    Sql = sql,
+                    Alias = alias,
                     OnClause = $"{outerAlias} = {innerAlias}",
                     IsGroupJoin = node.Method.Name == nameof(Queryable.GroupJoin)
                 });

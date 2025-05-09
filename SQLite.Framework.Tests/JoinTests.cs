@@ -126,6 +126,41 @@ public class JoinTests
             command.CommandText.Replace("\r\n", "\n"));
     }
 
+    [Fact]
+    public void JoinWithInnerQuery()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = (
+            from book in db.Table<Book>()
+            join author in (
+                from a in db.Table<Author>()
+                where a.Name == "John Doe"
+                select a
+            ) on book.AuthorId equals author.Id
+            select author
+        ).ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal("John Doe", command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT a2.Id AS "Id",
+                            a2.Name AS "Name",
+                            a2.Email AS "Email",
+                            a2.BirthDate AS "BirthDate"
+                     FROM "Books" AS b0
+                     JOIN (
+                         SELECT a1.AuthorId AS "Id",
+                            a1.AuthorName AS "Name",
+                            a1.AuthorEmail AS "Email",
+                            a1.AuthorBirthDate AS "BirthDate"
+                         FROM "Authors" AS a1
+                         WHERE a1.AuthorName = @p0
+                     ) AS a2 ON b0.BookAuthorId = a2.Id
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
     class Testing
     {
         public required Book Book { get; set; }
