@@ -1,15 +1,25 @@
-using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using SQLite.Framework.Enums;
+using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Helpers;
 
 internal static class BuildQueryObject
 {
-    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type elementType, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns)
+    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type elementType, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns, Func<QueryContext, dynamic?>? createInstance)
     {
+        if (createInstance != null)
+        {
+            QueryContext context = new()
+            {
+                Reader = reader,
+                Columns = columns,
+            };
+            return createInstance(context);
+        }
+
         if (CommonHelpers.IsSimple(elementType))
         {
             SQLiteColumnType columnType = reader.GetColumnType(0);

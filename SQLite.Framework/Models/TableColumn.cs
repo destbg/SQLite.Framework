@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
+using SQLite.Framework.Internals.Helpers;
 
 namespace SQLite.Framework.Models;
 
@@ -28,7 +29,7 @@ public class TableColumn
         IsAutoIncrement = property.GetCustomAttribute<AutoIncrementAttribute>() != null;
         IsNullable = !IsPrimaryKey && (
             Nullable.GetUnderlyingType(property.PropertyType) != null
-                || nullabilityInfoContext.Create(property).ReadState == NullabilityState.Nullable
+            || nullabilityInfoContext.Create(property).ReadState == NullabilityState.Nullable
         );
 
         if (IsNullable && property.GetCustomAttribute<RequiredAttribute>() != null)
@@ -36,32 +37,7 @@ public class TableColumn
             IsNullable = false;
         }
 
-        ColumnType = type switch
-        {
-            _ when type == typeof(string) => SQLiteColumnType.Text,
-            _ when type == typeof(byte[]) => SQLiteColumnType.Blob,
-            _ when type == typeof(bool) => SQLiteColumnType.Integer,
-            _ when type == typeof(char) => SQLiteColumnType.Text,
-            _ when type == typeof(DateTime) => SQLiteColumnType.Integer,
-            _ when type == typeof(DateTimeOffset) => SQLiteColumnType.Integer,
-            _ when type == typeof(DateOnly) => SQLiteColumnType.Integer,
-            _ when type == typeof(TimeOnly) => SQLiteColumnType.Integer,
-            _ when type == typeof(Guid) => SQLiteColumnType.Text,
-            _ when type == typeof(TimeSpan) => SQLiteColumnType.Integer,
-            _ when type == typeof(decimal) => SQLiteColumnType.Real,
-            _ when type == typeof(double) => SQLiteColumnType.Real,
-            _ when type == typeof(float) => SQLiteColumnType.Real,
-            _ when type == typeof(byte) => SQLiteColumnType.Integer,
-            _ when type == typeof(int) => SQLiteColumnType.Integer,
-            _ when type == typeof(long) => SQLiteColumnType.Integer,
-            _ when type == typeof(sbyte) => SQLiteColumnType.Integer,
-            _ when type == typeof(short) => SQLiteColumnType.Integer,
-            _ when type == typeof(uint) => SQLiteColumnType.Integer,
-            _ when type == typeof(ulong) => SQLiteColumnType.Integer,
-            _ when type == typeof(ushort) => SQLiteColumnType.Integer,
-            _ when type.IsEnum => SQLiteColumnType.Integer,
-            _ => throw new NotSupportedException($"The type {type} is not supported.")
-        };
+        ColumnType = CommonHelpers.TypeToSQLiteType(type);
     }
 
     /// <summary>

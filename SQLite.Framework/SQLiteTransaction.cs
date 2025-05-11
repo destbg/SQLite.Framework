@@ -5,8 +5,6 @@ namespace SQLite.Framework;
 /// </summary>
 public class SQLiteTransaction : IDisposable
 {
-    private readonly SQLiteDatabase database;
-    private readonly string savepointName;
     private bool disposed;
 
     /// <summary>
@@ -14,16 +12,26 @@ public class SQLiteTransaction : IDisposable
     /// </summary>
     public SQLiteTransaction(SQLiteDatabase database, string savepointName)
     {
-        this.database = database;
-        this.savepointName = savepointName;
+        Database = database;
+        SavepointName = savepointName;
     }
+
+    /// <summary>
+    /// The SQLite database.
+    /// </summary>
+    public SQLiteDatabase Database { get; }
+
+    /// <summary>
+    /// The name of the savepoint.
+    /// </summary>
+    public string SavepointName { get; }
 
     /// <summary>
     /// Commits the transaction.
     /// </summary>
     public void Commit()
     {
-        database.CreateCommand($"RELEASE {savepointName}", []).ExecuteNonQuery();
+        Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
         disposed = true;
     }
 
@@ -32,7 +40,7 @@ public class SQLiteTransaction : IDisposable
     /// </summary>
     public void Rollback()
     {
-        database.CreateCommand($"ROLLBACK TO {savepointName}", []).ExecuteNonQuery();
+        Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
         disposed = true;
     }
 

@@ -37,7 +37,7 @@ public class OtherTests
                      WHERE @p1 IN (
                          SELECT b1.BookTitle AS "Title"
                          FROM "Books" AS b1
-                         WHERE (b1.BookTitle = @p0) AND (b0.BookAuthorId = b1.BookAuthorId)
+                         WHERE b1.BookTitle = @p0 AND b0.BookAuthorId = b1.BookAuthorId
                      )
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -61,7 +61,7 @@ public class OtherTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     ORDER BY b0.BookTitle, b0.BookId DESC
+                     ORDER BY b0.BookTitle ASC, b0.BookId DESC
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

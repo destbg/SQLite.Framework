@@ -8,6 +8,114 @@ namespace SQLite.Framework.Tests;
 public class ResultTests
 {
     [Fact]
+    public void CallExternalMethod()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Author author = (
+            from a in db.Table<Author>()
+            where a.Id == 1
+            select new Author
+            {
+                Id = CommonHelpers.ConvertString(a.Name) - 1,
+                Name = a.Name,
+                Email = a.Email,
+                BirthDate = a.BirthDate,
+            }
+        ).First();
+
+        Assert.NotNull(author);
+        Assert.Equal(-2, author.Id);
+        Assert.Equal("Author 1", author.Name);
+    }
+
+    [Fact]
+    public void CallExternalMethodWithDoubleSelect()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int id = (
+            from a in db.Table<Author>()
+            where a.Id == 1
+            select new Author
+            {
+                Id = CommonHelpers.ConvertString(a.Name) - 1,
+                Name = a.Name,
+                Email = a.Email,
+                BirthDate = a.BirthDate,
+            }
+        ).Select(f => f.Id).First();
+
+        Assert.Equal(-2, id);
+    }
+
+    [Fact]
+    public void CallExternalMethodNullJoin()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        BookDTO book = (
+            from b in db.Table<Book>()
+            join author in db.Table<Author>() on b.AuthorId equals author.Id - 1 into authorGroup
+            from author in authorGroup.DefaultIfEmpty()
+            where b.Id == 1
+            select new BookDTO
+            {
+                Id = b.Id,
+                Title = b.Title,
+                Author = author != null
+                    ? new AuthorDTO
+                    {
+                        Id = author.Id,
+                        Name = author.Name,
+                        Email = author.Email,
+                        BirthDate = author.BirthDate
+                    }
+                    : null
+            }
+        ).First();
+
+        Assert.NotNull(book);
+        Assert.Equal(1, book.Id);
+        Assert.Equal("Book 1", book.Title);
+        Assert.Null(book.Author);
+    }
+
+    [Fact]
+    public void CallExternalMethodNonNullJoin()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        BookDTO book = (
+            from b in db.Table<Book>()
+            join author in db.Table<Author>() on b.AuthorId equals author.Id into authorGroup
+            from author in authorGroup.DefaultIfEmpty()
+            where b.Id == 1
+            select new BookDTO
+            {
+                Id = b.Id,
+                Title = b.Title,
+                Author = author != null
+                    ? new AuthorDTO
+                    {
+                        Id = author.Id,
+                        Name = author.Name,
+                        Email = author.Email,
+                        BirthDate = author.BirthDate
+                    }
+                    : null
+            }
+        ).First();
+
+        Assert.NotNull(book);
+        Assert.Equal(1, book.Id);
+        Assert.Equal("Book 1", book.Title);
+        Assert.NotNull(book.Author);
+        Assert.Equal(1, book.Author.Id);
+        Assert.Equal("Author 1", book.Author.Name);
+    }
+
+    [Fact]
     public void SelectWithAnonymousTypeResult()
     {
         using TestDatabase db = SetupDatabase();

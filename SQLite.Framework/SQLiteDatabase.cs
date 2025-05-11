@@ -190,7 +190,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return new LockObject(queryLock);
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2095", Justification = "The method has the right attributes to be preserved.")]
+    [UnconditionalSuppressMessage("AOT", "IL2095", Justification = "The method has the right attributes to be preserved.")]
     IQueryable<TElement> IQueryProvider.CreateQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TElement>(Expression expression)
     {
         return new Queryable<TElement>(this, expression);
@@ -204,7 +204,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Method is marked to not be trimmed.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of the client assemblies.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "There is no problem as List<T> will not be trimmed.")]
-    [UnconditionalSuppressMessage("Trimming", "IL2062", Justification = "Type does meet the requirements as it starts from SQLiteTable<T>.")]
+    [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Type does meet the requirements as it starts from SQLiteTable<T>.")]
     TResult IQueryProvider.Execute<TResult>(Expression expression)
     {
         // Build SQL + parameters
@@ -218,14 +218,13 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             {
                 Type genericElementType = expression.Type.GetGenericArguments()[0];
                 MethodInfo executeQueryMethod = typeof(SQLiteCommandExtensions).GetMethod(
-                    nameof(SQLiteCommandExtensions.ExecuteQuery),
-                    new[] { typeof(SQLiteCommand) }
+                    nameof(SQLiteCommandExtensions.ExecuteQueryInternal),
+                    BindingFlags.Static | BindingFlags.NonPublic
                 )!;
                 MethodInfo genericExecuteQueryMethod = executeQueryMethod.MakeGenericMethod(genericElementType);
 
                 SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
-
-                return (TResult)genericExecuteQueryMethod.Invoke(null, new object[] { command })!;
+                return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query.CreateObject])!;
             }
         }
 
@@ -241,8 +240,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             if (reader.Read())
             {
                 columns = CommandHelpers.GetColumnNames(reader.Statement);
-
-                TResult result = (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns)!;
+                TResult result = (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns, query.CreateObject)!;
 
                 if (reader.Read())
                 {
@@ -255,8 +253,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         else if (reader.Read())
         {
             columns = CommandHelpers.GetColumnNames(reader.Statement);
-
-            return (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns)!;
+            return (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns, query.CreateObject)!;
         }
 
         if (query.ThrowOnEmpty)

@@ -6,6 +6,8 @@ namespace SQLite.Framework.Tests;
 
 public class JoinTests
 {
+    // TODO: Complex join on new { fields } equals new { fields }
+
     [Fact]
     public void RightJoin()
     {

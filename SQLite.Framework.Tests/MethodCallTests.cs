@@ -30,7 +30,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId = @p0
+                     WHERE b0.BookId = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -58,7 +58,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId IN (@p0, @p1, @p2)
+                     WHERE b0.BookId IN (@p1, @p2, @p3)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -120,7 +120,7 @@ public class MethodCallTests
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
                      WHERE b0.BookId = (
-                         SELECT b1.BookId AS "Id"
+                         SELECT MAX(b1.BookId) AS "7"
                          FROM "Books" AS b1
                          WHERE b1.BookTitle = @p0
                      )
@@ -147,7 +147,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p0
+                     WHERE b0.BookTitle LIKE @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -171,7 +171,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p0 COLLATE NOCASE
+                     WHERE b0.BookTitle LIKE @p2 COLLATE NOCASE
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -195,7 +195,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p0
+                     WHERE b0.BookTitle LIKE @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -219,7 +219,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p0
+                     WHERE b0.BookTitle LIKE @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -268,7 +268,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (INSTR(b0.BookTitle, @p0)) = @p1
+                     WHERE INSTR(b0.BookTitle, @p0) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -294,7 +294,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (REPLACE(b0.BookTitle, @p0, @p1)) = @p2
+                     WHERE REPLACE(b0.BookTitle, @p0, @p1) = @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -343,7 +343,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (TRIM(b0.BookTitle, @p0)) = @p1
+                     WHERE TRIM(b0.BookTitle, @p0) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -371,7 +371,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (TRIM(TRIM(TRIM(TRIM(b0.BookTitle, @p0), @p1), @p2), @p3)) = @p4
+                     WHERE TRIM(TRIM(TRIM(TRIM(b0.BookTitle, @p4), @p5), @p6), @p7) = @p8
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -444,7 +444,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (SUBSTR(b0.BookTitle, @p0)) = @p1
+                     WHERE SUBSTR(b0.BookTitle, @p0) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -470,7 +470,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (SUBSTR(b0.BookTitle, @p0, @p1)) = @p2
+                     WHERE SUBSTR(b0.BookTitle, @p0, @p1) = @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -542,7 +542,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (CASE WHEN b0.BookId > b0.BookAuthorId THEN b0.BookAuthorId ELSE b0.BookId END) = @p0
+                     WHERE (CASE WHEN b0.BookId < b0.BookAuthorId THEN b0.BookId ELSE b0.BookAuthorId END) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -566,7 +566,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (CASE WHEN b0.BookId < b0.BookAuthorId THEN b0.BookAuthorId ELSE b0.BookId END) = @p0
+                     WHERE (CASE WHEN b0.BookId > b0.BookAuthorId THEN b0.BookId ELSE b0.BookAuthorId END) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -614,7 +614,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE ROUND(b0.BookId) = @p0
+                     WHERE ROUND(CAST(b0.BookId AS REAL)) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -638,7 +638,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE CEIL(b0.BookId) = @p0
+                     WHERE CEIL(CAST(b0.BookId AS REAL)) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -662,7 +662,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE FLOOR(b0.BookId) = @p0
+                     WHERE FLOOR(CAST(b0.BookId AS REAL)) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

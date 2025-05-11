@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
+using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Extensions;
 
@@ -26,7 +27,25 @@ public static class SQLiteCommandExtensions
                 columns = CommandHelpers.GetColumnNames(reader.Statement);
             }
 
-            yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns)!;
+            yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns, null)!;
+        }
+    }
+
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(SQLiteCommandExtensions))]
+    internal static IEnumerable<T> ExecuteQueryInternal<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteCommand command, Func<QueryContext, dynamic?>? createInstance)
+    {
+        using SQLiteDataReader reader = command.ExecuteReader();
+
+        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = [];
+
+        while (reader.Read())
+        {
+            if (columns.Count == 0)
+            {
+                columns = CommandHelpers.GetColumnNames(reader.Statement);
+            }
+
+            yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns, createInstance)!;
         }
     }
 }

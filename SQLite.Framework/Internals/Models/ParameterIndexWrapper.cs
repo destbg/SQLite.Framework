@@ -1,6 +1,6 @@
 namespace SQLite.Framework.Internals.Models;
 
-internal class IndexWrapper
+internal class ParameterIndexWrapper
 {
     public int Index;
 }

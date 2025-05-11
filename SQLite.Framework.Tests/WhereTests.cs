@@ -55,6 +55,30 @@ public class WhereTests
     }
 
     [Fact]
+    public void NotNotEqualWhere()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = (
+            from book in db.Table<Book>()
+            where !(book.Id != 1)
+            select book
+        ).ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(1, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE NOT b0.BookId <> @p0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
     public void GreaterThanWhere()
     {
         using TestDatabase db = new();
@@ -170,7 +194,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookId + @p0) > @p1
+                     WHERE b0.BookId + @p0 > @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -195,7 +219,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookId - @p0) > @p1
+                     WHERE b0.BookId - @p0 > @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -220,7 +244,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookId * @p0) > @p1
+                     WHERE b0.BookId * @p0 > @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -245,7 +269,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookId / @p0) > @p1
+                     WHERE b0.BookId / @p0 > @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -270,7 +294,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookId = @p0) AND (b0.BookAuthorId = @p1)
+                     WHERE b0.BookId = @p0 AND b0.BookAuthorId = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -295,7 +319,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookId = @p0) OR (b0.BookAuthorId = @p1)
+                     WHERE b0.BookId = @p0 OR b0.BookAuthorId = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -367,7 +391,7 @@ public class WhereTests
                              b0.BookAuthorId AS "AuthorId",
                              b0.BookPrice AS "Price"
                       FROM "Books" AS b0
-                      WHERE (CASE WHEN (b0.BookTitle IS NOT NULL) THEN @p0 ELSE @p1 END) = @p2
+                      WHERE (CASE WHEN b0.BookTitle IS NOT NULL THEN @p1 ELSE @p2 END) = @p3
                       """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -392,7 +416,7 @@ public class WhereTests
                              b0.BookAuthorId AS "AuthorId",
                              b0.BookPrice AS "Price"
                       FROM "Books" AS b0
-                      WHERE (COALESCE(b0.BookTitle, @p0)) = @p1
+                      WHERE COALESCE(b0.BookTitle, @p0) = @p1
                       """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
