@@ -7,6 +7,14 @@ using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
+/// <summary>
+/// Compiles SQL expressions into executable expressions.
+/// </summary>
+/// <remarks>
+/// This is only used for the select expressions to allow the end user to mix and match
+/// code that will be executed inside the SQLite database and code that will be executed
+/// inside the C# code.
+/// </remarks>
 internal class QueryCompilerVisitor : ExpressionVisitor
 {
     public Expression VisitSQLExpression(SQLExpression node)

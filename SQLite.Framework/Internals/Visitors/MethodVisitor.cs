@@ -7,6 +7,9 @@ using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
+/// <summary>
+/// Handles the conversion of common object methods to their respective SQL expressions.
+/// </summary>
 internal class MethodVisitor
 {
     private readonly SQLVisitor visitor;
@@ -34,15 +37,15 @@ internal class MethodVisitor
             {
                 case nameof(string.Contains):
                 {
-                    return AppendLike(node.Method, obj, arguments!, value => $"%{value}%", valueSql => $"'%'||{valueSql}||'%'");
+                    return ResolveLike(node.Method, obj, arguments!, value => $"%{value}%", valueSql => $"'%'||{valueSql}||'%'");
                 }
                 case nameof(string.StartsWith):
                 {
-                    return AppendLike(node.Method, obj, arguments!, value => $"{value}%", valueSql => $"{valueSql}||'%'");
+                    return ResolveLike(node.Method, obj, arguments!, value => $"{value}%", valueSql => $"{valueSql}||'%'");
                 }
                 case nameof(string.EndsWith):
                 {
-                    return AppendLike(node.Method, obj, arguments!, value => $"%{value}", valueSql => $"'%'||{valueSql}");
+                    return ResolveLike(node.Method, obj, arguments!, value => $"%{value}", valueSql => $"'%'||{valueSql}");
                 }
                 case nameof(string.Equals):
                 {
@@ -76,15 +79,15 @@ internal class MethodVisitor
                 }
                 case nameof(string.Trim):
                 {
-                    return AppendTrim(node, obj, arguments!, "TRIM");
+                    return ResolveTrim(node, obj, arguments!, "TRIM");
                 }
                 case nameof(string.TrimStart):
                 {
-                    return AppendTrim(node, obj, arguments!, "LTRIM");
+                    return ResolveTrim(node, obj, arguments!, "LTRIM");
                 }
                 case nameof(string.TrimEnd):
                 {
-                    return AppendTrim(node, obj, arguments!, "RTRIM");
+                    return ResolveTrim(node, obj, arguments!, "RTRIM");
                 }
                 case nameof(string.Substring):
                 {
@@ -241,23 +244,25 @@ internal class MethodVisitor
             switch (node.Method.Name)
             {
                 case nameof(DateTime.Add):
-                    return AppendDateAdd(node.Method, obj, arguments!, 1);
+                    return ResolveDateAdd(node.Method, obj, arguments!, 1);
                 case nameof(DateTime.AddYears):
-                    return AppendRelativeDate(node.Method, obj, arguments!, "years");
+                    return ResolveRelativeDate(node.Method, obj, arguments!, "years");
                 case nameof(DateTime.AddMonths):
-                    return AppendRelativeDate(node.Method, obj, arguments!, "months");
+                    return ResolveRelativeDate(node.Method, obj, arguments!, "months");
                 case nameof(DateTime.AddDays):
-                    return AppendDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay);
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay);
                 case nameof(DateTime.AddHours):
-                    return AppendDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour);
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour);
                 case nameof(DateTime.AddMinutes):
-                    return AppendDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute);
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute);
                 case nameof(DateTime.AddSeconds):
-                    return AppendDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerSecond);
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerSecond);
                 case nameof(DateTime.AddMilliseconds):
-                    return AppendDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMillisecond);
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMillisecond);
+                case nameof(DateTime.AddMicroseconds):
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMicrosecond);
                 case nameof(DateTime.AddTicks):
-                    return AppendDateAdd(node.Method, obj, arguments!, 1);
+                    return ResolveDateAdd(node.Method, obj, arguments!, 1);
                 case nameof(DateTime.Subtract):
                     return new SQLExpression(
                         node.Method.ReturnType,
@@ -282,15 +287,15 @@ internal class MethodVisitor
 
             switch (node.Method.Name)
             {
-                case nameof(DateTime.Now):
+                case nameof(DateTime.Parse):
                 {
                     string pName = $"@p{visitor.ParamIndex.Index++}";
-                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTime.Now.Ticks);
+                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTime.Parse((string)arguments[0].Constant!).Ticks);
                 }
-                case nameof(DateTime.UtcNow):
+                case nameof(DateTime.FromBinary):
                 {
                     string pName = $"@p{visitor.ParamIndex.Index++}";
-                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTime.UtcNow.Ticks);
+                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTime.FromBinary((long)arguments[0].Constant!).Ticks);
                 }
             }
         }
@@ -442,7 +447,7 @@ internal class MethodVisitor
         return node;
     }
 
-    private SQLExpression AppendLike(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
+    private SQLExpression ResolveLike(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
     {
         string noCase = string.Empty;
         if (arguments.Count == 2)
@@ -482,7 +487,7 @@ internal class MethodVisitor
         }
     }
 
-    private Expression AppendTrim(MethodCallExpression node, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string trimType)
+    private Expression ResolveTrim(MethodCallExpression node, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string trimType)
     {
         if (arguments.Count == 0)
         {
@@ -525,7 +530,7 @@ internal class MethodVisitor
         }
     }
 
-    private SQLExpression AppendDateAdd(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, long multiplyBy)
+    private SQLExpression ResolveDateAdd(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, long multiplyBy)
     {
         SQLiteParameter parameter = new()
         {
@@ -541,7 +546,7 @@ internal class MethodVisitor
         );
     }
 
-    private SQLExpression AppendRelativeDate(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string addType)
+    private SQLExpression ResolveRelativeDate(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string addType)
     {
         (SQLiteParameter tickParameter, SQLiteParameter tickToSecondParameter) = CreateHelperDateParameters();
 

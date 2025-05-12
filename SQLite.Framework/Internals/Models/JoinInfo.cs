@@ -1,5 +1,8 @@
 namespace SQLite.Framework.Internals.Models;
 
+/// <summary>
+/// Represents information about a join operation in a SQL query.
+/// </summary>
 internal class JoinInfo
 {
     public required Type EntityType { get; init; }

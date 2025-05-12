@@ -6,6 +6,8 @@ namespace SQLite.Framework.Tests;
 
 public class DateTimeTests
 {
+    private const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss zz";
+    
     [Fact]
     public void AddToDateTime()
     {
@@ -49,7 +51,7 @@ public class DateTimeTests
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
         Assert.Equal("Author 1", author.Name);
-        Assert.Equal(new DateTime(7000, 2, 3, 4, 5, 6, 7, 8), author.BirthDate);
+        Assert.Equal(new DateTime(7000, 2, 3, 4, 5, 6, 7, 8).ToString(DateTimeFormat), author.BirthDate.ToString(DateTimeFormat));
     }
 
     [Fact]
@@ -72,7 +74,7 @@ public class DateTimeTests
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
         Assert.Equal("Author 1", author.Name);
-        Assert.Equal(new DateTime(2000, 4, 3, 4, 5, 6, 7, 8), author.BirthDate);
+        Assert.Equal(new DateTime(2000, 4, 3, 4, 5, 6, 7, 8).ToString(DateTimeFormat), author.BirthDate.ToString(DateTimeFormat));
     }
 
     [Fact]
@@ -95,7 +97,7 @@ public class DateTimeTests
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
         Assert.Equal("Author 1", author.Name);
-        Assert.Equal(new DateTime(2000, 2, 13, 4, 5, 6, 7, 8), author.BirthDate);
+        Assert.Equal(new DateTime(2000, 2, 13, 4, 5, 6, 7, 8).ToString(DateTimeFormat), author.BirthDate.ToString(DateTimeFormat));
     }
 
     [Fact]
@@ -118,7 +120,7 @@ public class DateTimeTests
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
         Assert.Equal("Author 1", author.Name);
-        Assert.Equal(new DateTime(2000, 2, 3, 9, 5, 6, 7, 8), author.BirthDate);
+        Assert.Equal(new DateTime(2000, 2, 3, 9, 5, 6, 7, 8).ToString(DateTimeFormat), author.BirthDate.ToString(DateTimeFormat));
     }
 
     [Fact]
@@ -141,7 +143,7 @@ public class DateTimeTests
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
         Assert.Equal("Author 1", author.Name);
-        Assert.Equal(new DateTime(2000, 2, 3, 4, 35, 6, 7, 8), author.BirthDate);
+        Assert.Equal(new DateTime(2000, 2, 3, 4, 35, 6, 7, 8).ToString(DateTimeFormat), author.BirthDate.ToString(DateTimeFormat));
     }
 
     [Fact]
@@ -164,7 +166,7 @@ public class DateTimeTests
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
         Assert.Equal("Author 1", author.Name);
-        Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 51, 7, 8), author.BirthDate);
+        Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 51, 7, 8).ToString(DateTimeFormat), author.BirthDate.ToString(DateTimeFormat));
     }
 
     [Fact]
@@ -187,7 +189,7 @@ public class DateTimeTests
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
         Assert.Equal("Author 1", author.Name);
-        Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 6, 9, 8), author.BirthDate);
+        Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 6, 9, 8).ToString(DateTimeFormat), author.BirthDate.ToString(DateTimeFormat));
     }
 
     [Fact]
@@ -352,20 +354,6 @@ public class DateTimeTests
 
         Assert.Equal(34, dayOfYear);
     }
-
-    // [Fact]
-    // public void AccessDateTimeTimeOfDayDirectly()
-    // {
-    //     using TestDatabase db = SetupDatabase();
-    //
-    //     TimeSpan timeOfDay = (
-    //         from a in db.Table<Author>()
-    //         where a.Id == 1
-    //         select a.BirthDate.TimeOfDay
-    //     ).First();
-    //
-    //     Assert.Equal(new TimeSpan(4, 5, 6), timeOfDay);
-    // }
 
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {

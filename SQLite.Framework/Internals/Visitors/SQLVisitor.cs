@@ -7,6 +7,16 @@ using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
+/// <summary>
+/// Handles the conversion of LINQ expressions to SQL expressions.
+/// </summary>
+/// <remarks>
+/// This class is responsible for traversing the expression tree and converting it into a SQL representation.
+/// The <see cref="QueryableMethodVisitor"/> gets all the different LINQ methods and passes them to this
+/// class for conversion to SQL.
+/// Not all Expressions are converted to SQL, some are left as is so that the select method can execute
+/// code both as SQL and C#.
+/// </remarks>
 internal class SQLVisitor : ExpressionVisitor
 {
     private readonly SQLiteDatabase database;
@@ -115,6 +125,7 @@ internal class SQLVisitor : ExpressionVisitor
             ExpressionType.Subtract => "-",
             ExpressionType.Multiply => "*",
             ExpressionType.Divide => "/",
+            ExpressionType.Modulo => "%",
             _ => throw new NotSupportedException($"Unsupported binary op {node.NodeType}")
         };
 

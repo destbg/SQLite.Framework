@@ -3,6 +3,9 @@ using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
+/// <summary>
+/// Handles the conversion of common object properties to their respective SQL expressions.
+/// </summary>
 internal class PropertyVisitor
 {
     private readonly SQLVisitor visitor;
@@ -16,21 +19,6 @@ internal class PropertyVisitor
     {
         switch (propertyName)
         {
-            // TODO: Implement the commented cases
-            // case nameof(DateTime.Date):
-            //     return new SQLExpression(
-            //         type,
-            //         visitor.IdentifierIndex++,
-            //         $"DATE({node.Sql})",
-            //         node.Parameters
-            //     );
-            // case nameof(DateTime.TimeOfDay):
-            //     return new SQLExpression(
-            //         type,
-            //         visitor.IdentifierIndex++,
-            //         $"TIME({node.Sql})",
-            //         node.Parameters
-            //     );
             case nameof(DateTime.Year):
                 return AppendDateGet(type, node, "Y");
             case nameof(DateTime.Month):
@@ -44,7 +32,12 @@ internal class PropertyVisitor
             case nameof(DateTime.Second):
                 return AppendDateGet(type, node, "S");
             case nameof(DateTime.Millisecond):
-                return AppendDateGet(type, node, "s");
+                return new SQLExpression(
+                    type,
+                    visitor.IdentifierIndex++,
+                    $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
+                    node.Parameters
+                );
             case nameof(DateTime.Ticks):
                 return node;
             case nameof(DateTime.DayOfWeek):

@@ -3,6 +3,9 @@ using SQLitePCL;
 
 namespace SQLite.Framework.Internals.Helpers;
 
+/// <summary>
+/// This class contains helper methods for working with SQLite commands.
+/// </summary>
 internal static class CommandHelpers
 {
     public static Dictionary<string, (int Index, SQLiteColumnType ColumnType)> GetColumnNames(sqlite3_stmt statement)
