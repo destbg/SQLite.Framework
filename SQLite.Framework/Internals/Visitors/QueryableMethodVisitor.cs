@@ -608,9 +608,7 @@ internal class QueryableMethodVisitor
         {
             if (CommonHelpers.IsSimple(memberExpression.Type))
             {
-                (string path, ParameterExpression _) = CommonHelpers.ResolveParameterPath(body);
-
-                Expression columnMapping = visitor.TableColumns[path];
+                Expression columnMapping = visitor.Visit(body);
                 result.Add(memberExpression.Member.Name, columnMapping);
             }
             else
