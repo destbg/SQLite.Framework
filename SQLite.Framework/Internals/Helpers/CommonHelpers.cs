@@ -7,6 +7,9 @@ using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Helpers;
 
+/// <summary>
+/// Common helper methods for SQLite operations.
+/// </summary>
 internal static class CommonHelpers
 {
     public static bool IsSimple(Type type)

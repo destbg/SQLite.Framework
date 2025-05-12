@@ -4,6 +4,9 @@ using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Helpers;
 
+/// <summary>
+/// Support class only for the LINQ provider.
+/// </summary>
 internal class Queryable<T> : BaseSQLiteTable, IOrderedQueryable<T>
 {
     public Queryable(SQLiteDatabase database, Expression expression)

@@ -3,6 +3,9 @@ using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
+/// <summary>
+/// Gathers all SQL expressions in the select clause.
+/// </summary>
 internal class SelectVisitor : ExpressionVisitor
 {
     public SelectVisitor(List<SQLExpression> selects)

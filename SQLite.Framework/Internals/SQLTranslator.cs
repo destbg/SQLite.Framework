@@ -9,6 +9,12 @@ using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals;
 
+/// <summary>
+/// Translates LINQ expressions into SQL queries.
+/// </summary>
+/// <remarks>
+/// This class gets the different parts of the LINQ expression tree and translates them into SQL.
+/// </remarks>
 internal class SQLTranslator
 {
     private readonly List<SQLiteParameter> parameters = [];

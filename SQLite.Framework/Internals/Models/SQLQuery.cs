@@ -1,5 +1,8 @@
 namespace SQLite.Framework.Internals.Models;
 
+/// <summary>
+/// The compiled SQL query.
+/// </summary>
 internal class SQLQuery
 {
     public required string Sql { get; init; }

@@ -7,6 +7,9 @@ using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
+/// <summary>
+/// Handles the conversion of common object methods to their respective SQL expressions.
+/// </summary>
 internal class MethodVisitor
 {
     private readonly SQLVisitor visitor;
@@ -34,15 +37,15 @@ internal class MethodVisitor
             {
                 case nameof(string.Contains):
                 {
-                    return AppendLike(node.Method, obj, arguments!, value => $"%{value}%", valueSql => $"'%'||{valueSql}||'%'");
+                    return ResolveLike(node.Method, obj, arguments!, value => $"%{value}%", valueSql => $"'%'||{valueSql}||'%'");
                 }
                 case nameof(string.StartsWith):
                 {
-                    return AppendLike(node.Method, obj, arguments!, value => $"{value}%", valueSql => $"{valueSql}||'%'");
+                    return ResolveLike(node.Method, obj, arguments!, value => $"{value}%", valueSql => $"{valueSql}||'%'");
                 }
                 case nameof(string.EndsWith):
                 {
-                    return AppendLike(node.Method, obj, arguments!, value => $"%{value}", valueSql => $"'%'||{valueSql}");
+                    return ResolveLike(node.Method, obj, arguments!, value => $"%{value}", valueSql => $"'%'||{valueSql}");
                 }
                 case nameof(string.Equals):
                 {
@@ -76,15 +79,15 @@ internal class MethodVisitor
                 }
                 case nameof(string.Trim):
                 {
-                    return AppendTrim(node, obj, arguments!, "TRIM");
+                    return ResolveTrim(node, obj, arguments!, "TRIM");
                 }
                 case nameof(string.TrimStart):
                 {
-                    return AppendTrim(node, obj, arguments!, "LTRIM");
+                    return ResolveTrim(node, obj, arguments!, "LTRIM");
                 }
                 case nameof(string.TrimEnd):
                 {
-                    return AppendTrim(node, obj, arguments!, "RTRIM");
+                    return ResolveTrim(node, obj, arguments!, "RTRIM");
                 }
                 case nameof(string.Substring):
                 {
@@ -226,8 +229,6 @@ internal class MethodVisitor
 
     public Expression HandleDateTimeMethod(MethodCallExpression node)
     {
-        // TODO: Property test these methods
-
         if (node.Object != null)
         {
             (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
@@ -240,18 +241,38 @@ internal class MethodVisitor
                 return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
             }
 
-            return node.Method.Name switch
+            switch (node.Method.Name)
             {
-                // TODO: nameof(DateTime.Add) => AppendDateAdd(obj, arguments!, "seconds"),
-                nameof(DateTime.AddYears) => AppendDateAdd(node.Method, obj, arguments!, "years"),
-                nameof(DateTime.AddDays) => AppendDateAdd(node.Method, obj, arguments!, "days"),
-                nameof(DateTime.AddHours) => AppendDateAdd(node.Method, obj, arguments!, "hours"),
-                nameof(DateTime.AddMinutes) => AppendDateAdd(node.Method, obj, arguments!, "minutes"),
-                nameof(DateTime.AddSeconds) => AppendDateAdd(node.Method, obj, arguments!, "seconds"),
-                nameof(DateTime.AddMilliseconds) => AppendDateAdd(node.Method, obj, arguments!, "milliseconds"),
-                nameof(DateTime.AddTicks) => AppendDateAdd(node.Method, obj, arguments!, "ticks"),
-                _ => node
-            };
+                case nameof(DateTime.Add):
+                    return ResolveDateAdd(node.Method, obj, arguments!, 1);
+                case nameof(DateTime.AddYears):
+                    return ResolveRelativeDate(node.Method, obj, arguments!, "years");
+                case nameof(DateTime.AddMonths):
+                    return ResolveRelativeDate(node.Method, obj, arguments!, "months");
+                case nameof(DateTime.AddDays):
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay);
+                case nameof(DateTime.AddHours):
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour);
+                case nameof(DateTime.AddMinutes):
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute);
+                case nameof(DateTime.AddSeconds):
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerSecond);
+                case nameof(DateTime.AddMilliseconds):
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMillisecond);
+                case nameof(DateTime.AddMicroseconds):
+                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMicrosecond);
+                case nameof(DateTime.AddTicks):
+                    return ResolveDateAdd(node.Method, obj, arguments!, 1);
+                case nameof(DateTime.Subtract):
+                    return new SQLExpression(
+                        node.Method.ReturnType,
+                        visitor.IdentifierIndex++,
+                        $"{obj.Sql} - {arguments[0].Sql}",
+                        CommonHelpers.CombineParameters(obj, arguments[0].Sql!)
+                    );
+                default:
+                    return node;
+            }
         }
         else
         {
@@ -266,13 +287,15 @@ internal class MethodVisitor
 
             switch (node.Method.Name)
             {
-                case nameof(DateTime.Now):
+                case nameof(DateTime.Parse):
                 {
-                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, "DATETIME('now')");
+                    string pName = $"@p{visitor.ParamIndex.Index++}";
+                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTime.Parse((string)arguments[0].Constant!).Ticks);
                 }
-                case nameof(DateTime.UtcNow):
+                case nameof(DateTime.FromBinary):
                 {
-                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, "DATETIME('now', 'utc')");
+                    string pName = $"@p{visitor.ParamIndex.Index++}";
+                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTime.FromBinary((long)arguments[0].Constant!).Ticks);
                 }
             }
         }
@@ -424,7 +447,7 @@ internal class MethodVisitor
         return node;
     }
 
-    private SQLExpression AppendLike(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
+    private SQLExpression ResolveLike(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
     {
         string noCase = string.Empty;
         if (arguments.Count == 2)
@@ -441,7 +464,7 @@ internal class MethodVisitor
             string pName = $"@p{visitor.ParamIndex.Index++}";
             SQLiteParameter parameter = new()
             {
-                Name = $"@p{visitor.ParamIndex.Index++}",
+                Name = pName,
                 Value = selectParameter(arguments[0].Constant)
             };
 
@@ -464,7 +487,7 @@ internal class MethodVisitor
         }
     }
 
-    private Expression AppendTrim(MethodCallExpression node, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string trimType)
+    private Expression ResolveTrim(MethodCallExpression node, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string trimType)
     {
         if (arguments.Count == 0)
         {
@@ -507,33 +530,68 @@ internal class MethodVisitor
         }
     }
 
-    private SQLExpression AppendDateAdd(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string addType)
+    private SQLExpression ResolveDateAdd(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, long multiplyBy)
     {
+        SQLiteParameter parameter = new()
+        {
+            Name = $"@p{visitor.ParamIndex.Index++}",
+            Value = multiplyBy
+        };
+
+        return new SQLExpression(
+            method.ReturnType,
+            visitor.IdentifierIndex++,
+            $"CAST({obj.Sql} + ({arguments[0].Sql.Sql} * {parameter.Name}) AS 'INTEGER')",
+            [..obj.Parameters ?? [], ..arguments[0].Sql.Parameters ?? [], parameter]
+        );
+    }
+
+    private SQLExpression ResolveRelativeDate(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string addType)
+    {
+        (SQLiteParameter tickParameter, SQLiteParameter tickToSecondParameter) = CreateHelperDateParameters();
+
         if (arguments[0].IsConstant)
         {
-            string pName = $"@p{visitor.ParamIndex.Index++}";
             SQLiteParameter parameter = new()
             {
                 Name = $"@p{visitor.ParamIndex.Index++}",
                 Value = $"+{arguments[0].Constant} {addType}"
             };
 
-            SQLiteParameter[] parameters = obj.Parameters == null
-                ? [parameter]
-                : [..obj.Parameters, parameter];
+            SQLiteParameter[] parameters = [..obj.Parameters ?? [], tickParameter, tickToSecondParameter, parameter];
 
-            return new SQLExpression(method.ReturnType, visitor.IdentifierIndex++, $"DATE({obj.Sql}, {pName})", parameters);
+            string sql = $"CAST(STRFTIME('%s',DATETIME(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', {parameter.Name})) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}";
+
+            return new SQLExpression(method.ReturnType, visitor.IdentifierIndex++, sql, parameters);
         }
         else
         {
-            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].Sql);
+            SQLiteParameter[] parameters = [..obj.Parameters ?? [], ..arguments[0].Sql.Parameters ?? [], tickParameter, tickToSecondParameter];
+
+            string sql = $"CAST(STRFTIME('%s',DATETIME(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', '+'||{arguments[0].Sql.Sql}||' {addType}')) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}";
 
             return new SQLExpression(
                 method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"DATE({obj.Sql}, '+'||{arguments[0].Sql.Sql}||' {addType}')",
+                sql,
                 parameters
             );
         }
+    }
+
+    private (SQLiteParameter TickParameter, SQLiteParameter TickToSecondParameter) CreateHelperDateParameters()
+    {
+        SQLiteParameter tickParameter = new()
+        {
+            Name = $"@p{visitor.ParamIndex.Index++}",
+            Value = 621355968000000000 // new DateTime(1970, 1, 1).Ticks
+        };
+        SQLiteParameter tickToSecondParameter = new()
+        {
+            Name = $"@p{visitor.ParamIndex.Index++}",
+            Value = TimeSpan.TicksPerSecond
+        };
+
+        return (tickParameter, tickToSecondParameter);
     }
 }

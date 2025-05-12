@@ -6,6 +6,9 @@ using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Helpers;
 
+/// <summary>
+/// This class is used to build an object from the provided columns.
+/// </summary>
 internal static class BuildQueryObject
 {
     public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type elementType, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns, Func<QueryContext, dynamic?>? createInstance)

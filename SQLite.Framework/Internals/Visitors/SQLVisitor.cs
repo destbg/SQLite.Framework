@@ -7,10 +7,21 @@ using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
+/// <summary>
+/// Handles the conversion of LINQ expressions to SQL expressions.
+/// </summary>
+/// <remarks>
+/// This class is responsible for traversing the expression tree and converting it into a SQL representation.
+/// The <see cref="QueryableMethodVisitor"/> gets all the different LINQ methods and passes them to this
+/// class for conversion to SQL.
+/// Not all Expressions are converted to SQL, some are left as is so that the select method can execute
+/// code both as SQL and C#.
+/// </remarks>
 internal class SQLVisitor : ExpressionVisitor
 {
     private readonly SQLiteDatabase database;
     private readonly MethodVisitor methodVisitor;
+    private readonly PropertyVisitor propertyVisitor;
 
     public SQLVisitor(SQLiteDatabase database, ParameterIndexWrapper paramIndex, TableIndexWrapper tableIndex, int level)
     {
@@ -19,6 +30,7 @@ internal class SQLVisitor : ExpressionVisitor
         TableIndex = tableIndex;
         Level = level;
         methodVisitor = new(this);
+        propertyVisitor = new(this);
     }
 
     public ParameterIndexWrapper ParamIndex { get; }
@@ -113,6 +125,7 @@ internal class SQLVisitor : ExpressionVisitor
             ExpressionType.Subtract => "-",
             ExpressionType.Multiply => "*",
             ExpressionType.Divide => "/",
+            ExpressionType.Modulo => "%",
             _ => throw new NotSupportedException($"Unsupported binary op {node.NodeType}")
         };
 
@@ -164,6 +177,31 @@ internal class SQLVisitor : ExpressionVisitor
             }
 
             return new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", value);
+        }
+        else if (node.Expression is MemberExpression or ParameterExpression)
+        {
+            (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(node);
+
+            if (MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? expressions))
+            {
+                if (expressions.TryGetValue(path, out Expression? expression))
+                {
+                    return expression;
+                }
+            }
+
+            (path, pe) = CommonHelpers.ResolveParameterPath(node.Expression);
+
+            if (MethodArguments.TryGetValue(pe, out expressions))
+            {
+                if (expressions.TryGetValue(path, out Expression? expression) && expression is SQLExpression sqlExpression)
+                {
+                    if (node.Expression.Type == typeof(DateTime))
+                    {
+                        return propertyVisitor.HandleDateTimeProperty(node.Member.Name, node.Type, sqlExpression);
+                    }
+                }
+            }
         }
 
         return ResolveMember(node);
@@ -310,20 +348,20 @@ internal class SQLVisitor : ExpressionVisitor
 
         if (MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? expressions))
         {
-            if (expressions.TryGetValue(path, out Expression? sqlExpression))
+            if (expressions.TryGetValue(path, out Expression? expression))
             {
-                return sqlExpression;
+                return expression;
             }
 
-            SQLExpression? expression = expressions
+            SQLExpression? sqlExpression = expressions
                 .OrderBy(f => f.Key.Count(c => c == '.'))
                 .Select(f => f.Value)
                 .OfType<SQLExpression>()
                 .FirstOrDefault();
 
-            if (expression != null)
+            if (sqlExpression != null)
             {
-                return expression;
+                return sqlExpression;
             }
         }
 
