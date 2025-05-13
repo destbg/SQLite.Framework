@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
@@ -15,49 +16,184 @@ internal class PropertyVisitor
         this.visitor = visitor;
     }
 
-    public Expression HandleDateTimeProperty(string propertyName, Type type, SQLExpression node)
+    public Expression HandleNullableProperty(string propertyName, Type type, SQLExpression node)
     {
-        switch (propertyName)
+        return propertyName switch
         {
-            case nameof(DateTime.Year):
-                return AppendDateGet(type, node, "Y");
-            case nameof(DateTime.Month):
-                return AppendDateGet(type, node, "m");
-            case nameof(DateTime.Day):
-                return AppendDateGet(type, node, "d");
-            case nameof(DateTime.Hour):
-                return AppendDateGet(type, node, "H");
-            case nameof(DateTime.Minute):
-                return AppendDateGet(type, node, "M");
-            case nameof(DateTime.Second):
-                return AppendDateGet(type, node, "S");
-            case nameof(DateTime.Millisecond):
-                return new SQLExpression(
-                    type,
-                    visitor.IdentifierIndex++,
-                    $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
-                    node.Parameters
-                );
-            case nameof(DateTime.Ticks):
-                return node;
-            case nameof(DateTime.DayOfWeek):
-                return AppendDateGet(type, node, "w");
-            case nameof(DateTime.DayOfYear):
-                return AppendDateGet(type, node, "j");
-            default:
-                return node;
-        }
+            nameof(Nullable<int>.HasValue) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"({node.Sql} IS NOT NULL)",
+                node.Parameters
+            ),
+            nameof(Nullable<int>.Value) => node,
+            _ => node
+        };
     }
 
-    private SQLExpression AppendDateGet(Type type, SQLExpression obj, string format)
+    public Expression HandleDateTimeProperty(string propertyName, Type type, SQLExpression node)
+    {
+        return propertyName switch
+        {
+            nameof(DateTime.Year) => ResolveDateFormat(type, node, "Y", "DATETIME"),
+            nameof(DateTime.Month) => ResolveDateFormat(type, node, "m", "DATETIME"),
+            nameof(DateTime.Day) => ResolveDateFormat(type, node, "d", "DATETIME"),
+            nameof(DateTime.Hour) => ResolveDateFormat(type, node, "H", "DATETIME"),
+            nameof(DateTime.Minute) => ResolveDateFormat(type, node, "M", "DATETIME"),
+            nameof(DateTime.Second) => ResolveDateFormat(type, node, "S", "DATETIME"),
+            nameof(DateTime.Millisecond) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
+                node.Parameters
+            ),
+            nameof(DateTime.Ticks) => node,
+            nameof(DateTime.DayOfWeek) => ResolveDateFormat(type, node, "w", "DATETIME"),
+            nameof(DateTime.DayOfYear) => ResolveDateFormat(type, node, "j", "DATETIME"),
+            _ => node
+        };
+    }
+
+    public Expression HandleDateTimeOffsetProperty(string propertyName, Type type, SQLExpression node)
+    {
+        return propertyName switch
+        {
+            nameof(DateTimeOffset.Year) => ResolveDateFormat(type, node, "Y", "DATETIME"),
+            nameof(DateTimeOffset.Month) => ResolveDateFormat(type, node, "m", "DATETIME"),
+            nameof(DateTimeOffset.Day) => ResolveDateFormat(type, node, "d", "DATETIME"),
+            nameof(DateTimeOffset.Hour) => ResolveDateFormat(type, node, "H", "DATETIME"),
+            nameof(DateTimeOffset.Minute) => ResolveDateFormat(type, node, "M", "DATETIME"),
+            nameof(DateTimeOffset.Second) => ResolveDateFormat(type, node, "S", "DATETIME"),
+            nameof(DateTimeOffset.Millisecond) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
+                node.Parameters
+            ),
+            nameof(DateTimeOffset.Ticks) => node,
+            nameof(DateTimeOffset.DayOfWeek) => ResolveDateFormat(type, node, "w", "DATETIME"),
+            nameof(DateTimeOffset.DayOfYear) => ResolveDateFormat(type, node, "j", "DATETIME"),
+            _ => node
+        };
+    }
+
+    public Expression HandleTimeSpanProperty(string propertyName, Type type, SQLExpression node)
+    {
+        return propertyName switch
+        {
+            nameof(TimeSpan.Days) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"CAST({node.Sql} / {TimeSpan.TicksPerDay} AS INTEGER)",
+                node.Parameters
+            ),
+            nameof(TimeSpan.TotalDays) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerDay})",
+                node.Parameters
+            ),
+            nameof(TimeSpan.Hours) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"({node.Sql} / {TimeSpan.TicksPerHour}) % 24",
+                node.Parameters
+            ),
+            nameof(TimeSpan.TotalHours) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerHour})",
+                node.Parameters
+            ),
+            nameof(TimeSpan.Minutes) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"({node.Sql} / {TimeSpan.TicksPerMinute}) % 60",
+                node.Parameters
+            ),
+            nameof(TimeSpan.TotalMinutes) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerMinute})",
+                node.Parameters
+            ),
+            nameof(TimeSpan.Seconds) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"({node.Sql} / {TimeSpan.TicksPerSecond}) % 60",
+                node.Parameters
+            ),
+            nameof(TimeSpan.TotalSeconds) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerSecond})",
+                node.Parameters
+            ),
+            nameof(TimeSpan.Milliseconds) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
+                node.Parameters
+            ),
+            nameof(TimeSpan.TotalMilliseconds) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerMillisecond})",
+                node.Parameters
+            ),
+            nameof(TimeSpan.Ticks) => node,
+            _ => node
+        };
+    }
+
+    public Expression HandleDateOnlyProperty(string propertyName, Type type, SQLExpression node)
+    {
+        return propertyName switch
+        {
+            nameof(DateOnly.Year) => ResolveDateFormat(type, node, "Y", "DATE"),
+            nameof(DateOnly.Month) => ResolveDateFormat(type, node, "m", "DATE"),
+            nameof(DateOnly.Day) => ResolveDateFormat(type, node, "d", "DATE"),
+            nameof(DateTime.DayOfWeek) => ResolveDateFormat(type, node, "w", "DATE"),
+            nameof(DateTime.DayOfYear) => ResolveDateFormat(type, node, "j", "DATE"),
+            _ => node
+        };
+    }
+
+    public Expression HandleTimeOnlyProperty(string propertyName, Type type, SQLExpression node)
+    {
+        return propertyName switch
+        {
+            nameof(TimeOnly.Hour) => ResolveTimeFormat(type, node, "H"),
+            nameof(TimeOnly.Minute) => ResolveTimeFormat(type, node, "M"),
+            nameof(TimeOnly.Second) => ResolveTimeFormat(type, node, "S"),
+            _ => node
+        };
+    }
+
+    private SQLExpression ResolveDateFormat(Type type, SQLExpression obj, string format, string function)
     {
         (SQLiteParameter tickParameter, SQLiteParameter tickToSecondParameter) = CreateHelperDateParameters();
 
         return new SQLExpression(
             type,
             visitor.IdentifierIndex++,
-            $"CAST(STRFTIME('%{format}',DATETIME(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
+            $"CAST(STRFTIME('%{format}',{function}(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
             [..obj.Parameters ?? [], tickParameter, tickToSecondParameter]
+        );
+    }
+
+    private SQLExpression ResolveTimeFormat(Type type, SQLExpression obj, string format)
+    {
+        SQLiteParameter tickToSecondParameter = new()
+        {
+            Name = $"@p{visitor.ParamIndex.Index++}",
+            Value = TimeSpan.TicksPerSecond
+        };
+        return new SQLExpression(
+            type,
+            visitor.IdentifierIndex++,
+            $"CAST(STRFTIME('%{format}',TIME({obj.Sql} / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
+            [..obj.Parameters ?? [], tickToSecondParameter]
         );
     }
 
@@ -66,7 +202,7 @@ internal class PropertyVisitor
         SQLiteParameter tickParameter = new()
         {
             Name = $"@p{visitor.ParamIndex.Index++}",
-            Value = 621355968000000000 // new DateTime(1970, 1, 1).Ticks
+            Value = Constants.TicksToEpoch
         };
         SQLiteParameter tickToSecondParameter = new()
         {

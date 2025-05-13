@@ -196,9 +196,33 @@ internal class SQLVisitor : ExpressionVisitor
             {
                 if (expressions.TryGetValue(path, out Expression? expression) && expression is SQLExpression sqlExpression)
                 {
-                    if (node.Expression.Type == typeof(DateTime))
+                    if (Nullable.GetUnderlyingType(node.Expression.Type) != null)
+                    {
+                        return propertyVisitor.HandleNullableProperty(node.Member.Name, node.Type, sqlExpression);
+                    }
+                    else if (node.Expression.Type == typeof(DateTime))
                     {
                         return propertyVisitor.HandleDateTimeProperty(node.Member.Name, node.Type, sqlExpression);
+                    }
+                    else if (node.Expression.Type == typeof(DateTimeOffset))
+                    {
+                        return propertyVisitor.HandleDateTimeOffsetProperty(node.Member.Name, node.Type, sqlExpression);
+                    }
+                    else if (node.Expression.Type == typeof(TimeSpan))
+                    {
+                        return propertyVisitor.HandleTimeSpanProperty(node.Member.Name, node.Type, sqlExpression);
+                    }
+                    else if (node.Expression.Type == typeof(DateOnly))
+                    {
+                        return propertyVisitor.HandleDateOnlyProperty(node.Member.Name, node.Type, sqlExpression);
+                    }
+                    else if (node.Expression.Type == typeof(TimeOnly))
+                    {
+                        return propertyVisitor.HandleTimeOnlyProperty(node.Member.Name, node.Type, sqlExpression);
+                    }
+                    else
+                    {
+                        return sqlExpression;
                     }
                 }
             }
@@ -261,6 +285,22 @@ internal class SQLVisitor : ExpressionVisitor
         else if (node.Method.DeclaringType == typeof(DateTime))
         {
             return methodVisitor.HandleDateTimeMethod(node);
+        }
+        else if (node.Method.DeclaringType == typeof(DateTimeOffset))
+        {
+            return methodVisitor.HandleDateTimeOffsetMethod(node);
+        }
+        else if (node.Method.DeclaringType == typeof(TimeSpan))
+        {
+            return methodVisitor.HandleTimeSpanMethod(node);
+        }
+        else if (node.Method.DeclaringType == typeof(DateOnly))
+        {
+            return methodVisitor.HandleDateOnlyMethod(node);
+        }
+        else if (node.Method.DeclaringType == typeof(TimeOnly))
+        {
+            return methodVisitor.HandleTimeOnlyMethod(node);
         }
         else if (node.Method.DeclaringType == typeof(Guid))
         {

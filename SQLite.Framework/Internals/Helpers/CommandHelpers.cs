@@ -59,9 +59,9 @@ internal static class CommandHelpers
         }
         else if (type == typeof(TimeSpan))
         {
-            if (value is long milliseconds)
+            if (value is long ticks)
             {
-                return TimeSpan.FromMilliseconds(milliseconds);
+                return TimeSpan.FromTicks(ticks);
             }
         }
         else if (type == typeof(DateOnly))
@@ -75,7 +75,7 @@ internal static class CommandHelpers
         {
             if (value is long ticks)
             {
-                return TimeOnly.FromDateTime(new DateTime(ticks));
+                return new TimeOnly(ticks);
             }
         }
         else if (type == typeof(Guid))
@@ -119,11 +119,11 @@ internal static class CommandHelpers
             byte[] b => raw.sqlite3_bind_blob(statement, index, b),
             bool b => raw.sqlite3_bind_int(statement, index, b ? 1 : 0),
             DateOnly d => raw.sqlite3_bind_int64(statement, index, d.ToDateTime(default).Ticks),
-            TimeOnly t => raw.sqlite3_bind_int64(statement, index, new DateOnly(1900, 1, 1).ToDateTime(t).Ticks),
+            TimeOnly t => raw.sqlite3_bind_int64(statement, index, t.Ticks),
             DateTime dt => raw.sqlite3_bind_int64(statement, index, dt.Ticks),
             DateTimeOffset dto => raw.sqlite3_bind_int64(statement, index, dto.Ticks),
             Guid g => raw.sqlite3_bind_text(statement, index, g.ToString()),
-            TimeSpan ts => raw.sqlite3_bind_int64(statement, index, (long)ts.TotalMilliseconds),
+            TimeSpan ts => raw.sqlite3_bind_int64(statement, index, ts.Ticks),
             _ when value.GetType().IsEnum => raw.sqlite3_bind_int(statement, index, Convert.ToInt32(value)),
             _ => throw new NotSupportedException($"Type {value.GetType()} is not supported.")
         };

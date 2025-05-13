@@ -241,38 +241,26 @@ internal class MethodVisitor
                 return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
             }
 
-            switch (node.Method.Name)
+            return node.Method.Name switch
             {
-                case nameof(DateTime.Add):
-                    return ResolveDateAdd(node.Method, obj, arguments!, 1);
-                case nameof(DateTime.AddYears):
-                    return ResolveRelativeDate(node.Method, obj, arguments!, "years");
-                case nameof(DateTime.AddMonths):
-                    return ResolveRelativeDate(node.Method, obj, arguments!, "months");
-                case nameof(DateTime.AddDays):
-                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay);
-                case nameof(DateTime.AddHours):
-                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour);
-                case nameof(DateTime.AddMinutes):
-                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute);
-                case nameof(DateTime.AddSeconds):
-                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerSecond);
-                case nameof(DateTime.AddMilliseconds):
-                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMillisecond);
-                case nameof(DateTime.AddMicroseconds):
-                    return ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMicrosecond);
-                case nameof(DateTime.AddTicks):
-                    return ResolveDateAdd(node.Method, obj, arguments!, 1);
-                case nameof(DateTime.Subtract):
-                    return new SQLExpression(
-                        node.Method.ReturnType,
-                        visitor.IdentifierIndex++,
-                        $"{obj.Sql} - {arguments[0].Sql}",
-                        CommonHelpers.CombineParameters(obj, arguments[0].Sql!)
-                    );
-                default:
-                    return node;
-            }
+                nameof(DateTime.Add) => ResolveDateAdd(node.Method, obj, arguments!, 1),
+                nameof(DateTime.AddYears) => ResolveRelativeDate(node.Method, obj, arguments!, "years"),
+                nameof(DateTime.AddMonths) => ResolveRelativeDate(node.Method, obj, arguments!, "months"),
+                nameof(DateTime.AddDays) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay),
+                nameof(DateTime.AddHours) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour),
+                nameof(DateTime.AddMinutes) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute),
+                nameof(DateTime.AddSeconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerSecond),
+                nameof(DateTime.AddMilliseconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMillisecond),
+                nameof(DateTime.AddMicroseconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMicrosecond),
+                nameof(DateTime.AddTicks) => ResolveDateAdd(node.Method, obj, arguments!, 1),
+                nameof(DateTime.Subtract) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"{obj.Sql} - {arguments[0].Sql}",
+                    CommonHelpers.CombineParameters(obj, arguments[0].Sql!)
+                ),
+                _ => node
+            };
         }
         else
         {
@@ -298,6 +286,147 @@ internal class MethodVisitor
                     return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTime.FromBinary((long)arguments[0].Constant!).Ticks);
                 }
             }
+        }
+
+        return node;
+    }
+
+    public Expression HandleDateTimeOffsetMethod(MethodCallExpression node)
+    {
+        if (node.Object != null)
+        {
+            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
+            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
+                .Select(visitor.ResolveExpressionWithConstant)
+                .ToList();
+
+            if (obj == null || arguments.Any(f => f.Sql == null))
+            {
+                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+            }
+
+            return node.Method.Name switch
+            {
+                nameof(DateTimeOffset.Add) => ResolveDateAdd(node.Method, obj, arguments!, 1),
+                nameof(DateTimeOffset.AddYears) => ResolveRelativeDate(node.Method, obj, arguments!, "years"),
+                nameof(DateTimeOffset.AddMonths) => ResolveRelativeDate(node.Method, obj, arguments!, "months"),
+                nameof(DateTimeOffset.AddDays) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay),
+                nameof(DateTimeOffset.AddHours) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour),
+                nameof(DateTimeOffset.AddMinutes) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute),
+                nameof(DateTimeOffset.AddSeconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerSecond),
+                nameof(DateTimeOffset.AddMilliseconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMillisecond),
+                nameof(DateTimeOffset.AddMicroseconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMicrosecond),
+                nameof(DateTimeOffset.AddTicks) => ResolveDateAdd(node.Method, obj, arguments!, 1),
+                nameof(DateTimeOffset.Subtract) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"{obj.Sql} - {arguments[0].Sql}",
+                    CommonHelpers.CombineParameters(obj, arguments[0].Sql!)
+                ),
+                _ => node
+            };
+        }
+        else
+        {
+            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
+                .Select(visitor.ResolveExpressionWithConstant)
+                .ToList();
+
+            if (arguments.Any(f => f.Sql == null))
+            {
+                return Expression.Call(node.Method, arguments.Select(f => f.Expression));
+            }
+
+            switch (node.Method.Name)
+            {
+                case nameof(DateTimeOffset.Parse):
+                {
+                    string pName = $"@p{visitor.ParamIndex.Index++}";
+                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTimeOffset.Parse((string)arguments[0].Constant!).Ticks);
+                }
+            }
+        }
+
+        return node;
+    }
+    
+    public Expression HandleTimeSpanMethod(MethodCallExpression node)
+    {
+        if (node.Object != null)
+        {
+            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
+            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
+                .Select(visitor.ResolveExpressionWithConstant)
+                .ToList();
+
+            if (obj == null || arguments.Any(f => f.Sql == null))
+            {
+                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+            }
+
+            return node.Method.Name switch
+            {
+                nameof(TimeSpan.Add) => ResolveDateAdd(node.Method, obj, arguments!, 1),
+                nameof(TimeSpan.Subtract) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"{obj.Sql} - {arguments[0].Sql}",
+                    CommonHelpers.CombineParameters(obj, arguments[0].Sql!)
+                ),
+                _ => node
+            };
+        }
+
+        return node;
+    }
+    
+    public Expression HandleDateOnlyMethod(MethodCallExpression node)
+    {
+        if (node.Object != null)
+        {
+            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
+            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
+                .Select(visitor.ResolveExpressionWithConstant)
+                .ToList();
+
+            if (obj == null || arguments.Any(f => f.Sql == null))
+            {
+                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+            }
+
+            return node.Method.Name switch
+            {
+                nameof(DateOnly.AddYears) => ResolveRelativeDate(node.Method, obj, arguments!, "years"),
+                nameof(DateOnly.AddMonths) => ResolveRelativeDate(node.Method, obj, arguments!, "months"),
+                nameof(DateOnly.AddDays) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay),
+                _ => node
+            };
+        }
+
+        return node;
+    }
+    
+    public Expression HandleTimeOnlyMethod(MethodCallExpression node)
+    {
+        if (node.Object != null)
+        {
+            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
+            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
+                .Select(visitor.ResolveExpressionWithConstant)
+                .ToList();
+
+            if (obj == null || arguments.Any(f => f.Sql == null))
+            {
+                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+            }
+
+            return node.Method.Name switch
+            {
+                nameof(TimeOnly.Add) => ResolveDateAdd(node.Method, obj, arguments!, 1),
+                nameof(TimeOnly.AddHours) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour),
+                nameof(TimeOnly.AddMinutes) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute),
+                _ => node
+            };
         }
 
         return node;

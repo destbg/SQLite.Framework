@@ -4,20 +4,20 @@ using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
-public class DateTimeTests
+public class DateTimeOffsetTests
 {
-    private const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss zz";
+    private const string DateTimeOffsetFormat = "yyyy-MM-dd HH:mm:ss zz";
 
     private class TestEntity
     {
         [Key]
         public required int Id { get; set; }
 
-        public required DateTime Date { get; set; }
+        public required DateTimeOffset Date { get; set; }
     }
 
     [Fact]
-    public void AddToDateTime()
+    public void AddToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -33,11 +33,11 @@ public class DateTimeTests
 
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
-        Assert.Equal(new DateTime(2000, 2, 4, 4, 5, 6, 7, 8), author.Date);
+        Assert.Equal(new DateTimeOffset(2000, 2, 4, 4, 5, 6, 7, 8, TimeSpan.Zero), author.Date);
     }
 
     [Fact]
-    public void AddYearsToDateTime()
+    public void AddYearsToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -53,11 +53,11 @@ public class DateTimeTests
 
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
-        Assert.Equal(new DateTime(7000, 2, 3, 4, 5, 6, 7, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+        Assert.Equal(new DateTimeOffset(7000, 2, 3, 4, 5, 6, 7, 8, TimeSpan.Zero).ToString(DateTimeOffsetFormat), author.Date.ToString(DateTimeOffsetFormat));
     }
 
     [Fact]
-    public void AddMonthsToDateTime()
+    public void AddMonthsToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -73,11 +73,11 @@ public class DateTimeTests
 
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
-        Assert.Equal(new DateTime(2000, 4, 3, 4, 5, 6, 7, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+        Assert.Equal(new DateTimeOffset(2000, 4, 3, 4, 5, 6, 7, 8, TimeSpan.Zero).ToString(DateTimeOffsetFormat), author.Date.ToString(DateTimeOffsetFormat));
     }
 
     [Fact]
-    public void AddDaysToDateTime()
+    public void AddDaysToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -93,11 +93,11 @@ public class DateTimeTests
 
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
-        Assert.Equal(new DateTime(2000, 2, 13, 4, 5, 6, 7, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+        Assert.Equal(new DateTimeOffset(2000, 2, 13, 4, 5, 6, 7, 8, TimeSpan.Zero).ToString(DateTimeOffsetFormat), author.Date.ToString(DateTimeOffsetFormat));
     }
 
     [Fact]
-    public void AddHoursToDateTime()
+    public void AddHoursToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -113,11 +113,11 @@ public class DateTimeTests
 
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
-        Assert.Equal(new DateTime(2000, 2, 3, 9, 5, 6, 7, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+        Assert.Equal(new DateTimeOffset(2000, 2, 3, 9, 5, 6, 7, 8, TimeSpan.Zero).ToString(DateTimeOffsetFormat), author.Date.ToString(DateTimeOffsetFormat));
     }
 
     [Fact]
-    public void AddMinutesToDateTime()
+    public void AddMinutesToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -133,11 +133,11 @@ public class DateTimeTests
 
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
-        Assert.Equal(new DateTime(2000, 2, 3, 4, 35, 6, 7, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+        Assert.Equal(new DateTimeOffset(2000, 2, 3, 4, 35, 6, 7, 8, TimeSpan.Zero).ToString(DateTimeOffsetFormat), author.Date.ToString(DateTimeOffsetFormat));
     }
 
     [Fact]
-    public void AddSecondsToDateTime()
+    public void AddSecondsToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -153,11 +153,11 @@ public class DateTimeTests
 
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
-        Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 51, 7, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+        Assert.Equal(new DateTimeOffset(2000, 2, 3, 4, 5, 51, 7, 8, TimeSpan.Zero).ToString(DateTimeOffsetFormat), author.Date.ToString(DateTimeOffsetFormat));
     }
 
     [Fact]
-    public void AddMillisecondsToDateTime()
+    public void AddMillisecondsToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -173,11 +173,11 @@ public class DateTimeTests
 
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
-        Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 6, 9, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+        Assert.Equal(new DateTimeOffset(2000, 2, 3, 4, 5, 6, 9, 8, TimeSpan.Zero).ToString(DateTimeOffsetFormat), author.Date.ToString(DateTimeOffsetFormat));
     }
 
     [Fact]
-    public void AddTicksToDateTime()
+    public void AddTicksToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -193,11 +193,11 @@ public class DateTimeTests
 
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
-        Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 6, 7, 8).Ticks + 100, author.Date.Ticks);
+        Assert.Equal(new DateTimeOffset(2000, 2, 3, 4, 5, 6, 7, 8, TimeSpan.Zero).Ticks + 100, author.Date.Ticks);
     }
 
     [Fact]
-    public void AccessDateTimeYearDirectly()
+    public void AccessDateTimeOffsetYearDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -211,7 +211,7 @@ public class DateTimeTests
     }
 
     [Fact]
-    public void AccessDateTimeMonthDirectly()
+    public void AccessDateTimeOffsetMonthDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -225,7 +225,7 @@ public class DateTimeTests
     }
 
     [Fact]
-    public void AccessDateTimeDayDirectly()
+    public void AccessDateTimeOffsetDayDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -239,7 +239,7 @@ public class DateTimeTests
     }
 
     [Fact]
-    public void AccessDateTimeHourDirectly()
+    public void AccessDateTimeOffsetHourDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -253,7 +253,7 @@ public class DateTimeTests
     }
 
     [Fact]
-    public void AccessDateTimeMinuteDirectly()
+    public void AccessDateTimeOffsetMinuteDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -267,7 +267,7 @@ public class DateTimeTests
     }
 
     [Fact]
-    public void AccessDateTimeSecondDirectly()
+    public void AccessDateTimeOffsetSecondDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -281,7 +281,7 @@ public class DateTimeTests
     }
 
     [Fact]
-    public void AccessDateTimeMillisecondDirectly()
+    public void AccessDateTimeOffsetMillisecondDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -295,7 +295,7 @@ public class DateTimeTests
     }
 
     [Fact]
-    public void AccessDateTimeTicksDirectly()
+    public void AccessDateTimeOffsetTicksDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -305,11 +305,11 @@ public class DateTimeTests
             select a.Date.Ticks
         ).First();
 
-        Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 6, 7, 8).Ticks, ticks);
+        Assert.Equal(new DateTimeOffset(2000, 2, 3, 4, 5, 6, 7, 8, TimeSpan.Zero).Ticks, ticks);
     }
 
     [Fact]
-    public void AccessDateTimeDayOfWeekDirectly()
+    public void AccessDateTimeOffsetDayOfWeekDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -323,7 +323,7 @@ public class DateTimeTests
     }
 
     [Fact]
-    public void AccessDateTimeDayOfYearDirectly()
+    public void AccessDateTimeOffsetDayOfYearDirectly()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -347,7 +347,7 @@ public class DateTimeTests
             new TestEntity
             {
                 Id = 1,
-                Date = new DateTime(2000, 2, 3, 4, 5, 6, 7, 8)
+                Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, 7, 8, TimeSpan.Zero)
             }
         });
 
