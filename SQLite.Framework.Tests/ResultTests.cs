@@ -419,6 +419,16 @@ public class ResultTests
         Assert.False(contains);
     }
 
+    [Fact]
+    public void WhereContainsTrue()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        bool contains = db.Table<Book>().Where(f => f.Title.StartsWith("Book%")).Select(f => f.Id).Any();
+
+        Assert.False(contains);
+    }
+
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(methodName);

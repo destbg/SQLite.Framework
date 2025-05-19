@@ -147,7 +147,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p1
+                     WHERE b0.BookTitle LIKE @p1 ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -171,7 +171,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p2 COLLATE NOCASE
+                     WHERE b0.BookTitle LIKE @p2 ESCAPE '\' COLLATE NOCASE
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -195,7 +195,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p1
+                     WHERE b0.BookTitle LIKE @p1 ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -207,19 +207,19 @@ public class MethodCallTests
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
-            where book.Title.EndsWith("test")
+            where book.Title.EndsWith("test%")
             select book
         ).ToSqlCommand();
 
         Assert.Single(command.Parameters);
-        Assert.Equal("%test", command.Parameters[0].Value);
+        Assert.Equal("%test\\%", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
                             b0.BookTitle AS "Title",
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p1
+                     WHERE b0.BookTitle LIKE @p1 ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

@@ -349,7 +349,7 @@ internal class MethodVisitor
 
         return node;
     }
-    
+
     public Expression HandleTimeSpanMethod(MethodCallExpression node)
     {
         if (node.Object != null)
@@ -379,7 +379,7 @@ internal class MethodVisitor
 
         return node;
     }
-    
+
     public Expression HandleDateOnlyMethod(MethodCallExpression node)
     {
         if (node.Object != null)
@@ -405,7 +405,7 @@ internal class MethodVisitor
 
         return node;
     }
-    
+
     public Expression HandleTimeOnlyMethod(MethodCallExpression node)
     {
         if (node.Object != null)
@@ -505,10 +505,10 @@ internal class MethodVisitor
 
         if (arguments.Any(f => f.Sql == null))
         {
-            return Expression.Call(node.Method, [innerSql, ..arguments.Select(f => f.Expression)]);
+            return Expression.Call(node.Method, [innerSql, .. arguments.Select(f => f.Expression)]);
         }
 
-        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters([innerSql, ..arguments.Select(f => f.Sql!)]);
+        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters([innerSql, .. arguments.Select(f => f.Sql!)]);
 
         return node.Method.Name switch
         {
@@ -568,7 +568,7 @@ internal class MethodVisitor
                     node.Method.ReturnType,
                     visitor.IdentifierIndex++,
                     $"{arguments[0].Sql!.Sql} IN ({string.Join(", ", parameters.Select(f => f.Name))})",
-                    [..arguments[0].Sql!.Parameters ?? [], ..parameters]
+                    [.. arguments[0].Sql!.Parameters ?? [], .. parameters]
                 );
             }
         }
@@ -578,13 +578,13 @@ internal class MethodVisitor
 
     private SQLExpression ResolveLike(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
     {
-        string noCase = string.Empty;
+        string rest = "ESCAPE '\\'";
         if (arguments.Count == 2)
         {
             StringComparison comparison = (StringComparison)arguments[1].Constant!;
             if (comparison is StringComparison.OrdinalIgnoreCase or StringComparison.CurrentCultureIgnoreCase or StringComparison.InvariantCultureIgnoreCase)
             {
-                noCase = " COLLATE NOCASE";
+                rest += " COLLATE NOCASE";
             }
         }
 
@@ -594,14 +594,19 @@ internal class MethodVisitor
             SQLiteParameter parameter = new()
             {
                 Name = pName,
-                Value = selectParameter(arguments[0].Constant)
+                Value = arguments[0].Constant is string likeText
+                    ? selectParameter(likeText
+                        .Replace("\\", "\\\\")
+                        .Replace("%", "\\%")
+                        .Replace("_", "\\_"))
+                    : arguments[0].Constant
             };
 
             SQLiteParameter[] parameters = obj.Parameters == null
                 ? [parameter]
-                : [..obj.Parameters, parameter];
+                : [.. obj.Parameters, parameter];
 
-            return new SQLExpression(method.ReturnType, visitor.IdentifierIndex++, $"{obj.Sql} LIKE {pName}{noCase}", parameters);
+            return new SQLExpression(method.ReturnType, visitor.IdentifierIndex++, $"{obj.Sql} LIKE {pName} {rest}", parameters);
         }
         else
         {
@@ -610,7 +615,7 @@ internal class MethodVisitor
             return new SQLExpression(
                 method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"{obj.Sql} LIKE {selectValue(arguments[0].Sql)}{noCase}",
+                $"{obj.Sql} LIKE {selectValue(arguments[0].Sql)} {rest}",
                 parameters
             );
         }
@@ -643,7 +648,7 @@ internal class MethodVisitor
                 sb.Append(')');
             }
 
-            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters([obj, ..args.Select(f => f.Sql!)]);
+            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters([obj, .. args.Select(f => f.Sql!)]);
             return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, sb.ToString(), parameters);
         }
         else
@@ -671,7 +676,7 @@ internal class MethodVisitor
             method.ReturnType,
             visitor.IdentifierIndex++,
             $"CAST({obj.Sql} + ({arguments[0].Sql.Sql} * {parameter.Name}) AS 'INTEGER')",
-            [..obj.Parameters ?? [], ..arguments[0].Sql.Parameters ?? [], parameter]
+            [.. obj.Parameters ?? [], .. arguments[0].Sql.Parameters ?? [], parameter]
         );
     }
 
@@ -687,7 +692,7 @@ internal class MethodVisitor
                 Value = $"+{arguments[0].Constant} {addType}"
             };
 
-            SQLiteParameter[] parameters = [..obj.Parameters ?? [], tickParameter, tickToSecondParameter, parameter];
+            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter, parameter];
 
             string sql = $"CAST(STRFTIME('%s',DATETIME(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', {parameter.Name})) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}";
 
@@ -695,7 +700,7 @@ internal class MethodVisitor
         }
         else
         {
-            SQLiteParameter[] parameters = [..obj.Parameters ?? [], ..arguments[0].Sql.Parameters ?? [], tickParameter, tickToSecondParameter];
+            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], .. arguments[0].Sql.Parameters ?? [], tickParameter, tickToSecondParameter];
 
             string sql = $"CAST(STRFTIME('%s',DATETIME(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', '+'||{arguments[0].Sql.Sql}||' {addType}')) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}";
 
