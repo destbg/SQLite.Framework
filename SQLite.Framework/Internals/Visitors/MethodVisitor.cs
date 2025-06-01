@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
@@ -21,93 +22,94 @@ internal class MethodVisitor
 
     public Expression HandleStringMethod(MethodCallExpression node)
     {
+        List<ResolvedModel> arguments = node.Arguments
+            .Select(visitor.ResolveExpression)
+            .ToList();
+
         if (node.Object != null)
         {
-            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
+            ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
-            if (obj == null || arguments.Any(f => f.Sql == null))
+            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null))
             {
-                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
             switch (node.Method.Name)
             {
                 case nameof(string.Contains):
                 {
-                    return ResolveLike(node.Method, obj, arguments!, value => $"%{value}%", valueSql => $"'%'||{valueSql}||'%'");
+                    return ResolveLike(node.Method, obj.SQLExpression, arguments, value => $"%{value}%", valueSql => $"'%'||{valueSql}||'%'");
                 }
                 case nameof(string.StartsWith):
                 {
-                    return ResolveLike(node.Method, obj, arguments!, value => $"{value}%", valueSql => $"{valueSql}||'%'");
+                    return ResolveLike(node.Method, obj.SQLExpression, arguments, value => $"{value}%", valueSql => $"{valueSql}||'%'");
                 }
                 case nameof(string.EndsWith):
                 {
-                    return ResolveLike(node.Method, obj, arguments!, value => $"%{value}", valueSql => $"'%'||{valueSql}");
+                    return ResolveLike(node.Method, obj.SQLExpression, arguments, value => $"%{value}", valueSql => $"'%'||{valueSql}");
                 }
                 case nameof(string.Equals):
                 {
-                    SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].Sql!);
+                    SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!);
                     return new SQLExpression(
                         node.Method.ReturnType,
                         visitor.IdentifierIndex++,
-                        $"{obj.Sql} = {arguments[0].Sql!.Sql}",
+                        $"{obj.Sql} = {arguments[0].Sql}",
                         parameters
                     );
                 }
                 case nameof(string.IndexOf):
                 {
-                    SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].Sql!);
+                    SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!);
                     return new SQLExpression(
                         node.Method.ReturnType,
                         visitor.IdentifierIndex++,
-                        $"INSTR({obj.Sql}, {arguments[0].Sql!.Sql})",
+                        $"INSTR({obj.Sql}, {arguments[0].Sql})",
                         parameters
                     );
                 }
                 case nameof(string.Replace):
                 {
-                    SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].Sql!, arguments[1].Sql!);
+                    SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!, arguments[1].SQLExpression!);
                     return new SQLExpression(
                         node.Method.ReturnType,
                         visitor.IdentifierIndex++,
-                        $"REPLACE({obj.Sql}, {arguments[0].Sql!.Sql}, {arguments[1].Sql!.Sql})",
+                        $"REPLACE({obj.Sql}, {arguments[0].Sql}, {arguments[1].Sql})",
                         parameters
                     );
                 }
                 case nameof(string.Trim):
                 {
-                    return ResolveTrim(node, obj, arguments!, "TRIM");
+                    return ResolveTrim(node, obj.SQLExpression, arguments, "TRIM");
                 }
                 case nameof(string.TrimStart):
                 {
-                    return ResolveTrim(node, obj, arguments!, "LTRIM");
+                    return ResolveTrim(node, obj.SQLExpression, arguments, "LTRIM");
                 }
                 case nameof(string.TrimEnd):
                 {
-                    return ResolveTrim(node, obj, arguments!, "RTRIM");
+                    return ResolveTrim(node, obj.SQLExpression, arguments, "RTRIM");
                 }
                 case nameof(string.Substring):
                 {
                     if (node.Arguments.Count == 2)
                     {
-                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].Sql!, arguments[1].Sql!);
+                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!, arguments[1].SQLExpression!);
                         return new SQLExpression(
                             node.Method.ReturnType,
                             visitor.IdentifierIndex++,
-                            $"SUBSTR({obj.Sql}, {arguments[0].Sql!.Sql}, {arguments[1].Sql!.Sql})",
+                            $"SUBSTR({obj.Sql}, {arguments[0].Sql}, {arguments[1].Sql})",
                             parameters
                         );
                     }
                     else
                     {
-                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].Sql!);
+                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!);
                         return new SQLExpression(
                             node.Method.ReturnType,
                             visitor.IdentifierIndex++,
-                            $"SUBSTR({obj.Sql}, {arguments[0].Sql!.Sql})",
+                            $"SUBSTR({obj.Sql}, {arguments[0].Sql})",
                             parameters
                         );
                     }
@@ -134,93 +136,84 @@ internal class MethodVisitor
                 }
             }
         }
-        else
+        else if (CheckConstantMethod<string>(node, arguments, out Expression? expression))
         {
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
-
-            if (arguments.Any(f => f.Sql == null))
-            {
-                return Expression.Call(node.Method, arguments.Select(f => f.Expression));
-            }
-
-            switch (node.Method.Name)
-            {
-                case nameof(string.IsNullOrEmpty):
-                {
-                    return new SQLExpression(
-                        node.Method.ReturnType,
-                        visitor.IdentifierIndex++,
-                        $"({arguments[0].Sql!.Sql} IS NULL OR {arguments[0].Sql!.Sql} = '')",
-                        arguments[0].Sql!.Parameters
-                    );
-                }
-                case nameof(string.IsNullOrWhiteSpace):
-                {
-                    return new SQLExpression(
-                        node.Method.ReturnType,
-                        visitor.IdentifierIndex++,
-                        $"({arguments[0].Sql!.Sql} IS NULL OR TRIM({arguments[0].Sql!.Sql}, ' ') = '')",
-                        arguments[0].Sql!.Parameters
-                    );
-                }
-                // TODO: Add concat and join
-            }
+            return expression;
         }
 
-        return node;
+        return node.Method.Name switch
+        {
+            nameof(string.IsNullOrEmpty) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"({arguments[0].Sql} IS NULL OR {arguments[0].Sql} = '')",
+                arguments[0].Parameters
+            ),
+            nameof(string.IsNullOrWhiteSpace) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"({arguments[0].Sql} IS NULL OR TRIM({arguments[0].Sql}, ' ') = '')",
+                arguments[0].Parameters
+            ),
+            nameof(string.Concat) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                string.Join(" || ", arguments.Select(f => f.Sql)),
+                CommonHelpers.CombineParameters(arguments.Select(f => f.SQLExpression!).ToArray())
+            ),
+            _ => node
+        };
     }
 
     public Expression HandleMathMethod(MethodCallExpression node)
     {
-        List<(SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
+        List<ResolvedModel> arguments = node.Arguments
             .Select(visitor.ResolveExpression)
             .ToList();
 
-        if (arguments.Any(f => f.Sql == null))
+        if (CheckConstantMethod<double>(node, arguments, out Expression? expression))
         {
-            return Expression.Call(node.Method, arguments.Select(f => f.Expression));
+            return expression;
         }
 
-        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(arguments.Select(f => f.Sql!).ToArray());
+        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(arguments.Select(f => f.SQLExpression!).ToArray());
 
         return node.Method.Name switch
         {
             nameof(Math.Min) => new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"(CASE WHEN {arguments[0].Sql!.Sql} < {arguments[1].Sql!.Sql} THEN {arguments[0].Sql!.Sql} ELSE {arguments[1].Sql!.Sql} END)",
+                $"(CASE WHEN {arguments[0].Sql} < {arguments[1].Sql} THEN {arguments[0].Sql} ELSE {arguments[1].Sql} END)",
                 parameters
             ),
             nameof(Math.Max) => new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"(CASE WHEN {arguments[0].Sql!.Sql} > {arguments[1].Sql!.Sql} THEN {arguments[0].Sql!.Sql} ELSE {arguments[1].Sql!.Sql} END)",
+                $"(CASE WHEN {arguments[0].Sql} > {arguments[1].Sql} THEN {arguments[0].Sql} ELSE {arguments[1].Sql} END)",
                 parameters
             ),
             nameof(Math.Abs) => new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"ABS({arguments[0].Sql!.Sql})",
+                $"ABS({arguments[0].Sql})",
                 parameters
             ),
             nameof(Math.Round) => new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"ROUND({arguments[0].Sql!.Sql})",
+                $"ROUND({arguments[0].Sql})",
                 parameters
             ),
             nameof(Math.Ceiling) => new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"CEIL({arguments[0].Sql!.Sql})",
+                $"CEIL({arguments[0].Sql})",
                 parameters
             ),
             nameof(Math.Floor) => new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"FLOOR({arguments[0].Sql!.Sql})",
+                $"FLOOR({arguments[0].Sql})",
                 parameters
             ),
             _ => node
@@ -229,178 +222,187 @@ internal class MethodVisitor
 
     public Expression HandleDateTimeMethod(MethodCallExpression node)
     {
+        List<ResolvedModel> arguments = node.Arguments
+            .Select(visitor.ResolveExpression)
+            .ToList();
+
         if (node.Object != null)
         {
-            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
+            ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
-            if (obj == null || arguments.Any(f => f.Sql == null))
+            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null))
             {
-                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
             return node.Method.Name switch
             {
-                nameof(DateTime.Add) => ResolveDateAdd(node.Method, obj, arguments!, 1),
-                nameof(DateTime.AddYears) => ResolveRelativeDate(node.Method, obj, arguments!, "years"),
-                nameof(DateTime.AddMonths) => ResolveRelativeDate(node.Method, obj, arguments!, "months"),
-                nameof(DateTime.AddDays) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay),
-                nameof(DateTime.AddHours) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour),
-                nameof(DateTime.AddMinutes) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute),
-                nameof(DateTime.AddSeconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerSecond),
-                nameof(DateTime.AddMilliseconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMillisecond),
-                nameof(DateTime.AddMicroseconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMicrosecond),
-                nameof(DateTime.AddTicks) => ResolveDateAdd(node.Method, obj, arguments!, 1),
+                nameof(DateTime.Add) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
+                nameof(DateTime.AddYears) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "years"),
+                nameof(DateTime.AddMonths) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "months"),
+                nameof(DateTime.AddDays) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerDay),
+                nameof(DateTime.AddHours) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerHour),
+                nameof(DateTime.AddMinutes) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMinute),
+                nameof(DateTime.AddSeconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerSecond),
+                nameof(DateTime.AddMilliseconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMillisecond),
+                nameof(DateTime.AddMicroseconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMicrosecond),
+                nameof(DateTime.AddTicks) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
                 nameof(DateTime.Subtract) => new SQLExpression(
                     node.Method.ReturnType,
                     visitor.IdentifierIndex++,
                     $"{obj.Sql} - {arguments[0].Sql}",
-                    CommonHelpers.CombineParameters(obj, arguments[0].Sql!)
+                    CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!)
                 ),
                 _ => node
             };
         }
-        else
+        else if (CheckConstantMethod<DateTime>(node, arguments, out Expression? expression))
         {
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
-
-            if (arguments.Any(f => f.Sql == null))
-            {
-                return Expression.Call(node.Method, arguments.Select(f => f.Expression));
-            }
-
-            switch (node.Method.Name)
-            {
-                case nameof(DateTime.Parse):
-                {
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTime.Parse((string)arguments[0].Constant!).Ticks);
-                }
-                case nameof(DateTime.FromBinary):
-                {
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTime.FromBinary((long)arguments[0].Constant!).Ticks);
-                }
-            }
+            return expression;
         }
 
-        return node;
+        return node.Method.Name switch
+        {
+            nameof(DateTime.Parse) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"@p{visitor.ParamIndex.Index++}",
+                DateTime.Parse((string)arguments[0].Constant!).Ticks
+            ),
+            nameof(DateTime.FromBinary) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"@p{visitor.ParamIndex.Index++}",
+                DateTime.FromBinary((long)arguments[0].Constant!).Ticks
+            ),
+            _ => node
+        };
     }
 
     public Expression HandleDateTimeOffsetMethod(MethodCallExpression node)
     {
+        List<ResolvedModel> arguments = node.Arguments
+            .Select(visitor.ResolveExpression)
+            .ToList();
+
         if (node.Object != null)
         {
-            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
+            ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
-            if (obj == null || arguments.Any(f => f.Sql == null))
+            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null))
             {
-                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
             return node.Method.Name switch
             {
-                nameof(DateTimeOffset.Add) => ResolveDateAdd(node.Method, obj, arguments!, 1),
-                nameof(DateTimeOffset.AddYears) => ResolveRelativeDate(node.Method, obj, arguments!, "years"),
-                nameof(DateTimeOffset.AddMonths) => ResolveRelativeDate(node.Method, obj, arguments!, "months"),
-                nameof(DateTimeOffset.AddDays) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay),
-                nameof(DateTimeOffset.AddHours) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour),
-                nameof(DateTimeOffset.AddMinutes) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute),
-                nameof(DateTimeOffset.AddSeconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerSecond),
-                nameof(DateTimeOffset.AddMilliseconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMillisecond),
-                nameof(DateTimeOffset.AddMicroseconds) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMicrosecond),
-                nameof(DateTimeOffset.AddTicks) => ResolveDateAdd(node.Method, obj, arguments!, 1),
+                nameof(DateTimeOffset.Add) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
+                nameof(DateTimeOffset.AddYears) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "years"),
+                nameof(DateTimeOffset.AddMonths) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "months"),
+                nameof(DateTimeOffset.AddDays) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerDay),
+                nameof(DateTimeOffset.AddHours) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerHour),
+                nameof(DateTimeOffset.AddMinutes) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMinute),
+                nameof(DateTimeOffset.AddSeconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerSecond),
+                nameof(DateTimeOffset.AddMilliseconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMillisecond),
+                nameof(DateTimeOffset.AddMicroseconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMicrosecond),
+                nameof(DateTimeOffset.AddTicks) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
                 nameof(DateTimeOffset.Subtract) => new SQLExpression(
                     node.Method.ReturnType,
                     visitor.IdentifierIndex++,
                     $"{obj.Sql} - {arguments[0].Sql}",
-                    CommonHelpers.CombineParameters(obj, arguments[0].Sql!)
+                    CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!)
                 ),
                 _ => node
             };
         }
-        else
+        else if (CheckConstantMethod<DateTimeOffset>(node, arguments, out Expression? expression))
         {
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
-
-            if (arguments.Any(f => f.Sql == null))
-            {
-                return Expression.Call(node.Method, arguments.Select(f => f.Expression));
-            }
-
-            switch (node.Method.Name)
-            {
-                case nameof(DateTimeOffset.Parse):
-                {
-                    string pName = $"@p{visitor.ParamIndex.Index++}";
-                    return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, DateTimeOffset.Parse((string)arguments[0].Constant!).Ticks);
-                }
-            }
+            return expression;
         }
 
-        return node;
+        return node.Method.Name switch
+        {
+            nameof(DateTimeOffset.Parse) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"@p{visitor.ParamIndex.Index++}",
+                DateTimeOffset.Parse((string)arguments[0].Constant!).Ticks
+            ),
+            _ => node
+        };
     }
 
     public Expression HandleTimeSpanMethod(MethodCallExpression node)
     {
+        List<ResolvedModel> arguments = node.Arguments
+            .Select(visitor.ResolveExpression)
+            .ToList();
+
         if (node.Object != null)
         {
-            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
+            ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
-            if (obj == null || arguments.Any(f => f.Sql == null))
+            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null))
             {
-                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
             return node.Method.Name switch
             {
-                nameof(TimeSpan.Add) => ResolveDateAdd(node.Method, obj, arguments!, 1),
+                nameof(TimeSpan.Add) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
                 nameof(TimeSpan.Subtract) => new SQLExpression(
                     node.Method.ReturnType,
                     visitor.IdentifierIndex++,
                     $"{obj.Sql} - {arguments[0].Sql}",
-                    CommonHelpers.CombineParameters(obj, arguments[0].Sql!)
+                    CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!)
                 ),
                 _ => node
             };
         }
+        else if (CheckConstantMethod<TimeSpan>(node, arguments, out Expression? expression))
+        {
+            return expression;
+        }
 
-        return node;
+        return node.Method.Name switch
+        {
+            nameof(TimeSpan.FromDays) => ResolveParse(node.Method, arguments, TimeSpan.TicksPerDay),
+            nameof(TimeSpan.FromHours) => ResolveParse(node.Method, arguments, TimeSpan.TicksPerHour),
+            nameof(TimeSpan.FromMinutes) => ResolveParse(node.Method, arguments, TimeSpan.TicksPerMinute),
+            nameof(TimeSpan.FromSeconds) => ResolveParse(node.Method, arguments, TimeSpan.TicksPerSecond),
+            nameof(TimeSpan.FromMilliseconds) => ResolveParse(node.Method, arguments, TimeSpan.TicksPerMillisecond),
+            nameof(TimeSpan.FromMicroseconds) => ResolveParse(node.Method, arguments, TimeSpan.TicksPerMicrosecond),
+            nameof(TimeSpan.FromTicks) => ResolveParse(node.Method, arguments, 1),
+            _ => node
+        };
     }
 
     public Expression HandleDateOnlyMethod(MethodCallExpression node)
     {
+        List<ResolvedModel> arguments = node.Arguments
+            .Select(visitor.ResolveExpression)
+            .ToList();
+
         if (node.Object != null)
         {
-            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
+            ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
-            if (obj == null || arguments.Any(f => f.Sql == null))
+            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null))
             {
-                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
             return node.Method.Name switch
             {
-                nameof(DateOnly.AddYears) => ResolveRelativeDate(node.Method, obj, arguments!, "years"),
-                nameof(DateOnly.AddMonths) => ResolveRelativeDate(node.Method, obj, arguments!, "months"),
-                nameof(DateOnly.AddDays) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerDay),
+                nameof(DateOnly.AddYears) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "years"),
+                nameof(DateOnly.AddMonths) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "months"),
+                nameof(DateOnly.AddDays) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerDay),
                 _ => node
             };
+        }
+        else if (CheckConstantMethod<DateOnly>(node, arguments, out Expression? expression))
+        {
+            return expression;
         }
 
         return node;
@@ -408,25 +410,30 @@ internal class MethodVisitor
 
     public Expression HandleTimeOnlyMethod(MethodCallExpression node)
     {
+        List<ResolvedModel> arguments = node.Arguments
+            .Select(visitor.ResolveExpression)
+            .ToList();
+
         if (node.Object != null)
         {
-            (SQLExpression? obj, Expression objectExpression) = visitor.ResolveExpression(node.Object);
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
+            ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
-            if (obj == null || arguments.Any(f => f.Sql == null))
+            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null))
             {
-                return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
             return node.Method.Name switch
             {
-                nameof(TimeOnly.Add) => ResolveDateAdd(node.Method, obj, arguments!, 1),
-                nameof(TimeOnly.AddHours) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerHour),
-                nameof(TimeOnly.AddMinutes) => ResolveDateAdd(node.Method, obj, arguments!, TimeSpan.TicksPerMinute),
+                nameof(TimeOnly.Add) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
+                nameof(TimeOnly.AddHours) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerHour),
+                nameof(TimeOnly.AddMinutes) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMinute),
                 _ => node
             };
+        }
+        else if (CheckConstantMethod<TimeOnly>(node, arguments, out Expression? expression))
+        {
+            return expression;
         }
 
         return node;
@@ -434,13 +441,13 @@ internal class MethodVisitor
 
     public Expression HandleGuidMethod(MethodCallExpression node)
     {
+        List<ResolvedModel> arguments = node.Arguments
+            .Select(visitor.ResolveExpression)
+            .ToList();
+
         if (node.Object == null)
         {
-            List<(bool IsConstant, object? Constant, SQLExpression? SqlExpression, Expression Expression)> arguments = node.Arguments
-                .Select(visitor.ResolveExpressionWithConstant)
-                .ToList();
-
-            if (arguments.Any(f => f.SqlExpression == null))
+            if (arguments.Any(f => f.SQLExpression == null))
             {
                 return Expression.Call(node.Method, arguments.Select(f => f.Expression));
             }
@@ -455,6 +462,10 @@ internal class MethodVisitor
                     return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, guid);
                 }
             }
+        }
+        else if (CheckConstantMethod<Guid>(node, arguments, out Expression? expression))
+        {
+            return expression;
         }
 
         return node;
@@ -498,7 +509,7 @@ internal class MethodVisitor
                 : null
         );
 
-        List<(SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
+        List<ResolvedModel> arguments = node.Arguments
             .Skip(1)
             .Select(visitor.ResolveExpression)
             .ToList();
@@ -508,7 +519,7 @@ internal class MethodVisitor
             return Expression.Call(node.Method, [innerSql, .. arguments.Select(f => f.Expression)]);
         }
 
-        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters([innerSql, .. arguments.Select(f => f.Sql!)]);
+        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters([innerSql, .. arguments.Select(f => f.SQLExpression!)]);
 
         return node.Method.Name switch
         {
@@ -522,7 +533,7 @@ internal class MethodVisitor
         };
     }
 
-    public Expression HandleEnumerableMethod(MethodCallExpression node, IEnumerable enumerable, List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments)
+    public Expression HandleEnumerableMethod(MethodCallExpression node, IEnumerable enumerable, List<ResolvedModel> arguments)
     {
         if (arguments.Any(f => f.Sql == null))
         {
@@ -559,16 +570,16 @@ internal class MethodVisitor
                     return new SQLExpression(
                         node.Method.ReturnType,
                         visitor.IdentifierIndex++,
-                        $"{arguments[0].Sql!.Sql} IN ()",
-                        arguments[0].Sql!.Parameters
+                        $"{arguments[0].Sql} IN ()",
+                        arguments[0].Parameters
                     );
                 }
 
                 return new SQLExpression(
                     node.Method.ReturnType,
                     visitor.IdentifierIndex++,
-                    $"{arguments[0].Sql!.Sql} IN ({string.Join(", ", parameters.Select(f => f.Name))})",
-                    [.. arguments[0].Sql!.Parameters ?? [], .. parameters]
+                    $"{arguments[0].Sql} IN ({string.Join(", ", parameters.Select(f => f.Name))})",
+                    [.. arguments[0].Parameters ?? [], .. parameters]
                 );
             }
         }
@@ -639,7 +650,7 @@ internal class MethodVisitor
         };
     }
 
-    private SQLExpression ResolveLike(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
+    private SQLExpression ResolveLike(MethodInfo method, SQLExpression obj, List<ResolvedModel> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
     {
         string rest = "ESCAPE '\\'";
         if (arguments.Count == 2)
@@ -673,18 +684,18 @@ internal class MethodVisitor
         }
         else
         {
-            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].Sql);
+            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].SQLExpression!);
 
             return new SQLExpression(
                 method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"{obj.Sql} LIKE {selectValue(arguments[0].Sql)} {rest}",
+                $"{obj.Sql} LIKE {selectValue(arguments[0].SQLExpression!)} {rest}",
                 parameters
             );
         }
     }
 
-    private Expression ResolveTrim(MethodCallExpression node, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string trimType)
+    private Expression ResolveTrim(MethodCallExpression node, SQLExpression obj, List<ResolvedModel> arguments, string trimType)
     {
         if (arguments.Count == 0)
         {
@@ -693,7 +704,7 @@ internal class MethodVisitor
 
         if (node.Arguments[0] is NewArrayExpression expression)
         {
-            (SQLExpression? Sql, Expression Expression)[] args = expression.Expressions
+            ResolvedModel[] args = expression.Expressions
                 .Select(visitor.ResolveExpression)
                 .ToArray();
 
@@ -711,23 +722,23 @@ internal class MethodVisitor
                 sb.Append(')');
             }
 
-            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters([obj, .. args.Select(f => f.Sql!)]);
+            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters([obj, .. args.Select(f => f.SQLExpression!)]);
             return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, sb.ToString(), parameters);
         }
         else
         {
-            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].Sql);
+            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, arguments[0].SQLExpression!);
 
             return new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"{trimType}({obj.Sql}, {arguments[0].Sql.Sql})",
+                $"{trimType}({obj.Sql}, {arguments[0].Sql})",
                 parameters
             );
         }
     }
 
-    private SQLExpression ResolveDateAdd(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, long multiplyBy)
+    private SQLExpression ResolveDateAdd(MethodInfo method, SQLExpression obj, List<ResolvedModel> arguments, long multiplyBy)
     {
         SQLiteParameter parameter = new()
         {
@@ -738,12 +749,22 @@ internal class MethodVisitor
         return new SQLExpression(
             method.ReturnType,
             visitor.IdentifierIndex++,
-            $"CAST({obj.Sql} + ({arguments[0].Sql.Sql} * {parameter.Name}) AS 'INTEGER')",
-            [.. obj.Parameters ?? [], .. arguments[0].Sql.Parameters ?? [], parameter]
+            $"CAST({obj.Sql} + ({arguments[0].Sql} * {parameter.Name}) AS 'INTEGER')",
+            [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter]
         );
     }
 
-    private SQLExpression ResolveRelativeDate(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, string addType)
+    private SQLExpression ResolveParse(MethodInfo method, List<ResolvedModel> arguments, long multiplyBy)
+    {
+        return new SQLExpression(
+            method.ReturnType,
+            visitor.IdentifierIndex++,
+            $"CAST({multiplyBy} * {arguments[0].Sql} AS INTEGER)",
+            arguments[0].Parameters
+        );
+    }
+
+    private SQLExpression ResolveRelativeDate(MethodInfo method, SQLExpression obj, List<ResolvedModel> arguments, string addType)
     {
         (SQLiteParameter tickParameter, SQLiteParameter tickToSecondParameter) = CreateHelperDateParameters();
 
@@ -763,9 +784,9 @@ internal class MethodVisitor
         }
         else
         {
-            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], .. arguments[0].Sql.Parameters ?? [], tickParameter, tickToSecondParameter];
+            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], tickParameter, tickToSecondParameter];
 
-            string sql = $"CAST(STRFTIME('%s',DATETIME(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', '+'||{arguments[0].Sql.Sql}||' {addType}')) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}";
+            string sql = $"CAST(STRFTIME('%s',DATETIME(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', '+'||{arguments[0].Sql}||' {addType}')) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}";
 
             return new SQLExpression(
                 method.ReturnType,
@@ -819,5 +840,33 @@ internal class MethodVisitor
                 sql.Parameters
             );
         }
+    }
+
+    private bool CheckConstantMethod<T>(MethodCallExpression node, List<ResolvedModel> arguments, [MaybeNullWhen(false)] out Expression expression)
+    {
+        if (arguments.Any(f => f.Sql == null))
+        {
+            expression = Expression.Call(node.Method, arguments.Select(f => f.Expression));
+            return true;
+        }
+
+        Type type = typeof(T);
+
+        if (node.Method.ReturnType.IsAssignableTo(type) && arguments.All(f => f.IsConstant))
+        {
+            object? result = node.Method.Invoke(null, arguments.Select(f => f.Constant).ToArray());
+
+            if (result is not T)
+            {
+                throw new Exception($"Expected {type}, somehow got {result?.GetType()}");
+            }
+
+            string pName = $"@p{visitor.ParamIndex.Index++}";
+            expression = new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex++, pName, result);
+            return true;
+        }
+
+        expression = null;
+        return false;
     }
 }

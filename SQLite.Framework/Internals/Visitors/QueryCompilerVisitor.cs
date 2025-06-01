@@ -123,12 +123,28 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         throw new NotSupportedException($"The index expression '{node}' is not supported.");
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "List type should be preserved")]
     protected override Expression VisitMember(MemberExpression node)
     {
         if (CommonHelpers.IsConstant(node))
         {
             object? value = CommonHelpers.GetConstantValue(node);
             return new CompiledExpression(node.Type, _ => value);
+        }
+        else if (node.Expression != null)
+        {
+            CompiledExpression innerExpression = (CompiledExpression)Visit(node.Expression);
+
+            return new CompiledExpression(node.Type, context =>
+            {
+                dynamic? instance = innerExpression.Call(context);
+                return node.Member switch
+                {
+                    FieldInfo field => field.GetValue(instance),
+                    PropertyInfo property => property.GetValue(instance),
+                    _ => throw new NotSupportedException($"The member '{node.Member}' is not supported.")
+                };
+            });
         }
 
         throw new NotSupportedException($"The member expression '{node}' is not supported.");
@@ -276,7 +292,11 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             dynamic? instance = newExpression.Call(ctx);
             foreach ((MemberBinding binding, CompiledExpression expression) in bindings)
             {
-                if (binding.Member is FieldInfo fieldInfo)
+                if (binding is MemberMemberBinding)
+                {
+                    expression.Call(ctx);
+                }
+                else if (binding.Member is FieldInfo fieldInfo)
                 {
                     object? value = expression.Call(ctx);
                     fieldInfo.SetValue(instance, value);

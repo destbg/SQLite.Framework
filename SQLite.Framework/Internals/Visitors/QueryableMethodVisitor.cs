@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
-using System.Reflection;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
@@ -15,6 +14,7 @@ internal class QueryableMethodVisitor
     private readonly SQLiteDatabase database;
     private readonly SelectVisitor selectVisitor;
     private readonly SQLVisitor visitor;
+    private readonly AliasVisitor aliasVisitor;
 
     public QueryableMethodVisitor(SQLiteDatabase database, SQLVisitor visitor)
     {
@@ -22,6 +22,7 @@ internal class QueryableMethodVisitor
         this.visitor = visitor;
         Selects = [];
         selectVisitor = new SelectVisitor(Selects);
+        aliasVisitor = new AliasVisitor(database, visitor);
     }
 
     public List<JoinInfo> Joins { get; } = [];
@@ -84,7 +85,7 @@ internal class QueryableMethodVisitor
     private Expression VisitSelect(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-        visitor.TableColumns = ResolveResultAlias(lambda, lambda.Body);
+        visitor.TableColumns = aliasVisitor.ResolveResultAlias(lambda);
 
         Selects.Clear();
 
@@ -231,7 +232,7 @@ internal class QueryableMethodVisitor
         visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
         visitor.MethodArguments[resultSelector.Parameters[1]] = newTableColumns;
 
-        visitor.TableColumns = ResolveResultAlias(resultSelector, resultSelector.Body);
+        visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
 
         visitor.MethodArguments[innerKey.Parameters[0]] = newTableColumns;
 
@@ -284,7 +285,7 @@ internal class QueryableMethodVisitor
             visitor.MethodArguments[resultSelector.Parameters[1]] = result;
         }
 
-        visitor.TableColumns = ResolveResultAlias(resultSelector, resultSelector.Body);
+        visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
 
         return node;
     }
@@ -462,7 +463,7 @@ internal class QueryableMethodVisitor
         {
             LambdaExpression resultSelector = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[2]);
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
-            visitor.TableColumns = ResolveResultAlias(resultSelector, resultSelector.Body);
+            visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
         }
 
         Dictionary<string, Expression> newTableColumns = [];
@@ -493,221 +494,5 @@ internal class QueryableMethodVisitor
 
             Wheres.Add(sqlExpression);
         }
-    }
-
-    private Dictionary<string, Expression> ResolveResultAlias(LambdaExpression lambdaExpression, Expression body, string? prefix = null)
-    {
-        Dictionary<string, Expression> result = [];
-
-        if (body is NewExpression newExpression)
-        {
-            if (newExpression.Arguments.Count > 0)
-            {
-                foreach (Expression argument in newExpression.Arguments)
-                {
-                    if (argument is ParameterExpression parameterExpression)
-                    {
-                        string alias = $"{(prefix != null ? $"{prefix}." : string.Empty)}{parameterExpression.Name}";
-                        Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[parameterExpression];
-
-                        foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
-                        {
-                            result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
-                        }
-                    }
-                    else if (argument is MemberExpression memberExpression)
-                    {
-                        string alias = $"{(prefix != null ? $"{prefix}." : string.Empty)}{memberExpression.Member.Name}";
-                        (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(memberExpression);
-
-                        Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
-
-                        if (CommonHelpers.IsSimple(memberExpression.Type))
-                        {
-                            result.Add(alias, parameterTableColumns[path]);
-                        }
-                        else
-                        {
-                            foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
-                            {
-                                if (tableColumn.Key.StartsWith(path))
-                                {
-                                    result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
-                                }
-                            }
-                        }
-                    }
-                    else if (argument is ParameterExpression parameterExpr)
-                    {
-                        string alias = $"{(prefix != null ? $"{prefix}." : string.Empty)}{parameterExpr.Name}";
-                        (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(parameterExpr);
-
-                        Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
-
-                        if (CommonHelpers.IsSimple(parameterExpr.Type))
-                        {
-                            result.Add(alias, parameterTableColumns[path]);
-                        }
-                        else
-                        {
-                            foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
-                            {
-                                if (tableColumn.Key.StartsWith(path))
-                                {
-                                    result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        throw new NotSupportedException($"Unsupported member expression {argument}");
-                    }
-                }
-            }
-            else if (newExpression.Members == null)
-            {
-                throw new NotSupportedException("Cannot translate expression");
-            }
-            else
-            {
-                foreach (MemberInfo memberInfo in newExpression.Members)
-                {
-                    string alias = $"{(prefix != null ? $"{prefix}." : string.Empty)}{memberInfo.Name}";
-                    Type propertyType = memberInfo is PropertyInfo pi ? pi.PropertyType : ((FieldInfo)memberInfo).FieldType;
-
-                    ParameterExpression expression = lambdaExpression.Parameters
-                        .First(f => (f.Name == memberInfo.Name && f.Type == propertyType) || f.Type == propertyType);
-
-                    (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(expression);
-
-                    Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
-
-                    foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
-                    {
-                        if (tableColumn.Key.StartsWith(path))
-                        {
-                            result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
-                        }
-                    }
-                }
-            }
-        }
-        else if (body is MemberInitExpression memberInitExpression)
-        {
-            foreach (MemberAssignment memberAssignment in memberInitExpression.Bindings.Cast<MemberAssignment>())
-            {
-                if (memberAssignment.Expression is MemberInitExpression or NewExpression)
-                {
-                    string alias = $"{(prefix != null ? $"{prefix}." : string.Empty)}{memberAssignment.Member.Name}";
-                    Dictionary<string, Expression> innerResult = ResolveResultAlias(lambdaExpression, memberAssignment.Expression, alias);
-
-                    foreach (KeyValuePair<string, Expression> tableColumn in innerResult)
-                    {
-                        result.Add(tableColumn.Key, tableColumn.Value);
-                    }
-                }
-                else if (memberAssignment.Expression is ParameterExpression parameterExpression)
-                {
-                    string alias = $"{(prefix != null ? $"{prefix}." : string.Empty)}{memberAssignment.Member.Name}";
-                    Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[parameterExpression];
-
-                    foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
-                    {
-                        result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
-                    }
-                }
-                else if (memberAssignment.Expression is MemberExpression)
-                {
-                    string alias = $"{(prefix != null ? $"{prefix}." : string.Empty)}{memberAssignment.Member.Name}";
-                    (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(memberAssignment.Expression);
-
-                    Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
-
-                    if (CommonHelpers.IsSimple(memberAssignment.Expression.Type))
-                    {
-                        result.Add(alias, parameterTableColumns[path]);
-                    }
-                    else
-                    {
-                        foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
-                        {
-                            if (tableColumn.Key.StartsWith(path))
-                            {
-                                result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    string alias = $"{(prefix != null ? $"{prefix}." : string.Empty)}{memberAssignment.Member.Name}";
-                    SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.TableIndex, visitor.Level + 1)
-                    {
-                        MethodArguments = visitor.MethodArguments
-                    };
-                    Expression expression = innerVisitor.Visit(memberAssignment.Expression);
-                    result.Add(alias, expression);
-                }
-            }
-        }
-        else if (body is MemberExpression memberExpression)
-        {
-            if (CommonHelpers.IsSimple(memberExpression.Type))
-            {
-                Expression columnMapping = visitor.Visit(body);
-                result.Add(memberExpression.Member.Name, columnMapping);
-            }
-            else
-            {
-                (string path, ParameterExpression _) = CommonHelpers.ResolveParameterPath(body);
-
-                foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
-                {
-                    if (tableColumn.Key.StartsWith(path))
-                    {
-                        string newPath = tableColumn.Key[(path.Length + 1)..];
-                        result.Add(newPath, tableColumn.Value);
-                    }
-                }
-            }
-        }
-        else if (body is ParameterExpression pe)
-        {
-            Dictionary<string, Expression> tableColumns = visitor.MethodArguments[pe];
-
-            foreach (KeyValuePair<string, Expression> tableColumn in tableColumns)
-            {
-                result.Add(tableColumn.Key, tableColumn.Value);
-            }
-        }
-        else if (body is MethodCallExpression)
-        {
-            Expression sql = visitor.Visit(body);
-
-            if (sql is not SQLExpression sqlExpression)
-            {
-                throw new NotSupportedException($"Unsupported expression {body}");
-            }
-
-            result.Add(string.Empty, sqlExpression);
-        }
-        else
-        {
-            SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.TableIndex, visitor.Level + 1)
-            {
-                MethodArguments = visitor.MethodArguments
-            };
-            Expression sql = innerVisitor.Visit(body);
-
-            if (sql is not SQLExpression sqlExpression)
-            {
-                throw new NotSupportedException($"Unsupported expression {body}");
-            }
-
-            result.Add(string.Empty, sqlExpression);
-        }
-
-        return result;
     }
 }

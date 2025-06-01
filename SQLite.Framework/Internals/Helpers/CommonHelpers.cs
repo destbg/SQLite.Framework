@@ -61,6 +61,38 @@ internal static class CommonHelpers
         throw new NotSupportedException($"Cannot translate expression {node}");
     }
 
+    public static (string Path, ParameterExpression? Parameter) ResolveNullableParameterPath(Expression node)
+    {
+        List<string> paths = [];
+        Expression? innerExpression = node;
+
+        while (innerExpression is MemberExpression me2)
+        {
+            paths.Add($"{me2.Member.Name}");
+            innerExpression = me2.Expression;
+        }
+
+        StringBuilder pathBuilder = new();
+
+        for (int i = paths.Count - 1; i >= 0; i--)
+        {
+            pathBuilder.Append(paths[i]);
+            if (i > 0)
+            {
+                pathBuilder.Append('.');
+            }
+        }
+
+        string path = pathBuilder.ToString();
+
+        if (innerExpression is ParameterExpression pe)
+        {
+            return (path, pe);
+        }
+
+        return (string.Empty, null);
+    }
+
     public static bool IsConstant(Expression node)
     {
         return node switch

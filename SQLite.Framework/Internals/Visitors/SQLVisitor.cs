@@ -70,16 +70,16 @@ internal class SQLVisitor : ExpressionVisitor
             return node;
         }
 
-        (bool isLeftConstant, object? leftConstant, SQLExpression? leftSQLExpression, Expression leftExpression) = ResolveExpressionWithConstant(node.Left);
-        (bool isRightConstant, object? rightConstant, SQLExpression? rightSQLExpression, Expression rightExpression) = ResolveExpressionWithConstant(node.Right);
+        ResolvedModel resolvedLeft = ResolveExpression(node.Left);
+        ResolvedModel resolvedRight = ResolveExpression(node.Right);
 
-        if (leftSQLExpression == null || rightSQLExpression == null)
+        if (resolvedLeft.SQLExpression == null || resolvedRight.SQLExpression == null)
         {
-            return Expression.MakeBinary(node.NodeType, leftExpression, rightExpression);
+            return Expression.MakeBinary(node.NodeType, resolvedLeft.Expression, resolvedRight.Expression);
         }
 
-        SQLExpression left = CommonHelpers.BracketIfNeeded(leftSQLExpression);
-        SQLExpression right = CommonHelpers.BracketIfNeeded(rightSQLExpression);
+        SQLExpression left = CommonHelpers.BracketIfNeeded(resolvedLeft.SQLExpression);
+        SQLExpression right = CommonHelpers.BracketIfNeeded(resolvedRight.SQLExpression);
 
         SQLiteParameter[]? bothParameters = CommonHelpers.CombineParameters(left, right);
 
@@ -96,8 +96,8 @@ internal class SQLVisitor : ExpressionVisitor
         string sqlOp = null!;
 
         bool equalityOp = node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual;
-        bool isLeftNull = isLeftConstant && leftConstant == null;
-        bool isRightNull = isRightConstant && rightConstant == null;
+        bool isLeftNull = resolvedLeft is { IsConstant: true, Constant: null };
+        bool isRightNull = resolvedRight is { IsConstant: true, Constant: null };
 
         if (equalityOp && (isLeftNull || isRightNull))
         {
@@ -154,16 +154,16 @@ internal class SQLVisitor : ExpressionVisitor
 
     protected override Expression VisitConditional(ConditionalExpression node)
     {
-        (SQLExpression? test, Expression testExpression) = ResolveExpression(node.Test);
-        (SQLExpression? ifTrue, Expression ifTrueExpression) = ResolveExpression(node.IfTrue);
-        (SQLExpression? ifFalse, Expression ifFalseExpression) = ResolveExpression(node.IfFalse);
+        ResolvedModel test = ResolveExpression(node.Test);
+        ResolvedModel ifTrue = ResolveExpression(node.IfTrue);
+        ResolvedModel ifFalse = ResolveExpression(node.IfFalse);
 
-        if (test == null || ifTrue == null || ifFalse == null)
+        if (test.SQLExpression == null || ifTrue.SQLExpression == null || ifFalse.SQLExpression == null)
         {
-            return Expression.Condition(testExpression, ifTrueExpression, ifFalseExpression);
+            return Expression.Condition(test.Expression, ifTrue.Expression, ifFalse.Expression);
         }
 
-        SQLiteParameter[]? allParameters = CommonHelpers.CombineParameters(test, ifTrue, ifFalse);
+        SQLiteParameter[]? allParameters = CommonHelpers.CombineParameters(test.SQLExpression, ifTrue.SQLExpression, ifFalse.SQLExpression);
 
         return new SQLExpression(node.Type, IdentifierIndex++, $"(CASE WHEN {test.Sql} THEN {ifTrue.Sql} ELSE {ifFalse.Sql} END)", allParameters);
     }
@@ -185,7 +185,12 @@ internal class SQLVisitor : ExpressionVisitor
         }
         else if (node.Expression is MemberExpression or ParameterExpression)
         {
-            (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(node);
+            (string path, ParameterExpression? pe) = CommonHelpers.ResolveNullableParameterPath(node);
+
+            if (pe == null)
+            {
+                return node.Update(Visit(node.Expression));
+            }
 
             if (MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? expressions))
             {
@@ -238,29 +243,29 @@ internal class SQLVisitor : ExpressionVisitor
 
     protected override Expression VisitUnary(UnaryExpression node)
     {
-        (bool isConstants, object? value, SQLExpression? operand, Expression operandExpression) = ResolveExpressionWithConstant(node.Operand);
+        ResolvedModel resolved = ResolveExpression(node.Operand);
 
-        if (operand == null)
+        if (resolved.SQLExpression == null)
         {
-            return Expression.MakeUnary(node.NodeType, operandExpression, node.Type);
+            return Expression.MakeUnary(node.NodeType, resolved.Expression, node.Type);
         }
 
-        if (isConstants)
+        if (resolved.IsConstant)
         {
             return node.NodeType == ExpressionType.Convert
-                ? new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", Convert.ChangeType(value, node.Type))
-                : operand;
+                ? new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", Convert.ChangeType(resolved.Constant, node.Type))
+                : resolved.SQLExpression;
         }
 
         string sql = node.NodeType switch
         {
-            ExpressionType.Negate => $"-{operand.Sql}",
-            ExpressionType.Not => $"NOT {operand.Sql}",
-            ExpressionType.Convert => $"CAST({operand.Sql} AS {CommonHelpers.TypeToSQLiteType(node.Type).ToString().ToUpper()})",
+            ExpressionType.Negate => $"-{resolved.SQLExpression.Sql}",
+            ExpressionType.Not => $"NOT {resolved.SQLExpression.Sql}",
+            ExpressionType.Convert => $"CAST({resolved.SQLExpression.Sql} AS {CommonHelpers.TypeToSQLiteType(node.Type).ToString().ToUpper()})",
             _ => throw new NotSupportedException($"Unsupported unary op {node.NodeType}")
         };
 
-        return new SQLExpression(node.Type, IdentifierIndex++, sql, operand.Parameters);
+        return new SQLExpression(node.Type, IdentifierIndex++, sql, resolved.SQLExpression.Parameters);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types have public properties.")]
@@ -268,15 +273,15 @@ internal class SQLVisitor : ExpressionVisitor
     {
         if (node.Method.Name == nameof(object.Equals) && node.Object != null)
         {
-            (SQLExpression? obj, Expression objectExpression) = ResolveExpression(node.Object);
-            (SQLExpression? argument, Expression argumentExpression) = ResolveExpression(node.Arguments[0]);
+            ResolvedModel obj = ResolveExpression(node.Object);
+            ResolvedModel argument = ResolveExpression(node.Arguments[0]);
 
-            if (obj == null || argument == null)
+            if (obj.SQLExpression == null || argument.SQLExpression == null)
             {
-                return Expression.Call(objectExpression, node.Method, argumentExpression);
+                return Expression.Call(obj.Expression, node.Method, argument.Expression);
             }
 
-            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj, argument);
+            SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, argument.SQLExpression);
             return new SQLExpression(typeof(bool), IdentifierIndex++, $"{obj.Sql} = {argument.Sql}", parameters);
         }
         else if (node.Method.DeclaringType == typeof(string))
@@ -317,17 +322,17 @@ internal class SQLVisitor : ExpressionVisitor
         }
         else if (node.Object != null)
         {
-            (bool isConstant, object? constant, SQLExpression? _, Expression objectExpression) = ResolveExpressionWithConstant(node.Object);
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(ResolveExpressionWithConstant)
+            ResolvedModel obj = ResolveExpression(node.Object);
+            List<ResolvedModel> arguments = node.Arguments
+                .Select(ResolveExpression)
                 .ToList();
 
-            if (isConstant && constant is IEnumerable enumerable)
+            if (obj is { IsConstant: true, Constant: IEnumerable enumerable })
             {
                 return methodVisitor.HandleEnumerableMethod(node, enumerable, arguments);
             }
 
-            return Expression.Call(objectExpression, node.Method, arguments.Select(f => f.Expression));
+            return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
         }
         else if (node.Arguments.Count > 0)
         {
@@ -336,8 +341,8 @@ internal class SQLVisitor : ExpressionVisitor
                 return methodVisitor.HandleGroupingMethod(node);
             }
 
-            List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
-                .Select(ResolveExpressionWithConstant)
+            List<ResolvedModel> arguments = node.Arguments
+                .Select(ResolveExpression)
                 .ToList();
 
             if (arguments[0].IsConstant && arguments[0].Constant is IEnumerable enumerable)
@@ -354,28 +359,96 @@ internal class SQLVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The array was passed to us.")]
     protected override Expression VisitNewArray(NewArrayExpression node)
     {
-        List<(SQLExpression? Sql, Expression Expression)> sqlExpressions = node.Expressions
+        List<ResolvedModel> sqlExpressions = node.Expressions
             .Select(ResolveExpression)
             .ToList();
 
-        if (sqlExpressions.Any(f => f.Sql == null))
+        if (sqlExpressions.Any(f => f.SQLExpression == null))
         {
             return Expression.NewArrayInit(node.Type.GetElementType()!, sqlExpressions.Select(f => f.Expression));
         }
 
-        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(sqlExpressions.Select(f => f.Sql!).ToArray());
+        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(sqlExpressions.Select(f => f.SQLExpression!).ToArray());
 
         return new SQLExpression(
             node.Type,
             IdentifierIndex++,
-            $"({string.Join(", ", sqlExpressions.Select(f => f.Sql!.Sql))})",
+            $"({string.Join(", ", sqlExpressions.Select(f => f.Sql))})",
             parameters
         );
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types have public properties.")]
+    protected override Expression VisitMemberInit(MemberInitExpression node)
+    {
+        NewExpression newExpression = (NewExpression)Visit(node.NewExpression);
+        List<MemberBinding> bindings = node.Bindings.Select(VisitMemberBinding).ToList();
+
+        return Expression.MemberInit(newExpression, bindings);
+    }
+
+    protected override MemberBinding VisitMemberBinding(MemberBinding node)
+    {
+        return node switch
+        {
+            MemberAssignment assignment => VisitMemberAssignment(assignment),
+            MemberMemberBinding memberMemberBinding => VisitMemberMemberBinding(memberMemberBinding),
+            MemberListBinding memberListBinding => VisitMemberListBinding(memberListBinding),
+            _ => throw new NotSupportedException($"Unsupported binding type: {node.BindingType}")
+        };
+    }
+
+    protected override MemberAssignment VisitMemberAssignment(MemberAssignment node)
+    {
+        return node.Update(Visit(node.Expression));
+    }
+
+    protected override MemberMemberBinding VisitMemberMemberBinding(MemberMemberBinding node)
+    {
+        List<MemberBinding> bindings = node.Bindings.Select(VisitMemberBinding).ToList();
+        return node.Update(bindings);
+    }
+
+    protected override MemberListBinding VisitMemberListBinding(MemberListBinding node)
+    {
+        List<ElementInit> initializers = node.Initializers.Select(VisitElementInit).ToList();
+        return node.Update(initializers);
+    }
+
+    protected override ElementInit VisitElementInit(ElementInit node)
+    {
+        List<Expression> arguments = node.Arguments.Select(Visit).ToList()!;
+        return node.Update(arguments);
+    }
+
+    protected override Expression VisitListInit(ListInitExpression node)
+    {
+        NewExpression newExpression = (NewExpression)Visit(node.NewExpression);
+        List<ElementInit> initializers = node.Initializers.Select(VisitElementInit).ToList();
+
+        return node.Update(newExpression, initializers);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "All types have public properties.")]
+    protected override Expression VisitNew(NewExpression node)
+    {
+        List<Expression> arguments = node.Arguments.Select(Visit).ToList()!;
+        return node.Update(arguments);
+    }
+
     public Expression ResolveMember(Expression node)
     {
-        (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(node);
+        (string path, ParameterExpression? pe) = CommonHelpers.ResolveNullableParameterPath(node);
+
+        if (pe == null)
+        {
+            if (node is MemberExpression { Expression: not null } member)
+            {
+                return member.Update(Visit(member.Expression));
+            }
+
+            return node;
+        }
 
         if (MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? expressions))
         {
@@ -399,13 +472,7 @@ internal class SQLVisitor : ExpressionVisitor
         throw new NotSupportedException($"Cannot translate expression {node}");
     }
 
-    public (SQLExpression?, Expression) ResolveExpression(Expression node)
-    {
-        Expression resolvedExpression = Visit(node);
-        return (resolvedExpression as SQLExpression, resolvedExpression);
-    }
-
-    public (bool, object?, SQLExpression?, Expression) ResolveExpressionWithConstant(Expression node)
+    public ResolvedModel ResolveExpression(Expression node)
     {
         bool isConstant = CommonHelpers.IsConstant(node);
         object? constantValue;
@@ -432,6 +499,12 @@ internal class SQLVisitor : ExpressionVisitor
             }
         }
 
-        return (isConstant, constantValue, sqlExpression, resolvedExpression);
+        return new ResolvedModel
+        {
+            IsConstant = isConstant,
+            Constant = constantValue,
+            SQLExpression = sqlExpression,
+            Expression = resolvedExpression
+        };
     }
 }

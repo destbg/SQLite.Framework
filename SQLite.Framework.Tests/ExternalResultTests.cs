@@ -6,18 +6,16 @@ namespace SQLite.Framework.Tests;
 
 public class ExternalResultTests
 {
-    // public class SpecialModel
-    // {
-    //     public Author Author { get; } = new Author()
-    //     {
-    //         Id = 1,
-    //         Name = "Author 1",
-    //         Email = "asd",
-    //         BirthDate = new DateTime(2000, 1, 1)
-    //     };
-    //
-    //     public List<Author> Authors { get; } = new();
-    // }
+    public class SpecialModel
+    {
+        public Author Author { get; } = new Author()
+        {
+            Id = 1,
+            Name = "Author 1",
+            Email = "asd",
+            BirthDate = new DateTime(2000, 1, 1)
+        };
+    }
 
     [Fact]
     public void CallExternalMethodWithDoubleSelect()
@@ -349,36 +347,33 @@ public class ExternalResultTests
         Assert.Equal("Author 1", author.Name);
     }
 
-    // TODO: For now this won't be supported
+    [Fact]
+    public void ExternalModelMembers()
+    {
+        using TestDatabase db = SetupDatabase();
 
-    // [Fact]
-    // public void ExternalModelMembers()
-    // {
-    //     using TestDatabase db = SetupDatabase();
-    //
-    //     Author author = (
-    //         from a in db.Table<Author>()
-    //         where a.Id == 1
-    //         select new Author
-    //         {
-    //             Id = new SpecialModel
-    //             {
-    //                 Author =
-    //                 {
-    //                     Id = a.Id,
-    //                 },
-    //                 Authors = { a }
-    //             }.Author.Id,
-    //             Name = a.Name,
-    //             Email = a.Email,
-    //             BirthDate = a.BirthDate,
-    //         }
-    //     ).First();
-    //
-    //     Assert.NotNull(author);
-    //     Assert.Equal(1, author.Id);
-    //     Assert.Equal("Author 1", author.Name);
-    // }
+        Author author = (
+            from a in db.Table<Author>()
+            where a.Id == 1
+            select new Author
+            {
+                Id = new SpecialModel
+                {
+                    Author =
+                    {
+                        Id = a.Id,
+                    },
+                }.Author.Id,
+                Name = a.Name,
+                Email = a.Email,
+                BirthDate = a.BirthDate,
+            }
+        ).First();
+
+        Assert.NotNull(author);
+        Assert.Equal(1, author.Id);
+        Assert.Equal("Author 1", author.Name);
+    }
 
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {
