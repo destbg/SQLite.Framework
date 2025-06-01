@@ -68,7 +68,7 @@ internal static class CommonHelpers
             ConstantExpression => true,
             MemberExpression me => me.Member switch
             {
-                FieldInfo or PropertyInfo => IsConstant(me.Expression!),
+                FieldInfo or PropertyInfo => me.Expression == null || IsConstant(me.Expression),
                 _ => false
             },
             UnaryExpression ue => IsConstant(ue.Operand),
@@ -83,12 +83,16 @@ internal static class CommonHelpers
             ConstantExpression ce => ce.Value,
             MemberExpression me => me.Member switch
             {
-                FieldInfo fi => fi.GetValue(GetConstantValue(me.Expression!)),
-                PropertyInfo pi => pi.GetValue(GetConstantValue(me.Expression!)),
+                FieldInfo fi => me.Expression != null
+                    ? fi.GetValue(GetConstantValue(me.Expression))
+                    : fi.GetValue(null),
+                PropertyInfo pi => me.Expression != null
+                    ? pi.GetValue(GetConstantValue(me.Expression))
+                    : pi.GetValue(null),
                 _ => throw new NotSupportedException($"Unsupported member type: {me.Member.GetType()}")
             },
             UnaryExpression { NodeType: ExpressionType.Convert } ue =>
-                Convert.ChangeType(GetConstantValue(ue.Operand), ue.Type),
+                Convert.ChangeType(GetConstantValue(ue.Operand), Nullable.GetUnderlyingType(ue.Type) ?? ue.Type),
             _ => throw new NotSupportedException($"Cannot evaluate expression of type {node.NodeType}")
         };
     }

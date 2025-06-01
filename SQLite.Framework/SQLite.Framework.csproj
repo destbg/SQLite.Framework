@@ -15,11 +15,7 @@
         <AssemblyName>SQLite.Framework</AssemblyName>
         <PackageId>SQLite.Framework</PackageId>
         <AssemblyTitle>SQLite package that supports IQueryable</AssemblyTitle>
-        <Description>SQLite.Framework is a library that provides an ORM solution for SQLite databases.
-            It was designed with the intent to support AOT compilation and be used in .NET MAUI applications.
-            The library provides an IQueryable interface for querying SQLite databases.
-            Check the GitHub repository for more information and limitations.
-        </Description>
+        <Description>SQLite.Framework is a library that provides an ORM solution for SQLite databases.</Description>
         <Authors>Nikolay Kostadinov</Authors>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -39,7 +35,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
+        <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11"/>
     </ItemGroup>
 
 </Project>

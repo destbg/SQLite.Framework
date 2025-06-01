@@ -420,4 +420,43 @@ public class WhereTests
                       """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
+
+    [Fact]
+    public void ComplexWhere()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = (
+            from book in db.Table<Book>()
+            where book.Id == 1
+                  && !(book.Id != 3)
+                  && (book.Id == 18 || book.AuthorId == 19)
+                  && book.Title == null
+                  && book.Title != "Test"
+                  && (book.Title != null ? 20 : 21) == 22
+                  && (book.Title ?? "") == "Book"
+            select book
+        ).ToSqlCommand();
+
+        Assert.Equal(10, command.Parameters.Count);
+        Assert.Equal(1, command.Parameters[0].Value);
+        Assert.Equal(3, command.Parameters[1].Value);
+        Assert.Equal(18, command.Parameters[2].Value);
+        Assert.Equal(19, command.Parameters[3].Value);
+        Assert.Equal("Test", command.Parameters[4].Value); 
+        Assert.Equal(20, command.Parameters[5].Value);
+        Assert.Equal(21, command.Parameters[6].Value);
+        Assert.Equal(22, command.Parameters[7].Value);
+        Assert.Equal("", command.Parameters[8].Value);
+        Assert.Equal("Book", command.Parameters[9].Value);
+        Assert.Equal("""
+                      SELECT b0.BookId AS "Id",
+                             b0.BookTitle AS "Title",
+                             b0.BookAuthorId AS "AuthorId",
+                             b0.BookPrice AS "Price"
+                      FROM "Books" AS b0
+                      WHERE b0.BookId = @p0 AND NOT b0.BookId <> @p1 AND b0.BookId = @p2 OR b0.BookAuthorId = @p3 AND b0.BookTitle IS NULL AND b0.BookTitle <> @p5 AND (CASE WHEN b0.BookTitle IS NOT NULL THEN @p7 ELSE @p8 END) = @p9 AND COALESCE(b0.BookTitle, @p10) = @p11
+                      """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
 }

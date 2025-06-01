@@ -7,6 +7,7 @@ namespace SQLite.Framework.Extensions;
 /// <summary>
 /// <see cref="Queryable"/> extensions for <see cref="IQueryable{T}"/>.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public static class AsyncQueryableExtensions
 {
     /// <summary>

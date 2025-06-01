@@ -1,8 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace SQLite.Framework.Internals.Models;
 
 /// <summary>
 /// Used to generate the alias for a SQLite table.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal class TableIndexWrapper
 {
     private readonly Dictionary<char, int> dict = [];

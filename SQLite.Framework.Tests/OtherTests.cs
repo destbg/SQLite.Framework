@@ -1,3 +1,7 @@
+using System.ComponentModel.DataAnnotations;
+using SQLite.Framework.Attributes;
+using SQLite.Framework.Enums;
+using SQLite.Framework.Exceptions;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
@@ -10,6 +14,26 @@ namespace SQLite.Framework.Tests;
 
 public class OtherTests
 {
+    private class BaseCastEntity
+    {
+        [Key, AutoIncrement]
+        public int Id { get; set; }
+    }
+
+    private class CastEntity : BaseCastEntity
+    {
+        public required string Text { get; set; }
+    }
+
+    private class RequiredEntity
+    {
+        [Key, AutoIncrement]
+        public int Id { get; set; }
+
+        [Required]
+        public string? Date { get; set; }
+    }
+
     [Fact]
     public void QueryableContainsWithPassingArgument()
     {
@@ -150,6 +174,17 @@ public class OtherTests
     }
 
     [Fact]
+    public void CheckTableMappingCachedNonGeneric()
+    {
+        using TestDatabase db = new();
+
+        TableMapping firstTableMapping = db.TableMapping(typeof(Book));
+        TableMapping secondTableMapping = db.TableMapping(typeof(Book));
+
+        Assert.Same(firstTableMapping, secondTableMapping);
+    }
+
+    [Fact]
     public void CheckEnum()
     {
         using TestDatabase db = new();
@@ -169,5 +204,234 @@ public class OtherTests
         Assert.Equal(1, publisher.Id);
         Assert.Equal("test", publisher.Name);
         Assert.Equal(PublisherType.Magazine, publisher.Type);
+    }
+
+    [Fact]
+    public void CheckParameterToString()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.Table<Book>()
+            .Where(f => f.Id == 1)
+            .ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal("@p0 = 1", command.Parameters[0].ToString());
+    }
+
+    [Fact]
+    public void RollbackTransaction()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Publisher>().CreateTable();
+
+        using SQLiteTransaction transaction = db.BeginTransaction();
+
+        db.Table<Publisher>().Add(new Publisher
+        {
+            Id = 1,
+            Name = "test",
+            Type = PublisherType.Magazine
+        });
+
+        transaction.Rollback();
+
+        // After rollback, the data should not be present in the table
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            Publisher publisher = db.Table<Publisher>().First(f => f.Id == 1);
+        });
+    }
+
+    [Fact]
+    public void AutoRollbackTransaction()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Publisher>().CreateTable();
+
+        {
+            using SQLiteTransaction transaction = db.BeginTransaction();
+
+            db.Table<Publisher>().Add(new Publisher
+            {
+                Id = 1,
+                Name = "test",
+                Type = PublisherType.Magazine
+            });
+        }
+
+        // After rollback, the data should not be present in the table
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            Publisher publisher = db.Table<Publisher>().First(f => f.Id == 1);
+        });
+    }
+
+    [Fact]
+    public void EnumerateTable()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Publisher>().CreateTable();
+
+        db.Table<Publisher>().Add(new Publisher
+        {
+            Id = 1,
+            Name = "test",
+            Type = PublisherType.Magazine
+        });
+
+        foreach (Publisher publisher in db.Table<Publisher>())
+        {
+            Assert.Equal(1, publisher.Id);
+            Assert.Equal("test", publisher.Name);
+            Assert.Equal(PublisherType.Magazine, publisher.Type);
+        }
+    }
+
+    [Fact]
+    public void RequiredAttributeInTable()
+    {
+        using TestDatabase db = new();
+
+        db.Table<RequiredEntity>().CreateTable();
+
+        db.Table<RequiredEntity>().Add(new RequiredEntity
+        {
+            Date = "2000"
+        });
+
+        RequiredEntity publisher = db.Table<RequiredEntity>().First();
+
+        Assert.Equal(1, publisher.Id);
+        Assert.Equal("2000", publisher.Date);
+    }
+
+    [Fact]
+    public void CheckTableMappingExists()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Publisher>().CreateTable();
+
+        Assert.Single(db.TableMappings);
+    }
+
+    [Fact]
+    public void GetNonGenericTable()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Publisher>().CreateTable();
+
+        db.Table<Publisher>().Add(new Publisher
+        {
+            Id = 1,
+            Name = "test",
+            Type = PublisherType.Magazine
+        });
+
+        SQLiteTable table = db.Table(typeof(Publisher));
+
+        foreach (Publisher publisher in table)
+        {
+            Assert.Equal(1, publisher.Id);
+            Assert.Equal("test", publisher.Name);
+            Assert.Equal(PublisherType.Magazine, publisher.Type);
+        }
+    }
+
+    [Fact]
+    public void CastTable()
+    {
+        using TestDatabase db = new();
+
+        db.Table<CastEntity>().CreateTable();
+
+        db.Table<CastEntity>().Add(new CastEntity
+        {
+            Text = "test"
+        });
+
+        List<BaseCastEntity> table = db.Table(typeof(CastEntity))
+            .Cast<BaseCastEntity>()
+            .ToList();
+
+        Assert.Single(table);
+        Assert.Equal(1, table[0].Id);
+        Assert.IsNotType<CastEntity>(table[0]);
+    }
+
+    [Fact]
+    public void QueryTableByOnlySQL()
+    {
+        using TestDatabase db = new();
+
+        db.OpenConnection();
+
+        SQLiteCommand command = new(db)
+        {
+            CommandText = """
+                          CREATE TABLE IF NOT EXISTS "TestTable" (
+                              "Id" INTEGER PRIMARY KEY AUTOINCREMENT,
+                              "Name" TEXT NOT NULL
+                          )
+                          """,
+            Parameters = new List<SQLiteParameter>()
+        };
+
+        command.ExecuteNonQuery();
+
+        SQLiteCommand insertCommand = new(db)
+        {
+            CommandText = "INSERT INTO \"TestTable\" (\"Name\") VALUES (@name)",
+            Parameters = new List<SQLiteParameter>
+            {
+                new SQLiteParameter
+                {
+                    Name = "@name",
+                    Value = "Test Name"
+                }
+            }
+        };
+
+        insertCommand.ExecuteNonQuery();
+
+        SQLiteCommand queryCommand = new(db)
+        {
+            CommandText = "SELECT * FROM \"TestTable\"",
+            Parameters = new List<SQLiteParameter>()
+        };
+
+        using SQLiteDataReader reader = queryCommand.ExecuteReader();
+
+        Assert.True(reader.Read());
+        Assert.Equal(1, reader.GetValue(0, SQLiteColumnType.Integer, typeof(int))); // Id
+        Assert.Equal("Test Name", reader.GetValue(1, SQLiteColumnType.Text, typeof(string))); // Name
+    }
+
+    [Fact]
+    public void CheckCallingOpenConnectionTwice()
+    {
+        using TestDatabase db = new();
+
+        db.OpenConnection();
+        db.OpenConnection();
+
+        Assert.True(db.IsConnected);
+    }
+
+    [Fact]
+    public async Task CheckCallingOpenConnectionFromDifferentThreads()
+    {
+        using TestDatabase db = new();
+
+        Task task1 = Task.Run(() => db.OpenConnection());
+        Task task2 = Task.Run(() => db.OpenConnection());
+        await Task.WhenAll(task1, task2);
+
+        Assert.True(db.IsConnected);
     }
 }

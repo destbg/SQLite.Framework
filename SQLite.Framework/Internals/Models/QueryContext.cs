@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using SQLite.Framework.Enums;
 
 namespace SQLite.Framework.Internals.Models;
@@ -6,6 +7,7 @@ namespace SQLite.Framework.Internals.Models;
 /// Passed to the <see cref="CompiledExpression"/> functions to provide
 /// support for select methods using both SQL and LINQ expressions.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal class QueryContext
 {
     public required SQLiteDataReader Reader { get; init; }

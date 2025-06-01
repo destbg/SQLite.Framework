@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -69,7 +70,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Returns the cached table mappings in the current database instance.
     /// </summary>
-    public ICollection<TableMapping> TableMappings => tableMappings.Values;
+    public IReadOnlyCollection<TableMapping> TableMappings => tableMappings.Values;
 
     /// <summary>
     /// Called when a command is created using the <see cref="CreateCommand"/> method.
@@ -196,13 +197,15 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return new Queryable<TElement>(this, expression);
     }
 
+    [ExcludeFromCodeCoverage]
     IQueryable IQueryProvider.CreateQuery(Expression expression)
     {
-        throw new NotSupportedException("Only creating queries for IQueryable<T> is supported.");
+        throw new NotSupportedException("Only generic queries are supported.");
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Method is marked to not be trimmed.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of the client assemblies.")]
+    [UnconditionalSuppressMessage("AOT", "IL2076", Justification = "The type should be part of the client assemblies.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "There is no problem as List<T> will not be trimmed.")]
     [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Type does meet the requirements as it starts from SQLiteTable<T>.")]
     TResult IQueryProvider.Execute<TResult>(Expression expression)
@@ -226,6 +229,20 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
                 return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query.CreateObject])!;
             }
+        }
+        else if (typeof(TResult) == typeof(IEnumerable) && CommonHelpers.IsConstant(expression))
+        {
+            BaseSQLiteTable table = (BaseSQLiteTable)CommonHelpers.GetConstantValue(expression)!;
+
+            Type genericElementType = table.ElementType;
+            MethodInfo executeQueryMethod = typeof(SQLiteCommandExtensions).GetMethod(
+                nameof(SQLiteCommandExtensions.ExecuteQueryInternal),
+                BindingFlags.Static | BindingFlags.NonPublic
+            )!;
+            MethodInfo genericExecuteQueryMethod = executeQueryMethod.MakeGenericMethod(genericElementType);
+
+            SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
+            return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query.CreateObject])!;
         }
 
         Type elementType = expression.Type;
@@ -264,6 +281,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return default!;
     }
 
+    [ExcludeFromCodeCoverage]
     object IQueryProvider.Execute(Expression expression)
     {
         throw new NotSupportedException("Only generic queries are supported.");

@@ -74,6 +74,7 @@ internal class QueryableMethodVisitor
             nameof(Queryable.Union) => VisitUnion(node),
             nameof(Queryable.Contains) => VisitContains(node),
             nameof(Queryable.GroupBy) => VisitGroupBy(node),
+            nameof(Queryable.Cast) => node,
             _ => throw new NotSupportedException($"Unsupported method: {node.Method}")
         };
     }
@@ -616,7 +617,7 @@ internal class QueryableMethodVisitor
                         result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
                     }
                 }
-                else if (memberAssignment.Expression is MemberExpression or ParameterExpression)
+                else if (memberAssignment.Expression is MemberExpression)
                 {
                     string alias = $"{(prefix != null ? $"{prefix}." : string.Empty)}{memberAssignment.Member.Name}";
                     (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(memberAssignment.Expression);

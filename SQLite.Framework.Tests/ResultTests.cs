@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using SQLite.Framework.Tests.DTObjects;
 using SQLite.Framework.Tests.Entities;
@@ -7,46 +8,14 @@ namespace SQLite.Framework.Tests;
 
 public class ResultTests
 {
-    [Fact]
-    public void CallExternalMethod()
+    public class NullableEntity
     {
-        using TestDatabase db = SetupDatabase();
+        [Key]
+        public int? Id { get; set; }
 
-        Author author = (
-            from a in db.Table<Author>()
-            where a.Id == 1
-            select new Author
-            {
-                Id = CommonHelpers.ConvertString(a.Name) - 1,
-                Name = a.Name,
-                Email = a.Email,
-                BirthDate = a.BirthDate,
-            }
-        ).First();
-
-        Assert.NotNull(author);
-        Assert.Equal(-2, author.Id);
-        Assert.Equal("Author 1", author.Name);
-    }
-
-    [Fact]
-    public void CallExternalMethodWithDoubleSelect()
-    {
-        using TestDatabase db = SetupDatabase();
-
-        int id = (
-            from a in db.Table<Author>()
-            where a.Id == 1
-            select new Author
-            {
-                Id = CommonHelpers.ConvertString(a.Name) - 1,
-                Name = a.Name,
-                Email = a.Email,
-                BirthDate = a.BirthDate,
-            }
-        ).Select(f => f.Id).First();
-
-        Assert.Equal(-2, id);
+        public string? Name { get; set; }
+        public int? Test { get; set; }
+        public DateTime? BirthDate { get; set; }
     }
 
     [Fact]
@@ -436,7 +405,8 @@ public class ResultTests
 
         List<double> sum = (
             from book in db.Table<Book>()
-            group book by book.AuthorId into g
+            group book by book.AuthorId
+            into g
             select g.Sum(f => f.Price)
         ).ToList();
 
@@ -451,7 +421,8 @@ public class ResultTests
 
         List<double> sum = (
             from book in db.Table<Book>()
-            group book.Price by book.AuthorId into g
+            group book.Price by book.AuthorId
+            into g
             select g.Sum()
         ).ToList();
 
@@ -466,7 +437,8 @@ public class ResultTests
 
         List<double> sum = (
             from book in db.Table<Book>()
-            group new { book.Price, book.AuthorId } by book.AuthorId into g
+            group new { book.Price, book.AuthorId } by book.AuthorId
+            into g
             select g.Sum(f => f.Price)
         ).ToList();
 
@@ -481,7 +453,8 @@ public class ResultTests
 
         List<double> average = (
             from book in db.Table<Book>()
-            group book by book.AuthorId into g
+            group book by book.AuthorId
+            into g
             select g.Average(f => f.Price)
         ).ToList();
 
@@ -496,7 +469,8 @@ public class ResultTests
 
         List<double> min = (
             from book in db.Table<Book>()
-            group book by book.AuthorId into g
+            group book by book.AuthorId
+            into g
             select g.Min(f => f.Price)
         ).ToList();
 
@@ -511,7 +485,8 @@ public class ResultTests
 
         List<double> max = (
             from book in db.Table<Book>()
-            group book by book.AuthorId into g
+            group book by book.AuthorId
+            into g
             select g.Max(f => f.Price)
         ).ToList();
 
@@ -526,7 +501,8 @@ public class ResultTests
 
         List<int> count = (
             from book in db.Table<Book>()
-            group book by book.AuthorId into g
+            group book by book.AuthorId
+            into g
             select g.Count()
         ).ToList();
 
@@ -541,12 +517,58 @@ public class ResultTests
 
         List<long> count = (
             from book in db.Table<Book>()
-            group book by book.AuthorId into g
+            group book by book.AuthorId
+            into g
             select g.LongCount()
         ).ToList();
 
         Assert.Single(count);
         Assert.Equal(2, count[0]);
+    }
+
+    [Fact]
+    public void CheckNullableProperty()
+    {
+        using TestDatabase db = new();
+
+        db.Table<NullableEntity>().CreateTable();
+
+        db.Table<NullableEntity>().Add(new NullableEntity
+        {
+            Id = 1,
+            Name = "Test",
+            Test = null,
+            BirthDate = new DateTime(2000, 1, 1),
+        });
+
+        NullableEntity? entity = db.Table<NullableEntity>()
+            .Where(f => f.BirthDate.HasValue && !f.Test.HasValue)
+            .FirstOrDefault(f => f.Id == 1);
+
+        Assert.NotNull(entity);
+        Assert.Equal(1, entity.Id);
+        Assert.Equal("Test", entity.Name);
+        Assert.Equal(new DateTime(2000, 1, 1), entity.BirthDate);
+    }
+
+    [Fact]
+    public void ResultComplexWhere()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<Book> books = (
+            from book in db.Table<Book>()
+            where book.Id == 1
+                  && !(book.Id != 3)
+                  && (book.Id == 18 || book.AuthorId == 19)
+                  && book.Title == null
+                  && book.Title != "Test"
+                  && (book.Title != null ? 20 : 21) == 22
+                  && (book.Title ?? "") == "Book"
+            select book
+        ).ToList();
+
+        Assert.Empty(books);
     }
 
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)

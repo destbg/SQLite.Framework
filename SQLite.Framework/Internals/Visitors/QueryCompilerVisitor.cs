@@ -36,6 +36,16 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             dynamic? leftValue = left.Call(ctx);
             dynamic? rightValue = right.Call(ctx);
 
+            if (node.NodeType == ExpressionType.ArrayIndex)
+            {
+                if (leftValue is Array array && rightValue is int index)
+                {
+                    return array.GetValue(index);
+                }
+
+                throw new InvalidOperationException("Array index operation requires an array on the left and an integer index on the right.");
+            }
+
             return node.NodeType switch
             {
                 ExpressionType.Equal => Equals(leftValue as object, rightValue as object),
@@ -76,42 +86,41 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return new CompiledExpression(node.Type, _ => node.Value);
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitBlock(BlockExpression node)
     {
         throw new NotSupportedException($"The block expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitDefault(DefaultExpression node)
     {
         throw new NotSupportedException($"The default expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitDynamic(DynamicExpression node)
     {
         throw new NotSupportedException($"The dynamic expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitExtension(Expression node)
     {
         throw new NotSupportedException($"The extension method '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitGoto(GotoExpression node)
     {
         throw new NotSupportedException($"The goto expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitIndex(IndexExpression node)
     {
-        return new CompiledExpression(node.Type, ctx =>
-        {
-            object?[] arguments = node.Arguments
-                .Select(arg => (CompiledExpression)Visit(arg))
-                .Select(f => f.Call(ctx))
-                .ToArray();
-
-            return node.Indexer!.GetValue(node.Object!, arguments);
-        });
+        // Array[Index] = value
+        throw new NotSupportedException($"The index expression '{node}' is not supported.");
     }
 
     protected override Expression VisitMember(MemberExpression node)
@@ -125,21 +134,25 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         throw new NotSupportedException($"The member expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitInvocation(InvocationExpression node)
     {
         throw new NotSupportedException($"The invocation expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitLabel(LabelExpression node)
     {
         throw new NotSupportedException($"The label expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitLambda<T>(Expression<T> node)
     {
         throw new NotSupportedException($"The lambda expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitLoop(LoopExpression node)
     {
         throw new NotSupportedException($"The loop expression '{node}' is not supported.");
@@ -163,16 +176,19 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         throw new NotSupportedException($"The new expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitParameter(ParameterExpression node)
     {
         throw new NotSupportedException($"The parameter expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitSwitch(SwitchExpression node)
     {
         throw new NotSupportedException($"The switch expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitTry(TryExpression node)
     {
         throw new NotSupportedException($"The try expression '{node}' is not supported.");
@@ -197,16 +213,19 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         });
     }
 
+    [ExcludeFromCodeCoverage]
     protected override CatchBlock VisitCatchBlock(CatchBlock node)
     {
         throw new NotSupportedException($"The catch block '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitDebugInfo(DebugInfoExpression node)
     {
         throw new NotSupportedException($"The debug info expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     [return: NotNullIfNotNull("node")]
     protected override LabelTarget? VisitLabelTarget(LabelTarget? node)
     {
@@ -238,6 +257,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         });
     }
 
+    [ExcludeFromCodeCoverage]
     protected override MemberAssignment VisitMemberAssignment(MemberAssignment node)
     {
         throw new NotSupportedException($"The member assignment '{node}' is not supported.");
@@ -300,41 +320,60 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
         return new CompiledExpression(node.Type, ctx =>
         {
+            if (!node.Type.IsArray)
+            {
+                return null;
+            }
+
             object?[] args = expressions.Select(arg => arg.Call(ctx)).ToArray();
-            return node.Type.IsArray ? Array.CreateInstance(node.Type.GetElementType()!, args.Length) : null;
+
+            Array arr = Array.CreateInstance(node.Type.GetElementType()!, args.Length);
+            for (int i = 0; i < args.Length; i++)
+            {
+                arr.SetValue(args[i], i);
+            }
+
+            return arr;
         });
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitRuntimeVariables(RuntimeVariablesExpression node)
     {
         throw new NotSupportedException($"The runtime variables expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override SwitchCase VisitSwitchCase(SwitchCase node)
     {
         throw new NotSupportedException($"The switch case '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override Expression VisitTypeBinary(TypeBinaryExpression node)
     {
         throw new NotSupportedException($"The type binary expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override ElementInit VisitElementInit(ElementInit node)
     {
         throw new NotSupportedException($"The element init expression '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override MemberBinding VisitMemberBinding(MemberBinding node)
     {
         throw new NotSupportedException($"The member binding '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override MemberListBinding VisitMemberListBinding(MemberListBinding node)
     {
         throw new NotSupportedException($"The member list binding '{node}' is not supported.");
     }
 
+    [ExcludeFromCodeCoverage]
     protected override MemberMemberBinding VisitMemberMemberBinding(MemberMemberBinding node)
     {
         throw new NotSupportedException($"The member member binding '{node}' is not supported.");

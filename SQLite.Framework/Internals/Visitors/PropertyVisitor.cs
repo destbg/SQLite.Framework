@@ -20,13 +20,12 @@ internal class PropertyVisitor
     {
         return propertyName switch
         {
-            nameof(Nullable<int>.HasValue) => new SQLExpression(
+            nameof(Nullable<>.HasValue) => new SQLExpression(
                 type,
                 visitor.IdentifierIndex++,
                 $"({node.Sql} IS NOT NULL)",
                 node.Parameters
             ),
-            nameof(Nullable<int>.Value) => node,
             _ => node
         };
     }
@@ -141,7 +140,6 @@ internal class PropertyVisitor
                 $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerMillisecond})",
                 node.Parameters
             ),
-            nameof(TimeSpan.Ticks) => node,
             _ => node
         };
     }

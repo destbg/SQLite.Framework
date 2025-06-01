@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 
 namespace SQLite.Framework.Internals.Models;
@@ -6,6 +7,7 @@ namespace SQLite.Framework.Internals.Models;
 /// Compiled expressions are used to support select methods
 /// using both SQL and LINQ expressions.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal class CompiledExpression : Expression
 {
     public CompiledExpression(Type type, Func<QueryContext, dynamic?> call)

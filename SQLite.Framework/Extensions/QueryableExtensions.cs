@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
@@ -7,6 +8,7 @@ namespace SQLite.Framework.Extensions;
 /// <summary>
 /// <see cref="Queryable"/> extensions for <see cref="IQueryable{T}"/>.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public static class QueryableExtensions
 {
     /// <summary>

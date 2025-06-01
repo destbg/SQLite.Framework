@@ -65,6 +65,11 @@ internal class SQLVisitor : ExpressionVisitor
 
     protected override Expression VisitBinary(BinaryExpression node)
     {
+        if (node.NodeType == ExpressionType.ArrayIndex)
+        {
+            return node;
+        }
+
         (bool isLeftConstant, object? leftConstant, SQLExpression? leftSQLExpression, Expression leftExpression) = ResolveExpressionWithConstant(node.Left);
         (bool isRightConstant, object? rightConstant, SQLExpression? rightSQLExpression, Expression rightExpression) = ResolveExpressionWithConstant(node.Right);
 
@@ -136,15 +141,15 @@ internal class SQLVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "The type is an entity.")]
     protected override Expression VisitConstant(ConstantExpression node)
     {
-        Type? qt = node.Value?.GetType();
-        if (qt is { IsGenericType: true } && qt.GetGenericTypeDefinition() == typeof(SQLiteTable<>))
+        object? value = CommonHelpers.GetConstantValue(node);
+
+        if (value is BaseSQLiteTable table)
         {
-            Type entityType = qt.GetGenericArguments()[0];
-            AssignTable(entityType);
-            return new SQLExpression(qt, -1, From!);
+            AssignTable(table.ElementType);
+            return new SQLExpression(node.Type, -1, From!);
         }
 
-        return new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", CommonHelpers.GetConstantValue(node));
+        return new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", value);
     }
 
     protected override Expression VisitConditional(ConditionalExpression node)
@@ -167,7 +172,7 @@ internal class SQLVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "The type is an entity.")]
     protected override Expression VisitMember(MemberExpression node)
     {
-        if (node.Expression is ConstantExpression)
+        if (CommonHelpers.IsConstant(node))
         {
             object? value = CommonHelpers.GetConstantValue(node);
             if (value is BaseSQLiteTable table)
@@ -330,7 +335,7 @@ internal class SQLVisitor : ExpressionVisitor
             {
                 return methodVisitor.HandleGroupingMethod(node);
             }
-            
+
             List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
                 .Select(ResolveExpressionWithConstant)
                 .ToList();
@@ -366,25 +371,6 @@ internal class SQLVisitor : ExpressionVisitor
             $"({string.Join(", ", sqlExpressions.Select(f => f.Sql!.Sql))})",
             parameters
         );
-    }
-
-    protected override Expression VisitParameter(ParameterExpression node)
-    {
-        if (MethodArguments.TryGetValue(node, out Dictionary<string, Expression>? expressions))
-        {
-            SQLExpression? expression = expressions
-                .OrderBy(f => f.Key.Count(c => c == '.'))
-                .Select(f => f.Value)
-                .OfType<SQLExpression>()
-                .FirstOrDefault();
-
-            if (expression != null)
-            {
-                return expression;
-            }
-        }
-
-        return base.VisitParameter(node);
     }
 
     public Expression ResolveMember(Expression node)

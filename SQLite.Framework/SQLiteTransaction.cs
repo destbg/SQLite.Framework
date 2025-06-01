@@ -31,8 +31,8 @@ public class SQLiteTransaction : IDisposable
     /// </summary>
     public void Commit()
     {
-        Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
         disposed = true;
+        Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
     }
 
     /// <summary>
@@ -40,8 +40,8 @@ public class SQLiteTransaction : IDisposable
     /// </summary>
     public void Rollback()
     {
-        Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
         disposed = true;
+        Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
     }
 
     /// <inheritdoc />

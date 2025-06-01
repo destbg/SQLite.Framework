@@ -173,4 +173,27 @@ public class GroupByTests
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
+
+    [Fact]
+    public void GroupByCountHavingTable()
+    {
+        using TestDatabase db = new TestDatabase();
+
+        SQLiteCommand command = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId into g
+            where g.Count() > 1
+            select g.Count()
+        ).ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(1, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT COUNT(*) AS "8"
+                     FROM "Books" AS b0
+                     GROUP BY b0.BookAuthorId
+                     HAVING COUNT(*) > @p0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
 }

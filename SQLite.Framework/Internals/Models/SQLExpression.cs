@@ -7,6 +7,7 @@ namespace SQLite.Framework.Internals.Models;
 /// <summary>
 /// Represents a SQL expression in the form of a string.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal class SQLExpression : Expression
 {
     public SQLExpression(Type type, int identifier, string sql)

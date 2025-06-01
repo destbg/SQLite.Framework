@@ -40,13 +40,11 @@ internal class SQLTranslator
 
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
     {
-        get => visitor.MethodArguments;
         init => visitor.MethodArguments = value;
     }
 
     public bool IsInnerQuery
     {
-        get => queryableMethodVisitor.IsInnerQuery;
         set => queryableMethodVisitor.IsInnerQuery = value;
     }
 
@@ -128,7 +126,7 @@ internal class SQLTranslator
 
         // HAVING
         string havingSql = queryableMethodVisitor.Havings.Count > 0
-            ? string.Join(" AND ", queryableMethodVisitor.Havings)
+            ? "HAVING " + string.Join(" AND ", queryableMethodVisitor.Havings)
             : string.Empty;
 
         foreach (SQLExpression sqlExpression in queryableMethodVisitor.Havings)
@@ -311,9 +309,19 @@ internal class SQLTranslator
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "We are checking the Queryable class")]
     private Expression TranslateOtherExpression(Expression expression)
     {
-        Type genericType = expression.Type.GetInterfaces()
-            .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IQueryable<>))
-            ?.GenericTypeArguments[0] ?? throw new InvalidOperationException("Expression is not an IQueryable.");
+        Type genericType;
+
+        if (expression.Type.IsAssignableTo(typeof(BaseSQLiteTable)) && CommonHelpers.IsConstant(expression))
+        {
+            BaseSQLiteTable table = (BaseSQLiteTable)CommonHelpers.GetConstantValue(expression)!;
+            genericType = table.ElementType;
+        }
+        else
+        {
+            genericType = expression.Type.GetInterfaces()
+                .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IQueryable<>))
+                ?.GenericTypeArguments[0] ?? throw new InvalidOperationException("Expression is not an IQueryable.");
+        }
 
         MethodCallExpression selectMethod = CreateIdentitySelectExpression(genericType);
 

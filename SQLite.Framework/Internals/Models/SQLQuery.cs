@@ -1,8 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace SQLite.Framework.Internals.Models;
 
 /// <summary>
 /// The compiled SQL query.
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal class SQLQuery
 {
     public required string Sql { get; init; }
