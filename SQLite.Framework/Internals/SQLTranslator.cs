@@ -76,26 +76,7 @@ internal class SQLTranslator
 
         bool useExists = queryableMethodVisitor.IsAny || queryableMethodVisitor.IsAll;
 
-        string joinSql = string.Join(Environment.NewLine + spacing, queryableMethodVisitor.Joins.Select(j =>
-            $"{j.JoinType} {j.Sql} ON {j.OnClause}"));
-
-        foreach (JoinInfo join in queryableMethodVisitor.Joins)
-        {
-            VisitSQLExpression(join.Sql);
-            VisitSQLExpression(join.OnClause);
-        }
-
-        string whereSql = queryableMethodVisitor.Wheres.Count > 0
-            ? "WHERE " + (queryableMethodVisitor.IsAll
-                ? $"NOT ({string.Join(" AND ", queryableMethodVisitor.Wheres)})"
-                : string.Join(" AND ", queryableMethodVisitor.Wheres))
-            : string.Empty;
-
-        foreach (SQLExpression sqlExpression in queryableMethodVisitor.Wheres)
-        {
-            VisitSQLExpression(sqlExpression);
-        }
-
+        // SELECT
         string distinct = queryableMethodVisitor.IsDistinct ? " DISTINCT" : string.Empty;
 
         string selectSql = queryableMethodVisitor.Selects.Count > 0 && !useExists
@@ -110,6 +91,52 @@ internal class SQLTranslator
             }
         }
 
+        // FROM
+        string from = $"FROM {visitor.From}";
+
+        // WHERE
+        string whereSql = queryableMethodVisitor.Wheres.Count > 0
+            ? "WHERE " + (queryableMethodVisitor.IsAll
+                ? $"NOT ({string.Join(" AND ", queryableMethodVisitor.Wheres)})"
+                : string.Join(" AND ", queryableMethodVisitor.Wheres))
+            : string.Empty;
+
+        foreach (SQLExpression sqlExpression in queryableMethodVisitor.Wheres)
+        {
+            VisitSQLExpression(sqlExpression);
+        }
+
+        // JOINs
+        string joinSql = string.Join(Environment.NewLine + spacing, queryableMethodVisitor.Joins.Select(j =>
+            $"{j.JoinType} {j.Sql} ON {j.OnClause}"));
+
+        foreach (JoinInfo join in queryableMethodVisitor.Joins)
+        {
+            VisitSQLExpression(join.Sql);
+            VisitSQLExpression(join.OnClause);
+        }
+
+        // GROUP BY
+        string groupBySql = queryableMethodVisitor.GroupBys.Count > 0
+            ? "GROUP BY " + string.Join(", ", queryableMethodVisitor.GroupBys)
+            : string.Empty;
+
+        foreach (SQLExpression sqlExpression in queryableMethodVisitor.GroupBys)
+        {
+            VisitSQLExpression(sqlExpression);
+        }
+
+        // HAVING
+        string havingSql = queryableMethodVisitor.Havings.Count > 0
+            ? string.Join(" AND ", queryableMethodVisitor.Havings)
+            : string.Empty;
+
+        foreach (SQLExpression sqlExpression in queryableMethodVisitor.Havings)
+        {
+            VisitSQLExpression(sqlExpression);
+        }
+
+        // ORDER BY
         string orderBy = queryableMethodVisitor.OrderBys.Count > 0 && !useExists
             ? "ORDER BY " + string.Join(", ", queryableMethodVisitor.OrderBys)
             : string.Empty;
@@ -119,12 +146,14 @@ internal class SQLTranslator
             VisitSQLExpression(sqlExpression);
         }
 
+        // LIMIT
         string limit = queryableMethodVisitor.Take != null
             ? $"LIMIT {queryableMethodVisitor.Take}"
             : queryableMethodVisitor.Skip != null
                 ? "LIMIT -1"
                 : string.Empty;
 
+        // OFFSET
         string offset = queryableMethodVisitor.Skip != null
             ? $"OFFSET {queryableMethodVisitor.Skip}"
             : string.Empty;
@@ -132,9 +161,11 @@ internal class SQLTranslator
         string sql = spacing + string.Join(Environment.NewLine + spacing, new[]
         {
             $"SELECT{distinct} {(useExists ? "1" : selectSql)}",
-            $"FROM {visitor.From}",
+            from,
             joinSql,
             whereSql,
+            groupBySql,
+            havingSql,
             orderBy,
             limit,
             offset,

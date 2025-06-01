@@ -576,6 +576,69 @@ internal class MethodVisitor
         return node;
     }
 
+    public Expression HandleGroupingMethod(MethodCallExpression node)
+    {
+        switch (node.Method.Name)
+        {
+            case nameof(Enumerable.LongCount):
+            case nameof(Enumerable.Count):
+                return new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    "COUNT(*)",
+                    []
+                );
+        }
+
+        SQLExpression? sqlExpression = null;
+
+        // We have a selection like `g.Sum(f => f.Price)`, where `g` is a grouping.
+        if (node.Arguments.Count == 2)
+        {
+            (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(node.Arguments[0]);
+
+            Dictionary<string, Expression> newTableColumns = [];
+
+            foreach (KeyValuePair<string, Expression> kvp in visitor.MethodArguments[pe])
+            {
+                if (kvp.Key.StartsWith(path))
+                {
+                    // +1 for the dot between the path and the key
+                    string[] split = kvp.Key[(path.Length + nameof(IGrouping<,>.Key).Length + 1)..]
+                        .Split('.', StringSplitOptions.RemoveEmptyEntries);
+
+                    string newKey = string.Join('.', split);
+                    newTableColumns[newKey] = kvp.Value;
+                }
+            }
+
+            LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
+            visitor.MethodArguments[lambda.Parameters[0]] = newTableColumns;
+        }
+        else
+        {
+            // If the path is empty, we are dealing with a grouping without a key, like `g.Sum()`.
+            // We need to resolve the grouping key to the correct column.
+            Expression expression = visitor.ResolveMember(node.Arguments[0]);
+
+            if (expression is not SQLExpression expr)
+            {
+                throw new NotSupportedException("Grouping key could not be resolved.");
+            }
+
+            sqlExpression = expr;
+        }
+
+        return node.Method.Name switch
+        {
+            nameof(Enumerable.Sum) => AggregateExpression(node, "SUM", sqlExpression),
+            nameof(Enumerable.Average) => AggregateExpression(node, "AVG", sqlExpression),
+            nameof(Enumerable.Min) => AggregateExpression(node, "MIN", sqlExpression),
+            nameof(Enumerable.Max) => AggregateExpression(node, "MAX", sqlExpression),
+            _ => node
+        };
+    }
+
     private SQLExpression ResolveLike(MethodInfo method, SQLExpression obj, List<(bool IsConstant, object? Constant, SQLExpression Sql, Expression Expression)> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
     {
         string rest = "ESCAPE '\\'";
@@ -727,5 +790,34 @@ internal class MethodVisitor
         };
 
         return (tickParameter, tickToSecondParameter);
+    }
+
+    private SQLExpression AggregateExpression(MethodCallExpression node, string aggregateFunction, SQLExpression? sqlExpression)
+    {
+        if (node.Arguments.Count == 1)
+        {
+            return new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"{aggregateFunction}({sqlExpression!.Sql})",
+                sqlExpression.Parameters
+            );
+        }
+        else
+        {
+            LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
+            Expression resolvedExpression = visitor.Visit(lambda.Body);
+            if (resolvedExpression is not SQLExpression sql)
+            {
+                throw new NotSupportedException("Sum could not resolve the expression.");
+            }
+
+            return new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"{aggregateFunction}({sql.Sql})",
+                sql.Parameters
+            );
+        }
     }
 }

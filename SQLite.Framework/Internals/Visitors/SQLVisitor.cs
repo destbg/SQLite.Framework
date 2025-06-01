@@ -326,6 +326,11 @@ internal class SQLVisitor : ExpressionVisitor
         }
         else if (node.Arguments.Count > 0)
         {
+            if (node.Arguments[0].Type.IsGenericType && node.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+            {
+                return methodVisitor.HandleGroupingMethod(node);
+            }
+            
             List<(bool IsConstant, object? Constant, SQLExpression? Sql, Expression Expression)> arguments = node.Arguments
                 .Select(ResolveExpressionWithConstant)
                 .ToList();

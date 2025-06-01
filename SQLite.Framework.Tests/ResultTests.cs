@@ -429,6 +429,126 @@ public class ResultTests
         Assert.False(contains);
     }
 
+    [Fact]
+    public void ResultGroupBySumTable()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<double> sum = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId into g
+            select g.Sum(f => f.Price)
+        ).ToList();
+
+        Assert.Single(sum);
+        Assert.Equal(15, sum[0]);
+    }
+
+    [Fact]
+    public void ResultGroupBySimpleSumTable()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<double> sum = (
+            from book in db.Table<Book>()
+            group book.Price by book.AuthorId into g
+            select g.Sum()
+        ).ToList();
+
+        Assert.Single(sum);
+        Assert.Equal(15, sum[0]);
+    }
+
+    [Fact]
+    public void ResultGroupByComplexSumTable()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<double> sum = (
+            from book in db.Table<Book>()
+            group new { book.Price, book.AuthorId } by book.AuthorId into g
+            select g.Sum(f => f.Price)
+        ).ToList();
+
+        Assert.Single(sum);
+        Assert.Equal(15, sum[0]);
+    }
+
+    [Fact]
+    public void ResultGroupByAverageTable()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<double> average = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId into g
+            select g.Average(f => f.Price)
+        ).ToList();
+
+        Assert.Single(average);
+        Assert.Equal(7.5, average[0]);
+    }
+
+    [Fact]
+    public void ResultGroupByMinTable()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<double> min = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId into g
+            select g.Min(f => f.Price)
+        ).ToList();
+
+        Assert.Single(min);
+        Assert.Equal(5, min[0]);
+    }
+
+    [Fact]
+    public void ResultGroupByMaxTable()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<double> max = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId into g
+            select g.Max(f => f.Price)
+        ).ToList();
+
+        Assert.Single(max);
+        Assert.Equal(10, max[0]);
+    }
+
+    [Fact]
+    public void ResultGroupByCountTable()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<int> count = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId into g
+            select g.Count()
+        ).ToList();
+
+        Assert.Single(count);
+        Assert.Equal(2, count[0]);
+    }
+
+    [Fact]
+    public void ResultGroupByLongCountTable()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<long> count = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId into g
+            select g.LongCount()
+        ).ToList();
+
+        Assert.Single(count);
+        Assert.Equal(2, count[0]);
+    }
+
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(methodName);

@@ -188,7 +188,7 @@ public class SelectTests
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal(1, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT a0.AuthorId + @p0 - @p5 AS ""
+                     SELECT a0.AuthorId + @p0 - @p5 AS "8"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

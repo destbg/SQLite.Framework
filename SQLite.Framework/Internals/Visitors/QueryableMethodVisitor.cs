@@ -27,6 +27,8 @@ internal class QueryableMethodVisitor
     public List<JoinInfo> Joins { get; } = [];
     public List<SQLExpression> Wheres { get; } = [];
     public List<SQLExpression> OrderBys { get; } = [];
+    public List<SQLExpression> GroupBys { get; } = [];
+    public List<SQLExpression> Havings { get; } = [];
     public List<(SQLExpression Sql, bool All)> Unions { get; } = [];
     public List<SQLExpression> Selects { get; }
 
@@ -91,15 +93,19 @@ internal class QueryableMethodVisitor
             {
                 SQLExpression sqlExpression = (SQLExpression)tableColumn.Value;
 
-                Selects.Add(new SQLExpression(
+                SQLExpression newSqlExpression = new(
                     node.Method.ReturnType,
                     visitor.IdentifierIndex++,
                     sqlExpression.Sql,
                     sqlExpression.Parameters
-                )
+                );
+
+                if (!string.IsNullOrEmpty(tableColumn.Key))
                 {
-                    IdentifierText = tableColumn.Key
-                });
+                    newSqlExpression.IdentifierText = tableColumn.Key;
+                }
+
+                Selects.Add(newSqlExpression);
             }
 
             return node;
@@ -135,7 +141,14 @@ internal class QueryableMethodVisitor
             throw new NotSupportedException($"Unsupported WHERE expression {lambda.Body}");
         }
 
-        Wheres.Add(sqlExpression);
+        if (GroupBys.Count != 0)
+        {
+            Havings.Add(sqlExpression);
+        }
+        else
+        {
+            Wheres.Add(sqlExpression);
+        }
 
         return result;
     }
@@ -143,7 +156,7 @@ internal class QueryableMethodVisitor
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "The type is an entity.")]
-    private Expression VisitJoin(MethodCallExpression node)
+    private SQLExpression VisitJoin(MethodCallExpression node)
     {
         Dictionary<string, Expression> newTableColumns;
         Type entityType;
@@ -238,7 +251,7 @@ internal class QueryableMethodVisitor
         return sql;
     }
 
-    private Expression VisitSelectMany(MethodCallExpression node)
+    private MethodCallExpression VisitSelectMany(MethodCallExpression node)
     {
         LambdaExpression selector = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
         LambdaExpression resultSelector = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[2]);
@@ -275,13 +288,13 @@ internal class QueryableMethodVisitor
         return node;
     }
 
-    private Expression VisitTake(MethodCallExpression node)
+    private MethodCallExpression VisitTake(MethodCallExpression node)
     {
         Take = (int)CommonHelpers.GetConstantValue(node.Arguments[1])!;
         return node;
     }
 
-    private Expression VisitSkip(MethodCallExpression node)
+    private MethodCallExpression VisitSkip(MethodCallExpression node)
     {
         Skip = (int)CommonHelpers.GetConstantValue(node.Arguments[1])!;
         return node;
@@ -310,7 +323,7 @@ internal class QueryableMethodVisitor
         return orderBy;
     }
 
-    private Expression VisitScalar(MethodCallExpression node)
+    private MethodCallExpression VisitScalar(MethodCallExpression node)
     {
         CheckWhereArgument(node);
 
@@ -332,7 +345,7 @@ internal class QueryableMethodVisitor
         return node;
     }
 
-    private Expression VisitBoolean(MethodCallExpression node)
+    private MethodCallExpression VisitBoolean(MethodCallExpression node)
     {
         CheckWhereArgument(node);
         IsAny = node.Method.Name == nameof(Queryable.Any);
@@ -341,7 +354,7 @@ internal class QueryableMethodVisitor
         return node;
     }
 
-    private Expression VisitGroupFunction(MethodCallExpression node, string function)
+    private SQLExpression VisitGroupFunction(MethodCallExpression node, string function)
     {
         SQLExpression select;
         if (node.Arguments.Count == 2)
@@ -371,13 +384,13 @@ internal class QueryableMethodVisitor
         return select;
     }
 
-    private Expression VisitDistinct(MethodCallExpression node)
+    private MethodCallExpression VisitDistinct(MethodCallExpression node)
     {
         IsDistinct = true;
         return node;
     }
 
-    private Expression VisitUnion(MethodCallExpression node)
+    private SQLExpression VisitUnion(MethodCallExpression node)
     {
         SQLTranslator sqlTranslator = visitor.CloneDeeper(visitor.Level);
         SQLQuery query = sqlTranslator.Translate(node.Arguments[0]);
@@ -394,7 +407,7 @@ internal class QueryableMethodVisitor
         return sqlExpression;
     }
 
-    private Expression VisitContains(MethodCallExpression node)
+    private MethodCallExpression VisitContains(MethodCallExpression node)
     {
         if (visitor.TableColumns.Count != 1)
         {
@@ -426,13 +439,43 @@ internal class QueryableMethodVisitor
         return node;
     }
 
-    private Expression VisitGroupBy(MethodCallExpression node)
+    private MethodCallExpression VisitGroupBy(MethodCallExpression node)
     {
-        // LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-        // visitor.TableColumns = ResolveResultAlias(lambda, lambda.Body);
+        if (GroupBys.Count != 0)
+        {
+            throw new NotSupportedException("GroupBy is only supported once in a query.");
+        }
 
-        // TODO: Add GroupBy support
-        throw new NotSupportedException("GroupBy is not supported.");
+        LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
+
+        SelectVisitor groupByVisitor = new(GroupBys);
+        Expression groupByExpression = visitor.Visit(lambda.Body);
+        groupByVisitor.Visit(groupByExpression);
+
+        if (GroupBys.Count == 0)
+        {
+            throw new NotSupportedException("There was a problem when compiling the GroupBy expression.");
+        }
+
+        if (node.Arguments.Count == 3)
+        {
+            LambdaExpression resultSelector = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[2]);
+            visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
+            visitor.TableColumns = ResolveResultAlias(resultSelector, resultSelector.Body);
+        }
+
+        Dictionary<string, Expression> newTableColumns = [];
+        foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns.ToList())
+        {
+            string[] split = tableColumn.Key.Split('.');
+            string key = string.Join('.', [nameof(IGrouping<,>.Key), ..split]);
+
+            newTableColumns[key] = tableColumn.Value;
+        }
+
+        visitor.TableColumns = newTableColumns;
+
+        return node;
     }
 
     private void CheckWhereArgument(MethodCallExpression node)
@@ -637,6 +680,17 @@ internal class QueryableMethodVisitor
                 result.Add(tableColumn.Key, tableColumn.Value);
             }
         }
+        else if (body is MethodCallExpression)
+        {
+            Expression sql = visitor.Visit(body);
+
+            if (sql is not SQLExpression sqlExpression)
+            {
+                throw new NotSupportedException($"Unsupported expression {body}");
+            }
+
+            result.Add(string.Empty, sqlExpression);
+        }
         else
         {
             SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.TableIndex, visitor.Level + 1)
@@ -655,82 +709,4 @@ internal class QueryableMethodVisitor
 
         return result;
     }
-
-    // private void BuildSelect(Expression expr, string? prefix)
-    // {
-    //     if (expr is MemberInitExpression mi)
-    //     {
-    //         // new TDto { Prop = ..., Prop2 = ... }
-    //         foreach (MemberAssignment bind in mi.Bindings.Cast<MemberAssignment>())
-    //         {
-    //             // 1) Nested DTO: e.g. Author = new AuthorDTO { Id = ..., Name = ... }
-    //             if (bind.Expression is MemberInitExpression nested && bind.Member is PropertyInfo pi)
-    //             {
-    //                 BuildSelect(nested, pi.Name);
-    //             }
-    //             else
-    //             {
-    //                 string path = $"{(prefix != null ? $"{prefix}." : string.Empty)}{bind.Member.Name}";
-    //
-    //                 ColumnMapping mapping = TableColumns[path];
-    //                 Selects.Add($"{CommonHelpers.BracketIfNeeded(mapping.Sql)} AS \"{(prefix != null ? $"{prefix}." : string.Empty)}{bind.Member.Name}\"");
-    //             }
-    //         }
-    //     }
-    //     else if (expr is NewExpression nex)
-    //     {
-    //         // new { Prop = ..., Prop2 = ... }
-    //         foreach (Expression bind in nex.Arguments)
-    //         {
-    //             // 1) Nested DTO: e.g. Author = new AuthorDTO { Id = ..., Name = ... }
-    //             if (bind is MemberExpression memberExpression)
-    //             {
-    //                 string path = $"{(prefix != null ? $"{prefix}." : string.Empty)}{memberExpression.Member.Name}";
-    //
-    //                 ColumnMapping mapping = TableColumns[path];
-    //                 Selects.Add($"{CommonHelpers.BracketIfNeeded(mapping.Sql)} AS \"{(prefix != null ? $"{prefix}." : string.Empty)}{memberExpression.Member.Name}\"");
-    //             }
-    //             else
-    //             {
-    //                 throw new NotSupportedException($"Unsupported member expression {nex}");
-    //             }
-    //         }
-    //     }
-    //     else if (expr is MemberExpression me)
-    //     {
-    //         if (CommonHelpers.IsSimple(me.Type))
-    //         {
-    //             (string path, ParameterExpression _) = CommonHelpers.ResolveParameterPath(me);
-    //
-    //             if (TableColumns.TryGetValue(path, out ColumnMapping? tableColumn))
-    //             {
-    //                 Selects.Add($"{CommonHelpers.BracketIfNeeded(tableColumn.Sql)} AS \"{(prefix != null ? $"{prefix}." : string.Empty)}{me.Member.Name}\"");
-    //             }
-    //         }
-    //         else
-    //         {
-    //             foreach (KeyValuePair<string, ColumnMapping> tableColumn in TableColumns)
-    //             {
-    //                 string sql = tableColumn.Value.Sql;
-    //                 Selects.Add($"{CommonHelpers.BracketIfNeeded(sql)} AS \"{(prefix != null ? $"{prefix}." : string.Empty)}{tableColumn.Value.PropertyName}\"");
-    //             }
-    //         }
-    //     }
-    //     else if (TableColumns.TryGetValue(string.Empty, out ColumnMapping? tableColumn))
-    //     {
-    //         Selects.Add(CommonHelpers.BracketIfNeeded(tableColumn.Sql));
-    //     }
-    //     else if (expr is ParameterExpression)
-    //     {
-    //         foreach (KeyValuePair<string, ColumnMapping> tableColumn2 in TableColumns)
-    //         {
-    //             string sql = tableColumn2.Value.Sql;
-    //             Selects.Add($"{CommonHelpers.BracketIfNeeded(sql)} AS \"{(prefix != null ? $"{prefix}." : string.Empty)}{tableColumn2.Key}\"");
-    //         }
-    //     }
-    //     else
-    //     {
-    //         throw new NotSupportedException("Only simple .Select(new DTO { … }) or .Select(f => f.Id) is supported");
-    //     }
-    // }
 }
