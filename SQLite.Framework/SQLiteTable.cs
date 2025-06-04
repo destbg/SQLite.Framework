@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
-using System.Reflection;
+using SQLite.Framework.Attributes;
 using SQLite.Framework.Models;
 
 namespace SQLite.Framework;
@@ -48,7 +48,34 @@ public class SQLiteTable : BaseSQLiteTable
         string columns = string.Join(", ", Table.Columns.Select(c => c.GetCreateColumnSql()));
 
         string sql = $"CREATE TABLE IF NOT EXISTS \"{Table.TableName}\" ({columns})";
-        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+
+        if (Table.WithoutRowId)
+        {
+            sql += " WITHOUT ROWID";
+        }
+
+        int count = Database.CreateCommand(sql, []).ExecuteNonQuery();
+
+        foreach (TableColumn tableColumn in Table.Columns)
+        {
+            foreach (IndexedAttribute index in tableColumn.Indices)
+            {
+                string indexName = index.Name ?? ("idx_" + tableColumn.Name + "_" + index.Order);
+
+                if (index.IsUnique)
+                {
+                    string uniqueSql = $"CREATE UNIQUE INDEX IF NOT EXISTS \"{indexName}\" ON \"{Table.TableName}\" ({tableColumn.Name})";
+                    count += Database.CreateCommand(uniqueSql, []).ExecuteNonQuery();
+                }
+                else
+                {
+                    string indexSql = $"CREATE INDEX IF NOT EXISTS \"{indexName}\" ON \"{Table.TableName}\" ({tableColumn.Name})";
+                    count += Database.CreateCommand(indexSql, []).ExecuteNonQuery();
+                }
+            }
+        }
+
+        return count;
     }
 
     /// <summary>
@@ -91,30 +118,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public int Add(T item)
     {
-        TableColumn[] columns = Table.Columns
-            .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
-            .ToArray();
+        (TableColumn[] columns, string sql) = GetAddInfo();
 
-        object[] values = columns
-            .Select(c => c.PropertyInfo.GetValue(item))
-            .ToArray()!;
-
-        string columnsString = string.Join(", ", columns.Select(c => c.Name));
-        string parametersString = string.Join(", ", columns.Select((_, i) => $"@p{i}"));
-
-        List<SQLiteParameter> parameters = [];
-
-        for (int i = 0; i < values.Length; i++)
-        {
-            parameters.Add(new SQLiteParameter
-            {
-                Name = $"@p{i}",
-                Value = values[i]
-            });
-        }
-
-        string sql = $"INSERT INTO \"{Table.TableName}\" ({columnsString}) VALUES ({parametersString})";
-        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
+        return AddItem(columns, sql, item);
     }
 
     /// <summary>
@@ -122,6 +128,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public int AddRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
+        (TableColumn[] columns, string sql) = GetAddInfo();
+
         int count = 0;
 
         if (runInTransaction)
@@ -130,7 +138,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
             foreach (T item in collection)
             {
-                count += Add(item);
+                count += AddItem(columns, sql, item);
             }
 
             transaction.Commit();
@@ -139,7 +147,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         {
             foreach (T item in collection)
             {
-                count += Add(item);
+                count += AddItem(columns, sql, item);
             }
         }
 
@@ -151,35 +159,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public int Update(T item)
     {
-        TableColumn[] columns = Table.Columns
-            .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
-            .ToArray();
+        (TableColumn[] columns, TableColumn[] primaryKeyColumns, string sql) = GetUpdateInfo();
 
-        object[] values = columns
-            .Select(c => c.PropertyInfo.GetValue(item))
-            .ToArray()!;
-
-        string setClause = string.Join(", ", columns.Select((c, i) => $"{c.Name} = @p{i + 1}"));
-        string sql = $"UPDATE \"{Table.TableName}\" SET {setClause} WHERE {Table.PrimaryKey.Name} = @p0";
-
-        List<SQLiteParameter> parameters = [];
-
-        for (int i = 0; i < values.Length; i++)
-        {
-            parameters.Add(new SQLiteParameter
-            {
-                Name = $"@p{i + 1}",
-                Value = values[i]
-            });
-        }
-
-        parameters.Add(new SQLiteParameter
-        {
-            Name = "@p0",
-            Value = Table.PrimaryKey.PropertyInfo.GetValue(item)
-        });
-
-        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
+        return UpdateItem(columns, primaryKeyColumns, sql, item);
     }
 
     /// <summary>
@@ -187,6 +169,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public int UpdateRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
+        (TableColumn[] columns, TableColumn[] primaryKeyColumns, string sql) = GetUpdateInfo();
+
         int count = 0;
 
         if (runInTransaction)
@@ -195,7 +179,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
             foreach (T item in collection)
             {
-                count += Update(item);
+                count += UpdateItem(columns, primaryKeyColumns, sql, item);
             }
 
             transaction.Commit();
@@ -204,7 +188,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         {
             foreach (T item in collection)
             {
-                count += Update(item);
+                count += UpdateItem(columns, primaryKeyColumns, sql, item);
             }
         }
 
@@ -216,16 +200,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public int Remove(T item)
     {
-        return Remove(Table.PrimaryKey.PropertyInfo.GetValue(item)!);
-    }
+        (TableColumn[] primaryKeyColumns, string sql) = GetRemoveInfo();
 
-    /// <summary>
-    /// Performs a DELETE operation on the database table using the primary key.
-    /// </summary>
-    public int Remove(object primaryKey)
-    {
-        string sql = $"DELETE FROM \"{Table.TableName}\" WHERE {Table.PrimaryKey.Name} = @p0";
-        return Database.CreateCommand(sql, [new SQLiteParameter { Name = "@p0", Value = primaryKey }]).ExecuteNonQuery();
+        return RemoveItem(primaryKeyColumns, sql, item);
     }
 
     /// <summary>
@@ -233,6 +210,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public int RemoveRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
+        (TableColumn[] primaryKeyColumns, string sql) = GetRemoveInfo();
+
         int count = 0;
 
         if (runInTransaction)
@@ -241,7 +220,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
             foreach (T item in collection)
             {
-                count += Remove(Table.PrimaryKey.PropertyInfo.GetValue(item)!);
+                count += RemoveItem(primaryKeyColumns, sql, item);
             }
 
             transaction.Commit();
@@ -250,7 +229,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         {
             foreach (T item in collection)
             {
-                count += Remove(Table.PrimaryKey.PropertyInfo.GetValue(item)!);
+                count += RemoveItem(primaryKeyColumns, sql, item);
             }
         }
 
@@ -266,5 +245,104 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public override IEnumerator GetEnumerator()
     {
         return ((IEnumerable<T>)this).GetEnumerator();
+    }
+
+    private (TableColumn[] Columns, string Sql) GetAddInfo()
+    {
+        TableColumn[] columns = Table.Columns
+            .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
+            .ToArray();
+
+        string columnsString = string.Join(", ", columns.Select(c => c.Name));
+        string parametersString = string.Join(", ", columns.Select((_, i) => $"@p{i}"));
+
+        string sql = $"INSERT INTO \"{Table.TableName}\" ({columnsString}) VALUES ({parametersString})";
+
+        return (columns, sql);
+    }
+
+    private (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfo()
+    {
+        TableColumn[] columns = Table.Columns
+            .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
+            .ToArray();
+
+        TableColumn[] primaryKeyColumns = Table.Columns
+            .Where(f => f.IsPrimaryKey)
+            .ToArray();
+
+        string setClause = string.Join(", ", columns.Select((c, i) => $"{c.Name} = @p{i}"));
+        string primaryKeyClause = string.Join(" AND ",
+            primaryKeyColumns.Select((c, i) => $"{c.Name} = @p{i + columns.Length}")
+        );
+        string sql = $"UPDATE \"{Table.TableName}\" SET {setClause} WHERE {primaryKeyClause}";
+
+        return (columns, primaryKeyColumns, sql);
+    }
+
+    private (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfo()
+    {
+        TableColumn[] primaryKeyColumns = Table.Columns
+            .Where(f => f.IsPrimaryKey)
+            .ToArray();
+
+        if (primaryKeyColumns.Length == 0)
+        {
+            throw new Exception("Cannot perform a delete operation without a primary key.");
+        }
+
+        string primaryKeyClause = string.Join(" AND ",
+            primaryKeyColumns.Select((c, i) => $"{c.Name} = @p{i}")
+        );
+        string sql = $"DELETE FROM \"{Table.TableName}\" WHERE {primaryKeyClause}";
+
+        return (primaryKeyColumns, sql);
+    }
+
+    private int AddItem(TableColumn[] columns, string sql, T item)
+    {
+        List<SQLiteParameter> parameters = columns
+            .Select((c, i) => new SQLiteParameter
+            {
+                Name = $"@p{i}",
+                Value = c.PropertyInfo.GetValue(item)
+            })
+            .ToList();
+
+        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
+    }
+
+    private int RemoveItem(TableColumn[] primaryColumns, string sql, T item)
+    {
+        List<SQLiteParameter> parameters = primaryColumns
+            .Select((f, i) => new SQLiteParameter
+            {
+                Name = $"@p{i}",
+                Value = f.PropertyInfo.GetValue(item)
+            })
+            .ToList();
+
+        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
+    }
+
+    private int UpdateItem(TableColumn[] columns, TableColumn[] primaryColumns, string sql, T item)
+    {
+        IEnumerable<SQLiteParameter> primaryParameters = primaryColumns
+            .Select((c, i) => new SQLiteParameter
+            {
+                Name = $"@p{i + columns.Length}",
+                Value = c.PropertyInfo.GetValue(item)
+            });
+
+        List<SQLiteParameter> parameters = columns
+            .Select((c, i) => new SQLiteParameter
+            {
+                Name = $"@p{i}",
+                Value = c.PropertyInfo.GetValue(item)
+            })
+            .Concat(primaryParameters)
+            .ToList();
+
+        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
     }
 }

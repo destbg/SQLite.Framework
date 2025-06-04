@@ -11,6 +11,45 @@ namespace SQLite.Framework.Extensions;
 public static class AsyncQueryableExtensions
 {
     /// <summary>
+    /// Executes the query and deletes the records from the database.
+    /// </summary>
+    public static Task<int> ExecuteDeleteAsync<T>(this IQueryable<T> source)
+    {
+        if (source is not BaseSQLiteTable table)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+        }
+
+        return ExecuteAsync(source.ExecuteDelete, table.Database);
+    }
+
+    /// <summary>
+    /// Executes the query and deletes the records from the database.
+    /// </summary>
+    public static Task<int> ExecuteDeleteAsync<T>(this IQueryable<T> source, Expression<Func<T, bool>> predicate)
+    {
+        if (source is not BaseSQLiteTable table)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+        }
+
+        return ExecuteAsync(source.ExecuteDelete, table.Database, predicate);
+    }
+
+    /// <summary>
+    /// Executes the query and updates the records in the database.
+    /// </summary>
+    public static Task<int> ExecuteUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this IQueryable<T> source, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
+    {
+        if (source is not BaseSQLiteTable table)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+        }
+
+        return ExecuteAsync(source.ExecuteUpdate, table.Database, setters);
+    }
+
+    /// <summary>
     /// Performs an INSERT operation on the database table using the row.
     /// </summary>
     public static Task<int> AddAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, T item)
@@ -48,14 +87,6 @@ public static class AsyncQueryableExtensions
     public static Task<int> RemoveAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, T item)
     {
         return ExecuteAsync(source.Remove, source.Database, item);
-    }
-
-    /// <summary>
-    /// Performs a DELETE operation on the database table using the primary key.
-    /// </summary>
-    public static Task<int> RemoveAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(this SQLiteTable<T> source, object primaryKey)
-    {
-        return ExecuteAsync(source.Remove, source.Database, primaryKey);
     }
 
     /// <summary>

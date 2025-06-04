@@ -32,29 +32,26 @@ internal class AliasVisitor
 
     private void ResolveResultAlias(LambdaExpression resultSelector, Expression body, string? prefix)
     {
-        if (body is NewExpression ne)
+        switch (body)
         {
-            VisitNewExpression(resultSelector, ne, prefix);
-        }
-        else if (body is MemberInitExpression mie)
-        {
-            VisitMemberInitExpression(resultSelector, mie, prefix);
-        }
-        else if (body is MemberExpression me)
-        {
-            VisitMemberExpression(me, prefix);
-        }
-        else if (body is ParameterExpression pe)
-        {
-            VisitParameterExpression(pe, prefix);
-        }
-        else if (body is MethodCallExpression mce)
-        {
-            VisitMethodCallExpression(mce, prefix);
-        }
-        else
-        {
-            VisitInnerExpression(body, prefix);
+            case NewExpression ne:
+                VisitNewExpression(resultSelector, ne, prefix);
+                break;
+            case MemberInitExpression mie:
+                VisitMemberInitExpression(resultSelector, mie, prefix);
+                break;
+            case MemberExpression me:
+                VisitMemberExpression(me, prefix);
+                break;
+            case ParameterExpression pe:
+                VisitParameterExpression(pe, prefix);
+                break;
+            case MethodCallExpression mce:
+                VisitMethodCallExpression(mce, prefix);
+                break;
+            default:
+                VisitInnerExpression(body, prefix);
+                break;
         }
     }
 
@@ -62,11 +59,22 @@ internal class AliasVisitor
     {
         if (newExpression.Arguments.Count > 0)
         {
-            foreach (Expression argument in newExpression.Arguments)
+            ConstructorInfo ctor = newExpression.Constructor ?? throw new NotSupportedException("Cannot translate new expression without constructor");
+            ParameterInfo[] parameters = ctor.GetParameters();
+
+            if (parameters.Length != newExpression.Arguments.Count)
             {
+                throw new NotSupportedException($"Constructor {ctor.Name} has {parameters.Length} parameters, but {newExpression.Arguments.Count} arguments were provided.");
+            }
+
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                Expression argument = newExpression.Arguments[i];
+                ParameterInfo parameter = parameters[i];
+
                 if (argument is ParameterExpression parameterExpression)
                 {
-                    string alias = CheckPrefix(prefix, parameterExpression.Name!);
+                    string alias = CheckPrefix(prefix, parameter.Name ?? parameterExpression.Name!);
                     Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[parameterExpression];
 
                     foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
@@ -76,7 +84,7 @@ internal class AliasVisitor
                 }
                 else if (argument is MemberExpression memberExpression)
                 {
-                    string alias = CheckPrefix(prefix, memberExpression.Member.Name);
+                    string alias = CheckPrefix(prefix, parameter.Name ?? memberExpression.Member.Name);
                     (string path, ParameterExpression? pe) = CommonHelpers.ResolveNullableParameterPath(memberExpression);
 
                     if (pe == null)
@@ -102,26 +110,15 @@ internal class AliasVisitor
                         }
                     }
                 }
-                else if (argument is ParameterExpression parameterExpr)
+                else if (argument is MethodCallExpression { Arguments.Count: 1 } methodCallExpression && methodCallExpression.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
                 {
-                    string alias = CheckPrefix(prefix, parameterExpr.Name!);
-                    (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(parameterExpr);
+                    string alias = CheckPrefix(prefix, parameter.Name ?? methodCallExpression.Method.Name);
 
-                    Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
+                    Expression expression = visitor.MethodVisitor.HandleGroupingMethod(methodCallExpression);
 
-                    if (CommonHelpers.IsSimple(parameterExpr.Type))
+                    if (expression is SQLExpression sqlExpression)
                     {
-                        result.Add(alias, parameterTableColumns[path]);
-                    }
-                    else
-                    {
-                        foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
-                        {
-                            if (tableColumn.Key.StartsWith(path))
-                            {
-                                result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
-                            }
-                        }
+                        result.Add(alias, sqlExpression);
                     }
                 }
                 else

@@ -35,6 +35,33 @@ public class OtherTests
     }
 
     [Fact]
+    public void TestUniqueness()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "test",
+            AuthorId = 1,
+            Price = 10
+        });
+
+        Assert.Throws<SQLiteException>(() =>
+        {
+            db.Table<Book>().Add(new Book
+            {
+                Id = 2,
+                Title = "test",
+                AuthorId = 1,
+                Price = 10
+            });
+        });
+    }
+
+    [Fact]
     public void QueryableContainsWithPassingArgument()
     {
         using TestDatabase db = new();

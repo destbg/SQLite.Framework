@@ -20,8 +20,6 @@ namespace SQLite.Framework.Internals.Visitors;
 internal class SQLVisitor : ExpressionVisitor
 {
     private readonly SQLiteDatabase database;
-    private readonly MethodVisitor methodVisitor;
-    private readonly PropertyVisitor propertyVisitor;
 
     public SQLVisitor(SQLiteDatabase database, ParameterIndexWrapper paramIndex, TableIndexWrapper tableIndex, int level)
     {
@@ -29,9 +27,12 @@ internal class SQLVisitor : ExpressionVisitor
         ParamIndex = paramIndex;
         TableIndex = tableIndex;
         Level = level;
-        methodVisitor = new(this);
-        propertyVisitor = new(this);
+        MethodVisitor = new(this);
+        PropertyVisitor = new(this);
     }
+
+    public MethodVisitor MethodVisitor { get; }
+    public PropertyVisitor PropertyVisitor { get; }
 
     public ParameterIndexWrapper ParamIndex { get; }
     public TableIndexWrapper TableIndex { get; }
@@ -208,27 +209,27 @@ internal class SQLVisitor : ExpressionVisitor
                 {
                     if (Nullable.GetUnderlyingType(node.Expression.Type) != null)
                     {
-                        return propertyVisitor.HandleNullableProperty(node.Member.Name, node.Type, sqlExpression);
+                        return PropertyVisitor.HandleNullableProperty(node.Member.Name, node.Type, sqlExpression);
                     }
                     else if (node.Expression.Type == typeof(DateTime))
                     {
-                        return propertyVisitor.HandleDateTimeProperty(node.Member.Name, node.Type, sqlExpression);
+                        return PropertyVisitor.HandleDateTimeProperty(node.Member.Name, node.Type, sqlExpression);
                     }
                     else if (node.Expression.Type == typeof(DateTimeOffset))
                     {
-                        return propertyVisitor.HandleDateTimeOffsetProperty(node.Member.Name, node.Type, sqlExpression);
+                        return PropertyVisitor.HandleDateTimeOffsetProperty(node.Member.Name, node.Type, sqlExpression);
                     }
                     else if (node.Expression.Type == typeof(TimeSpan))
                     {
-                        return propertyVisitor.HandleTimeSpanProperty(node.Member.Name, node.Type, sqlExpression);
+                        return PropertyVisitor.HandleTimeSpanProperty(node.Member.Name, node.Type, sqlExpression);
                     }
                     else if (node.Expression.Type == typeof(DateOnly))
                     {
-                        return propertyVisitor.HandleDateOnlyProperty(node.Member.Name, node.Type, sqlExpression);
+                        return PropertyVisitor.HandleDateOnlyProperty(node.Member.Name, node.Type, sqlExpression);
                     }
                     else if (node.Expression.Type == typeof(TimeOnly))
                     {
-                        return propertyVisitor.HandleTimeOnlyProperty(node.Member.Name, node.Type, sqlExpression);
+                        return PropertyVisitor.HandleTimeOnlyProperty(node.Member.Name, node.Type, sqlExpression);
                     }
                     else
                     {
@@ -286,39 +287,39 @@ internal class SQLVisitor : ExpressionVisitor
         }
         else if (node.Method.DeclaringType == typeof(string))
         {
-            return methodVisitor.HandleStringMethod(node);
+            return MethodVisitor.HandleStringMethod(node);
         }
         else if (node.Method.DeclaringType == typeof(Math))
         {
-            return methodVisitor.HandleMathMethod(node);
+            return MethodVisitor.HandleMathMethod(node);
         }
         else if (node.Method.DeclaringType == typeof(DateTime))
         {
-            return methodVisitor.HandleDateTimeMethod(node);
+            return MethodVisitor.HandleDateTimeMethod(node);
         }
         else if (node.Method.DeclaringType == typeof(DateTimeOffset))
         {
-            return methodVisitor.HandleDateTimeOffsetMethod(node);
+            return MethodVisitor.HandleDateTimeOffsetMethod(node);
         }
         else if (node.Method.DeclaringType == typeof(TimeSpan))
         {
-            return methodVisitor.HandleTimeSpanMethod(node);
+            return MethodVisitor.HandleTimeSpanMethod(node);
         }
         else if (node.Method.DeclaringType == typeof(DateOnly))
         {
-            return methodVisitor.HandleDateOnlyMethod(node);
+            return MethodVisitor.HandleDateOnlyMethod(node);
         }
         else if (node.Method.DeclaringType == typeof(TimeOnly))
         {
-            return methodVisitor.HandleTimeOnlyMethod(node);
+            return MethodVisitor.HandleTimeOnlyMethod(node);
         }
         else if (node.Method.DeclaringType == typeof(Guid))
         {
-            return methodVisitor.HandleGuidMethod(node);
+            return MethodVisitor.HandleGuidMethod(node);
         }
         else if (node.Method.DeclaringType == typeof(Queryable))
         {
-            return methodVisitor.HandleQueryableMethod(node);
+            return MethodVisitor.HandleQueryableMethod(node);
         }
         else if (node.Object != null)
         {
@@ -329,7 +330,7 @@ internal class SQLVisitor : ExpressionVisitor
 
             if (obj is { IsConstant: true, Constant: IEnumerable enumerable })
             {
-                return methodVisitor.HandleEnumerableMethod(node, enumerable, arguments);
+                return MethodVisitor.HandleEnumerableMethod(node, enumerable, arguments);
             }
 
             return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
@@ -338,7 +339,7 @@ internal class SQLVisitor : ExpressionVisitor
         {
             if (node.Arguments[0].Type.IsGenericType && node.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
             {
-                return methodVisitor.HandleGroupingMethod(node);
+                return MethodVisitor.HandleGroupingMethod(node);
             }
 
             List<ResolvedModel> arguments = node.Arguments
@@ -347,7 +348,7 @@ internal class SQLVisitor : ExpressionVisitor
 
             if (arguments[0].IsConstant && arguments[0].Constant is IEnumerable enumerable)
             {
-                return methodVisitor.HandleEnumerableMethod(node, enumerable, arguments);
+                return MethodVisitor.HandleEnumerableMethod(node, enumerable, arguments);
             }
 
             return Expression.Call(node.Method, arguments.Select(f => f.Expression));
@@ -459,6 +460,7 @@ internal class SQLVisitor : ExpressionVisitor
 
             SQLExpression? sqlExpression = expressions
                 .OrderBy(f => f.Key.Count(c => c == '.'))
+                .ThenBy(f => f.Key.Length)
                 .Select(f => f.Value)
                 .OfType<SQLExpression>()
                 .FirstOrDefault();

@@ -566,11 +566,12 @@ internal class MethodVisitor
 
                 if (parameters.Length == 0)
                 {
-                    // TODO: Handle empty list
+                    // For an empty list, `IN ()` is invalid SQL and should always return false.
+                    // We use `0 = 1` to ensure the condition is never true.
                     return new SQLExpression(
                         node.Method.ReturnType,
                         visitor.IdentifierIndex++,
-                        $"{arguments[0].Sql} IN ()",
+                        "0 = 1",
                         arguments[0].Parameters
                     );
                 }
@@ -615,7 +616,8 @@ internal class MethodVisitor
                 if (kvp.Key.StartsWith(path))
                 {
                     // +1 for the dot between the path and the key
-                    string[] split = kvp.Key[(path.Length + nameof(IGrouping<,>.Key).Length + 1)..]
+                    int length = path.Length + nameof(IGrouping<,>.Key).Length + 1;
+                    string[] split = kvp.Key[Math.Min(length, kvp.Key.Length)..]
                         .Split('.', StringSplitOptions.RemoveEmptyEntries);
 
                     string newKey = string.Join('.', split);

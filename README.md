@@ -10,9 +10,6 @@ A lightweight, experimental ORM for SQLite, designed for .NET MAUI with AOT supp
 - **IQueryable interface**: Write LINQ queries against your SQLite database.
 - **Inspired by EF & sqlite-net-pcl**: Familiar patterns with minimal overhead.
 
-> **⚠️ Experimental**  
-> This package is new and not recommended for production use. It may change at any point.
-
 ## Installation
 
 Install via NuGet:
@@ -44,12 +41,15 @@ dotnet add package SQLite.Framework
    context.Table<Person>().CreateTable();
    ```
 
-    On the table class, you can use the [Table] attribute to specify the table name.
+    On the table class, you can use the following:
+    - The [Table] attribute to specify the table name.
+    - The [WithoutRowId] attribute to use the [without rowid](https://sqlite.org/withoutrowid.html) optimization.
 
     On the class properties:
     - The [Column] attribute specifies the column name.
     - The [NotMapped] attribute ignores the property.
     - The [Key] attribute specifies the primary key.
+    - The [Index] attribute creates an index on the column or make a column unique.
     - The [AutoIncrement] attribute is used to specify that the column should be auto-incremented.
     - The [Required] attribute is used to specify that the column is NOT NULL (columns are NOT NULL by default, but using the ? operator marks them as nullable).
 
@@ -85,10 +85,6 @@ In order to use this library in AOT scenarios, you need to make sure the objects
 
 - Part of the assembly that is being AOT compiled (in other words it needs to be part of the code you see).
 - Or simply make sure the classes are referenced in your code.
-
-## Limitations
-
-- No indexes or foreign keys when using the built in-methods.
 
 ## Contributing
 

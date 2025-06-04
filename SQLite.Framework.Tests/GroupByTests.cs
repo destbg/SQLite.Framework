@@ -7,6 +7,31 @@ namespace SQLite.Framework.Tests;
 public class GroupByTests
 {
     [Fact]
+    public void GroupByTableWithMultiResult()
+    {
+        using TestDatabase db = new TestDatabase();
+
+        SQLiteCommand command = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId
+            into g
+            where g.Count() > 1
+            select new { Count = g.Count(), Id = g.Key }
+        ).ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(1, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT COUNT(*) AS "Count",
+                            b0.BookAuthorId AS "Id"
+                     FROM "Books" AS b0
+                     GROUP BY b0.BookAuthorId
+                     HAVING COUNT(*) > @p0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
     public void GroupBySumTable()
     {
         using TestDatabase db = new TestDatabase();
@@ -181,7 +206,8 @@ public class GroupByTests
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
-            group book by book.AuthorId into g
+            group book by book.AuthorId
+            into g
             where g.Count() > 1
             select g.Count()
         ).ToSqlCommand();

@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using SQLite.Framework.Extensions;
+using SQLite.Framework.Internals.Enums;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Internals.Visitors;
@@ -19,28 +20,30 @@ internal class SQLTranslator
 {
     private readonly List<SQLiteParameter> parameters = [];
     private readonly QueryableMethodVisitor queryableMethodVisitor;
-    private readonly SQLVisitor visitor;
     private readonly int level;
+    private Expression? selectMethodExpression;
 
     public SQLTranslator(SQLiteDatabase database)
     {
         ParameterIndexWrapper paramIndex = new();
         TableIndexWrapper tableIndex = new();
 
-        visitor = new SQLVisitor(database, paramIndex, tableIndex, level);
-        queryableMethodVisitor = new QueryableMethodVisitor(database, visitor);
+        Visitor = new SQLVisitor(database, paramIndex, tableIndex, level);
+        queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor);
     }
+
+    public SQLVisitor Visitor { get; }
 
     public SQLTranslator(SQLiteDatabase database, ParameterIndexWrapper paramIndex, TableIndexWrapper tableIndex, int level)
     {
         this.level = level;
-        visitor = new SQLVisitor(database, paramIndex, tableIndex, level);
-        queryableMethodVisitor = new QueryableMethodVisitor(database, visitor);
+        Visitor = new SQLVisitor(database, paramIndex, tableIndex, level);
+        queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor);
     }
 
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
     {
-        init => visitor.MethodArguments = value;
+        init => Visitor.MethodArguments = value;
     }
 
     public bool IsInnerQuery
@@ -48,19 +51,30 @@ internal class SQLTranslator
         set => queryableMethodVisitor.IsInnerQuery = value;
     }
 
-    public SQLQuery Translate(Expression node)
+    public QueryType QueryType { get; init; }
+
+    public List<(string Name, SQLExpression Expression)>? SetProperties { get; set; }
+
+    public void Visit(Expression node)
     {
-        Expression? selectMethod;
         if (node is MethodCallExpression mce)
         {
-            selectMethod = TranslateMethodExpression(mce);
+            selectMethodExpression = TranslateMethodExpression(mce);
         }
         else
         {
-            selectMethod = TranslateOtherExpression(node);
+            selectMethodExpression = TranslateOtherExpression(node);
+        }
+    }
+
+    public SQLQuery Translate(Expression? node)
+    {
+        if (node != null)
+        {
+            Visit(node);
         }
 
-        if (visitor.From == null)
+        if (Visitor.From == null)
         {
             throw new InvalidOperationException("Could not identify FROM clause.");
         }
@@ -75,22 +89,51 @@ internal class SQLTranslator
         bool useExists = queryableMethodVisitor.IsAny || queryableMethodVisitor.IsAll;
 
         // SELECT
-        string distinct = queryableMethodVisitor.IsDistinct ? " DISTINCT" : string.Empty;
+        string select;
 
-        string selectSql = queryableMethodVisitor.Selects.Count > 0 && !useExists
-            ? string.Join($",{Environment.NewLine}       ", queryableMethodVisitor.Selects.Select(f => $"{f.Sql} AS \"{f.IdentifierText}\""))
-            : "*";
-
-        if (!useExists)
+        if (QueryType == QueryType.Select)
         {
-            foreach (SQLExpression expression in queryableMethodVisitor.Selects)
+            string distinct = queryableMethodVisitor.IsDistinct ? " DISTINCT" : string.Empty;
+
+            string selectSql = queryableMethodVisitor.Selects.Count > 0 && !useExists
+                ? string.Join($",{Environment.NewLine}       ", queryableMethodVisitor.Selects.Select(f => $"{f.Sql} AS \"{f.IdentifierText}\""))
+                : "*";
+
+            if (!useExists)
             {
-                VisitSQLExpression(expression);
+                foreach (SQLExpression expression in queryableMethodVisitor.Selects)
+                {
+                    VisitSQLExpression(expression);
+                }
             }
+
+            select = $"SELECT{distinct} {(useExists ? "1" : selectSql)}";
+        }
+        else
+        {
+            select = string.Empty;
         }
 
         // FROM
-        string from = $"FROM {visitor.From}";
+        string from = QueryType switch
+        {
+            QueryType.Delete => $"DELETE FROM {Visitor.From}",
+            QueryType.Update => $"UPDATE {Visitor.From}",
+            _ => $"FROM {Visitor.From}"
+        };
+
+        // SET
+        string set = QueryType == QueryType.Update && SetProperties != null
+            ? $"SET {string.Join(", ", SetProperties.Select(f => $"{f.Name} = {f.Expression.Sql}"))}"
+            : string.Empty;
+
+        if (QueryType == QueryType.Update && SetProperties != null)
+        {
+            foreach ((string _, SQLExpression sqlExpression) in SetProperties)
+            {
+                VisitSQLExpression(sqlExpression);
+            }
+        }
 
         // WHERE
         string whereSql = queryableMethodVisitor.Wheres.Count > 0
@@ -105,13 +148,22 @@ internal class SQLTranslator
         }
 
         // JOINs
-        string joinSql = string.Join(Environment.NewLine + spacing, queryableMethodVisitor.Joins.Select(j =>
-            $"{j.JoinType} {j.Sql} ON {j.OnClause}"));
+        string joinSql = string.Join(Environment.NewLine + spacing,
+            queryableMethodVisitor.Joins.Select(j =>
+                j.OnClause != null
+                    ? $"{j.JoinType} {j.Sql} ON {j.OnClause}"
+                    : $"{j.JoinType} {j.Sql}"
+            )
+        );
 
         foreach (JoinInfo join in queryableMethodVisitor.Joins)
         {
             VisitSQLExpression(join.Sql);
-            VisitSQLExpression(join.OnClause);
+
+            if (join.OnClause != null)
+            {
+                VisitSQLExpression(join.OnClause);
+            }
         }
 
         // GROUP BY
@@ -158,9 +210,10 @@ internal class SQLTranslator
 
         string sql = spacing + string.Join(Environment.NewLine + spacing, new[]
         {
-            $"SELECT{distinct} {(useExists ? "1" : selectSql)}",
+            select,
             from,
             joinSql,
+            set,
             whereSql,
             groupBySql,
             havingSql,
@@ -192,14 +245,14 @@ internal class SQLTranslator
         }
 
         Func<QueryContext, dynamic?>? createObject;
-        if (selectMethod is null or ParameterExpression or MemberExpression or MethodCallExpression)
+        if (selectMethodExpression is null or ParameterExpression or MemberExpression or MethodCallExpression)
         {
             createObject = null;
         }
         else
         {
             QueryCompilerVisitor compilerVisitor = new();
-            CompiledExpression compiledExpression = (CompiledExpression)compilerVisitor.Visit(selectMethod);
+            CompiledExpression compiledExpression = (CompiledExpression)compilerVisitor.Visit(selectMethodExpression);
             createObject = compiledExpression.Call;
         }
 
@@ -255,7 +308,12 @@ internal class SQLTranslator
         {
             if (callExpression.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
             {
-                visitor.AssignTable(callExpression.Method.GetGenericArguments()[0]);
+                object? obj = callExpression.Object != null
+                    ? CommonHelpers.GetConstantValue(callExpression.Object!)
+                    : null;
+                BaseSQLiteTable resultTable = (BaseSQLiteTable)callExpression.Method.Invoke(obj, null)!;
+
+                Visitor.AssignTable(resultTable.ElementType);
                 methodCalls.RemoveAt(methodCalls.Count - 1);
             }
             else
@@ -265,11 +323,11 @@ internal class SQLTranslator
         }
         else if (callExpression.Method.Name is nameof(Queryable.Concat) or nameof(Queryable.Union))
         {
-            visitor.Visit(callExpression.Arguments[1]);
+            Visitor.Visit(callExpression.Arguments[1]);
         }
         else
         {
-            visitor.Visit(callExpression.Arguments[0]);
+            Visitor.Visit(callExpression.Arguments[0]);
         }
 
         if (methodCalls.All(f => !IsSelectMethod(f.Method)))
@@ -292,7 +350,7 @@ internal class SQLTranslator
             if (unaryExpression != null)
             {
                 LambdaExpression lambdaExpression = (LambdaExpression)unaryExpression.Operand;
-                visitor.MethodArguments[lambdaExpression.Parameters[0]] = visitor.TableColumns;
+                Visitor.MethodArguments[lambdaExpression.Parameters[0]] = Visitor.TableColumns;
             }
 
             Expression expression = queryableMethodVisitor.Visit(node);
@@ -331,9 +389,9 @@ internal class SQLTranslator
             .First();
         LambdaExpression lambdaExpression = (LambdaExpression)unaryExpression.Operand;
 
-        visitor.Visit(expression);
+        Visitor.Visit(expression);
 
-        visitor.MethodArguments[lambdaExpression.Parameters[0]] = visitor.TableColumns;
+        Visitor.MethodArguments[lambdaExpression.Parameters[0]] = Visitor.TableColumns;
 
         queryableMethodVisitor.Visit(selectMethod);
 
@@ -354,7 +412,7 @@ internal class SQLTranslator
         return Expression.Call(
             typeof(Queryable),
             nameof(Queryable.Select),
-            new[] { genericType, genericType },
+            [genericType, genericType],
             sourceParameter,
             selector
         );

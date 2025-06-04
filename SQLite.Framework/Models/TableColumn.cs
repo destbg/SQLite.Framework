@@ -25,6 +25,7 @@ public class TableColumn
         PropertyInfo = property;
         Name = columnAttribute?.Name ?? property.Name;
         PropertyType = type;
+        Indices = property.GetCustomAttributes<IndexedAttribute>().ToArray();
         IsPrimaryKey = keyProperty != null;
         IsAutoIncrement = property.GetCustomAttribute<AutoIncrementAttribute>() != null;
         IsNullable = !IsPrimaryKey && (
@@ -49,6 +50,11 @@ public class TableColumn
     /// The property info of the column in the class.
     /// </summary>
     public PropertyInfo PropertyInfo { get; }
+
+    /// <summary>
+    /// The indices associated with the column, if any.
+    /// </summary>
+    public IReadOnlyList<IndexedAttribute> Indices { get; }
 
     /// <summary>
     /// The type of the property in the class.

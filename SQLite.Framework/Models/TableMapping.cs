@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using SQLite.Framework.Attributes;
 
 namespace SQLite.Framework.Models;
 
@@ -19,13 +20,11 @@ public class TableMapping
 
         Type = type;
         TableName = tableAttribute?.Name ?? type.Name;
+        WithoutRowId = type.GetCustomAttribute<WithoutRowIdAttribute>() != null;
         Columns = properties
             .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
             .Select(p => new TableColumn(p))
             .ToArray();
-
-        PrimaryKey = Columns.FirstOrDefault(c => c.IsPrimaryKey)
-                     ?? throw new InvalidOperationException($"The class {type.Name} does not have a primary key defined.");
     }
 
     /// <summary>
@@ -39,12 +38,12 @@ public class TableMapping
     public string TableName { get; }
 
     /// <summary>
-    /// The primary key column of the database table.
-    /// </summary>
-    public TableColumn PrimaryKey { get; }
-
-    /// <summary>
     /// The columns of the database table.
     /// </summary>
-    public TableColumn[] Columns { get; }
+    public IReadOnlyList<TableColumn> Columns { get; }
+
+    /// <summary>
+    /// Indicates that a table does not have a RowId within the table.
+    /// </summary>
+    public bool WithoutRowId { get; }
 }

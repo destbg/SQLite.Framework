@@ -4,7 +4,7 @@ using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
-public class ExternalResultTests
+public class ExternalMethodTests
 {
     public class SpecialModel
     {

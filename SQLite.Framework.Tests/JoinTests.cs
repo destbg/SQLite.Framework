@@ -6,7 +6,28 @@ namespace SQLite.Framework.Tests;
 
 public class JoinTests
 {
-    // TODO: Complex join on new { fields } equals new { fields }
+    [Fact]
+    public void CrossJoin()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = (
+            from book in db.Table<Book>()
+            from author in db.Table<Author>()
+            select author
+        ).ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT a1.AuthorId AS "Id",
+                            a1.AuthorName AS "Name",
+                            a1.AuthorEmail AS "Email",
+                            a1.AuthorBirthDate AS "BirthDate"
+                     FROM "Books" AS b0
+                     CROSS JOIN "Authors" AS a1
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
 
     [Fact]
     public void RightJoin()
@@ -159,6 +180,30 @@ public class JoinTests
                          FROM "Authors" AS a1
                          WHERE a1.AuthorName = @p0
                      ) AS a2 ON b0.BookAuthorId = a2.Id
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void ComplexJoinQuery()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = (
+            from book in db.Table<Book>()
+            join author in db.Table<Author>() on new { Id = book.AuthorId, book.Price } equals new { author.Id, Price = 0d }
+            select author
+        ).ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(0d, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT a1.AuthorId AS "Id",
+                            a1.AuthorName AS "Name",
+                            a1.AuthorEmail AS "Email",
+                            a1.AuthorBirthDate AS "BirthDate"
+                     FROM "Books" AS b0
+                     JOIN "Authors" AS a1 ON a1.AuthorId = b0.BookAuthorId AND @p0 = b0.BookPrice
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

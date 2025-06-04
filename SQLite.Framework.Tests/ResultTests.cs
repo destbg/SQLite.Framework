@@ -18,6 +18,12 @@ public class ResultTests
         public DateTime? BirthDate { get; set; }
     }
 
+    public class GroupDTO
+    {
+        public required int Count { get; set; }
+        public required int Id { get; set; }
+    }
+
     [Fact]
     public void CallExternalMethodNullJoin()
     {
@@ -399,6 +405,42 @@ public class ResultTests
     }
 
     [Fact]
+    public void ResultGroupByTableWithMultiResult()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        var result = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId
+            into g
+            where g.Count() > 1
+            select new { Count = g.Count(), Id = g.Key }
+        ).ToList();
+
+        Assert.Single(result);
+        Assert.Equal(2, result[0].Count);
+        Assert.Equal(1, result[0].Id);
+    }
+
+    [Fact]
+    public void ResultGroupByTableWithMultiResultIntoDto()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<GroupDTO> result = (
+            from book in db.Table<Book>()
+            group book by book.AuthorId
+            into g
+            where g.Count() > 1
+            select new GroupDTO { Count = g.Count(), Id = g.Key }
+        ).ToList();
+
+        Assert.Single(result);
+        Assert.Equal(2, result[0].Count);
+        Assert.Equal(1, result[0].Id);
+    }
+
+    [Fact]
     public void ResultGroupBySumTable()
     {
         using TestDatabase db = SetupDatabase();
@@ -569,6 +611,29 @@ public class ResultTests
         ).ToList();
 
         Assert.Empty(books);
+    }
+
+    [Fact]
+    public void CrossJoin()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<Author> authors = (
+            from book in db.Table<Book>()
+            from author in db.Table<Author>()
+            select author
+        ).ToList();
+
+        Assert.NotNull(authors);
+        Assert.Equal(2, authors.Count);
+
+        foreach (Author author in authors)
+        {
+            Assert.Equal(1, author.Id);
+            Assert.Equal("Author 1", author.Name);
+            Assert.Equal("author@mail.com", author.Email);
+            Assert.Equal(new DateTime(2000, 1, 1), author.BirthDate);
+        }
     }
 
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
