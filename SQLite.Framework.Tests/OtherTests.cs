@@ -461,4 +461,50 @@ public class OtherTests
 
         Assert.True(db.IsConnected);
     }
+
+    [Fact]
+    public void FromSqlCompilesToSqlAndReturnsResult()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "FromSqlTest",
+            AuthorId = 2,
+            Price = 99
+        });
+
+        const string sql = "SELECT * FROM \"Books\" WHERE \"BookTitle\" = @title";
+        IQueryable<Book> table = db.Table<Book>()
+            .FromSql(sql, new SQLiteParameter
+            {
+                Name = "@title",
+                Value = "FromSqlTest"
+            })
+            .Where(f => f.Id == 1);
+
+        SQLiteCommand command = table.ToSqlCommand();
+        Assert.Equal($"""
+                      SELECT b0.BookId AS "Id",
+                             b0.BookTitle AS "Title",
+                             b0.BookAuthorId AS "AuthorId",
+                             b0.BookPrice AS "Price"
+                      FROM ({sql}) AS b0
+                      WHERE b0.BookId = @p1
+                      """, command.CommandText);
+        Assert.Equal(2, command.Parameters.Count);
+        Assert.Equal("@title", command.Parameters[0].Name);
+        Assert.Equal("FromSqlTest", command.Parameters[0].Value);
+        Assert.Equal("@p1", command.Parameters[1].Name);
+        Assert.Equal(1, command.Parameters[1].Value);
+
+        List<Book> result = table.ToList();
+        Assert.Single(result);
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal("FromSqlTest", result[0].Title);
+        Assert.Equal(2, result[0].AuthorId);
+        Assert.Equal(99, result[0].Price);
+    }
 }

@@ -117,10 +117,12 @@ internal class SQLTranslator
         // FROM
         string from = QueryType switch
         {
-            QueryType.Delete => $"DELETE FROM {Visitor.From}",
-            QueryType.Update => $"UPDATE {Visitor.From}",
-            _ => $"FROM {Visitor.From}"
+            QueryType.Delete => $"DELETE FROM {Visitor.From.Sql}",
+            QueryType.Update => $"UPDATE {Visitor.From.Sql}",
+            _ => $"FROM {Visitor.From.Sql}"
         };
+
+        VisitSQLExpression(Visitor.From);
 
         // SET
         string set = QueryType == QueryType.Update && SetProperties != null

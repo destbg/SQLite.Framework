@@ -191,6 +191,31 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return new LockObject(queryLock);
     }
 
+    /// <summary>
+    /// Wraps the provided SQL query and parameters into a queryable object.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The type should be part of the client assemblies.")]
+    public IQueryable<T> FromSql<T>(string sql, params SQLiteParameter[] parameters)
+    {
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            throw new ArgumentException("SQL query cannot be null or empty.", nameof(sql));
+        }
+
+        if (parameters == null)
+        {
+            throw new ArgumentNullException(nameof(parameters), "Parameters cannot be null.");
+        }
+
+        return new Queryable<T>(this, Expression.Call(
+            Expression.Constant(this),
+            typeof(SQLiteDatabase).GetMethod(nameof(FromSql), BindingFlags.Instance | BindingFlags.Public)!
+                .MakeGenericMethod(typeof(T)),
+            Expression.Constant(sql),
+            Expression.NewArrayInit(typeof(SQLiteParameter), parameters.Select(Expression.Constant))
+        ));
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2095", Justification = "The method has the right attributes to be preserved.")]
     IQueryable<TElement> IQueryProvider.CreateQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TElement>(Expression expression)
     {

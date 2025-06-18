@@ -114,6 +114,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     }
 
     /// <summary>
+    /// Wraps the provided SQL query and parameters into a queryable object.
+    /// </summary>
+    public IQueryable<T> FromSql(string sql, params SQLiteParameter[] parameters)
+    {
+        return Database.FromSql<T>(sql, parameters);
+    }
+
+    /// <summary>
     /// Performs an INSERT operation on the database table using the row.
     /// </summary>
     public int Add(T item)

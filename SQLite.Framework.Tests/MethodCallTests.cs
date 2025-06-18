@@ -371,7 +371,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE TRIM(TRIM(TRIM(TRIM(b0.BookTitle, @p4), @p5), @p6), @p7) = @p8
+                     WHERE TRIM(TRIM(TRIM(TRIM(b0.BookTitle, @p1), @p2), @p3), @p4) = @p5
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

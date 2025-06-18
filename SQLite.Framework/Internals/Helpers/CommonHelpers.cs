@@ -104,6 +104,7 @@ internal static class CommonHelpers
                 _ => false
             },
             UnaryExpression ue => IsConstant(ue.Operand),
+            NewArrayExpression na => na.Expressions.Select(IsConstant).All(f => f),
             _ => false
         };
     }
@@ -125,6 +126,8 @@ internal static class CommonHelpers
             },
             UnaryExpression { NodeType: ExpressionType.Convert } ue =>
                 Convert.ChangeType(GetConstantValue(ue.Operand), Nullable.GetUnderlyingType(ue.Type) ?? ue.Type),
+            NewArrayExpression na =>
+                na.Expressions.Select(GetConstantValue),
             _ => throw new NotSupportedException($"Cannot evaluate expression of type {node.NodeType}")
         };
     }

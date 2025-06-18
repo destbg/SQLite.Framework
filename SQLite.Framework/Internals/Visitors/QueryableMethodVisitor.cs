@@ -76,6 +76,7 @@ internal class QueryableMethodVisitor
             nameof(Queryable.Contains) => VisitContains(node),
             nameof(Queryable.GroupBy) => VisitGroupBy(node),
             nameof(Queryable.Cast) => node,
+            nameof(SQLiteDatabase.FromSql) => VisitFromSql(node),
             _ => throw new NotSupportedException($"Unsupported method: {node.Method}")
         };
     }
@@ -494,6 +495,17 @@ internal class QueryableMethodVisitor
 
         visitor.TableColumns = newTableColumns;
 
+        return node;
+    }
+
+    private MethodCallExpression VisitFromSql(MethodCallExpression node)
+    {
+        Type genericType = node.Method.ReturnType.GetGenericArguments()[0];
+        string sql = (string)CommonHelpers.GetConstantValue(node.Arguments[0])!;
+        IEnumerable<object>? arguments = (IEnumerable<object>)CommonHelpers.GetConstantValue(node.Arguments[1])!;
+        SQLiteParameter[] parameters = arguments.Select(a => (SQLiteParameter)a).ToArray();
+
+        visitor.AssignTable(genericType, new SQLExpression(genericType, -1, sql, parameters.Length == 0 ? null : parameters));
         return node;
     }
 

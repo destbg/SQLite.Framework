@@ -27,8 +27,8 @@ internal class SQLVisitor : ExpressionVisitor
         ParamIndex = paramIndex;
         TableIndex = tableIndex;
         Level = level;
-        MethodVisitor = new(this);
-        PropertyVisitor = new(this);
+        MethodVisitor = new MethodVisitor(this);
+        PropertyVisitor = new PropertyVisitor(this);
     }
 
     public MethodVisitor MethodVisitor { get; }
@@ -38,18 +38,23 @@ internal class SQLVisitor : ExpressionVisitor
     public TableIndexWrapper TableIndex { get; }
     public int IdentifierIndex { get; set; }
     public int Level { get; }
-    public string? From { get; private set; }
+    public SQLExpression? From { get; private set; }
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments { get; set; } = [];
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
-    public void AssignTable(Type entityType)
+    public void AssignTable(Type entityType, SQLExpression? sql = null)
     {
         char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
         string alias = $"{aliasChar}{TableIndex[aliasChar]++}";
 
         TableMapping tableMapping = database.TableMapping(entityType);
-        From = $"\"{tableMapping.TableName}\" AS {alias}";
+        From = new SQLExpression(
+            entityType,
+            -1,
+            $"{(sql != null ? $"({sql.Sql})" : $"\"{tableMapping.TableName}\"")} AS {alias}",
+            sql?.Parameters
+        );
 
         TableColumns = tableMapping.Columns
             .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => new SQLExpression(f.PropertyType, IdentifierIndex++, $"{alias}.{f.Name}"));
@@ -147,7 +152,7 @@ internal class SQLVisitor : ExpressionVisitor
         if (value is BaseSQLiteTable table)
         {
             AssignTable(table.ElementType);
-            return new SQLExpression(node.Type, -1, From!);
+            return new SQLExpression(node.Type, -1, From!.Sql, From!.Parameters);
         }
 
         return new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", value);
@@ -179,7 +184,7 @@ internal class SQLVisitor : ExpressionVisitor
             if (value is BaseSQLiteTable table)
             {
                 AssignTable(table.ElementType);
-                return new SQLExpression(node.Type, -1, From!);
+                return new SQLExpression(node.Type, -1, From!.Sql, From!.Parameters);
             }
 
             return new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", value);
