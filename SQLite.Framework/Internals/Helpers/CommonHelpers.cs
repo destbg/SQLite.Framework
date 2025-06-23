@@ -128,6 +128,7 @@ internal static class CommonHelpers
                 Convert.ChangeType(GetConstantValue(ue.Operand), Nullable.GetUnderlyingType(ue.Type) ?? ue.Type),
             NewArrayExpression na =>
                 na.Expressions.Select(GetConstantValue),
+            MemberInitExpression mie => CreateMember(mie),
             _ => throw new NotSupportedException($"Cannot evaluate expression of type {node.NodeType}")
         };
     }
@@ -169,7 +170,7 @@ internal static class CommonHelpers
             return null;
         }
 
-        return [..expression1.Parameters ?? [], ..expression2.Parameters ?? []];
+        return [.. expression1.Parameters ?? [], .. expression2.Parameters ?? []];
     }
 
     public static SQLiteParameter[]? CombineParameters(SQLExpression expression1, SQLExpression expression2, SQLExpression expression3)
@@ -179,7 +180,7 @@ internal static class CommonHelpers
             return null;
         }
 
-        return [..expression1.Parameters ?? [], ..expression2.Parameters ?? [], ..expression3.Parameters ?? []];
+        return [.. expression1.Parameters ?? [], .. expression2.Parameters ?? [], .. expression3.Parameters ?? []];
     }
 
     public static SQLiteParameter[]? CombineParameters(params SQLExpression[] expressions)
@@ -229,5 +230,38 @@ internal static class CommonHelpers
             _ when type.IsEnum => SQLiteColumnType.Integer,
             _ => throw new NotSupportedException($"The type {type} is not supported.")
         };
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of user assembly")]
+    private static object? CreateMember(MemberInitExpression memberInit)
+    {
+        object instance = Activator.CreateInstance(memberInit.Type)
+            ?? throw new InvalidOperationException($"Cannot create instance of type {memberInit.Type}");
+
+        foreach (MemberBinding binding in memberInit.Bindings)
+        {
+            if (binding is MemberAssignment assignment)
+            {
+                object? value = GetConstantValue(assignment.Expression);
+                if (assignment.Member is PropertyInfo property)
+                {
+                    property.SetValue(instance, value);
+                }
+                else if (assignment.Member is FieldInfo field)
+                {
+                    field.SetValue(instance, value);
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Member {assignment.Member.Name} not found in type {memberInit.Type}");
+                }
+            }
+            else
+            {
+                throw new NotSupportedException($"Unsupported binding type: {binding.GetType()}");
+            }
+        }
+
+        return instance;
     }
 }

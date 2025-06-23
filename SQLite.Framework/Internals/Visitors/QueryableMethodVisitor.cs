@@ -417,24 +417,32 @@ internal class QueryableMethodVisitor
             throw new NotSupportedException("Contains is only supported for a single column.");
         }
 
-        object? value = CommonHelpers.GetConstantValue(node.Arguments[1]);
+        ResolvedModel resolved = visitor.ResolveExpression(node.Arguments[1]);
+        SQLExpression sqlExpression;
 
-        if (value != null && !CommonHelpers.IsSimple(value.GetType()))
+        if (resolved.IsConstant)
         {
-            throw new NotSupportedException("Contains is only supported for a single column.");
+            if (resolved.Constant != null && !CommonHelpers.IsSimple(resolved.Constant.GetType()))
+            {
+                throw new NotSupportedException("Contains is only supported for a single column.");
+            }
+
+            sqlExpression = resolved.SQLExpression!;
+        }
+        else if (resolved.SQLExpression != null)
+        {
+            sqlExpression = resolved.SQLExpression;
+        }
+        else
+        {
+            throw new Exception($"Unsupported expression type {node.Arguments[1].GetType().Name} in Contains.");
         }
 
         if (!IsInnerQuery)
         {
             string columnName = ((SQLExpression)visitor.TableColumns.Values.First()).Sql;
-            string pName = $"@p{visitor.ParamIndex.Index++}";
-            SQLiteParameter parameter = new()
-            {
-                Name = pName,
-                Value = value,
-            };
 
-            Wheres.Add(new SQLExpression(typeof(bool), visitor.IdentifierIndex++, $"{columnName} = {pName}", [parameter]));
+            Wheres.Add(new SQLExpression(typeof(bool), visitor.IdentifierIndex++, $"{columnName} = {sqlExpression.Sql}", sqlExpression.Parameters));
 
             IsAny = true;
         }
@@ -481,7 +489,7 @@ internal class QueryableMethodVisitor
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
                 string[] split = tableColumn.Key.Split('.');
-                string key = string.Join('.', [nameof(IGrouping<,>.Key), ..split]);
+                string key = string.Join('.', [nameof(IGrouping<,>.Key), .. split]);
 
                 newTableColumns[key] = tableColumn.Value;
             }

@@ -279,7 +279,9 @@ internal class SQLTranslator
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "We are checking the Queryable class")]
     private Expression? TranslateMethodExpression(MethodCallExpression mce)
     {
-        if (mce.Method.DeclaringType != typeof(Queryable) && mce.Method.DeclaringType != typeof(QueryableExtensions))
+        Type? declaringType = mce.Method.DeclaringType;
+
+        if (declaringType != typeof(Queryable) && declaringType != typeof(QueryableExtensions) && declaringType != typeof(SQLiteDatabase))
         {
             throw new NotSupportedException($"Unsupported method: {mce.Method}");
         }

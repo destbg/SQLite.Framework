@@ -87,7 +87,7 @@ public class MethodCallTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE @p1 IN (
+                     WHERE @p2 IN (
                          SELECT b1.BookTitle AS "Title"
                          FROM "Books" AS b1
                          WHERE b1.BookTitle = @p0

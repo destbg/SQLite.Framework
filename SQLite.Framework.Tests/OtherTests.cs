@@ -85,7 +85,7 @@ public class OtherTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE @p1 IN (
+                     WHERE @p2 IN (
                          SELECT b1.BookTitle AS "Title"
                          FROM "Books" AS b1
                          WHERE b1.BookTitle = @p0 AND b0.BookAuthorId = b1.BookAuthorId
@@ -499,6 +499,111 @@ public class OtherTests
         Assert.Equal("FromSqlTest", command.Parameters[0].Value);
         Assert.Equal("@p1", command.Parameters[1].Name);
         Assert.Equal(1, command.Parameters[1].Value);
+
+        List<Book> result = table.ToList();
+        Assert.Single(result);
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal("FromSqlTest", result[0].Title);
+        Assert.Equal(2, result[0].AuthorId);
+        Assert.Equal(99, result[0].Price);
+    }
+
+    [Fact]
+    public void FromSqlJoinCompilesToSqlAndReturnsResult()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "FromSqlTest",
+            AuthorId = 2,
+            Price = 99
+        });
+
+        const string sql = "SELECT * FROM \"Books\" WHERE \"BookTitle\" = @title";
+
+        IQueryable<Book> table =
+            from book in db.Table<Book>()
+            join b in db.Table<Book>().FromSql(sql, new SQLiteParameter
+            {
+                Name = "@title",
+                Value = "FromSqlTest"
+            }) on book.Id equals b.Id
+            where book.Id == 1
+            select book;
+
+        SQLiteCommand command = table.ToSqlCommand();
+        Assert.Equal($"""
+                      SELECT b0.BookId AS "Id",
+                             b0.BookTitle AS "Title",
+                             b0.BookAuthorId AS "AuthorId",
+                             b0.BookPrice AS "Price"
+                      FROM "Books" AS b0
+                      JOIN (
+                          SELECT b1.BookId AS "Id",
+                             b1.BookTitle AS "Title",
+                             b1.BookAuthorId AS "AuthorId",
+                             b1.BookPrice AS "Price"
+                          FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
+                      ) AS b2 ON b0.BookId = b2.Id
+                      WHERE b0.BookId = @p1
+                      """, command.CommandText);
+        Assert.Equal(2, command.Parameters.Count);
+        Assert.Equal("@p1", command.Parameters[0].Name);
+        Assert.Equal(1, command.Parameters[0].Value);
+        Assert.Equal("@title", command.Parameters[1].Name);
+        Assert.Equal("FromSqlTest", command.Parameters[1].Value);
+
+        List<Book> result = table.ToList();
+        Assert.Single(result);
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal("FromSqlTest", result[0].Title);
+        Assert.Equal(2, result[0].AuthorId);
+        Assert.Equal(99, result[0].Price);
+    }
+
+    [Fact]
+    public void FromSqlInnerCompilesToSqlAndReturnsResult()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "FromSqlTest",
+            AuthorId = 2,
+            Price = 99
+        });
+
+        const string sql = "SELECT * FROM \"Books\" WHERE \"BookTitle\" = @title";
+
+        IQueryable<Book> table =
+            from book in db.Table<Book>()
+            where db.Table<Book>().FromSql(sql, new SQLiteParameter
+            {
+                Name = "@title",
+                Value = "FromSqlTest"
+            }).Select(f => f.Id).Contains(book.Id)
+            select book;
+
+        SQLiteCommand command = table.ToSqlCommand();
+        Assert.Equal($"""
+                      SELECT b0.BookId AS "Id",
+                             b0.BookTitle AS "Title",
+                             b0.BookAuthorId AS "AuthorId",
+                             b0.BookPrice AS "Price"
+                      FROM "Books" AS b0
+                      WHERE b0.BookId IN (
+                          SELECT b1.BookId AS "Id"
+                          FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
+                      )
+                      """, command.CommandText);
+        Assert.Single(command.Parameters);
+        Assert.Equal("@title", command.Parameters[0].Name);
+        Assert.Equal("FromSqlTest", command.Parameters[0].Value);
 
         List<Book> result = table.ToList();
         Assert.Single(result);
