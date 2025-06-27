@@ -103,7 +103,7 @@ public class SQLiteTable : BaseSQLiteTable
 /// <summary>
 /// Represents a table in the SQLite database.
 /// </summary>
-public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T> : SQLiteTable, IQueryable<T>
+public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T> : SQLiteTable, IQueryable<T>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteTable{T}"/> class.

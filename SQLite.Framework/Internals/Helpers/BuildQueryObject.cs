@@ -11,7 +11,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class BuildQueryObject
 {
-    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type elementType, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns, Func<QueryContext, dynamic?>? createInstance)
+    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns, Func<QueryContext, dynamic?>? createInstance)
     {
         if (createInstance != null)
         {

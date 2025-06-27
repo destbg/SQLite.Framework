@@ -108,7 +108,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Creates a new table for the specified type.
     /// </summary>
-    public SQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>()
+    public SQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
     {
         return new SQLiteTable<T>(this, TableMapping<T>());
     }
@@ -116,7 +116,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Creates a new table for the specified type.
     /// </summary>
-    public SQLiteTable Table([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type)
+    public SQLiteTable Table([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
     {
         return new SQLiteTable(this, TableMapping(type));
     }
@@ -217,7 +217,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2095", Justification = "The method has the right attributes to be preserved.")]
-    IQueryable<TElement> IQueryProvider.CreateQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TElement>(Expression expression)
+    IQueryable<TElement> IQueryProvider.CreateQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
     {
         return new Queryable<TElement>(this, expression);
     }
@@ -257,6 +257,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
         else if (typeof(TResult) == typeof(IEnumerable) && CommonHelpers.IsConstant(expression))
         {
+#pragma warning disable IL2075 // The element has public constructor
             BaseSQLiteTable table = (BaseSQLiteTable)CommonHelpers.GetConstantValue(expression)!;
 
             Type genericElementType = table.ElementType;
@@ -268,6 +269,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
             SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
             return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query.CreateObject])!;
+#pragma warning restore IL2075
         }
 
         Type elementType = expression.Type;
