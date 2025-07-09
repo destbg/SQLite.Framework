@@ -378,7 +378,11 @@ internal class QueryableMethodVisitor
         }
         else
         {
-            throw new NotSupportedException($"A problem occured while compiling the {function} expression.");
+            select = new SQLExpression(
+                node.Arguments[0].Type,
+                visitor.IdentifierIndex++,
+                $"{function}(*)"
+            );
         }
 
         Selects.Clear();

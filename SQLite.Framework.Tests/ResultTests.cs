@@ -335,6 +335,19 @@ public class ResultTests
     }
 
     [Fact]
+    public void ComplexCount()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int count = db.Table<Book>()
+            .Where(f => f.Title.Contains("Book"))
+            .OrderBy(f => f.Title)
+            .Count();
+
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
     public void Sum()
     {
         using TestDatabase db = SetupDatabase();
