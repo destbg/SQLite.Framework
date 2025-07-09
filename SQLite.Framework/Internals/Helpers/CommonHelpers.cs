@@ -204,6 +204,8 @@ internal static class CommonHelpers
 
     public static SQLiteColumnType TypeToSQLiteType(Type type)
     {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+
         return type switch
         {
             _ when type == typeof(string) => SQLiteColumnType.Text,

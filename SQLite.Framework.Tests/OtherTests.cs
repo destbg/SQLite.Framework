@@ -34,6 +34,20 @@ public class OtherTests
         public string? Date { get; set; }
     }
 
+    private class NullableEntity
+    {
+        [Key, AutoIncrement]
+        public int Id { get; set; }
+
+        public string? Title { get; set; }
+    }
+
+    private class NullableDTO
+    {
+        public int? Id { get; set; }
+        public string? Title { get; set; }
+    }
+
     [Fact]
     public void TestUniqueness()
     {
@@ -493,7 +507,7 @@ public class OtherTests
                              b0.BookPrice AS "Price"
                       FROM ({sql}) AS b0
                       WHERE b0.BookId = @p1
-                      """, command.CommandText);
+                      """, command.CommandText.Replace("\r\n", "\n"));
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal("@title", command.Parameters[0].Name);
         Assert.Equal("FromSqlTest", command.Parameters[0].Value);
@@ -549,7 +563,7 @@ public class OtherTests
                           FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
                       ) AS b2 ON b0.BookId = b2.Id
                       WHERE b0.BookId = @p1
-                      """, command.CommandText);
+                      """, command.CommandText.Replace("\r\n", "\n"));
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal("@p1", command.Parameters[0].Name);
         Assert.Equal(1, command.Parameters[0].Value);
@@ -600,7 +614,7 @@ public class OtherTests
                           SELECT b1.BookId AS "Id"
                           FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
                       )
-                      """, command.CommandText);
+                      """, command.CommandText.Replace("\r\n", "\n"));
         Assert.Single(command.Parameters);
         Assert.Equal("@title", command.Parameters[0].Name);
         Assert.Equal("FromSqlTest", command.Parameters[0].Value);
@@ -611,5 +625,24 @@ public class OtherTests
         Assert.Equal("FromSqlTest", result[0].Title);
         Assert.Equal(2, result[0].AuthorId);
         Assert.Equal(99, result[0].Price);
+    }
+
+    [Fact]
+    public void NullableResult()
+    {
+        using TestDatabase db = new();
+
+        db.Table<NullableEntity>().CreateTable();
+        db.Table<NullableEntity>().Add(new NullableEntity
+        {
+            Id = 1,
+            Title = "Test"
+        });
+
+        NullableDTO entity = db.Table<NullableEntity>()
+            .Select(f => new NullableDTO { Id = f.Id, Title = f.Title })
+            .First(f => f.Id == 1);
+
+        Assert.Equal(1, entity.Id);
     }
 }
