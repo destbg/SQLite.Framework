@@ -7,6 +7,7 @@ using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Enums;
 using SQLite.Framework.Tests.Helpers;
+using SQLite.Framework.Tests.Interfaces;
 
 // ReSharper disable AccessToDisposedClosure
 
@@ -16,8 +17,7 @@ public class OtherTests
 {
     private class BaseCastEntity
     {
-        [Key, AutoIncrement]
-        public int Id { get; set; }
+        [Key, AutoIncrement] public int Id { get; set; }
     }
 
     private class CastEntity : BaseCastEntity
@@ -27,19 +27,9 @@ public class OtherTests
 
     private class RequiredEntity
     {
-        [Key, AutoIncrement]
-        public int Id { get; set; }
+        [Key, AutoIncrement] public int Id { get; set; }
 
-        [Required]
-        public string? Date { get; set; }
-    }
-
-    private class NullableEntity
-    {
-        [Key, AutoIncrement]
-        public int Id { get; set; }
-
-        public string? Title { get; set; }
+        [Required] public string? Date { get; set; }
     }
 
     private class NullableDTO
@@ -632,17 +622,43 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<NullableEntity>().CreateTable();
-        db.Table<NullableEntity>().Add(new NullableEntity
+        db.Table<RequiredEntity>().CreateTable();
+        db.Table<RequiredEntity>().Add(new RequiredEntity
         {
             Id = 1,
-            Title = "Test"
+            Date = "Test"
         });
 
-        NullableDTO entity = db.Table<NullableEntity>()
-            .Select(f => new NullableDTO { Id = f.Id, Title = f.Title })
+        NullableDTO entity = db.Table<RequiredEntity>()
+            .Select(f => new NullableDTO { Id = f.Id, Title = f.Date })
             .First(f => f.Id == 1);
 
         Assert.Equal(1, entity.Id);
+    }
+
+    [Fact]
+    public void GenericCastResult()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "Book 1",
+            AuthorId = 1,
+            Price = 99
+        });
+
+        GenericMethod<Book>(db, 1);
+
+        static void GenericMethod<T>(TestDatabase db, int id)
+            where T : class, IEntity
+        {
+            IEntity? result = db.Table<T>().FirstOrDefault(f => ((IEntity)f).Id == id);
+
+            Assert.NotNull(result);
+            Assert.Equal(id, result.Id);
+        }
     }
 }

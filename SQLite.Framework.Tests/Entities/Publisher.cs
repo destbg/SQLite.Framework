@@ -1,9 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using SQLite.Framework.Tests.Enums;
+using SQLite.Framework.Tests.Interfaces;
 
 namespace SQLite.Framework.Tests.Entities;
 
-public class Publisher
+public class Publisher : IEntity
 {
     [Key]
     public required int Id { get; set; }

@@ -137,7 +137,7 @@ internal class QueryableMethodVisitor
     private Expression VisitWhere(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-        Expression result = visitor.Visit(lambda.Body);
+        Expression result = visitor.Visit(lambda.Body, true);
 
         if (result is not SQLExpression sqlExpression)
         {
@@ -306,7 +306,7 @@ internal class QueryableMethodVisitor
     private Expression VisitOrder(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-        Expression orderBy = visitor.Visit(lambda.Body);
+        Expression orderBy = visitor.Visit(lambda.Body, true);
 
         if (orderBy is not SQLExpression sqlExpression)
         {
@@ -363,7 +363,7 @@ internal class QueryableMethodVisitor
         if (node.Arguments.Count == 2)
         {
             LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-            Expression expression = visitor.Visit(lambda.Body);
+            Expression expression = visitor.Visit(lambda.Body, true);
 
             if (expression is not SQLExpression sqlExpression)
             {
@@ -526,7 +526,7 @@ internal class QueryableMethodVisitor
         if (node.Arguments.Count == 2)
         {
             LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-            Expression result = visitor.Visit(lambda.Body);
+            Expression result = visitor.Visit(lambda.Body, true);
 
             if (result is not SQLExpression sqlExpression)
             {

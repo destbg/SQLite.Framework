@@ -1,10 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SQLite.Framework.Tests.Interfaces;
 
 namespace SQLite.Framework.Tests.Entities;
 
 [Table("Authors")]
-public class Author
+public class Author : IEntity
 {
     [Key]
     [Column("AuthorId")]

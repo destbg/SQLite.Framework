@@ -20,8 +20,10 @@ namespace SQLite.Framework.Internals.Visitors;
 internal class SQLVisitor : ExpressionVisitor
 {
     private readonly SQLiteDatabase database;
+    private bool forceSql;
 
-    public SQLVisitor(SQLiteDatabase database, ParameterIndexWrapper paramIndex, TableIndexWrapper tableIndex, int level)
+    public SQLVisitor(SQLiteDatabase database, ParameterIndexWrapper paramIndex, TableIndexWrapper tableIndex,
+        int level)
     {
         this.database = database;
         ParamIndex = paramIndex;
@@ -42,6 +44,15 @@ internal class SQLVisitor : ExpressionVisitor
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments { get; set; } = [];
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
 
+    public Expression Visit(Expression expression, bool alwaysForceSql)
+    {
+        forceSql = alwaysForceSql;
+        Expression expr = Visit(expression);
+        forceSql = false;
+
+        return expr;
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
     public void AssignTable(Type entityType, SQLExpression? sql = null)
     {
@@ -57,7 +68,8 @@ internal class SQLVisitor : ExpressionVisitor
         );
 
         TableColumns = tableMapping.Columns
-            .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => new SQLExpression(f.PropertyType, IdentifierIndex++, $"{alias}.{f.Name}"));
+            .ToDictionary(f => f.PropertyInfo.Name,
+                Expression (f) => new SQLExpression(f.PropertyType, IdentifierIndex++, $"{alias}.{f.Name}"));
     }
 
     public SQLTranslator CloneDeeper(int innerLevel)
@@ -96,7 +108,8 @@ internal class SQLVisitor : ExpressionVisitor
         }
         else if (node.NodeType is ExpressionType.Coalesce)
         {
-            return new SQLExpression(node.Type, IdentifierIndex++, $"COALESCE({left.Sql}, {right.Sql})", bothParameters);
+            return new SQLExpression(node.Type, IdentifierIndex++, $"COALESCE({left.Sql}, {right.Sql})",
+                bothParameters);
         }
 
         string sqlOp = null!;
@@ -169,9 +182,11 @@ internal class SQLVisitor : ExpressionVisitor
             return Expression.Condition(test.Expression, ifTrue.Expression, ifFalse.Expression);
         }
 
-        SQLiteParameter[]? allParameters = CommonHelpers.CombineParameters(test.SQLExpression, ifTrue.SQLExpression, ifFalse.SQLExpression);
+        SQLiteParameter[]? allParameters =
+            CommonHelpers.CombineParameters(test.SQLExpression, ifTrue.SQLExpression, ifFalse.SQLExpression);
 
-        return new SQLExpression(node.Type, IdentifierIndex++, $"(CASE WHEN {test.Sql} THEN {ifTrue.Sql} ELSE {ifFalse.Sql} END)", allParameters);
+        return new SQLExpression(node.Type, IdentifierIndex++,
+            $"(CASE WHEN {test.Sql} THEN {ifTrue.Sql} ELSE {ifFalse.Sql} END)", allParameters);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All entities have public properties.")]
@@ -189,7 +204,22 @@ internal class SQLVisitor : ExpressionVisitor
 
             return new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", value);
         }
-        else if (node.Expression is MemberExpression or ParameterExpression)
+
+        if (node.Expression is not MemberExpression and not ParameterExpression)
+        {
+            Expression expr = ResolveMember(node);
+
+            if (expr is MemberExpression member)
+            {
+                node = member;
+            }
+            else
+            {
+                return expr;
+            }
+        }
+        
+        if (node.Expression is MemberExpression or ParameterExpression)
         {
             (string path, ParameterExpression? pe) = CommonHelpers.ResolveNullableParameterPath(node);
 
@@ -210,7 +240,8 @@ internal class SQLVisitor : ExpressionVisitor
 
             if (MethodArguments.TryGetValue(pe, out expressions))
             {
-                if (expressions.TryGetValue(path, out Expression? expression) && expression is SQLExpression sqlExpression)
+                if (expressions.TryGetValue(path, out Expression? expression) &&
+                    expression is SQLExpression sqlExpression)
                 {
                     if (Nullable.GetUnderlyingType(node.Expression.Type) != null)
                     {
@@ -253,13 +284,19 @@ internal class SQLVisitor : ExpressionVisitor
 
         if (resolved.SQLExpression == null)
         {
+            if (node is { NodeType: ExpressionType.Convert, Operand: ParameterExpression })
+            {
+                return node.Operand;
+            }
+
             return Expression.MakeUnary(node.NodeType, resolved.Expression, node.Type);
         }
 
         if (resolved.IsConstant)
         {
             return node.NodeType == ExpressionType.Convert
-                ? new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", Convert.ChangeType(resolved.Constant, node.Type))
+                ? new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}",
+                    Convert.ChangeType(resolved.Constant, node.Type))
                 : resolved.SQLExpression;
         }
 
@@ -267,7 +304,8 @@ internal class SQLVisitor : ExpressionVisitor
         {
             ExpressionType.Negate => $"-{resolved.SQLExpression.Sql}",
             ExpressionType.Not => $"NOT {resolved.SQLExpression.Sql}",
-            ExpressionType.Convert => $"CAST({resolved.SQLExpression.Sql} AS {CommonHelpers.TypeToSQLiteType(node.Type).ToString().ToUpper()})",
+            ExpressionType.Convert =>
+                $"CAST({resolved.SQLExpression.Sql} AS {CommonHelpers.TypeToSQLiteType(node.Type).ToString().ToUpper()})",
             _ => throw new NotSupportedException($"Unsupported unary op {node.NodeType}")
         };
 
@@ -342,7 +380,8 @@ internal class SQLVisitor : ExpressionVisitor
         }
         else if (node.Arguments.Count > 0)
         {
-            if (node.Arguments[0].Type.IsGenericType && node.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+            if (node.Arguments[0].Type.IsGenericType &&
+                node.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
             {
                 return MethodVisitor.HandleGroupingMethod(node);
             }
@@ -374,7 +413,8 @@ internal class SQLVisitor : ExpressionVisitor
             return Expression.NewArrayInit(node.Type.GetElementType()!, sqlExpressions.Select(f => f.Expression));
         }
 
-        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(sqlExpressions.Select(f => f.SQLExpression!).ToArray());
+        SQLiteParameter[]? parameters =
+            CommonHelpers.CombineParameters(sqlExpressions.Select(f => f.SQLExpression!).ToArray());
 
         return new SQLExpression(
             node.Type,
