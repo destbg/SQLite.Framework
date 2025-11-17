@@ -11,10 +11,10 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </summary>
 internal class QueryableMethodVisitor
 {
+    private readonly AliasVisitor aliasVisitor;
     private readonly SQLiteDatabase database;
     private readonly SelectVisitor selectVisitor;
     private readonly SQLVisitor visitor;
-    private readonly AliasVisitor aliasVisitor;
 
     public QueryableMethodVisitor(SQLiteDatabase database, SQLVisitor visitor)
     {
@@ -30,13 +30,14 @@ internal class QueryableMethodVisitor
     public List<SQLExpression> OrderBys { get; } = [];
     public List<SQLExpression> GroupBys { get; } = [];
     public List<SQLExpression> Havings { get; } = [];
-    public List<(SQLExpression Sql, bool All)> Unions { get; } = [];
+    public List<(SQLExpression Sql, string Type)> SetOperations { get; } = [];
     public List<SQLExpression> Selects { get; }
 
     public int? Take { get; private set; }
     public int? Skip { get; private set; }
     public bool IsAny { get; private set; }
     public bool IsAll { get; private set; }
+    public bool Reverse { get; private set; }
     public bool IsDistinct { get; private set; }
     public bool ThrowOnEmpty { get; private set; }
     public bool ThrowOnMoreThanOne { get; private set; }
@@ -64,17 +65,20 @@ internal class QueryableMethodVisitor
             nameof(Queryable.SingleOrDefault) => VisitScalar(node),
             nameof(Queryable.Any) => VisitBoolean(node),
             nameof(Queryable.All) => VisitBoolean(node),
-            nameof(Queryable.Count) => VisitGroupFunction(node, "COUNT"),
-            nameof(Queryable.LongCount) => VisitGroupFunction(node, "COUNT"),
+            nameof(Queryable.Count)
+                or nameof(Queryable.LongCount) => VisitGroupFunction(node, "COUNT"),
             nameof(Queryable.Sum) => VisitGroupFunction(node, "SUM"),
             nameof(Queryable.Max) => VisitGroupFunction(node, "MAX"),
             nameof(Queryable.Min) => VisitGroupFunction(node, "MIN"),
             nameof(Queryable.Average) => VisitGroupFunction(node, "AVG"),
             nameof(Queryable.Distinct) => VisitDistinct(node),
-            nameof(Queryable.Concat) => VisitUnion(node),
-            nameof(Queryable.Union) => VisitUnion(node),
+            nameof(Queryable.Concat)
+                or nameof(Queryable.Union)
+                or nameof(Queryable.Intersect)
+                or nameof(Queryable.Except) => VisitSetOperation(node),
             nameof(Queryable.Contains) => VisitContains(node),
             nameof(Queryable.GroupBy) => VisitGroupBy(node),
+            nameof(Queryable.Reverse) => VisitReverse(node),
             nameof(Queryable.Cast) => node,
             nameof(SQLiteDatabase.FromSql) => VisitFromSql(node),
             _ => throw new NotSupportedException($"Unsupported method: {node.Method}")
@@ -113,7 +117,8 @@ internal class QueryableMethodVisitor
 
             return node;
         }
-        else if (lambda.Body is ParameterExpression)
+
+        if (lambda.Body is ParameterExpression)
         {
             return Expression.MemberInit(
                 Expression.New(lambda.Body.Type),
@@ -125,19 +130,17 @@ internal class QueryableMethodVisitor
                 )
             );
         }
-        else
-        {
-            Expression selectExpression = visitor.Visit(lambda.Body);
-            Expression expression = selectVisitor.Visit(selectExpression);
 
-            return expression;
-        }
+        Expression selectExpression = visitor.Visit(lambda.Body);
+        Expression expression = selectVisitor.Visit(selectExpression);
+
+        return expression;
     }
 
     private Expression VisitWhere(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-        Expression result = visitor.Visit(lambda.Body, true);
+        Expression result = visitor.Visit(lambda.Body);
 
         if (result is not SQLExpression sqlExpression)
         {
@@ -186,11 +189,6 @@ internal class QueryableMethodVisitor
             {
                 Expression innerArgument = innerNewExpression.Arguments[i];
                 Expression outerArgument = outerNewExpression.Arguments[i];
-
-                if (innerArgument is not ParameterExpression and not MemberExpression and not ConstantExpression)
-                {
-                    throw new NotSupportedException($"Unsupported member expression {innerArgument}");
-                }
 
                 SQLExpression outerAlias = (SQLExpression)visitor.Visit(innerArgument);
                 SQLExpression innerAlias = (SQLExpression)visitor.Visit(outerArgument);
@@ -306,7 +304,7 @@ internal class QueryableMethodVisitor
     private Expression VisitOrder(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-        Expression orderBy = visitor.Visit(lambda.Body, true);
+        Expression orderBy = visitor.Visit(lambda.Body);
 
         if (orderBy is not SQLExpression sqlExpression)
         {
@@ -363,14 +361,26 @@ internal class QueryableMethodVisitor
         if (node.Arguments.Count == 2)
         {
             LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-            Expression expression = visitor.Visit(lambda.Body, true);
+            Expression expression = visitor.Visit(lambda.Body);
 
             if (expression is not SQLExpression sqlExpression)
             {
                 throw new NotSupportedException($"Unsupported {function} expression {lambda.Body}");
             }
 
-            select = new SQLExpression(node.Arguments[1].Type, visitor.IdentifierIndex++, $"{function}({sqlExpression.Sql})", sqlExpression.Parameters);
+            if (function == "COUNT")
+            {
+                Wheres.Add(sqlExpression);
+                select = new SQLExpression(node.Arguments[0].Type, visitor.IdentifierIndex++, $"{function}(*)");
+            }
+            else
+            {
+                select = new SQLExpression(node.Arguments[1].Type, visitor.IdentifierIndex++, $"{function}({sqlExpression.Sql})", sqlExpression.Parameters);
+            }
+        }
+        else if (function == "COUNT")
+        {
+            select = new SQLExpression(node.Arguments[0].Type, visitor.IdentifierIndex++, $"{function}(*)");
         }
         else if (Selects.Count == 1)
         {
@@ -397,19 +407,26 @@ internal class QueryableMethodVisitor
         return node;
     }
 
-    private SQLExpression VisitUnion(MethodCallExpression node)
+    private SQLExpression VisitSetOperation(MethodCallExpression node)
     {
         SQLTranslator sqlTranslator = visitor.CloneDeeper(visitor.Level);
-        SQLQuery query = sqlTranslator.Translate(node.Arguments[0]);
+        SQLQuery query = sqlTranslator.Translate(node.Arguments[1]);
 
         SQLExpression sqlExpression = new(
-            node.Arguments[0].Type,
+            node.Arguments[1].Type,
             visitor.IdentifierIndex++,
             query.Sql,
             query.Parameters.Count == 0 ? null : query.Parameters.ToArray()
         );
 
-        Unions.Add((sqlExpression, node.Method.Name == nameof(Queryable.Concat)));
+        SetOperations.Add((sqlExpression, node.Method.Name switch
+        {
+            nameof(Queryable.Concat) => "UNION ALL",
+            nameof(Queryable.Union) => "UNION",
+            nameof(Queryable.Intersect) => "INTERSECT",
+            nameof(Queryable.Except) => "EXCEPT",
+            _ => throw new Exception("Unsupported union or intersect")
+        }));
 
         return sqlExpression;
     }
@@ -480,7 +497,7 @@ internal class QueryableMethodVisitor
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
 
-            if (resultSelector.Body is MemberExpression)
+            if (resultSelector.Body is MemberExpression && CommonHelpers.IsSimple(resultSelector.Body.Type))
             {
                 isMember = true;
             }
@@ -510,11 +527,17 @@ internal class QueryableMethodVisitor
         return node;
     }
 
+    private MethodCallExpression VisitReverse(MethodCallExpression node)
+    {
+        Reverse = !Reverse;
+        return node;
+    }
+
     private MethodCallExpression VisitFromSql(MethodCallExpression node)
     {
         Type genericType = node.Method.ReturnType.GetGenericArguments()[0];
         string sql = (string)CommonHelpers.GetConstantValue(node.Arguments[0])!;
-        IEnumerable<object>? arguments = (IEnumerable<object>)CommonHelpers.GetConstantValue(node.Arguments[1])!;
+        IEnumerable<object> arguments = (IEnumerable<object>)CommonHelpers.GetConstantValue(node.Arguments[1])!;
         SQLiteParameter[] parameters = arguments.Select(a => (SQLiteParameter)a).ToArray();
 
         visitor.AssignTable(genericType, new SQLExpression(genericType, -1, sql, parameters.Length == 0 ? null : parameters));
@@ -526,7 +549,7 @@ internal class QueryableMethodVisitor
         if (node.Arguments.Count == 2)
         {
             LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-            Expression result = visitor.Visit(lambda.Body, true);
+            Expression result = visitor.Visit(lambda.Body);
 
             if (result is not SQLExpression sqlExpression)
             {
@@ -607,7 +630,7 @@ internal class QueryableMethodVisitor
             SQLQuery query = innerVisitor.Translate(body);
 
             entityType = body.Type.GetGenericArguments()[0];
-            char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+            char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
             string alias = $"{aliasChar}{visitor.TableIndex[aliasChar]++}";
 
             newTableColumns = entityType.GetProperties()

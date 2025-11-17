@@ -1,6 +1,6 @@
 # SQLite.Framework
 
-A lightweight, experimental ORM for SQLite, designed for .NET MAUI with AOT support and LINQ-style `IQueryable` querying.
+A lightweight ORM for SQLite, designed for .NET MAUI with AOT support and LINQ-style `IQueryable` querying.
 
 [![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
 
@@ -83,12 +83,12 @@ dotnet add package SQLite.Framework
 
 In order to use this library in AOT scenarios, you need to make sure the objects you are querying are either:
 
-- Part of the assembly that is being AOT compiled (in other words it needs to be part of the code you see).
+- Part of the assembly that is being AOT compiled (the user's code).
 - Or simply make sure the classes are referenced in your code.
 
 ## Contributing
 
-This project is in early development. Feel free to:
+Feel free to:
 
 - Report bugs or missing features.
 - Submit PRs to add functionality or tests.

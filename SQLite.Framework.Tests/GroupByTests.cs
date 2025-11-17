@@ -9,7 +9,7 @@ public class GroupByTests
     [Fact]
     public void GroupByTableWithMultiResult()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
@@ -34,7 +34,7 @@ public class GroupByTests
     [Fact]
     public void GroupBySumTable()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
@@ -55,7 +55,7 @@ public class GroupByTests
     [Fact]
     public void GroupBySimpleSumTable()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
@@ -76,7 +76,7 @@ public class GroupByTests
     [Fact]
     public void GroupByComplexSumTable()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
@@ -97,7 +97,7 @@ public class GroupByTests
     [Fact]
     public void GroupByAverageTable()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
@@ -118,7 +118,7 @@ public class GroupByTests
     [Fact]
     public void GroupByMinTable()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
@@ -139,7 +139,7 @@ public class GroupByTests
     [Fact]
     public void GroupByMaxTable()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
@@ -160,7 +160,7 @@ public class GroupByTests
     [Fact]
     public void GroupByCountTable()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
@@ -181,7 +181,7 @@ public class GroupByTests
     [Fact]
     public void GroupByLongCountTable()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
@@ -202,7 +202,7 @@ public class GroupByTests
     [Fact]
     public void GroupByCountHavingTable()
     {
-        using TestDatabase db = new TestDatabase();
+        using TestDatabase db = new();
 
         SQLiteCommand command = (
             from book in db.Table<Book>()

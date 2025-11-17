@@ -82,48 +82,23 @@ internal class AliasVisitor
                         result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
                     }
                 }
-                else if (argument is MemberExpression memberExpression)
+                else
                 {
-                    string alias = CheckPrefix(prefix, parameter.Name ?? memberExpression.Member.Name);
-                    (string path, ParameterExpression? pe) = CommonHelpers.ResolveNullableParameterPath(memberExpression);
-
-                    if (pe == null)
+                    string alias = CheckPrefix(prefix, parameter.Name ?? "value");
+                    SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.TableIndex, visitor.Level + 1)
                     {
-                        result.Add(alias, memberExpression);
-                        continue;
-                    }
-
-                    Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
-
-                    if (CommonHelpers.IsSimple(memberExpression.Type))
-                    {
-                        result.Add(alias, parameterTableColumns[path]);
-                    }
-                    else
-                    {
-                        foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
-                        {
-                            if (tableColumn.Key.StartsWith(path))
-                            {
-                                result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
-                            }
-                        }
-                    }
-                }
-                else if (argument is MethodCallExpression { Arguments.Count: 1 } methodCallExpression && methodCallExpression.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
-                {
-                    string alias = CheckPrefix(prefix, parameter.Name ?? methodCallExpression.Method.Name);
-
-                    Expression expression = visitor.MethodVisitor.HandleGroupingMethod(methodCallExpression);
+                        MethodArguments = visitor.MethodArguments
+                    };
+                    Expression expression = innerVisitor.Visit(argument);
 
                     if (expression is SQLExpression sqlExpression)
                     {
                         result.Add(alias, sqlExpression);
                     }
-                }
-                else
-                {
-                    throw new NotSupportedException($"Unsupported member expression {argument}");
+                    else
+                    {
+                        throw new NotSupportedException($"Unsupported member expression {argument}");
+                    }
                 }
             }
         }

@@ -15,29 +15,6 @@ namespace SQLite.Framework.Tests;
 
 public class OtherTests
 {
-    private class BaseCastEntity
-    {
-        [Key, AutoIncrement] public int Id { get; set; }
-    }
-
-    private class CastEntity : BaseCastEntity
-    {
-        public required string Text { get; set; }
-    }
-
-    private class RequiredEntity
-    {
-        [Key, AutoIncrement] public int Id { get; set; }
-
-        [Required] public string? Date { get; set; }
-    }
-
-    private class NullableDTO
-    {
-        public int? Id { get; set; }
-        public string? Title { get; set; }
-    }
-
     [Fact]
     public void TestUniqueness()
     {
@@ -156,13 +133,13 @@ public class OtherTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
+                     WHERE b0.BookId = @p0
                      UNION
                      SELECT b1.BookId AS "Id",
                             b1.BookTitle AS "Title",
                             b1.BookAuthorId AS "AuthorId",
                             b1.BookPrice AS "Price"
                      FROM "Books" AS b1
-                     WHERE b1.BookId = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -182,13 +159,13 @@ public class OtherTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
+                     WHERE b0.BookId = @p0
                      UNION ALL
                      SELECT b1.BookId AS "Id",
                             b1.BookTitle AS "Title",
                             b1.BookAuthorId AS "AuthorId",
                             b1.BookPrice AS "Price"
                      FROM "Books" AS b1
-                     WHERE b1.BookId = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -420,7 +397,7 @@ public class OtherTests
             CommandText = "INSERT INTO \"TestTable\" (\"Name\") VALUES (@name)",
             Parameters = new List<SQLiteParameter>
             {
-                new SQLiteParameter
+                new()
                 {
                     Name = "@name",
                     Value = "Test Name"
@@ -539,21 +516,21 @@ public class OtherTests
             select book;
 
         SQLiteCommand command = table.ToSqlCommand();
-        Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
-                      FROM "Books" AS b0
-                      JOIN (
-                          SELECT b1.BookId AS "Id",
-                             b1.BookTitle AS "Title",
-                             b1.BookAuthorId AS "AuthorId",
-                             b1.BookPrice AS "Price"
-                          FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
-                      ) AS b2 ON b0.BookId = b2.Id
-                      WHERE b0.BookId = @p1
-                      """, command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     JOIN (
+                         SELECT b1.BookId AS "Id",
+                            b1.BookTitle AS "Title",
+                            b1.BookAuthorId AS "AuthorId",
+                            b1.BookPrice AS "Price"
+                         FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
+                     ) AS b2 ON b0.BookId = b2.Id
+                     WHERE b0.BookId = @p1
+                     """, command.CommandText.Replace("\r\n", "\n"));
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal("@p1", command.Parameters[0].Name);
         Assert.Equal(1, command.Parameters[0].Value);
@@ -594,17 +571,17 @@ public class OtherTests
             select book;
 
         SQLiteCommand command = table.ToSqlCommand();
-        Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
-                      FROM "Books" AS b0
-                      WHERE b0.BookId IN (
-                          SELECT b1.BookId AS "Id"
-                          FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
-                      )
-                      """, command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE b0.BookId IN (
+                         SELECT b1.BookId AS "Id"
+                         FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
+                     )
+                     """, command.CommandText.Replace("\r\n", "\n"));
         Assert.Single(command.Parameters);
         Assert.Equal("@title", command.Parameters[0].Name);
         Assert.Equal("FromSqlTest", command.Parameters[0].Value);
@@ -655,10 +632,33 @@ public class OtherTests
         static void GenericMethod<T>(TestDatabase db, int id)
             where T : class, IEntity
         {
-            IEntity? result = db.Table<T>().FirstOrDefault(f => ((IEntity)f).Id == id);
+            IEntity? result = db.Table<T>().FirstOrDefault(f => f.Id == id);
 
             Assert.NotNull(result);
             Assert.Equal(id, result.Id);
         }
+    }
+
+    private class BaseCastEntity
+    {
+        [Key] [AutoIncrement] public int Id { get; set; }
+    }
+
+    private class CastEntity : BaseCastEntity
+    {
+        public required string Text { get; set; }
+    }
+
+    private class RequiredEntity
+    {
+        [Key] [AutoIncrement] public int Id { get; set; }
+
+        [Required] public string? Date { get; set; }
+    }
+
+    private class NullableDTO
+    {
+        public int? Id { get; set; }
+        public string? Title { get; set; }
     }
 }

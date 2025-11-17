@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Tests", "S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Benchmarks", "SQLite.Framework.Benchmarks\SQLite.Framework.Benchmarks.csproj", "{588CB281-C4A6-4780-A316-831A4342CE38}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Sample", "SQLite.Framework.Sample\SQLite.Framework.Sample.csproj", "{A20B2DD4-A613-4E3C-9013-6CD1F3B8A10E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{588CB281-C4A6-4780-A316-831A4342CE38}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{588CB281-C4A6-4780-A316-831A4342CE38}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{588CB281-C4A6-4780-A316-831A4342CE38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A20B2DD4-A613-4E3C-9013-6CD1F3B8A10E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A20B2DD4-A613-4E3C-9013-6CD1F3B8A10E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A20B2DD4-A613-4E3C-9013-6CD1F3B8A10E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A20B2DD4-A613-4E3C-9013-6CD1F3B8A10E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

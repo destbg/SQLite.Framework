@@ -235,10 +235,10 @@ internal static class CommonHelpers
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of user assembly")]
-    private static object? CreateMember(MemberInitExpression memberInit)
+    private static object CreateMember(MemberInitExpression memberInit)
     {
         object instance = Activator.CreateInstance(memberInit.Type)
-            ?? throw new InvalidOperationException($"Cannot create instance of type {memberInit.Type}");
+                          ?? throw new InvalidOperationException($"Cannot create instance of type {memberInit.Type}");
 
         foreach (MemberBinding binding in memberInit.Bindings)
         {

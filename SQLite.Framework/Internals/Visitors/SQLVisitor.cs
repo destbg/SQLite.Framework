@@ -12,7 +12,7 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </summary>
 /// <remarks>
 /// This class is responsible for traversing the expression tree and converting it into a SQL representation.
-/// The <see cref="QueryableMethodVisitor"/> gets all the different LINQ methods and passes them to this
+/// The <see cref="QueryableMethodVisitor" /> gets all the different LINQ methods and passes them to this
 /// class for conversion to SQL.
 /// Not all Expressions are converted to SQL, some are left as is so that the select method can execute
 /// code both as SQL and C#.
@@ -20,7 +20,7 @@ namespace SQLite.Framework.Internals.Visitors;
 internal class SQLVisitor : ExpressionVisitor
 {
     private readonly SQLiteDatabase database;
-    private bool forceSql;
+    private readonly PropertyVisitor propertyVisitor;
 
     public SQLVisitor(SQLiteDatabase database, ParameterIndexWrapper paramIndex, TableIndexWrapper tableIndex,
         int level)
@@ -30,11 +30,10 @@ internal class SQLVisitor : ExpressionVisitor
         TableIndex = tableIndex;
         Level = level;
         MethodVisitor = new MethodVisitor(this);
-        PropertyVisitor = new PropertyVisitor(this);
+        propertyVisitor = new PropertyVisitor(this);
     }
 
     public MethodVisitor MethodVisitor { get; }
-    public PropertyVisitor PropertyVisitor { get; }
 
     public ParameterIndexWrapper ParamIndex { get; }
     public TableIndexWrapper TableIndex { get; }
@@ -43,15 +42,6 @@ internal class SQLVisitor : ExpressionVisitor
     public SQLExpression? From { get; private set; }
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments { get; set; } = [];
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
-
-    public Expression Visit(Expression expression, bool alwaysForceSql)
-    {
-        forceSql = alwaysForceSql;
-        Expression expr = Visit(expression);
-        forceSql = false;
-
-        return expr;
-    }
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
     public void AssignTable(Type entityType, SQLExpression? sql = null)
@@ -106,7 +96,8 @@ internal class SQLVisitor : ExpressionVisitor
             string op = node.NodeType == ExpressionType.AndAlso ? "AND" : "OR";
             return new SQLExpression(typeof(bool), IdentifierIndex++, $"{left.Sql} {op} {right.Sql}", bothParameters);
         }
-        else if (node.NodeType is ExpressionType.Coalesce)
+
+        if (node.NodeType is ExpressionType.Coalesce)
         {
             return new SQLExpression(node.Type, IdentifierIndex++, $"COALESCE({left.Sql}, {right.Sql})",
                 bothParameters);
@@ -137,21 +128,26 @@ internal class SQLVisitor : ExpressionVisitor
             return new SQLExpression(typeof(bool), IdentifierIndex++, $"{left.Sql} {sqlOp} NULL", left.Parameters);
         }
 
-        sqlOp = node.NodeType switch
+        (sqlOp, bool parenthesis) = node.NodeType switch
         {
-            ExpressionType.Equal => "=",
-            ExpressionType.NotEqual => "<>",
-            ExpressionType.GreaterThan => ">",
-            ExpressionType.LessThan => "<",
-            ExpressionType.GreaterThanOrEqual => ">=",
-            ExpressionType.LessThanOrEqual => "<=",
-            ExpressionType.Add => "+",
-            ExpressionType.Subtract => "-",
-            ExpressionType.Multiply => "*",
-            ExpressionType.Divide => "/",
-            ExpressionType.Modulo => "%",
+            ExpressionType.Equal => ("=", false),
+            ExpressionType.NotEqual => ("<>", false),
+            ExpressionType.GreaterThan => (">", false),
+            ExpressionType.LessThan => ("<", false),
+            ExpressionType.GreaterThanOrEqual => (">=", false),
+            ExpressionType.LessThanOrEqual => ("<=", false),
+            ExpressionType.Add => ("+", true),
+            ExpressionType.Subtract => ("-", true),
+            ExpressionType.Multiply => ("*", true),
+            ExpressionType.Divide => ("/", true),
+            ExpressionType.Modulo => ("%", true),
             _ => throw new NotSupportedException($"Unsupported binary op {node.NodeType}")
         };
+
+        if (parenthesis)
+        {
+            return new SQLExpression(node.Type, IdentifierIndex++, $"({left.Sql} {sqlOp} {right.Sql})", bothParameters);
+        }
 
         return new SQLExpression(node.Type, IdentifierIndex++, $"{left.Sql} {sqlOp} {right.Sql}", bothParameters);
     }
@@ -205,7 +201,7 @@ internal class SQLVisitor : ExpressionVisitor
             return new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", value);
         }
 
-        if (node.Expression is not MemberExpression and not ParameterExpression)
+        if (node.Expression is not MemberExpression and not ParameterExpression and not SQLExpression)
         {
             Expression expr = ResolveMember(node);
 
@@ -218,13 +214,18 @@ internal class SQLVisitor : ExpressionVisitor
                 return expr;
             }
         }
-        
-        if (node.Expression is MemberExpression or ParameterExpression)
+
+        if (node.Expression is MemberExpression or ParameterExpression or SQLExpression)
         {
             (string path, ParameterExpression? pe) = CommonHelpers.ResolveNullableParameterPath(node);
 
             if (pe == null)
             {
+                if (node.Expression is SQLExpression sqlExpression)
+                {
+                    return ConvertMemberExpression(node, sqlExpression);
+                }
+
                 return node.Update(Visit(node.Expression));
             }
 
@@ -243,38 +244,16 @@ internal class SQLVisitor : ExpressionVisitor
                 if (expressions.TryGetValue(path, out Expression? expression) &&
                     expression is SQLExpression sqlExpression)
                 {
-                    if (Nullable.GetUnderlyingType(node.Expression.Type) != null)
-                    {
-                        return PropertyVisitor.HandleNullableProperty(node.Member.Name, node.Type, sqlExpression);
-                    }
-                    else if (node.Expression.Type == typeof(DateTime))
-                    {
-                        return PropertyVisitor.HandleDateTimeProperty(node.Member.Name, node.Type, sqlExpression);
-                    }
-                    else if (node.Expression.Type == typeof(DateTimeOffset))
-                    {
-                        return PropertyVisitor.HandleDateTimeOffsetProperty(node.Member.Name, node.Type, sqlExpression);
-                    }
-                    else if (node.Expression.Type == typeof(TimeSpan))
-                    {
-                        return PropertyVisitor.HandleTimeSpanProperty(node.Member.Name, node.Type, sqlExpression);
-                    }
-                    else if (node.Expression.Type == typeof(DateOnly))
-                    {
-                        return PropertyVisitor.HandleDateOnlyProperty(node.Member.Name, node.Type, sqlExpression);
-                    }
-                    else if (node.Expression.Type == typeof(TimeOnly))
-                    {
-                        return PropertyVisitor.HandleTimeOnlyProperty(node.Member.Name, node.Type, sqlExpression);
-                    }
-                    else
-                    {
-                        return sqlExpression;
-                    }
+                    return ConvertMemberExpression(node, sqlExpression);
                 }
             }
         }
 
+        return ResolveMember(node);
+    }
+
+    protected override Expression VisitParameter(ParameterExpression node)
+    {
         return ResolveMember(node);
     }
 
@@ -304,8 +283,9 @@ internal class SQLVisitor : ExpressionVisitor
         {
             ExpressionType.Negate => $"-{resolved.SQLExpression.Sql}",
             ExpressionType.Not => $"NOT {resolved.SQLExpression.Sql}",
-            ExpressionType.Convert =>
-                $"CAST({resolved.SQLExpression.Sql} AS {CommonHelpers.TypeToSQLiteType(node.Type).ToString().ToUpper()})",
+            ExpressionType.Convert => node.Type == typeof(object)
+                ? resolved.SQLExpression.Sql
+                : $"CAST({resolved.SQLExpression.Sql} AS {CommonHelpers.TypeToSQLiteType(node.Type).ToString().ToUpper()})",
             _ => throw new NotSupportedException($"Unsupported unary op {node.NodeType}")
         };
 
@@ -328,44 +308,59 @@ internal class SQLVisitor : ExpressionVisitor
             SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, argument.SQLExpression);
             return new SQLExpression(typeof(bool), IdentifierIndex++, $"{obj.Sql} = {argument.Sql}", parameters);
         }
-        else if (node.Method.DeclaringType == typeof(string))
+
+        if (node.Method.DeclaringType == typeof(string))
         {
             return MethodVisitor.HandleStringMethod(node);
         }
-        else if (node.Method.DeclaringType == typeof(Math))
+
+        if (node.Method.DeclaringType == typeof(Math))
         {
             return MethodVisitor.HandleMathMethod(node);
         }
-        else if (node.Method.DeclaringType == typeof(DateTime))
+
+        if (node.Method.DeclaringType == typeof(DateTime))
         {
             return MethodVisitor.HandleDateTimeMethod(node);
         }
-        else if (node.Method.DeclaringType == typeof(DateTimeOffset))
+
+        if (node.Method.DeclaringType == typeof(DateTimeOffset))
         {
             return MethodVisitor.HandleDateTimeOffsetMethod(node);
         }
-        else if (node.Method.DeclaringType == typeof(TimeSpan))
+
+        if (node.Method.DeclaringType == typeof(TimeSpan))
         {
             return MethodVisitor.HandleTimeSpanMethod(node);
         }
-        else if (node.Method.DeclaringType == typeof(DateOnly))
+
+        if (node.Method.DeclaringType == typeof(DateOnly))
         {
             return MethodVisitor.HandleDateOnlyMethod(node);
         }
-        else if (node.Method.DeclaringType == typeof(TimeOnly))
+
+        if (node.Method.DeclaringType == typeof(TimeOnly))
         {
             return MethodVisitor.HandleTimeOnlyMethod(node);
         }
-        else if (node.Method.DeclaringType == typeof(Guid))
+
+        if (node.Method.DeclaringType == typeof(Guid))
         {
             return MethodVisitor.HandleGuidMethod(node);
         }
-        else if (node.Method.DeclaringType == typeof(Queryable))
+
+        if (node.Method.DeclaringType == typeof(Queryable))
         {
             return MethodVisitor.HandleQueryableMethod(node);
         }
-        else if (node.Object != null)
+
+        if (node.Object != null)
         {
+            if (node.Object.Type.IsEnum)
+            {
+                return MethodVisitor.HandleEnumMethod(node);
+            }
+
             ResolvedModel obj = ResolveExpression(node.Object);
             List<ResolvedModel> arguments = node.Arguments
                 .Select(ResolveExpression)
@@ -378,7 +373,8 @@ internal class SQLVisitor : ExpressionVisitor
 
             return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
         }
-        else if (node.Arguments.Count > 0)
+
+        if (node.Arguments.Count > 0)
         {
             if (node.Arguments[0].Type.IsGenericType &&
                 node.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
@@ -553,5 +549,45 @@ internal class SQLVisitor : ExpressionVisitor
             SQLExpression = sqlExpression,
             Expression = resolvedExpression
         };
+    }
+
+    private Expression ConvertMemberExpression(MemberExpression node, SQLExpression sqlExpression)
+    {
+        if (Nullable.GetUnderlyingType(node.Expression!.Type) != null)
+        {
+            return propertyVisitor.HandleNullableProperty(node.Member.Name, node.Type, sqlExpression);
+        }
+
+        if (node.Expression.Type == typeof(string))
+        {
+            return propertyVisitor.HandleStringProperty(node.Member.Name, node.Type, sqlExpression);
+        }
+
+        if (node.Expression.Type == typeof(DateTime))
+        {
+            return propertyVisitor.HandleDateTimeProperty(node.Member.Name, node.Type, sqlExpression);
+        }
+
+        if (node.Expression.Type == typeof(DateTimeOffset))
+        {
+            return propertyVisitor.HandleDateTimeOffsetProperty(node.Member.Name, node.Type, sqlExpression);
+        }
+
+        if (node.Expression.Type == typeof(TimeSpan))
+        {
+            return propertyVisitor.HandleTimeSpanProperty(node.Member.Name, node.Type, sqlExpression);
+        }
+
+        if (node.Expression.Type == typeof(DateOnly))
+        {
+            return propertyVisitor.HandleDateOnlyProperty(node.Member.Name, node.Type, sqlExpression);
+        }
+
+        if (node.Expression.Type == typeof(TimeOnly))
+        {
+            return propertyVisitor.HandleTimeOnlyProperty(node.Member.Name, node.Type, sqlExpression);
+        }
+
+        return sqlExpression;
     }
 }

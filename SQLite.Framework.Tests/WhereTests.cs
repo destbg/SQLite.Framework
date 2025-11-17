@@ -194,7 +194,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId + @p0 > @p1
+                     WHERE (b0.BookId + @p0) > @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -219,7 +219,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId - @p0 > @p1
+                     WHERE (b0.BookId - @p0) > @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -244,7 +244,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId * @p0 > @p1
+                     WHERE (b0.BookId * @p0) > @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -269,7 +269,7 @@ public class WhereTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId / @p0 > @p1
+                     WHERE (b0.BookId / @p0) > @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

@@ -13,7 +13,7 @@ public class SQLiteCommand
     private readonly SQLiteDatabase database;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="SQLiteCommand"/> class.
+    /// Initializes a new instance of the <see cref="SQLiteCommand" /> class.
     /// </summary>
     public SQLiteCommand(SQLiteDatabase database)
     {
@@ -23,7 +23,7 @@ public class SQLiteCommand
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="SQLiteCommand"/> class.
+    /// Initializes a new instance of the <see cref="SQLiteCommand" /> class.
     /// </summary>
     public SQLiteCommand(SQLiteDatabase database, string commandText, List<SQLiteParameter> parameters)
     {
@@ -33,7 +33,7 @@ public class SQLiteCommand
     }
 
     /// <summary>
-    /// The sql command to be executed.
+    /// The SQL command to be executed.
     /// </summary>
     public string CommandText { get; set; }
 

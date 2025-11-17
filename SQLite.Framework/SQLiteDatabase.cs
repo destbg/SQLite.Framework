@@ -17,13 +17,13 @@ using SQLitePCL;
 namespace SQLite.Framework;
 
 /// <summary>
-/// Represents a connection to the SQLite database.
+///     Represents a connection to the SQLite database.
 /// </summary>
 public class SQLiteDatabase : IQueryProvider, IDisposable
 {
-    private readonly Dictionary<Type, TableMapping> tableMappings = [];
     private readonly object connectionOpenLock = new();
     private readonly object queryLock = new();
+    private readonly Dictionary<Type, TableMapping> tableMappings = [];
 
     static SQLiteDatabase()
     {
@@ -31,7 +31,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="SQLiteDatabase"/> class.
+    ///     Initializes a new instance of the <see cref="SQLiteDatabase" /> class.
     /// </summary>
     public SQLiteDatabase(string databasePath)
     {
@@ -39,181 +39,55 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// The connection handle to the SQLite database.
+    ///     The connection handle to the SQLite database.
     /// </summary>
     /// <remarks>
-    /// This is only set after the connection is opened.
+    ///     This is only set after the connection is opened.
     /// </remarks>
     public sqlite3? Handle { get; private set; }
 
     /// <summary>
-    /// Indicates that the connection is open.
+    ///     Indicates that the connection is open.
     /// </summary>
     [MemberNotNullWhen(true, nameof(Handle))]
     public bool IsConnected { get; private set; }
 
     /// <summary>
-    /// Indicates that the connection is being established.
+    ///     Indicates that the connection is being established.
     /// </summary>
     public bool IsConnecting { get; private set; }
 
     /// <summary>
-    /// The connection string to the SQLite database.
+    ///     The connection string to the SQLite database.
     /// </summary>
     public SQLiteOpenFlags OpenFlags { get; set; } = SQLiteOpenFlags.Create | SQLiteOpenFlags.ReadWrite;
 
     /// <summary>
-    /// The connection string to the SQLite database.
+    ///     The connection string to the SQLite database.
     /// </summary>
     public string DatabasePath { get; }
 
     /// <summary>
-    /// Returns the cached table mappings in the current database instance.
+    ///     Returns the cached table mappings in the current database instance.
     /// </summary>
     public IReadOnlyCollection<TableMapping> TableMappings => tableMappings.Values;
 
-    /// <summary>
-    /// Called when a command is created using the <see cref="CreateCommand"/> method.
-    /// </summary>
-    public event Action<SQLiteCommand>? CommandCreated;
-
-    /// <summary>
-    /// Creates a new table for the specified type.
-    /// </summary>
-    public TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    /// <inheritdoc />
+    public virtual void Dispose()
     {
-        if (!tableMappings.TryGetValue(type, out TableMapping? table))
+        if (IsConnected)
         {
-            table = new(type);
-            tableMappings.Add(type, table);
-        }
+            IsConnected = false;
 
-        return table;
-    }
-
-    /// <summary>
-    /// Creates a new table mapping for the specified type.
-    /// </summary>
-    public TableMapping TableMapping<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
-    {
-        if (!tableMappings.TryGetValue(typeof(T), out TableMapping? table))
-        {
-            table = new(typeof(T));
-            tableMappings.Add(typeof(T), table);
-        }
-
-        return table;
-    }
-
-    /// <summary>
-    /// Creates a new table for the specified type.
-    /// </summary>
-    public SQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
-    {
-        return new SQLiteTable<T>(this, TableMapping<T>());
-    }
-
-    /// <summary>
-    /// Creates a new table for the specified type.
-    /// </summary>
-    public SQLiteTable Table([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
-    {
-        return new SQLiteTable(this, TableMapping(type));
-    }
-
-    /// <summary>
-    /// Begins a transaction on the database.
-    /// </summary>
-    public SQLiteTransaction BeginTransaction()
-    {
-        string savepointName = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
-
-        CreateCommand($"SAVEPOINT {savepointName}", []).ExecuteNonQuery();
-        return new SQLiteTransaction(this, savepointName);
-    }
-
-    /// <summary>
-    /// Creates a command with the specified SQL and parameters.
-    /// </summary>
-    public SQLiteCommand CreateCommand(string sql, List<SQLiteParameter> parameters)
-    {
-        OpenConnection();
-
-        SQLiteCommand cmd = new(this, sql, parameters);
-
-        CommandCreated?.Invoke(cmd);
-
-        return cmd;
-    }
-
-    /// <summary>
-    /// Opens the connection to the SQLite database.
-    /// </summary>
-    public void OpenConnection()
-    {
-        if (IsConnecting)
-        {
             lock (connectionOpenLock)
             {
-                // Wait for the connection to be opened
-            }
-        }
-        else if (!IsConnected)
-        {
-            lock (connectionOpenLock)
-            {
-                IsConnecting = true;
-
-                SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
-                    DatabasePath,
-                    out sqlite3 handle,
-                    (int)OpenFlags,
-                    null
-                );
-
-                if (result != SQLiteResult.OK)
+                if (Handle != null)
                 {
-                    throw new SQLiteException(result, "Unable to open database");
+                    raw.sqlite3_close(Handle);
+                    Handle = null;
                 }
-
-                Handle = handle;
-                IsConnected = true;
-                IsConnecting = false;
             }
         }
-    }
-
-    /// <summary>
-    /// Locks the all queries from entering the <see cref="Lock"/> method until <see cref="IDisposable.Dispose"/> is called.
-    /// </summary>
-    public IDisposable Lock()
-    {
-        return new LockObject(queryLock);
-    }
-
-    /// <summary>
-    /// Wraps the provided SQL query and parameters into a queryable object.
-    /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The type should be part of the client assemblies.")]
-    public IQueryable<T> FromSql<T>(string sql, params SQLiteParameter[] parameters)
-    {
-        if (string.IsNullOrWhiteSpace(sql))
-        {
-            throw new ArgumentException("SQL query cannot be null or empty.", nameof(sql));
-        }
-
-        if (parameters == null)
-        {
-            throw new ArgumentNullException(nameof(parameters), "Parameters cannot be null.");
-        }
-
-        return new Queryable<T>(this, Expression.Call(
-            Expression.Constant(this),
-            typeof(SQLiteDatabase).GetMethod(nameof(FromSql), BindingFlags.Instance | BindingFlags.Public)!
-                .MakeGenericMethod(typeof(T)),
-            Expression.Constant(sql),
-            Expression.NewArrayInit(typeof(SQLiteParameter), parameters.Select(Expression.Constant))
-        ));
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2095", Justification = "The method has the right attributes to be preserved.")]
@@ -252,7 +126,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 MethodInfo genericExecuteQueryMethod = executeQueryMethod.MakeGenericMethod(genericElementType);
 
                 SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
-                return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query.CreateObject])!;
+                return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query])!;
             }
         }
         else if (typeof(TResult) == typeof(IEnumerable) && CommonHelpers.IsConstant(expression))
@@ -268,7 +142,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             MethodInfo genericExecuteQueryMethod = executeQueryMethod.MakeGenericMethod(genericElementType);
 
             SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
-            return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query.CreateObject])!;
+            return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query])!;
 #pragma warning restore IL2075
         }
 
@@ -314,21 +188,148 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         throw new NotSupportedException("Only generic queries are supported.");
     }
 
-    /// <inheritdoc/>
-    public virtual void Dispose()
-    {
-        if (IsConnected)
-        {
-            IsConnected = false;
+    /// <summary>
+    ///     Called when a command is created using the <see cref="CreateCommand" /> method.
+    /// </summary>
+    public event Action<SQLiteCommand>? CommandCreated;
 
+    /// <summary>
+    ///     Creates a new table for the specified type.
+    /// </summary>
+    public TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    {
+        if (!tableMappings.TryGetValue(type, out TableMapping? table))
+        {
+            table = new TableMapping(type);
+            tableMappings.Add(type, table);
+        }
+
+        return table;
+    }
+
+    /// <summary>
+    ///     Creates a new table mapping for the specified type.
+    /// </summary>
+    public TableMapping TableMapping<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    {
+        if (!tableMappings.TryGetValue(typeof(T), out TableMapping? table))
+        {
+            table = new TableMapping(typeof(T));
+            tableMappings.Add(typeof(T), table);
+        }
+
+        return table;
+    }
+
+    /// <summary>
+    ///     Creates a new table for the specified type.
+    /// </summary>
+    public SQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+    {
+        return new SQLiteTable<T>(this, TableMapping<T>());
+    }
+
+    /// <summary>
+    ///     Creates a new table for the specified type.
+    /// </summary>
+    public SQLiteTable Table([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
+    {
+        return new SQLiteTable(this, TableMapping(type));
+    }
+
+    /// <summary>
+    ///     Begins a transaction on the database.
+    /// </summary>
+    public SQLiteTransaction BeginTransaction()
+    {
+        string savepointName = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
+
+        CreateCommand($"SAVEPOINT {savepointName}", []).ExecuteNonQuery();
+        return new SQLiteTransaction(this, savepointName);
+    }
+
+    /// <summary>
+    ///     Creates a command with the specified SQL and parameters.
+    /// </summary>
+    public SQLiteCommand CreateCommand(string sql, List<SQLiteParameter> parameters)
+    {
+        OpenConnection();
+
+        SQLiteCommand cmd = new(this, sql, parameters);
+
+        CommandCreated?.Invoke(cmd);
+
+        return cmd;
+    }
+
+    /// <summary>
+    ///     Opens the connection to the SQLite database.
+    /// </summary>
+    public void OpenConnection()
+    {
+        if (IsConnecting)
+        {
             lock (connectionOpenLock)
             {
-                if (Handle != null)
-                {
-                    raw.sqlite3_close(Handle);
-                    Handle = null;
-                }
+                // Wait for the connection to be opened
             }
         }
+        else if (!IsConnected)
+        {
+            lock (connectionOpenLock)
+            {
+                IsConnecting = true;
+
+                SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
+                    DatabasePath,
+                    out sqlite3 handle,
+                    (int)OpenFlags,
+                    null
+                );
+
+                if (result != SQLiteResult.OK)
+                {
+                    throw new SQLiteException(result, "Unable to open database");
+                }
+
+                Handle = handle;
+                IsConnected = true;
+                IsConnecting = false;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Locks the all queries from entering the <see cref="Lock" /> method until <see cref="IDisposable.Dispose" /> is
+    ///     called.
+    /// </summary>
+    public IDisposable Lock()
+    {
+        return new LockObject(queryLock);
+    }
+
+    /// <summary>
+    ///     Wraps the provided SQL query and parameters into a queryable object.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The type should be part of the client assemblies.")]
+    public IQueryable<T> FromSql<T>(string sql, params SQLiteParameter[] parameters)
+    {
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            throw new ArgumentException("SQL query cannot be null or empty.", nameof(sql));
+        }
+
+        if (parameters == null)
+        {
+            throw new ArgumentNullException(nameof(parameters), "Parameters cannot be null.");
+        }
+
+        return new Queryable<T>(this, Expression.Call(
+            Expression.Constant(this),
+            typeof(SQLiteDatabase).GetMethod(nameof(FromSql), BindingFlags.Instance | BindingFlags.Public)!
+                .MakeGenericMethod(typeof(T)),
+            Expression.Constant(sql),
+            Expression.NewArrayInit(typeof(SQLiteParameter), parameters.Select(Expression.Constant))
+        ));
     }
 }

@@ -65,9 +65,52 @@ internal class MethodVisitor
                     return new SQLExpression(
                         node.Method.ReturnType,
                         visitor.IdentifierIndex++,
-                        $"INSTR({obj.Sql}, {arguments[0].Sql})",
+                        $"INSTR({obj.Sql}, {arguments[0].Sql}) - 1",
                         parameters
                     );
+                }
+                case nameof(string.LastIndexOf):
+                {
+                    SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!);
+                    return new SQLExpression(
+                        node.Method.ReturnType,
+                        visitor.IdentifierIndex++,
+                        $"(LENGTH({obj.Sql}) - LENGTH(REPLACE({obj.Sql}, {arguments[0].Sql}, '')) - LENGTH({arguments[0].Sql}) + 1) * (INSTR({obj.Sql}, {arguments[0].Sql}) > 0) - 1 + (INSTR({obj.Sql}, {arguments[0].Sql}) = 0) * -1",
+                        parameters
+                    );
+                }
+                case nameof(string.Insert):
+                {
+                    SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!, arguments[1].SQLExpression!);
+                    return new SQLExpression(
+                        node.Method.ReturnType,
+                        visitor.IdentifierIndex++,
+                        $"SUBSTR({obj.Sql}, 1, {arguments[0].Sql}) || {arguments[1].Sql} || SUBSTR({obj.Sql}, {arguments[0].Sql} + 1)",
+                        parameters
+                    );
+                }
+                case nameof(string.Remove):
+                {
+                    if (node.Arguments.Count == 2)
+                    {
+                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!, arguments[1].SQLExpression!);
+                        return new SQLExpression(
+                            node.Method.ReturnType,
+                            visitor.IdentifierIndex++,
+                            $"SUBSTR({obj.Sql}, 1, {arguments[0].Sql}) || SUBSTR({obj.Sql}, {arguments[0].Sql} + {arguments[1].Sql} + 1)",
+                            parameters
+                        );
+                    }
+                    else
+                    {
+                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!);
+                        return new SQLExpression(
+                            node.Method.ReturnType,
+                            visitor.IdentifierIndex++,
+                            $"SUBSTR({obj.Sql}, 1, {arguments[0].Sql})",
+                            parameters
+                        );
+                    }
                 }
                 case nameof(string.Replace):
                 {
@@ -99,7 +142,7 @@ internal class MethodVisitor
                         return new SQLExpression(
                             node.Method.ReturnType,
                             visitor.IdentifierIndex++,
-                            $"SUBSTR({obj.Sql}, {arguments[0].Sql}, {arguments[1].Sql})",
+                            $"SUBSTR({obj.Sql}, {arguments[0].Sql} + 1, {arguments[1].Sql})",
                             parameters
                         );
                     }
@@ -109,7 +152,7 @@ internal class MethodVisitor
                         return new SQLExpression(
                             node.Method.ReturnType,
                             visitor.IdentifierIndex++,
-                            $"SUBSTR({obj.Sql}, {arguments[0].Sql})",
+                            $"SUBSTR({obj.Sql}, {arguments[0].Sql} + 1)",
                             parameters
                         );
                     }
@@ -131,6 +174,77 @@ internal class MethodVisitor
                         node.Method.ReturnType,
                         visitor.IdentifierIndex++,
                         $"LOWER({obj.Sql})",
+                        obj.Parameters
+                    );
+                }
+                case nameof(string.PadLeft):
+                {
+                    if (node.Arguments.Count == 1)
+                    {
+                        SQLiteParameter spaceParam = new()
+                        {
+                            Name = $"@p{visitor.ParamIndex.Index++}",
+                            Value = ' '
+                        };
+                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!);
+                        parameters = [.. parameters ?? [], spaceParam];
+
+                        return new SQLExpression(
+                            node.Method.ReturnType,
+                            visitor.IdentifierIndex++,
+                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(({arguments[0].Sql} - LENGTH({obj.Sql})) / 2 + ({arguments[0].Sql} - LENGTH({obj.Sql})) % 2)), '00', {spaceParam.Name}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})) || {obj.Sql}) END)",
+                            parameters
+                        );
+                    }
+                    else
+                    {
+                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!, arguments[1].SQLExpression!);
+
+                        return new SQLExpression(
+                            node.Method.ReturnType,
+                            visitor.IdentifierIndex++,
+                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(({arguments[0].Sql} - LENGTH({obj.Sql})) / 2 + ({arguments[0].Sql} - LENGTH({obj.Sql})) % 2)), '00', {arguments[1].Sql}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})) || {obj.Sql}) END)",
+                            parameters
+                        );
+                    }
+                }
+                case nameof(string.PadRight):
+                {
+                    if (node.Arguments.Count == 1)
+                    {
+                        SQLiteParameter spaceParam = new()
+                        {
+                            Name = $"@p{visitor.ParamIndex.Index++}",
+                            Value = ' '
+                        };
+                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!);
+                        parameters = [.. parameters ?? [], spaceParam];
+
+                        return new SQLExpression(
+                            node.Method.ReturnType,
+                            visitor.IdentifierIndex++,
+                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE ({obj.Sql} || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(({arguments[0].Sql} - LENGTH({obj.Sql})) / 2 + ({arguments[0].Sql} - LENGTH({obj.Sql})) % 2)), '00', {spaceParam.Name}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})))) END)",
+                            parameters
+                        );
+                    }
+                    else
+                    {
+                        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!, arguments[1].SQLExpression!);
+
+                        return new SQLExpression(
+                            node.Method.ReturnType,
+                            visitor.IdentifierIndex++,
+                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE ({obj.Sql} || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(({arguments[0].Sql} - LENGTH({obj.Sql})) / 2 + ({arguments[0].Sql} - LENGTH({obj.Sql})) % 2)), '00', {arguments[1].Sql}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})))) END)",
+                            parameters
+                        );
+                    }
+                }
+                case nameof(string.ToString):
+                {
+                    return new SQLExpression(
+                        node.Method.ReturnType,
+                        visitor.IdentifierIndex++,
+                        $"CAST({obj.Sql} AS TEXT)",
                         obj.Parameters
                     );
                 }
@@ -160,6 +274,18 @@ internal class MethodVisitor
                 visitor.IdentifierIndex++,
                 string.Join(" || ", arguments.Select(f => f.Sql)),
                 CommonHelpers.CombineParameters(arguments.Select(f => f.SQLExpression!).ToArray())
+            ),
+            nameof(string.Join) when arguments.Count >= 2 => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                string.Join($" || {arguments[0].Sql} || ", arguments.Skip(1).Select(f => f.Sql)),
+                CommonHelpers.CombineParameters(arguments.Select(f => f.SQLExpression!).ToArray())
+            ),
+            nameof(string.Compare) when arguments.Count == 2 => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"(CASE WHEN {arguments[0].Sql} = {arguments[1].Sql} THEN 0 WHEN {arguments[0].Sql} < {arguments[1].Sql} THEN -1 ELSE 1 END)",
+                CommonHelpers.CombineParameters(arguments[0].SQLExpression!, arguments[1].SQLExpression!)
             ),
             _ => node
         };
@@ -201,7 +327,7 @@ internal class MethodVisitor
             nameof(Math.Round) => new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex++,
-                $"ROUND({arguments[0].Sql})",
+                arguments.Count == 2 ? $"ROUND({arguments[0].Sql}, {arguments[1].Sql})" : $"ROUND({arguments[0].Sql})",
                 parameters
             ),
             nameof(Math.Ceiling) => new SQLExpression(
@@ -214,6 +340,42 @@ internal class MethodVisitor
                 node.Method.ReturnType,
                 visitor.IdentifierIndex++,
                 $"FLOOR({arguments[0].Sql})",
+                parameters
+            ),
+            nameof(Math.Pow) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"POWER({arguments[0].Sql}, {arguments[1].Sql})",
+                parameters
+            ),
+            nameof(Math.Sign) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"(CASE WHEN {arguments[0].Sql} > 0 THEN 1 WHEN {arguments[0].Sql} < 0 THEN -1 ELSE 0 END)",
+                parameters
+            ),
+            nameof(Math.Sqrt) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"SQRT({arguments[0].Sql})",
+                parameters
+            ),
+            nameof(Math.Exp) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"EXP({arguments[0].Sql})",
+                parameters
+            ),
+            nameof(Math.Log) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                arguments.Count == 2 ? $"(LOG({arguments[0].Sql}) / LOG({arguments[1].Sql}))" : $"LOG({arguments[0].Sql})",
+                parameters
+            ),
+            nameof(Math.Log10) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"LOG10({arguments[0].Sql})",
                 parameters
             ),
             _ => node
@@ -253,10 +415,17 @@ internal class MethodVisitor
                     $"{obj.Sql} - {arguments[0].Sql}",
                     CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!)
                 ),
+                nameof(string.ToString) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"CAST({obj.Sql} AS TEXT)",
+                    obj.Parameters
+                ),
                 _ => node
             };
         }
-        else if (CheckConstantMethod<DateTime>(node, arguments, out Expression? expression))
+
+        if (CheckConstantMethod<DateTime>(node, arguments, out Expression? expression))
         {
             return expression;
         }
@@ -312,10 +481,17 @@ internal class MethodVisitor
                     $"{obj.Sql} - {arguments[0].Sql}",
                     CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!)
                 ),
+                nameof(DateTimeOffset.ToString) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"CAST({obj.Sql} AS TEXT)",
+                    obj.Parameters
+                ),
                 _ => node
             };
         }
-        else if (CheckConstantMethod<DateTimeOffset>(node, arguments, out Expression? expression))
+
+        if (CheckConstantMethod<DateTimeOffset>(node, arguments, out Expression? expression))
         {
             return expression;
         }
@@ -356,10 +532,29 @@ internal class MethodVisitor
                     $"{obj.Sql} - {arguments[0].Sql}",
                     CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!)
                 ),
+                nameof(TimeSpan.Negate) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"(-{obj.Sql})",
+                    obj.Parameters
+                ),
+                nameof(TimeSpan.Duration) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"ABS({obj.Sql})",
+                    obj.Parameters
+                ),
+                nameof(TimeSpan.ToString) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"CAST({obj.Sql} AS TEXT)",
+                    obj.Parameters
+                ),
                 _ => node
             };
         }
-        else if (CheckConstantMethod<TimeSpan>(node, arguments, out Expression? expression))
+
+        if (CheckConstantMethod<TimeSpan>(node, arguments, out Expression? expression))
         {
             return expression;
         }
@@ -397,10 +592,17 @@ internal class MethodVisitor
                 nameof(DateOnly.AddYears) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "years"),
                 nameof(DateOnly.AddMonths) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "months"),
                 nameof(DateOnly.AddDays) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerDay),
+                nameof(DateOnly.ToString) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"CAST({obj.Sql} AS TEXT)",
+                    obj.Parameters
+                ),
                 _ => node
             };
         }
-        else if (CheckConstantMethod<DateOnly>(node, arguments, out Expression? expression))
+
+        if (CheckConstantMethod<DateOnly>(node, arguments, out Expression? expression))
         {
             return expression;
         }
@@ -428,10 +630,17 @@ internal class MethodVisitor
                 nameof(TimeOnly.Add) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
                 nameof(TimeOnly.AddHours) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerHour),
                 nameof(TimeOnly.AddMinutes) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMinute),
+                nameof(TimeOnly.ToString) => new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"CAST({obj.Sql} AS TEXT)",
+                    obj.Parameters
+                ),
                 _ => node
             };
         }
-        else if (CheckConstantMethod<TimeOnly>(node, arguments, out Expression? expression))
+
+        if (CheckConstantMethod<TimeOnly>(node, arguments, out Expression? expression))
         {
             return expression;
         }
@@ -463,7 +672,22 @@ internal class MethodVisitor
                 }
             }
         }
-        else if (CheckConstantMethod<Guid>(node, arguments, out Expression? expression))
+        else
+        {
+            ResolvedModel obj = visitor.ResolveExpression(node.Object);
+
+            if (obj.SQLExpression != null && node.Method.Name == nameof(string.ToString))
+            {
+                return new SQLExpression(
+                    node.Method.ReturnType,
+                    visitor.IdentifierIndex++,
+                    $"CAST({obj.Sql} AS TEXT)",
+                    obj.Parameters
+                );
+            }
+        }
+
+        if (CheckConstantMethod<Guid>(node, arguments, out Expression? expression))
         {
             return expression;
         }
@@ -652,6 +876,68 @@ internal class MethodVisitor
         };
     }
 
+    public Expression HandleEnumMethod(MethodCallExpression node)
+    {
+        List<ResolvedModel> arguments = node.Arguments
+            .Select(visitor.ResolveExpression)
+            .ToList();
+
+        if (node.Object != null)
+        {
+            ResolvedModel obj = visitor.ResolveExpression(node.Object);
+
+            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null))
+            {
+                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+            }
+
+            switch (node.Method.Name)
+            {
+                case nameof(Enum.HasFlag):
+                {
+                    SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, arguments[0].SQLExpression!);
+                    return new SQLExpression(
+                        node.Method.ReturnType,
+                        visitor.IdentifierIndex++,
+                        $"(({obj.Sql} & {arguments[0].Sql}) = {arguments[0].Sql})",
+                        parameters
+                    );
+                }
+                case nameof(Enum.ToString):
+                {
+                    return new SQLExpression(
+                        node.Method.ReturnType,
+                        visitor.IdentifierIndex++,
+                        $"CAST({obj.Sql} AS TEXT)",
+                        obj.Parameters
+                    );
+                }
+            }
+        }
+
+        if (CheckConstantMethod<Enum>(node, arguments, out Expression? expression))
+        {
+            return expression;
+        }
+
+        return node.Method.Name switch
+        {
+            nameof(Enum.Parse) when arguments.Count >= 1 => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                arguments[0].Sql!,
+                arguments[0].Parameters
+            ),
+            nameof(Enum.IsDefined) when arguments.Count == 2 => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex++,
+                $"({arguments[1].Sql} IS NOT NULL)",
+                arguments[1].Parameters
+            ),
+            _ => node
+        };
+    }
+
     private SQLExpression ResolveLike(MethodInfo method, SQLExpression obj, List<ResolvedModel> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
     {
         string rest = "ESCAPE '\\'";
@@ -826,22 +1112,20 @@ internal class MethodVisitor
                 sqlExpression.Parameters
             );
         }
-        else
-        {
-            LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
-            Expression resolvedExpression = visitor.Visit(lambda.Body);
-            if (resolvedExpression is not SQLExpression sql)
-            {
-                throw new NotSupportedException("Sum could not resolve the expression.");
-            }
 
-            return new SQLExpression(
-                node.Method.ReturnType,
-                visitor.IdentifierIndex++,
-                $"{aggregateFunction}({sql.Sql})",
-                sql.Parameters
-            );
+        LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
+        Expression resolvedExpression = visitor.Visit(lambda.Body);
+        if (resolvedExpression is not SQLExpression sql)
+        {
+            throw new NotSupportedException("Sum could not resolve the expression.");
         }
+
+        return new SQLExpression(
+            node.Method.ReturnType,
+            visitor.IdentifierIndex++,
+            $"{aggregateFunction}({sql.Sql})",
+            sql.Parameters
+        );
     }
 
     private bool CheckConstantMethod<T>(MethodCallExpression node, List<ResolvedModel> arguments, [MaybeNullWhen(false)] out Expression expression)

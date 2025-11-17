@@ -30,6 +30,20 @@ internal class PropertyVisitor
         };
     }
 
+    public Expression HandleStringProperty(string propertyName, Type type, SQLExpression node)
+    {
+        return propertyName switch
+        {
+            nameof(string.Length) => new SQLExpression(
+                type,
+                visitor.IdentifierIndex++,
+                $"LENGTH({node.Sql})",
+                node.Parameters
+            ),
+            _ => node
+        };
+    }
+
     public Expression HandleDateTimeProperty(string propertyName, Type type, SQLExpression node)
     {
         return propertyName switch
@@ -176,7 +190,7 @@ internal class PropertyVisitor
             type,
             visitor.IdentifierIndex++,
             $"CAST(STRFTIME('%{format}',{function}(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
-            [..obj.Parameters ?? [], tickParameter, tickToSecondParameter]
+            [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter]
         );
     }
 
@@ -191,7 +205,7 @@ internal class PropertyVisitor
             type,
             visitor.IdentifierIndex++,
             $"CAST(STRFTIME('%{format}',TIME({obj.Sql} / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
-            [..obj.Parameters ?? [], tickToSecondParameter]
+            [.. obj.Parameters ?? [], tickToSecondParameter]
         );
     }
 

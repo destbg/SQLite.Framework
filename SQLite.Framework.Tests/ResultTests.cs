@@ -8,22 +8,6 @@ namespace SQLite.Framework.Tests;
 
 public class ResultTests
 {
-    public class NullableEntity
-    {
-        [Key]
-        public int? Id { get; set; }
-
-        public string? Name { get; set; }
-        public int? Test { get; set; }
-        public DateTime? BirthDate { get; set; }
-    }
-
-    public class GroupDTO
-    {
-        public required int Count { get; set; }
-        public required int Id { get; set; }
-    }
-
     [Fact]
     public void CallExternalMethodNullJoin()
     {
@@ -593,7 +577,7 @@ public class ResultTests
             Id = 1,
             Name = "Test",
             Test = null,
-            BirthDate = new DateTime(2000, 1, 1),
+            BirthDate = new DateTime(2000, 1, 1)
         });
 
         NullableEntity? entity = db.Table<NullableEntity>()
@@ -649,6 +633,43 @@ public class ResultTests
         }
     }
 
+    [Fact]
+    public void SeparateVariables()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book
+            {
+                Id = 3,
+                Title = "Book 3",
+                AuthorId = 1,
+                Price = 15
+            },
+            new Book
+            {
+                Id = 4,
+                Title = "Book 4",
+                AuthorId = 1,
+                Price = 20
+            }
+        });
+
+        SeparateClass books = new(db.Table<Book>());
+        SeparateClass books2 = new(books.Books.Where(f => f.Id != 1));
+        SeparateClass books3 = new(books2.Books.OrderBy(f => f.Id));
+        SeparateClass books4 = new(books3.Books.Take(1));
+        SeparateClass books5 = new(books4.Books.Skip(1));
+        List<Book> books6 = books5.Books.ToList();
+
+        Assert.Single(books6);
+        Assert.Equal(3, books6[0].Id);
+        Assert.Equal("Book 3", books6[0].Title);
+        Assert.Equal(1, books6[0].AuthorId);
+        Assert.Equal(15d, books6[0].Price);
+    }
+
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(methodName);
@@ -687,4 +708,21 @@ public class ResultTests
 
         return db;
     }
+
+    public class NullableEntity
+    {
+        [Key] public int? Id { get; set; }
+
+        public string? Name { get; set; }
+        public int? Test { get; set; }
+        public DateTime? BirthDate { get; set; }
+    }
+
+    public class GroupDTO
+    {
+        public required int Count { get; set; }
+        public required int Id { get; set; }
+    }
+
+    private record SeparateClass(IQueryable<Book> Books);
 }

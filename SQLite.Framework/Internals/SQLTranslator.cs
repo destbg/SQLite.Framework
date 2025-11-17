@@ -18,9 +18,9 @@ namespace SQLite.Framework.Internals;
 /// </remarks>
 internal class SQLTranslator
 {
+    private readonly int level;
     private readonly List<SQLiteParameter> parameters = [];
     private readonly QueryableMethodVisitor queryableMethodVisitor;
-    private readonly int level;
     private Expression? selectMethodExpression;
 
     public SQLTranslator(SQLiteDatabase database)
@@ -32,14 +32,14 @@ internal class SQLTranslator
         queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor);
     }
 
-    public SQLVisitor Visitor { get; }
-
     public SQLTranslator(SQLiteDatabase database, ParameterIndexWrapper paramIndex, TableIndexWrapper tableIndex, int level)
     {
         this.level = level;
         Visitor = new SQLVisitor(database, paramIndex, tableIndex, level);
         queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor);
     }
+
+    public SQLVisitor Visitor { get; }
 
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
     {
@@ -221,20 +221,23 @@ internal class SQLTranslator
             havingSql,
             orderBy,
             limit,
-            offset,
+            offset
         }.Where(f => !string.IsNullOrEmpty(f)));
 
-        if (queryableMethodVisitor.Unions.Count > 0)
+        // UNION, UNION ALL, INTERSECT, EXCEPT
+        if (queryableMethodVisitor.SetOperations.Count > 0)
         {
-            foreach ((SQLExpression sqlExpression, bool _) in queryableMethodVisitor.Unions)
+            foreach ((SQLExpression sqlExpression, string _) in queryableMethodVisitor.SetOperations)
             {
                 VisitSQLExpression(sqlExpression);
             }
 
-            string unions = string.Join(Environment.NewLine + spacing, queryableMethodVisitor.Unions.Select(f =>
-                $"{spacing}UNION{(f.All ? " ALL" : string.Empty)}{Environment.NewLine}{spacing}{f.Sql}"));
+            IEnumerable<string> list = queryableMethodVisitor.SetOperations.Select(f =>
+                $"{spacing}{f.Type}{Environment.NewLine}{spacing}{f.Sql}");
 
-            sql = $"{sql}{Environment.NewLine}{unions}";
+            string setOperations = string.Join(Environment.NewLine + spacing, list);
+
+            sql = $"{sql}{Environment.NewLine}{setOperations}";
         }
 
         if (queryableMethodVisitor.IsAny)
@@ -263,8 +266,9 @@ internal class SQLTranslator
             Sql = sql,
             Parameters = parameters,
             CreateObject = createObject,
+            Reverse = queryableMethodVisitor.Reverse,
             ThrowOnEmpty = queryableMethodVisitor.ThrowOnEmpty,
-            ThrowOnMoreThanOne = queryableMethodVisitor.ThrowOnMoreThanOne,
+            ThrowOnMoreThanOne = queryableMethodVisitor.ThrowOnMoreThanOne
         };
     }
 
@@ -292,8 +296,7 @@ internal class SQLTranslator
         while (true)
         {
             methodCalls.Add(callExpression);
-            if (callExpression.Arguments.Count == 0
-                || callExpression.Method.Name is nameof(Queryable.Concat) or nameof(Queryable.Union))
+            if (callExpression.Arguments.Count == 0)
             {
                 break;
             }
@@ -324,10 +327,6 @@ internal class SQLTranslator
             {
                 throw new NotSupportedException($"Unsupported method: {callExpression.Method}");
             }
-        }
-        else if (callExpression.Method.Name is nameof(Queryable.Concat) or nameof(Queryable.Union))
-        {
-            Visitor.Visit(callExpression.Arguments[1]);
         }
         else
         {
@@ -424,14 +423,13 @@ internal class SQLTranslator
 
     private static bool IsSelectMethod(MethodInfo method)
     {
-        return method.GetParameters().Length > 0 && (
-            method.Name is nameof(Queryable.Select)
-                or nameof(Queryable.Min)
-                or nameof(Queryable.Max)
-                or nameof(Queryable.Sum)
-                or nameof(Queryable.Count)
-                or nameof(Queryable.Average)
-                or nameof(Queryable.Contains)
-        );
+        return method.GetParameters().Length > 0 && method.Name is nameof(Queryable.Select)
+            or nameof(Queryable.Min)
+            or nameof(Queryable.Max)
+            or nameof(Queryable.Sum)
+            or nameof(Queryable.Count)
+            or nameof(Queryable.LongCount)
+            or nameof(Queryable.Average)
+            or nameof(Queryable.Contains);
     }
 }
