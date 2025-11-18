@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using System.Reflection;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
@@ -50,8 +51,12 @@ internal class QueryableMethodVisitor
         {
             nameof(Queryable.Select) => VisitSelect(node),
             nameof(Queryable.Where) => VisitWhere(node),
-            nameof(Queryable.Join) => VisitJoin(node),
-            nameof(Queryable.GroupJoin) => VisitJoin(node),
+#if NET10_0
+            nameof(Queryable.LeftJoin) => VisitJoin(node, "LEFT JOIN"),
+            nameof(Queryable.RightJoin) => VisitJoin(node, "JOIN"),
+#endif
+            nameof(Queryable.Join) => VisitJoin(node, "JOIN"),
+            nameof(Queryable.GroupJoin) => VisitJoin(node, "LEFT JOIN"),
             nameof(Queryable.SelectMany) => VisitSelectMany(node),
             nameof(Queryable.Take) => VisitTake(node),
             nameof(Queryable.Skip) => VisitSkip(node),
@@ -72,10 +77,10 @@ internal class QueryableMethodVisitor
             nameof(Queryable.Min) => VisitGroupFunction(node, "MIN"),
             nameof(Queryable.Average) => VisitGroupFunction(node, "AVG"),
             nameof(Queryable.Distinct) => VisitDistinct(node),
-            nameof(Queryable.Concat)
-                or nameof(Queryable.Union)
-                or nameof(Queryable.Intersect)
-                or nameof(Queryable.Except) => VisitSetOperation(node),
+            nameof(Queryable.Concat) => VisitSetOperation(node, "UNION ALL"),
+            nameof(Queryable.Union) => VisitSetOperation(node, "UNION"),
+            nameof(Queryable.Intersect) => VisitSetOperation(node, "INTERSECT"),
+            nameof(Queryable.Except) => VisitSetOperation(node, "EXCEPT"),
             nameof(Queryable.Contains) => VisitContains(node),
             nameof(Queryable.GroupBy) => VisitGroupBy(node),
             nameof(Queryable.Reverse) => VisitReverse(node),
@@ -87,6 +92,7 @@ internal class QueryableMethodVisitor
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types should have public properties.")]
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "All types should have public properties.")]
     private Expression VisitSelect(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
@@ -102,7 +108,7 @@ internal class QueryableMethodVisitor
 
                 SQLExpression newSqlExpression = new(
                     node.Method.ReturnType,
-                    visitor.IdentifierIndex++,
+                    visitor.IdentifierIndex.Index++,
                     sqlExpression.Sql,
                     sqlExpression.Parameters
                 );
@@ -120,15 +126,32 @@ internal class QueryableMethodVisitor
 
         if (lambda.Body is ParameterExpression)
         {
-            return Expression.MemberInit(
-                Expression.New(lambda.Body.Type),
-                visitor.TableColumns.Select(tableColumn =>
-                    Expression.Bind(
-                        lambda.Body.Type.GetProperty(tableColumn.Key)!,
-                        selectVisitor.Visit(visitor.Visit(tableColumn.Value))
-                    )
-                )
-            );
+            List<PropertyInfo> properties = visitor.TableColumns
+                .Select(tableColumn => lambda.Body.Type.GetProperty(tableColumn.Key)!)
+                .ToList();
+
+            ConstructorInfo constructor = lambda.Body.Type.GetConstructors()[0];
+
+            List<Expression> constructorArgs = properties
+                .ConvertAll(prop => selectVisitor.Visit(visitor.Visit(
+                    visitor.TableColumns.First(tc => tc.Key == prop.Name).Value)));
+
+            bool hasWritableProperties = properties.All(p => p.CanWrite);
+
+            if (hasWritableProperties)
+            {
+                List<MemberAssignment> memberBindings = properties
+                    .ConvertAll(prop => Expression.Bind(prop, constructorArgs[properties.IndexOf(prop)]));
+
+                return Expression.MemberInit(
+                    Expression.New(constructor, constructorArgs, properties),
+                    memberBindings
+                );
+            }
+            else
+            {
+                return Expression.New(constructor, constructorArgs, properties);
+            }
         }
 
         Expression selectExpression = visitor.Visit(lambda.Body);
@@ -159,7 +182,7 @@ internal class QueryableMethodVisitor
         return result;
     }
 
-    private SQLExpression VisitJoin(MethodCallExpression node)
+    private SQLExpression VisitJoin(MethodCallExpression node, string joinType)
     {
         (Dictionary<string, Expression> newTableColumns, Type entityType, SQLExpression sql) = ResolveTable(node.Arguments[1]);
 
@@ -205,7 +228,7 @@ internal class QueryableMethodVisitor
             Joins.Add(new JoinInfo
             {
                 EntityType = entityType,
-                JoinType = node.Method.Name == nameof(Queryable.GroupJoin) ? "LEFT JOIN" : "JOIN",
+                JoinType = joinType,
                 Sql = sql,
                 OnClause = new SQLExpression(typeof(bool), -1, onClause, sqlParameters),
                 IsGroupJoin = node.Method.Name == nameof(Queryable.GroupJoin)
@@ -221,7 +244,7 @@ internal class QueryableMethodVisitor
             Joins.Add(new JoinInfo
             {
                 EntityType = entityType,
-                JoinType = node.Method.Name == nameof(Queryable.GroupJoin) ? "LEFT JOIN" : "JOIN",
+                JoinType = joinType,
                 Sql = sql,
                 OnClause = new SQLExpression(typeof(bool), -1, $"{outerAlias.Sql} = {innerAlias.Sql}", parameters),
                 IsGroupJoin = node.Method.Name == nameof(Queryable.GroupJoin)
@@ -320,7 +343,7 @@ internal class QueryableMethodVisitor
             ? "ASC"
             : "DESC";
 
-        OrderBys.Add(new SQLExpression(node.Arguments[1].Type, visitor.IdentifierIndex++, $"{sqlExpression.Sql} {order}", sqlExpression.Parameters));
+        OrderBys.Add(new SQLExpression(node.Arguments[1].Type, visitor.IdentifierIndex.Index++, $"{sqlExpression.Sql} {order}", sqlExpression.Parameters));
         return orderBy;
     }
 
@@ -371,26 +394,26 @@ internal class QueryableMethodVisitor
             if (function == "COUNT")
             {
                 Wheres.Add(sqlExpression);
-                select = new SQLExpression(node.Arguments[0].Type, visitor.IdentifierIndex++, $"{function}(*)");
+                select = new SQLExpression(node.Arguments[0].Type, visitor.IdentifierIndex.Index++, $"{function}(*)");
             }
             else
             {
-                select = new SQLExpression(node.Arguments[1].Type, visitor.IdentifierIndex++, $"{function}({sqlExpression.Sql})", sqlExpression.Parameters);
+                select = new SQLExpression(node.Arguments[1].Type, visitor.IdentifierIndex.Index++, $"{function}({sqlExpression.Sql})", sqlExpression.Parameters);
             }
         }
         else if (function == "COUNT")
         {
-            select = new SQLExpression(node.Arguments[0].Type, visitor.IdentifierIndex++, $"{function}(*)");
+            select = new SQLExpression(node.Arguments[0].Type, visitor.IdentifierIndex.Index++, $"{function}(*)");
         }
         else if (Selects.Count == 1)
         {
-            select = new SQLExpression(Selects[0].Type, visitor.IdentifierIndex++, $"{function}({Selects[0].Sql})", Selects[0].Parameters);
+            select = new SQLExpression(Selects[0].Type, visitor.IdentifierIndex.Index++, $"{function}({Selects[0].Sql})", Selects[0].Parameters);
         }
         else
         {
             select = new SQLExpression(
                 node.Arguments[0].Type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"{function}(*)"
             );
         }
@@ -407,26 +430,19 @@ internal class QueryableMethodVisitor
         return node;
     }
 
-    private SQLExpression VisitSetOperation(MethodCallExpression node)
+    private SQLExpression VisitSetOperation(MethodCallExpression node, string setType)
     {
         SQLTranslator sqlTranslator = visitor.CloneDeeper(visitor.Level);
         SQLQuery query = sqlTranslator.Translate(node.Arguments[1]);
 
         SQLExpression sqlExpression = new(
             node.Arguments[1].Type,
-            visitor.IdentifierIndex++,
+            visitor.IdentifierIndex.Index++,
             query.Sql,
             query.Parameters.Count == 0 ? null : query.Parameters.ToArray()
         );
 
-        SetOperations.Add((sqlExpression, node.Method.Name switch
-        {
-            nameof(Queryable.Concat) => "UNION ALL",
-            nameof(Queryable.Union) => "UNION",
-            nameof(Queryable.Intersect) => "INTERSECT",
-            nameof(Queryable.Except) => "EXCEPT",
-            _ => throw new Exception("Unsupported union or intersect")
-        }));
+        SetOperations.Add((sqlExpression, setType));
 
         return sqlExpression;
     }
@@ -463,7 +479,7 @@ internal class QueryableMethodVisitor
         {
             string columnName = ((SQLExpression)visitor.TableColumns.Values.First()).Sql;
 
-            Wheres.Add(new SQLExpression(typeof(bool), visitor.IdentifierIndex++, $"{columnName} = {sqlExpression.Sql}", sqlExpression.Parameters));
+            Wheres.Add(new SQLExpression(typeof(bool), visitor.IdentifierIndex.Index++, $"{columnName} = {sqlExpression.Sql}", sqlExpression.Parameters));
 
             IsAny = true;
         }
@@ -583,7 +599,7 @@ internal class QueryableMethodVisitor
 
             TableMapping tableMapping = database.TableMapping(entityType);
             newTableColumns = tableMapping.Columns
-                .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex++, $"{alias}.{f.Name}"));
+                .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex.Index++, $"{alias}.{f.Name}"));
             sql = new SQLExpression(body.Type, -1, $"\"{tableMapping.TableName}\" AS {alias}");
         }
         else if (CommonHelpers.IsConstant(body))
@@ -598,7 +614,7 @@ internal class QueryableMethodVisitor
 
                 TableMapping tableMapping = database.TableMapping(entityType);
                 newTableColumns = tableMapping.Columns
-                    .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex++, $"{alias}.{f.Name}"));
+                    .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex.Index++, $"{alias}.{f.Name}"));
                 sql = new SQLExpression(body.Type, -1, $"\"{table.Table.TableName}\" AS {alias}");
             }
             else if (innerValue is IQueryable queryable)
@@ -611,7 +627,7 @@ internal class QueryableMethodVisitor
                 string alias = $"{aliasChar}{visitor.TableIndex[aliasChar]++}";
 
                 newTableColumns = entityType.GetProperties()
-                    .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex++, $"{alias}.{f.Name}"));
+                    .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex.Index++, $"{alias}.{f.Name}"));
                 sql = new SQLExpression(
                     body.Type,
                     -1,
@@ -634,7 +650,7 @@ internal class QueryableMethodVisitor
             string alias = $"{aliasChar}{visitor.TableIndex[aliasChar]++}";
 
             newTableColumns = entityType.GetProperties()
-                .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex++, $"{alias}.{f.Name}"));
+                .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex.Index++, $"{alias}.{f.Name}"));
             sql = new SQLExpression(
                 body.Type,
                 -1,

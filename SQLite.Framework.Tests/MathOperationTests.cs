@@ -166,9 +166,21 @@ public class MathOperationTests
             new Book { Id = 3, Title = "Book 3", AuthorId = 2, Price = 15 }
         });
 
-        var result = db.Table<Book>()
-            .Select(b => new { b.Id, MaxPrice = Math.Max(b.Price, 8) })
-            .ToList();
+        var query = db.Table<Book>()
+            .Select(b => new { b.Id, MaxPrice = Math.Max(b.Price, 8) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(8d, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            (CASE WHEN b0.BookPrice > @p0 THEN b0.BookPrice ELSE @p0 END) AS "MaxPrice"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var result = query.ToList();
 
         Assert.Equal(3, result.Count);
         Assert.Equal(8, result[0].MaxPrice);
@@ -189,9 +201,21 @@ public class MathOperationTests
             new Book { Id = 3, Title = "Book 3", AuthorId = 2, Price = 15 }
         });
 
-        var result = db.Table<Book>()
-            .Select(b => new { b.Id, MinPrice = Math.Min(b.Price, 8) })
-            .ToList();
+        var query = db.Table<Book>()
+            .Select(b => new { b.Id, MinPrice = Math.Min(b.Price, 8) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(8d, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            (CASE WHEN b0.BookPrice < @p0 THEN b0.BookPrice ELSE @p0 END) AS "MinPrice"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var result = query.ToList();
 
         Assert.Equal(3, result.Count);
         Assert.Equal(5, result[0].MinPrice);
@@ -212,7 +236,7 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(5d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT (b0.BookPrice + @p0) AS "4"
+                     SELECT (b0.BookPrice + @p0) AS "6"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -231,7 +255,7 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(5d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT (b0.BookPrice - @p0) AS "4"
+                     SELECT (b0.BookPrice - @p0) AS "6"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -250,7 +274,7 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(1.1d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT (b0.BookPrice * @p0) AS "4"
+                     SELECT (b0.BookPrice * @p0) AS "6"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -269,7 +293,7 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(2d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT (b0.BookPrice / @p0) AS "4"
+                     SELECT (b0.BookPrice / @p0) AS "6"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -307,7 +331,7 @@ public class MathOperationTests
 
         SQLiteCommand command = (
             from book in db.Table<Book>()
-            where book.Price * 1.1 + 5 > 20
+            where (book.Price * 1.1) + 5 > 20
             select book
         ).ToSqlCommand();
 
@@ -324,5 +348,192 @@ public class MathOperationTests
                      WHERE ((b0.BookPrice * @p0) + @p1) > @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void MathSign()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = -5 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 0 },
+            new Book { Id = 3, Title = "Book 3", AuthorId = 2, Price = 10 }
+        });
+
+        var query = db.Table<Book>().Select(b => new { b.Id, Sign = Math.Sign(b.Price) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            (CASE WHEN b0.BookPrice > 0 THEN 1 WHEN b0.BookPrice < 0 THEN -1 ELSE 0 END) AS "Sign"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
+        Assert.Equal(3, results.Count);
+        Assert.Equal(-1, results[0].Sign);
+        Assert.Equal(0, results[1].Sign);
+        Assert.Equal(1, results[2].Sign);
+    }
+
+    [Fact]
+    public void MathSqrt()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 4 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 9 },
+            new Book { Id = 3, Title = "Book 3", AuthorId = 2, Price = 16 }
+        });
+
+        var query = db.Table<Book>().Select(b => new { b.Id, Sqrt = Math.Sqrt(b.Price) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            SQRT(b0.BookPrice) AS "Sqrt"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
+        Assert.Equal(3, results.Count);
+        Assert.Equal(2, results[0].Sqrt);
+        Assert.Equal(3, results[1].Sqrt);
+        Assert.Equal(4, results[2].Sqrt);
+    }
+
+    [Fact]
+    public void MathExp()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 0 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 1 }
+        });
+
+        var query = db.Table<Book>().Select(b => new { b.Id, Exp = Math.Exp(b.Price) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            EXP(b0.BookPrice) AS "Exp"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
+        Assert.Equal(2, results.Count);
+        Assert.Equal(1, results[0].Exp, 5);
+        Assert.Equal(Math.E, results[1].Exp, 5);
+    }
+
+    [Fact]
+    public void MathLog()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 10 }
+        });
+
+        var query = db.Table<Book>().Select(b => new { b.Id, Log = Math.Log(b.Price) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            LOG(b0.BookPrice) AS "Log"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
+        Assert.Equal(2, results.Count);
+        Assert.Equal(0, results[0].Log, 5);
+        Assert.Equal(1, results[1].Log, 5);
+    }
+
+    [Fact]
+    public void MathLogWithBase()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 8 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 16 }
+        });
+
+        var query = db.Table<Book>().Select(b => new { b.Id, Log = Math.Log(b.Price, 2) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(2d, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            (LOG(b0.BookPrice) / LOG(@p0)) AS "Log"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
+        Assert.Equal(2, results.Count);
+        Assert.Equal(3, results[0].Log, 5);
+        Assert.Equal(4, results[1].Log, 5);
+    }
+
+    [Fact]
+    public void MathLog10()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 100 },
+            new Book { Id = 3, Title = "Book 3", AuthorId = 2, Price = 1000 }
+        });
+
+        var query = db.Table<Book>().Select(b => new { b.Id, Log10 = Math.Log10(b.Price) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            LOG10(b0.BookPrice) AS "Log10"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
+        Assert.Equal(3, results.Count);
+        Assert.Equal(1, results[0].Log10, 5);
+        Assert.Equal(2, results[1].Log10, 5);
+        Assert.Equal(3, results[2].Log10, 5);
     }
 }

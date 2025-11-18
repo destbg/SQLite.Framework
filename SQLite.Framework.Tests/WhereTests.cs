@@ -443,7 +443,7 @@ public class WhereTests
         Assert.Equal(3, command.Parameters[1].Value);
         Assert.Equal(18, command.Parameters[2].Value);
         Assert.Equal(19, command.Parameters[3].Value);
-        Assert.Equal("Test", command.Parameters[4].Value); 
+        Assert.Equal("Test", command.Parameters[4].Value);
         Assert.Equal(20, command.Parameters[5].Value);
         Assert.Equal(21, command.Parameters[6].Value);
         Assert.Equal(22, command.Parameters[7].Value);

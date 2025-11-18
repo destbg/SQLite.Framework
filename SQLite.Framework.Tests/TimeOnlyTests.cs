@@ -35,6 +35,46 @@ public class TimeOnlyTests
     }
 
     [Fact]
+    public void AddHoursToTimeOnly()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        TestEntity author = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select new TestEntity
+            {
+                Id = a.Id,
+                Time = a.Time.AddHours(1),
+            }
+        ).First();
+
+        Assert.NotNull(author);
+        Assert.Equal(1, author.Id);
+        Assert.Equal(new TimeOnly(4, 4, 5, 6, 7), author.Time);
+    }
+
+    [Fact]
+    public void AddMinutesToTimeOnly()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        TestEntity author = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select new TestEntity
+            {
+                Id = a.Id,
+                Time = a.Time.AddMinutes(1),
+            }
+        ).First();
+
+        Assert.NotNull(author);
+        Assert.Equal(1, author.Id);
+        Assert.Equal(new TimeOnly(3, 5, 5, 6, 7), author.Time);
+    }
+
+    [Fact]
     public void AccessTimeOnlyHoursDirectly()
     {
         using TestDatabase db = SetupDatabase();

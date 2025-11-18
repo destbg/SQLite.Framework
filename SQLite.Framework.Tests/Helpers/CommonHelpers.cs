@@ -26,7 +26,7 @@ public static class CommonHelpers
     {
         return new IndexElement();
     }
-    
+
     public class IndexElement
     {
         public int this[int index] => index + 1;

@@ -57,6 +57,26 @@ public class DateTimeTests
     }
 
     [Fact]
+    public void AddRelativeYearsToDateTime()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        TestEntity author = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select new TestEntity
+            {
+                Id = a.Id,
+                Date = a.Date.AddYears(a.Id),
+            }
+        ).First();
+
+        Assert.NotNull(author);
+        Assert.Equal(1, author.Id);
+        Assert.Equal(new DateTime(2001, 2, 3, 4, 5, 6, 7, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+    }
+
+    [Fact]
     public void AddMonthsToDateTime()
     {
         using TestDatabase db = SetupDatabase();
@@ -74,6 +94,26 @@ public class DateTimeTests
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
         Assert.Equal(new DateTime(2000, 4, 3, 4, 5, 6, 7, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+    }
+
+    [Fact]
+    public void AddRelativeMonthsToDateTime()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        TestEntity author = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select new TestEntity
+            {
+                Id = a.Id,
+                Date = a.Date.AddMonths(a.Id),
+            }
+        ).First();
+
+        Assert.NotNull(author);
+        Assert.Equal(1, author.Id);
+        Assert.Equal(new DateTime(2000, 3, 3, 4, 5, 6, 7, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
     }
 
     [Fact]
@@ -174,6 +214,26 @@ public class DateTimeTests
         Assert.NotNull(author);
         Assert.Equal(1, author.Id);
         Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 6, 9, 8).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
+    }
+
+    [Fact]
+    public void AddMicrosecondsToDateTime()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        TestEntity author = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select new TestEntity
+            {
+                Id = a.Id,
+                Date = a.Date.AddMicroseconds(2),
+            }
+        ).First();
+
+        Assert.NotNull(author);
+        Assert.Equal(1, author.Id);
+        Assert.Equal(new DateTime(2000, 2, 3, 4, 5, 6, 7, 10).ToString(DateTimeFormat), author.Date.ToString(DateTimeFormat));
     }
 
     [Fact]

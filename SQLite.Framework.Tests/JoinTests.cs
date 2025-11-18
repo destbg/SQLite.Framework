@@ -157,8 +157,8 @@ public class JoinTests
         SQLiteCommand command = (
             from book in db.Table<Book>()
             join author in from a in db.Table<Author>()
-                where a.Name == "John Doe"
-                select a on book.AuthorId equals author.Id
+                           where a.Name == "John Doe"
+                           select a on book.AuthorId equals author.Id
             select author
         ).ToSqlCommand();
 

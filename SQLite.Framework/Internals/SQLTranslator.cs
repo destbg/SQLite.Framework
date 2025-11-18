@@ -25,17 +25,18 @@ internal class SQLTranslator
 
     public SQLTranslator(SQLiteDatabase database)
     {
-        ParameterIndexWrapper paramIndex = new();
+        IndexWrapper paramIndex = new();
+        IndexWrapper identifierIndex = new();
         TableIndexWrapper tableIndex = new();
 
-        Visitor = new SQLVisitor(database, paramIndex, tableIndex, level);
+        Visitor = new SQLVisitor(database, paramIndex, identifierIndex, tableIndex, level);
         queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor);
     }
 
-    public SQLTranslator(SQLiteDatabase database, ParameterIndexWrapper paramIndex, TableIndexWrapper tableIndex, int level)
+    public SQLTranslator(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level)
     {
         this.level = level;
-        Visitor = new SQLVisitor(database, paramIndex, tableIndex, level);
+        Visitor = new SQLVisitor(database, paramIndex, identifierIndex, tableIndex, level);
         queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor);
     }
 
@@ -335,8 +336,16 @@ internal class SQLTranslator
 
         if (methodCalls.All(f => !IsSelectMethod(f.Method)))
         {
-            MethodCallExpression selectMethod = CreateIdentitySelectExpression(methodCalls[0].Type);
-            methodCalls.Insert(0, selectMethod);
+            if (methodCalls[0].Type.IsAssignableTo(typeof(IQueryable)))
+            {
+                MethodCallExpression selectMethod = CreateIdentitySelectExpression(methodCalls[0].Type.GetGenericArguments()[0]);
+                methodCalls.Insert(0, selectMethod);
+            }
+            else
+            {
+                MethodCallExpression selectMethod = CreateIdentitySelectExpression(methodCalls[0].Type);
+                methodCalls.Insert(0, selectMethod);
+            }
         }
 
         Expression? selectExpression = null;

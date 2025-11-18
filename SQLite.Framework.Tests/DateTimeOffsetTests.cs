@@ -177,6 +177,26 @@ public class DateTimeOffsetTests
     }
 
     [Fact]
+    public void AddMicrosecondsToDateTimeOffset()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        TestEntity author = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select new TestEntity
+            {
+                Id = a.Id,
+                Date = a.Date.AddMicroseconds(2),
+            }
+        ).First();
+
+        Assert.NotNull(author);
+        Assert.Equal(1, author.Id);
+        Assert.Equal(new DateTimeOffset(2000, 2, 3, 4, 5, 6, 7, 10, TimeSpan.Zero).ToString(DateTimeOffsetFormat), author.Date.ToString(DateTimeOffsetFormat));
+    }
+
+    [Fact]
     public void AddTicksToDateTimeOffset()
     {
         using TestDatabase db = SetupDatabase();

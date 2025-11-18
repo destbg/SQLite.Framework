@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using System.Reflection;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
@@ -22,11 +23,11 @@ internal class SQLVisitor : ExpressionVisitor
     private readonly SQLiteDatabase database;
     private readonly PropertyVisitor propertyVisitor;
 
-    public SQLVisitor(SQLiteDatabase database, ParameterIndexWrapper paramIndex, TableIndexWrapper tableIndex,
-        int level)
+    public SQLVisitor(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level)
     {
         this.database = database;
         ParamIndex = paramIndex;
+        IdentifierIndex = identifierIndex;
         TableIndex = tableIndex;
         Level = level;
         MethodVisitor = new MethodVisitor(this);
@@ -35,9 +36,9 @@ internal class SQLVisitor : ExpressionVisitor
 
     public MethodVisitor MethodVisitor { get; }
 
-    public ParameterIndexWrapper ParamIndex { get; }
+    public IndexWrapper ParamIndex { get; }
+    public IndexWrapper IdentifierIndex { get; }
     public TableIndexWrapper TableIndex { get; }
-    public int IdentifierIndex { get; set; }
     public int Level { get; }
     public SQLExpression? From { get; private set; }
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments { get; set; } = [];
@@ -59,18 +60,19 @@ internal class SQLVisitor : ExpressionVisitor
 
         TableColumns = tableMapping.Columns
             .ToDictionary(f => f.PropertyInfo.Name,
-                Expression (f) => new SQLExpression(f.PropertyType, IdentifierIndex++, $"{alias}.{f.Name}"));
+                Expression (f) => new SQLExpression(f.PropertyType, IdentifierIndex.Index++, $"{alias}.{f.Name}"));
     }
 
     public SQLTranslator CloneDeeper(int innerLevel)
     {
-        return new SQLTranslator(database, ParamIndex, TableIndex, innerLevel)
+        return new SQLTranslator(database, ParamIndex, IdentifierIndex, TableIndex, innerLevel)
         {
             MethodArguments = MethodArguments,
             IsInnerQuery = true
         };
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "ToString does exist")]
     protected override Expression VisitBinary(BinaryExpression node)
     {
         if (node.NodeType == ExpressionType.ArrayIndex)
@@ -78,8 +80,82 @@ internal class SQLVisitor : ExpressionVisitor
             return node;
         }
 
-        ResolvedModel resolvedLeft = ResolveExpression(node.Left);
-        ResolvedModel resolvedRight = ResolveExpression(node.Right);
+        Expression leftNode = node.Left;
+        Expression rightNode = node.Right;
+
+        if (rightNode.Type == typeof(int) && leftNode is UnaryExpression leftUnary && leftUnary.Operand.Type == typeof(char))
+        {
+            leftNode = leftUnary.Operand;
+
+            if (CommonHelpers.IsConstant(rightNode))
+            {
+                int value = (int)CommonHelpers.GetConstantValue(rightNode)!;
+                rightNode = Expression.Constant(((char)value).ToString());
+            }
+            else
+            {
+                rightNode = Expression.MakeUnary(ExpressionType.Convert, rightNode, typeof(char));
+            }
+        }
+        else if (leftNode.Type == typeof(int) && rightNode is UnaryExpression rightUnary && rightUnary.Operand.Type == typeof(char))
+        {
+            rightNode = rightUnary.Operand;
+
+            if (CommonHelpers.IsConstant(leftNode))
+            {
+                int value = (int)CommonHelpers.GetConstantValue(leftNode)!;
+                rightNode = Expression.Constant(((char)value).ToString());
+            }
+            else
+            {
+                rightNode = Expression.MakeUnary(ExpressionType.Convert, rightNode, typeof(char));
+            }
+        }
+
+        if (node.NodeType == ExpressionType.Add)
+        {
+            // If we are doing "" + number, it will do a convert on the number to object,
+            // we need to change that to a ToString call to avoid SQLite thinking that the result is also a number
+            if (leftNode.Type == typeof(string) && rightNode.Type == typeof(object) && rightNode.NodeType == ExpressionType.Convert)
+            {
+                if (rightNode is UnaryExpression unary)
+                {
+                    if (unary.Operand.Type == typeof(string))
+                    {
+                        rightNode = unary.Operand;
+                    }
+                    else
+                    {
+                        MethodInfo? toStringMethod = unary.Operand.Type.GetMethod(nameof(object.ToString), Type.EmptyTypes);
+                        if (toStringMethod != null)
+                        {
+                            rightNode = Expression.Call(unary.Operand, toStringMethod);
+                        }
+                    }
+                }
+            }
+            else if (rightNode.Type == typeof(string) && leftNode.Type == typeof(object) && leftNode.NodeType == ExpressionType.Convert)
+            {
+                if (leftNode is UnaryExpression unary)
+                {
+                    if (unary.Operand.Type == typeof(string))
+                    {
+                        leftNode = unary.Operand;
+                    }
+                    else
+                    {
+                        MethodInfo? toStringMethod = unary.Operand.Type.GetMethod(nameof(object.ToString), Type.EmptyTypes);
+                        if (toStringMethod != null)
+                        {
+                            leftNode = Expression.Call(unary.Operand, toStringMethod);
+                        }
+                    }
+                }
+            }
+        }
+
+        ResolvedModel resolvedLeft = ResolveExpression(leftNode);
+        ResolvedModel resolvedRight = ResolveExpression(rightNode);
 
         if (resolvedLeft.SQLExpression == null || resolvedRight.SQLExpression == null)
         {
@@ -94,12 +170,12 @@ internal class SQLVisitor : ExpressionVisitor
         if (node.NodeType is ExpressionType.AndAlso or ExpressionType.OrElse)
         {
             string op = node.NodeType == ExpressionType.AndAlso ? "AND" : "OR";
-            return new SQLExpression(typeof(bool), IdentifierIndex++, $"{left.Sql} {op} {right.Sql}", bothParameters);
+            return new SQLExpression(typeof(bool), IdentifierIndex.Index++, $"{left.Sql} {op} {right.Sql}", bothParameters);
         }
 
         if (node.NodeType is ExpressionType.Coalesce)
         {
-            return new SQLExpression(node.Type, IdentifierIndex++, $"COALESCE({left.Sql}, {right.Sql})",
+            return new SQLExpression(node.Type, IdentifierIndex.Index++, $"COALESCE({left.Sql}, {right.Sql})",
                 bothParameters);
         }
 
@@ -125,7 +201,7 @@ internal class SQLVisitor : ExpressionVisitor
                 left = right;
             }
 
-            return new SQLExpression(typeof(bool), IdentifierIndex++, $"{left.Sql} {sqlOp} NULL", left.Parameters);
+            return new SQLExpression(typeof(bool), IdentifierIndex.Index++, $"{left.Sql} {sqlOp} NULL", left.Parameters);
         }
 
         (sqlOp, bool parenthesis) = node.NodeType switch
@@ -136,7 +212,7 @@ internal class SQLVisitor : ExpressionVisitor
             ExpressionType.LessThan => ("<", false),
             ExpressionType.GreaterThanOrEqual => (">=", false),
             ExpressionType.LessThanOrEqual => ("<=", false),
-            ExpressionType.Add => ("+", true),
+            ExpressionType.Add => (node.Type == typeof(string) ? "||" : "+", node.Type != typeof(string)),
             ExpressionType.Subtract => ("-", true),
             ExpressionType.Multiply => ("*", true),
             ExpressionType.Divide => ("/", true),
@@ -146,10 +222,10 @@ internal class SQLVisitor : ExpressionVisitor
 
         if (parenthesis)
         {
-            return new SQLExpression(node.Type, IdentifierIndex++, $"({left.Sql} {sqlOp} {right.Sql})", bothParameters);
+            return new SQLExpression(node.Type, IdentifierIndex.Index++, $"({left.Sql} {sqlOp} {right.Sql})", bothParameters);
         }
 
-        return new SQLExpression(node.Type, IdentifierIndex++, $"{left.Sql} {sqlOp} {right.Sql}", bothParameters);
+        return new SQLExpression(node.Type, IdentifierIndex.Index++, $"{left.Sql} {sqlOp} {right.Sql}", bothParameters);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "All types have public properties.")]
@@ -164,7 +240,7 @@ internal class SQLVisitor : ExpressionVisitor
             return new SQLExpression(node.Type, -1, From!.Sql, From!.Parameters);
         }
 
-        return new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", value);
+        return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", value);
     }
 
     protected override Expression VisitConditional(ConditionalExpression node)
@@ -181,7 +257,7 @@ internal class SQLVisitor : ExpressionVisitor
         SQLiteParameter[]? allParameters =
             CommonHelpers.CombineParameters(test.SQLExpression, ifTrue.SQLExpression, ifFalse.SQLExpression);
 
-        return new SQLExpression(node.Type, IdentifierIndex++,
+        return new SQLExpression(node.Type, IdentifierIndex.Index++,
             $"(CASE WHEN {test.Sql} THEN {ifTrue.Sql} ELSE {ifFalse.Sql} END)", allParameters);
     }
 
@@ -198,7 +274,7 @@ internal class SQLVisitor : ExpressionVisitor
                 return new SQLExpression(node.Type, -1, From!.Sql, From!.Parameters);
             }
 
-            return new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", value);
+            return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", value);
         }
 
         if (node.Expression is not MemberExpression and not ParameterExpression and not SQLExpression)
@@ -274,22 +350,47 @@ internal class SQLVisitor : ExpressionVisitor
         if (resolved.IsConstant)
         {
             return node.NodeType == ExpressionType.Convert
-                ? new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}",
-                    Convert.ChangeType(resolved.Constant, node.Type))
+                ? new SQLExpression(node.Type,
+                    IdentifierIndex.Index++,
+                    $"@p{ParamIndex.Index++}",
+                    Convert.ChangeType(resolved.Constant, node.Type)
+                )
                 : resolved.SQLExpression;
+        }
+
+        if (node.NodeType == ExpressionType.Convert)
+        {
+            if (resolved.SQLExpression.Type == node.Type || node.Type == typeof(object))
+            {
+                return resolved.SQLExpression;
+            }
+            else if (node.Type == typeof(char) && resolved.SQLExpression.Type == typeof(int))
+            {
+                return new SQLExpression(node.Type, IdentifierIndex.Index++, $"CHAR(${resolved.SQLExpression.Sql})", resolved.SQLExpression.Parameters);
+            }
+            else if (node.Type == typeof(int) && resolved.SQLExpression.Type == typeof(char))
+            {
+                return new SQLExpression(node.Type, IdentifierIndex.Index++, $"UNICODE(${resolved.SQLExpression.Sql})", resolved.SQLExpression.Parameters);
+            }
+            else
+            {
+                string sqliteType = CommonHelpers.TypeToSQLiteType(node.Type).ToString().ToUpper();
+                return new SQLExpression(node.Type,
+                    IdentifierIndex.Index++,
+                    $"CAST({resolved.SQLExpression.Sql} AS {sqliteType})",
+                    resolved.SQLExpression.Parameters
+                );
+            }
         }
 
         string sql = node.NodeType switch
         {
             ExpressionType.Negate => $"-{resolved.SQLExpression.Sql}",
             ExpressionType.Not => $"NOT {resolved.SQLExpression.Sql}",
-            ExpressionType.Convert => node.Type == typeof(object)
-                ? resolved.SQLExpression.Sql
-                : $"CAST({resolved.SQLExpression.Sql} AS {CommonHelpers.TypeToSQLiteType(node.Type).ToString().ToUpper()})",
             _ => throw new NotSupportedException($"Unsupported unary op {node.NodeType}")
         };
 
-        return new SQLExpression(node.Type, IdentifierIndex++, sql, resolved.SQLExpression.Parameters);
+        return new SQLExpression(node.Type, IdentifierIndex.Index++, sql, resolved.SQLExpression.Parameters);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types have public properties.")]
@@ -306,7 +407,7 @@ internal class SQLVisitor : ExpressionVisitor
             }
 
             SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(obj.SQLExpression, argument.SQLExpression);
-            return new SQLExpression(typeof(bool), IdentifierIndex++, $"{obj.Sql} = {argument.Sql}", parameters);
+            return new SQLExpression(typeof(bool), IdentifierIndex.Index++, $"{obj.Sql} = {argument.Sql}", parameters);
         }
 
         if (node.Method.DeclaringType == typeof(string))
@@ -352,6 +453,35 @@ internal class SQLVisitor : ExpressionVisitor
         if (node.Method.DeclaringType == typeof(Queryable))
         {
             return MethodVisitor.HandleQueryableMethod(node);
+        }
+
+        if (node.Method.DeclaringType == typeof(Enum))
+        {
+            return MethodVisitor.HandleEnumMethod(node);
+        }
+
+        if (node.Method.DeclaringType == typeof(char))
+        {
+            return MethodVisitor.HandleCharMethod(node);
+        }
+
+        if (node.Method.DeclaringType == typeof(int)
+            || node.Method.DeclaringType == typeof(long)
+            || node.Method.DeclaringType == typeof(short)
+            || node.Method.DeclaringType == typeof(byte)
+            || node.Method.DeclaringType == typeof(sbyte)
+            || node.Method.DeclaringType == typeof(uint)
+            || node.Method.DeclaringType == typeof(ulong)
+            || node.Method.DeclaringType == typeof(ushort))
+        {
+            return MethodVisitor.HandleIntegerMethod(node);
+        }
+
+        if (node.Method.DeclaringType == typeof(double)
+            || node.Method.DeclaringType == typeof(float)
+            || node.Method.DeclaringType == typeof(decimal))
+        {
+            return MethodVisitor.HandleFloatingPointMethod(node);
         }
 
         if (node.Object != null)
@@ -414,7 +544,7 @@ internal class SQLVisitor : ExpressionVisitor
 
         return new SQLExpression(
             node.Type,
-            IdentifierIndex++,
+            IdentifierIndex.Index++,
             $"({string.Join(", ", sqlExpressions.Select(f => f.Sql))})",
             parameters
         );
@@ -525,7 +655,7 @@ internal class SQLVisitor : ExpressionVisitor
         if (isConstant)
         {
             constantValue = CommonHelpers.GetConstantValue(node);
-            sqlExpression = new SQLExpression(node.Type, IdentifierIndex++, $"@p{ParamIndex.Index++}", constantValue);
+            sqlExpression = new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", constantValue);
             resolvedExpression = node;
         }
         else

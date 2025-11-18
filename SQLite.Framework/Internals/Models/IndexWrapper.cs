@@ -6,7 +6,7 @@ namespace SQLite.Framework.Internals.Models;
 /// Used to generate the parameter index.
 /// </summary>
 [ExcludeFromCodeCoverage]
-internal class ParameterIndexWrapper
+internal class IndexWrapper
 {
     public int Index;
 }

@@ -1,8 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using SQLite.Framework.Tests.DTObjects;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
+
+#pragma warning disable CS8601 // Possible null reference assignment.
 
 namespace SQLite.Framework.Tests;
 
@@ -165,7 +168,7 @@ public class ResultTests
 
         try
         {
-            _ = db.Table<Book>().First(f => f.Id == -1);
+            db.Table<Book>().First(f => f.Id == -1);
             Assert.Fail("Expected exception not thrown.");
         }
         catch (InvalidOperationException)
@@ -219,7 +222,7 @@ public class ResultTests
 
         try
         {
-            _ = db.Table<Book>().Single(f => f.Id == -1);
+            db.Table<Book>().Single(f => f.Id == -1);
             Assert.Fail("Expected exception not thrown.");
         }
         catch (InvalidOperationException)
@@ -235,7 +238,7 @@ public class ResultTests
 
         try
         {
-            _ = db.Table<Book>().Single(f => f.AuthorId == 1);
+            db.Table<Book>().Single(f => f.AuthorId == 1);
             Assert.Fail("Expected exception not thrown.");
         }
         catch (InvalidOperationException)
@@ -631,6 +634,28 @@ public class ResultTests
             Assert.Equal("author@mail.com", author.Email);
             Assert.Equal(new DateTime(2000, 1, 1), author.BirthDate);
         }
+    }
+
+    [Fact]
+    public void ComplexProjection()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        var orderSummary = (
+            from author in db.Table<Author>()
+            join book in db.Table<Book>() on author.Id equals book.AuthorId
+            select new
+            {
+                AuthorId = author.Id,
+                Name = book.Title + " " + book.Id,
+                FormattedDate = author.BirthDate.ToString(CultureInfo.InvariantCulture),
+            }
+        ).Take(1).ToList();
+
+        Assert.Single(orderSummary);
+        Assert.Equal(1, orderSummary[0].AuthorId);
+        Assert.Equal("Book 1 1", orderSummary[0].Name);
+        Assert.Equal("01/01/2000 00:00:00", orderSummary[0].FormattedDate);
     }
 
     [Fact]

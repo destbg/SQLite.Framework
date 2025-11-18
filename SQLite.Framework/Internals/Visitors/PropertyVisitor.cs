@@ -22,7 +22,7 @@ internal class PropertyVisitor
         {
             nameof(Nullable<>.HasValue) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"({node.Sql} IS NOT NULL)",
                 node.Parameters
             ),
@@ -36,7 +36,7 @@ internal class PropertyVisitor
         {
             nameof(string.Length) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"LENGTH({node.Sql})",
                 node.Parameters
             ),
@@ -56,7 +56,7 @@ internal class PropertyVisitor
             nameof(DateTime.Second) => ResolveDateFormat(type, node, "S", "DATETIME"),
             nameof(DateTime.Millisecond) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
                 node.Parameters
             ),
@@ -79,7 +79,7 @@ internal class PropertyVisitor
             nameof(DateTimeOffset.Second) => ResolveDateFormat(type, node, "S", "DATETIME"),
             nameof(DateTimeOffset.Millisecond) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
                 node.Parameters
             ),
@@ -96,61 +96,61 @@ internal class PropertyVisitor
         {
             nameof(TimeSpan.Days) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"CAST({node.Sql} / {TimeSpan.TicksPerDay} AS INTEGER)",
                 node.Parameters
             ),
             nameof(TimeSpan.TotalDays) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerDay})",
                 node.Parameters
             ),
             nameof(TimeSpan.Hours) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"({node.Sql} / {TimeSpan.TicksPerHour}) % 24",
                 node.Parameters
             ),
             nameof(TimeSpan.TotalHours) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerHour})",
                 node.Parameters
             ),
             nameof(TimeSpan.Minutes) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"({node.Sql} / {TimeSpan.TicksPerMinute}) % 60",
                 node.Parameters
             ),
             nameof(TimeSpan.TotalMinutes) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerMinute})",
                 node.Parameters
             ),
             nameof(TimeSpan.Seconds) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"({node.Sql} / {TimeSpan.TicksPerSecond}) % 60",
                 node.Parameters
             ),
             nameof(TimeSpan.TotalSeconds) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerSecond})",
                 node.Parameters
             ),
             nameof(TimeSpan.Milliseconds) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
                 node.Parameters
             ),
             nameof(TimeSpan.TotalMilliseconds) => new SQLExpression(
                 type,
-                visitor.IdentifierIndex++,
+                visitor.IdentifierIndex.Index++,
                 $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerMillisecond})",
                 node.Parameters
             ),
@@ -188,7 +188,7 @@ internal class PropertyVisitor
 
         return new SQLExpression(
             type,
-            visitor.IdentifierIndex++,
+            visitor.IdentifierIndex.Index++,
             $"CAST(STRFTIME('%{format}',{function}(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
             [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter]
         );
@@ -203,7 +203,7 @@ internal class PropertyVisitor
         };
         return new SQLExpression(
             type,
-            visitor.IdentifierIndex++,
+            visitor.IdentifierIndex.Index++,
             $"CAST(STRFTIME('%{format}',TIME({obj.Sql} / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
             [.. obj.Parameters ?? [], tickToSecondParameter]
         );

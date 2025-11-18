@@ -84,7 +84,7 @@ public class AsyncTests
 
         try
         {
-            _ = await db.Table<Book>().FirstAsync(f => f.Id == -1);
+            await db.Table<Book>().FirstAsync(f => f.Id == -1);
             Assert.Fail("Expected exception not thrown.");
         }
         catch (InvalidOperationException)
@@ -138,7 +138,7 @@ public class AsyncTests
 
         try
         {
-            _ = await db.Table<Book>().SingleAsync(f => f.Id == -1);
+            await db.Table<Book>().SingleAsync(f => f.Id == -1);
             Assert.Fail("Expected exception not thrown.");
         }
         catch (InvalidOperationException)
@@ -154,7 +154,7 @@ public class AsyncTests
 
         try
         {
-            _ = await db.Table<Book>().SingleAsync(f => f.AuthorId == 1);
+            await db.Table<Book>().SingleAsync(f => f.AuthorId == 1);
             Assert.Fail("Expected exception not thrown.");
         }
         catch (InvalidOperationException)

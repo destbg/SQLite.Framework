@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
@@ -22,6 +23,21 @@ public class ExternalMethodTests
     {
         using TestDatabase db = SetupDatabase();
 
+        SQLiteCommand command = (
+            from a in db.Table<Author>()
+            where a.Id == 1
+            select new Author
+            {
+                Id = CommonHelpers.ConvertString(a.Name) - 1,
+                Name = a.Name,
+                Email = a.Email,
+                BirthDate = a.BirthDate,
+            }
+        ).Select(f => f.Id).ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(1, command.Parameters[0].Value);
+
         int id = (
             from a in db.Table<Author>()
             where a.Id == 1
@@ -42,7 +58,7 @@ public class ExternalMethodTests
     {
         using TestDatabase db = SetupDatabase();
 
-        Author author = (
+        IQueryable<Author> query =
             from a in db.Table<Author>()
             where a.Id == 1
             select new Author
@@ -52,7 +68,14 @@ public class ExternalMethodTests
                 Email = a.Email,
                 BirthDate = a.BirthDate,
             }
-        ).First();
+        ;
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(1, command.Parameters[0].Value);
+
+        Author author = query.First();
 
         Assert.NotNull(author);
         Assert.Equal(-2, author.Id);
@@ -64,7 +87,7 @@ public class ExternalMethodTests
     {
         using TestDatabase db = SetupDatabase();
 
-        Author author = (
+        IQueryable<Author> query =
             from a in db.Table<Author>()
             where a.Id == 1
             select new Author
@@ -74,7 +97,14 @@ public class ExternalMethodTests
                 Email = a.Email,
                 BirthDate = a.BirthDate,
             }
-        ).First();
+        ;
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(1, command.Parameters[0].Value);
+
+        Author author = query.First();
 
         Assert.NotNull(author);
         Assert.Equal(0, author.Id);

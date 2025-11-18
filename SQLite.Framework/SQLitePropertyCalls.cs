@@ -33,7 +33,7 @@ public class SQLitePropertyCalls<T>
     {
         string propertyName = GetPropertyName(propertyGetter);
         MemberExpression member = (MemberExpression)propertyGetter.Body;
-        SQLExpression expression = new(member.Type, visitor.IdentifierIndex++, $"@p{visitor.ParamIndex.Index++}", value);
+        SQLExpression expression = new(member.Type, visitor.IdentifierIndex.Index++, $"@p{visitor.ParamIndex.Index++}", value);
 
         SetProperties.Add((propertyName, expression));
 

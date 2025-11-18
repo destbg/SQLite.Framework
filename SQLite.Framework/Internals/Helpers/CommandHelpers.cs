@@ -117,6 +117,7 @@ internal static class CommandHelpers
             double d => raw.sqlite3_bind_double(statement, index, d),
             float f => raw.sqlite3_bind_double(statement, index, f),
             decimal dec => raw.sqlite3_bind_double(statement, index, (double)dec),
+            char c => raw.sqlite3_bind_text(statement, index, c.ToString()),
             string s => raw.sqlite3_bind_text(statement, index, s),
             byte[] b => raw.sqlite3_bind_blob(statement, index, b),
             bool b => raw.sqlite3_bind_int(statement, index, b ? 1 : 0),

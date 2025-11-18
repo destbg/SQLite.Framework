@@ -407,7 +407,7 @@ public class ModifyTests
 
         try
         {
-            _ = db.Table<Book>().ToList();
+            db.Table<Book>().ToList();
             Assert.Fail("Expected exception not thrown.");
         }
         catch (SQLiteException ex)

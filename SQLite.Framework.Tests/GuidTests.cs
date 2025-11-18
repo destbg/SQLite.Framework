@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -19,14 +20,21 @@ public class GuidTests
     {
         using TestDatabase db = SetupDatabase();
 
-        TestEntity author = (
+        IQueryable<TestEntity> query =
             from a in db.Table<TestEntity>()
             where a.Id == StaticGuid
             select new TestEntity
             {
                 Id = a.Id,
             }
-        ).First();
+        ;
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(StaticGuid, command.Parameters[0].Value);
+
+        TestEntity author = query.First();
 
         Assert.NotNull(author);
         Assert.Equal(StaticGuid, author.Id);
@@ -36,6 +44,21 @@ public class GuidTests
     public void CheckGuidEqualsNewGuid()
     {
         using TestDatabase db = SetupDatabase();
+
+        Guid newGuid = Guid.NewGuid();
+        IQueryable<TestEntity> query =
+            from a in db.Table<TestEntity>()
+            where a.Id == newGuid
+            select new TestEntity
+            {
+                Id = a.Id,
+            }
+        ;
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(newGuid, command.Parameters[0].Value);
 
         TestEntity? author = (
             from a in db.Table<TestEntity>()

@@ -14,6 +14,27 @@ public class TestDatabase : SQLiteDatabase
     {
         base.Dispose();
 
-        File.Delete(DatabasePath);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+
+        for (int i = 0; i < 10; i++)
+        {
+            try
+            {
+                if (File.Exists(DatabasePath))
+                {
+                    File.Delete(DatabasePath);
+                }
+                break;
+            }
+            catch (IOException)
+            {
+                if (i == 9)
+                {
+                    return;
+                }
+                Thread.Sleep(100);
+            }
+        }
     }
 }

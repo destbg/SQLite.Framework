@@ -11,11 +11,19 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        SQLiteCommand command = (
-            from book in db.Table<Book>()
-            where book.Title.Length > 5
-            select book
-        ).ToSqlCommand();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Short", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Long Title", AuthorId = 1, Price = 15 },
+            new Book { Id = 3, Title = "Test", AuthorId = 2, Price = 20 }
+        });
+
+        IQueryable<Book> query = from book in db.Table<Book>()
+                                 where book.Title.Length > 5
+                                 select book;
+
+        SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Single(command.Parameters);
         Assert.Equal(5, command.Parameters[0].Value);
@@ -28,6 +36,10 @@ public class StringOperationTests
                      WHERE LENGTH(b0.BookTitle) > @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
+
+        List<Book> results = query.ToList();
+        Assert.Single(results);
+        Assert.Equal("Long Title", results[0].Title);
     }
 
     [Fact]
@@ -35,11 +47,20 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        SQLiteCommand command = (
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Another", AuthorId = 1, Price = 15 },
+            new Book { Id = 3, Title = "Book", AuthorId = 2, Price = 20 }
+        });
+
+        IQueryable<Book> query =
             from book in db.Table<Book>()
             where book.Title + " - Book" == "Test - Book"
-            select book
-        ).ToSqlCommand();
+            select book;
+
+        SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal(" - Book", command.Parameters[0].Value);
@@ -50,9 +71,12 @@ public class StringOperationTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookTitle + @p0) = @p1
+                     WHERE b0.BookTitle || @p0 = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
+
+        List<Book> results = query.ToList();
+        Assert.Single(results);
     }
 
     [Fact]
@@ -60,19 +84,32 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        SQLiteCommand command = (
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Another", AuthorId = 1, Price = 15 }
+        });
+
+        IQueryable<string> query =
             from book in db.Table<Book>()
-            select book.Title + " by " + "Author"
-        ).ToSqlCommand();
+            select book.Title + " by " + "Author";
+
+        SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal(" by ", command.Parameters[0].Value);
         Assert.Equal("Author", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT ((b0.BookTitle + @p0) + @p1) AS "4"
+                     SELECT b0.BookTitle || @p0 || @p1 AS "8"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
+
+        List<string> results = query.ToList();
+        Assert.Equal(2, results.Count);
+        Assert.Equal("Test by Author", results[0]);
+        Assert.Equal("Another by Author", results[1]);
     }
 
     [Fact]
@@ -80,11 +117,18 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        SQLiteCommand command = (
-            from book in db.Table<Book>()
-            where string.IsNullOrEmpty(book.Title)
-            select book
-        ).ToSqlCommand();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Test", AuthorId = 1, Price = 15 }
+        });
+
+        IQueryable<Book> query = from book in db.Table<Book>()
+                                 where string.IsNullOrEmpty(book.Title)
+                                 select book;
+
+        SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
@@ -96,6 +140,10 @@ public class StringOperationTests
                      WHERE (b0.BookTitle IS NULL OR b0.BookTitle = '')
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
+
+        List<Book> results = query.ToList();
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
     }
 
     [Fact]
@@ -103,11 +151,19 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        SQLiteCommand command = (
-            from book in db.Table<Book>()
-            where string.IsNullOrWhiteSpace(book.Title)
-            select book
-        ).ToSqlCommand();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "  ", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Test", AuthorId = 1, Price = 15 },
+            new Book { Id = 4, Title = "", AuthorId = 2, Price = 25 }
+        });
+
+        IQueryable<Book> query = from book in db.Table<Book>()
+                                 where string.IsNullOrWhiteSpace(book.Title)
+                                 select book;
+
+        SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
@@ -119,6 +175,11 @@ public class StringOperationTests
                      WHERE (b0.BookTitle IS NULL OR TRIM(b0.BookTitle, ' ') = '')
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
+
+        List<Book> results = query.ToList();
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, b => b.Id == 1);
+        Assert.Contains(results, b => b.Id == 4);
     }
 
     [Fact]
@@ -187,9 +248,20 @@ public class StringOperationTests
             Price = 10
         });
 
-        var result = db.Table<Book>()
-            .Select(b => new { b.Title, b.Title.Length })
-            .First();
+        var query = db.Table<Book>()
+            .Select(b => new { b.Title, b.Title.Length });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookTitle AS "Title",
+                            LENGTH(b0.BookTitle) AS "Length"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var result = query.First();
 
         Assert.Equal("Test Book", result.Title);
         Assert.Equal(9, result.Length);
@@ -209,9 +281,19 @@ public class StringOperationTests
             Price = 10
         });
 
-        string result = db.Table<Book>()
-            .Select(b => b.Title.ToUpper())
-            .First();
+        IQueryable<string> query = db.Table<Book>()
+            .Select(b => b.Title.ToUpper());
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT UPPER(b0.BookTitle) AS "5"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        string result = query.First();
 
         Assert.Equal("TEST BOOK", result);
     }
@@ -230,9 +312,19 @@ public class StringOperationTests
             Price = 10
         });
 
-        string result = db.Table<Book>()
-            .Select(b => b.Title.ToLower())
-            .First();
+        IQueryable<string> query = db.Table<Book>()
+            .Select(b => b.Title.ToLower());
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT LOWER(b0.BookTitle) AS "5"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        string result = query.First();
 
         Assert.Equal("test book", result);
     }
@@ -251,9 +343,21 @@ public class StringOperationTests
             Price = 10
         });
 
-        string result = db.Table<Book>()
-            .Select(b => b.Title.Replace("Test", "Sample"))
-            .First();
+        IQueryable<string> query = db.Table<Book>()
+            .Select(b => b.Title.Replace("Test", "Sample"));
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Equal(2, command.Parameters.Count);
+        Assert.Equal("Test", command.Parameters[0].Value);
+        Assert.Equal("Sample", command.Parameters[1].Value);
+        Assert.Equal("""
+                     SELECT REPLACE(b0.BookTitle, @p0, @p1) AS "7"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        string result = query.First();
 
         Assert.Equal("Sample Book", result);
     }
@@ -272,9 +376,21 @@ public class StringOperationTests
             Price = 10
         });
 
-        string result = db.Table<Book>()
-            .Select(b => b.Title.Substring(0, 4))
-            .First();
+        IQueryable<string> query = db.Table<Book>()
+            .Select(b => b.Title.Substring(0, 4));
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Equal(2, command.Parameters.Count);
+        Assert.Equal(0, command.Parameters[0].Value);
+        Assert.Equal(4, command.Parameters[1].Value);
+        Assert.Equal("""
+                     SELECT SUBSTR(b0.BookTitle, @p0 + 1, @p1) AS "7"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        string result = query.First();
 
         Assert.Equal("Test", result);
     }
@@ -364,9 +480,21 @@ public class StringOperationTests
             Notes = "Some notes"
         });
 
-        var results = db.Table<BookWithNotes>()
-            .Select(b => new { b.Id, NotesOrDefault = b.Notes ?? "No notes" })
-            .ToList();
+        var query = db.Table<BookWithNotes>()
+            .Select(b => new { b.Id, NotesOrDefault = b.Notes ?? "No notes" });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal("No notes", command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.Id AS "Id",
+                            COALESCE(b0.Notes, @p0) AS "NotesOrDefault"
+                     FROM "BookWithNotes" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
 
         Assert.Equal(2, results.Count);
         Assert.Equal("No notes", results[0].NotesOrDefault);
@@ -386,9 +514,20 @@ public class StringOperationTests
             Notes = null
         });
 
-        string result = db.Table<BookWithNotes>()
-            .Select(b => (b.Notes ?? "default").ToUpper())
-            .First();
+        IQueryable<string> query = db.Table<BookWithNotes>()
+            .Select(b => (b.Notes ?? "default").ToUpper());
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal("default", command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT UPPER(COALESCE(b0.Notes, @p0)) AS "6"
+                     FROM "BookWithNotes" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        string result = query.First();
 
         Assert.Equal("DEFAULT", result);
     }

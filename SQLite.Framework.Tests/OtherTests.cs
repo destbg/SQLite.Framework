@@ -436,8 +436,8 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        Task task1 = Task.Run(() => db.OpenConnection());
-        Task task2 = Task.Run(() => db.OpenConnection());
+        Task task1 = Task.Run(db.OpenConnection);
+        Task task2 = Task.Run(db.OpenConnection);
         await Task.WhenAll(task1, task2);
 
         Assert.True(db.IsConnected);
@@ -641,7 +641,7 @@ public class OtherTests
 
     private class BaseCastEntity
     {
-        [Key] [AutoIncrement] public int Id { get; set; }
+        [Key][AutoIncrement] public int Id { get; set; }
     }
 
     private class CastEntity : BaseCastEntity
@@ -651,7 +651,7 @@ public class OtherTests
 
     private class RequiredEntity
     {
-        [Key] [AutoIncrement] public int Id { get; set; }
+        [Key][AutoIncrement] public int Id { get; set; }
 
         [Required] public string? Date { get; set; }
     }

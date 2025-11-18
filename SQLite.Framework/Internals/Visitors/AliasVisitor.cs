@@ -85,20 +85,13 @@ internal class AliasVisitor
                 else
                 {
                     string alias = CheckPrefix(prefix, parameter.Name ?? "value");
-                    SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.TableIndex, visitor.Level + 1)
+                    SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.IdentifierIndex, visitor.TableIndex, visitor.Level + 1)
                     {
                         MethodArguments = visitor.MethodArguments
                     };
                     Expression expression = innerVisitor.Visit(argument);
 
-                    if (expression is SQLExpression sqlExpression)
-                    {
-                        result.Add(alias, sqlExpression);
-                    }
-                    else
-                    {
-                        throw new NotSupportedException($"Unsupported member expression {argument}");
-                    }
+                    result.Add(alias, expression);
                 }
             }
         }
@@ -189,7 +182,7 @@ internal class AliasVisitor
             else
             {
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
-                SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.TableIndex, visitor.Level + 1)
+                SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.IdentifierIndex, visitor.TableIndex, visitor.Level + 1)
                 {
                     MethodArguments = visitor.MethodArguments
                 };
@@ -245,7 +238,7 @@ internal class AliasVisitor
 
     private void VisitInnerExpression(Expression body, string? prefix)
     {
-        SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.TableIndex, visitor.Level + 1)
+        SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.IdentifierIndex, visitor.TableIndex, visitor.Level + 1)
         {
             MethodArguments = visitor.MethodArguments
         };

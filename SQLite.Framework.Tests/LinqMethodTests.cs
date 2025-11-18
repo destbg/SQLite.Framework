@@ -1,3 +1,4 @@
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
@@ -27,9 +28,21 @@ public class LinqMethodTests
             BirthDate = DateTime.Now
         });
 
-        var results = db.Table<Author>()
-            .SelectMany(_ => db.Table<Book>(), (a, b) => new { a.Name, b.Title })
-            .ToList();
+        var query = db.Table<Author>()
+            .SelectMany(_ => db.Table<Book>(), (a, b) => new { a.Name, b.Title });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT a0.AuthorName AS "Name",
+                            b1.BookTitle AS "Title"
+                     FROM "Authors" AS a0
+                     CROSS JOIN "Books" AS b1
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
 
         Assert.Equal(2, results.Count);
     }
@@ -47,10 +60,24 @@ public class LinqMethodTests
             new Book { Id = 3, Title = "Book 3", AuthorId = 1, Price = 30 }
         });
 
-        List<Book> results = db.Table<Book>()
+        IQueryable<Book> query = db.Table<Book>()
             .OrderBy(b => b.Id)
-            .Reverse()
-            .ToList();
+            .Reverse();
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     ORDER BY b0.BookId ASC
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        List<Book> results = query.ToList();
 
         Assert.Equal(3, results.Count);
         Assert.Equal(3, results[0].Id);
@@ -199,10 +226,20 @@ public class LinqMethodTests
             Price = 10
         });
 
-        List<double> results = db.Table<Book>()
+        IQueryable<double> query = db.Table<Book>()
             .Select(b => (object)b.Price)
-            .Cast<double>()
-            .ToList();
+            .Cast<double>();
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookPrice AS "4"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        List<double> results = query.ToList();
 
         Assert.Single(results);
         Assert.Equal(10, results[0]);
@@ -272,7 +309,21 @@ public class LinqMethodTests
             new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 20 }
         });
 
-        long count = db.Table<Book>().LongCount();
+        SQLiteTable<Book> query = db.Table<Book>();
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        long count = query.LongCount();
 
         Assert.Equal(2L, count);
     }
@@ -289,7 +340,24 @@ public class LinqMethodTests
             new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 20 }
         });
 
-        long count = db.Table<Book>().LongCount(b => b.Price > 15);
+        IQueryable<Book> query = db.Table<Book>()
+            .Where(b => b.Price > 15);
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(15d, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE b0.BookPrice > @p0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        long count = query.LongCount();
 
         Assert.Equal(1L, count);
     }
@@ -392,10 +460,26 @@ public class LinqMethodTests
 
         double avgPrice = db.Table<Book>().Average(b => b.Price);
 
-        List<Book> results = db.Table<Book>()
+        IOrderedQueryable<Book> query = db.Table<Book>()
             .Where(b => b.Price >= avgPrice)
-            .OrderByDescending(b => b.Price)
-            .ToList();
+            .OrderByDescending(b => b.Price);
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(20d, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE b0.BookPrice >= @p0
+                     ORDER BY b0.BookPrice DESC
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        List<Book> results = query.ToList();
 
         Assert.Equal(2, results.Count);
         Assert.Equal(30, results[0].Price);
@@ -416,10 +500,23 @@ public class LinqMethodTests
             Price = 10.50
         });
 
-        var result = db.Table<Book>()
+        var query = db.Table<Book>()
             .Select(b => new { b.Id, b.Title, b.Price })
-            .Select(x => new { x.Id, x.Title, DiscountedPrice = x.Price * 0.9 })
-            .First();
+            .Select(x => new { x.Id, x.Title, DiscountedPrice = x.Price * 0.9 });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(0.9d, command.Parameters[0].Value);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            (b0.BookPrice * @p0) AS "DiscountedPrice"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var result = query.First();
 
         Assert.Equal(1, result.Id);
         Assert.Equal("Test Book", result.Title);

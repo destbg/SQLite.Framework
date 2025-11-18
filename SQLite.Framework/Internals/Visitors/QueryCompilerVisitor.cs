@@ -77,7 +77,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return new CompiledExpression(node.Type, ctx =>
         {
             dynamic? testValue = test.Call(ctx);
-            return testValue != null && testValue != false ? ifTrue.Call(ctx) : ifFalse.Call(ctx);
+            return testValue is not null and not false ? ifTrue.Call(ctx) : ifFalse.Call(ctx);
         });
     }
 
@@ -124,6 +124,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "List type should be preserved")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Field should be preserved")]
     protected override Expression VisitMember(MemberExpression node)
     {
         if (CommonHelpers.IsConstant(node))
@@ -242,7 +243,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     }
 
     [ExcludeFromCodeCoverage]
-    [return: NotNullIfNotNull("node")]
+    [return: NotNullIfNotNull(nameof(node))]
     protected override LabelTarget? VisitLabelTarget(LabelTarget? node)
     {
         if (node == null)
@@ -254,6 +255,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "List type should be preserved")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Method should be preserved")]
     protected override Expression VisitListInit(ListInitExpression node)
     {
         CompiledExpression newExpression = (CompiledExpression)Visit(node.NewExpression);
@@ -264,9 +266,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return new CompiledExpression(node.Type, ctx =>
         {
             dynamic? instance = newExpression.Call(ctx);
-            foreach ((MethodInfo AddMethod, CompiledExpression[] Arguments) initializer in initializers)
+            foreach ((MethodInfo addMethod, CompiledExpression[] arguments) in initializers)
             {
-                initializer.AddMethod.Invoke(instance, initializer.Arguments.Select(arg => arg.Call(ctx)).ToArray());
+                addMethod.Invoke(instance, arguments.Select(arg => arg.Call(ctx)).ToArray());
             }
 
             return instance;
@@ -280,6 +282,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "DTO types should be preserved")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Field should be preserved")]
     protected override Expression VisitMemberInit(MemberInitExpression node)
     {
         CompiledExpression newExpression = (CompiledExpression)Visit(node.NewExpression);
@@ -317,6 +320,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Methods should be preserved")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Method should be preserved")]
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         CompiledExpression? instance = Visit(node.Object) as CompiledExpression;

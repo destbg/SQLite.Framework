@@ -160,8 +160,8 @@ public class SelectTests
         Assert.Equal(864000000000, command.Parameters[4].Value);
         Assert.Equal("""
                      SELECT (a0.AuthorId + @p0) AS "Id",
-                            (a0.AuthorEmail + @p1) AS "Email",
-                            (a0.AuthorName + @p2) AS "Name",
+                            a0.AuthorEmail || @p1 AS "Email",
+                            a0.AuthorName || @p2 AS "Name",
                             CAST(a0.AuthorBirthDate + (@p3 * @p4) AS 'INTEGER') AS "BirthDate"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
@@ -188,7 +188,7 @@ public class SelectTests
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal(1, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT ((a0.AuthorId + @p0) - @p5) AS "8"
+                     SELECT ((a0.AuthorId + @p0) - @p5) AS "18"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
