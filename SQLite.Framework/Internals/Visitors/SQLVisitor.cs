@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
-using System.Reflection;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
@@ -109,48 +108,6 @@ internal class SQLVisitor : ExpressionVisitor
             else
             {
                 rightNode = Expression.MakeUnary(ExpressionType.Convert, rightNode, typeof(char));
-            }
-        }
-
-        if (node.NodeType == ExpressionType.Add)
-        {
-            // If we are doing "" + number, it will do a convert on the number to object,
-            // we need to change that to a ToString call to avoid SQLite thinking that the result is also a number
-            if (leftNode.Type == typeof(string) && rightNode.Type == typeof(object) && rightNode.NodeType == ExpressionType.Convert)
-            {
-                if (rightNode is UnaryExpression unary)
-                {
-                    if (unary.Operand.Type == typeof(string))
-                    {
-                        rightNode = unary.Operand;
-                    }
-                    else
-                    {
-                        MethodInfo? toStringMethod = unary.Operand.Type.GetMethod(nameof(object.ToString), Type.EmptyTypes);
-                        if (toStringMethod != null)
-                        {
-                            rightNode = Expression.Call(unary.Operand, toStringMethod);
-                        }
-                    }
-                }
-            }
-            else if (rightNode.Type == typeof(string) && leftNode.Type == typeof(object) && leftNode.NodeType == ExpressionType.Convert)
-            {
-                if (leftNode is UnaryExpression unary)
-                {
-                    if (unary.Operand.Type == typeof(string))
-                    {
-                        leftNode = unary.Operand;
-                    }
-                    else
-                    {
-                        MethodInfo? toStringMethod = unary.Operand.Type.GetMethod(nameof(object.ToString), Type.EmptyTypes);
-                        if (toStringMethod != null)
-                        {
-                            leftNode = Expression.Call(unary.Operand, toStringMethod);
-                        }
-                    }
-                }
             }
         }
 
