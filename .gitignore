@@ -404,3 +404,7 @@ FodyWeavers.xsd
 node_modules/
 package-lock.json
 yarn.lock
+
+# wiki
+wiki/node_modules
+wiki/dist

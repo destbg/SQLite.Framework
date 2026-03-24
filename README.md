@@ -10,6 +10,11 @@ A lightweight ORM for SQLite, designed for .NET MAUI with AOT support and LINQ-s
 - **IQueryable interface**: Write LINQ queries against your SQLite database.
 - **Inspired by EF & sqlite-net-pcl**: Familiar patterns with minimal overhead.
 
+## Documentation
+
+- [GitHub Wiki](https://github.com/destbg/SQLite.Framework/wiki) - browse the docs on GitHub
+- [GitHub Pages](https://destbg.github.io/SQLite.Framework) - the same docs as a standalone site
+
 ## Installation
 
 Install via NuGet:
