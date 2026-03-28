@@ -62,7 +62,7 @@ public class SQLiteCommand
 
         if (result != SQLiteResult.Done)
         {
-            throw new SQLiteException(result, raw.sqlite3_errmsg(database.Handle).utf8_to_string());
+            throw new SQLiteException(result, raw.sqlite3_errmsg(database.Handle).utf8_to_string(), CommandText);
         }
 
         return raw.sqlite3_changes(database.Handle);
@@ -78,7 +78,7 @@ public class SQLiteCommand
 
         if (result != 0)
         {
-            throw new SQLiteException(result, raw.sqlite3_errmsg(database.Handle).utf8_to_string());
+            throw new SQLiteException(result, raw.sqlite3_errmsg(database.Handle).utf8_to_string(), CommandText);
         }
 
         BindParameters(stmt);

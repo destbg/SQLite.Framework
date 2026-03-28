@@ -70,23 +70,19 @@ var results = await books.FromSql(
 ).ToListAsync();
 ```
 
-## What FromSql Does Not Support
+## Missing Columns
 
-`FromSql` wraps your SQL in a subquery when you chain LINQ on top of it. Complex raw SQL that uses CTEs, `UNION`, or other constructs that do not work inside a subquery may fail or produce unexpected results. In those cases, use `CreateCommand` directly:
+`FromSql` wraps your SQL in a subquery and generates an outer `SELECT` that references every mapped column on the type. If your raw SQL omits a column that the type expects, execution throws a `SQLiteException`. The `Message` contains the offending column name and the `Sql` property holds the full generated SQL:
 
 ```csharp
-SQLiteCommand cmd = db.CreateCommand(
-    "SELECT BookTitle AS Title FROM Books UNION SELECT BookTitle FROM ArchivedBooks",
-    []
-);
-
-using SQLiteDataReader reader = cmd.ExecuteReader();
-
-while (reader.Read())
+catch (SQLiteException ex)
 {
-    Console.WriteLine(reader.GetString(0));
+    Console.WriteLine(ex.Message); // no such column: b0.Price
+    Console.WriteLine(ex.Sql);     // SELECT b0.Id AS "Id", b0.Title AS "Title", b0.Price AS "Price" ...
 }
 ```
+
+To avoid this, either select all columns the type needs or [project into a narrower type](#project-into-a-different-type) that only declares the columns your query returns.
 
 ## Inspecting Generated SQL
 

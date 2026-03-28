@@ -17,7 +17,7 @@ using SQLitePCL;
 namespace SQLite.Framework;
 
 /// <summary>
-///     Represents a connection to the SQLite database.
+/// Represents a connection to the SQLite database.
 /// </summary>
 public class SQLiteDatabase : IQueryProvider, IDisposable
 {
@@ -31,7 +31,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="SQLiteDatabase" /> class.
+    /// Initializes a new instance of the <see cref="SQLiteDatabase" /> class.
     /// </summary>
     public SQLiteDatabase(string databasePath)
     {
@@ -39,36 +39,36 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     The connection handle to the SQLite database.
+    /// The connection handle to the SQLite database.
     /// </summary>
     /// <remarks>
-    ///     This is only set after the connection is opened.
+    /// This is only set after the connection is opened.
     /// </remarks>
     public sqlite3? Handle { get; private set; }
 
     /// <summary>
-    ///     Indicates that the connection is open.
+    /// Indicates that the connection is open.
     /// </summary>
     [MemberNotNullWhen(true, nameof(Handle))]
     public bool IsConnected { get; private set; }
 
     /// <summary>
-    ///     Indicates that the connection is being established.
+    /// Indicates that the connection is being established.
     /// </summary>
     public bool IsConnecting { get; private set; }
 
     /// <summary>
-    ///     The connection string to the SQLite database.
+    /// The connection string to the SQLite database.
     /// </summary>
     public SQLiteOpenFlags OpenFlags { get; set; } = SQLiteOpenFlags.Create | SQLiteOpenFlags.ReadWrite;
 
     /// <summary>
-    ///     The connection string to the SQLite database.
+    /// The connection string to the SQLite database.
     /// </summary>
     public string DatabasePath { get; }
 
     /// <summary>
-    ///     Returns the cached table mappings in the current database instance.
+    /// Returns the cached table mappings in the current database instance.
     /// </summary>
     public IReadOnlyCollection<TableMapping> TableMappings => tableMappings.Values;
 
@@ -189,12 +189,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Called when a command is created using the <see cref="CreateCommand" /> method.
+    /// Called when a command is created using the <see cref="CreateCommand" /> method.
     /// </summary>
     public event Action<SQLiteCommand>? CommandCreated;
 
     /// <summary>
-    ///     Creates a new table for the specified type.
+    /// Creates a new table for the specified type.
     /// </summary>
     public TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
     {
@@ -208,7 +208,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Creates a new table mapping for the specified type.
+    /// Creates a new table mapping for the specified type.
     /// </summary>
     public TableMapping TableMapping<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
     {
@@ -222,7 +222,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Creates a new table for the specified type.
+    /// Creates a new table for the specified type.
     /// </summary>
     public SQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
     {
@@ -230,7 +230,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Creates a new table for the specified type.
+    /// Creates a new table for the specified type.
     /// </summary>
     public SQLiteTable Table([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
     {
@@ -238,7 +238,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Begins a transaction on the database.
+    /// Begins a transaction on the database.
     /// </summary>
     public SQLiteTransaction BeginTransaction()
     {
@@ -249,7 +249,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Creates a command with the specified SQL and parameters.
+    /// Creates a command with the specified SQL and parameters.
     /// </summary>
     public SQLiteCommand CreateCommand(string sql, List<SQLiteParameter> parameters)
     {
@@ -263,7 +263,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Opens the connection to the SQLite database.
+    /// Opens the connection to the SQLite database.
     /// </summary>
     public void OpenConnection()
     {
@@ -289,7 +289,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
                 if (result != SQLiteResult.OK)
                 {
-                    throw new SQLiteException(result, "Unable to open database");
+                    throw new SQLiteException(result, "Unable to open database", null);
                 }
 
                 Handle = handle;
@@ -300,8 +300,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Locks the all queries from entering the <see cref="Lock" /> method until <see cref="IDisposable.Dispose" /> is
-    ///     called.
+    /// Locks the all queries from entering the <see cref="Lock" /> method until <see cref="IDisposable.Dispose" /> is
+    /// called.
     /// </summary>
     public IDisposable Lock()
     {
@@ -309,7 +309,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    ///     Wraps the provided SQL query and parameters into a queryable object.
+    /// Wraps the provided SQL query and parameters into a queryable object.
     /// </summary>
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The type should be part of the client assemblies.")]
     public IQueryable<T> FromSql<T>(string sql, params SQLiteParameter[] parameters)

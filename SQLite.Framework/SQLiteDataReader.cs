@@ -12,8 +12,10 @@ public class SQLiteDataReader : IDisposable
 {
     private readonly sqlite3 handle;
 
+    internal readonly sqlite3_stmt Statement;
+
     /// <summary>
-    /// Initializes a new instance of the <see cref="SQLiteDataReader"/> class.
+    /// Initializes a new instance of the <see cref="SQLiteDataReader" /> class.
     /// </summary>
     public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement)
     {
@@ -21,12 +23,16 @@ public class SQLiteDataReader : IDisposable
         Statement = statement;
     }
 
-    internal readonly sqlite3_stmt Statement;
-
     /// <summary>
     /// The number of columns in the current row.
     /// </summary>
     public int FieldCount => raw.sqlite3_column_count(Statement);
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        raw.sqlite3_finalize(Statement);
+    }
 
     /// <summary>
     /// Reads the next row from the data reader.
@@ -45,7 +51,7 @@ public class SQLiteDataReader : IDisposable
             return false;
         }
 
-        throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string());
+        throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), null);
     }
 
     /// <summary>
@@ -70,11 +76,5 @@ public class SQLiteDataReader : IDisposable
     public object? GetValue(int index, SQLiteColumnType columnType, Type type)
     {
         return CommandHelpers.ReadColumnValue(Statement, index, columnType, type);
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        raw.sqlite3_finalize(Statement);
     }
 }
