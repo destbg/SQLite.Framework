@@ -40,3 +40,4 @@ var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 - [Raw SQL](Raw%20SQL)
 - [Data Types](Data%20Types)
 - [Performance](Performance)
+- [Migrating from sqlite-net-pcl](Migrating%20from%20sqlite-net-pcl)

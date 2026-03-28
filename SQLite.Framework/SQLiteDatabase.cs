@@ -332,4 +332,150 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             Expression.NewArrayInit(typeof(SQLiteParameter), parameters.Select(Expression.Constant))
         ));
     }
+
+    /// <summary>
+    /// Executes the SQL query and returns the results as a list.
+    /// </summary>
+    public List<T> Query<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
+    {
+        return CreateCommand(sql, [.. parameters]).ExecuteQuery<T>().ToList();
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns the results as a list.
+    /// </summary>
+    public List<T> Query<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
+    {
+        return CreateCommand(sql, ToParameterList(parameters)).ExecuteQuery<T>().ToList();
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns the first result, or throws if the sequence is empty.
+    /// </summary>
+    public T QueryFirst<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
+    {
+        return QueryFirstOrDefault<T>(sql, parameters) ?? throw new InvalidOperationException("Query returned no rows.");
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns the first result, or throws if the sequence is empty.
+    /// </summary>
+    public T QueryFirst<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
+    {
+        return QueryFirstOrDefault<T>(sql, parameters) ?? throw new InvalidOperationException("Query returned no rows.");
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns the first result, or <see langword="null" /> if the sequence is empty.
+    /// </summary>
+    public T? QueryFirstOrDefault<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
+    {
+        return CreateCommand(sql, [.. parameters]).ExecuteQuery<T>().FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns the first result, or <see langword="null" /> if the sequence is empty.
+    /// </summary>
+    public T? QueryFirstOrDefault<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
+    {
+        return CreateCommand(sql, ToParameterList(parameters)).ExecuteQuery<T>().FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns a single result, or throws if the sequence is empty or contains more than one row.
+    /// </summary>
+    public T QuerySingle<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
+    {
+        return CreateCommand(sql, [.. parameters]).ExecuteQuery<T>().Single();
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns a single result, or throws if the sequence is empty or contains more than one row.
+    /// </summary>
+    public T QuerySingle<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
+    {
+        return CreateCommand(sql, ToParameterList(parameters)).ExecuteQuery<T>().Single();
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns a single result, or <see langword="null" /> if the sequence is empty. Throws if more
+    /// than one row is returned.
+    /// </summary>
+    public T? QuerySingleOrDefault<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
+    {
+        return CreateCommand(sql, [.. parameters]).ExecuteQuery<T>().SingleOrDefault();
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns a single result, or <see langword="null" /> if the sequence is empty. Throws if more
+    /// than one row is returned.
+    /// </summary>
+    public T? QuerySingleOrDefault<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
+    {
+        return CreateCommand(sql, ToParameterList(parameters)).ExecuteQuery<T>().SingleOrDefault();
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns the value of the first column of the first row.
+    /// </summary>
+    public T? ExecuteScalar<T>(string sql, params SQLiteParameter[] parameters)
+    {
+        using SQLiteDataReader reader = CreateCommand(sql, [.. parameters]).ExecuteReader();
+
+        if (!reader.Read())
+        {
+            return default;
+        }
+
+        return (T?)reader.GetValue(0, reader.GetColumnType(0), typeof(T));
+    }
+
+    /// <summary>
+    /// Executes the SQL query and returns the value of the first column of the first row.
+    /// </summary>
+    public T? ExecuteScalar<T>(string sql, object parameters)
+    {
+        using SQLiteDataReader reader = CreateCommand(sql, ToParameterList(parameters)).ExecuteReader();
+
+        if (!reader.Read())
+        {
+            return default;
+        }
+
+        return (T?)reader.GetValue(0, reader.GetColumnType(0), typeof(T));
+    }
+
+    /// <summary>
+    /// Executes the SQL statement and returns the number of rows affected.
+    /// </summary>
+    public int Execute(string sql, params SQLiteParameter[] parameters)
+    {
+        return CreateCommand(sql, [.. parameters]).ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Executes the SQL statement and returns the number of rows affected.
+    /// </summary>
+    public int Execute(string sql, object parameters)
+    {
+        return CreateCommand(sql, ToParameterList(parameters)).ExecuteNonQuery();
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Parameter objects are user-provided and not subject to trimming constraints.")]
+    private static List<SQLiteParameter> ToParameterList(object parameters)
+    {
+        return parameters switch
+        {
+            SQLiteParameter single => [single],
+            IEnumerable<SQLiteParameter> list => [.. list],
+            _ => parameters.GetType()
+                .GetProperties()
+                .Select(p => new SQLiteParameter
+                {
+                    Name = $"@{p.Name}",
+                    Value = p.GetValue(parameters)
+                })
+                .ToList()
+        };
+    }
 }

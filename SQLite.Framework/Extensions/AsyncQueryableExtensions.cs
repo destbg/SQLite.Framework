@@ -5,7 +5,7 @@ using SQLite.Framework.Models;
 namespace SQLite.Framework.Extensions;
 
 /// <summary>
-/// <see cref="Queryable"/> extensions for <see cref="IQueryable{T}"/>.
+/// <see cref="Queryable" /> extensions for <see cref="IQueryable{T}" />.
 /// </summary>
 [ExcludeFromCodeCoverage]
 public static class AsyncQueryableExtensions
@@ -125,7 +125,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Converts the <see cref="IQueryable{T}"/> to a <see cref="Dictionary{TKey, TValue}"/>.
+    /// Converts the <see cref="IQueryable{T}" /> to a <see cref="Dictionary{TKey, TValue}" />.
     /// </summary>
     public static Task<Dictionary<TKey, TElement>> ToDictionaryAsync<TSource, TKey, TElement>(this IQueryable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector)
         where TKey : notnull
@@ -135,7 +135,8 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Converts the <see cref="IQueryable{T}"/> to an <see cref="Array"/> of <typeparam name="T" />.
+    /// Converts the <see cref="IQueryable{T}" /> to an <see cref="Array" /> of
+    /// <typeparam name="T" />.
     /// </summary>
     public static Task<T[]> ToArrayAsync<T>(this IQueryable<T> source)
     {
@@ -144,7 +145,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Converts the <see cref="IQueryable{T}"/> to a <see cref="List{T}"/>.
+    /// Converts the <see cref="IQueryable{T}" /> to a <see cref="List{T}" />.
     /// </summary>
     public static Task<List<T>> ToListAsync<T>(this IQueryable<T> source)
     {
@@ -153,7 +154,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Converts the <see cref="IQueryable{T}"/> to a <see cref="HashSet{T}"/>.
+    /// Converts the <see cref="IQueryable{T}" /> to a <see cref="HashSet{T}" />.
     /// </summary>
     public static Task<HashSet<T>> ToHashSetAsync<T>(this IQueryable<T> source)
     {
@@ -162,7 +163,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Converts the <see cref="IQueryable{T}"/> to a <see cref="ILookup{TKey, TElement}"/>.
+    /// Converts the <see cref="IQueryable{T}" /> to a <see cref="ILookup{TKey, TElement}" />.
     /// </summary>
     public static Task<ILookup<TKey, TElement>> ToLookupAsync<TSource, TKey, TElement>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector)
         where TKey : notnull
@@ -204,7 +205,7 @@ public static class AsyncQueryableExtensions
     public static Task<TSource> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> source, TSource defaultValue)
     {
         BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(() => source.FirstOrDefault(defaultValue), table.Database);
+        return ExecuteAsync(source.FirstOrDefault, table.Database, defaultValue);
     }
 
     /// <summary>
@@ -304,7 +305,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns a value indicating whether a sequence contains any matching the <paramref name="predicate"/>.
+    /// Returns a value indicating whether a sequence contains any matching the <paramref name="predicate" />.
     /// </summary>
     public static Task<bool> AnyAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
@@ -313,7 +314,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns a value indicating whether all values in a sequence match the <paramref name="predicate"/>.
+    /// Returns a value indicating whether all values in a sequence match the <paramref name="predicate" />.
     /// </summary>
     public static Task<bool> AllAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
@@ -331,7 +332,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the number of elements in a sequence matching the <paramref name="predicate"/>.
+    /// Returns the number of elements in a sequence matching the <paramref name="predicate" />.
     /// </summary>
     public static Task<int> CountAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
@@ -349,7 +350,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the number of elements in a sequence matching the <paramref name="predicate"/>.
+    /// Returns the number of elements in a sequence matching the <paramref name="predicate" />.
     /// </summary>
     public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {

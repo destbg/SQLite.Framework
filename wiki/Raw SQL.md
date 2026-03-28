@@ -32,7 +32,7 @@ var books = await db.FromSql<Book>(
 
 ## Project Into a Different Type
 
-The type you pass to `FromSql<T>` does not have to match a table model. You can use any class or anonymous-like type as long as its property names match the column names returned by the query.
+The type you pass to `FromSql<T>` does not have to match a table model. You can use any class as long as its property names match the column names the query returns.
 
 ```csharp
 public class BookSummary
@@ -72,7 +72,7 @@ var results = await books.FromSql(
 
 ## Missing Columns
 
-`FromSql` wraps your SQL in a subquery and generates an outer `SELECT` that references every mapped column on the type. If your raw SQL omits a column that the type expects, execution throws a `SQLiteException`. The `Message` contains the offending column name and the `Sql` property holds the full generated SQL:
+`FromSql` wraps your SQL in a subquery and generates an outer `SELECT` that references every mapped column on the type. If your raw SQL leaves out a column the type expects, execution throws a `SQLiteException`. The `Message` contains the column name and the `Sql` property holds the full generated SQL:
 
 ```csharp
 catch (SQLiteException ex)
@@ -82,7 +82,68 @@ catch (SQLiteException ex)
 }
 ```
 
-To avoid this, either select all columns the type needs or [project into a narrower type](#project-into-a-different-type) that only declares the columns your query returns.
+To avoid this, either select all the columns the type needs, [project into a narrower type](#project-into-a-different-type) that only declares the columns your query returns, or use the [direct query methods](#direct-query-methods) which do not wrap your SQL in a subquery and leave unselected properties at their default values.
+
+## Direct Query Methods
+
+For cases where you just want to run SQL and get results back without the subquery wrapping that `FromSql` adds, you can use the `Query` family of methods. Write SQL, pass parameters, get typed results.
+
+### Parameters
+
+Pass parameters as an anonymous object:
+
+```csharp
+var books = db.Query<BookSummary>(
+    "SELECT BookTitle AS Title, BookPrice AS Price FROM Books WHERE BookPrice < @price",
+    new { price = 30.0 }
+);
+```
+
+Or pass explicit `SQLiteParameter` objects:
+
+```csharp
+var books = db.Query<BookSummary>(
+    "SELECT BookTitle AS Title, BookPrice AS Price FROM Books WHERE BookAuthorId = @authorId AND BookPrice < @price",
+    new SQLiteParameter { Name = "@authorId", Value = 5 },
+    new SQLiteParameter { Name = "@price", Value = 30.0 }
+);
+```
+
+### Column Mapping
+
+`Query<T>` maps result columns to properties by name. If the database column name is different from the property name, alias it in the SQL:
+
+```csharp
+// BookTitle is the column name, Title is the property name
+var books = db.Query<BookSummary>(
+    "SELECT BookTitle AS Title, BookPrice AS Price FROM Books"
+);
+```
+
+`FromSql` generates these aliases automatically. `Query` does not.
+
+### Available Methods
+
+| Method | Returns |
+|---|---|
+| `Query<T>(sql, params)` | `List<T>` |
+| `QueryFirst<T>(sql, params)` | `T`, throws if no rows |
+| `QueryFirstOrDefault<T>(sql, params)` | `T?`, null if no rows |
+| `QuerySingle<T>(sql, params)` | `T`, throws if no rows or more than one row |
+| `QuerySingleOrDefault<T>(sql, params)` | `T?`, null if no rows, throws if more than one row |
+| `ExecuteScalar<T>(sql, params)` | First column of the first row, null if no rows |
+| `Execute(sql, params)` | Number of rows affected |
+
+All methods have async versions: `QueryAsync`, `QueryFirstAsync`, `QueryFirstOrDefaultAsync`, `QuerySingleAsync`, `QuerySingleOrDefaultAsync`, `ExecuteScalarAsync`, `ExecuteAsync`.
+
+```csharp
+int count = db.ExecuteScalar<int>("SELECT COUNT(*) FROM Books")!;
+
+int affected = await db.ExecuteAsync(
+    "DELETE FROM Books WHERE BookAuthorId = @authorId",
+    new { authorId = 5 }
+);
+```
 
 ## Inspecting Generated SQL
 
