@@ -18,7 +18,7 @@ internal static class BuildQueryObject
             QueryContext context = new()
             {
                 Reader = reader,
-                Columns = columns,
+                Columns = columns
             };
             return createInstance(context);
         }
@@ -88,15 +88,16 @@ internal static class BuildQueryObject
 
                         if (targetType.IsEnum)
                         {
-                            object underlyingType = Convert.ChangeType(val, Enum.GetUnderlyingType(targetType));
-
-                            if (Enum.IsDefined(targetType, underlyingType))
+                            if (val is string enumString)
                             {
-                                convertedValue = Enum.ToObject(targetType, underlyingType);
+                                convertedValue = Enum.TryParse(targetType, enumString, out object? parsed) ? parsed : null;
                             }
                             else
                             {
-                                convertedValue = null;
+                                object underlyingType = Convert.ChangeType(val, Enum.GetUnderlyingType(targetType));
+                                convertedValue = Enum.IsDefined(targetType, underlyingType)
+                                    ? Enum.ToObject(targetType, underlyingType)
+                                    : null;
                             }
                         }
                         else

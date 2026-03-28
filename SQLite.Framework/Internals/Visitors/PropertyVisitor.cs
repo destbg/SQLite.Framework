@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 
@@ -46,6 +47,13 @@ internal class PropertyVisitor
 
     public Expression HandleDateTimeProperty(string propertyName, Type type, SQLExpression node)
     {
+        if (visitor.Database.StorageOptions.DateTimeStorage == DateTimeStorageMode.TextFormatted)
+        {
+            throw new NotSupportedException(
+                $"DateTime.{propertyName} cannot be used in a LINQ query when DateTimeStorage is set to TextFormatted." +
+                $" Use direct SQL queries instead, or switch to Integer storage.");
+        }
+
         return propertyName switch
         {
             nameof(DateTime.Year) => ResolveDateFormat(type, node, "Y", "DATETIME"),
@@ -69,6 +77,13 @@ internal class PropertyVisitor
 
     public Expression HandleDateTimeOffsetProperty(string propertyName, Type type, SQLExpression node)
     {
+        if (visitor.Database.StorageOptions.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
+        {
+            throw new NotSupportedException(
+                $"DateTimeOffset.{propertyName} cannot be used in a LINQ query when DateTimeOffsetStorage is set to TextFormatted." +
+                $" Use direct SQL queries instead, or switch to Ticks storage.");
+        }
+
         return propertyName switch
         {
             nameof(DateTimeOffset.Year) => ResolveDateFormat(type, node, "Y", "DATETIME"),
@@ -92,6 +107,13 @@ internal class PropertyVisitor
 
     public Expression HandleTimeSpanProperty(string propertyName, Type type, SQLExpression node)
     {
+        if (visitor.Database.StorageOptions.TimeSpanStorage == TimeSpanStorageMode.Text)
+        {
+            throw new NotSupportedException(
+                $"TimeSpan.{propertyName} cannot be used in a LINQ query when TimeSpanStorage is set to Text." +
+                $" Use direct SQL queries instead, or switch to Integer storage.");
+        }
+
         return propertyName switch
         {
             nameof(TimeSpan.Days) => new SQLExpression(
@@ -160,6 +182,13 @@ internal class PropertyVisitor
 
     public Expression HandleDateOnlyProperty(string propertyName, Type type, SQLExpression node)
     {
+        if (visitor.Database.StorageOptions.DateOnlyStorage == DateOnlyStorageMode.Text)
+        {
+            throw new NotSupportedException(
+                $"DateOnly.{propertyName} cannot be used in a LINQ query when DateOnlyStorage is set to Text." +
+                $" Use direct SQL queries instead, or switch to Integer storage.");
+        }
+
         return propertyName switch
         {
             nameof(DateOnly.Year) => ResolveDateFormat(type, node, "Y", "DATE"),
@@ -173,6 +202,13 @@ internal class PropertyVisitor
 
     public Expression HandleTimeOnlyProperty(string propertyName, Type type, SQLExpression node)
     {
+        if (visitor.Database.StorageOptions.TimeOnlyStorage == TimeOnlyStorageMode.Text)
+        {
+            throw new NotSupportedException(
+                $"TimeOnly.{propertyName} cannot be used in a LINQ query when TimeOnlyStorage is set to Text." +
+                $" Use direct SQL queries instead, or switch to Integer storage.");
+        }
+
         return propertyName switch
         {
             nameof(TimeOnly.Hour) => ResolveTimeFormat(type, node, "H"),

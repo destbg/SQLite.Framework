@@ -2,6 +2,7 @@ using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 
@@ -283,8 +284,8 @@ internal class MethodVisitor
                     string collation = comparison switch
                     {
                         StringComparison.OrdinalIgnoreCase or
-                        StringComparison.CurrentCultureIgnoreCase or
-                        StringComparison.InvariantCultureIgnoreCase => " COLLATE NOCASE",
+                            StringComparison.CurrentCultureIgnoreCase or
+                            StringComparison.InvariantCultureIgnoreCase => " COLLATE NOCASE",
                         _ => ""
                     };
 
@@ -413,6 +414,18 @@ internal class MethodVisitor
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
+            if (visitor.Database.StorageOptions.DateTimeStorage == DateTimeStorageMode.TextFormatted)
+            {
+                if (visitor.IsInSelectProjection && visitor.Level == 0)
+                {
+                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                }
+
+                throw new NotSupportedException(
+                    $"DateTime.{node.Method.Name} cannot be used in a LINQ query when DateTimeStorage is set to TextFormatted." +
+                    $" Use direct SQL queries instead, or switch to Integer storage.");
+            }
+
             return node.Method.Name switch
             {
                 nameof(DateTime.Add) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
@@ -452,6 +465,15 @@ internal class MethodVisitor
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
+            if (visitor.Database.StorageOptions.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
+            {
+                if (visitor.IsInSelectProjection && visitor.Level == 0)
+                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                throw new NotSupportedException(
+                    $"DateTimeOffset.{node.Method.Name} cannot be used in a LINQ query when DateTimeOffsetStorage is set to TextFormatted." +
+                    $" Use direct SQL queries instead, or switch to Ticks storage.");
+            }
+
             return node.Method.Name switch
             {
                 nameof(DateTimeOffset.Add) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
@@ -489,6 +511,18 @@ internal class MethodVisitor
             if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null) || node.Method.Name == nameof(TimeSpan.ToString))
             {
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+            }
+
+            if (visitor.Database.StorageOptions.TimeSpanStorage == TimeSpanStorageMode.Text)
+            {
+                if (visitor.IsInSelectProjection && visitor.Level == 0)
+                {
+                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                }
+
+                throw new NotSupportedException(
+                    $"TimeSpan.{node.Method.Name} cannot be used in a LINQ query when TimeSpanStorage is set to Text." +
+                    $" Use direct SQL queries instead, or switch to Integer storage.");
             }
 
             return node.Method.Name switch
@@ -544,7 +578,8 @@ internal class MethodVisitor
         {
             ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
-            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null) || node.Method.Name == nameof(DateOnly.ToString))
+            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null) || node.Method.Name == nameof(DateOnly.ToString)
+                || visitor.Database.StorageOptions.DateOnlyStorage == DateOnlyStorageMode.Text)
             {
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
@@ -576,7 +611,8 @@ internal class MethodVisitor
         {
             ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
-            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null) || node.Method.Name == nameof(TimeOnly.ToString))
+            if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null) || node.Method.Name == nameof(TimeOnly.ToString)
+                || visitor.Database.StorageOptions.TimeOnlyStorage == TimeOnlyStorageMode.Text)
             {
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
@@ -865,7 +901,7 @@ internal class MethodVisitor
 
                     string caseExpression = $"(CASE {obj.Sql} {string.Join(" ", caseClauses)} ELSE CAST({obj.Sql} AS TEXT) END)";
 
-                    SQLiteParameter[]? parameters = obj.Parameters == null
+                    SQLiteParameter[] parameters = obj.Parameters == null
                         ? [.. nameParams]
                         : [.. obj.Parameters, .. nameParams];
 
@@ -884,7 +920,6 @@ internal class MethodVisitor
             return expression;
         }
 
-        // Handle Enum.Parse<T>(string) or Enum.Parse(Type, string)
         if (node.Method.Name == nameof(Enum.Parse))
         {
             Type enumType;
@@ -892,13 +927,11 @@ internal class MethodVisitor
 
             if (node.Method.IsGenericMethod)
             {
-                // Enum.Parse<T>(string)
                 enumType = node.Method.GetGenericArguments()[0];
                 stringArg = arguments[0];
             }
             else
             {
-                // Enum.Parse(Type, string) - Type is first argument
                 if (arguments[0].IsConstant && arguments[0].Constant is Type type)
                 {
                     enumType = type;
@@ -938,7 +971,7 @@ internal class MethodVisitor
 
             string caseExpression = $"(CASE {stringArg.Sql} {string.Join(" ", caseClauses)} ELSE NULL END)";
 
-            SQLiteParameter[]? allParams = stringArg.Parameters == null
+            SQLiteParameter[] allParams = stringArg.Parameters == null
                 ? [.. parameters]
                 : [.. stringArg.Parameters, .. parameters];
 

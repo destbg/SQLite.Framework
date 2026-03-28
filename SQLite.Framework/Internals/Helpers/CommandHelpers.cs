@@ -49,6 +49,11 @@ internal static class CommandHelpers
             }
             else if (value is string dateString)
             {
+                if (long.TryParse(dateString, out long parsedTicks))
+                {
+                    return new DateTime(parsedTicks);
+                }
+
                 return DateTime.Parse(dateString);
             }
         }
@@ -58,12 +63,20 @@ internal static class CommandHelpers
             {
                 return new DateTimeOffset(ticks, TimeSpan.Zero);
             }
+            else if (value is string dateString)
+            {
+                return DateTimeOffset.Parse(dateString);
+            }
         }
         else if (type == typeof(TimeSpan))
         {
             if (value is long ticks)
             {
                 return TimeSpan.FromTicks(ticks);
+            }
+            else if (value is string timeString)
+            {
+                return TimeSpan.Parse(timeString);
             }
         }
         else if (type == typeof(DateOnly))
@@ -72,6 +85,10 @@ internal static class CommandHelpers
             {
                 return DateOnly.FromDateTime(new DateTime(ticks));
             }
+            else if (value is string dateOnlyString)
+            {
+                return DateOnly.Parse(dateOnlyString);
+            }
         }
         else if (type == typeof(TimeOnly))
         {
@@ -79,6 +96,14 @@ internal static class CommandHelpers
             {
                 return new TimeOnly(ticks);
             }
+            else if (value is string timeOnlyString)
+            {
+                return TimeOnly.Parse(timeOnlyString);
+            }
+        }
+        else if (type == typeof(decimal))
+        {
+            return Convert.ToDecimal(value);
         }
         else if (type == typeof(Guid))
         {
@@ -93,13 +118,18 @@ internal static class CommandHelpers
         }
         else if (type.IsEnum)
         {
+            if (value is string enumString)
+            {
+                return Enum.TryParse(type, enumString, out object? parsed) ? parsed : null;
+            }
+
             return Enum.ToObject(type, value);
         }
 
         return Convert.ChangeType(value, type);
     }
 
-    public static int BindParameter(sqlite3_stmt statement, string name, object? value)
+    public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteStorageOptions? options = null)
     {
         int index = BindParameterIndex(statement, name);
 
@@ -116,18 +146,38 @@ internal static class CommandHelpers
             ulong ul => raw.sqlite3_bind_int64(statement, index, (long)ul),
             double d => raw.sqlite3_bind_double(statement, index, d),
             float f => raw.sqlite3_bind_double(statement, index, f),
-            decimal dec => raw.sqlite3_bind_double(statement, index, (double)dec),
             char c => raw.sqlite3_bind_text(statement, index, c.ToString()),
             string s => raw.sqlite3_bind_text(statement, index, s),
             byte[] b => raw.sqlite3_bind_blob(statement, index, b),
             bool b => raw.sqlite3_bind_int(statement, index, b ? 1 : 0),
-            DateOnly d => raw.sqlite3_bind_int64(statement, index, d.ToDateTime(default).Ticks),
-            TimeOnly t => raw.sqlite3_bind_int64(statement, index, t.Ticks),
-            DateTime dt => raw.sqlite3_bind_int64(statement, index, dt.Ticks),
-            DateTimeOffset dto => raw.sqlite3_bind_int64(statement, index, dto.Ticks),
+            DateTime dt => options?.DateTimeStorage switch
+            {
+                DateTimeStorageMode.TextTicks => raw.sqlite3_bind_text(statement, index, dt.Ticks.ToString()),
+                DateTimeStorageMode.TextFormatted => raw.sqlite3_bind_text(statement, index, dt.ToString(options.DateTimeFormat)),
+                _ => raw.sqlite3_bind_int64(statement, index, dt.Ticks)
+            },
+            DateTimeOffset dto => options?.DateTimeOffsetStorage switch
+            {
+                DateTimeOffsetStorageMode.UtcTicks => raw.sqlite3_bind_int64(statement, index, dto.UtcTicks),
+                DateTimeOffsetStorageMode.TextFormatted => raw.sqlite3_bind_text(statement, index, dto.ToString(options.DateTimeOffsetFormat)),
+                _ => raw.sqlite3_bind_int64(statement, index, dto.Ticks)
+            },
             Guid g => raw.sqlite3_bind_text(statement, index, g.ToString()),
-            TimeSpan ts => raw.sqlite3_bind_int64(statement, index, ts.Ticks),
-            _ when value.GetType().IsEnum => raw.sqlite3_bind_int(statement, index, Convert.ToInt32(value)),
+            TimeSpan ts => options?.TimeSpanStorage == TimeSpanStorageMode.Text
+                ? raw.sqlite3_bind_text(statement, index, ts.ToString(options.TimeSpanFormat))
+                : raw.sqlite3_bind_int64(statement, index, ts.Ticks),
+            DateOnly d => options?.DateOnlyStorage == DateOnlyStorageMode.Text
+                ? raw.sqlite3_bind_text(statement, index, d.ToString(options.DateOnlyFormat))
+                : raw.sqlite3_bind_int64(statement, index, d.ToDateTime(default).Ticks),
+            TimeOnly t => options?.TimeOnlyStorage == TimeOnlyStorageMode.Text
+                ? raw.sqlite3_bind_text(statement, index, t.ToString(options.TimeOnlyFormat))
+                : raw.sqlite3_bind_int64(statement, index, t.Ticks),
+            decimal dec => options?.DecimalStorage == DecimalStorageMode.Text
+                ? raw.sqlite3_bind_text(statement, index, dec.ToString(options.DecimalFormat))
+                : raw.sqlite3_bind_double(statement, index, (double)dec),
+            _ when value.GetType().IsEnum => options?.EnumStorage == EnumStorageMode.Text
+                ? raw.sqlite3_bind_text(statement, index, value.ToString()!)
+                : raw.sqlite3_bind_int(statement, index, Convert.ToInt32(value)),
             _ => throw new NotSupportedException($"Type {value.GetType()} is not supported.")
         };
     }

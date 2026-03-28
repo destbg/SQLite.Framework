@@ -96,6 +96,7 @@ internal class QueryableMethodVisitor
     private Expression VisitSelect(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
+        visitor.IsInSelectProjection = true;
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(lambda);
 
         Selects.Clear();
@@ -121,6 +122,7 @@ internal class QueryableMethodVisitor
                 Selects.Add(newSqlExpression);
             }
 
+            visitor.IsInSelectProjection = false;
             return node;
         }
 
@@ -137,6 +139,8 @@ internal class QueryableMethodVisitor
                     visitor.TableColumns.First(tc => tc.Key == prop.Name).Value)));
 
             bool hasWritableProperties = properties.All(p => p.CanWrite);
+
+            visitor.IsInSelectProjection = false;
 
             if (hasWritableProperties)
             {
@@ -155,6 +159,7 @@ internal class QueryableMethodVisitor
         }
 
         Expression selectExpression = visitor.Visit(lambda.Body);
+        visitor.IsInSelectProjection = false;
         Expression expression = selectVisitor.Visit(selectExpression);
 
         return expression;

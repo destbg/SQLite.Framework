@@ -13,7 +13,7 @@ public class TableMapping
     /// <summary>
     /// Initializes a new instance of the <see cref="TableMapping"/> class.
     /// </summary>
-    public TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    public TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, SQLiteStorageOptions? options = null)
     {
         PropertyInfo[] properties = type.GetProperties();
         TableAttribute? tableAttribute = type.GetCustomAttribute<TableAttribute>();
@@ -23,7 +23,7 @@ public class TableMapping
         WithoutRowId = type.GetCustomAttribute<WithoutRowIdAttribute>() != null;
         Columns = properties
             .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
-            .Select(p => new TableColumn(p))
+            .Select(p => new TableColumn(p, options))
             .ToArray();
     }
 

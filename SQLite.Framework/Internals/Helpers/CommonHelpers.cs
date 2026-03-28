@@ -202,7 +202,7 @@ internal static class CommonHelpers
         return parameters.ToArray();
     }
 
-    public static SQLiteColumnType TypeToSQLiteType(Type type)
+    public static SQLiteColumnType TypeToSQLiteType(Type type, SQLiteStorageOptions? options = null)
     {
         type = Nullable.GetUnderlyingType(type) ?? type;
 
@@ -214,10 +214,13 @@ internal static class CommonHelpers
             _ when type == typeof(char) => SQLiteColumnType.Text,
             _ when type == typeof(DateTime) => SQLiteColumnType.Integer,
             _ when type == typeof(DateTimeOffset) => SQLiteColumnType.Integer,
+            _ when type == typeof(DateOnly) && options?.DateOnlyStorage == DateOnlyStorageMode.Text => SQLiteColumnType.Text,
             _ when type == typeof(DateOnly) => SQLiteColumnType.Integer,
+            _ when type == typeof(TimeOnly) && options?.TimeOnlyStorage == TimeOnlyStorageMode.Text => SQLiteColumnType.Text,
             _ when type == typeof(TimeOnly) => SQLiteColumnType.Integer,
             _ when type == typeof(Guid) => SQLiteColumnType.Text,
             _ when type == typeof(TimeSpan) => SQLiteColumnType.Integer,
+            _ when type == typeof(decimal) && options?.DecimalStorage == DecimalStorageMode.Text => SQLiteColumnType.Text,
             _ when type == typeof(decimal) => SQLiteColumnType.Real,
             _ when type == typeof(double) => SQLiteColumnType.Real,
             _ when type == typeof(float) => SQLiteColumnType.Real,

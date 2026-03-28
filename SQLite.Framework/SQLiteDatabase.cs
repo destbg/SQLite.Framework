@@ -72,6 +72,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public IReadOnlyCollection<TableMapping> TableMappings => tableMappings.Values;
 
+    /// <summary>
+    /// Controls how specific .NET types are stored in and read from the database.
+    /// </summary>
+    public SQLiteStorageOptions StorageOptions { get; set; } = new();
+
     /// <inheritdoc />
     public virtual void Dispose()
     {
@@ -200,7 +205,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         if (!tableMappings.TryGetValue(type, out TableMapping? table))
         {
-            table = new TableMapping(type);
+            table = new TableMapping(type, StorageOptions);
             tableMappings.Add(type, table);
         }
 
@@ -214,7 +219,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         if (!tableMappings.TryGetValue(typeof(T), out TableMapping? table))
         {
-            table = new TableMapping(typeof(T));
+            table = new TableMapping(typeof(T), StorageOptions);
             tableMappings.Add(typeof(T), table);
         }
 

@@ -88,9 +88,10 @@ public class SQLiteCommand
 
     private void BindParameters(sqlite3_stmt statement)
     {
+        SQLiteStorageOptions options = database.StorageOptions;
         foreach (SQLiteParameter parameter in Parameters)
         {
-            CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value);
+            CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);
         }
     }
 }

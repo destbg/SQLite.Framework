@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
@@ -19,12 +20,11 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </remarks>
 internal class SQLVisitor : ExpressionVisitor
 {
-    private readonly SQLiteDatabase database;
     private readonly PropertyVisitor propertyVisitor;
 
     public SQLVisitor(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level)
     {
-        this.database = database;
+        Database = database;
         ParamIndex = paramIndex;
         IdentifierIndex = identifierIndex;
         TableIndex = tableIndex;
@@ -33,12 +33,14 @@ internal class SQLVisitor : ExpressionVisitor
         propertyVisitor = new PropertyVisitor(this);
     }
 
+    public SQLiteDatabase Database { get; }
     public MethodVisitor MethodVisitor { get; }
 
     public IndexWrapper ParamIndex { get; }
     public IndexWrapper IdentifierIndex { get; }
     public TableIndexWrapper TableIndex { get; }
     public int Level { get; }
+    public bool IsInSelectProjection { get; set; }
     public SQLExpression? From { get; private set; }
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments { get; set; } = [];
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
@@ -49,7 +51,7 @@ internal class SQLVisitor : ExpressionVisitor
         char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
         string alias = $"{aliasChar}{TableIndex[aliasChar]++}";
 
-        TableMapping tableMapping = database.TableMapping(entityType);
+        TableMapping tableMapping = Database.TableMapping(entityType);
         From = new SQLExpression(
             entityType,
             -1,
@@ -64,7 +66,7 @@ internal class SQLVisitor : ExpressionVisitor
 
     public SQLTranslator CloneDeeper(int innerLevel)
     {
-        return new SQLTranslator(database, ParamIndex, IdentifierIndex, TableIndex, innerLevel)
+        return new SQLTranslator(Database, ParamIndex, IdentifierIndex, TableIndex, innerLevel)
         {
             MethodArguments = MethodArguments,
             IsInnerQuery = true
@@ -81,6 +83,28 @@ internal class SQLVisitor : ExpressionVisitor
 
         Expression leftNode = node.Left;
         Expression rightNode = node.Right;
+
+        if (leftNode is UnaryExpression { NodeType: ExpressionType.Convert } leftEnumConvert && leftEnumConvert.Operand.Type.IsEnum)
+        {
+            Type enumType = leftEnumConvert.Operand.Type;
+            leftNode = leftEnumConvert.Operand;
+            if (CommonHelpers.IsConstant(rightNode) && rightNode.Type == Enum.GetUnderlyingType(enumType))
+            {
+                object? intValue = CommonHelpers.GetConstantValue(rightNode);
+                rightNode = Expression.Constant(Enum.ToObject(enumType, intValue!), enumType);
+            }
+        }
+
+        if (rightNode is UnaryExpression { NodeType: ExpressionType.Convert } rightEnumConvert && rightEnumConvert.Operand.Type.IsEnum)
+        {
+            Type enumType = rightEnumConvert.Operand.Type;
+            rightNode = rightEnumConvert.Operand;
+            if (CommonHelpers.IsConstant(leftNode) && leftNode.Type == Enum.GetUnderlyingType(enumType))
+            {
+                object? intValue = CommonHelpers.GetConstantValue(leftNode);
+                leftNode = Expression.Constant(Enum.ToObject(enumType, intValue!), enumType);
+            }
+        }
 
         if (rightNode.Type == typeof(int) && leftNode is UnaryExpression leftUnary && leftUnary.Operand.Type == typeof(char))
         {
@@ -132,8 +156,7 @@ internal class SQLVisitor : ExpressionVisitor
 
         if (node.NodeType is ExpressionType.Coalesce)
         {
-            return new SQLExpression(node.Type, IdentifierIndex.Index++, $"COALESCE({left.Sql}, {right.Sql})",
-                bothParameters);
+            return new SQLExpression(node.Type, IdentifierIndex.Index++, $"COALESCE({left.Sql}, {right.Sql})", bothParameters);
         }
 
         string sqlOp = null!;
@@ -306,13 +329,19 @@ internal class SQLVisitor : ExpressionVisitor
 
         if (resolved.IsConstant)
         {
-            return node.NodeType == ExpressionType.Convert
-                ? new SQLExpression(node.Type,
-                    IdentifierIndex.Index++,
-                    $"@p{ParamIndex.Index++}",
-                    Convert.ChangeType(resolved.Constant, node.Type)
-                )
-                : resolved.SQLExpression;
+            if (node.NodeType == ExpressionType.Convert)
+            {
+                object? value = resolved.Constant;
+                Type targetType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
+                if (value?.GetType().IsEnum == true && targetType == Enum.GetUnderlyingType(value.GetType()))
+                {
+                    return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", value);
+                }
+
+                return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", Convert.ChangeType(value, targetType));
+            }
+
+            return resolved.SQLExpression;
         }
 
         if (node.NodeType == ExpressionType.Convert)
@@ -328,6 +357,10 @@ internal class SQLVisitor : ExpressionVisitor
             else if (node.Type == typeof(int) && resolved.SQLExpression.Type == typeof(char))
             {
                 return new SQLExpression(node.Type, IdentifierIndex.Index++, $"UNICODE(${resolved.SQLExpression.Sql})", resolved.SQLExpression.Parameters);
+            }
+            else if (resolved.SQLExpression.Type.IsEnum && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == Enum.GetUnderlyingType(resolved.SQLExpression.Type))
+            {
+                return new SQLExpression(node.Type, IdentifierIndex.Index++, resolved.SQLExpression.Sql, resolved.SQLExpression.Parameters);
             }
             else
             {
@@ -612,6 +645,16 @@ internal class SQLVisitor : ExpressionVisitor
         if (isConstant)
         {
             constantValue = CommonHelpers.GetConstantValue(node);
+            if (node is UnaryExpression { NodeType: ExpressionType.Convert } convertNode)
+            {
+                object? innerValue = CommonHelpers.GetConstantValue(convertNode.Operand);
+                Type targetType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
+                if (innerValue?.GetType().IsEnum == true && targetType == Enum.GetUnderlyingType(innerValue.GetType()))
+                {
+                    constantValue = innerValue;
+                }
+            }
+
             sqlExpression = new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", constantValue);
             resolvedExpression = node;
         }
@@ -652,27 +695,63 @@ internal class SQLVisitor : ExpressionVisitor
 
         if (node.Expression.Type == typeof(DateTime))
         {
+            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.DateTimeStorage == DateTimeStorageMode.TextFormatted)
+            {
+                return node.Update(sqlExpression);
+            }
+
             return propertyVisitor.HandleDateTimeProperty(node.Member.Name, node.Type, sqlExpression);
         }
 
         if (node.Expression.Type == typeof(DateTimeOffset))
         {
+            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
+            {
+                return node.Update(sqlExpression);
+            }
+
             return propertyVisitor.HandleDateTimeOffsetProperty(node.Member.Name, node.Type, sqlExpression);
         }
 
         if (node.Expression.Type == typeof(TimeSpan))
         {
+            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.TimeSpanStorage == TimeSpanStorageMode.Text)
+            {
+                return node.Update(sqlExpression);
+            }
+
             return propertyVisitor.HandleTimeSpanProperty(node.Member.Name, node.Type, sqlExpression);
         }
 
         if (node.Expression.Type == typeof(DateOnly))
         {
+            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.DateOnlyStorage == DateOnlyStorageMode.Text)
+            {
+                return node.Update(sqlExpression);
+            }
+
             return propertyVisitor.HandleDateOnlyProperty(node.Member.Name, node.Type, sqlExpression);
         }
 
         if (node.Expression.Type == typeof(TimeOnly))
         {
+            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.TimeOnlyStorage == TimeOnlyStorageMode.Text)
+            {
+                return node.Update(sqlExpression);
+            }
+
             return propertyVisitor.HandleTimeOnlyProperty(node.Member.Name, node.Type, sqlExpression);
+        }
+
+        Type sqlType = Nullable.GetUnderlyingType(sqlExpression.Type) ?? sqlExpression.Type;
+        if (sqlType == typeof(decimal) && Database.StorageOptions.DecimalStorage == DecimalStorageMode.Text && !(IsInSelectProjection && Level == 0))
+        {
+            return new SQLExpression(
+                sqlExpression.Type,
+                IdentifierIndex.Index++,
+                $"CAST({sqlExpression.Sql} AS REAL)",
+                sqlExpression.Parameters
+            );
         }
 
         return sqlExpression;
