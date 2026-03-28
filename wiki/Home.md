@@ -31,6 +31,8 @@ var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 - [Defining Models](Defining%20Models)
 - [CRUD Operations](CRUD%20Operations)
 - [Querying](Querying)
+- [Expressions](Expressions)
+- [Subqueries](Subqueries)
 - [Joins](Joins)
 - [Grouping and Aggregates](Grouping%20and%20Aggregates)
 - [Bulk Operations](Bulk%20Operations)

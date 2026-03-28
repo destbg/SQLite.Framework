@@ -9,6 +9,8 @@ export const pages: Page[] = [
     { slug: 'Defining Models', title: 'Defining Models' },
     { slug: 'CRUD Operations', title: 'CRUD Operations' },
     { slug: 'Querying', title: 'Querying' },
+    { slug: 'Expressions', title: 'Expressions' },
+    { slug: 'Subqueries', title: 'Subqueries' },
     { slug: 'Joins', title: 'Joins' },
     { slug: 'Grouping and Aggregates', title: 'Grouping and Aggregates' },
     { slug: 'Bulk Operations', title: 'Bulk Operations' },
