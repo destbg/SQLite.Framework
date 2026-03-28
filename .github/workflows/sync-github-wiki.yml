@@ -24,7 +24,10 @@ jobs:
 
       - name: Copy markdown files
         run: |
-          cp wiki/*.md wiki-repo/
+          for f in wiki/*.md; do
+            dest="wiki-repo/$(basename "$f" | tr ' ' '-')"
+            cp "$f" "$dest"
+          done
 
       - name: Commit and push
         working-directory: wiki-repo
