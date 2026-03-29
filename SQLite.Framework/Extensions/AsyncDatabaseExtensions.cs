@@ -9,11 +9,19 @@ namespace SQLite.Framework.Extensions;
 public static class AsyncDatabaseExtensions
 {
     /// <summary>
+    /// Begins a transaction on the database asynchronously.
+    /// </summary>
+    public static SQLiteBeginTransactionAwaitable BeginTransactionAsync(this SQLiteDatabase database)
+    {
+        return new SQLiteBeginTransactionAwaitable(database);
+    }
+
+    /// <summary>
     /// Executes the SQL query and returns the results as a list.
     /// </summary>
     public static Task<List<T>> QueryAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, params SQLiteParameter[] parameters)
     {
-        return ExecuteAsync(() => database.Query<T>(sql, parameters), database);
+        return ExecuteAsync(database.Query<T>, sql, parameters);
     }
 
     /// <summary>
@@ -21,7 +29,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<List<T>> QueryAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters)
     {
-        return ExecuteAsync(() => database.Query<T>(sql, parameters), database);
+        return ExecuteAsync(database.Query<T>, sql, parameters);
     }
 
     /// <summary>
@@ -29,7 +37,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T> QueryFirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, params SQLiteParameter[] parameters)
     {
-        return ExecuteAsync(() => database.QueryFirst<T>(sql, parameters), database);
+        return ExecuteAsync(database.QueryFirst<T>, sql, parameters);
     }
 
     /// <summary>
@@ -37,7 +45,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T> QueryFirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters)
     {
-        return ExecuteAsync(() => database.QueryFirst<T>(sql, parameters), database);
+        return ExecuteAsync(database.QueryFirst<T>, sql, parameters);
     }
 
     /// <summary>
@@ -45,7 +53,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> QueryFirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, params SQLiteParameter[] parameters)
     {
-        return ExecuteAsync(() => database.QueryFirstOrDefault<T>(sql, parameters), database);
+        return ExecuteAsync(database.QueryFirstOrDefault<T>, sql, parameters);
     }
 
     /// <summary>
@@ -53,7 +61,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> QueryFirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters)
     {
-        return ExecuteAsync(() => database.QueryFirstOrDefault<T>(sql, parameters), database);
+        return ExecuteAsync(database.QueryFirstOrDefault<T>, sql, parameters);
     }
 
     /// <summary>
@@ -61,7 +69,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T> QuerySingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, params SQLiteParameter[] parameters)
     {
-        return ExecuteAsync(() => database.QuerySingle<T>(sql, parameters), database);
+        return ExecuteAsync(database.QuerySingle<T>, sql, parameters);
     }
 
     /// <summary>
@@ -69,7 +77,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T> QuerySingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters)
     {
-        return ExecuteAsync(() => database.QuerySingle<T>(sql, parameters), database);
+        return ExecuteAsync(database.QuerySingle<T>, sql, parameters);
     }
 
     /// <summary>
@@ -78,7 +86,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> QuerySingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, params SQLiteParameter[] parameters)
     {
-        return ExecuteAsync(() => database.QuerySingleOrDefault<T>(sql, parameters), database);
+        return ExecuteAsync(database.QuerySingleOrDefault<T>, sql, parameters);
     }
 
     /// <summary>
@@ -87,7 +95,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> QuerySingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters)
     {
-        return ExecuteAsync(() => database.QuerySingleOrDefault<T>(sql, parameters), database);
+        return ExecuteAsync(database.QuerySingleOrDefault<T>, sql, parameters);
     }
 
     /// <summary>
@@ -95,7 +103,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> ExecuteScalarAsync<T>(this SQLiteDatabase database, string sql, params SQLiteParameter[] parameters)
     {
-        return ExecuteAsync(() => database.ExecuteScalar<T>(sql, parameters), database);
+        return ExecuteAsync(database.ExecuteScalar<T>, sql, parameters);
     }
 
     /// <summary>
@@ -103,7 +111,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> ExecuteScalarAsync<T>(this SQLiteDatabase database, string sql, object parameters)
     {
-        return ExecuteAsync(() => database.ExecuteScalar<T>(sql, parameters), database);
+        return ExecuteAsync(database.ExecuteScalar<T>, sql, parameters);
     }
 
     /// <summary>
@@ -111,7 +119,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<int> ExecuteAsync(this SQLiteDatabase database, string sql, params SQLiteParameter[] parameters)
     {
-        return ExecuteAsync(() => database.Execute(sql, parameters), database);
+        return ExecuteAsync(database.Execute, sql, parameters);
     }
 
     /// <summary>
@@ -119,17 +127,11 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<int> ExecuteAsync(this SQLiteDatabase database, string sql, object parameters)
     {
-        return ExecuteAsync(() => database.Execute(sql, parameters), database);
+        return ExecuteAsync(database.Execute, sql, parameters);
     }
 
-    private static Task<T> ExecuteAsync<T>(Func<T> execute, SQLiteDatabase database)
+    private static Task<T> ExecuteAsync<T, TP1, TP2>(Func<TP1, TP2, T> execute, TP1 parameter1, TP2 parameter2)
     {
-        return Task.Factory.StartNew(() =>
-        {
-            using (database.Lock())
-            {
-                return execute();
-            }
-        }, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return Task.Factory.StartNew(() => execute(parameter1, parameter2), CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
     }
 }

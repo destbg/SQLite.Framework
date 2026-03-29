@@ -45,10 +45,24 @@ public class SQLiteCommand
     /// <summary>
     /// Executes the command against the database and returns a data reader.
     /// </summary>
+    /// <remarks>
+    /// The connection lock is acquired before the statement is prepared and held until the returned
+    /// <see cref="SQLiteDataReader" /> is disposed. Callers must dispose the reader promptly.
+    /// </remarks>
     public SQLiteDataReader ExecuteReader()
     {
-        sqlite3_stmt statement = CreateStatement();
-        return new SQLiteDataReader(database.Handle!, statement);
+        IDisposable connectionLock = database.Lock();
+
+        try
+        {
+            sqlite3_stmt statement = CreateStatement();
+            return new SQLiteDataReader(database.Handle!, statement, connectionLock);
+        }
+        catch
+        {
+            connectionLock.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -56,6 +70,8 @@ public class SQLiteCommand
     /// </summary>
     public int ExecuteNonQuery()
     {
+        using IDisposable _ = database.Lock();
+
         sqlite3_stmt statement = CreateStatement();
         SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
         raw.sqlite3_finalize(statement);

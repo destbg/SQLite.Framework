@@ -11,9 +11,6 @@ using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
 using SQLitePCL;
 
-// ReSharper disable ChangeFieldTypeToSystemThreadingLock
-// ReSharper disable InconsistentlySynchronizedField
-
 namespace SQLite.Framework;
 
 /// <summary>
@@ -21,8 +18,10 @@ namespace SQLite.Framework;
 /// </summary>
 public class SQLiteDatabase : IQueryProvider, IDisposable
 {
+    // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object connectionOpenLock = new();
-    private readonly object queryLock = new();
+    private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
+    private readonly AsyncLocal<bool> holdsConnectionLock = new();
     private readonly Dictionary<Type, TableMapping> tableMappings = [];
 
     static SQLiteDatabase()
@@ -76,6 +75,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// Controls how specific .NET types are stored in and read from the database.
     /// </summary>
     public SQLiteStorageOptions StorageOptions { get; set; } = new();
+
+    internal bool HoldsConnectionLock => holdsConnectionLock.Value;
 
     /// <inheritdoc />
     public virtual void Dispose()
@@ -165,14 +166,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         throw new NotSupportedException("Only generic queries are supported.");
     }
 
-    internal IEnumerable<T> ExecuteSequenceQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression expression)
-    {
-        SQLTranslator translator = new(this);
-        SQLQuery query = translator.Translate(expression);
-        SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
-        return command.ExecuteQueryInternal<T>(query);
-    }
-
     /// <summary>
     /// Called when a command is created using the <see cref="CreateCommand" /> method.
     /// </summary>
@@ -227,10 +220,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public SQLiteTransaction BeginTransaction()
     {
-        string savepointName = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
+        bool ownsLock = !holdsConnectionLock.Value;
 
+        if (ownsLock)
+        {
+            connectionSemaphore.Wait();
+            holdsConnectionLock.Value = true;
+        }
+
+        string savepointName = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
         CreateCommand($"SAVEPOINT {savepointName}", []).ExecuteNonQuery();
-        return new SQLiteTransaction(this, savepointName);
+        return new SQLiteTransaction(this, savepointName, ownsLock);
     }
 
     /// <summary>
@@ -288,9 +288,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// Locks the all queries from entering the <see cref="Lock" /> method until <see cref="IDisposable.Dispose" /> is
     /// called.
     /// </summary>
-    public IDisposable Lock()
+    public virtual IDisposable Lock()
     {
-        return new LockObject(queryLock);
+        if (holdsConnectionLock.Value)
+        {
+            return NoOpLockObject.Instance;
+        }
+
+        return new LockObject(connectionSemaphore, holdsConnectionLock);
     }
 
     /// <summary>
@@ -476,6 +481,39 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public int Execute(string sql, object parameters)
     {
         return CreateCommand(sql, ToParameterList(parameters)).ExecuteNonQuery();
+    }
+
+    internal IEnumerable<T> ExecuteSequenceQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression expression)
+    {
+        SQLTranslator translator = new(this);
+        SQLQuery query = translator.Translate(expression);
+        SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
+        return command.ExecuteQueryInternal<T>(query);
+    }
+
+    internal void ReleaseLock()
+    {
+        holdsConnectionLock.Value = false;
+        connectionSemaphore.Release();
+    }
+
+    internal void SetConnectionLock()
+    {
+        holdsConnectionLock.Value = true;
+    }
+
+    internal async Task<string> AcquireConnectionAndCreateSavepoint()
+    {
+        await connectionSemaphore.WaitAsync().ConfigureAwait(false);
+        holdsConnectionLock.Value = true;
+        return CreateSavepoint();
+    }
+
+    internal string CreateSavepoint()
+    {
+        string name = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
+        CreateCommand($"SAVEPOINT {name}", []).ExecuteNonQuery();
+        return name;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Parameter objects are user-provided and not subject to trimming constraints.")]

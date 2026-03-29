@@ -5,16 +5,20 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal class LockObject : IDisposable
 {
-    private readonly object queryLock;
+    private readonly SemaphoreSlim semaphore;
+    private readonly AsyncLocal<bool> holdsLock;
 
-    public LockObject(object queryLock)
+    public LockObject(SemaphoreSlim semaphore, AsyncLocal<bool> holdsLock)
     {
-        this.queryLock = queryLock;
-        Monitor.Enter(queryLock);
+        this.semaphore = semaphore;
+        this.holdsLock = holdsLock;
+        semaphore.Wait();
+        holdsLock.Value = true;
     }
 
     public void Dispose()
     {
-        Monitor.Exit(queryLock);
+        holdsLock.Value = false;
+        semaphore.Release();
     }
 }

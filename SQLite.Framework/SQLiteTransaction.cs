@@ -3,17 +3,20 @@ namespace SQLite.Framework;
 /// <summary>
 /// Represents a transaction in SQLite.
 /// </summary>
-public class SQLiteTransaction : IDisposable
+public class SQLiteTransaction : IDisposable, IAsyncDisposable
 {
+    private readonly bool ownsLock;
+    private bool completed;
     private bool disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteTransaction"/> class.
     /// </summary>
-    public SQLiteTransaction(SQLiteDatabase database, string savepointName)
+    public SQLiteTransaction(SQLiteDatabase database, string savepointName, bool ownsLock)
     {
         Database = database;
         SavepointName = savepointName;
+        this.ownsLock = ownsLock;
     }
 
     /// <summary>
@@ -31,8 +34,28 @@ public class SQLiteTransaction : IDisposable
     /// </summary>
     public void Commit()
     {
+        if (completed)
+        {
+            throw new InvalidOperationException("The transaction has already been committed or rolled back.");
+        }
+
+        completed = true;
         disposed = true;
         Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+
+        if (ownsLock)
+        {
+            Database.ReleaseLock();
+        }
+    }
+
+    /// <summary>
+    /// Commits the transaction.
+    /// </summary>
+    public Task CommitAsync()
+    {
+        Commit();
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -40,8 +63,28 @@ public class SQLiteTransaction : IDisposable
     /// </summary>
     public void Rollback()
     {
+        if (completed)
+        {
+            throw new InvalidOperationException("The transaction has already been committed or rolled back.");
+        }
+
+        completed = true;
         disposed = true;
         Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
+
+        if (ownsLock)
+        {
+            Database.ReleaseLock();
+        }
+    }
+
+    /// <summary>
+    /// Rolls back the transaction.
+    /// </summary>
+    public Task RollbackAsync()
+    {
+        Rollback();
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
@@ -52,6 +95,20 @@ public class SQLiteTransaction : IDisposable
             return;
         }
 
-        Rollback();
+        completed = true;
+        disposed = true;
+        Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
+
+        if (ownsLock)
+        {
+            Database.ReleaseLock();
+        }
+    }
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        Dispose();
+        return ValueTask.CompletedTask;
     }
 }

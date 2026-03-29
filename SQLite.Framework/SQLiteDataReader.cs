@@ -11,15 +11,17 @@ namespace SQLite.Framework;
 public class SQLiteDataReader : IDisposable
 {
     private readonly sqlite3 handle;
+    private readonly IDisposable connectionLock;
 
     internal readonly sqlite3_stmt Statement;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDataReader" /> class.
     /// </summary>
-    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement)
+    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock)
     {
         this.handle = handle;
+        this.connectionLock = connectionLock;
         Statement = statement;
     }
 
@@ -32,6 +34,7 @@ public class SQLiteDataReader : IDisposable
     public void Dispose()
     {
         raw.sqlite3_finalize(Statement);
+        connectionLock.Dispose();
     }
 
     /// <summary>

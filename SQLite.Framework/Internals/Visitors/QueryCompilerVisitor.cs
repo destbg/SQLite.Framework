@@ -26,6 +26,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     private static readonly MethodInfo BinaryNegationOperator;
     private static readonly Dictionary<(Type, MethodInfo), MethodInfo> ConcreteMethodCache = [];
 
+    [DynamicDependency(DynamicallyAccessedMemberTypes.NonPublicMethods, typeof(QueryCompilerVisitor))]
     static QueryCompilerVisitor()
     {
         BinaryAdditionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryAdditionOperator), BindingFlags.Static | BindingFlags.NonPublic)

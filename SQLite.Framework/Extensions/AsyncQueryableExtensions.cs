@@ -15,12 +15,12 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> ExecuteDeleteAsync<T>(this IQueryable<T> source)
     {
-        if (source is not BaseSQLiteTable table)
+        if (source is not BaseSQLiteTable)
         {
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
         }
 
-        return ExecuteAsync(source.ExecuteDelete, table.Database);
+        return ExecuteAsync(source.ExecuteDelete);
     }
 
     /// <summary>
@@ -28,12 +28,12 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> ExecuteDeleteAsync<T>(this IQueryable<T> source, Expression<Func<T, bool>> predicate)
     {
-        if (source is not BaseSQLiteTable table)
+        if (source is not BaseSQLiteTable)
         {
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
         }
 
-        return ExecuteAsync(source.ExecuteDelete, table.Database, predicate);
+        return ExecuteAsync(source.ExecuteDelete, predicate);
     }
 
     /// <summary>
@@ -41,12 +41,12 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> ExecuteUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this IQueryable<T> source, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
     {
-        if (source is not BaseSQLiteTable table)
+        if (source is not BaseSQLiteTable)
         {
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
         }
 
-        return ExecuteAsync(source.ExecuteUpdate, table.Database, setters);
+        return ExecuteAsync(source.ExecuteUpdate, setters);
     }
 
     /// <summary>
@@ -54,7 +54,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item)
     {
-        return ExecuteAsync(source.Add, source.Database, item);
+        return ExecuteAsync(source.Add, item);
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true)
     {
-        return ExecuteAsync(source.AddRange, source.Database, collection, runInTransaction);
+        return ExecuteAsync(source.AddRange, collection, runInTransaction);
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> UpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item)
     {
-        return ExecuteAsync(source.Update, source.Database, item);
+        return ExecuteAsync(source.Update, item);
     }
 
     /// <summary>
@@ -78,7 +78,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true)
     {
-        return ExecuteAsync(source.UpdateRange, source.Database, collection, runInTransaction);
+        return ExecuteAsync(source.UpdateRange, collection, runInTransaction);
     }
 
     /// <summary>
@@ -86,7 +86,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> RemoveAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item)
     {
-        return ExecuteAsync(source.Remove, source.Database, item);
+        return ExecuteAsync(source.Remove, item);
     }
 
     /// <summary>
@@ -94,7 +94,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true)
     {
-        return ExecuteAsync(source.RemoveRange, source.Database, collection, runInTransaction);
+        return ExecuteAsync(source.RemoveRange, collection, runInTransaction);
     }
 
     /// <summary>
@@ -105,7 +105,7 @@ public static class AsyncQueryableExtensions
     /// </remarks>
     public static Task<int> ClearAsync(this SQLiteTable source)
     {
-        return ExecuteAsync(source.Clear, source.Database);
+        return ExecuteAsync(source.Clear);
     }
 
     /// <summary>
@@ -113,7 +113,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> CreateTableAsync(this SQLiteTable source)
     {
-        return ExecuteAsync(source.CreateTable, source.Database);
+        return ExecuteAsync(source.CreateTable);
     }
 
     /// <summary>
@@ -121,7 +121,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> DropTableAsync(this SQLiteTable source)
     {
-        return ExecuteAsync(source.DropTable, source.Database);
+        return ExecuteAsync(source.DropTable);
     }
 
     /// <summary>
@@ -130,18 +130,17 @@ public static class AsyncQueryableExtensions
     public static Task<Dictionary<TKey, TElement>> ToDictionaryAsync<TSource, TKey, TElement>(this IQueryable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector)
         where TKey : notnull
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.ToDictionary, table.Database, keySelector, elementSelector);
+        return ExecuteAsync(source.ToDictionary, keySelector, elementSelector);
     }
 
     /// <summary>
     /// Converts the <see cref="IQueryable{T}" /> to an <see cref="Array" /> of
-    /// <typeparam name="T" />.
+    /// <typeparam name="T" />
+    /// .
     /// </summary>
     public static Task<T[]> ToArrayAsync<T>(this IQueryable<T> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.ToArray, table.Database);
+        return ExecuteAsync(source.ToArray);
     }
 
     /// <summary>
@@ -149,8 +148,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<List<T>> ToListAsync<T>(this IQueryable<T> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.ToList, table.Database);
+        return ExecuteAsync(source.ToList);
     }
 
     /// <summary>
@@ -158,8 +156,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<HashSet<T>> ToHashSetAsync<T>(this IQueryable<T> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.ToHashSet, table.Database);
+        return ExecuteAsync(source.ToHashSet);
     }
 
     /// <summary>
@@ -168,8 +165,7 @@ public static class AsyncQueryableExtensions
     public static Task<ILookup<TKey, TElement>> ToLookupAsync<TSource, TKey, TElement>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector)
         where TKey : notnull
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.ToLookup, table.Database, keySelector, elementSelector);
+        return ExecuteAsync(source.ToLookup, keySelector, elementSelector);
     }
 
     /// <summary>
@@ -177,8 +173,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.First, table.Database);
+        return ExecuteAsync(source.First);
     }
 
     /// <summary>
@@ -186,8 +181,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.First, table.Database, predicate);
+        return ExecuteAsync(source.First, predicate);
     }
 
     /// <summary>
@@ -195,8 +189,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.FirstOrDefault, table.Database);
+        return ExecuteAsync(source.FirstOrDefault);
     }
 
     /// <summary>
@@ -204,8 +197,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> source, TSource defaultValue)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.FirstOrDefault, table.Database, defaultValue);
+        return ExecuteAsync(source.FirstOrDefault, defaultValue);
     }
 
     /// <summary>
@@ -213,8 +205,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.FirstOrDefault, table.Database, predicate);
+        return ExecuteAsync(source.FirstOrDefault, predicate);
     }
 
     /// <summary>
@@ -222,8 +213,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, TSource defaultValue)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.FirstOrDefault, table.Database, predicate, defaultValue);
+        return ExecuteAsync(source.FirstOrDefault, predicate, defaultValue);
     }
 
     /// <summary>
@@ -232,8 +222,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Single, table.Database);
+        return ExecuteAsync(source.Single);
     }
 
     /// <summary>
@@ -242,8 +231,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Single, table.Database, predicate);
+        return ExecuteAsync(source.Single, predicate);
     }
 
     /// <summary>
@@ -252,8 +240,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.SingleOrDefault, table.Database);
+        return ExecuteAsync(source.SingleOrDefault);
     }
 
     /// <summary>
@@ -262,8 +249,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> source, TSource defaultValue)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.SingleOrDefault, table.Database, defaultValue);
+        return ExecuteAsync(source.SingleOrDefault, defaultValue);
     }
 
     /// <summary>
@@ -272,8 +258,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.SingleOrDefault, table.Database, predicate);
+        return ExecuteAsync(source.SingleOrDefault, predicate);
     }
 
     /// <summary>
@@ -282,8 +267,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, TSource defaultValue)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.SingleOrDefault, table.Database, predicate, defaultValue);
+        return ExecuteAsync(source.SingleOrDefault, predicate, defaultValue);
     }
 
     /// <summary>
@@ -291,8 +275,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> ContainsAsync<TSource>(this IQueryable<TSource> source, TSource item)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Contains, table.Database, item);
+        return ExecuteAsync(source.Contains, item);
     }
 
     /// <summary>
@@ -300,8 +283,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> AnyAsync<TSource>(this IQueryable<TSource> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Any, table.Database);
+        return ExecuteAsync(source.Any);
     }
 
     /// <summary>
@@ -309,8 +291,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> AnyAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Any, table.Database, predicate);
+        return ExecuteAsync(source.Any, predicate);
     }
 
     /// <summary>
@@ -318,8 +299,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> AllAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.All, table.Database, predicate);
+        return ExecuteAsync(source.All, predicate);
     }
 
     /// <summary>
@@ -327,8 +307,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> CountAsync<TSource>(this IQueryable<TSource> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Count, table.Database);
+        return ExecuteAsync(source.Count);
     }
 
     /// <summary>
@@ -336,8 +315,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> CountAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Count, table.Database, predicate);
+        return ExecuteAsync(source.Count, predicate);
     }
 
     /// <summary>
@@ -345,8 +323,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.LongCount, table.Database);
+        return ExecuteAsync(source.LongCount);
     }
 
     /// <summary>
@@ -354,8 +331,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.LongCount, table.Database, predicate);
+        return ExecuteAsync(source.LongCount, predicate);
     }
 
     /// <summary>
@@ -363,8 +339,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> MinAsync<TSource>(this IQueryable<TSource> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Min, table.Database);
+        return ExecuteAsync(source.Min);
     }
 
     /// <summary>
@@ -372,8 +347,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TResult?> MinAsync<TSource, TResult>(this IQueryable<TSource> source, Expression<Func<TSource, TResult>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Min, table.Database, selector);
+        return ExecuteAsync(source.Min, selector);
     }
 
     /// <summary>
@@ -381,8 +355,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> MaxAsync<TSource>(this IQueryable<TSource> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Max, table.Database);
+        return ExecuteAsync(source.Max);
     }
 
     /// <summary>
@@ -390,8 +363,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TResult?> MaxAsync<TSource, TResult>(this IQueryable<TSource> source, Expression<Func<TSource, TResult>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Max, table.Database, selector);
+        return ExecuteAsync(source.Max, selector);
     }
 
     /// <summary>
@@ -399,8 +371,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> SumAsync(this IQueryable<int> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -408,8 +379,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int?> SumAsync(this IQueryable<int?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -417,8 +387,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> SumAsync(this IQueryable<long> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -426,8 +395,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long?> SumAsync(this IQueryable<long?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -435,8 +403,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> SumAsync(this IQueryable<float> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -444,8 +411,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> SumAsync(this IQueryable<float?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -453,8 +419,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> SumAsync(this IQueryable<double> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -462,8 +427,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> SumAsync(this IQueryable<double?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -471,8 +435,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> SumAsync(this IQueryable<decimal> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -480,8 +443,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> SumAsync(this IQueryable<decimal?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database);
+        return ExecuteAsync(source.Sum);
     }
 
     /// <summary>
@@ -489,8 +451,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -498,8 +459,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -507,8 +467,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -516,8 +475,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -525,8 +483,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -534,8 +491,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -543,8 +499,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -552,8 +507,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -561,8 +515,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -570,8 +523,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Sum, table.Database, selector);
+        return ExecuteAsync(source.Sum, selector);
     }
 
     /// <summary>
@@ -579,8 +531,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync(this IQueryable<int> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -588,8 +539,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync(this IQueryable<int?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -597,8 +547,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync(this IQueryable<long> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -606,8 +555,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync(this IQueryable<long?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -615,8 +563,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> AverageAsync(this IQueryable<float> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -624,8 +571,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> AverageAsync(this IQueryable<float?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -633,8 +579,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync(this IQueryable<double> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -642,8 +587,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync(this IQueryable<double?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -651,8 +595,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> AverageAsync(this IQueryable<decimal> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -660,8 +603,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> AverageAsync(this IQueryable<decimal?> source)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database);
+        return ExecuteAsync(source.Average);
     }
 
     /// <summary>
@@ -669,8 +611,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
     /// <summary>
@@ -678,8 +619,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
     /// <summary>
@@ -687,8 +627,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
     /// <summary>
@@ -696,8 +635,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
     /// <summary>
@@ -705,8 +643,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
     /// <summary>
@@ -714,8 +651,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
     /// <summary>
@@ -723,8 +659,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
     /// <summary>
@@ -732,8 +667,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
     /// <summary>
@@ -741,8 +675,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
     /// <summary>
@@ -750,40 +683,21 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal?>> selector)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)source;
-        return ExecuteAsync(source.Average, table.Database, selector);
+        return ExecuteAsync(source.Average, selector);
     }
 
-    private static Task<T> ExecuteAsync<T>(Func<T> execute, SQLiteDatabase database)
+    private static Task<T> ExecuteAsync<T>(Func<T> execute)
     {
-        return Task.Factory.StartNew(() =>
-        {
-            using (database.Lock())
-            {
-                return execute();
-            }
-        }, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return Task.Factory.StartNew(execute, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
     }
 
-    private static Task<T> ExecuteAsync<T, TP>(Func<TP, T> execute, SQLiteDatabase database, TP parameter)
+    private static Task<T> ExecuteAsync<T, TP>(Func<TP, T> execute, TP parameter)
     {
-        return Task.Factory.StartNew(() =>
-        {
-            using (database.Lock())
-            {
-                return execute(parameter);
-            }
-        }, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return Task.Factory.StartNew(() => execute(parameter), CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
     }
 
-    private static Task<T> ExecuteAsync<T, TP1, TP2>(Func<TP1, TP2, T> execute, SQLiteDatabase database, TP1 parameter1, TP2 parameter2)
+    private static Task<T> ExecuteAsync<T, TP1, TP2>(Func<TP1, TP2, T> execute, TP1 parameter1, TP2 parameter2)
     {
-        return Task.Factory.StartNew(() =>
-        {
-            using (database.Lock())
-            {
-                return execute(parameter1, parameter2);
-            }
-        }, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return Task.Factory.StartNew(() => execute(parameter1, parameter2), CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
     }
 }

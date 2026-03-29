@@ -15,6 +15,7 @@ export const pages: Page[] = [
     { slug: 'Grouping and Aggregates', title: 'Grouping and Aggregates' },
     { slug: 'Bulk Operations', title: 'Bulk Operations' },
     { slug: 'Transactions', title: 'Transactions' },
+    { slug: 'Multi-threading', title: 'Multi-threading' },
     { slug: 'Raw SQL', title: 'Raw SQL' },
     { slug: 'Common Table Expressions', title: 'Common Table Expressions' },
     { slug: 'Data Types', title: 'Data Types' },
