@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using System.Numerics;
 using System.Reflection;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
@@ -17,6 +18,30 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </remarks>
 internal class QueryCompilerVisitor : ExpressionVisitor
 {
+    private static readonly MethodInfo BinaryAdditionOperator;
+    private static readonly MethodInfo BinarySubtractionOperator;
+    private static readonly MethodInfo BinaryMultiplyOperator;
+    private static readonly MethodInfo BinaryDivisionOperator;
+    private static readonly MethodInfo BinaryModulusOperator;
+    private static readonly MethodInfo BinaryNegationOperator;
+    private static readonly Dictionary<(Type, MethodInfo), MethodInfo> ConcreteMethodCache = [];
+
+    static QueryCompilerVisitor()
+    {
+        BinaryAdditionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryAdditionOperator), BindingFlags.Static | BindingFlags.NonPublic)
+                                 ?? throw new InvalidOperationException("Binary operator method not found.");
+        BinarySubtractionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinarySubtractionOperator), BindingFlags.Static | BindingFlags.NonPublic)
+                                    ?? throw new InvalidOperationException("Binary operator method not found.");
+        BinaryMultiplyOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryMultiplyOperator), BindingFlags.Static | BindingFlags.NonPublic)
+                                 ?? throw new InvalidOperationException("Binary operator method not found.");
+        BinaryDivisionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryDivisionOperator), BindingFlags.Static | BindingFlags.NonPublic)
+                                 ?? throw new InvalidOperationException("Binary operator method not found.");
+        BinaryModulusOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryModulusOperator), BindingFlags.Static | BindingFlags.NonPublic)
+                                ?? throw new InvalidOperationException("Binary operator method not found.");
+        BinaryNegationOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryNegationOperator), BindingFlags.Static | BindingFlags.NonPublic)
+                                 ?? throw new InvalidOperationException("Binary operator method not found.");
+    }
+
     public Expression VisitSQLExpression(SQLExpression node)
     {
         return new CompiledExpression(node.Type, ctx =>
@@ -33,8 +58,8 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
         return new CompiledExpression(node.Type, ctx =>
         {
-            dynamic? leftValue = left.Call(ctx);
-            dynamic? rightValue = right.Call(ctx);
+            object? leftValue = left.Call(ctx);
+            object? rightValue = right.Call(ctx);
 
             if (node.NodeType == ExpressionType.ArrayIndex)
             {
@@ -46,23 +71,29 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 throw new InvalidOperationException("Array index operation requires an array on the left and an integer index on the right.");
             }
 
+            if (node.Method != null)
+            {
+                return node.Method.Invoke(null, [leftValue, rightValue]);
+            }
+
             return node.NodeType switch
             {
-                ExpressionType.Equal => Equals(leftValue as object, rightValue as object),
-                ExpressionType.NotEqual => !Equals(leftValue as object, rightValue as object),
-                ExpressionType.GreaterThan => leftValue > rightValue,
-                ExpressionType.GreaterThanOrEqual => leftValue >= rightValue,
-                ExpressionType.LessThan => leftValue < rightValue,
-                ExpressionType.LessThanOrEqual => leftValue <= rightValue,
-                ExpressionType.And => leftValue && rightValue,
-                ExpressionType.Or => leftValue || rightValue,
-                ExpressionType.AndAlso => leftValue && rightValue,
-                ExpressionType.OrElse => leftValue || rightValue,
-                ExpressionType.Add => leftValue + rightValue,
-                ExpressionType.Subtract => leftValue - rightValue,
-                ExpressionType.Multiply => leftValue * rightValue,
-                ExpressionType.Divide => leftValue / rightValue,
-                ExpressionType.Modulo => leftValue % rightValue,
+                ExpressionType.Equal => Equals(leftValue, rightValue),
+                ExpressionType.NotEqual => !Equals(leftValue, rightValue),
+                ExpressionType.And => (bool)leftValue! && (bool)rightValue!,
+                ExpressionType.Or => (bool)leftValue! || (bool)rightValue!,
+                ExpressionType.AndAlso => (bool)leftValue! && (bool)rightValue!,
+                ExpressionType.OrElse => (bool)leftValue! || (bool)rightValue!,
+                ExpressionType.GreaterThan => CompareValues(leftValue, rightValue) > 0,
+                ExpressionType.GreaterThanOrEqual => CompareValues(leftValue, rightValue) >= 0,
+                ExpressionType.LessThan => CompareValues(leftValue, rightValue) < 0,
+                ExpressionType.LessThanOrEqual => CompareValues(leftValue, rightValue) <= 0,
+                ExpressionType.Add when leftValue is string sl && rightValue is string sr => sl + sr,
+                ExpressionType.Add => InvokeOperator(BinaryAdditionOperator, leftValue!, rightValue!),
+                ExpressionType.Subtract => InvokeOperator(BinarySubtractionOperator, leftValue!, rightValue!),
+                ExpressionType.Multiply => InvokeOperator(BinaryMultiplyOperator, leftValue!, rightValue!),
+                ExpressionType.Divide => InvokeOperator(BinaryDivisionOperator, leftValue!, rightValue!),
+                ExpressionType.Modulo => InvokeOperator(BinaryModulusOperator, leftValue!, rightValue!),
                 _ => throw new NotSupportedException($"The binary operator '{node.NodeType}' is not supported.")
             };
         });
@@ -76,7 +107,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
         return new CompiledExpression(node.Type, ctx =>
         {
-            dynamic? testValue = test.Call(ctx);
+            object? testValue = test.Call(ctx);
             return testValue is not null and not false ? ifTrue.Call(ctx) : ifFalse.Call(ctx);
         });
     }
@@ -138,7 +169,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
             return new CompiledExpression(node.Type, context =>
             {
-                dynamic? instance = innerExpression.Call(context);
+                object? instance = innerExpression.Call(context);
                 return node.Member switch
                 {
                     FieldInfo field => field.GetValue(instance),
@@ -179,13 +210,13 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     {
         if (node.Constructor != null)
         {
+            CompiledExpression[] compiledArgs = node.Arguments
+                .Select(arg => (CompiledExpression)Visit(arg))
+                .ToArray();
+
             return new CompiledExpression(node.Type, ctx =>
             {
-                object?[] arguments = node.Arguments
-                    .Select(arg => (CompiledExpression)Visit(arg))
-                    .Select(f => f.Call(ctx))
-                    .ToArray();
-
+                object?[] arguments = compiledArgs.Select(f => f.Call(ctx)).ToArray();
                 return node.Constructor.Invoke(arguments);
             });
         }
@@ -217,14 +248,16 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
         return new CompiledExpression(node.Type, ctx =>
         {
-            dynamic? operandValue = operand.Call(ctx);
+            object? operandValue = operand.Call(ctx);
+
             return node.NodeType switch
             {
-                ExpressionType.Negate => -operandValue,
-                ExpressionType.NegateChecked => -operandValue,
-                ExpressionType.Not => !operandValue,
-                ExpressionType.Convert => Convert.ChangeType(operandValue as object, node.Type),
-                ExpressionType.ConvertChecked => Convert.ChangeType(operandValue as object, node.Type),
+                ExpressionType.Negate or ExpressionType.NegateChecked => node.Method != null
+                    ? node.Method.Invoke(null, [operandValue])
+                    : InvokeUnaryOperator(BinaryNegationOperator, operandValue!),
+                ExpressionType.Not => !(bool)operandValue!,
+                ExpressionType.Convert => Convert.ChangeType(operandValue, node.Type),
+                ExpressionType.ConvertChecked => Convert.ChangeType(operandValue, node.Type),
                 _ => throw new NotSupportedException($"The unary operator '{node.NodeType}' is not supported.")
             };
         });
@@ -265,7 +298,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
         return new CompiledExpression(node.Type, ctx =>
         {
-            dynamic? instance = newExpression.Call(ctx);
+            object? instance = newExpression.Call(ctx);
             foreach ((MethodInfo addMethod, CompiledExpression[] arguments) in initializers)
             {
                 addMethod.Invoke(instance, arguments.Select(arg => arg.Call(ctx)).ToArray());
@@ -292,7 +325,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
         return new CompiledExpression(node.Type, ctx =>
         {
-            dynamic? instance = newExpression.Call(ctx);
+            object? instance = newExpression.Call(ctx);
             foreach ((MemberBinding binding, CompiledExpression expression) in bindings)
             {
                 if (binding is MemberMemberBinding)
@@ -467,5 +500,95 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
             return null;
         });
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Generic operator methods are resolved at runtime; types are preserved via TrimmerRootDescriptor")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Generic operator methods are resolved at runtime; types are preserved via TrimmerRootDescriptor")]
+    private static object? InvokeOperator(MethodInfo openMethod, object left, object right)
+    {
+        Type type = left.GetType();
+        MethodInfo concrete;
+        lock (ConcreteMethodCache)
+        {
+            if (!ConcreteMethodCache.TryGetValue((type, openMethod), out concrete!))
+            {
+                concrete = openMethod.MakeGenericMethod(type);
+                ConcreteMethodCache[(type, openMethod)] = concrete;
+            }
+        }
+
+        return concrete.Invoke(null, [left, right]);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Generic operator methods are resolved at runtime; types are preserved via TrimmerRootDescriptor")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Generic operator methods are resolved at runtime; types are preserved via TrimmerRootDescriptor")]
+    private static object? InvokeUnaryOperator(MethodInfo openMethod, object operand)
+    {
+        Type type = operand.GetType();
+        MethodInfo concrete;
+        lock (ConcreteMethodCache)
+        {
+            if (!ConcreteMethodCache.TryGetValue((type, openMethod), out concrete!))
+            {
+                concrete = openMethod.MakeGenericMethod(type);
+                ConcreteMethodCache[(type, openMethod)] = concrete;
+            }
+        }
+
+        return concrete.Invoke(null, [operand]);
+    }
+
+    private static int CompareValues(object? left, object? right)
+    {
+        if (left is IComparable comparable)
+        {
+            return comparable.CompareTo(right);
+        }
+        else if (right is IComparable comparable2)
+        {
+            return comparable2.CompareTo(left);
+        }
+        else if (left == null && right == null)
+        {
+            return 0;
+        }
+
+        throw new NotSupportedException($"Cannot compare values of type '{left?.GetType()}'.");
+    }
+
+    private static T ApplyBinaryAdditionOperator<T>(T left, T right)
+        where T : IAdditionOperators<T, T, T>
+    {
+        return left + right;
+    }
+
+    private static T ApplyBinarySubtractionOperator<T>(T left, T right)
+        where T : ISubtractionOperators<T, T, T>
+    {
+        return left - right;
+    }
+
+    private static T ApplyBinaryMultiplyOperator<T>(T left, T right)
+        where T : IMultiplyOperators<T, T, T>
+    {
+        return left * right;
+    }
+
+    private static T ApplyBinaryDivisionOperator<T>(T left, T right)
+        where T : IDivisionOperators<T, T, T>
+    {
+        return left / right;
+    }
+
+    private static T ApplyBinaryModulusOperator<T>(T left, T right)
+        where T : IModulusOperators<T, T, T>
+    {
+        return left % right;
+    }
+
+    private static T ApplyBinaryNegationOperator<T>(T operand)
+        where T : IUnaryNegationOperators<T, T>
+    {
+        return -operand;
     }
 }

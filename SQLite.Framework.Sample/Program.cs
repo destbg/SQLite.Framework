@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Sample.DTOs;
 using SQLite.Framework.Sample.Models;
@@ -271,6 +272,7 @@ public static class Program
         Console.WriteLine($"Orders with notes: {ordersWithNotes.Count}");
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "All types used in expression trees are referenced directly and will not be trimmed.")]
     private static void JoinExamples(SQLiteDatabase db)
     {
         // INNER JOIN (using join keyword)
@@ -326,6 +328,7 @@ public static class Program
         Console.WriteLine($"Complex join results: {complexJoin.Count}");
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "All types used in expression trees are referenced directly and will not be trimmed.")]
     private static void ComplexProjections(SQLiteDatabase db)
     {
         // Project to DTO with nested object

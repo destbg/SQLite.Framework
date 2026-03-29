@@ -1,0 +1,24 @@
+<linker>
+  <assembly fullname="System.Private.CoreLib">
+    <type fullname="System.Boolean" preserve="all" />
+    <type fullname="System.Byte" preserve="all" />
+    <type fullname="System.SByte" preserve="all" />
+    <type fullname="System.Char" preserve="all" />
+    <type fullname="System.Int16" preserve="all" />
+    <type fullname="System.UInt16" preserve="all" />
+    <type fullname="System.Int32" preserve="all" />
+    <type fullname="System.UInt32" preserve="all" />
+    <type fullname="System.Int64" preserve="all" />
+    <type fullname="System.UInt64" preserve="all" />
+    <type fullname="System.Single" preserve="all" />
+    <type fullname="System.Double" preserve="all" />
+    <type fullname="System.Decimal" preserve="all" />
+    <type fullname="System.String" preserve="all" />
+    <type fullname="System.DateTime" preserve="all" />
+    <type fullname="System.DateTimeOffset" preserve="all" />
+    <type fullname="System.DateOnly" preserve="all" />
+    <type fullname="System.TimeOnly" preserve="all" />
+    <type fullname="System.TimeSpan" preserve="all" />
+    <type fullname="System.Guid" preserve="all" />
+  </assembly>
+</linker>

@@ -10,13 +10,13 @@ namespace SQLite.Framework.Internals.Models;
 [ExcludeFromCodeCoverage]
 internal class CompiledExpression : Expression
 {
-    public CompiledExpression(Type type, Func<QueryContext, dynamic?> call)
+    public CompiledExpression(Type type, Func<QueryContext, object?> call)
     {
         Type = type;
         Call = call;
     }
 
-    public new Func<QueryContext, dynamic?> Call { get; }
+    public new Func<QueryContext, object?> Call { get; }
 
     public override Type Type { get; }
     public override ExpressionType NodeType => ExpressionType.Call;

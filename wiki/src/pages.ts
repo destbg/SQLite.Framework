@@ -20,5 +20,6 @@ export const pages: Page[] = [
     { slug: 'Data Types', title: 'Data Types' },
     { slug: 'Storage Options', title: 'Storage Options' },
     { slug: 'Performance', title: 'Performance' },
+    { slug: 'Native AOT', title: 'Native AOT' },
     { slug: 'Migrating from sqlite-net-pcl', title: 'Migrating from sqlite-net-pcl' },
 ]

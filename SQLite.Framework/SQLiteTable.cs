@@ -246,7 +246,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
     {
-        return Provider.Execute<IEnumerable<T>>(Expression).GetEnumerator();
+        return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
     }
 
     /// <inheritdoc />

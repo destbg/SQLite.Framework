@@ -127,7 +127,7 @@ FROM cte0 AS f0
 
 ### Org chart BFS
 
-Walk a reporting hierarchy and assign a depth level to each person. This uses two CTEs — the first wraps the table, the second is the recursive traversal:
+Walk a reporting hierarchy and assign a depth level to each person. This uses two CTEs, the first wraps the table, the second is the recursive traversal:
 
 ```csharp
 class Org { public required string Name { get; set; } public string? Boss { get; set; } }

@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
@@ -52,6 +53,29 @@ public static class SQLiteCommandExtensions
                 }
 
                 yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns, query.CreateObject)!;
+            }
+        }
+    }
+
+    internal static IEnumerable ExecuteQueryUntypedInternal(this SQLiteCommand command, SQLQuery query, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType)
+    {
+        IEnumerable<object?> enumerable = Enumerate(command, query, elementType);
+        return query.Reverse ? enumerable.Reverse() : enumerable;
+
+        static IEnumerable<object?> Enumerate(SQLiteCommand command, SQLQuery query, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType)
+        {
+            using SQLiteDataReader reader = command.ExecuteReader();
+
+            Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = [];
+
+            while (reader.Read())
+            {
+                if (columns.Count == 0)
+                {
+                    columns = CommandHelpers.GetColumnNames(reader.Statement);
+                }
+
+                yield return BuildQueryObject.CreateInstance(reader, elementType, columns, query.CreateObject);
             }
         }
     }

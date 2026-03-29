@@ -107,10 +107,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         throw new NotSupportedException("Only generic queries are supported.");
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Method is marked to not be trimmed.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of the client assemblies.")]
     [UnconditionalSuppressMessage("AOT", "IL2076", Justification = "The type should be part of the client assemblies.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "There is no problem as List<T> will not be trimmed.")]
     [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Type does meet the requirements as it starts from SQLiteTable<T>.")]
     TResult IQueryProvider.Execute<TResult>(Expression expression)
     {
@@ -118,37 +116,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         SQLTranslator translator = new(this);
         SQLQuery query = translator.Translate(expression);
 
-        if (expression.Type.IsGenericType)
+        if (typeof(TResult) == typeof(IEnumerable) && CommonHelpers.IsConstant(expression))
         {
-            Type genericType = expression.Type.GetGenericTypeDefinition();
-            if (CommonHelpers.GetQueryableType(expression.Type) != null || genericType == typeof(IEnumerable<>))
-            {
-                Type genericElementType = expression.Type.GetGenericArguments()[0];
-                MethodInfo executeQueryMethod = typeof(SQLiteCommandExtensions).GetMethod(
-                    nameof(SQLiteCommandExtensions.ExecuteQueryInternal),
-                    BindingFlags.Static | BindingFlags.NonPublic
-                )!;
-                MethodInfo genericExecuteQueryMethod = executeQueryMethod.MakeGenericMethod(genericElementType);
-
-                SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
-                return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query])!;
-            }
-        }
-        else if (typeof(TResult) == typeof(IEnumerable) && CommonHelpers.IsConstant(expression))
-        {
-#pragma warning disable IL2075 // The element has public constructor
             BaseSQLiteTable table = (BaseSQLiteTable)CommonHelpers.GetConstantValue(expression)!;
-
-            Type genericElementType = table.ElementType;
-            MethodInfo executeQueryMethod = typeof(SQLiteCommandExtensions).GetMethod(
-                nameof(SQLiteCommandExtensions.ExecuteQueryInternal),
-                BindingFlags.Static | BindingFlags.NonPublic
-            )!;
-            MethodInfo genericExecuteQueryMethod = executeQueryMethod.MakeGenericMethod(genericElementType);
-
             SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
-            return (TResult)genericExecuteQueryMethod.Invoke(null, [command, query])!;
-#pragma warning restore IL2075
+            return (TResult)command.ExecuteQueryUntypedInternal(query, table.ElementType);
         }
 
         Type elementType = expression.Type;
@@ -191,6 +163,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     object IQueryProvider.Execute(Expression expression)
     {
         throw new NotSupportedException("Only generic queries are supported.");
+    }
+
+    internal IEnumerable<T> ExecuteSequenceQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression expression)
+    {
+        SQLTranslator translator = new(this);
+        SQLQuery query = translator.Translate(expression);
+        SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
+        return command.ExecuteQueryInternal<T>(query);
     }
 
     /// <summary>
@@ -317,6 +297,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// Wraps the provided SQL query and parameters into a queryable object.
     /// </summary>
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The type should be part of the client assemblies.")]
+    [UnconditionalSuppressMessage("AOT", "IL2091", Justification = "The type should be part of the client assemblies.")]
     public IQueryable<T> FromSql<T>(string sql, params SQLiteParameter[] parameters)
     {
         if (string.IsNullOrWhiteSpace(sql))
