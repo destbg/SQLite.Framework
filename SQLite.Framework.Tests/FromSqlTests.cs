@@ -7,6 +7,7 @@ namespace SQLite.Framework.Tests;
 
 public class FromSqlTests
 {
+    private static string N(string s) => s.Replace("\r\n", "\n");
     [Fact]
     public void FromSqlWithoutParameters_GeneratesSubquery()
     {
@@ -31,7 +32,7 @@ public class FromSqlTests
     {
         using TestDatabase db = new();
 
-        const string sql = "SELECT * FROM \"Books\" WHERE \"BookTitle\" = @title";
+        const string sql = "SELECT * FROM \"Books\" WHERE BookTitle = @title";
         SQLiteCommand command = db.FromSql<Book>(sql, new SQLiteParameter
         {
             Name = "@title",
@@ -56,7 +57,7 @@ public class FromSqlTests
     {
         using TestDatabase db = new();
 
-        const string sql = "SELECT * FROM \"Books\" WHERE \"BookTitle\" = @title AND \"BookAuthorId\" = @authorId";
+        const string sql = "SELECT * FROM \"Books\" WHERE BookTitle = @title AND BookAuthorId = @authorId";
         SQLiteCommand command = db.FromSql<Book>(sql,
             new SQLiteParameter
             {
@@ -212,7 +213,7 @@ public class FromSqlTests
     {
         using TestDatabase db = new();
 
-        const string sql = "SELECT * FROM \"Books\" WHERE \"BookTitle\" = @title";
+        const string sql = "SELECT * FROM \"Books\" WHERE BookTitle = @title";
         SQLiteParameter param = new()
         {
             Name = "@title",
@@ -426,11 +427,17 @@ public class FromSqlTests
         });
 
         SQLiteException ex = Assert.Throws<SQLiteException>(() =>
-            db.FromSql<SimpleEntity>("SELECT \"Id\", \"Title\" FROM \"SimpleEntity\"").ToList()
+            db.FromSql<SimpleEntity>("SELECT Id, Title FROM \"SimpleEntity\"").ToList()
         );
 
         Assert.Contains("no such column: s0.Author", ex.Message);
-        Assert.Contains("SELECT", ex.Sql);
+        Assert.Equal(N(
+            """
+            SELECT s0.Id AS "Id",
+                   s0.Title AS "Title",
+                   s0.Author AS "Author"
+            FROM (SELECT Id, Title FROM "SimpleEntity") AS s0
+            """), ex.Sql);
     }
 
     public class SimpleEntity

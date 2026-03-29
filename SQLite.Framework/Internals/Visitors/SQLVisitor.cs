@@ -44,6 +44,15 @@ internal class SQLVisitor : ExpressionVisitor
     public SQLExpression? From { get; private set; }
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments { get; set; } = [];
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
+    public CteRegistry? CteRegistry { get; set; }
+    public Dictionary<ParameterExpression, (string Alias, Dictionary<string, Expression> Columns)> CteParameters { get; set; } = [];
+
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
+    public void AssignValues(SQLExpression fromExpression, Dictionary<string, Expression> columns)
+    {
+        From = fromExpression;
+        TableColumns = columns;
+    }
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
     public void AssignTable(Type entityType, SQLExpression? sql = null)
@@ -69,7 +78,9 @@ internal class SQLVisitor : ExpressionVisitor
         return new SQLTranslator(Database, ParamIndex, IdentifierIndex, TableIndex, innerLevel)
         {
             MethodArguments = MethodArguments,
-            IsInnerQuery = true
+            IsInnerQuery = true,
+            CteRegistry = CteRegistry,
+            CteParameters = CteParameters
         };
     }
 
@@ -214,6 +225,12 @@ internal class SQLVisitor : ExpressionVisitor
     {
         object? value = CommonHelpers.GetConstantValue(node);
 
+        if (value is SQLiteCte cte)
+        {
+            AssignCte(cte);
+            return new SQLExpression(node.Type, -1, From!.Sql, From!.Parameters);
+        }
+
         if (value is BaseSQLiteTable table)
         {
             AssignTable(table.ElementType);
@@ -221,6 +238,66 @@ internal class SQLVisitor : ExpressionVisitor
         }
 
         return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", value);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types have public properties.")]
+    private void AssignCte(SQLiteCte cte)
+    {
+        CteRegistry ??= new CteRegistry();
+
+        Type elementType = cte.ElementType;
+        char aliasChar = char.ToLowerInvariant(elementType.Name[0]);
+        string alias = $"{aliasChar}{TableIndex[aliasChar]++}";
+
+        string? cachedName = CteRegistry.TryGetName(cte);
+        if (cachedName != null)
+        {
+            From = new SQLExpression(elementType, -1, $"{cachedName} AS {alias}");
+            TableColumns = elementType.GetProperties()
+                .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, IdentifierIndex.Index++, $"{alias}.{f.Name}"));
+            return;
+        }
+
+        LambdaExpression lambda = cte.Query;
+        bool isRecursive = lambda.Parameters.Count == 1;
+
+        string cteName;
+
+        if (isRecursive)
+        {
+            ParameterExpression selfParam = lambda.Parameters[0];
+
+            string placeholder = $"{aliasChar}__cte_self_{CteRegistry.Ctes.Count}__";
+
+            Dictionary<string, Expression> selfColumns = elementType.GetProperties()
+                .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, IdentifierIndex.Index++, $"{placeholder}.{f.Name}"));
+
+            CteParameters[selfParam] = (placeholder, selfColumns);
+            MethodArguments[selfParam] = selfColumns;
+
+            SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
+            SQLQuery bodyQuery = bodyTranslator.Translate(lambda.Body);
+
+            string finalName = $"cte{CteRegistry.Ctes.Count}";
+            string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
+
+            cteName = CteRegistry.Register(fixedSql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: true, key: cte);
+
+            CteParameters.Remove(selfParam);
+            MethodArguments.Remove(selfParam);
+        }
+        else
+        {
+            SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
+            SQLQuery bodyQuery = bodyTranslator.Translate(lambda.Body);
+
+            cteName = CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: false, key: cte);
+        }
+
+        From = new SQLExpression(elementType, -1, $"{cteName} AS {alias}");
+
+        TableColumns = elementType.GetProperties()
+            .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, IdentifierIndex.Index++, $"{alias}.{f.Name}"));
     }
 
     protected override Expression VisitConditional(ConditionalExpression node)
@@ -248,6 +325,12 @@ internal class SQLVisitor : ExpressionVisitor
         if (CommonHelpers.IsConstant(node))
         {
             object? value = CommonHelpers.GetConstantValue(node);
+            if (value is SQLiteCte cte)
+            {
+                AssignCte(cte);
+                return new SQLExpression(node.Type, -1, From!.Sql, From!.Parameters);
+            }
+
             if (value is BaseSQLiteTable table)
             {
                 AssignTable(table.ElementType);
@@ -310,6 +393,21 @@ internal class SQLVisitor : ExpressionVisitor
 
     protected override Expression VisitParameter(ParameterExpression node)
     {
+        if (CteParameters.TryGetValue(node, out (string Alias, Dictionary<string, Expression> Columns) cteRef))
+        {
+            char aliasChar = cteRef.Alias[0];
+            string alias = $"{aliasChar}{TableIndex[aliasChar]++}";
+
+            From = new SQLExpression(node.Type, -1, $"{cteRef.Alias} AS {alias}");
+            TableColumns = cteRef.Columns
+                .ToDictionary(kv => kv.Key, Expression (kv) => new SQLExpression(
+                    ((SQLExpression)kv.Value).Type,
+                    IdentifierIndex.Index++,
+                    $"{alias}.{kv.Key}"));
+
+            return new SQLExpression(node.Type, -1, From.Sql);
+        }
+
         return ResolveMember(node);
     }
 

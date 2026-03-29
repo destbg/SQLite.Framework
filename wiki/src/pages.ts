@@ -16,6 +16,7 @@ export const pages: Page[] = [
     { slug: 'Bulk Operations', title: 'Bulk Operations' },
     { slug: 'Transactions', title: 'Transactions' },
     { slug: 'Raw SQL', title: 'Raw SQL' },
+    { slug: 'Common Table Expressions', title: 'Common Table Expressions' },
     { slug: 'Data Types', title: 'Data Types' },
     { slug: 'Storage Options', title: 'Storage Options' },
     { slug: 'Performance', title: 'Performance' },

@@ -339,6 +339,37 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Wraps a single row of values into a queryable object using a VALUES clause.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The type should be part of the client assemblies.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "The type should be part of the client assemblies.")]
+    public IQueryable<T> Values<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(T value)
+    {
+        return new Queryable<T>(this, Expression.Call(
+            Expression.Constant(this),
+            typeof(SQLiteDatabase).GetMethod(nameof(Values), BindingFlags.Instance | BindingFlags.Public)!
+                .MakeGenericMethod(typeof(T)),
+            Expression.Constant(value, typeof(T))
+        ));
+    }
+
+    /// <summary>
+    /// Defines a non-recursive Common Table Expression (CTE) that can be used in a subsequent query.
+    /// </summary>
+    public SQLiteCte<T> With<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression<Func<IQueryable<T>>> query)
+    {
+        return new SQLiteCte<T>(this, query);
+    }
+
+    /// <summary>
+    /// Defines a recursive Common Table Expression (CTE). The lambda parameter is the self-reference used in the recursive term.
+    /// </summary>
+    public SQLiteCte<T> WithRecursive<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression<Func<IQueryable<T>, IQueryable<T>>> query)
+    {
+        return new SQLiteCte<T>(this, query);
+    }
+
+    /// <summary>
     /// Executes the SQL query and returns the results as a list.
     /// </summary>
     public List<T> Query<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)

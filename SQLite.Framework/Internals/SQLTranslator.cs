@@ -22,6 +22,7 @@ internal class SQLTranslator
     private readonly List<SQLiteParameter> parameters = [];
     private readonly QueryableMethodVisitor queryableMethodVisitor;
     private Expression? selectMethodExpression;
+    private bool isInnerQuery;
 
     public SQLTranslator(SQLiteDatabase database)
     {
@@ -47,9 +48,20 @@ internal class SQLTranslator
         init => Visitor.MethodArguments = value;
     }
 
+    public CteRegistry? CteRegistry
+    {
+        init => Visitor.CteRegistry = value;
+    }
+
+    public Dictionary<ParameterExpression, (string Alias, Dictionary<string, Expression> Columns)> CteParameters
+    {
+        init => Visitor.CteParameters = value;
+    }
+
     public bool IsInnerQuery
     {
-        set => queryableMethodVisitor.IsInnerQuery = value;
+        get => isInnerQuery;
+        set { isInnerQuery = value; queryableMethodVisitor.IsInnerQuery = value; }
     }
 
     public QueryType QueryType { get; init; }
@@ -79,6 +91,8 @@ internal class SQLTranslator
         {
             throw new InvalidOperationException("Could not identify FROM clause.");
         }
+
+        CteRegistry? cteRegistry = Visitor.CteRegistry;
 
         string spacing = new(' ', level * 4);
 
@@ -241,13 +255,35 @@ internal class SQLTranslator
             sql = $"{sql}{Environment.NewLine}{setOperations}";
         }
 
-        if (queryableMethodVisitor.IsAny)
+        if (!isInnerQuery)
         {
-            sql = $"{spacing}SELECT EXISTS({sql.Trim()}) as result";
+            if (queryableMethodVisitor.IsAny)
+            {
+                sql = $"{spacing}SELECT EXISTS({sql.Trim()}) as result";
+            }
+            else if (queryableMethodVisitor.IsAll)
+            {
+                sql = $"{spacing}SELECT NOT EXISTS({sql.Trim()}) as result";
+            }
         }
-        else if (queryableMethodVisitor.IsAll)
+
+        if (level == 0 && cteRegistry?.Ctes.Count > 0)
         {
-            sql = $"{spacing}SELECT NOT EXISTS({sql.Trim()}) as result";
+            bool anyRecursive = cteRegistry.Ctes.Any(c => c.IsRecursive);
+            string withKeyword = anyRecursive ? "WITH RECURSIVE" : "WITH";
+
+            string cteSql = string.Join($",{Environment.NewLine}", cteRegistry.Ctes.Select(c =>
+                $"{c.Name} AS ({Environment.NewLine}{c.Sql}{Environment.NewLine})"));
+
+            sql = $"{withKeyword} {cteSql}{Environment.NewLine}{sql}";
+
+            foreach (CteInfo cte in cteRegistry.Ctes)
+            {
+                if (cte.Parameters != null)
+                {
+                    parameters.InsertRange(0, cte.Parameters);
+                }
+            }
         }
 
         Func<QueryContext, dynamic?>? createObject;
@@ -334,18 +370,23 @@ internal class SQLTranslator
             Visitor.Visit(callExpression.Arguments[0]);
         }
 
-        if (methodCalls.All(f => !IsSelectMethod(f.Method)))
+        if (methodCalls.Count == 0 || methodCalls.All(f => !IsSelectMethod(f.Method)))
         {
-            if (methodCalls[0].Type.IsAssignableTo(typeof(IQueryable)))
+            Type selectType;
+
+            if (methodCalls.Count > 0)
             {
-                MethodCallExpression selectMethod = CreateIdentitySelectExpression(methodCalls[0].Type.GetGenericArguments()[0]);
-                methodCalls.Insert(0, selectMethod);
+                selectType = methodCalls[0].Type.IsAssignableTo(typeof(IQueryable))
+                    ? methodCalls[0].Type.GetGenericArguments()[0]
+                    : methodCalls[0].Type;
             }
             else
             {
-                MethodCallExpression selectMethod = CreateIdentitySelectExpression(methodCalls[0].Type);
-                methodCalls.Insert(0, selectMethod);
+                selectType = Visitor.From!.Type;
             }
+
+            MethodCallExpression selectMethod = CreateIdentitySelectExpression(selectType);
+            methodCalls.Insert(0, selectMethod);
         }
 
         Expression? selectExpression = null;

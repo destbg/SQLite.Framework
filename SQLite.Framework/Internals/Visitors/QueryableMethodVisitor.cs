@@ -70,8 +70,7 @@ internal class QueryableMethodVisitor
             nameof(Queryable.SingleOrDefault) => VisitScalar(node),
             nameof(Queryable.Any) => VisitBoolean(node),
             nameof(Queryable.All) => VisitBoolean(node),
-            nameof(Queryable.Count)
-                or nameof(Queryable.LongCount) => VisitGroupFunction(node, "COUNT"),
+            nameof(Queryable.Count) or nameof(Queryable.LongCount) => VisitGroupFunction(node, "COUNT"),
             nameof(Queryable.Sum) => VisitGroupFunction(node, "SUM"),
             nameof(Queryable.Max) => VisitGroupFunction(node, "MAX"),
             nameof(Queryable.Min) => VisitGroupFunction(node, "MIN"),
@@ -86,6 +85,7 @@ internal class QueryableMethodVisitor
             nameof(Queryable.Reverse) => VisitReverse(node),
             nameof(Queryable.Cast) => node,
             nameof(SQLiteDatabase.FromSql) => VisitFromSql(node),
+            nameof(SQLiteDatabase.Values) => VisitValues(node),
             _ => throw new NotSupportedException($"Unsupported method: {node.Method}")
         };
     }
@@ -565,6 +565,54 @@ internal class QueryableMethodVisitor
         return node;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types should have public properties.")]
+    [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "All types should have public properties.")]
+    private MethodCallExpression VisitValues(MethodCallExpression node)
+    {
+        Type genericType = node.Method.ReturnType.GetGenericArguments()[0];
+        object? value = CommonHelpers.GetConstantValue(node.Arguments[0]);
+
+        List<string> columnNames = [];
+        List<string> paramPlaceholders = [];
+        List<SQLiteParameter> sqlParams = [];
+
+        if (CommonHelpers.IsSimple(genericType))
+        {
+            string paramName = $"@p{visitor.ParamIndex.Index++}";
+            columnNames.Add("column__1");
+            paramPlaceholders.Add(paramName);
+            sqlParams.Add(new SQLiteParameter { Name = paramName, Value = value });
+        }
+        else
+        {
+            foreach (PropertyInfo prop in genericType.GetProperties())
+            {
+                string paramName = $"@p{visitor.ParamIndex.Index++}";
+                columnNames.Add(prop.Name);
+                paramPlaceholders.Add(paramName);
+                sqlParams.Add(new SQLiteParameter { Name = paramName, Value = prop.GetValue(value) });
+            }
+        }
+
+        char aliasChar = char.ToLowerInvariant(genericType.Name.FirstOrDefault(char.IsLetter, 'v'));
+        string alias = $"{aliasChar}{visitor.TableIndex[aliasChar]++}";
+
+        string selectList = string.Join(", ", paramPlaceholders.Select((p, i) => $"{p} AS \"{columnNames[i]}\""));
+        string valuesSql = $"(SELECT {selectList}) AS {alias}";
+        SQLiteParameter[]? parameters = sqlParams.Count == 0 ? null : [.. sqlParams];
+
+        SQLExpression fromExpression = new(genericType, -1, valuesSql, parameters);
+        Dictionary<string, Expression> columns = columnNames
+            .ToDictionary(
+                col => col == "column__1" ? string.Empty : col, Expression (col) => new SQLExpression(
+                    col == "column__1" ? genericType : genericType.GetProperty(col)!.PropertyType,
+                    visitor.IdentifierIndex.Index++,
+                    $"{alias}.\"{col}\""));
+
+        visitor.AssignValues(fromExpression, columns);
+        return node;
+    }
+
     private void CheckWhereArgument(MethodCallExpression node)
     {
         if (node.Arguments.Count == 2)
@@ -611,7 +659,64 @@ internal class QueryableMethodVisitor
         {
             object? innerValue = CommonHelpers.GetConstantValue(body);
 
-            if (innerValue is SQLiteTable table)
+            if (innerValue is SQLiteCte cte)
+            {
+                visitor.CteRegistry ??= new CteRegistry();
+
+                Type cteElementType = cte.ElementType;
+                char cteAliasChar = char.ToLowerInvariant(cteElementType.Name[0]);
+                string cteAlias = $"{cteAliasChar}{visitor.TableIndex[cteAliasChar]++}";
+
+                string? cachedName = visitor.CteRegistry.TryGetName(cte);
+                string cteName;
+
+                if (cachedName != null)
+                {
+                    cteName = cachedName;
+                }
+                else
+                {
+                    LambdaExpression lambda = cte.Query;
+                    bool isRecursive = lambda.Parameters.Count == 1;
+
+                    if (isRecursive)
+                    {
+                        ParameterExpression selfParam = lambda.Parameters[0];
+
+                        string placeholder = $"{cteAliasChar}__cte_self_{visitor.CteRegistry.Ctes.Count}__";
+
+                        Dictionary<string, Expression> selfColumns = cteElementType.GetProperties()
+                            .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex.Index++, $"{placeholder}.{f.Name}"));
+
+                        visitor.CteParameters[selfParam] = (placeholder, selfColumns);
+                        visitor.MethodArguments[selfParam] = selfColumns;
+
+                        SQLTranslator bodyTranslator = visitor.CloneDeeper(visitor.Level + 1);
+                        SQLQuery bodyQuery = bodyTranslator.Translate(lambda.Body);
+
+                        string finalName = $"cte{visitor.CteRegistry.Ctes.Count}";
+                        string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
+
+                        cteName = visitor.CteRegistry.Register(fixedSql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: true, key: cte);
+
+                        visitor.CteParameters.Remove(selfParam);
+                        visitor.MethodArguments.Remove(selfParam);
+                    }
+                    else
+                    {
+                        SQLTranslator bodyTranslator = visitor.CloneDeeper(visitor.Level + 1);
+                        SQLQuery bodyQuery = bodyTranslator.Translate(lambda.Body);
+
+                        cteName = visitor.CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: false, key: cte);
+                    }
+                }
+
+                entityType = cteElementType;
+                newTableColumns = cteElementType.GetProperties()
+                    .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex.Index++, $"{cteAlias}.{f.Name}"));
+                sql = new SQLExpression(body.Type, -1, $"{cteName} AS {cteAlias}");
+            }
+            else if (innerValue is SQLiteTable table)
             {
                 entityType = table.ElementType;
                 char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
@@ -644,6 +749,19 @@ internal class QueryableMethodVisitor
             {
                 throw new NotSupportedException($"The type {innerValue?.GetType().Name} is not supported in join.");
             }
+        }
+        else if (body is ParameterExpression paramBody && visitor.CteParameters.TryGetValue(paramBody, out (string Alias, Dictionary<string, Expression> Columns) cteParamRef))
+        {
+            entityType = body.Type.GetGenericArguments()[0];
+            char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+            string alias = $"{aliasChar}{visitor.TableIndex[aliasChar]++}";
+
+            newTableColumns = cteParamRef.Columns
+                .ToDictionary(kv => kv.Key, Expression (kv) => new SQLExpression(
+                    ((SQLExpression)kv.Value).Type,
+                    visitor.IdentifierIndex.Index++,
+                    $"{alias}.{kv.Key}"));
+            sql = new SQLExpression(body.Type, -1, $"{cteParamRef.Alias} AS {alias}");
         }
         else if (body.Type.IsGenericType && body.Type.GetGenericTypeDefinition() == typeof(IQueryable<>))
         {
