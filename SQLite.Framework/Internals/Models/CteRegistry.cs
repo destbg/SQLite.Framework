@@ -18,8 +18,18 @@ internal class CteRegistry
     public string Register(string sql, SQLiteParameter[]? parameters, bool isRecursive, SQLiteCte? key = null)
     {
         string name = $"cte{ctes.Count}";
-        ctes.Add(new CteInfo { Name = name, Sql = sql, Parameters = parameters, IsRecursive = isRecursive });
-        if (key != null) registeredCtes[key] = name;
+        ctes.Add(new CteInfo
+        {
+            Name = name,
+            Sql = sql,
+            Parameters = parameters,
+            IsRecursive = isRecursive
+        });
+        if (key != null)
+        {
+            registeredCtes[key] = name;
+        }
+
         return name;
     }
 }
