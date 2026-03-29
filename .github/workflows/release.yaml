@@ -4,6 +4,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: write
+
 jobs:
   build:
 
@@ -23,5 +26,13 @@ jobs:
       with:
         name: SQLite.Framework
         path: /home/runner/work/SQLite.Framework/SQLite.Framework/SQLite.Framework/bin/Release/SQLite.Framework.${{ github.event.release.tag_name }}.nupkg
+    - name: Upload Package to Release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        gh release upload "${{ github.event.release.tag_name }}" \
+          SQLite.Framework/bin/Release/SQLite.Framework.${{ github.event.release.tag_name }}.nupkg \
+          --clobber --repo "$GH_REPO"
     - name: Publish Nuget Package
       run: dotnet nuget push **/*.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
