@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <DefineConstants>$(DefineConstants);NO_SQLITEPCL_RAW_BATTERIES</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0;net8.0</TargetFrameworks>
+        <OutputType>Library</OutputType>
+        <WarningsAsErrors>nullable</WarningsAsErrors>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <LangVersion>preview</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+        <IsTrimmable>true</IsTrimmable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AssemblyName>SQLite.Framework</AssemblyName>
+        <PackageId>SQLite.Framework.Base</PackageId>
+        <AssemblyTitle>SQLite package that supports IQueryable (no bundle)</AssemblyTitle>
+        <Description>SQLite.Framework without a bundled SQLite provider. Use this when you want to supply your own SQLitePCLRaw provider. You are responsible for calling Batteries_V2.Init() before creating a database.</Description>
+        <Authors>Nikolay Kostadinov</Authors>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Title>SQLite.Framework.Base</Title>
+        <PackageProjectUrl>https://github.com/destbg/SQLite.Framework</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>sqlite database orm</PackageTags>
+        <IsAotCompatible>true</IsAotCompatible>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="../SQLite.Framework/**/*.cs" Exclude="../SQLite.Framework/obj/**/*.cs" />
+        <None Include="../README.md">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="SQLitePCLRaw.core" Version="3.0.2" />
+    </ItemGroup>
+
+</Project>

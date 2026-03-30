@@ -1,4 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <DefineConstants>$(DefineConstants);SQLITECIPHER</DefineConstants>
+    </PropertyGroup>
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -22,7 +26,11 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\SQLite.Framework\SQLite.Framework.csproj" />
+        <Compile Include="../SQLite.Framework.Tests/**/*.cs" Exclude="../SQLite.Framework.Tests/obj/**/*.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\SQLite.Framework.Cipher\SQLite.Framework.Cipher.csproj" />
     </ItemGroup>
 
 </Project>

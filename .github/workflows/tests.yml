@@ -1,0 +1,25 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - SQLite.Framework.Tests
+          - SQLite.Framework.Tests.Bundled
+          - SQLite.Framework.Tests.Cipher
+          - SQLite.Framework.Tests.Base
+    name: ${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Run tests
+        run: dotnet test ${{ matrix.project }}/${{ matrix.project }}.csproj --logger "console;verbosity=minimal"

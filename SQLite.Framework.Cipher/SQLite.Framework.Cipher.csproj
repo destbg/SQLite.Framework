@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0;net8.0</TargetFrameworks>
+        <OutputType>Library</OutputType>
+        <WarningsAsErrors>nullable</WarningsAsErrors>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <LangVersion>preview</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+        <IsTrimmable>true</IsTrimmable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <DefineConstants>$(DefineConstants);SQLITECIPHER</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AssemblyName>SQLite.Framework</AssemblyName>
+        <PackageId>SQLite.Framework.Cipher</PackageId>
+        <AssemblyTitle>SQLite package that supports IQueryable (SQLCipher)</AssemblyTitle>
+        <Description>SQLite.Framework is a library that provides an ORM solution for SQLite databases. This package uses SQLCipher for encrypted database support.</Description>
+        <Authors>Nikolay Kostadinov</Authors>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Title>SQLite.Framework.Cipher</Title>
+        <PackageProjectUrl>https://github.com/destbg/SQLite.Framework</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>sqlite database orm encryption sqlcipher</PackageTags>
+        <IsAotCompatible>true</IsAotCompatible>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="../SQLite.Framework/**/*.cs" Exclude="../SQLite.Framework/obj/**/*.cs" />
+        <None Include="../README.md">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11"/>
+    </ItemGroup>
+
+</Project>

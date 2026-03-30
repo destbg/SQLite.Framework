@@ -13,6 +13,17 @@ await books.AddAsync(new Book { Title = "Clean Code", Price = 29.99m });
 var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 ```
 
+## Packages
+
+| Package | When to use |
+|---|---|
+| `SQLite.Framework` | Default. Uses the SQLite version that ships with the OS. Works on all major platforms. |
+| `SQLite.Framework.Bundled` | Ships its own SQLite binary. Use this when the OS-provided SQLite is too old or you need a specific version. |
+| `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. Set the `Key` property before the first operation to enable encryption. |
+| `SQLite.Framework.Base` | No SQLite provider included. Use this when you want to supply your own SQLitePCLRaw provider. You are responsible for calling `SQLitePCL.Batteries_V2.Init()` before creating a database. |
+
+All packages expose the same API and assembly name, so you can swap between them without changing any code.
+
 ## Features
 
 - LINQ queries with `IQueryable` support
