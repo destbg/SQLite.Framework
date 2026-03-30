@@ -1,4 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <DefineConstants>$(DefineConstants);NO_SQLITEPCL_RAW_BATTERIES</DefineConstants>
+    </PropertyGroup>
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -13,6 +17,7 @@
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+        <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
         <PackageReference Include="xunit" Version="2.9.3" />
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
     </ItemGroup>
@@ -22,7 +27,11 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\SQLite.Framework\SQLite.Framework.csproj" />
+        <Compile Include="../SQLite.Framework.Tests/**/*.cs" Exclude="../SQLite.Framework.Tests/obj/**/*.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\SQLite.Framework.Base\SQLite.Framework.Base.csproj" />
     </ItemGroup>
 
 </Project>

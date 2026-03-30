@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0;net8.0</TargetFrameworks>
+        <OutputType>Library</OutputType>
+        <WarningsAsErrors>nullable</WarningsAsErrors>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <LangVersion>preview</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+        <IsTrimmable>true</IsTrimmable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AssemblyName>SQLite.Framework</AssemblyName>
+        <PackageId>SQLite.Framework.Bundled</PackageId>
+        <AssemblyTitle>SQLite package that supports IQueryable (bundled SQLite)</AssemblyTitle>
+        <Description>SQLite.Framework is a library that provides an ORM solution for SQLite databases. This package ships its own SQLite binary, useful when the OS-provided SQLite is too old or unavailable.</Description>
+        <Authors>Nikolay Kostadinov</Authors>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Title>SQLite.Framework.Bundled</Title>
+        <PackageProjectUrl>https://github.com/destbg/SQLite.Framework</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>sqlite database orm</PackageTags>
+        <IsAotCompatible>true</IsAotCompatible>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="../SQLite.Framework/**/*.cs" Exclude="../SQLite.Framework/obj/**/*.cs" />
+        <None Include="../README.md">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.2" />
+    </ItemGroup>
+
+</Project>

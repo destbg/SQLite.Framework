@@ -26,7 +26,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     static SQLiteDatabase()
     {
+#if !NO_SQLITEPCL_RAW_BATTERIES
         Batteries_V2.Init();
+#endif
     }
 
     /// <summary>
@@ -62,9 +64,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public SQLiteOpenFlags OpenFlags { get; set; } = SQLiteOpenFlags.Create | SQLiteOpenFlags.ReadWrite;
 
     /// <summary>
-    /// The connection string to the SQLite database.
+    /// The path to the SQLite database file.
     /// </summary>
     public string DatabasePath { get; }
+
+#if SQLITECIPHER
+    /// <summary>
+    /// The encryption key for the SQLCipher database. Set this before the first operation.
+    /// </summary>
+    public string? Key { get; set; }
+#endif
 
     /// <summary>
     /// Returns the cached table mappings in the current database instance.
@@ -278,6 +287,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 }
 
                 Handle = handle;
+
+#if SQLITECIPHER
+                if (!string.IsNullOrEmpty(Key))
+                {
+                    raw.sqlite3_prepare_v2(Handle, $"PRAGMA key = '{Key.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
+                    raw.sqlite3_step(keyStmt);
+                    raw.sqlite3_finalize(keyStmt);
+                }
+#endif
+
                 IsConnected = true;
                 IsConnecting = false;
             }
