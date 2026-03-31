@@ -92,7 +92,7 @@ public class JsonConverterTests
         Assert.Contains("sqlite", result.Tags.Values);
     }
 
-    [Fact]
+    [JsonbFact]
     public void JsonbConverter_RoundTrip()
     {
         using TestDatabase db = SetupJsonbDatabase();
@@ -108,7 +108,7 @@ public class JsonConverterTests
         Assert.Equal("Shelbyville", result.Address.City);
     }
 
-    [Fact]
+    [JsonbFact]
     public void JsonbConverter_NullValue_RoundTrip()
     {
         using TestDatabase db = SetupJsonbDatabase();
@@ -119,7 +119,7 @@ public class JsonConverterTests
         Assert.Null(result.Address);
     }
 
-    [Fact]
+    [JsonbFact]
     public void JsonbConverter_Multiple_RoundTrip()
     {
         using TestDatabase db = SetupJsonbDatabase();
@@ -140,7 +140,7 @@ public class JsonConverterTests
         Assert.Equal("Beta", results[1].Address.City);
     }
 
-    [Fact]
+    [JsonbFact]
     public void JsonbConverter_Select_ProjectedColumn()
     {
         using TestDatabase db = SetupJsonbDatabase();
@@ -155,7 +155,7 @@ public class JsonConverterTests
         Assert.Equal("7 Pine Rd", result.Street);
     }
 
-    [Fact]
+    [JsonbFact]
     public void JsonbConverter_CollectionType_RoundTrip()
     {
         using TestDatabase db = SetupJsonbTagDatabase();
@@ -172,7 +172,7 @@ public class JsonConverterTests
         Assert.Contains("z", result.Tags.Values);
     }
 
-    [Fact]
+    [JsonbFact]
     public void JsonbConverter_SpecialCharacters_RoundTrip()
     {
         using TestDatabase db = SetupJsonbDatabase();
@@ -225,6 +225,7 @@ public class JsonConverterTests
         db.Table<TaggedEntity>().CreateTable();
         return db;
     }
+
 }
 
 public class Address
@@ -261,3 +262,16 @@ file class TaggedEntity
 
     public required TagList Tags { get; set; }
 }
+
+#if SQLITECIPHER
+[AttributeUsage(AttributeTargets.Method)]
+internal sealed class JsonbFactAttribute : FactAttribute
+{
+    public JsonbFactAttribute()
+    {
+        Skip = "SQLCipher ships SQLite 3.39.2, which does not support JSONB (requires 3.45.0)";
+    }
+}
+#else
+internal sealed class JsonbFactAttribute : FactAttribute { }
+#endif

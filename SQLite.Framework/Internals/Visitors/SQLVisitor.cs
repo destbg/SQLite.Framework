@@ -58,7 +58,7 @@ internal class SQLVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
     public void AssignTable(Type entityType, SQLExpression? sql = null)
     {
-        char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter));
+        char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
         string alias = $"{aliasChar}{TableIndex[aliasChar]++}";
 
         TableMapping tableMapping = Database.TableMapping(entityType);

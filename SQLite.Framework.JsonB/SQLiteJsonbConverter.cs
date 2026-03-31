@@ -19,10 +19,10 @@ public class SQLiteJsonbConverter<T>(JsonTypeInfo<T> typeInfo) : ISQLiteTypeConv
     public SQLiteColumnType ColumnType => SQLiteColumnType.Blob;
 
     /// <inheritdoc />
-    public string? ParameterSqlExpression => "jsonb({0})";
+    public string ParameterSqlExpression => "jsonb({0})";
 
     /// <inheritdoc />
-    public string? ColumnSqlExpression => "json({0})";
+    public string ColumnSqlExpression => "json({0})";
 
     /// <inheritdoc />
     public object? ToDatabase(object? value)

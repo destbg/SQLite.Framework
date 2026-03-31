@@ -28,7 +28,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../SQLite.Framework/SQLite.Framework.csproj" />
+        <ProjectReference Include="../SQLite.Framework/SQLite.Framework.csproj">
+            <PrivateAssets>all</PrivateAssets>
+        </ProjectReference>
     </ItemGroup>
 
 </Project>

@@ -5,8 +5,11 @@ The `SQLite.Framework.JsonB` add-in package adds two things: type converters tha
 Install it alongside whichever core package you use:
 
 ```
+dotnet add package SQLite.Framework
 dotnet add package SQLite.Framework.JsonB
 ```
+
+The `SQLite.Framework.JsonB` package does not pull in a provider automatically. You must install one of the four core packages (`SQLite.Framework`, `SQLite.Framework.Bundled`, `SQLite.Framework.Cipher`, or `SQLite.Framework.Base`) separately. This lets you swap providers without any conflict.
 
 ---
 
