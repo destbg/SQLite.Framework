@@ -306,7 +306,7 @@ public class ConcurrencyTests
         await Task.WhenAll(tasks);
     }
 
-    [Fact]
+    [MultiCoreFact]
     public async Task EightSyncTasks_ConcurrentReads_CanHoldReadLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
@@ -332,7 +332,7 @@ public class ConcurrencyTests
             $"Expected multiple concurrent readers but peak was {db.MaxConcurrentReadHolders}.");
     }
 
-    [Fact]
+    [MultiCoreFact]
     public async Task EightAsyncTasks_ConcurrentReads_CanHoldReadLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
@@ -456,6 +456,18 @@ public class ConcurrencyTests
 
         Book result = db.Table<Book>().First(b => b.Id == 1);
         Assert.Equal("Updated", result.Title);
+    }
+}
+
+[AttributeUsage(AttributeTargets.Method)]
+file sealed class MultiCoreFactAttribute : FactAttribute
+{
+    public MultiCoreFactAttribute(int minimumCores = 4)
+    {
+        if (Environment.ProcessorCount < minimumCores)
+        {
+            Skip = $"Requires at least {minimumCores} logical processors (machine has {Environment.ProcessorCount}).";
+        }
     }
 }
 
