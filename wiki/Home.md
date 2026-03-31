@@ -53,6 +53,8 @@ All packages expose the same API and assembly name, so you can swap between them
 - [Common Table Expressions](Common%20Table%20Expressions)
 - [Data Types](Data%20Types)
 - [Storage Options](Storage%20Options)
+- [Custom Converters](Custom%20Converters)
+- [JSON and JSONB](JSON%20and%20JSONB)
 - [Performance](Performance)
 - [Native AOT](Native%20AOT)
 - [Migrating from sqlite-net-pcl](Migrating%20from%20sqlite-net-pcl)

@@ -10,20 +10,26 @@ namespace SQLite.Framework;
 /// </summary>
 public class SQLiteDataReader : IDisposable
 {
-    private readonly sqlite3 handle;
     private readonly IDisposable connectionLock;
+    private readonly sqlite3 handle;
 
     internal readonly sqlite3_stmt Statement;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDataReader" /> class.
     /// </summary>
-    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock)
+    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock, SQLiteStorageOptions storageOptions)
     {
         this.handle = handle;
         this.connectionLock = connectionLock;
+        StorageOptions = storageOptions;
         Statement = statement;
     }
+
+    /// <summary>
+    /// The storage options used by the data reader, which may affect how certain types are read from the database.
+    /// </summary>
+    public SQLiteStorageOptions StorageOptions { get; }
 
     /// <summary>
     /// The number of columns in the current row.
@@ -78,6 +84,6 @@ public class SQLiteDataReader : IDisposable
     /// </summary>
     public object? GetValue(int index, SQLiteColumnType columnType, Type type)
     {
-        return CommandHelpers.ReadColumnValue(Statement, index, columnType, type);
+        return CommandHelpers.ReadColumnValue(Statement, index, columnType, type, StorageOptions);
     }
 }

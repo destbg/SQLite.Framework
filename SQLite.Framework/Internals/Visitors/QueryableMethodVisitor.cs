@@ -464,7 +464,7 @@ internal class QueryableMethodVisitor
 
         if (resolved.IsConstant)
         {
-            if (resolved.Constant != null && !CommonHelpers.IsSimple(resolved.Constant.GetType()))
+            if (resolved.Constant != null && !CommonHelpers.IsSimple(resolved.Constant.GetType(), database.StorageOptions))
             {
                 throw new NotSupportedException("Contains is only supported for a single column.");
             }
@@ -518,7 +518,7 @@ internal class QueryableMethodVisitor
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
 
-            if (resultSelector.Body is MemberExpression && CommonHelpers.IsSimple(resultSelector.Body.Type))
+            if (resultSelector.Body is MemberExpression && CommonHelpers.IsSimple(resultSelector.Body.Type, database.StorageOptions))
             {
                 isMember = true;
             }
@@ -576,7 +576,7 @@ internal class QueryableMethodVisitor
         List<string> paramPlaceholders = [];
         List<SQLiteParameter> sqlParams = [];
 
-        if (CommonHelpers.IsSimple(genericType))
+        if (CommonHelpers.IsSimple(genericType, database.StorageOptions))
         {
             string paramName = $"@p{visitor.ParamIndex.Index++}";
             columnNames.Add("column__1");

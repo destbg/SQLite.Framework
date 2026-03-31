@@ -13,7 +13,7 @@ public class TableMapping
     /// <summary>
     /// Initializes a new instance of the <see cref="TableMapping"/> class.
     /// </summary>
-    public TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, SQLiteStorageOptions? options = null)
+    public TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, SQLiteStorageOptions options)
     {
         PropertyInfo[] properties = type.GetProperties();
         TableAttribute? tableAttribute = type.GetCustomAttribute<TableAttribute>();

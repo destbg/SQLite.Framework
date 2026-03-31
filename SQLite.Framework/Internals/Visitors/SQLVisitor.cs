@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using System.Reflection;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
@@ -57,7 +58,7 @@ internal class SQLVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
     public void AssignTable(Type entityType, SQLExpression? sql = null)
     {
-        char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+        char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter));
         string alias = $"{aliasChar}{TableIndex[aliasChar]++}";
 
         TableMapping tableMapping = Database.TableMapping(entityType);
@@ -69,8 +70,16 @@ internal class SQLVisitor : ExpressionVisitor
         );
 
         TableColumns = tableMapping.Columns
-            .ToDictionary(f => f.PropertyInfo.Name,
-                Expression (f) => new SQLExpression(f.PropertyType, IdentifierIndex.Index++, $"{alias}.{f.Name}"));
+            .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
+            {
+                string colSql = $"{alias}.{f.Name}";
+                if (Database.StorageOptions.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? conv)
+                    && conv.ColumnSqlExpression is { } colExpr)
+                {
+                    colSql = string.Format(colExpr, colSql);
+                }
+                return new SQLExpression(f.PropertyType, IdentifierIndex.Index++, colSql);
+            });
     }
 
     public SQLTranslator CloneDeeper(int innerLevel)
@@ -462,7 +471,7 @@ internal class SQLVisitor : ExpressionVisitor
             }
             else
             {
-                string sqliteType = CommonHelpers.TypeToSQLiteType(node.Type).ToString().ToUpper();
+                string sqliteType = CommonHelpers.TypeToSQLiteType(node.Type, Database.StorageOptions).ToString().ToUpper();
                 return new SQLExpression(node.Type,
                     IdentifierIndex.Index++,
                     $"CAST({resolved.SQLExpression.Sql} AS {sqliteType})",
@@ -589,6 +598,11 @@ internal class SQLVisitor : ExpressionVisitor
                 return MethodVisitor.HandleEnumerableMethod(node, enumerable, arguments);
             }
 
+            if (TryGetMethodTranslator(node.Method, out SQLiteMethodTranslator? translator))
+            {
+                return MethodVisitor.HandleCustomMethod(node, obj, arguments, translator);
+            }
+
             return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
         }
 
@@ -607,6 +621,11 @@ internal class SQLVisitor : ExpressionVisitor
             if (arguments[0].IsConstant && arguments[0].Constant is IEnumerable enumerable)
             {
                 return MethodVisitor.HandleEnumerableMethod(node, enumerable, arguments);
+            }
+
+            if (TryGetMethodTranslator(node.Method, out SQLiteMethodTranslator? translator))
+            {
+                return MethodVisitor.HandleCustomMethod(node, null, arguments, translator);
             }
 
             return Expression.Call(node.Method, arguments.Select(f => f.Expression));
@@ -853,5 +872,21 @@ internal class SQLVisitor : ExpressionVisitor
         }
 
         return sqlExpression;
+    }
+
+    private bool TryGetMethodTranslator(MethodInfo method, [NotNullWhen(true)] out SQLiteMethodTranslator? translator)
+    {
+        if (Database.StorageOptions.MethodTranslators.TryGetValue(method, out translator))
+        {
+            return true;
+        }
+
+        if (method.IsGenericMethod &&
+            Database.StorageOptions.MethodTranslators.TryGetValue(method.GetGenericMethodDefinition(), out translator))
+        {
+            return true;
+        }
+
+        return false;
     }
 }

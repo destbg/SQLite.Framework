@@ -164,7 +164,7 @@ internal class AliasVisitor
 
                 Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
 
-                if (CommonHelpers.IsSimple(memberAssignment.Expression.Type))
+                if (CommonHelpers.IsSimple(memberAssignment.Expression.Type, database.StorageOptions))
                 {
                     result.Add(alias, parameterTableColumns[path]);
                 }
@@ -194,7 +194,7 @@ internal class AliasVisitor
 
     private void VisitMemberExpression(MemberExpression memberExpression, string? prefix)
     {
-        if (CommonHelpers.IsSimple(memberExpression.Type))
+        if (CommonHelpers.IsSimple(memberExpression.Type, database.StorageOptions))
         {
             Expression columnMapping = visitor.Visit(memberExpression);
             result.Add(CheckPrefix(prefix, memberExpression.Member.Name), columnMapping);
