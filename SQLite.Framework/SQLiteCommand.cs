@@ -46,12 +46,12 @@ public class SQLiteCommand
     /// Executes the command against the database and returns a data reader.
     /// </summary>
     /// <remarks>
-    /// The connection lock is acquired before the statement is prepared and held until the returned
-    /// <see cref="SQLiteDataReader" /> is disposed. Callers must dispose the reader promptly.
+    /// Read operations do not acquire the exclusive connection lock. SQLite's own serialized-mode mutex
+    /// ensures statement safety, and WAL mode provides snapshot isolation from concurrent writers.
     /// </remarks>
     public SQLiteDataReader ExecuteReader()
     {
-        IDisposable connectionLock = database.Lock();
+        IDisposable connectionLock = database.ReadLock();
 
         try
         {

@@ -254,6 +254,143 @@ public class ConcurrencyTests
     }
 
     [Fact]
+    public async Task EightSyncTasks_ConcurrentReads_AllReturnCorrectData()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        for (int i = 0; i < 8; i++)
+        {
+            db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", AuthorId = 1, Price = i + 1 });
+        }
+
+        Barrier barrier = new(8);
+
+        Task[] tasks = Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+        {
+            barrier.SignalAndWait();
+            List<Book> books = db.Table<Book>().ToList();
+            Assert.Equal(8, books.Count);
+        })).ToArray();
+
+        await Task.WhenAll(tasks);
+    }
+
+    [Fact]
+    public async Task EightAsyncTasks_ConcurrentReads_AllReturnCorrectData()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        for (int i = 0; i < 8; i++)
+        {
+            db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", AuthorId = 1, Price = i + 1 });
+        }
+
+        TaskCompletionSource gate = new();
+        int arrivals = 0;
+
+        Task[] tasks = Enumerable.Range(0, 8).Select(async _ =>
+        {
+            if (Interlocked.Increment(ref arrivals) == 8)
+            {
+                gate.SetResult();
+            }
+
+            await gate.Task;
+
+            List<Book> books = await db.Table<Book>().ToListAsync();
+            Assert.Equal(8, books.Count);
+        }).ToArray();
+
+        await Task.WhenAll(tasks);
+    }
+
+    [Fact]
+    public async Task EightSyncTasks_ConcurrentReads_CanHoldReadLockSimultaneously()
+    {
+        using ConcurrencyTrackingDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        for (int i = 0; i < 8; i++)
+        {
+            db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", AuthorId = 1, Price = i + 1 });
+        }
+
+        Barrier barrier = new(8);
+
+        Task[] tasks = Enumerable.Range(0, 8).Select(n => Task.Run(() =>
+        {
+            barrier.SignalAndWait();
+            List<Book> books = db.Table<Book>().ToList();
+            Assert.Equal(8, books.Count);
+        })).ToArray();
+
+        await Task.WhenAll(tasks);
+
+        Assert.True(db.MaxConcurrentReadHolders > 1,
+            $"Expected multiple concurrent readers but peak was {db.MaxConcurrentReadHolders}.");
+    }
+
+    [Fact]
+    public async Task EightAsyncTasks_ConcurrentReads_CanHoldReadLockSimultaneously()
+    {
+        using ConcurrencyTrackingDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        for (int i = 0; i < 8; i++)
+        {
+            db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", AuthorId = 1, Price = i + 1 });
+        }
+
+        Barrier barrier = new(8);
+
+        Task[] tasks = Enumerable.Range(0, 8).Select(_ => Task.Run(async () =>
+        {
+            barrier.SignalAndWait();
+            List<Book> books = await db.Table<Book>().ToListAsync();
+            Assert.Equal(8, books.Count);
+        })).ToArray();
+
+        await Task.WhenAll(tasks);
+
+        Assert.True(db.MaxConcurrentReadHolders > 1,
+            $"Expected multiple concurrent readers but peak was {db.MaxConcurrentReadHolders}.");
+    }
+
+    [Fact]
+    public async Task ConcurrentReadsAndWrites_AllSucceed()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        for (int i = 0; i < 8; i++)
+        {
+            db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", AuthorId = 1, Price = i + 1 });
+        }
+
+        Task[] background = Enumerable.Range(0, 6).Select(i => Task.Run(async () =>
+        {
+            for (int round = 0; round < 5; round++)
+            {
+                _ = await db.Table<Book>().ToListAsync();
+                await db.Table<Book>().UpdateAsync(
+                    new Book { Id = i + 1, Title = $"Background {i} round {round}", AuthorId = 1, Price = i + 1 });
+            }
+        })).ToArray();
+
+        Task[] foreground = Enumerable.Range(6, 2).Select(i => Task.Run(async () =>
+        {
+            await db.Table<Book>().UpdateAsync(
+                new Book { Id = i + 1, Title = $"Foreground {i}", AuthorId = 1, Price = i + 1 });
+        })).ToArray();
+
+        await Task.WhenAll([.. background, .. foreground]);
+
+        Assert.Equal(8, await db.Table<Book>().CountAsync());
+    }
+
+    [Fact]
     public async Task EightMixedTasks_NeverHoldLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
@@ -292,5 +429,57 @@ public class ConcurrencyTests
             await db.Table<Book>().UpdateAsync(new Book { Id = id, Title = updated, AuthorId = 1, Price = id });
             _ = await db.Table<Book>().Where(b => b.Id == id).FirstOrDefaultAsync();
         }
+    }
+
+    [Fact]
+    public async Task Write_CompletesWhileBackgroundReadIsInProgress()
+    {
+        using ManualResetEventSlim readStarted = new(false);
+        using ManualResetEventSlim releaseRead = new(false);
+        using HoldableReadDatabase db = new(readStarted, releaseRead);
+
+        db.Table<Book>().CreateTable();
+
+        for (int i = 0; i < 5; i++)
+        {
+            db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", AuthorId = 1, Price = i + 1 });
+        }
+
+        Task readTask = Task.Run(() => db.Table<Book>().ToList());
+
+        readStarted.Wait();
+
+        await db.Table<Book>().UpdateAsync(new Book { Id = 1, Title = "Updated", AuthorId = 1, Price = 1 });
+
+        releaseRead.Set();
+        await readTask;
+
+        Book result = db.Table<Book>().First(b => b.Id == 1);
+        Assert.Equal("Updated", result.Title);
+    }
+}
+
+file sealed class HoldableReadDatabase : TestDatabase
+{
+    private readonly ManualResetEventSlim readStarted;
+    private readonly ManualResetEventSlim releaseRead;
+
+    public HoldableReadDatabase(ManualResetEventSlim readStarted, ManualResetEventSlim releaseRead,
+        [System.Runtime.CompilerServices.CallerMemberName] string? methodName = null)
+        : base(methodName)
+    {
+        this.readStarted = readStarted;
+        this.releaseRead = releaseRead;
+    }
+
+    public override IDisposable ReadLock()
+    {
+        readStarted.Set();
+        return new HeldReadLock(releaseRead);
+    }
+
+    private sealed class HeldReadLock(ManualResetEventSlim release) : IDisposable
+    {
+        public void Dispose() => release.Wait();
     }
 }
