@@ -408,6 +408,78 @@ public class TransactionConcurrencyTests
     }
 
     [Fact]
+    public async Task Read_CompletesWhileTransactionHoldsWriteLock()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        for (int i = 0; i < 5; i++)
+        {
+            db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", AuthorId = 1, Price = i + 1 });
+        }
+
+        TaskCompletionSource txStarted = new();
+        SemaphoreSlim release = new(0, 1);
+
+        Task txTask = Task.Run(async () =>
+        {
+            await using SQLiteTransaction tx = await db.BeginTransactionAsync();
+            txStarted.SetResult();
+            await release.WaitAsync();
+            await tx.CommitAsync();
+        });
+
+        await txStarted.Task;
+
+        List<Book> books = await db.Table<Book>().ToListAsync();
+        Assert.Equal(5, books.Count);
+        Assert.False(txTask.IsCompleted);
+
+        release.Release();
+        await txTask;
+    }
+
+    [Fact]
+    public async Task Read_DoesNotWaitBehindQueuedTransaction()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        for (int i = 0; i < 5; i++)
+        {
+            db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", AuthorId = 1, Price = i + 1 });
+        }
+
+        TaskCompletionSource txStarted = new();
+        SemaphoreSlim release = new(0, 1);
+
+        Task txTask = Task.Run(async () =>
+        {
+            await using SQLiteTransaction tx = await db.BeginTransactionAsync();
+            txStarted.SetResult();
+            await release.WaitAsync();
+            await tx.CommitAsync();
+        });
+
+        await txStarted.Task;
+
+        Task queuedTxTask = Task.Run(async () =>
+        {
+            await using SQLiteTransaction tx = await db.BeginTransactionAsync();
+        });
+
+        await Task.Delay(30);
+
+        List<Book> books = await db.Table<Book>().ToListAsync();
+        Assert.Equal(5, books.Count);
+        Assert.False(queuedTxTask.IsCompleted);
+
+        release.Release();
+        await txTask;
+        await queuedTxTask;
+    }
+
+    [Fact]
     public void TransactionDispose_ReleasesLock_SoNextTransactionCanProceed()
     {
         using TestDatabase db = new();

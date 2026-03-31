@@ -318,6 +318,20 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Returns a disposable that represents a read operation against the database.
+    /// </summary>
+    /// <remarks>
+    /// Read operations do not acquire the exclusive connection lock. SQLite's own serialized-mode mutex
+    /// ensures that concurrent statements on the same connection are safe, and WAL mode gives each reader
+    /// a consistent snapshot regardless of concurrent writers. Only write operations and transactions need
+    /// the exclusive lock.
+    /// </remarks>
+    public virtual IDisposable ReadLock()
+    {
+        return NoOpLockObject.Instance;
+    }
+
+    /// <summary>
     /// Wraps the provided SQL query and parameters into a queryable object.
     /// </summary>
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The type should be part of the client assemblies.")]
