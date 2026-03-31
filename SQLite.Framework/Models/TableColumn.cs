@@ -15,7 +15,7 @@ public class TableColumn
     /// <summary>
     /// Initializes a new instance of the <see cref="TableColumn"/> class.
     /// </summary>
-    public TableColumn(PropertyInfo property, SQLiteStorageOptions? options = null)
+    public TableColumn(PropertyInfo property, SQLiteStorageOptions options)
     {
         ColumnAttribute? columnAttribute = property.GetCustomAttribute<ColumnAttribute>();
         Type type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;

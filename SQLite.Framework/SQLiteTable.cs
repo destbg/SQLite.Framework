@@ -262,7 +262,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .ToArray();
 
         string columnsString = string.Join(", ", columns.Select(c => c.Name));
-        string parametersString = string.Join(", ", columns.Select((_, i) => $"@p{i}"));
+        string parametersString = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
 
         string sql = $"INSERT INTO \"{Table.TableName}\" ({columnsString}) VALUES ({parametersString})";
 
@@ -279,7 +279,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .Where(f => f.IsPrimaryKey)
             .ToArray();
 
-        string setClause = string.Join(", ", columns.Select((c, i) => $"{c.Name} = @p{i}"));
+        string setClause = string.Join(", ", columns.Select((c, i) => $"{c.Name} = {WrapParam($"@p{i}", c)}"));
         string primaryKeyClause = string.Join(" AND ",
             primaryKeyColumns.Select((c, i) => $"{c.Name} = @p{i + columns.Length}")
         );
@@ -305,6 +305,17 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         string sql = $"DELETE FROM \"{Table.TableName}\" WHERE {primaryKeyClause}";
 
         return (primaryKeyColumns, sql);
+    }
+
+    private string WrapParam(string placeholder, TableColumn column)
+    {
+        if (Database.StorageOptions.TypeConverters.TryGetValue(column.PropertyType, out ISQLiteTypeConverter? conv)
+            && conv.ParameterSqlExpression is { } paramExpr)
+        {
+            return string.Format(paramExpr, placeholder);
+        }
+
+        return placeholder;
     }
 
     private int AddItem(TableColumn[] columns, string sql, T item)

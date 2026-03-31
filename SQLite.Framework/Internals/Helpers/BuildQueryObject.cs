@@ -23,20 +23,21 @@ internal static class BuildQueryObject
             return createInstance(context);
         }
 
-        if (CommonHelpers.IsSimple(elementType))
+        SQLiteStorageOptions options = reader.StorageOptions;
+        if (CommonHelpers.IsSimple(elementType, options))
         {
             SQLiteColumnType columnType = reader.GetColumnType(0);
             return reader.GetValue(0, columnType, elementType);
         }
 
-        return BuildInternal(elementType, reader, string.Empty, columns);
+        return BuildInternal(elementType, reader, string.Empty, columns, options);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All types should be part of the client assembly.")]
-    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns)
+    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns, SQLiteStorageOptions options)
     {
-        if (CommonHelpers.IsSimple(type))
+        if (CommonHelpers.IsSimple(type, options))
         {
             string columnName = prefix.TrimEnd('.');
             if (columns.TryGetValue(columnName, out (int Index, SQLiteColumnType ColumnType) column))
@@ -64,7 +65,7 @@ internal static class BuildQueryObject
             {
                 ParameterInfo p = parameters[i];
                 string paramPrefix = $"{prefix}{p.Name}.";
-                args[i] = BuildInternal(p.ParameterType, reader, paramPrefix, columns);
+                args[i] = BuildInternal(p.ParameterType, reader, paramPrefix, columns, options);
             }
 
             return ctor.Invoke(args);
@@ -76,7 +77,7 @@ internal static class BuildQueryObject
             Type propType = prop.PropertyType;
             string columnName = prefix + prop.Name;
 
-            if (CommonHelpers.IsSimple(propType))
+            if (CommonHelpers.IsSimple(propType, options))
             {
                 if (columns.TryGetValue(columnName, out (int Index, SQLiteColumnType ColumnType) column))
                 {
@@ -118,7 +119,7 @@ internal static class BuildQueryObject
 
                 if (hasNested)
                 {
-                    object? nestedObj = BuildInternal(propType, reader, nestedPrefix, columns);
+                    object? nestedObj = BuildInternal(propType, reader, nestedPrefix, columns, options);
                     prop.SetValue(instance, nestedObj);
                 }
             }

@@ -34,6 +34,10 @@ jobs:
         run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
         working-directory: ./SQLite.Framework.Base
 
+      - name: Pack SQLite.Framework.JsonB
+        run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        working-directory: ./SQLite.Framework.JsonB
+
       - name: Archive NuGet Packages
         uses: actions/upload-artifact@v4
         with:
@@ -43,6 +47,7 @@ jobs:
             SQLite.Framework.Bundled/bin/Release/*.nupkg
             SQLite.Framework.Cipher/bin/Release/*.nupkg
             SQLite.Framework.Base/bin/Release/*.nupkg
+            SQLite.Framework.JsonB/bin/Release/*.nupkg
 
       - name: Upload Packages to Release
         env:
@@ -54,6 +59,7 @@ jobs:
             SQLite.Framework.Bundled/bin/Release/SQLite.Framework.Bundled.${{ github.event.release.tag_name }}.nupkg \
             SQLite.Framework.Cipher/bin/Release/SQLite.Framework.Cipher.${{ github.event.release.tag_name }}.nupkg \
             SQLite.Framework.Base/bin/Release/SQLite.Framework.Base.${{ github.event.release.tag_name }}.nupkg \
+            SQLite.Framework.JsonB/bin/Release/SQLite.Framework.JsonB.${{ github.event.release.tag_name }}.nupkg \
             --clobber --repo "$GH_REPO"
 
       - name: Publish to NuGet
@@ -62,3 +68,4 @@ jobs:
           dotnet nuget push SQLite.Framework.Bundled/bin/Release/SQLite.Framework.Bundled.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
           dotnet nuget push SQLite.Framework.Cipher/bin/Release/SQLite.Framework.Cipher.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
           dotnet nuget push SQLite.Framework.Base/bin/Release/SQLite.Framework.Base.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
+          dotnet nuget push SQLite.Framework.JsonB/bin/Release/SQLite.Framework.JsonB.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json

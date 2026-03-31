@@ -736,7 +736,7 @@ internal class MethodVisitor
             return Expression.Call(node.Object, node.Method, arguments.Select(f => f.Expression));
         }
 
-        if (node.Object == null && CommonHelpers.IsSimple(node.Method.ReturnType))
+        if (node.Object == null && CommonHelpers.IsSimple(node.Method.ReturnType, visitor.Database.StorageOptions))
         {
             object? result = node.Method.Invoke(null, [
                 enumerable,
@@ -1375,5 +1375,29 @@ internal class MethodVisitor
 
         expression = null;
         return false;
+    }
+
+    public Expression HandleCustomMethod(MethodCallExpression node, ResolvedModel? obj, List<ResolvedModel> arguments, SQLiteMethodTranslator translator)
+    {
+        if (arguments.Any(f => f.SQLExpression == null) || (obj != null && obj.SQLExpression == null))
+        {
+            return obj != null
+                ? Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression))
+                : Expression.Call(node.Method, arguments.Select(f => f.Expression));
+        }
+
+        string? instanceSql = obj?.SQLExpression?.Sql;
+        string[] argumentsSql = arguments.Select(f => f.Sql!).ToArray();
+        string sql = translator(instanceSql, argumentsSql);
+
+        List<SQLExpression> allExpressions = arguments.Select(f => f.SQLExpression!).ToList();
+        if (obj?.SQLExpression != null)
+        {
+            allExpressions.Insert(0, obj.SQLExpression);
+        }
+
+        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(allExpressions.ToArray());
+
+        return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex.Index++, sql, parameters);
     }
 }

@@ -1,5 +1,9 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using SQLite.Framework.Attributes;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Sample.DTOs;
 using SQLite.Framework.Sample.Models;
@@ -73,6 +77,10 @@ public static class Program
         Console.WriteLine("\n=== 11. TRANSACTIONS ===");
         TransactionExamples(db);
 
+        // === CUSTOM TYPE CONVERTER (operator + without IAdditionOperators) ===
+        Console.WriteLine("\n=== 12. CUSTOM TYPE CONVERTER (Points + Points) ===");
+        CustomTypeConverterExample();
+
         Console.WriteLine("\n=== Sample completed successfully! ===");
     }
 
@@ -97,83 +105,429 @@ public static class Program
         // Categories
         Category[] categories = new[]
         {
-            new Category { Name = "Electronics", Description = "Electronic devices and accessories" },
-            new Category { Name = "Books", Description = "Physical and digital books" },
-            new Category { Name = "Clothing", Description = "Apparel and fashion items" },
-            new Category { Name = "Home & Garden", Description = "Home improvement and garden supplies" },
-            new Category { Name = "Sports", Description = "Sports equipment and gear" }
+            new Category
+            {
+                Name = "Electronics",
+                Description = "Electronic devices and accessories"
+            },
+            new Category
+            {
+                Name = "Books",
+                Description = "Physical and digital books"
+            },
+            new Category
+            {
+                Name = "Clothing",
+                Description = "Apparel and fashion items"
+            },
+            new Category
+            {
+                Name = "Home & Garden",
+                Description = "Home improvement and garden supplies"
+            },
+            new Category
+            {
+                Name = "Sports",
+                Description = "Sports equipment and gear"
+            }
         };
         db.Table<Category>().AddRange(categories);
 
         // Products
         Product[] products = new[]
         {
-            new Product { Name = "Laptop Pro", Description = "High-performance laptop", Price = 1299.99m, CategoryId = 1, Stock = 15, CreatedAt = DateTime.Now.AddDays(-30), IsActive = true },
-            new Product { Name = "Wireless Mouse", Description = "Ergonomic wireless mouse", Price = 29.99m, CategoryId = 1, Stock = 50, CreatedAt = DateTime.Now.AddDays(-25), IsActive = true },
-            new Product { Name = "USB-C Cable", Description = "Fast charging cable", Price = 12.99m, CategoryId = 1, Stock = 100, CreatedAt = DateTime.Now.AddDays(-20), IsActive = true },
-            new Product { Name = "Programming in C#", Description = "Comprehensive C# guide", Price = 49.99m, CategoryId = 2, Stock = 30, CreatedAt = DateTime.Now.AddDays(-15), IsActive = true },
-            new Product { Name = "Database Design", Description = "Learn database architecture", Price = 54.99m, CategoryId = 2, Stock = 25, CreatedAt = DateTime.Now.AddDays(-10), IsActive = true },
-            new Product { Name = "T-Shirt", Description = "Cotton casual t-shirt", Price = 19.99m, CategoryId = 3, Stock = 200, CreatedAt = DateTime.Now.AddDays(-5), IsActive = true },
-            new Product { Name = "Jeans", Description = "Denim jeans", Price = 59.99m, CategoryId = 3, Stock = 75, CreatedAt = DateTime.Now.AddDays(-3), IsActive = true },
-            new Product { Name = "Garden Tools Set", Description = "Complete gardening kit", Price = 89.99m, CategoryId = 4, Stock = 20, CreatedAt = DateTime.Now.AddDays(-2), IsActive = true },
-            new Product { Name = "Running Shoes", Description = "Professional running shoes", Price = 119.99m, CategoryId = 5, Stock = 40, CreatedAt = DateTime.Now.AddDays(-1), IsActive = true },
-            new Product { Name = "Yoga Mat", Description = "Non-slip yoga mat", Price = 34.99m, CategoryId = 5, Stock = 60, CreatedAt = DateTime.Now, IsActive = true },
-            new Product { Name = "Old Product", Description = "Discontinued item", Price = 9.99m, CategoryId = 1, Stock = 0, CreatedAt = DateTime.Now.AddDays(-100), IsActive = false }
+            new Product
+            {
+                Name = "Laptop Pro",
+                Description = "High-performance laptop",
+                Price = 1299.99m,
+                CategoryId = 1,
+                Stock = 15,
+                CreatedAt = DateTime.Now.AddDays(-30),
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Wireless Mouse",
+                Description = "Ergonomic wireless mouse",
+                Price = 29.99m,
+                CategoryId = 1,
+                Stock = 50,
+                CreatedAt = DateTime.Now.AddDays(-25),
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "USB-C Cable",
+                Description = "Fast charging cable",
+                Price = 12.99m,
+                CategoryId = 1,
+                Stock = 100,
+                CreatedAt = DateTime.Now.AddDays(-20),
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Programming in C#",
+                Description = "Comprehensive C# guide",
+                Price = 49.99m,
+                CategoryId = 2,
+                Stock = 30,
+                CreatedAt = DateTime.Now.AddDays(-15),
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Database Design",
+                Description = "Learn database architecture",
+                Price = 54.99m,
+                CategoryId = 2,
+                Stock = 25,
+                CreatedAt = DateTime.Now.AddDays(-10),
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "T-Shirt",
+                Description = "Cotton casual t-shirt",
+                Price = 19.99m,
+                CategoryId = 3,
+                Stock = 200,
+                CreatedAt = DateTime.Now.AddDays(-5),
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Jeans",
+                Description = "Denim jeans",
+                Price = 59.99m,
+                CategoryId = 3,
+                Stock = 75,
+                CreatedAt = DateTime.Now.AddDays(-3),
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Garden Tools Set",
+                Description = "Complete gardening kit",
+                Price = 89.99m,
+                CategoryId = 4,
+                Stock = 20,
+                CreatedAt = DateTime.Now.AddDays(-2),
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Running Shoes",
+                Description = "Professional running shoes",
+                Price = 119.99m,
+                CategoryId = 5,
+                Stock = 40,
+                CreatedAt = DateTime.Now.AddDays(-1),
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Yoga Mat",
+                Description = "Non-slip yoga mat",
+                Price = 34.99m,
+                CategoryId = 5,
+                Stock = 60,
+                CreatedAt = DateTime.Now,
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Old Product",
+                Description = "Discontinued item",
+                Price = 9.99m,
+                CategoryId = 1,
+                Stock = 0,
+                CreatedAt = DateTime.Now.AddDays(-100),
+                IsActive = false
+            }
         };
         db.Table<Product>().AddRange(products);
 
         // Customers
         Customer[] customers = new[]
         {
-            new Customer { FirstName = "John", LastName = "Doe", Email = "john.doe@email.com", Phone = "555-1001", BirthDate = new DateTime(1985, 3, 15), RegisteredAt = DateTime.Now.AddDays(-60), LastLoginAt = DateTime.Now.AddHours(-2) },
-            new Customer { FirstName = "Jane", LastName = "Smith", Email = "jane.smith@email.com", Phone = "555-1002", BirthDate = new DateTime(1990, 7, 22), RegisteredAt = DateTime.Now.AddDays(-50), LastLoginAt = DateTime.Now.AddHours(-5) },
-            new Customer { FirstName = "Bob", LastName = "Johnson", Email = "bob.johnson@email.com", Phone = "555-1003", BirthDate = new DateTime(1988, 11, 8), RegisteredAt = DateTime.Now.AddDays(-45), LastLoginAt = DateTime.Now.AddDays(-1) },
-            new Customer { FirstName = "Alice", LastName = "Williams", Email = "alice.williams@email.com", Phone = "555-1004", BirthDate = new DateTime(1992, 5, 30), RegisteredAt = DateTime.Now.AddDays(-40), LastLoginAt = DateTime.Now.AddHours(-10) },
-            new Customer { FirstName = "Charlie", LastName = "Brown", Email = "charlie.brown@email.com", Phone = null, BirthDate = new DateTime(1995, 9, 12), RegisteredAt = DateTime.Now.AddDays(-30), LastLoginAt = null }
+            new Customer
+            {
+                FirstName = "John",
+                LastName = "Doe",
+                Email = "john.doe@email.com",
+                Phone = "555-1001",
+                BirthDate = new DateTime(1985, 3, 15),
+                RegisteredAt = DateTime.Now.AddDays(-60),
+                LastLoginAt = DateTime.Now.AddHours(-2)
+            },
+            new Customer
+            {
+                FirstName = "Jane",
+                LastName = "Smith",
+                Email = "jane.smith@email.com",
+                Phone = "555-1002",
+                BirthDate = new DateTime(1990, 7, 22),
+                RegisteredAt = DateTime.Now.AddDays(-50),
+                LastLoginAt = DateTime.Now.AddHours(-5)
+            },
+            new Customer
+            {
+                FirstName = "Bob",
+                LastName = "Johnson",
+                Email = "bob.johnson@email.com",
+                Phone = "555-1003",
+                BirthDate = new DateTime(1988, 11, 8),
+                RegisteredAt = DateTime.Now.AddDays(-45),
+                LastLoginAt = DateTime.Now.AddDays(-1)
+            },
+            new Customer
+            {
+                FirstName = "Alice",
+                LastName = "Williams",
+                Email = "alice.williams@email.com",
+                Phone = "555-1004",
+                BirthDate = new DateTime(1992, 5, 30),
+                RegisteredAt = DateTime.Now.AddDays(-40),
+                LastLoginAt = DateTime.Now.AddHours(-10)
+            },
+            new Customer
+            {
+                FirstName = "Charlie",
+                LastName = "Brown",
+                Email = "charlie.brown@email.com",
+                Phone = null,
+                BirthDate = new DateTime(1995, 9, 12),
+                RegisteredAt = DateTime.Now.AddDays(-30),
+                LastLoginAt = null
+            }
         };
         db.Table<Customer>().AddRange(customers);
 
         // Orders
         Order[] orders = new[]
         {
-            new Order { CustomerId = 1, OrderDate = DateTime.Now.AddDays(-10), TotalAmount = 1329.98m, Status = OrderStatus.Delivered, ShippingAddress = "123 Main St" },
-            new Order { CustomerId = 1, OrderDate = DateTime.Now.AddDays(-5), TotalAmount = 49.99m, Status = OrderStatus.Delivered, ShippingAddress = "123 Main St" },
-            new Order { CustomerId = 2, OrderDate = DateTime.Now.AddDays(-8), TotalAmount = 139.97m, Status = OrderStatus.Shipped, ShippingAddress = "456 Oak Ave" },
-            new Order { CustomerId = 2, OrderDate = DateTime.Now.AddDays(-2), TotalAmount = 54.99m, Status = OrderStatus.Processing, ShippingAddress = "456 Oak Ave" },
-            new Order { CustomerId = 3, OrderDate = DateTime.Now.AddDays(-7), TotalAmount = 209.97m, Status = OrderStatus.Delivered, ShippingAddress = "789 Pine Rd" },
-            new Order { CustomerId = 4, OrderDate = DateTime.Now.AddDays(-3), TotalAmount = 34.99m, Status = OrderStatus.Processing, ShippingAddress = "321 Elm St" },
-            new Order { CustomerId = 5, OrderDate = DateTime.Now.AddDays(-1), TotalAmount = 89.99m, Status = OrderStatus.Pending, ShippingAddress = "654 Maple Dr" }
+            new Order
+            {
+                CustomerId = 1,
+                OrderDate = DateTime.Now.AddDays(-10),
+                TotalAmount = 1329.98m,
+                Status = OrderStatus.Delivered,
+                ShippingAddress = "123 Main St"
+            },
+            new Order
+            {
+                CustomerId = 1,
+                OrderDate = DateTime.Now.AddDays(-5),
+                TotalAmount = 49.99m,
+                Status = OrderStatus.Delivered,
+                ShippingAddress = "123 Main St"
+            },
+            new Order
+            {
+                CustomerId = 2,
+                OrderDate = DateTime.Now.AddDays(-8),
+                TotalAmount = 139.97m,
+                Status = OrderStatus.Shipped,
+                ShippingAddress = "456 Oak Ave"
+            },
+            new Order
+            {
+                CustomerId = 2,
+                OrderDate = DateTime.Now.AddDays(-2),
+                TotalAmount = 54.99m,
+                Status = OrderStatus.Processing,
+                ShippingAddress = "456 Oak Ave"
+            },
+            new Order
+            {
+                CustomerId = 3,
+                OrderDate = DateTime.Now.AddDays(-7),
+                TotalAmount = 209.97m,
+                Status = OrderStatus.Delivered,
+                ShippingAddress = "789 Pine Rd"
+            },
+            new Order
+            {
+                CustomerId = 4,
+                OrderDate = DateTime.Now.AddDays(-3),
+                TotalAmount = 34.99m,
+                Status = OrderStatus.Processing,
+                ShippingAddress = "321 Elm St"
+            },
+            new Order
+            {
+                CustomerId = 5,
+                OrderDate = DateTime.Now.AddDays(-1),
+                TotalAmount = 89.99m,
+                Status = OrderStatus.Pending,
+                ShippingAddress = "654 Maple Dr"
+            }
         };
         db.Table<Order>().AddRange(orders);
 
         // Order Items
         OrderItem[] orderItems = new[]
         {
-            new OrderItem { OrderId = 1, ProductId = 1, Quantity = 1, UnitPrice = 1299.99m, Discount = null },
-            new OrderItem { OrderId = 1, ProductId = 2, Quantity = 1, UnitPrice = 29.99m, Discount = null },
-            new OrderItem { OrderId = 2, ProductId = 4, Quantity = 1, UnitPrice = 49.99m, Discount = null },
-            new OrderItem { OrderId = 3, ProductId = 2, Quantity = 2, UnitPrice = 29.99m, Discount = 5.00m },
-            new OrderItem { OrderId = 3, ProductId = 3, Quantity = 4, UnitPrice = 12.99m, Discount = null },
-            new OrderItem { OrderId = 3, ProductId = 6, Quantity = 2, UnitPrice = 19.99m, Discount = null },
-            new OrderItem { OrderId = 4, ProductId = 5, Quantity = 1, UnitPrice = 54.99m, Discount = null },
-            new OrderItem { OrderId = 5, ProductId = 9, Quantity = 1, UnitPrice = 119.99m, Discount = 10.00m },
-            new OrderItem { OrderId = 5, ProductId = 10, Quantity = 1, UnitPrice = 34.99m, Discount = null },
-            new OrderItem { OrderId = 5, ProductId = 7, Quantity = 1, UnitPrice = 59.99m, Discount = 5.00m },
-            new OrderItem { OrderId = 6, ProductId = 10, Quantity = 1, UnitPrice = 34.99m, Discount = null },
-            new OrderItem { OrderId = 7, ProductId = 8, Quantity = 1, UnitPrice = 89.99m, Discount = null }
+            new OrderItem
+            {
+                OrderId = 1,
+                ProductId = 1,
+                Quantity = 1,
+                UnitPrice = 1299.99m,
+                Discount = null
+            },
+            new OrderItem
+            {
+                OrderId = 1,
+                ProductId = 2,
+                Quantity = 1,
+                UnitPrice = 29.99m,
+                Discount = null
+            },
+            new OrderItem
+            {
+                OrderId = 2,
+                ProductId = 4,
+                Quantity = 1,
+                UnitPrice = 49.99m,
+                Discount = null
+            },
+            new OrderItem
+            {
+                OrderId = 3,
+                ProductId = 2,
+                Quantity = 2,
+                UnitPrice = 29.99m,
+                Discount = 5.00m
+            },
+            new OrderItem
+            {
+                OrderId = 3,
+                ProductId = 3,
+                Quantity = 4,
+                UnitPrice = 12.99m,
+                Discount = null
+            },
+            new OrderItem
+            {
+                OrderId = 3,
+                ProductId = 6,
+                Quantity = 2,
+                UnitPrice = 19.99m,
+                Discount = null
+            },
+            new OrderItem
+            {
+                OrderId = 4,
+                ProductId = 5,
+                Quantity = 1,
+                UnitPrice = 54.99m,
+                Discount = null
+            },
+            new OrderItem
+            {
+                OrderId = 5,
+                ProductId = 9,
+                Quantity = 1,
+                UnitPrice = 119.99m,
+                Discount = 10.00m
+            },
+            new OrderItem
+            {
+                OrderId = 5,
+                ProductId = 10,
+                Quantity = 1,
+                UnitPrice = 34.99m,
+                Discount = null
+            },
+            new OrderItem
+            {
+                OrderId = 5,
+                ProductId = 7,
+                Quantity = 1,
+                UnitPrice = 59.99m,
+                Discount = 5.00m
+            },
+            new OrderItem
+            {
+                OrderId = 6,
+                ProductId = 10,
+                Quantity = 1,
+                UnitPrice = 34.99m,
+                Discount = null
+            },
+            new OrderItem
+            {
+                OrderId = 7,
+                ProductId = 8,
+                Quantity = 1,
+                UnitPrice = 89.99m,
+                Discount = null
+            }
         };
         db.Table<OrderItem>().AddRange(orderItems);
 
         // Reviews
         Review[] reviews = new[]
         {
-            new Review { ProductId = 1, CustomerId = 1, Rating = 5, Comment = "Excellent laptop! Very fast and reliable.", CreatedAt = DateTime.Now.AddDays(-5) },
-            new Review { ProductId = 1, CustomerId = 3, Rating = 4, Comment = "Good quality but a bit expensive.", CreatedAt = DateTime.Now.AddDays(-3) },
-            new Review { ProductId = 2, CustomerId = 1, Rating = 5, Comment = "Perfect wireless mouse, very comfortable.", CreatedAt = DateTime.Now.AddDays(-4) },
-            new Review { ProductId = 2, CustomerId = 2, Rating = 4, Comment = "Works well but battery could last longer.", CreatedAt = DateTime.Now.AddDays(-2) },
-            new Review { ProductId = 4, CustomerId = 1, Rating = 5, Comment = "Great book for learning C#!", CreatedAt = DateTime.Now.AddDays(-2) },
-            new Review { ProductId = 9, CustomerId = 3, Rating = 5, Comment = "Best running shoes I've ever owned!", CreatedAt = DateTime.Now.AddDays(-1) },
-            new Review { ProductId = 10, CustomerId = 4, Rating = 4, Comment = "Good yoga mat, non-slip as advertised.", CreatedAt = DateTime.Now.AddHours(-12) }
+            new Review
+            {
+                ProductId = 1,
+                CustomerId = 1,
+                Rating = 5,
+                Comment = "Excellent laptop! Very fast and reliable.",
+                CreatedAt = DateTime.Now.AddDays(-5)
+            },
+            new Review
+            {
+                ProductId = 1,
+                CustomerId = 3,
+                Rating = 4,
+                Comment = "Good quality but a bit expensive.",
+                CreatedAt = DateTime.Now.AddDays(-3)
+            },
+            new Review
+            {
+                ProductId = 2,
+                CustomerId = 1,
+                Rating = 5,
+                Comment = "Perfect wireless mouse, very comfortable.",
+                CreatedAt = DateTime.Now.AddDays(-4)
+            },
+            new Review
+            {
+                ProductId = 2,
+                CustomerId = 2,
+                Rating = 4,
+                Comment = "Works well but battery could last longer.",
+                CreatedAt = DateTime.Now.AddDays(-2)
+            },
+            new Review
+            {
+                ProductId = 4,
+                CustomerId = 1,
+                Rating = 5,
+                Comment = "Great book for learning C#!",
+                CreatedAt = DateTime.Now.AddDays(-2)
+            },
+            new Review
+            {
+                ProductId = 9,
+                CustomerId = 3,
+                Rating = 5,
+                Comment = "Best running shoes I've ever owned!",
+                CreatedAt = DateTime.Now.AddDays(-1)
+            },
+            new Review
+            {
+                ProductId = 10,
+                CustomerId = 4,
+                Rating = 4,
+                Comment = "Good yoga mat, non-slip as advertised.",
+                CreatedAt = DateTime.Now.AddHours(-12)
+            }
         };
         db.Table<Review>().AddRange(reviews);
 
@@ -246,7 +600,12 @@ public static class Program
         Console.WriteLine($"Products with 'Pro' in name: {proProducts.Count}");
 
         // List.Contains (IN clause)
-        List<int> categoryIds = new() { 1, 2, 3 };
+        List<int> categoryIds = new()
+        {
+            1,
+            2,
+            3
+        };
         List<Product> productsInCategories = db.Table<Product>()
             .Where(p => categoryIds.Contains(p.CategoryId))
             .ToList();
@@ -280,7 +639,11 @@ public static class Program
             from product in db.Table<Product>()
             join category in db.Table<Category>() on product.CategoryId equals category.Id
             where product.IsActive
-            select new { Product = product.Name, Category = category.Name }
+            select new
+            {
+                Product = product.Name,
+                Category = category.Name
+            }
         ).ToList();
         Console.WriteLine($"Products with categories (INNER JOIN): {productsWithCategories.Count}");
 
@@ -289,7 +652,11 @@ public static class Program
             from category in db.Table<Category>()
             join product in db.Table<Product>() on category.Id equals product.CategoryId into productGroup
             from product in productGroup.DefaultIfEmpty()
-            select new { Category = category.Name, HasProducts = product != null }
+            select new
+            {
+                Category = category.Name,
+                HasProducts = product != null
+            }
         ).ToList();
         Console.WriteLine($"Categories (LEFT JOIN): {allCategoriesWithProductCount.Count}");
 
@@ -314,15 +681,27 @@ public static class Program
             from category in db.Table<Category>()
             from product in db.Table<Product>()
             where category.Id == 1 && product.CategoryId == 2
-            select new { category.Name, ProductName = product.Name }
+            select new
+            {
+                category.Name,
+                ProductName = product.Name
+            }
         ).ToList();
         Console.WriteLine($"Cross join results: {cartesianProduct.Count}");
 
         // Complex join condition
         List<Customer> complexJoin = (
             from order in db.Table<Order>()
-            join customer in db.Table<Customer>() on new { Id = order.CustomerId, Active = true }
-                equals new { customer.Id, Active = customer.LastLoginAt != null }
+            join customer in db.Table<Customer>() on new
+                {
+                    Id = order.CustomerId,
+                    Active = true
+                }
+                equals new
+                {
+                    customer.Id,
+                    Active = customer.LastLoginAt != null
+                }
             select customer
         ).ToList();
         Console.WriteLine($"Complex join results: {complexJoin.Count}");
@@ -398,8 +777,17 @@ public static class Program
 
         // Multiple chained selects
         var transformedData = db.Table<Product>()
-            .Select(p => new { p.Id, p.Name, p.Price })
-            .Select(p => new { p.Id, UpperName = p.Name.ToUpper() })
+            .Select(p => new
+            {
+                p.Id,
+                p.Name,
+                p.Price
+            })
+            .Select(p => new
+            {
+                p.Id,
+                UpperName = p.Name.ToUpper()
+            })
             .ToList();
         Console.WriteLine($"Chained select transformations: {transformedData.Count}");
     }
@@ -488,7 +876,11 @@ public static class Program
         var reviewsByProduct = (
             from review in db.Table<Review>()
             join product in db.Table<Product>() on review.ProductId equals product.Id
-            group review by new { product.Id, product.Name }
+            group review by new
+            {
+                product.Id,
+                product.Name
+            }
             into g
             select new
             {
@@ -545,7 +937,11 @@ public static class Program
         var top3ExpensiveProducts = db.Table<Product>()
             .OrderByDescending(p => p.Price)
             .Take(3)
-            .Select(p => new { p.Name, p.Price })
+            .Select(p => new
+            {
+                p.Name,
+                p.Price
+            })
             .ToList();
         Console.WriteLine("Top 3 expensive products:");
         foreach (var p in top3ExpensiveProducts)
@@ -593,9 +989,17 @@ public static class Program
             join avgRating in from review in db.Table<Review>()
                 group review by review.ProductId
                 into g
-                select new { ProductId = g.Key, AvgRating = g.Average(r => r.Rating) } on product.Id equals avgRating.ProductId
+                select new
+                {
+                    ProductId = g.Key,
+                    AvgRating = g.Average(r => r.Rating)
+                } on product.Id equals avgRating.ProductId
             where avgRating.AvgRating >= 4.5
-            select new { product.Name, avgRating.AvgRating }
+            select new
+            {
+                product.Name,
+                avgRating.AvgRating
+            }
         ).ToList();
         Console.WriteLine($"High-rated products (4.5+): {highRatedProducts.Count}");
 
@@ -653,9 +1057,33 @@ public static class Program
         // Batch INSERT
         Product[] testProducts = new[]
         {
-            new Product { Name = "Batch Product 1", Price = 10m, CategoryId = 1, Stock = 5, CreatedAt = DateTime.Now, IsActive = true },
-            new Product { Name = "Batch Product 2", Price = 20m, CategoryId = 1, Stock = 5, CreatedAt = DateTime.Now, IsActive = true },
-            new Product { Name = "Batch Product 3", Price = 30m, CategoryId = 1, Stock = 5, CreatedAt = DateTime.Now, IsActive = true }
+            new Product
+            {
+                Name = "Batch Product 1",
+                Price = 10m,
+                CategoryId = 1,
+                Stock = 5,
+                CreatedAt = DateTime.Now,
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Batch Product 2",
+                Price = 20m,
+                CategoryId = 1,
+                Stock = 5,
+                CreatedAt = DateTime.Now,
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Batch Product 3",
+                Price = 30m,
+                CategoryId = 1,
+                Stock = 5,
+                CreatedAt = DateTime.Now,
+                IsActive = true
+            }
         };
         db.Table<Product>().AddRange(testProducts);
         Console.WriteLine($"Batch inserted {testProducts.Length} products");
@@ -754,7 +1182,12 @@ public static class Program
             from customer in db.Table<Customer>()
             join order in db.Table<Order>() on customer.Id equals order.CustomerId into orderGroup
             from order in orderGroup.DefaultIfEmpty()
-            group order by new { customer.Id, customer.FirstName, customer.LastName }
+            group order by new
+            {
+                customer.Id,
+                customer.FirstName,
+                customer.LastName
+            }
             into g
             select new
             {
@@ -777,7 +1210,11 @@ public static class Program
             from product in db.Table<Product>()
             join orderItem in db.Table<OrderItem>() on product.Id equals orderItem.ProductId into itemGroup
             from orderItem in itemGroup.DefaultIfEmpty()
-            group orderItem by new { product.Id, product.Name }
+            group orderItem by new
+            {
+                product.Id,
+                product.Name
+            }
             into g
             select new
             {
@@ -821,7 +1258,12 @@ public static class Program
             from product in db.Table<Product>()
             where !(from orderItem in db.Table<OrderItem>()
                 select orderItem.ProductId).Contains(product.Id)
-            select new { product.Name, product.Price, product.Stock }
+            select new
+            {
+                product.Name,
+                product.Price,
+                product.Stock
+            }
         ).ToList();
 
         Console.WriteLine($"\nProducts never ordered: {neverOrderedProducts.Count}");
@@ -911,8 +1353,24 @@ public static class Program
         // Batch operations with transaction
         Product[] batchProducts = new[]
         {
-            new Product { Name = "Batch 1", Price = 10m, CategoryId = 1, Stock = 5, CreatedAt = DateTime.Now, IsActive = true },
-            new Product { Name = "Batch 2", Price = 20m, CategoryId = 1, Stock = 5, CreatedAt = DateTime.Now, IsActive = true }
+            new Product
+            {
+                Name = "Batch 1",
+                Price = 10m,
+                CategoryId = 1,
+                Stock = 5,
+                CreatedAt = DateTime.Now,
+                IsActive = true
+            },
+            new Product
+            {
+                Name = "Batch 2",
+                Price = 20m,
+                CategoryId = 1,
+                Stock = 5,
+                CreatedAt = DateTime.Now,
+                IsActive = true
+            }
         };
 
         db.Table<Product>().AddRange(batchProducts); // Runs in transaction by default
@@ -925,7 +1383,15 @@ public static class Program
         // Non-transactional batch operation
         Product[] nonTransProducts = new[]
         {
-            new Product { Name = "NoTrans 1", Price = 10m, CategoryId = 1, Stock = 5, CreatedAt = DateTime.Now, IsActive = true }
+            new Product
+            {
+                Name = "NoTrans 1",
+                Price = 10m,
+                CategoryId = 1,
+                Stock = 5,
+                CreatedAt = DateTime.Now,
+                IsActive = true
+            }
         };
 
         db.Table<Product>().AddRange(nonTransProducts, false);
@@ -933,5 +1399,89 @@ public static class Program
 
         db.Table<Product>().RemoveRange(nonTransProducts, false);
         Console.WriteLine("Non-transactional delete");
+    }
+
+    private static void CustomTypeConverterExample()
+    {
+        PointsConverter converter = new();
+        SQLiteStorageOptions options = new()
+        {
+            TypeConverters =
+            {
+                [typeof(Points)] = converter
+            }
+        };
+
+        if (File.Exists("points.db"))
+        {
+            File.Delete("points.db");
+        }
+
+        using SQLiteDatabase pointsDb = new("points.db")
+        {
+            StorageOptions = options
+        };
+        pointsDb.Table<ScoreRecord>().CreateTable();
+
+        pointsDb.Table<ScoreRecord>().Add(new ScoreRecord
+        {
+            Name = "Alice",
+            Score = new Points(100)
+        });
+        pointsDb.Table<ScoreRecord>().Add(new ScoreRecord
+        {
+            Name = "Bob",
+            Score = new Points(200)
+        });
+
+        Points bonus = new(50);
+
+        var results = pointsDb.Table<ScoreRecord>()
+            .Select(r => new
+            {
+                r.Name,
+                Total = Testing.Pass(r.Score) + bonus
+            })
+            .ToList();
+
+        foreach (var r in results)
+        {
+            Console.WriteLine($"  {r.Name}: {r.Total}");
+        }
+    }
+}
+
+file static class Testing
+{
+    public static Points Pass(Points record)
+    {
+        return record;
+    }
+}
+
+[Table("ScoreRecords")]
+file class ScoreRecord
+{
+    [AutoIncrement]
+    [Key]
+    public int Id { get; set; }
+
+    public required string Name { get; set; }
+    public Points Score { get; set; }
+}
+
+file class PointsConverter : ISQLiteTypeConverter
+{
+    public Type Type => typeof(Points);
+    public SQLiteColumnType ColumnType => SQLiteColumnType.Integer;
+
+    public object? ToDatabase(object? value)
+    {
+        return value is Points p ? p.Value : null;
+    }
+
+    public object FromDatabase(object? value)
+    {
+        return value is long l ? new Points((int)l) : new Points(0);
     }
 }

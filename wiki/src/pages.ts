@@ -20,6 +20,8 @@ export const pages: Page[] = [
     { slug: 'Common Table Expressions', title: 'Common Table Expressions' },
     { slug: 'Data Types', title: 'Data Types' },
     { slug: 'Storage Options', title: 'Storage Options' },
+    { slug: 'Custom Converters', title: 'Custom Converters' },
+    { slug: 'JSON and JSONB', title: 'JSON and JSONB' },
     { slug: 'Performance', title: 'Performance' },
     { slug: 'Native AOT', title: 'Native AOT' },
     { slug: 'Migrating from sqlite-net-pcl', title: 'Migrating from sqlite-net-pcl' },

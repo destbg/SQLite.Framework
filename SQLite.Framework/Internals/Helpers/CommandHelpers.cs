@@ -22,7 +22,7 @@ internal static class CommandHelpers
         return columnNames;
     }
 
-    public static object? ReadColumnValue(sqlite3_stmt statement, int index, SQLiteColumnType columnType, Type type)
+    public static object? ReadColumnValue(sqlite3_stmt statement, int index, SQLiteColumnType columnType, Type type, SQLiteStorageOptions options)
     {
         object? value = columnType switch
         {
@@ -125,13 +125,22 @@ internal static class CommandHelpers
 
             return Enum.ToObject(type, value);
         }
+        else if (options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter))
+        {
+            return converter.FromDatabase(value);
+        }
 
         return Convert.ChangeType(value, type);
     }
 
-    public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteStorageOptions? options = null)
+    public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteStorageOptions options)
     {
         int index = BindParameterIndex(statement, name);
+
+        if (value != null && options.TypeConverters.TryGetValue(value.GetType(), out ISQLiteTypeConverter? converter))
+        {
+            value = converter.ToDatabase(value);
+        }
 
         return value switch
         {
@@ -150,32 +159,32 @@ internal static class CommandHelpers
             string s => raw.sqlite3_bind_text(statement, index, s),
             byte[] b => raw.sqlite3_bind_blob(statement, index, b),
             bool b => raw.sqlite3_bind_int(statement, index, b ? 1 : 0),
-            DateTime dt => options?.DateTimeStorage switch
+            DateTime dt => options.DateTimeStorage switch
             {
                 DateTimeStorageMode.TextTicks => raw.sqlite3_bind_text(statement, index, dt.Ticks.ToString()),
                 DateTimeStorageMode.TextFormatted => raw.sqlite3_bind_text(statement, index, dt.ToString(options.DateTimeFormat)),
                 _ => raw.sqlite3_bind_int64(statement, index, dt.Ticks)
             },
-            DateTimeOffset dto => options?.DateTimeOffsetStorage switch
+            DateTimeOffset dto => options.DateTimeOffsetStorage switch
             {
                 DateTimeOffsetStorageMode.UtcTicks => raw.sqlite3_bind_int64(statement, index, dto.UtcTicks),
                 DateTimeOffsetStorageMode.TextFormatted => raw.sqlite3_bind_text(statement, index, dto.ToString(options.DateTimeOffsetFormat)),
                 _ => raw.sqlite3_bind_int64(statement, index, dto.Ticks)
             },
             Guid g => raw.sqlite3_bind_text(statement, index, g.ToString()),
-            TimeSpan ts => options?.TimeSpanStorage == TimeSpanStorageMode.Text
+            TimeSpan ts => options.TimeSpanStorage == TimeSpanStorageMode.Text
                 ? raw.sqlite3_bind_text(statement, index, ts.ToString(options.TimeSpanFormat))
                 : raw.sqlite3_bind_int64(statement, index, ts.Ticks),
-            DateOnly d => options?.DateOnlyStorage == DateOnlyStorageMode.Text
+            DateOnly d => options.DateOnlyStorage == DateOnlyStorageMode.Text
                 ? raw.sqlite3_bind_text(statement, index, d.ToString(options.DateOnlyFormat))
                 : raw.sqlite3_bind_int64(statement, index, d.ToDateTime(default).Ticks),
-            TimeOnly t => options?.TimeOnlyStorage == TimeOnlyStorageMode.Text
+            TimeOnly t => options.TimeOnlyStorage == TimeOnlyStorageMode.Text
                 ? raw.sqlite3_bind_text(statement, index, t.ToString(options.TimeOnlyFormat))
                 : raw.sqlite3_bind_int64(statement, index, t.Ticks),
-            decimal dec => options?.DecimalStorage == DecimalStorageMode.Text
+            decimal dec => options.DecimalStorage == DecimalStorageMode.Text
                 ? raw.sqlite3_bind_text(statement, index, dec.ToString(options.DecimalFormat))
                 : raw.sqlite3_bind_double(statement, index, (double)dec),
-            _ when value.GetType().IsEnum => options?.EnumStorage == EnumStorageMode.Text
+            _ when value.GetType().IsEnum => options.EnumStorage == EnumStorageMode.Text
                 ? raw.sqlite3_bind_text(statement, index, value.ToString()!)
                 : raw.sqlite3_bind_int(statement, index, Convert.ToInt32(value)),
             _ => throw new NotSupportedException($"Type {value.GetType()} is not supported.")

@@ -1,3 +1,4 @@
+using System.Reflection;
 using SQLite.Framework.Enums;
 
 namespace SQLite.Framework;
@@ -78,4 +79,16 @@ public class SQLiteStorageOptions
     /// Controls how enum values are stored. Defaults to <see cref="EnumStorageMode.Integer" />.
     /// </summary>
     public EnumStorageMode EnumStorage { get; set; } = EnumStorageMode.Integer;
+
+    /// <summary>
+    /// Custom type converters that define how specific .NET types are stored in and read from SQLite.
+    /// The key is the .NET type; the value is the converter implementation.
+    /// </summary>
+    public Dictionary<Type, ISQLiteTypeConverter> TypeConverters { get; } = [];
+
+    /// <summary>
+    /// Custom method translators that convert specific .NET method calls into SQL fragments.
+    /// The key is the <see cref="MethodInfo" /> of the method to translate; the value is the translator delegate.
+    /// </summary>
+    public Dictionary<MethodInfo, SQLiteMethodTranslator> MethodTranslators { get; } = [];
 }

@@ -27,6 +27,7 @@
 
     <ItemGroup>
         <Compile Include="../SQLite.Framework.Tests/**/*.cs" Exclude="../SQLite.Framework.Tests/obj/**/*.cs" />
+        <Compile Include="../SQLite.Framework.JsonB/**/*.cs" Exclude="../SQLite.Framework.JsonB/obj/**/*.cs" />
     </ItemGroup>
 
     <ItemGroup>
