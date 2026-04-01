@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using SQLitePCL;
 
 namespace SQLite.Framework;
 
@@ -15,12 +16,22 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
 {
     private readonly SQLiteDatabase database;
     private readonly Task<string> savepointTask;
+    private readonly sqlite3? ownedHandle;
     private readonly bool ownsLock;
 
-    internal SQLiteBeginTransactionAwaiter(SQLiteDatabase database)
+    internal SQLiteBeginTransactionAwaiter(SQLiteDatabase database, bool separateConnection)
     {
         this.database = database;
         ownsLock = !database.HoldsConnectionLock;
+
+        if (ownsLock && separateConnection)
+        {
+            // Open the connection synchronously here (in the caller's flow) so the handle is
+            // available in GetResult(), which also runs in the caller's execution context.
+            ownedHandle = database.OpenTransactionConnection();
+            savepointTask = Task.FromResult(string.Empty);
+            return;
+        }
 
         // When we already hold the lock, create the savepoint synchronously right now
         // (still in the caller's flow) and wrap in a completed task so no real await happens.
@@ -57,6 +68,14 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
     /// </remarks>
     public SQLiteTransaction GetResult()
     {
+        if (ownedHandle != null)
+        {
+            // SetTransactionConnection must run here, in the caller's execution context, so that
+            // the AsyncLocal mutations are visible to all subsequent continuations the caller runs.
+            database.SetTransactionConnection(ownedHandle);
+            return new SQLiteTransaction(database, ownedHandle);
+        }
+
         string savepointName = savepointTask.GetAwaiter().GetResult();
 
         if (ownsLock)

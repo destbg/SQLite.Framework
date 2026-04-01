@@ -19,7 +19,11 @@ public class JsonConverterTests
         db.Table<ContactEntity>().Add(new ContactEntity
         {
             Id = 1,
-            Address = new Address { Street = "123 Main St", City = "Springfield" }
+            Address = new Address
+            {
+                Street = "123 Main St",
+                City = "Springfield"
+            }
         });
 
         ContactEntity result = db.Table<ContactEntity>().First();
@@ -32,7 +36,11 @@ public class JsonConverterTests
     public void JsonConverter_NullValue_RoundTrip()
     {
         using TestDatabase db = SetupJsonDatabase();
-        db.Table<NullableContactEntity>().Add(new NullableContactEntity { Id = 1, Address = null });
+        db.Table<NullableContactEntity>().Add(new NullableContactEntity
+        {
+            Id = 1,
+            Address = null
+        });
 
         NullableContactEntity result = db.Table<NullableContactEntity>().First();
 
@@ -46,12 +54,20 @@ public class JsonConverterTests
         db.Table<ContactEntity>().Add(new ContactEntity
         {
             Id = 1,
-            Address = new Address { Street = "1 A St", City = "Alpha" }
+            Address = new Address
+            {
+                Street = "1 A St",
+                City = "Alpha"
+            }
         });
         db.Table<ContactEntity>().Add(new ContactEntity
         {
             Id = 2,
-            Address = new Address { Street = "2 B St", City = "Beta" }
+            Address = new Address
+            {
+                Street = "2 B St",
+                City = "Beta"
+            }
         });
 
         List<ContactEntity> results = db.Table<ContactEntity>().OrderBy(e => e.Id).ToList();
@@ -67,7 +83,11 @@ public class JsonConverterTests
         db.Table<ContactEntity>().Add(new ContactEntity
         {
             Id = 1,
-            Address = new Address { Street = "99 Oak Ave", City = "Shelbyville" }
+            Address = new Address
+            {
+                Street = "99 Oak Ave",
+                City = "Shelbyville"
+            }
         });
 
         Address result = db.Table<ContactEntity>().Select(e => e.Address).First();
@@ -82,7 +102,10 @@ public class JsonConverterTests
         db.Table<TaggedEntity>().Add(new TaggedEntity
         {
             Id = 1,
-            Tags = new TagList { Values = ["csharp", "dotnet", "sqlite"] }
+            Tags = new TagList
+            {
+                Values = ["csharp", "dotnet", "sqlite"]
+            }
         });
 
         TaggedEntity result = db.Table<TaggedEntity>().First();
@@ -92,14 +115,19 @@ public class JsonConverterTests
         Assert.Contains("sqlite", result.Tags.Values);
     }
 
-    [JsonbFact]
+#if !SQLITECIPHER
+    [Fact]
     public void JsonbConverter_RoundTrip()
     {
         using TestDatabase db = SetupJsonbDatabase();
         db.Table<ContactEntity>().Add(new ContactEntity
         {
             Id = 1,
-            Address = new Address { Street = "456 Elm St", City = "Shelbyville" }
+            Address = new Address
+            {
+                Street = "456 Elm St",
+                City = "Shelbyville"
+            }
         });
 
         ContactEntity result = db.Table<ContactEntity>().First();
@@ -108,30 +136,42 @@ public class JsonConverterTests
         Assert.Equal("Shelbyville", result.Address.City);
     }
 
-    [JsonbFact]
+    [Fact]
     public void JsonbConverter_NullValue_RoundTrip()
     {
         using TestDatabase db = SetupJsonbDatabase();
-        db.Table<NullableContactEntity>().Add(new NullableContactEntity { Id = 1, Address = null });
+        db.Table<NullableContactEntity>().Add(new NullableContactEntity
+        {
+            Id = 1,
+            Address = null
+        });
 
         NullableContactEntity result = db.Table<NullableContactEntity>().First();
 
         Assert.Null(result.Address);
     }
 
-    [JsonbFact]
+    [Fact]
     public void JsonbConverter_Multiple_RoundTrip()
     {
         using TestDatabase db = SetupJsonbDatabase();
         db.Table<ContactEntity>().Add(new ContactEntity
         {
             Id = 1,
-            Address = new Address { Street = "1 A St", City = "Alpha" }
+            Address = new Address
+            {
+                Street = "1 A St",
+                City = "Alpha"
+            }
         });
         db.Table<ContactEntity>().Add(new ContactEntity
         {
             Id = 2,
-            Address = new Address { Street = "2 B St", City = "Beta" }
+            Address = new Address
+            {
+                Street = "2 B St",
+                City = "Beta"
+            }
         });
 
         List<ContactEntity> results = db.Table<ContactEntity>().OrderBy(e => e.Id).ToList();
@@ -140,14 +180,18 @@ public class JsonConverterTests
         Assert.Equal("Beta", results[1].Address.City);
     }
 
-    [JsonbFact]
+    [Fact]
     public void JsonbConverter_Select_ProjectedColumn()
     {
         using TestDatabase db = SetupJsonbDatabase();
         db.Table<ContactEntity>().Add(new ContactEntity
         {
             Id = 1,
-            Address = new Address { Street = "7 Pine Rd", City = "Ogdenville" }
+            Address = new Address
+            {
+                Street = "7 Pine Rd",
+                City = "Ogdenville"
+            }
         });
 
         Address result = db.Table<ContactEntity>().Select(e => e.Address).First();
@@ -155,14 +199,17 @@ public class JsonConverterTests
         Assert.Equal("7 Pine Rd", result.Street);
     }
 
-    [JsonbFact]
+    [Fact]
     public void JsonbConverter_CollectionType_RoundTrip()
     {
         using TestDatabase db = SetupJsonbTagDatabase();
         db.Table<TaggedEntity>().Add(new TaggedEntity
         {
             Id = 1,
-            Tags = new TagList { Values = ["x", "y", "z"] }
+            Tags = new TagList
+            {
+                Values = ["x", "y", "z"]
+            }
         });
 
         TaggedEntity result = db.Table<TaggedEntity>().First();
@@ -172,14 +219,18 @@ public class JsonConverterTests
         Assert.Contains("z", result.Tags.Values);
     }
 
-    [JsonbFact]
+    [Fact]
     public void JsonbConverter_SpecialCharacters_RoundTrip()
     {
         using TestDatabase db = SetupJsonbDatabase();
         db.Table<ContactEntity>().Add(new ContactEntity
         {
             Id = 1,
-            Address = new Address { Street = "O'Brien & \"Co\"", City = "New\nLine" }
+            Address = new Address
+            {
+                Street = "O'Brien & \"Co\"",
+                City = "New\nLine"
+            }
         });
 
         ContactEntity result = db.Table<ContactEntity>().First();
@@ -187,6 +238,7 @@ public class JsonConverterTests
         Assert.Equal("O'Brien & \"Co\"", result.Address.Street);
         Assert.Equal("New\nLine", result.Address.City);
     }
+#endif
 
     private static TestDatabase SetupJsonDatabase([CallerMemberName] string? methodName = null)
     {
@@ -225,7 +277,6 @@ public class JsonConverterTests
         db.Table<TaggedEntity>().CreateTable();
         return db;
     }
-
 }
 
 public class Address
@@ -262,16 +313,3 @@ file class TaggedEntity
 
     public required TagList Tags { get; set; }
 }
-
-#if SQLITECIPHER
-[AttributeUsage(AttributeTargets.Method)]
-internal sealed class JsonbFactAttribute : FactAttribute
-{
-    public JsonbFactAttribute()
-    {
-        Skip = "SQLCipher ships SQLite 3.39.2, which does not support JSONB (requires 3.45.0)";
-    }
-}
-#else
-internal sealed class JsonbFactAttribute : FactAttribute { }
-#endif

@@ -56,7 +56,7 @@ public class SQLiteCommand
         try
         {
             sqlite3_stmt statement = CreateStatement();
-            return new SQLiteDataReader(database.Handle!, statement, connectionLock, database.StorageOptions);
+            return new SQLiteDataReader(database.GetActiveHandle(), statement, connectionLock, database.StorageOptions);
         }
         catch
         {
@@ -78,23 +78,25 @@ public class SQLiteCommand
 
         if (result != SQLiteResult.Done)
         {
-            throw new SQLiteException(result, raw.sqlite3_errmsg(database.Handle).utf8_to_string(), CommandText);
+            throw new SQLiteException(result, raw.sqlite3_errmsg(database.GetActiveHandle()).utf8_to_string(), CommandText);
         }
 
-        return raw.sqlite3_changes(database.Handle);
+        return raw.sqlite3_changes(database.GetActiveHandle());
     }
 
     private sqlite3_stmt CreateStatement()
     {
+        sqlite3 handle = database.GetActiveHandle();
+
         SQLiteResult result = (SQLiteResult)raw.sqlite3_prepare_v2(
-            database.Handle,
+            handle,
             CommandText,
             out sqlite3_stmt? stmt
         );
 
         if (result != 0)
         {
-            throw new SQLiteException(result, raw.sqlite3_errmsg(database.Handle).utf8_to_string(), CommandText);
+            throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), CommandText);
         }
 
         BindParameters(stmt);

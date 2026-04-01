@@ -1,3 +1,5 @@
+using SQLitePCL;
+
 namespace SQLite.Framework;
 
 /// <summary>
@@ -5,6 +7,7 @@ namespace SQLite.Framework;
 /// </summary>
 public class SQLiteTransaction : IDisposable, IAsyncDisposable
 {
+    private readonly sqlite3? ownedHandle;
     private readonly bool ownsLock;
     private bool completed;
     private bool disposed;
@@ -17,6 +20,13 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         Database = database;
         SavepointName = savepointName;
         this.ownsLock = ownsLock;
+    }
+
+    internal SQLiteTransaction(SQLiteDatabase database, sqlite3 ownedHandle)
+    {
+        Database = database;
+        SavepointName = string.Empty;
+        this.ownedHandle = ownedHandle;
     }
 
     /// <summary>
@@ -41,6 +51,13 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
 
         completed = true;
         disposed = true;
+
+        if (ownedHandle != null)
+        {
+            Database.CommitOwnedConnection(ownedHandle);
+            return;
+        }
+
         Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
 
         if (ownsLock)
@@ -70,6 +87,13 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
 
         completed = true;
         disposed = true;
+
+        if (ownedHandle != null)
+        {
+            Database.RollbackOwnedConnection(ownedHandle);
+            return;
+        }
+
         Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
 
         if (ownsLock)
@@ -97,6 +121,13 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
 
         completed = true;
         disposed = true;
+
+        if (ownedHandle != null)
+        {
+            Database.RollbackOwnedConnection(ownedHandle);
+            return;
+        }
+
         Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
 
         if (ownsLock)
