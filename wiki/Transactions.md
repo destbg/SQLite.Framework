@@ -7,7 +7,7 @@ Transactions let you group multiple operations so they either all succeed or all
 Call `BeginTransaction()` and then either `Commit()` or `Rollback()`.
 
 ```csharp
-using SQLiteTransaction transaction = db.BeginTransaction();
+await using SQLiteTransaction tx = await db.BeginTransactionAsync();
 
 try
 {
@@ -30,7 +30,7 @@ If you do not call `Commit()`, the transaction rolls back automatically when the
 ```csharp
 async Task AddValues()
 {
-    using SQLiteTransaction transaction = db.BeginTransaction();
+    await using SQLiteTransaction tx = await db.BeginTransactionAsync();
 
     await db.Table<Author>().AddAsync(new Author { Name = "Robert Martin" });
     await db.Table<Book>().AddAsync(new Book { Title = "Clean Code", AuthorId = 1, Price = 29.99m });
@@ -44,7 +44,7 @@ async Task AddValues()
 Call `Rollback()` whenever you want to undo changes before the `using` block ends:
 
 ```csharp
-using SQLiteTransaction transaction = db.BeginTransaction();
+await using SQLiteTransaction tx = await db.BeginTransactionAsync();
 
 var author = new Author { Name = "Unknown" };
 await db.Table<Author>().AddAsync(author);
@@ -99,7 +99,7 @@ A common pattern where this matters is a background sync that holds a transactio
 // Background thread
 Task syncTask = Task.Run(async () =>
 {
-    using SQLiteTransaction transaction = db.BeginTransaction();
+    await using SQLiteTransaction tx = await db.BeginTransactionAsync();
     await db.Table<Book>().AddRangeAsync(newBooks, runInTransaction: false);
     transaction.Commit();
 });
@@ -150,7 +150,7 @@ If separate connections are not practical, keep transactions as short as possibl
 `AddRangeAsync`, `UpdateRangeAsync`, and `RemoveRangeAsync` already wrap their operations in a transaction internally. If you are calling them as part of a larger transaction, pass `runInTransaction: false` to avoid nesting unnecessarily.
 
 ```csharp
-using SQLiteTransaction transaction = db.BeginTransaction();
+await using SQLiteTransaction tx = await db.BeginTransactionAsync();
 
 await db.Table<Author>().AddRangeAsync(authors, runInTransaction: false);
 await db.Table<Book>().AddRangeAsync(books, runInTransaction: false);

@@ -83,7 +83,7 @@ public class Book
 If you are inserting or updating rows across multiple tables as part of one logical operation, put them in a transaction. This is both safer (all or nothing) and faster (one disk commit instead of many).
 
 ```csharp
-using SQLiteTransaction transaction = db.BeginTransaction();
+await using SQLiteTransaction tx = await db.BeginTransactionAsync();
 
 await db.Table<Author>().AddRangeAsync(authors, runInTransaction: false);
 await db.Table<Book>().AddRangeAsync(books, runInTransaction: false);
