@@ -134,7 +134,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs an INSERT operation on the database table using the rows.
     /// </summary>
-    public int AddRange(IEnumerable<T> collection, bool runInTransaction = true)
+    public int AddRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
     {
         (TableColumn[] columns, string sql) = GetAddInfo();
 
@@ -142,7 +142,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         if (runInTransaction)
         {
-            using SQLiteTransaction transaction = Database.BeginTransaction();
+            using SQLiteTransaction transaction = Database.BeginTransaction(separateConnection);
 
             foreach (T item in collection)
             {
@@ -175,7 +175,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs an UPDATE operation on the database table using the rows.
     /// </summary>
-    public int UpdateRange(IEnumerable<T> collection, bool runInTransaction = true)
+    public int UpdateRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
     {
         (TableColumn[] columns, TableColumn[] primaryKeyColumns, string sql) = GetUpdateInfo();
 
@@ -183,7 +183,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         if (runInTransaction)
         {
-            using SQLiteTransaction transaction = Database.BeginTransaction();
+            using SQLiteTransaction transaction = Database.BeginTransaction(separateConnection);
 
             foreach (T item in collection)
             {
@@ -216,7 +216,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs a DELETE operation on the database table using the rows.
     /// </summary>
-    public int RemoveRange(IEnumerable<T> collection, bool runInTransaction = true)
+    public int RemoveRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
     {
         (TableColumn[] primaryKeyColumns, string sql) = GetRemoveInfo();
 
@@ -224,7 +224,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         if (runInTransaction)
         {
-            using SQLiteTransaction transaction = Database.BeginTransaction();
+            using SQLiteTransaction transaction = Database.BeginTransaction(separateConnection);
 
             foreach (T item in collection)
             {

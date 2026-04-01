@@ -60,9 +60,9 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs an INSERT operation on the database table using the rows.
     /// </summary>
-    public static Task<int> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true)
+    public static Task<int> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
     {
-        return ExecuteAsync(source.AddRange, collection, runInTransaction);
+        return ExecuteAsync(source.AddRange, collection, runInTransaction, separateConnection);
     }
 
     /// <summary>
@@ -76,9 +76,9 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs an UPDATE operation on the database table using the rows.
     /// </summary>
-    public static Task<int> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true)
+    public static Task<int> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
     {
-        return ExecuteAsync(source.UpdateRange, collection, runInTransaction);
+        return ExecuteAsync(source.UpdateRange, collection, runInTransaction, separateConnection);
     }
 
     /// <summary>
@@ -92,9 +92,9 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Performs a DELETE operation on the database table using the rows.
     /// </summary>
-    public static Task<int> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true)
+    public static Task<int> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
     {
-        return ExecuteAsync(source.RemoveRange, collection, runInTransaction);
+        return ExecuteAsync(source.RemoveRange, collection, runInTransaction, separateConnection);
     }
 
     /// <summary>
@@ -699,5 +699,10 @@ public static class AsyncQueryableExtensions
     private static Task<T> ExecuteAsync<T, TP1, TP2>(Func<TP1, TP2, T> execute, TP1 parameter1, TP2 parameter2)
     {
         return Task.Factory.StartNew(() => execute(parameter1, parameter2), CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+    }
+
+    private static Task<T> ExecuteAsync<T, TP1, TP2, TP3>(Func<TP1, TP2, TP3, T> execute, TP1 parameter1, TP2 parameter2, TP3 parameter3)
+    {
+        return Task.Factory.StartNew(() => execute(parameter1, parameter2, parameter3), CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
     }
 }

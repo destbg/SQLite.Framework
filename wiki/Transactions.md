@@ -59,6 +59,36 @@ await db.Table<Book>().AddAsync(new Book { Title = "Unnamed", AuthorId = author.
 transaction.Commit();
 ```
 
+## Transactions on a Separate Connection
+
+By default a transaction uses the shared database connection and holds the exclusive write lock until it finishes. Pass `separateConnection: true` to run the transaction on its own dedicated connection instead. When you do this, all operations you make in the same async context are automatically routed to that connection, and the shared connection is left free for other threads to read and write without waiting.
+
+```csharp
+await using SQLiteTransaction transaction = await db.BeginTransactionAsync(separateConnection: true);
+
+await db.Table<Author>().AddAsync(new Author { Name = "Robert Martin" });
+await db.Table<Book>().AddAsync(new Book { Title = "Clean Code", AuthorId = 1, Price = 29.99m });
+
+await transaction.CommitAsync();
+```
+
+The sync overload works the same way:
+
+```csharp
+using SQLiteTransaction transaction = db.BeginTransaction(separateConnection: true);
+
+db.Table<Author>().Add(new Author { Name = "Robert Martin" });
+db.Table<Book>().Add(new Book { Title = "Clean Code", AuthorId = 1, Price = 29.99m });
+
+transaction.Commit();
+```
+
+Things to keep in mind when using separate connections:
+
+- Only file-based databases support this. An in-memory database (`:memory:`) cannot be shared across connections, so `separateConnection: true` will not work correctly with one.
+- SQLite still only allows one active writer at a time at the file level, so two separate-connection transactions writing simultaneously will still wait on each other, just coordinated by SQLite rather than the ORM.
+- Nested transactions (a second `BeginTransaction` call inside an existing one) always use savepoints on the current connection regardless of the flag.
+
 ## Reads Inside a Transaction
 
 Queries (`ToList`, `First`, `Count`, and so on) do not acquire the write lock. This means a read can run at any time, even while a transaction is open on another thread. SQLite handles this safely through its own internal locking and, when WAL mode is enabled, through snapshot isolation.

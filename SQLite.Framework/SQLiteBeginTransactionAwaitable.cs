@@ -7,10 +7,12 @@ namespace SQLite.Framework;
 public readonly struct SQLiteBeginTransactionAwaitable
 {
     private readonly SQLiteDatabase database;
+    private readonly bool separateConnection;
 
-    internal SQLiteBeginTransactionAwaitable(SQLiteDatabase database)
+    internal SQLiteBeginTransactionAwaitable(SQLiteDatabase database, bool separateConnection)
     {
         this.database = database;
+        this.separateConnection = separateConnection;
     }
 
     /// <summary>
@@ -18,6 +20,6 @@ public readonly struct SQLiteBeginTransactionAwaitable
     /// </summary>
     public SQLiteBeginTransactionAwaiter GetAwaiter()
     {
-        return new SQLiteBeginTransactionAwaiter(database);
+        return new SQLiteBeginTransactionAwaiter(database, separateConnection);
     }
 }
