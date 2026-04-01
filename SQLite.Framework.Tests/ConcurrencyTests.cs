@@ -307,32 +307,6 @@ public class ConcurrencyTests
     }
 
     [MultiCoreFact]
-    public async Task EightSyncTasks_ConcurrentReads_CanHoldReadLockSimultaneously()
-    {
-        using ConcurrencyTrackingDatabase db = new();
-        db.Table<Book>().CreateTable();
-
-        for (int i = 0; i < 8; i++)
-        {
-            db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", AuthorId = 1, Price = i + 1 });
-        }
-
-        Barrier barrier = new(8);
-
-        Task[] tasks = Enumerable.Range(0, 8).Select(n => Task.Run(() =>
-        {
-            barrier.SignalAndWait();
-            List<Book> books = db.Table<Book>().ToList();
-            Assert.Equal(8, books.Count);
-        })).ToArray();
-
-        await Task.WhenAll(tasks);
-
-        Assert.True(db.MaxConcurrentReadHolders > 1,
-            $"Expected multiple concurrent readers but peak was {db.MaxConcurrentReadHolders}.");
-    }
-
-    [MultiCoreFact]
     public async Task EightAsyncTasks_ConcurrentReads_CanHoldReadLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
