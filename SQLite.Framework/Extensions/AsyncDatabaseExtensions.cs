@@ -138,6 +138,22 @@ public static class AsyncDatabaseExtensions
         return ExecuteAsync(database.Execute, sql, parameters);
     }
 
+    /// <summary>
+    /// Returns the user-defined version number stored in the database file header.
+    /// </summary>
+    public static Task<int> GetUserVersionAsync(this SQLiteDatabase database)
+    {
+        return Task.Factory.StartNew(() => database.UserVersion, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+    }
+
+    /// <summary>
+    /// Sets the user-defined version number stored in the database file header.
+    /// </summary>
+    public static Task SetUserVersionAsync(this SQLiteDatabase database, int version)
+    {
+        return Task.Factory.StartNew(() => database.UserVersion = version, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+    }
+
     private static Task<T> ExecuteAsync<T, TP1, TP2>(Func<TP1, TP2, T> execute, TP1 parameter1, TP2 parameter2)
     {
         return Task.Factory.StartNew(() => execute(parameter1, parameter2), CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);

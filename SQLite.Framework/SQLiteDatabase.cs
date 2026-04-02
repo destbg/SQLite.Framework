@@ -86,6 +86,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public SQLiteStorageOptions StorageOptions { get; set; } = new();
 
+    /// <summary>
+    /// Gets or sets the user-defined version number stored in the database file header.
+    /// This can be used to track schema versions.
+    /// </summary>
+    public int UserVersion
+    {
+        get => ExecuteScalar<int?>("PRAGMA user_version") ?? 0;
+        set => Execute($"PRAGMA user_version = {value}");
+    }
+
     internal bool HoldsConnectionLock => holdsConnectionLock.Value;
 
     /// <summary>
