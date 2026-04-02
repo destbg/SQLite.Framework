@@ -607,7 +607,11 @@ public class OtherTests
         });
 
         NullableDTO entity = db.Table<RequiredEntity>()
-            .Select(f => new NullableDTO { Id = f.Id, Title = f.Date })
+            .Select(f => new NullableDTO
+            {
+                Id = f.Id,
+                Title = f.Date
+            })
             .First(f => f.Id == 1);
 
         Assert.Equal(1, entity.Id);
@@ -639,9 +643,74 @@ public class OtherTests
         }
     }
 
+    [Fact]
+    public void UserVersion_DefaultsToZero()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        Assert.Equal(0, db.UserVersion);
+    }
+
+    [Fact]
+    public void UserVersion_SetAndGet_ReturnsCorrectValue()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        db.UserVersion = 5;
+
+        Assert.Equal(5, db.UserVersion);
+    }
+
+    [Fact]
+    public void UserVersion_CanBeUpdated()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        db.UserVersion = 1;
+        db.UserVersion = 2;
+
+        Assert.Equal(2, db.UserVersion);
+    }
+
+    [Fact]
+    public async Task GetUserVersionAsync_DefaultsToZero()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        Assert.Equal(0, await db.GetUserVersionAsync());
+    }
+
+    [Fact]
+    public async Task SetUserVersionAsync_AndGet_ReturnsCorrectValue()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        await db.SetUserVersionAsync(7);
+
+        Assert.Equal(7, await db.GetUserVersionAsync());
+    }
+
+    [Fact]
+    public async Task SetUserVersionAsync_SyncGetReflectsAsyncSet()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        await db.SetUserVersionAsync(3);
+
+        Assert.Equal(3, db.UserVersion);
+    }
+
     private class BaseCastEntity
     {
-        [Key][AutoIncrement] public int Id { get; set; }
+        [Key]
+        [AutoIncrement]
+        public int Id { get; set; }
     }
 
     private class CastEntity : BaseCastEntity
@@ -651,9 +720,12 @@ public class OtherTests
 
     private class RequiredEntity
     {
-        [Key][AutoIncrement] public int Id { get; set; }
+        [Key]
+        [AutoIncrement]
+        public int Id { get; set; }
 
-        [Required] public string? Date { get; set; }
+        [Required]
+        public string? Date { get; set; }
     }
 
     private class NullableDTO

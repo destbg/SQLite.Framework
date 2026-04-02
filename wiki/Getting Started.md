@@ -131,3 +131,32 @@ public class Book
 ```
 
 See [Defining Models](Defining%20Models) for the full list of attributes and options.
+
+## Schema Migrations
+
+SQLite stores a 32-bit integer in the database file header called the user version. It starts at zero and you control it entirely. Use it to track which migrations have already run so your app can apply only what is missing on each launch.
+
+```csharp
+await db.Table<Author>().CreateTableAsync();
+await db.Table<Book>().CreateTableAsync();
+
+if (db.UserVersion == 1)
+{
+    db.Execute("ALTER TABLE Books ADD COLUMN BookGenre TEXT");
+    db.UserVersion = 2;
+}
+if (db.UserVersion == 2)
+{
+    db.Execute("ALTER TABLE Books ADD COLUMN BookInStock INTEGER NOT NULL DEFAULT 0");
+    db.UserVersion = 3;
+}
+```
+
+Each block runs only once. On the next launch `UserVersion` is already at the latest number, so the blocks are skipped.
+
+There are the async versions:
+
+```csharp
+int version = await db.GetUserVersionAsync();
+await db.SetUserVersionAsync(2);
+```
