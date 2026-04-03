@@ -24,6 +24,7 @@
     --blockquote-text: #79b8ff;
     --blockquote-border: #58a6ff;
     --code-block-bg: #1c2128;
+    color-scheme: dark;
 }
 
 :root[data-theme="light"] {
@@ -41,6 +42,7 @@
     --blockquote-text: #3a6aa0;
     --blockquote-border: #0969da;
     --code-block-bg: #f6f8fa;
+    color-scheme: light;
 }
 
 :root[data-theme="light"] .hljs {
@@ -216,6 +218,47 @@ body {
     color: var(--sidebar-accent);
     border-left-color: var(--sidebar-accent);
     background: var(--sidebar-active-bg);
+}
+
+.nav-item--indented {
+    padding-left: 28px;
+}
+
+.nav-section {
+    margin-top: 4px;
+}
+
+.nav-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--sidebar-text);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    user-select: none;
+    margin-top: 8px;
+}
+
+.nav-section-header:hover {
+    color: var(--sidebar-text-hover);
+}
+
+.nav-section-chevron {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+
+.nav-section-chevron--collapsed {
+    transform: rotate(-90deg);
 }
 
 .sidebar-footer {

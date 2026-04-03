@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { pages } from '../pages'
+import { sections, ungrouped } from '../pages'
 
 export default function Sidebar() {
     const [mobileOpen, setMobileOpen] = useState(false)
     const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light')
+    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
     useEffect(() => {
         if (isDark) {
@@ -15,6 +16,10 @@ export default function Sidebar() {
             localStorage.setItem('theme', 'light')
         }
     }, [isDark])
+
+    function toggleSection(section: string) {
+        setCollapsed(prev => ({ ...prev, [section]: !prev[section] }))
+    }
 
     return (
         <>
@@ -37,16 +42,50 @@ export default function Sidebar() {
                 </div>
 
                 <nav className="sidebar-nav">
-                    {pages.map(page => (
+                    {ungrouped.map(page => (
                         <NavLink
                             key={page.slug}
-                            to={page.slug === 'Home' ? '/' : `/${page.slug}`}
-                            end={page.slug === 'Home'}
+                            to="/"
+                            end
                             className={({ isActive }) => `nav-item${isActive ? ' nav-item--active' : ''}`}
                             onClick={() => setMobileOpen(false)}
                         >
                             {page.title}
                         </NavLink>
+                    ))}
+
+                    {sections.map(({ title, pages: sectionPages }) => (
+                        <div key={title} className="nav-section">
+                            <button
+                                className="nav-section-header"
+                                onClick={() => toggleSection(title)}
+                                aria-expanded={!collapsed[title]}
+                            >
+                                <span>{title}</span>
+                                <svg
+                                    className={`nav-section-chevron${collapsed[title] ? ' nav-section-chevron--collapsed' : ''}`}
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+
+                            {!collapsed[title] && sectionPages.map(page => (
+                                <NavLink
+                                    key={page.slug}
+                                    to={`/${page.slug}`}
+                                    className={({ isActive }) => `nav-item nav-item--indented${isActive ? ' nav-item--active' : ''}`}
+                                    onClick={() => setMobileOpen(false)}
+                                >
+                                    {page.title}
+                                </NavLink>
+                            ))}
+                        </div>
                     ))}
                 </nav>
 
