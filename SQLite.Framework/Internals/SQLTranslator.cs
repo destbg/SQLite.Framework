@@ -286,7 +286,7 @@ internal class SQLTranslator
             }
         }
 
-        Func<QueryContext, dynamic?>? createObject;
+        Func<QueryContext, object?>? createObject;
         if (selectMethodExpression is null or ParameterExpression or MethodCallExpression or MemberExpression { Expression: not SQLExpression })
         {
             createObject = null;
