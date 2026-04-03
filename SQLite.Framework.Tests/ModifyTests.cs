@@ -588,4 +588,178 @@ public class ModifyTests
         Assert.Equal(1, list[1].AuthorId);
         Assert.Equal(10, list[1].Price);
     }
+
+    [Fact]
+    public void AddOrUpdate_InsertsNewRow()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        db.Table<Book>().AddOrUpdate(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 });
+
+        List<Book> list = db.Table<Book>().ToList();
+
+        Assert.Single(list);
+        Assert.Equal(1, list[0].Id);
+        Assert.Equal("Book 1", list[0].Title);
+        Assert.Equal(5, list[0].Price);
+    }
+
+    [Fact]
+    public void AddOrUpdate_ReplacesExistingRow()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        db.Table<Book>().Add(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 });
+        db.Table<Book>().AddOrUpdate(new Book { Id = 1, Title = "Book 1 Updated", AuthorId = 1, Price = 9 });
+
+        List<Book> list = db.Table<Book>().ToList();
+
+        Assert.Single(list);
+        Assert.Equal(1, list[0].Id);
+        Assert.Equal("Book 1 Updated", list[0].Title);
+        Assert.Equal(9, list[0].Price);
+    }
+
+    [Fact]
+    public void AddOrUpdateRange_InsertsNewRows()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        db.Table<Book>().AddOrUpdateRange([
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 10 },
+        ]);
+
+        List<Book> list = db.Table<Book>().ToList();
+
+        Assert.Equal(2, list.Count);
+        Assert.Equal(1, list[0].Id);
+        Assert.Equal("Book 1", list[0].Title);
+        Assert.Equal(2, list[1].Id);
+        Assert.Equal("Book 2", list[1].Title);
+    }
+
+    [Fact]
+    public void AddOrUpdateRange_ReplacesExistingRows()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 10 },
+        ]);
+
+        db.Table<Book>().AddOrUpdateRange([
+            new Book { Id = 1, Title = "Book 1 Updated", AuthorId = 1, Price = 6 },
+            new Book { Id = 2, Title = "Book 2 Updated", AuthorId = 1, Price = 11 },
+        ]);
+
+        List<Book> list = db.Table<Book>().ToList();
+
+        Assert.Equal(2, list.Count);
+        Assert.Equal("Book 1 Updated", list[0].Title);
+        Assert.Equal(6, list[0].Price);
+        Assert.Equal("Book 2 Updated", list[1].Title);
+        Assert.Equal(11, list[1].Price);
+    }
+
+    [Fact]
+    public void AddOrUpdateRange_NonTransaction()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        db.Table<Book>().AddOrUpdateRange([
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 10 },
+        ], runInTransaction: false);
+
+        Assert.Equal(2, db.Table<Book>().Count());
+    }
+
+    [Fact]
+    public async Task AddOrUpdateAsync_InsertsNewRow()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 });
+
+        List<Book> list = db.Table<Book>().ToList();
+
+        Assert.Single(list);
+        Assert.Equal(1, list[0].Id);
+        Assert.Equal("Book 1", list[0].Title);
+        Assert.Equal(5, list[0].Price);
+    }
+
+    [Fact]
+    public async Task AddOrUpdateAsync_ReplacesExistingRow()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 });
+        await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1 Updated", AuthorId = 1, Price = 9 });
+
+        List<Book> list = db.Table<Book>().ToList();
+
+        Assert.Single(list);
+        Assert.Equal("Book 1 Updated", list[0].Title);
+        Assert.Equal(9, list[0].Price);
+    }
+
+    [Fact]
+    public async Task AddOrUpdateRangeAsync_InsertsNewRows()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        await db.Table<Book>().AddOrUpdateRangeAsync([
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 10 },
+        ]);
+
+        List<Book> list = db.Table<Book>().ToList();
+
+        Assert.Equal(2, list.Count);
+        Assert.Equal("Book 1", list[0].Title);
+        Assert.Equal("Book 2", list[1].Title);
+    }
+
+    [Fact]
+    public async Task AddOrUpdateRangeAsync_ReplacesExistingRows()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        await db.Table<Book>().AddRangeAsync([
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 10 },
+        ]);
+
+        await db.Table<Book>().AddOrUpdateRangeAsync([
+            new Book { Id = 1, Title = "Book 1 Updated", AuthorId = 1, Price = 6 },
+            new Book { Id = 2, Title = "Book 2 Updated", AuthorId = 1, Price = 11 },
+        ]);
+
+        List<Book> list = db.Table<Book>().ToList();
+
+        Assert.Equal(2, list.Count);
+        Assert.Equal("Book 1 Updated", list[0].Title);
+        Assert.Equal("Book 2 Updated", list[1].Title);
+    }
 }

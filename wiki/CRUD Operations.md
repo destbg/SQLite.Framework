@@ -46,6 +46,22 @@ await books.AddRangeAsync(newBooks);
 
 `AddRangeAsync` wraps all inserts in a transaction by default for better performance. Pass `runInTransaction: false` if you want to add them one by one.
 
+## Add or Update
+
+```csharp
+await books.AddOrUpdateAsync(book);
+```
+
+Uses `INSERT OR REPLACE`. If a row with the same primary key already exists it is replaced, otherwise a new row is inserted. This is useful when you want to sync data without checking whether a record already exists.
+
+## Add or Update Many
+
+```csharp
+await books.AddOrUpdateRangeAsync(newBooks);
+```
+
+Same as `AddOrUpdateAsync` but for a collection. Runs in a transaction by default.
+
 ## Update
 
 ```csharp
@@ -101,6 +117,8 @@ Every method above has a synchronous version without the `Async` suffix:
 ```csharp
 books.Add(book);
 books.AddRange(newBooks);
+books.AddOrUpdate(book);
+books.AddOrUpdateRange(newBooks);
 books.Update(book);
 books.UpdateRange(list);
 books.Remove(book);

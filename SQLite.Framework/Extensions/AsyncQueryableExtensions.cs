@@ -98,6 +98,22 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
+    /// Performs an INSERT OR REPLACE operation on the database table using the row.
+    /// </summary>
+    public static Task<int> AddOrUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item)
+    {
+        return ExecuteAsync(source.AddOrUpdate, item);
+    }
+
+    /// <summary>
+    /// Performs an INSERT OR REPLACE operation on the database table using the rows.
+    /// </summary>
+    public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
+    {
+        return ExecuteAsync(source.AddOrUpdateRange, collection, runInTransaction, separateConnection);
+    }
+
+    /// <summary>
     /// Performs a DELETE operation on the database table.
     /// </summary>
     /// <remarks>

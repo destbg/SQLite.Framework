@@ -128,7 +128,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     {
         (TableColumn[] columns, string sql) = GetAddInfo();
 
-        return AddItem(columns, sql, item);
+        return AddOrRemoveItem(columns, sql, item);
     }
 
     /// <summary>
@@ -146,7 +146,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
             foreach (T item in collection)
             {
-                count += AddItem(columns, sql, item);
+                count += AddOrRemoveItem(columns, sql, item);
             }
 
             transaction.Commit();
@@ -155,7 +155,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         {
             foreach (T item in collection)
             {
-                count += AddItem(columns, sql, item);
+                count += AddOrRemoveItem(columns, sql, item);
             }
         }
 
@@ -210,7 +210,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     {
         (TableColumn[] primaryKeyColumns, string sql) = GetRemoveInfo();
 
-        return RemoveItem(primaryKeyColumns, sql, item);
+        return AddOrRemoveItem(primaryKeyColumns, sql, item);
     }
 
     /// <summary>
@@ -228,7 +228,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
             foreach (T item in collection)
             {
-                count += RemoveItem(primaryKeyColumns, sql, item);
+                count += AddOrRemoveItem(primaryKeyColumns, sql, item);
             }
 
             transaction.Commit();
@@ -237,7 +237,48 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         {
             foreach (T item in collection)
             {
-                count += RemoveItem(primaryKeyColumns, sql, item);
+                count += AddOrRemoveItem(primaryKeyColumns, sql, item);
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Performs an INSERT OR REPLACE operation on the database table using the row.
+    /// </summary>
+    public int AddOrUpdate(T item)
+    {
+        (TableColumn[] columns, string sql) = GetAddOrUpdateInfo();
+
+        return AddOrRemoveItem(columns, sql, item);
+    }
+
+    /// <summary>
+    /// Performs an INSERT OR REPLACE operation on the database table using the rows.
+    /// </summary>
+    public int AddOrUpdateRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
+    {
+        (TableColumn[] columns, string sql) = GetAddOrUpdateInfo();
+
+        int count = 0;
+
+        if (runInTransaction)
+        {
+            using SQLiteTransaction transaction = Database.BeginTransaction(separateConnection);
+
+            foreach (T item in collection)
+            {
+                count += AddOrRemoveItem(columns, sql, item);
+            }
+
+            transaction.Commit();
+        }
+        else
+        {
+            foreach (T item in collection)
+            {
+                count += AddOrRemoveItem(columns, sql, item);
             }
         }
 
@@ -307,6 +348,20 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return (primaryKeyColumns, sql);
     }
 
+    private (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo()
+    {
+        TableColumn[] columns = Table.Columns
+            .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
+            .ToArray();
+
+        string columnsString = string.Join(", ", columns.Select(c => c.Name));
+        string parametersString = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
+
+        string sql = $"INSERT OR REPLACE INTO \"{Table.TableName}\" ({columnsString}) VALUES ({parametersString})";
+
+        return (columns, sql);
+    }
+
     private string WrapParam(string placeholder, TableColumn column)
     {
         if (Database.StorageOptions.TypeConverters.TryGetValue(column.PropertyType, out ISQLiteTypeConverter? conv)
@@ -318,26 +373,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return placeholder;
     }
 
-    private int AddItem(TableColumn[] columns, string sql, T item)
+    private int AddOrRemoveItem(TableColumn[] columns, string sql, T item)
     {
         List<SQLiteParameter> parameters = columns
             .Select((c, i) => new SQLiteParameter
             {
                 Name = $"@p{i}",
                 Value = c.PropertyInfo.GetValue(item)
-            })
-            .ToList();
-
-        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
-    }
-
-    private int RemoveItem(TableColumn[] primaryColumns, string sql, T item)
-    {
-        List<SQLiteParameter> parameters = primaryColumns
-            .Select((f, i) => new SQLiteParameter
-            {
-                Name = $"@p{i}",
-                Value = f.PropertyInfo.GetValue(item)
             })
             .ToList();
 
