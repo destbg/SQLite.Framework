@@ -55,6 +55,7 @@ All packages expose the same API and assembly name, so you can swap between them
 - [Storage Options](Storage%20Options)
 - [Custom Converters](Custom%20Converters)
 - [JSON and JSONB](JSON%20and%20JSONB)
+- [Window Functions](Window%20Functions)
 - [Performance](Performance)
 - [Native AOT](Native%20AOT)
 - [Migrating from sqlite-net-pcl](Migrating%20from%20sqlite-net-pcl)

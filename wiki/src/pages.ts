@@ -47,7 +47,13 @@ export const sections: Section[] = [
             { slug: 'Data Types', title: 'Data Types' },
             { slug: 'Storage Options', title: 'Storage Options' },
             { slug: 'Custom Converters', title: 'Custom Converters' },
+        ],
+    },
+    {
+        title: 'Extra Packages',
+        pages: [
             { slug: 'JSON and JSONB', title: 'JSON and JSONB' },
+            { slug: 'Window Functions', title: 'Window Functions' },
         ],
     },
     {

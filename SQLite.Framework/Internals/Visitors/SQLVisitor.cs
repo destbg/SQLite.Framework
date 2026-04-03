@@ -631,6 +631,11 @@ internal class SQLVisitor : ExpressionVisitor
             return Expression.Call(node.Method, arguments.Select(f => f.Expression));
         }
 
+        if (TryGetMethodTranslator(node.Method, out SQLiteMethodTranslator? noArgTranslator))
+        {
+            return MethodVisitor.HandleCustomMethod(node, null, [], noArgTranslator);
+        }
+
         return node;
     }
 

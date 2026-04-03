@@ -13,25 +13,26 @@
 
     <ItemGroup>
         <PackageReference Include="coverlet.collector" Version="8.0.1">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
-        <PackageReference Include="xunit" Version="2.9.3" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0"/>
+        <PackageReference Include="xunit" Version="2.9.3"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5"/>
     </ItemGroup>
 
     <ItemGroup>
-        <Using Include="Xunit" />
+        <Using Include="Xunit"/>
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Include="../SQLite.Framework.Tests/**/*.cs" Exclude="../SQLite.Framework.Tests/obj/**/*.cs" />
-        <Compile Include="../SQLite.Framework.JsonB/**/*.cs" Exclude="../SQLite.Framework.JsonB/obj/**/*.cs" />
+        <Compile Include="../SQLite.Framework.Tests/**/*.cs" Exclude="../SQLite.Framework.Tests/obj/**/*.cs"/>
+        <Compile Include="../SQLite.Framework.JsonB/**/*.cs" Exclude="../SQLite.Framework.JsonB/obj/**/*.cs"/>
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\SQLite.Framework.Cipher\SQLite.Framework.Cipher.csproj" />
+        <ProjectReference Include="..\SQLite.Framework.Cipher\SQLite.Framework.Cipher.csproj"/>
+        <ProjectReference Include="..\SQLite.Framework.Window\SQLite.Framework.Window.csproj"/>
     </ItemGroup>
 
 </Project>
