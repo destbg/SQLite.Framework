@@ -13,9 +13,6 @@ namespace SQLite.Framework.JsonB;
 public class SQLiteJsonbConverter<T>(JsonTypeInfo<T> typeInfo) : ISQLiteTypeConverter
 {
     /// <inheritdoc />
-    public Type Type => typeof(T);
-
-    /// <inheritdoc />
     public SQLiteColumnType ColumnType => SQLiteColumnType.Blob;
 
     /// <inheritdoc />

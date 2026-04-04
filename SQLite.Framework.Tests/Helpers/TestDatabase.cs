@@ -46,5 +46,14 @@ public class TestDatabase : SQLiteDatabase
                 Thread.Sleep(100);
             }
         }
+
+        foreach (string suffix in new[] { "-wal", "-shm" })
+        {
+            string sidecar = DatabasePath + suffix;
+            if (File.Exists(sidecar))
+            {
+                File.Delete(sidecar);
+            }
+        }
     }
 }

@@ -4,9 +4,36 @@ SQLite.Framework is safe to use from multiple threads and tasks at the same time
 
 You do not need to set anything up for this. It works out of the box.
 
+## WAL mode
+
+Setting `IsWalMode = true` switches the database to WAL (Write-Ahead Logging) journal mode. In this mode writes no longer block each other. Multiple writes from different threads can run at the same time, and reads are never blocked by writers.
+
+```csharp
+var db = new SQLiteDatabase("app.db") { IsWalMode = true };
+```
+
+The framework issues `PRAGMA journal_mode = WAL` automatically when the connection is first opened. Set `IsWalMode` before the first database operation.
+
+With WAL enabled, eight concurrent writes run in parallel instead of queuing up:
+
+```csharp
+Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
+{
+    await db.Table<Book>().AddAsync(new Book { Id = i + 1, Title = $"Book {i}", Price = i + 1 });
+}).ToArray();
+
+await Task.WhenAll(tasks);
+```
+
+Transactions still behave correctly in WAL mode. Starting a non-separate-connection transaction waits for any writes currently in progress to finish, then takes exclusive access for its duration. Writes that arrive while a transaction is open wait for it to commit or roll back before they proceed.
+
 ## How the lock works
 
 The lock lives inside every command execution. When a query or a write reaches the point of actually talking to SQLite, it acquires the lock, does its work, then releases it. Everything before that point (building the query, compiling the expression) happens outside the lock.
+
+In the default mode every write acquires the lock exclusively, so concurrent writes queue up one at a time. Reads never acquire the lock regardless of mode.
+
+In WAL mode multiple writes share the lock concurrently. A non-separate-connection transaction is the only thing that makes writes queue up.
 
 This means you can freely share one `SQLiteDatabase` across threads:
 
@@ -42,7 +69,7 @@ Between individual operations the lock is released, so other callers can run. If
 
 ## Transactions hold the lock
 
-When you open a transaction, it holds the connection lock for its entire lifetime. No other operation can run until the transaction commits or rolls back.
+When you open a transaction, it holds the connection lock for its entire lifetime. No other write can run until the transaction commits or rolls back.
 
 ```csharp
 using SQLiteTransaction tx = db.BeginTransaction();
@@ -95,6 +122,8 @@ await Task.WhenAll(tasks);
 ```
 
 ## Tips
+
+**Use WAL mode for write-heavy workloads.** Set `IsWalMode = true` to let concurrent writes run in parallel. This is the biggest single throughput improvement available for apps that do many writes at once.
 
 **Keep transactions short.** While a transaction holds the lock, everything else waits. Do not do network calls, file I/O, or other slow work between `BeginTransaction` and `Commit`.
 

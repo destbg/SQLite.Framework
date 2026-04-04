@@ -338,7 +338,6 @@ public class CustomConverterTests
 
     private class PointsConverter : ISQLiteTypeConverter
     {
-        public Type Type => typeof(Points);
         public SQLiteColumnType ColumnType => SQLiteColumnType.Integer;
 
         public object? ToDatabase(object? value)

@@ -23,7 +23,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
     private readonly AsyncLocal<bool> holdsConnectionLock = new();
     private readonly AsyncLocal<sqlite3?> transactionHandle = new();
+    private readonly SemaphoreSlim walWriterGate = new(1, 1);
     private readonly Dictionary<Type, TableMapping> tableMappings = [];
+    private int walWriterCount;
 
     static SQLiteDatabase()
     {
@@ -85,6 +87,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// Controls how specific .NET types are stored in and read from the database.
     /// </summary>
     public SQLiteStorageOptions StorageOptions { get; set; } = new();
+
+    /// <summary>
+    /// When <see langword="true" />, the database operates in WAL (Write-Ahead Logging) mode.
+    /// Concurrent writes from independent async contexts proceed without serialization.
+    /// A <c>PRAGMA journal_mode = WAL</c> statement is issued automatically when the connection
+    /// is first opened. Set this before the first database operation.
+    /// </summary>
+    public bool IsWalMode { get; set; }
 
     /// <summary>
     /// Gets or sets the user-defined version number stored in the database file header.
@@ -334,6 +344,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 #endif
 
                 IsConnected = true;
+
+                if (IsWalMode)
+                {
+                    raw.sqlite3_prepare_v2(Handle, "PRAGMA journal_mode = WAL", out sqlite3_stmt walStmt);
+                    raw.sqlite3_step(walStmt);
+                    raw.sqlite3_finalize(walStmt);
+                }
+
                 IsConnecting = false;
             }
         }
@@ -348,6 +366,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         if (holdsConnectionLock.Value)
         {
             return NoOpLockObject.Instance;
+        }
+
+        if (IsWalMode)
+        {
+            AcquireWalWrite();
+            return new WalWriteLockObject(this);
         }
 
         return new LockObject(connectionSemaphore, holdsConnectionLock);
@@ -564,6 +588,32 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         holdsConnectionLock.Value = false;
         connectionSemaphore.Release();
+    }
+
+    internal void AcquireWalWrite()
+    {
+        walWriterGate.Wait();
+        walWriterCount++;
+        if (walWriterCount == 1)
+        {
+            connectionSemaphore.Wait();
+        }
+
+        walWriterGate.Release();
+    }
+
+    internal void ReleaseWalWrite()
+    {
+        walWriterGate.Wait();
+        walWriterCount--;
+        if (walWriterCount == 0)
+        {
+            walWriterGate.Release();
+            connectionSemaphore.Release();
+            return;
+        }
+
+        walWriterGate.Release();
     }
 
     internal void SetConnectionLock()
