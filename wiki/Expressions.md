@@ -68,12 +68,14 @@ var rounded = await db.Table<Book>()
 | `s.Replace(old, new)` | `REPLACE(s, old, new)` |
 | `s.Substring(start, length)` | `SUBSTR(s, start + 1, length)` |
 | `s.IndexOf(value)` | `INSTR(s, value) - 1` |
-| `s.LastIndexOf(value)` | computed via `INSTR` |
+| `s.LastIndexOf(value)` | `CASE WHEN INSTR(s, value) = 0 THEN -1 ELSE LENGTH(s) - INSTR(REPLACE(REPLACE(s, REPLACE(value, '%', '\%'), '<<<>>>'), '<<<>>>', ''), '<<<>>>') - LENGTH(REPLACE(value, '%', '\%')) END` |
 | `s.Insert(index, value)` | `SUBSTR(s, 1, index) \|\| value \|\| SUBSTR(s, index + 1)` |
 | `s.Remove(start)` | `SUBSTR(s, 1, start)` |
 | `s.Remove(start, count)` | `SUBSTR(s, 1, start) \|\| SUBSTR(s, start + count + 1)` |
-| `s.PadLeft(n)` / `s.PadLeft(n, c)` | computed padding expression |
-| `s.PadRight(n)` / `s.PadRight(n, c)` | computed padding expression |
+| `s.PadLeft(n)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB((n - LENGTH(s)) / 2 + (n - LENGTH(s)) % 2)), '00', ' '), 1, n - LENGTH(s)) \|\| s) END` |
+| `s.PadLeft(n, c)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(n - LENGTH(s))), '00', c), 1, n - LENGTH(s)) \|\| s) END` |
+| `s.PadRight(n)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (s \|\| (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB((n - LENGTH(s)) / 2 + (n - LENGTH(s)) % 2)), '00', ' '), 1, n - LENGTH(s)))) END` |
+| `s.PadRight(n, c)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (s \|\| (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(n - LENGTH(s))), '00', c), 1, n - LENGTH(s)))) END` |
 | `s + other` | `s \|\| other` |
 | `string.Concat(a, b, ...)` | `a \|\| b \|\| ...` |
 | `string.Join(sep, values)` | `val1 \|\| sep \|\| val2 \|\| ...` |
@@ -106,7 +108,7 @@ var results = await db.Table<Book>()
 | `char.IsWhiteSpace(c)` | `TRIM(c) = ''` |
 | `char.IsAsciiDigit(c)` | `c >= '0' AND c <= '9'` |
 | `char.IsAsciiLetter(c)` | `(c >= 'a' AND c <= 'z') OR (c >= 'A' AND c <= 'Z')` |
-| `char.IsAsciiLetterOrDigit(c)` | combination of digit and letter checks |
+| `char.IsAsciiLetterOrDigit(c)` | `(c >= '0' AND c <= '9') OR (c >= 'a' AND c <= 'z') OR (c >= 'A' AND c <= 'Z')` |
 | `char.IsAsciiLetterLower(c)` | `c >= 'a' AND c <= 'z'` |
 | `char.IsAsciiLetterUpper(c)` | `c >= 'A' AND c <= 'Z'` |
 
