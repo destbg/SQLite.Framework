@@ -22,8 +22,21 @@
         <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageTags>sqlite database orm window functions</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageIcon>sqlite.png</PackageIcon>
         <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="../README.md">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+        <None Include="../sqlite.png">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="../SQLite.Framework/SQLite.Framework.csproj">

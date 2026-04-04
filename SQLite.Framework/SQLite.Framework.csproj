@@ -23,11 +23,16 @@
         <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageTags>sqlite database orm</PackageTags>
+        <PackageIcon>sqlite.png</PackageIcon>
         <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
     <ItemGroup>
         <None Include="../README.md">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+        <None Include="../sqlite.png">
             <Pack>true</Pack>
             <PackagePath>\</PackagePath>
         </None>
