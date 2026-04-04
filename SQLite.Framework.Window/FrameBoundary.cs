@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace SQLite.Framework.Window;
 
 /// <summary>
@@ -6,6 +8,7 @@ namespace SQLite.Framework.Window;
 /// to their SQL equivalents. Register translations by calling
 /// <see cref="SQLiteStorageOptionsWindowExtensions.AddWindow" /> on your <see cref="SQLiteStorageOptions" />.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public sealed class FrameBoundary
 {
     private FrameBoundary() { }
