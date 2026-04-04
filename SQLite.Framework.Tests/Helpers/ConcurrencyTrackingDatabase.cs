@@ -17,6 +17,12 @@ internal class ConcurrencyTrackingDatabase : TestDatabase
     public int MaxConcurrentLockHolders => maxConcurrentHolders;
     public int MaxConcurrentReadHolders => maxConcurrentReadHolders;
 
+    /// <summary>
+    /// When set, each ReadLock holder sleeps for this duration before releasing.
+    /// Use this to guarantee measurable overlap in concurrency tests on fast machines.
+    /// </summary>
+    public int ReadHoldMilliseconds { get; set; }
+
     public ConcurrencyTrackingDatabase([CallerMemberName] string? methodName = null)
         : base(methodName) { }
 
@@ -60,6 +66,11 @@ internal class ConcurrencyTrackingDatabase : TestDatabase
             }
         }
         while (Interlocked.CompareExchange(ref maxConcurrentReadHolders, current, snapshot) != snapshot);
+
+        if (ReadHoldMilliseconds > 0)
+        {
+            Thread.Sleep(ReadHoldMilliseconds);
+        }
 
         return new TrackingLock(inner, () => Interlocked.Decrement(ref activeReadHolders));
     }
