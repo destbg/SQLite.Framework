@@ -8,12 +8,11 @@ Method translators let you map a .NET method call to a SQL function when buildin
 
 ## Type converters
 
-A type converter implements `ISQLiteTypeConverter` and tells the library three things: the .NET type it handles, which SQLite column type to use, and how to convert values in each direction.
+A type converter implements `ISQLiteTypeConverter` and tells the library which SQLite column type to use and how to convert values in each direction.
 
 ```csharp
 public interface ISQLiteTypeConverter
 {
-    Type Type { get; }
     SQLiteColumnType ColumnType { get; }
     object? ToDatabase(object? value);
     object? FromDatabase(object? value);
@@ -33,7 +32,6 @@ You can store it as a single TEXT column in the format `"9.99 USD"`:
 ```csharp
 public class MoneyConverter : ISQLiteTypeConverter
 {
-    public Type Type => typeof(Money);
     public SQLiteColumnType ColumnType => SQLiteColumnType.Text;
 
     public object? ToDatabase(object? value)

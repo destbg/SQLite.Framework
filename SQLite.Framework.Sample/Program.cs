@@ -1472,7 +1472,6 @@ file class ScoreRecord
 
 file class PointsConverter : ISQLiteTypeConverter
 {
-    public Type Type => typeof(Points);
     public SQLiteColumnType ColumnType => SQLiteColumnType.Integer;
 
     public object? ToDatabase(object? value)

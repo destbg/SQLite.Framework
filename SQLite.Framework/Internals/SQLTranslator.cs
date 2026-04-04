@@ -19,10 +19,10 @@ namespace SQLite.Framework.Internals;
 internal class SQLTranslator
 {
     private readonly int level;
+    private readonly bool isInnerQuery;
     private readonly List<SQLiteParameter> parameters = [];
     private readonly QueryableMethodVisitor queryableMethodVisitor;
     private Expression? selectMethodExpression;
-    private bool isInnerQuery;
 
     public SQLTranslator(SQLiteDatabase database)
     {
@@ -34,11 +34,15 @@ internal class SQLTranslator
         queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor);
     }
 
-    public SQLTranslator(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level)
+    public SQLTranslator(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level, bool isInnerQuery)
     {
         this.level = level;
+        this.isInnerQuery = isInnerQuery;
         Visitor = new SQLVisitor(database, paramIndex, identifierIndex, tableIndex, level);
-        queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor);
+        queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor)
+        {
+            IsInnerQuery = isInnerQuery
+        };
     }
 
     public SQLVisitor Visitor { get; }
@@ -56,12 +60,6 @@ internal class SQLTranslator
     public Dictionary<ParameterExpression, (string Alias, Dictionary<string, Expression> Columns)> CteParameters
     {
         init => Visitor.CteParameters = value;
-    }
-
-    public bool IsInnerQuery
-    {
-        get => isInnerQuery;
-        set { isInnerQuery = value; queryableMethodVisitor.IsInnerQuery = value; }
     }
 
     public QueryType QueryType { get; init; }

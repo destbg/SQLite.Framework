@@ -310,6 +310,7 @@ public class ConcurrencyTests
     public async Task EightAsyncTasks_ConcurrentReads_CanHoldReadLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
+        db.ReadHoldMilliseconds = 50;
         db.Table<Book>().CreateTable();
 
         for (int i = 0; i < 8; i++)

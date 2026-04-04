@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace SQLite.Framework.JsonB;
 
 /// <summary>
@@ -6,6 +8,7 @@ namespace SQLite.Framework.JsonB;
 /// Register translations by calling <see cref="SQLiteStorageOptionsJsonExtensions.AddJson" />
 /// on your <see cref="SQLiteStorageOptions" />.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public static class SQLiteJsonFunctions
 {
     /// <summary>

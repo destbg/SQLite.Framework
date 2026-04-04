@@ -84,10 +84,9 @@ internal class SQLVisitor : ExpressionVisitor
 
     public SQLTranslator CloneDeeper(int innerLevel)
     {
-        return new SQLTranslator(Database, ParamIndex, IdentifierIndex, TableIndex, innerLevel)
+        return new SQLTranslator(Database, ParamIndex, IdentifierIndex, TableIndex, innerLevel, true)
         {
             MethodArguments = MethodArguments,
-            IsInnerQuery = true,
             CteRegistry = CteRegistry,
             CteParameters = CteParameters
         };

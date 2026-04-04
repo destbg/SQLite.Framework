@@ -13,6 +13,72 @@ internal partial class TestJsonContext : JsonSerializerContext;
 public class JsonConverterTests
 {
     [Fact]
+    public void JsonConverter_ToDatabase_WithNull_ReturnsNull()
+    {
+        SQLiteJsonConverter<Address> converter = new(TestJsonContext.Default.Address);
+        Assert.Null(converter.ToDatabase(null));
+    }
+
+    [Fact]
+    public void JsonConverter_ToDatabase_WithValue_ReturnsJson()
+    {
+        SQLiteJsonConverter<Address> converter = new(TestJsonContext.Default.Address);
+        object? result = converter.ToDatabase(new Address { Street = "1 Main St", City = "Town" });
+        Assert.IsType<string>(result);
+        Assert.Contains("Main St", (string)result!);
+    }
+
+    [Fact]
+    public void JsonConverter_FromDatabase_WithNull_ReturnsDefault()
+    {
+        SQLiteJsonConverter<Address> converter = new(TestJsonContext.Default.Address);
+        Assert.Null(converter.FromDatabase(null));
+    }
+
+    [Fact]
+    public void JsonConverter_FromDatabase_WithString_ReturnsDeserialized()
+    {
+        SQLiteJsonConverter<Address> converter = new(TestJsonContext.Default.Address);
+        object? result = converter.FromDatabase("""{"Street":"Oak Ave","City":"Ville"}""");
+        Address address = Assert.IsType<Address>(result);
+        Assert.Equal("Oak Ave", address.Street);
+    }
+
+#if !SQLITECIPHER
+    [Fact]
+    public void JsonbConverter_ToDatabase_WithNull_ReturnsNull()
+    {
+        SQLiteJsonbConverter<Address> converter = new(TestJsonContext.Default.Address);
+        Assert.Null(converter.ToDatabase(null));
+    }
+
+    [Fact]
+    public void JsonbConverter_ToDatabase_WithValue_ReturnsJson()
+    {
+        SQLiteJsonbConverter<Address> converter = new(TestJsonContext.Default.Address);
+        object? result = converter.ToDatabase(new Address { Street = "2 Elm St", City = "City" });
+        Assert.IsType<string>(result);
+        Assert.Contains("Elm St", (string)result!);
+    }
+
+    [Fact]
+    public void JsonbConverter_FromDatabase_WithNull_ReturnsDefault()
+    {
+        SQLiteJsonbConverter<Address> converter = new(TestJsonContext.Default.Address);
+        Assert.Null(converter.FromDatabase(null));
+    }
+
+    [Fact]
+    public void JsonbConverter_FromDatabase_WithString_ReturnsDeserialized()
+    {
+        SQLiteJsonbConverter<Address> converter = new(TestJsonContext.Default.Address);
+        object? result = converter.FromDatabase("""{"Street":"Pine Rd","City":"Berg"}""");
+        Address address = Assert.IsType<Address>(result);
+        Assert.Equal("Pine Rd", address.Street);
+    }
+#endif
+
+    [Fact]
     public void JsonConverter_RoundTrip()
     {
         using TestDatabase db = SetupJsonDatabase();

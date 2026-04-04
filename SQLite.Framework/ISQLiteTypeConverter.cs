@@ -8,12 +8,7 @@ namespace SQLite.Framework;
 public interface ISQLiteTypeConverter
 {
     /// <summary>
-    /// The .NET type this converter handles.
-    /// </summary>
-    Type Type { get; }
-
-    /// <summary>
-    /// The SQLite column type used to store values of <see cref="Type" />.
+    /// The SQLite column type used to store values of this converter's .NET type.
     /// </summary>
     SQLiteColumnType ColumnType { get; }
 
