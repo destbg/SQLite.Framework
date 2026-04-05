@@ -573,6 +573,27 @@ public class EdgeCaseTests
         Assert.Equal(2, count);
     }
 
+    [Fact]
+    public void AnonymousTypeProjection_NullableColumn_ReturnsNull()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableColumnEntity>().CreateTable();
+        db.Table<NullableColumnEntity>().Add(new NullableColumnEntity { Id = 1, Value = null });
+
+        var result = db.Table<NullableColumnEntity>()
+            .Select(e => new { e.Id, e.Value })
+            .First();
+
+        Assert.Equal(1, result.Id);
+        Assert.Null(result.Value);
+    }
+
+    private class NullableColumnEntity
+    {
+        [Key] public int Id { get; set; }
+        public int? Value { get; set; }
+    }
+
     private class EmptyKeyEntity
     {
         public int Id { get; set; }

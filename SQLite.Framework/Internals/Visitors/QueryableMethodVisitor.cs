@@ -122,6 +122,41 @@ internal class QueryableMethodVisitor
                 Selects.Add(newSqlExpression);
             }
 
+            if (lambda.Body is MemberInitExpression mieBody && mieBody.Bindings.OfType<MemberListBinding>().Any())
+            {
+                List<MemberBinding> allBindings = [];
+
+                foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
+                {
+                    if (string.IsNullOrEmpty(tableColumn.Key))
+                    {
+                        continue;
+                    }
+
+                    SQLExpression originalSql = (SQLExpression)tableColumn.Value;
+                    PropertyInfo? prop = mieBody.Type.GetProperty(tableColumn.Key);
+
+                    if (prop == null)
+                    {
+                        continue;
+                    }
+
+                    SQLExpression compilerExpr = new(prop.PropertyType, 0, originalSql.Sql)
+                    {
+                        IdentifierText = tableColumn.Key
+                    };
+                    allBindings.Add(Expression.Bind(prop, compilerExpr));
+                }
+
+                foreach (MemberListBinding lb in mieBody.Bindings.OfType<MemberListBinding>())
+                {
+                    allBindings.Add(lb);
+                }
+
+                visitor.IsInSelectProjection = false;
+                return Expression.MemberInit(mieBody.NewExpression, allBindings);
+            }
+
             visitor.IsInSelectProjection = false;
             return node;
         }
@@ -726,24 +761,6 @@ internal class QueryableMethodVisitor
                 newTableColumns = tableMapping.Columns
                     .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex.Index++, $"{alias}.{f.Name}"));
                 sql = new SQLExpression(body.Type, -1, $"\"{table.Table.TableName}\" AS {alias}");
-            }
-            else if (innerValue is IQueryable queryable)
-            {
-                SQLTranslator innerVisitor = visitor.CloneDeeper(visitor.Level + 1);
-                SQLQuery query = innerVisitor.Translate(queryable.Expression);
-
-                entityType = queryable.ElementType;
-                char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
-                string alias = $"{aliasChar}{visitor.TableIndex[aliasChar]++}";
-
-                newTableColumns = entityType.GetProperties()
-                    .ToDictionary(f => f.Name, Expression (f) => new SQLExpression(f.PropertyType, visitor.IdentifierIndex.Index++, $"{alias}.{f.Name}"));
-                sql = new SQLExpression(
-                    body.Type,
-                    -1,
-                    $"({Environment.NewLine}{query.Sql}{Environment.NewLine}) AS {alias}",
-                    query.Parameters.Count != 0 ? query.Parameters.ToArray() : null
-                );
             }
             else
             {

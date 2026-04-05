@@ -61,6 +61,26 @@ public class CoverageGapTests
     }
 
     [Fact]
+    public void ExecuteUpdate_SetOnField_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.Table<Book>().ExecuteUpdate(s => s.Set(b => ((BookWithField)(object)b).Title, "X")));
+    }
+
+    [Fact]
+    public void ExecuteUpdate_SetExpressionNotTranslatable_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.Table<Book>().ExecuteUpdate(s => s.Set(b => b.Title, b => string.Intern(b.Title))));
+    }
+
+    [Fact]
     public void SQLiteCteTyped_GetEnumerator_ExecutesQuery()
     {
         using TestDatabase db = new();
@@ -216,6 +236,32 @@ public class CoverageGapTests
     }
 
     [Fact]
+    public void DateOnly_StoredAsText_SelectProperty_ReturnsClientSide()
+    {
+        using TestDatabase db = new();
+        db.StorageOptions.DateOnlyStorage = DateOnlyStorageMode.Text;
+        db.Table<DateOnlyEntity>().CreateTable();
+        db.Table<DateOnlyEntity>().Add(new DateOnlyEntity { Id = 1, Date = new DateOnly(2024, 6, 15) });
+
+        int year = db.Table<DateOnlyEntity>().Select(e => e.Date.Year).First();
+
+        Assert.Equal(2024, year);
+    }
+
+    [Fact]
+    public void TimeOnly_StoredAsText_SelectProperty_ReturnsClientSide()
+    {
+        using TestDatabase db = new();
+        db.StorageOptions.TimeOnlyStorage = TimeOnlyStorageMode.Text;
+        db.Table<TimeOnlyEntity>().CreateTable();
+        db.Table<TimeOnlyEntity>().Add(new TimeOnlyEntity { Id = 1, Time = new TimeOnly(14, 30, 45) });
+
+        int hour = db.Table<TimeOnlyEntity>().Select(e => e.Time.Hour).First();
+
+        Assert.Equal(14, hour);
+    }
+
+    [Fact]
     public void DateOnly_Text_WhereProperty_Throws()
     {
         using TestDatabase db = new();
@@ -328,11 +374,171 @@ public class CoverageGapTests
         public DateTime Date { get; set; }
     }
 
+    [Fact]
+    public void MemberInit_NonSimpleTypeMember_MapsNestedColumns()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Author>().CreateTable();
+        db.Table<Author>().Add(new Author { Id = 1, Name = "Alice", Email = "alice@example.com", BirthDate = new DateTime(1980, 1, 1) });
+        db.Table<Book>().Add(new Book { Id = 1, Title = "Test Book", AuthorId = 1, Price = 9.99 });
+
+        BookWithAuthorDto result = (
+            from b in db.Table<Book>()
+            join a in db.Table<Author>() on b.AuthorId equals a.Id
+            select new { b, a } into x
+            select new BookWithAuthorDto { Title = x.b.Title, Author = x.a }
+        ).First();
+
+        Assert.Equal("Test Book", result.Title);
+        Assert.Equal("Alice", result.Author.Name);
+    }
+
+    private class BookWithAuthorDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public Author Author { get; set; } = null!;
+    }
+
     private class ComputedJoinDto
     {
         public string UpperTitle { get; set; } = string.Empty;
         public string AuthorName { get; set; } = string.Empty;
     }
 
+    [Fact]
+    public void Where_WithInlineFieldInitializer_FiltersCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "Match", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Other", AuthorId = 1, Price = 20 }
+        ]);
+
+        List<Book> results = db.Table<Book>()
+            .Where(b => b.Title == new TitleFilter { Value = "Match" }.Value)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal("Match", results[0].Title);
+    }
+
+    private class TitleFilter
+    {
+        public string Value = string.Empty;
+    }
+
     private record SingleStringRecord(string Title);
+
+    [Fact]
+    public void Select_WithMemberListBinding_PopulatesCollection()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "WAL Book", AuthorId = 1, Price = 9.99 });
+
+        BookWithTags result = db.Table<Book>()
+            .Where(b => b.Id == 1)
+            .Select(b => new BookWithTags
+            {
+                Title = b.Title,
+                Tags = { "fiction", "bestseller" }
+            })
+            .First();
+
+        Assert.Equal("WAL Book", result.Title);
+        Assert.Equal(2, result.Tags.Count);
+        Assert.Contains("fiction", result.Tags);
+        Assert.Contains("bestseller", result.Tags);
+    }
+
+    [Fact]
+    public void Select_Chained_WithMemberListBinding_PopulatesCollection()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "WAL Book", AuthorId = 1, Price = 9.99 });
+
+        BookWithTags result = db.Table<Book>()
+            .Where(b => b.Id == 1)
+            .Select(b => b.Title)
+            .Select(t => new BookWithTags
+            {
+                Title = t,
+                Tags = { "fiction", "bestseller" }
+            })
+            .First();
+
+        Assert.Equal("WAL Book", result.Title);
+        Assert.Equal(2, result.Tags.Count);
+        Assert.Contains("fiction", result.Tags);
+        Assert.Contains("bestseller", result.Tags);
+    }
+
+    [Fact]
+    public void ConstantEnumCastToInt_Where_FiltersCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.0 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2.0 });
+
+        BookCategory category = BookCategory.Fiction;
+        List<Book> results = db.Table<Book>().Where(b => b.AuthorId == (int)category).ToList();
+
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
+    }
+
+    [Fact]
+    public void ConstantLongCastToInt_Where_FiltersCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.0 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2.0 });
+
+        long id = 1L;
+        List<Book> results = db.Table<Book>().Where(b => b.Id == (int)id).ToList();
+
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
+    }
+
+    [Fact]
+    public void CapturedTableVariable_InSubquery_FiltersCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Author>().CreateTable();
+        db.Table<Author>().Add(new Author { Id = 1, Name = "Alice", Email = "a@a.com", BirthDate = DateTime.Today });
+        db.Table<Author>().Add(new Author { Id = 2, Name = "Bob", Email = "b@b.com", BirthDate = DateTime.Today });
+        db.Table<Book>().Add(new Book { Id = 1, Title = "Book A", AuthorId = 1, Price = 1.0 });
+
+        var books = db.Table<Book>();
+        List<Author> results = db.Table<Author>()
+            .Where(a => books.Any(b => b.AuthorId == a.Id))
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
+    }
+
+    private class BookWithField
+    {
+        public string Title = string.Empty;
+    }
+
+    private enum BookCategory
+    {
+        Fiction = 1,
+        NonFiction = 2
+    }
+
+    private class BookWithTags
+    {
+        public string Title { get; set; } = string.Empty;
+        public List<string> Tags { get; } = [];
+    }
 }

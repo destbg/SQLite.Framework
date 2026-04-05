@@ -286,6 +286,19 @@ public class DateTimeStorageTests
         Assert.Equal(6, second);
     }
 
+    [Fact]
+    public void TextColumn_TicksAsString_RoundTrip()
+    {
+        using TestDatabase db = new();
+        DateTime expected = new(2024, 6, 15, 12, 30, 0);
+        db.Execute("CREATE TABLE TestEntity (Id INTEGER PRIMARY KEY, Date TEXT NOT NULL)");
+        db.Execute($"INSERT INTO TestEntity (Id, Date) VALUES (1, '{expected.Ticks}')");
+
+        TestEntity result = db.Table<TestEntity>().First();
+
+        Assert.Equal(expected, result.Date);
+    }
+
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(methodName);

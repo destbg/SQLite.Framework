@@ -9,6 +9,8 @@ internal class WalTrackingDatabase : TestDatabase
 
     public int MaxConcurrentLockHolders => maxConcurrentHolders;
 
+    public int LockHoldMilliseconds { get; set; }
+
     public WalTrackingDatabase([CallerMemberName] string? methodName = null)
         : base(methodName)
     {
@@ -31,6 +33,11 @@ internal class WalTrackingDatabase : TestDatabase
             }
         }
         while (Interlocked.CompareExchange(ref maxConcurrentHolders, current, snapshot) != snapshot);
+
+        if (LockHoldMilliseconds > 0)
+        {
+            Thread.Sleep(LockHoldMilliseconds);
+        }
 
         return new TrackingLock(inner, () => Interlocked.Decrement(ref activeHolders));
     }

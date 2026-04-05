@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using SQLite.Framework.Enums;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -71,6 +72,16 @@ public class DecimalStorageTests
     }
 
     [Fact]
+    public void Text_Select_NoCastInRootProjection()
+    {
+        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
+
+        SQLiteCommand command = db.Table<TestEntity>().ToSqlCommand();
+
+        Assert.DoesNotContain("CAST", command.CommandText);
+    }
+
+    [Fact]
     public void Text_RoundTrip_HighPrecision()
     {
         using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
@@ -114,6 +125,22 @@ public class DecimalStorageTests
 
         Assert.Single(results);
         Assert.Equal(2, results[0].Id);
+    }
+
+    [Fact]
+    public void Text_Where_GreaterThan_CastsToReal()
+    {
+        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
+
+        SQLiteCommand command = db.Table<TestEntity>().Where(a => a.Price > 15.00m).ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT t0.Id AS "Id",
+                            t0.Price AS "Price"
+                     FROM "TestEntity" AS t0
+                     WHERE CAST(t0.Price AS REAL) > @p0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -164,6 +191,40 @@ public class DecimalStorageTests
         return db;
     }
 
+    [Fact]
+    public void Text_SelectContains_ProducesInSubquery()
+    {
+        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
+
+        SQLiteCommand command = db.Table<TestEntity>()
+            .Select(f => db.Table<TestEntity>().Select(s => s.Price).Contains(f.Price))
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT t0.Price IN (
+                         SELECT t1.Price AS "Price"
+                         FROM "TestEntity" AS t1
+                     ) AS "8"
+                     FROM "TestEntity" AS t0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Text_SelectContains_ReturnsCorrectResults()
+    {
+        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 10.00m });
+        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Price = 20.00m });
+
+        List<bool> results = db.Table<TestEntity>()
+            .Select(f => db.Table<TestEntity>().Select(s => s.Price).Contains(f.Price))
+            .ToList();
+
+        Assert.Equal(2, results.Count);
+        Assert.All(results, r => Assert.True(r));
+    }
+
     private class TestEntity
     {
         [Key]
@@ -171,4 +232,5 @@ public class DecimalStorageTests
 
         public required decimal Price { get; set; }
     }
+
 }

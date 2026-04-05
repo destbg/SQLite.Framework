@@ -378,6 +378,19 @@ public class ExternalMethodTests
     }
 
     [Fact]
+    public void NegationOfExternalMethod()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int result = db.Table<Author>()
+            .Where(a => a.Id == 1)
+            .Select(a => -CommonHelpers.ConvertString(a.Name))
+            .First();
+
+        Assert.Equal(1, result);
+    }
+
+    [Fact]
     public void ExternalModelMembers()
     {
         using TestDatabase db = SetupDatabase();

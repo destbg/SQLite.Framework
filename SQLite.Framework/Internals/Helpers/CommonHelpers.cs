@@ -110,6 +110,7 @@ internal static class CommonHelpers
             },
             UnaryExpression ue => IsConstant(ue.Operand),
             NewArrayExpression na => na.Expressions.Select(IsConstant).All(f => f),
+            MemberInitExpression mie => mie.Bindings.All(b => b is MemberAssignment ma && IsConstant(ma.Expression)),
             _ => false
         };
     }
@@ -153,19 +154,6 @@ internal static class CommonHelpers
         return node.RequiresBrackets
             ? new SQLExpression(node.Type, node.Identifier, $"({node.Sql})", node.Parameters)
             : node;
-    }
-
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "We are checking the Queryable class")]
-    public static Type? GetQueryableType(Type type)
-    {
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IQueryable<>))
-        {
-            return type.GenericTypeArguments[0];
-        }
-
-        return type.GetInterfaces()
-            .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IQueryable<>))
-            ?.GenericTypeArguments[0];
     }
 
     public static SQLiteParameter[]? CombineParameters(SQLExpression expression1, SQLExpression expression2)

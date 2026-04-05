@@ -1,7 +1,8 @@
+using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using SQLite.Framework.Internals.Helpers;
-using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
@@ -95,30 +96,37 @@ internal class AliasVisitor
                 }
             }
         }
-        else if (newExpression.Members == null)
+        else
+        {
+            VisitNewExpressionMembers(resultSelector, newExpression.Members, prefix);
+        }
+    }
+
+    [ExcludeFromCodeCoverage(Justification = "This is an impossible case, but I don't want to remove it just in case.")]
+    private void VisitNewExpressionMembers(LambdaExpression resultSelector, ReadOnlyCollection<MemberInfo>? members, string? prefix)
+    {
+        if (members == null)
         {
             throw new NotSupportedException("Cannot translate expression");
         }
-        else
+
+        foreach (MemberInfo memberInfo in members)
         {
-            foreach (MemberInfo memberInfo in newExpression.Members)
+            string alias = CheckPrefix(prefix, memberInfo.Name);
+            Type propertyType = memberInfo is PropertyInfo pi ? pi.PropertyType : ((FieldInfo)memberInfo).FieldType;
+
+            ParameterExpression expression = resultSelector.Parameters
+                .First(f => (f.Name == memberInfo.Name && f.Type == propertyType) || f.Type == propertyType);
+
+            (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(expression);
+
+            Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
+
+            foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
             {
-                string alias = CheckPrefix(prefix, memberInfo.Name);
-                Type propertyType = memberInfo is PropertyInfo pi ? pi.PropertyType : ((FieldInfo)memberInfo).FieldType;
-
-                ParameterExpression expression = resultSelector.Parameters
-                    .First(f => (f.Name == memberInfo.Name && f.Type == propertyType) || f.Type == propertyType);
-
-                (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(expression);
-
-                Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
-
-                foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
+                if (tableColumn.Key.StartsWith(path))
                 {
-                    if (tableColumn.Key.StartsWith(path))
-                    {
-                        result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
-                    }
+                    result.Add($"{alias}.{tableColumn.Key[(path.Length + 1)..]}", tableColumn.Value);
                 }
             }
         }
@@ -126,7 +134,7 @@ internal class AliasVisitor
 
     private void VisitMemberInitExpression(LambdaExpression resultSelector, MemberInitExpression memberInitExpression, string? prefix)
     {
-        foreach (MemberAssignment memberAssignment in memberInitExpression.Bindings.Cast<MemberAssignment>())
+        foreach (MemberAssignment memberAssignment in memberInitExpression.Bindings.OfType<MemberAssignment>())
         {
             if (memberAssignment.Expression is MemberInitExpression or NewExpression)
             {
@@ -146,9 +154,16 @@ internal class AliasVisitor
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
                 Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[parameterExpression];
 
-                foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
+                if (CommonHelpers.IsSimple(parameterExpression.Type, database.StorageOptions))
                 {
-                    result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
+                    result.Add(alias, parameterTableColumns.Values.First());
+                }
+                else
+                {
+                    foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
+                    {
+                        result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
+                    }
                 }
             }
             else if (memberAssignment.Expression is MemberExpression)
@@ -172,9 +187,9 @@ internal class AliasVisitor
                 {
                     foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
                     {
-                        if (tableColumn.Key.StartsWith(path))
+                        if (tableColumn.Key.StartsWith(path + "."))
                         {
-                            result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
+                            result.Add($"{alias}.{tableColumn.Key[(path.Length + 1)..]}", tableColumn.Value);
                         }
                     }
                 }
@@ -226,14 +241,8 @@ internal class AliasVisitor
 
     private void VisitMethodCallExpression(MethodCallExpression methodCallExpression, string? prefix)
     {
-        Expression sql = visitor.Visit(methodCallExpression);
-
-        if (sql is not SQLExpression sqlExpression)
-        {
-            throw new NotSupportedException($"Unsupported expression {methodCallExpression}");
-        }
-
-        result.Add(prefix ?? string.Empty, sqlExpression);
+        Expression expression = visitor.Visit(methodCallExpression);
+        result.Add(prefix ?? string.Empty, expression);
     }
 
     private void VisitInnerExpression(Expression body, string? prefix)
@@ -242,14 +251,8 @@ internal class AliasVisitor
         {
             MethodArguments = visitor.MethodArguments
         };
-        Expression sql = innerVisitor.Visit(body);
-
-        if (sql is not SQLExpression sqlExpression)
-        {
-            throw new NotSupportedException($"Unsupported expression {body}");
-        }
-
-        result.Add(prefix ?? string.Empty, sqlExpression);
+        Expression expression = innerVisitor.Visit(body);
+        result.Add(prefix ?? string.Empty, expression);
     }
 
     private static string CheckPrefix(string? prefix, string path)

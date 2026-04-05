@@ -208,6 +208,7 @@ public class WalConcurrencyTests
     public async Task WalMode_ConcurrentWrites_AreNotSerialized()
     {
         using WalTrackingDatabase db = new();
+        db.LockHoldMilliseconds = 50;
         db.Table<Book>().CreateTable();
 
         Barrier barrier = new(8);
@@ -230,6 +231,7 @@ public class WalConcurrencyTests
     public async Task WalMode_EightAsyncTasks_WritesAreNotSerialized()
     {
         using WalTrackingDatabase db = new();
+        db.LockHoldMilliseconds = 50;
         db.Table<Book>().CreateTable();
 
         Barrier barrier = new(8);
@@ -252,6 +254,7 @@ public class WalConcurrencyTests
     public async Task WalMode_EightMixedTasks_WritesAreNotSerialized()
     {
         using WalTrackingDatabase db = new();
+        db.LockHoldMilliseconds = 50;
         db.Table<Book>().CreateTable();
 
         Barrier barrier = new(8);

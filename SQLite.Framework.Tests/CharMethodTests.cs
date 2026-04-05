@@ -377,4 +377,54 @@ public class CharMethodTests
 
         return db;
     }
+
+    [Fact]
+    public void CastCharToInt_Select_ProducesUnicode()
+    {
+        using TestDatabase db = SetupDatabase('A', 'B', 'C');
+
+        SQLiteCommand command = db.Table<NumericType>()
+            .Select(n => (int)n.CharValue)
+            .ToSqlCommand();
+
+        Assert.Contains("UNICODE(n0.CharValue)", command.CommandText);
+    }
+
+    [Fact]
+    public void CastCharToInt_Select_ReturnsCharCode()
+    {
+        using TestDatabase db = SetupDatabase('A', 'B', 'C');
+
+        int result = db.Table<NumericType>()
+            .Where(n => n.Id == 1)
+            .Select(n => (int)n.CharValue)
+            .First();
+
+        Assert.Equal(65, result);
+    }
+
+    [Fact]
+    public void CastIntToChar_Select_ProducesChar()
+    {
+        using TestDatabase db = SetupDatabase('A', 'B', 'C');
+
+        SQLiteCommand command = db.Table<NumericType>()
+            .Select(n => (char)n.IntValue)
+            .ToSqlCommand();
+
+        Assert.Contains("CHAR(n0.IntValue)", command.CommandText);
+    }
+
+    [Fact]
+    public void CastIntToChar_Select_ReturnsChar()
+    {
+        using TestDatabase db = SetupDatabase('A', 'B', 'C');
+
+        char result = db.Table<NumericType>()
+            .Where(n => n.Id == 1)
+            .Select(n => (char)n.IntValue)
+            .First();
+
+        Assert.Equal((char)1, result);
+    }
 }

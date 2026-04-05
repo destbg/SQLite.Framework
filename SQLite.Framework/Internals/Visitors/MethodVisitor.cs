@@ -672,20 +672,20 @@ internal class MethodVisitor
         SQLTranslator translator = visitor.CloneDeeper(visitor.Level + 1);
         SQLQuery query = translator.Translate(node);
 
+        if (node.Method.Name is nameof(Queryable.Any) or nameof(Queryable.All))
+        {
+            return new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex.Index++,
+                $"EXISTS ({Environment.NewLine}{query.Sql}{Environment.NewLine})",
+                query.Parameters.Count != 0
+                    ? query.Parameters.ToArray()
+                    : null
+            );
+        }
+
         if (node.Arguments.Count == 1)
         {
-            if (node.Method.Name is nameof(Queryable.Any) or nameof(Queryable.All))
-            {
-                return new SQLExpression(
-                    node.Method.ReturnType,
-                    visitor.IdentifierIndex.Index++,
-                    $"EXISTS ({Environment.NewLine}{query.Sql}{Environment.NewLine})",
-                    query.Parameters.Count != 0
-                        ? query.Parameters.ToArray()
-                        : null
-                );
-            }
-
             return new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex.Index++,

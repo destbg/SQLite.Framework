@@ -321,7 +321,17 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     {
         CompiledExpression newExpression = (CompiledExpression)Visit(node.NewExpression);
         List<(MemberBinding, CompiledExpression)> bindings = node.Bindings
+            .Where(b => b.BindingType != MemberBindingType.ListBinding)
             .Select(f => (f, VisitMemberBindingExpression(f)))
+            .ToList();
+        List<(MemberInfo Member, List<(MethodInfo AddMethod, CompiledExpression[] Args)> Initializers)> listBindings = node.Bindings
+            .OfType<MemberListBinding>()
+            .Select(lb => (
+                lb.Member,
+                lb.Initializers
+                    .Select(init => (init.AddMethod, init.Arguments.Select(a => (CompiledExpression)Visit(a)).ToArray()))
+                    .ToList()
+            ))
             .ToList();
 
         return new CompiledExpression(node.Type, ctx =>
@@ -346,6 +356,15 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 else
                 {
                     throw new NotSupportedException($"The member binding '{binding}' is not supported.");
+                }
+            }
+
+            foreach ((MemberInfo member, List<(MethodInfo AddMethod, CompiledExpression[] Args)> initializers) in listBindings)
+            {
+                object? collection = member is PropertyInfo mp ? mp.GetValue(instance) : ((FieldInfo)member).GetValue(instance);
+                foreach ((MethodInfo addMethod, CompiledExpression[] args) in initializers)
+                {
+                    addMethod.Invoke(collection, args.Select(a => a.Call(ctx)).ToArray());
                 }
             }
 
@@ -448,18 +467,6 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         };
     }
 
-    private CompiledExpression VisitElementInitExpression(ElementInit node)
-    {
-        List<CompiledExpression> arguments = node.Arguments
-            .Select(arg => (CompiledExpression)Visit(arg))
-            .ToList();
-
-        return new CompiledExpression(node.AddMethod.ReturnType, ctx =>
-        {
-            object? instance = node.AddMethod.Invoke(null, arguments.Select(arg => arg.Call(ctx)).ToArray());
-            return instance;
-        });
-    }
 
     private CompiledExpression VisitMemberAssignmentExpression(MemberAssignment node)
     {
@@ -486,21 +493,10 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         });
     }
 
+    [ExcludeFromCodeCoverage]
     private CompiledExpression VisitMemberListBindingExpression(MemberListBinding node)
     {
-        List<CompiledExpression> initializers = node.Initializers.Select(VisitElementInitExpression).ToList();
-
-        Type type = node.Member is PropertyInfo property ? property.PropertyType : ((FieldInfo)node.Member).FieldType;
-
-        return new CompiledExpression(type, ctx =>
-        {
-            foreach (CompiledExpression initializer in initializers)
-            {
-                initializer.Call(ctx);
-            }
-
-            return null;
-        });
+        throw new NotSupportedException($"List binding '{node.Member.Name}' is not supported inside a nested member binding.");
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Generic operator methods are resolved at runtime; types are preserved via TrimmerRootDescriptor")]

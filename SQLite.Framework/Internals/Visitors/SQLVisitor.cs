@@ -338,8 +338,7 @@ internal class SQLVisitor : ExpressionVisitor
                 AssignCte(cte);
                 return new SQLExpression(node.Type, -1, From!.Sql, From!.Parameters);
             }
-
-            if (value is BaseSQLiteTable table)
+            else if (value is BaseSQLiteTable table)
             {
                 AssignTable(table.ElementType);
                 return new SQLExpression(node.Type, -1, From!.Sql, From!.Parameters);
@@ -380,6 +379,15 @@ internal class SQLVisitor : ExpressionVisitor
             {
                 if (expressions.TryGetValue(path, out Expression? expression))
                 {
+                    if (expression is SQLExpression colExpr && !IsInSelectProjection)
+                    {
+                        Type colType = Nullable.GetUnderlyingType(colExpr.Type) ?? colExpr.Type;
+                        if (colType == typeof(decimal) && Database.StorageOptions.DecimalStorage == DecimalStorageMode.Text)
+                        {
+                            return new SQLExpression(colExpr.Type, IdentifierIndex.Index++, $"CAST({colExpr.Sql} AS REAL)", colExpr.Parameters);
+                        }
+                    }
+
                     return expression;
                 }
             }
@@ -435,19 +443,7 @@ internal class SQLVisitor : ExpressionVisitor
 
         if (resolved.IsConstant)
         {
-            if (node.NodeType == ExpressionType.Convert)
-            {
-                object? value = resolved.Constant;
-                Type targetType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
-                if (value?.GetType().IsEnum == true && targetType == Enum.GetUnderlyingType(value.GetType()))
-                {
-                    return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", value);
-                }
-
-                return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", Convert.ChangeType(value, targetType));
-            }
-
-            return resolved.SQLExpression;
+            return ResolvedUnary(node, resolved);
         }
 
         if (node.NodeType == ExpressionType.Convert)
@@ -458,11 +454,11 @@ internal class SQLVisitor : ExpressionVisitor
             }
             else if (node.Type == typeof(char) && resolved.SQLExpression.Type == typeof(int))
             {
-                return new SQLExpression(node.Type, IdentifierIndex.Index++, $"CHAR(${resolved.SQLExpression.Sql})", resolved.SQLExpression.Parameters);
+                return new SQLExpression(node.Type, IdentifierIndex.Index++, $"CHAR({resolved.SQLExpression.Sql})", resolved.SQLExpression.Parameters);
             }
             else if (node.Type == typeof(int) && resolved.SQLExpression.Type == typeof(char))
             {
-                return new SQLExpression(node.Type, IdentifierIndex.Index++, $"UNICODE(${resolved.SQLExpression.Sql})", resolved.SQLExpression.Parameters);
+                return new SQLExpression(node.Type, IdentifierIndex.Index++, $"UNICODE({resolved.SQLExpression.Sql})", resolved.SQLExpression.Parameters);
             }
             else if (resolved.SQLExpression.Type.IsEnum && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == Enum.GetUnderlyingType(resolved.SQLExpression.Type))
             {
@@ -692,6 +688,7 @@ internal class SQLVisitor : ExpressionVisitor
         return node.Update(bindings);
     }
 
+    [ExcludeFromCodeCoverage(Justification = "I really hope no one is doing new Dto { Collection = { item1, item2 } } inside a Where clause")]
     protected override MemberListBinding VisitMemberListBinding(MemberListBinding node)
     {
         List<ElementInit> initializers = node.Initializers.Select(VisitElementInit).ToList();
@@ -802,6 +799,24 @@ internal class SQLVisitor : ExpressionVisitor
         };
     }
 
+    [ExcludeFromCodeCoverage(Justification = "In theory we should never enter here")]
+    private SQLExpression ResolvedUnary(UnaryExpression node, ResolvedModel resolved)
+    {
+        if (node.NodeType == ExpressionType.Convert)
+        {
+            object? value = resolved.Constant;
+            Type targetType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
+            if (value?.GetType().IsEnum == true && targetType == Enum.GetUnderlyingType(value.GetType()))
+            {
+                return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", value);
+            }
+
+            return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", Convert.ChangeType(value, targetType));
+        }
+
+        return resolved.SQLExpression!;
+    }
+
     private Expression ConvertMemberExpression(MemberExpression node, SQLExpression sqlExpression)
     {
         if (Nullable.GetUnderlyingType(node.Expression!.Type) != null)
@@ -862,17 +877,6 @@ internal class SQLVisitor : ExpressionVisitor
             }
 
             return propertyVisitor.HandleTimeOnlyProperty(node.Member.Name, node.Type, sqlExpression);
-        }
-
-        Type sqlType = Nullable.GetUnderlyingType(sqlExpression.Type) ?? sqlExpression.Type;
-        if (sqlType == typeof(decimal) && Database.StorageOptions.DecimalStorage == DecimalStorageMode.Text && !(IsInSelectProjection && Level == 0))
-        {
-            return new SQLExpression(
-                sqlExpression.Type,
-                IdentifierIndex.Index++,
-                $"CAST({sqlExpression.Sql} AS REAL)",
-                sqlExpression.Parameters
-            );
         }
 
         return sqlExpression;
