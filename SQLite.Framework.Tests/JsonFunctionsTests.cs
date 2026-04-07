@@ -191,10 +191,83 @@ public class JsonFunctionsTests
     }
 #endif
 
+    private static TestDatabase CreateListDb(string? methodName = null)
+    {
+        TestDatabase db = new(methodName);
+        db.StorageOptions.AddJson();
+        db.StorageOptions.TypeConverters[typeof(List<string>)] =
+            new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
+        db.Table<ListRow>().CreateTable();
+        return db;
+    }
+
+    [Fact]
+    public void List_Contains_MatchingItem_ReturnsRow()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["fiction", "bestseller"] });
+        db.Table<ListRow>().Add(new ListRow { Id = 2, Tags = ["non-fiction"] });
+
+        List<ListRow> results = db.Table<ListRow>()
+            .Where(r => r.Tags.Contains("fiction"))
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
+    }
+
+    [Fact]
+    public void List_Contains_NoMatch_ReturnsEmpty()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["fiction"] });
+
+        List<ListRow> results = db.Table<ListRow>()
+            .Where(r => r.Tags.Contains("mystery"))
+            .ToList();
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void List_Any_NonEmptyList_ReturnsRow()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["fiction"] });
+        db.Table<ListRow>().Add(new ListRow { Id = 2, Tags = [] });
+
+        List<ListRow> results = db.Table<ListRow>()
+            .Where(r => r.Tags.Any())
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
+    }
+
+    [Fact]
+    public void List_Any_AllEmpty_ReturnsEmpty()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = [] });
+
+        List<ListRow> results = db.Table<ListRow>()
+            .Where(r => r.Tags.Any())
+            .ToList();
+
+        Assert.Empty(results);
+    }
+
     private class JsonRow
     {
         [Key]
         public int Id { get; set; }
         public string Data { get; set; } = "";
+    }
+
+    private class ListRow
+    {
+        [Key]
+        public int Id { get; set; }
+        public List<string> Tags { get; set; } = [];
     }
 }

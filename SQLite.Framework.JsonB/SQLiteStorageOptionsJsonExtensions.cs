@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace SQLite.Framework.JsonB;
 
@@ -56,6 +57,12 @@ public static class SQLiteStorageOptionsJsonExtensions
         t[Method(nameof(SQLiteJsonFunctions.ExtractJsonb))] =
             (_, args) => $"jsonb_extract({args[0]}, {args[1]})";
 
+        t[typeof(List<>).GetMethod(nameof(List<object>.Contains))!] =
+            (instance, args) => $"EXISTS (SELECT 1 FROM json_each({instance}) WHERE value = {args[0]})";
+
+        t[AnyMethod()] =
+            (_, args) => $"json_array_length({args[0]}) > 0";
+
         return options;
     }
 
@@ -69,5 +76,13 @@ public static class SQLiteStorageOptionsJsonExtensions
     {
         return typeof(SQLiteJsonFunctions).GetMethod(name, parameterTypes)
                ?? throw new InvalidOperationException($"Method '{name}' with the given parameter types not found on JsonFunctions.");
+    }
+
+    private static MethodInfo AnyMethod()
+    {
+        return typeof(Enumerable)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .First(m => m.Name == nameof(Enumerable.Any) && m.GetParameters().Length == 1)
+            .GetGenericMethodDefinition();
     }
 }

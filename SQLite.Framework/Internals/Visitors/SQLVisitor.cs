@@ -882,6 +882,7 @@ internal class SQLVisitor : ExpressionVisitor
         return sqlExpression;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Open generic type methods are looked up by name for custom translator registration.")]
     private bool TryGetMethodTranslator(MethodInfo method, [NotNullWhen(true)] out SQLiteMethodTranslator? translator)
     {
         if (Database.StorageOptions.MethodTranslators.TryGetValue(method, out translator))
@@ -893,6 +894,17 @@ internal class SQLVisitor : ExpressionVisitor
             Database.StorageOptions.MethodTranslators.TryGetValue(method.GetGenericMethodDefinition(), out translator))
         {
             return true;
+        }
+
+        if (method.DeclaringType?.IsConstructedGenericType == true)
+        {
+            Type openType = method.DeclaringType.GetGenericTypeDefinition();
+            MethodInfo? openMethod = openType.GetMethods()
+                .FirstOrDefault(m => m.Name == method.Name && m.GetParameters().Length == method.GetParameters().Length);
+            if (openMethod != null && Database.StorageOptions.MethodTranslators.TryGetValue(openMethod, out translator))
+            {
+                return true;
+            }
         }
 
         return false;

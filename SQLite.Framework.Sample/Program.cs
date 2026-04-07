@@ -2,9 +2,11 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Text.Json.Serialization;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
+using SQLite.Framework.JsonB;
 using SQLite.Framework.Sample.DTOs;
 using SQLite.Framework.Sample.Models;
 
@@ -13,7 +15,7 @@ namespace SQLite.Framework.Sample;
 /// <summary>
 /// SQLite.Framework demo showing various ORM features and LINQ queries.
 /// </summary>
-public static class Program
+public static partial class Program
 {
     private static async Task Main()
     {
@@ -80,6 +82,10 @@ public static class Program
         // === CUSTOM TYPE CONVERTER (operator + without IAdditionOperators) ===
         Console.WriteLine("\n=== 12. CUSTOM TYPE CONVERTER (Points + Points) ===");
         CustomTypeConverterExample();
+
+        // === JSONB LIST QUERIES ===
+        Console.WriteLine("\n=== 13. JSONB LIST QUERIES (Contains & Any) ===");
+        JsonBListDemo();
 
         Console.WriteLine("\n=== Sample completed successfully! ===");
     }
@@ -693,10 +699,10 @@ public static class Program
         List<Customer> complexJoin = (
             from order in db.Table<Order>()
             join customer in db.Table<Customer>() on new
-                {
-                    Id = order.CustomerId,
-                    Active = true
-                }
+            {
+                Id = order.CustomerId,
+                Active = true
+            }
                 equals new
                 {
                     customer.Id,
@@ -987,13 +993,13 @@ public static class Program
         var highRatedProducts = (
             from product in db.Table<Product>()
             join avgRating in from review in db.Table<Review>()
-                group review by review.ProductId
+                              group review by review.ProductId
                 into g
-                select new
-                {
-                    ProductId = g.Key,
-                    AvgRating = g.Average(r => r.Rating)
-                } on product.Id equals avgRating.ProductId
+                              select new
+                              {
+                                  ProductId = g.Key,
+                                  AvgRating = g.Average(r => r.Rating)
+                              } on product.Id equals avgRating.ProductId
             where avgRating.AvgRating >= 4.5
             select new
             {
@@ -1257,7 +1263,7 @@ public static class Program
         var neverOrderedProducts = (
             from product in db.Table<Product>()
             where !(from orderItem in db.Table<OrderItem>()
-                select orderItem.ProductId).Contains(product.Id)
+                    select orderItem.ProductId).Contains(product.Id)
             select new
             {
                 product.Name,
@@ -1484,3 +1490,42 @@ file class PointsConverter : ISQLiteTypeConverter
         return value is long l ? new Points((int)l) : new Points(0);
     }
 }
+
+public static partial class Program
+{
+    private static void JsonBListDemo()
+    {
+        using SQLiteDatabase db = new(":memory:");
+        db.StorageOptions.AddJson();
+        db.StorageOptions.TypeConverters[typeof(List<string>)] =
+            new SQLiteJsonConverter<List<string>>(SampleJsonContext.Default.ListString);
+
+        db.Table<TaggedProduct>().CreateTable();
+        db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 1, Name = "Laptop", Tags = ["electronics", "computers"] });
+        db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 2, Name = "Novel", Tags = ["books", "fiction"] });
+        db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 3, Name = "Keyboard", Tags = ["electronics", "accessories"] });
+        db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 4, Name = "Unlisted", Tags = [] });
+
+        List<TaggedProduct> electronics = db.Table<TaggedProduct>()
+            .Where(p => p.Tags.Contains("electronics"))
+            .ToList();
+        Console.WriteLine($"Electronics products: {string.Join(", ", electronics.Select(p => p.Name))}");
+
+        List<TaggedProduct> tagged = db.Table<TaggedProduct>()
+            .Where(p => p.Tags.Any())
+            .ToList();
+        Console.WriteLine($"Products with at least one tag: {string.Join(", ", tagged.Select(p => p.Name))}");
+    }
+}
+
+[Table("TaggedProducts")]
+file class TaggedProduct
+{
+    [Key]
+    public int Id { get; set; }
+    public required string Name { get; set; }
+    public List<string> Tags { get; set; } = [];
+}
+
+[JsonSerializable(typeof(List<string>))]
+internal partial class SampleJsonContext : JsonSerializerContext;
