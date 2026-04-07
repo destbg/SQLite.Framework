@@ -408,3 +408,6 @@ yarn.lock
 # wiki
 wiki/node_modules
 wiki/dist
+
+# Other
+*.db

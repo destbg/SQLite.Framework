@@ -257,6 +257,84 @@ public class JsonFunctionsTests
         Assert.Empty(results);
     }
 
+    [Fact]
+    public void List_Count_ReturnsItemCount()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.Count())
+            .First();
+
+        Assert.Equal(3, result);
+    }
+
+    [Fact]
+    public void List_First_ReturnsFirstItem()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["x", "y", "z"] });
+
+        string result = db.Table<ListRow>()
+            .Select(r => r.Tags.First())
+            .First();
+
+        Assert.Equal("x", result);
+    }
+
+    [Fact]
+    public void List_FirstOrDefault_ReturnsFirstItem()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["x", "y"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.FirstOrDefault())
+            .First();
+
+        Assert.Equal("x", result);
+    }
+
+    [Fact]
+    public void List_Last_ReturnsLastItem()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["x", "y", "z"] });
+
+        string result = db.Table<ListRow>()
+            .Select(r => r.Tags.Last())
+            .First();
+
+        Assert.Equal("z", result);
+    }
+
+    [Fact]
+    public void List_LastOrDefault_ReturnsLastItem()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["x", "y", "z"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.LastOrDefault())
+            .First();
+
+        Assert.Equal("z", result);
+    }
+
+    [Fact]
+    public void List_ElementAt_ReturnsItemAtIndex()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        string result = db.Table<ListRow>()
+            .Select(r => r.Tags.ElementAt(1))
+            .First();
+
+        Assert.Equal("b", result);
+    }
+
     private class JsonRow
     {
         [Key]
@@ -264,10 +342,144 @@ public class JsonFunctionsTests
         public string Data { get; set; } = "";
     }
 
+    [Fact]
+    public void List_Min_ReturnsMinItem()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["banana", "apple", "cherry"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Min())
+            .First();
+
+        Assert.Equal("apple", result);
+    }
+
+    [Fact]
+    public void List_Max_ReturnsMaxItem()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["banana", "apple", "cherry"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Max())
+            .First();
+
+        Assert.Equal("cherry", result);
+    }
+
+    [Fact]
+    public void List_Single_ReturnsSingleItem()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["only"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Single())
+            .First();
+
+        Assert.Equal("only", result);
+    }
+
+    [Fact]
+    public void List_Single_MultipleItems_ReturnsNull()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Single())
+            .First();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void List_SingleOrDefault_ReturnsSingleItem()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["only"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.SingleOrDefault())
+            .First();
+
+        Assert.Equal("only", result);
+    }
+
+    [Fact]
+    public void List_IndexOf_ReturnsIndex()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.IndexOf("b"))
+            .First();
+
+        Assert.Equal(1, result);
+    }
+
+    [Fact]
+    public void List_IndexOf_NotFound_ReturnsMinusOne()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.IndexOf("z"))
+            .First();
+
+        Assert.Equal(-1, result);
+    }
+
+    private static TestDatabase CreateNumericListDb(string? methodName = null)
+    {
+        TestDatabase db = new(methodName);
+        db.StorageOptions.AddJson();
+        db.StorageOptions.TypeConverters[typeof(List<int>)] =
+            new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32);
+        db.Table<NumericListRow>().CreateTable();
+        return db;
+    }
+
+    [Fact]
+    public void List_Sum_ReturnsSumOfItems()
+    {
+        using TestDatabase db = CreateNumericListDb();
+        db.Table<NumericListRow>().Add(new NumericListRow { Id = 1, Numbers = [1, 2, 3, 4] });
+
+        int result = db.Table<NumericListRow>()
+            .Select(r => r.Numbers.Sum())
+            .First();
+
+        Assert.Equal(10, result);
+    }
+
+    [Fact]
+    public void List_Average_ReturnsAverageOfItems()
+    {
+        using TestDatabase db = CreateNumericListDb();
+        db.Table<NumericListRow>().Add(new NumericListRow { Id = 1, Numbers = [2, 4, 6] });
+
+        double result = db.Table<NumericListRow>()
+            .Select(r => r.Numbers.Average())
+            .First();
+
+        Assert.Equal(4.0, result);
+    }
+
     private class ListRow
     {
         [Key]
         public int Id { get; set; }
         public List<string> Tags { get; set; } = [];
+    }
+
+    private class NumericListRow
+    {
+        [Key]
+        public int Id { get; set; }
+        public List<int> Numbers { get; set; } = [];
     }
 }

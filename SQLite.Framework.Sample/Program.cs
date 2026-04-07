@@ -84,7 +84,7 @@ public static partial class Program
         CustomTypeConverterExample();
 
         // === JSONB LIST QUERIES ===
-        Console.WriteLine("\n=== 13. JSONB LIST QUERIES (Contains & Any) ===");
+        Console.WriteLine("\n=== 13. JSONB LIST QUERIES ===");
         JsonBListDemo();
 
         Console.WriteLine("\n=== Sample completed successfully! ===");
@@ -1515,6 +1515,53 @@ public static partial class Program
             .Where(p => p.Tags.Any())
             .ToList();
         Console.WriteLine($"Products with at least one tag: {string.Join(", ", tagged.Select(p => p.Name))}");
+
+        List<int> tagCounts = db.Table<TaggedProduct>()
+            .Select(p => p.Tags.Count())
+            .ToList();
+        Console.WriteLine($"Tag counts: {string.Join(", ", tagCounts)}");
+
+        List<string?> firstTags = db.Table<TaggedProduct>()
+            .OrderBy(p => p.Id)
+            .Select(p => p.Tags.FirstOrDefault())
+            .ToList();
+        Console.WriteLine($"First tags: {string.Join(", ", firstTags)}");
+
+        List<string?> lastTags = db.Table<TaggedProduct>()
+            .OrderBy(p => p.Id)
+            .Select(p => p.Tags.LastOrDefault())
+            .ToList();
+        Console.WriteLine($"Last tags: {string.Join(", ", lastTags)}");
+
+        string secondTag = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.ElementAt(1))
+            .First();
+        Console.WriteLine($"Second tag of Laptop: {secondTag}");
+
+        string? minTag = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.Min())
+            .First();
+        Console.WriteLine($"Min tag of Laptop: {minTag}");
+
+        string? maxTag = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.Max())
+            .First();
+        Console.WriteLine($"Max tag of Laptop: {maxTag}");
+
+        string? singleTag = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 4)
+            .Select(p => p.Tags.SingleOrDefault())
+            .First();
+        Console.WriteLine($"Single tag of Unlisted (empty): {singleTag}");
+
+        int laptopIndex = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.IndexOf("computers"))
+            .First();
+        Console.WriteLine($"Index of 'computers' in Laptop: {laptopIndex}");
     }
 }
 
