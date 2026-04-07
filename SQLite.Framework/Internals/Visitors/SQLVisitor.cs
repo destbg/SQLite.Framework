@@ -584,6 +584,12 @@ internal class SQLVisitor : ExpressionVisitor
             }
 
             ResolvedModel obj = ResolveExpression(node.Object);
+
+            if (TryGetPredicateMethodTranslator(node.Method, out SQLitePredicateMethodTranslator? predicateTranslator))
+            {
+                return HandlePredicateMethod(node, predicateTranslator);
+            }
+
             List<ResolvedModel> arguments = node.Arguments
                 .Select(ResolveExpression)
                 .ToList();
@@ -595,7 +601,13 @@ internal class SQLVisitor : ExpressionVisitor
 
             if (TryGetMethodTranslator(node.Method, out SQLiteMethodTranslator? translator))
             {
-                return MethodVisitor.HandleCustomMethod(node, obj, arguments, translator);
+                Expression result = MethodVisitor.HandleCustomMethod(node, obj, arguments, translator);
+                if (obj.SQLExpression != null)
+                {
+                    return CoercedSQLExpression(result, obj.SQLExpression.Type);
+                }
+
+                return result;
             }
 
             return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
@@ -609,6 +621,11 @@ internal class SQLVisitor : ExpressionVisitor
                 return MethodVisitor.HandleGroupingMethod(node);
             }
 
+            if (TryGetPredicateMethodTranslator(node.Method, out SQLitePredicateMethodTranslator? predicateTranslator))
+            {
+                return HandlePredicateMethod(node, predicateTranslator);
+            }
+
             List<ResolvedModel> arguments = node.Arguments
                 .Select(ResolveExpression)
                 .ToList();
@@ -620,7 +637,14 @@ internal class SQLVisitor : ExpressionVisitor
 
             if (TryGetMethodTranslator(node.Method, out SQLiteMethodTranslator? translator))
             {
-                return MethodVisitor.HandleCustomMethod(node, null, arguments, translator);
+                Expression result = MethodVisitor.HandleCustomMethod(node, null, arguments, translator);
+                Type? firstSourceType = arguments.Count > 0 ? arguments[0].SQLExpression?.Type : null;
+                if (firstSourceType != null)
+                {
+                    return CoercedSQLExpression(result, firstSourceType);
+                }
+
+                return result;
             }
 
             return Expression.Call(node.Method, arguments.Select(f => f.Expression));
@@ -879,6 +903,12 @@ internal class SQLVisitor : ExpressionVisitor
             return propertyVisitor.HandleTimeOnlyProperty(node.Member.Name, node.Type, sqlExpression);
         }
 
+        string? translatedSql = TranslateProperty(node.Member.Name, sqlExpression.Sql);
+        if (translatedSql != null)
+        {
+            return new SQLExpression(node.Type, IdentifierIndex.Index++, translatedSql, sqlExpression.Parameters);
+        }
+
         return sqlExpression;
     }
 
@@ -908,5 +938,148 @@ internal class SQLVisitor : ExpressionVisitor
         }
 
         return false;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Open generic type methods are looked up by name for custom predicate translator registration.")]
+    private bool TryGetPredicateMethodTranslator(MethodInfo method, [NotNullWhen(true)] out SQLitePredicateMethodTranslator? translator)
+    {
+        if (Database.StorageOptions.PredicateMethodTranslators.TryGetValue(method, out translator))
+        {
+            return true;
+        }
+
+        if (method.IsGenericMethod &&
+            Database.StorageOptions.PredicateMethodTranslators.TryGetValue(method.GetGenericMethodDefinition(), out translator))
+        {
+            return true;
+        }
+
+        if (method.DeclaringType?.IsConstructedGenericType == true)
+        {
+            Type openType = method.DeclaringType.GetGenericTypeDefinition();
+            MethodInfo? openMethod = openType.GetMethods()
+                .FirstOrDefault(m => m.Name == method.Name && m.GetParameters().Length == method.GetParameters().Length);
+            if (openMethod != null && Database.StorageOptions.PredicateMethodTranslators.TryGetValue(openMethod, out translator))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
+    private Expression HandlePredicateMethod(MethodCallExpression node, SQLitePredicateMethodTranslator translator)
+    {
+        bool isStatic = node.Object == null;
+        Expression instanceExpr = isStatic ? node.Arguments[0] : node.Object!;
+        LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(
+            isStatic ? node.Arguments[1] : node.Arguments[0]);
+
+        ResolvedModel instanceModel = ResolveExpression(instanceExpr);
+        if (instanceModel.SQLExpression == null)
+        {
+            return node;
+        }
+
+        Type elementType = lambda.Parameters[0].Type;
+
+        if (CommonHelpers.IsSimple(elementType, Database.StorageOptions))
+        {
+            SQLExpression valueExpr = new(elementType, -1, "value", (SQLiteParameter[]?)null);
+            MethodArguments[lambda.Parameters[0]] = new Dictionary<string, Expression> { [""] = valueExpr };
+        }
+        else
+        {
+            Dictionary<string, Expression> dict = new();
+            RegisterPredicateProperties(elementType, string.Empty, dict);
+            MethodArguments[lambda.Parameters[0]] = dict;
+        }
+
+        Expression predicateResult = Visit(lambda.Body);
+
+        MethodArguments.Remove(lambda.Parameters[0]);
+
+        if (predicateResult is not SQLExpression predicateSql)
+        {
+            return node;
+        }
+
+        string sql = translator(instanceModel.SQLExpression.Sql, predicateSql.Sql);
+        SQLiteParameter[] parameters = [.. instanceModel.SQLExpression.Parameters ?? [], .. predicateSql.Parameters ?? []];
+        Type resultType = CoercedResultType(node.Type, instanceModel.SQLExpression.Type);
+        return new SQLExpression(resultType, IdentifierIndex.Index++, sql, parameters);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
+    private void RegisterPredicateProperties(Type type, string prefix, Dictionary<string, Expression> dict)
+    {
+        foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            string dictKey = string.IsNullOrEmpty(prefix) ? prop.Name : $"{prefix}.{prop.Name}";
+
+            if (CommonHelpers.IsSimple(prop.PropertyType, Database.StorageOptions))
+            {
+                string? sql = TranslateProperty(dictKey, "value");
+                if (sql != null)
+                {
+                    dict[dictKey] = new SQLExpression(prop.PropertyType, -1, sql, (SQLiteParameter[]?)null);
+                }
+            }
+            else
+            {
+                RegisterPredicateProperties(prop.PropertyType, dictKey, dict);
+            }
+        }
+    }
+
+    private string? TranslateProperty(string memberName, string instanceSql)
+    {
+        foreach (SQLitePropertyTranslator translator in Database.StorageOptions.PropertyTranslators)
+        {
+            string? sql = translator(memberName, instanceSql);
+            if (sql != null)
+            {
+                return sql;
+            }
+        }
+
+        return null;
+    }
+
+    private Type CoercedResultType(Type declaredType, Type sourceType)
+    {
+        if (!Database.StorageOptions.TypeConverters.ContainsKey(sourceType))
+        {
+            return declaredType;
+        }
+
+        if (declaredType.IsAssignableFrom(sourceType))
+        {
+            return sourceType;
+        }
+
+        if (CommonHelpers.GetEnumerableElementType(declaredType) is Type declaredElem &&
+            CommonHelpers.GetEnumerableElementType(sourceType) is Type sourceElem &&
+            declaredElem == sourceElem)
+        {
+            return sourceType;
+        }
+
+        return declaredType;
+    }
+
+    private Expression CoercedSQLExpression(Expression result, Type sourceType)
+    {
+        if (result is SQLExpression sqlExpr)
+        {
+            Type coerced = CoercedResultType(sqlExpr.Type, sourceType);
+            if (coerced != sqlExpr.Type)
+            {
+                return new SQLExpression(coerced, sqlExpr.Identifier, sqlExpr.Sql, sqlExpr.Parameters);
+            }
+        }
+
+        return result;
     }
 }

@@ -30,6 +30,16 @@ internal static class BuildQueryObject
             return reader.GetValue(0, columnType, elementType);
         }
 
+        if (elementType.IsInterface || elementType.IsAbstract)
+        {
+            Type? converterType = options.GetConverterTypeForInterface(elementType);
+            if (converterType != null)
+            {
+                SQLiteColumnType columnType = reader.GetColumnType(0);
+                return reader.GetValue(0, columnType, converterType);
+            }
+        }
+
         return BuildInternal(elementType, reader, string.Empty, columns, options);
     }
 

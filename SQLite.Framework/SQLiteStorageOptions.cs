@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Reflection;
 using SQLite.Framework.Enums;
+using SQLite.Framework.Internals.Helpers;
 
 namespace SQLite.Framework;
 
@@ -9,6 +11,8 @@ namespace SQLite.Framework;
 /// </summary>
 public class SQLiteStorageOptions
 {
+    private readonly ConcurrentDictionary<Type, Type?> interfaceToConverterTypeCache = [];
+
     /// <summary>
     /// Controls how DateTime values are stored. Defaults to <see cref="DateTimeStorageMode.Integer" />.
     /// </summary>
@@ -91,4 +95,44 @@ public class SQLiteStorageOptions
     /// The key is the <see cref="MethodInfo" /> of the method to translate; the value is the translator delegate.
     /// </summary>
     public Dictionary<MethodInfo, SQLiteMethodTranslator> MethodTranslators { get; } = [];
+
+    /// <summary>
+    /// Custom method translators for methods that take a predicate lambda as an argument.
+    /// The lambda parameter is automatically bound to <c>value</c> from a <c>json_each</c> subquery.
+    /// The key is the <see cref="MethodInfo" /> of the method to translate; the value is the translator delegate.
+    /// </summary>
+    public Dictionary<MethodInfo, SQLitePredicateMethodTranslator> PredicateMethodTranslators { get; } = [];
+
+    /// <summary>
+    /// Translates property access on custom types into SQL fragments.
+    /// Each translator returns a SQL fragment or <c>null</c> if it does not handle the given member.
+    /// Translators are tried in order until one returns a non-null result.
+    /// </summary>
+    public List<SQLitePropertyTranslator> PropertyTranslators { get; } = [];
+
+    internal Type? GetConverterTypeForInterface(Type interfaceType)
+    {
+        if (interfaceToConverterTypeCache.TryGetValue(interfaceType, out Type? cached))
+        {
+            return cached;
+        }
+
+        Type? targetElem = CommonHelpers.GetEnumerableElementType(interfaceType);
+        Type? result = null;
+
+        if (targetElem != null)
+        {
+            foreach (KeyValuePair<Type, ISQLiteTypeConverter> kvp in TypeConverters)
+            {
+                if (CommonHelpers.GetEnumerableElementType(kvp.Key) == targetElem)
+                {
+                    result = kvp.Key;
+                    break;
+                }
+            }
+        }
+
+        interfaceToConverterTypeCache[interfaceType] = result;
+        return result;
+    }
 }

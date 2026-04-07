@@ -10,6 +10,9 @@ namespace SQLite.Framework.Tests;
 [JsonSerializable(typeof(TagList))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(List<int>))]
+[JsonSerializable(typeof(List<Address>))]
+[JsonSerializable(typeof(List<Person>))]
+[JsonSerializable(typeof(string[]))]
 internal partial class TestJsonContext : JsonSerializerContext;
 
 public class JsonConverterTests
@@ -351,6 +354,12 @@ public class Address
 {
     public string Street { get; set; } = "";
     public string City { get; set; } = "";
+}
+
+public class Person
+{
+    public string Name { get; set; } = "";
+    public Address Home { get; set; } = new();
 }
 
 public class TagList

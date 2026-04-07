@@ -1539,6 +1539,61 @@ public static partial class Program
             .First();
         Console.WriteLine($"Second tag of Laptop: {secondTag}");
 
+        bool hasElectronics = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 2)
+            .Select(p => p.Tags.Any(t => t == "electronics"))
+            .First();
+        Console.WriteLine($"Novel has 'electronics' tag: {hasElectronics}");
+
+        bool allShort = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.All(t => t != "longword"))
+            .First();
+        Console.WriteLine($"All Laptop tags != 'longword': {allShort}");
+
+        int matchCount = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 3)
+            .Select(p => p.Tags.Count(t => t == "electronics"))
+            .First();
+        Console.WriteLine($"Keyboard 'electronics' count: {matchCount}");
+
+        IEnumerable<string> filtered = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.Where(t => t != "electronics"))
+            .First();
+        Console.WriteLine($"Laptop non-electronics tags: {string.Join(", ", filtered)}");
+
+        string? sorted = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.OrderBy(t => t).First())
+            .First();
+        Console.WriteLine($"Laptop first alphabetical tag: {sorted}");
+
+        IEnumerable<string> skipped = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.Skip(1))
+            .First();
+        Console.WriteLine($"Laptop tags after skip(1): {string.Join(", ", skipped)}");
+
+        IEnumerable<string> taken = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.Take(1))
+            .First();
+        Console.WriteLine($"Laptop first tag only: {string.Join(", ", taken)}");
+
+        IEnumerable<string> distinct = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.Distinct())
+            .First();
+        Console.WriteLine($"Laptop distinct tags: {string.Join(", ", distinct)}");
+
+        List<string> extra = ["peripherals"];
+        IEnumerable<string> concat = db.Table<TaggedProduct>()
+            .Where(p => p.Id == 1)
+            .Select(p => p.Tags.Concat(extra))
+            .First();
+        Console.WriteLine($"Laptop tags + extra: {string.Join(", ", concat)}");
+
         string? minTag = db.Table<TaggedProduct>()
             .Where(p => p.Id == 1)
             .Select(p => p.Tags.Min())

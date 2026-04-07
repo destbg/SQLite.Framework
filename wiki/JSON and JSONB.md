@@ -37,6 +37,8 @@ Create a `JsonSerializerContext` that includes all types you want to store as JS
 
 ```csharp
 [JsonSerializable(typeof(Address))]
+[JsonSerializable(typeof(List<string>))]
+[JsonSerializable(typeof(List<Address>))]
 public partial class AppJsonContext : JsonSerializerContext;
 ```
 
@@ -50,6 +52,10 @@ db.StorageOptions.TypeConverters[typeof(Address)] =
 // or for JSONB binary BLOB column
 db.StorageOptions.TypeConverters[typeof(Address)] =
     new SQLiteJsonbConverter<Address>(AppJsonContext.Default.Address);
+
+// collections work the same way
+db.StorageOptions.TypeConverters[typeof(List<string>)] =
+    new SQLiteJsonConverter<List<string>>(AppJsonContext.Default.ListString);
 ```
 
 After that, any model with an `Address` property is handled automatically:
@@ -145,8 +151,169 @@ var valid = await db.Table<Log>()
 
 ---
 
+## Collection methods
+
+When you store a `List<T>` or `T[]` as JSON, `AddJson()` also registers translators for many standard LINQ, `List<T>`, and `Array` methods. These are translated to SQL using `json_each()` and other SQLite JSON functions. Everything runs on the database, not in memory.
+
+### Supported LINQ methods (Enumerable)
+
+**Scalar results (no predicate):**
+
+| Method | What it does |
+|---|---|
+| `Any()` | True if the array is not empty |
+| `Count()` | Number of elements |
+| `First()` / `FirstOrDefault()` | First element |
+| `Last()` / `LastOrDefault()` | Last element |
+| `Single()` / `SingleOrDefault()` | The only element, or null if there is not exactly one |
+| `ElementAt(i)` | Element at the given index |
+| `Min()` / `Max()` | Smallest or largest element |
+| `Sum()` / `Average()` | Sum or average of numeric elements |
+
+**Scalar results (with predicate):**
+
+| Method | What it does |
+|---|---|
+| `Any(x => ...)` | True if any element matches |
+| `All(x => ...)` | True if every element matches |
+| `Count(x => ...)` | Number of matching elements |
+| `First(x => ...)` / `FirstOrDefault(x => ...)` | First matching element |
+| `Last(x => ...)` / `LastOrDefault(x => ...)` | Last matching element |
+| `Single(x => ...)` / `SingleOrDefault(x => ...)` | The only matching element |
+
+**Aggregate with selector:**
+
+| Method | What it does |
+|---|---|
+| `Min(x => x.Prop)` | Smallest value of a property |
+| `Max(x => x.Prop)` | Largest value of a property |
+| `Sum(x => x.Prop)` | Sum of a numeric property |
+| `Average(x => x.Prop)` | Average of a numeric property |
+
+**Collection results:**
+
+| Method | What it does |
+|---|---|
+| `Where(x => ...)` | Filter elements |
+| `Select(x => ...)` | Project each element |
+| `OrderBy(x => ...)` | Sort ascending |
+| `OrderByDescending(x => ...)` | Sort descending |
+| `Distinct()` | Remove duplicates |
+| `Reverse()` | Reverse the order |
+| `Skip(n)` | Skip the first n elements |
+| `Take(n)` | Take the first n elements |
+| `Concat(other)` | Combine two collections |
+| `Union(other)` | Combine two collections, removing duplicates |
+| `Intersect(other)` | Keep only elements that appear in both |
+| `Except(other)` | Remove elements that appear in the other |
+
+### Supported List\<T\> methods
+
+| Method | What it does |
+|---|---|
+| `Contains(item)` | True if the list contains the item |
+| `IndexOf(item)` | Index of the first occurrence, or -1 |
+| `LastIndexOf(item)` | Index of the last occurrence, or -1 |
+| `GetRange(index, count)` | A sub-list starting at the given index |
+| `Exists(x => ...)` | True if any element matches the predicate |
+| `Find(x => ...)` | First element matching the predicate |
+| `FindAll(x => ...)` | All elements matching the predicate |
+| `FindIndex(x => ...)` | Index of the first match, or -1 |
+| `FindLast(x => ...)` | Last element matching the predicate |
+| `FindLastIndex(x => ...)` | Index of the last match, or -1 |
+| `TrueForAll(x => ...)` | True if every element matches |
+
+### Supported Array methods
+
+| Method | What it does |
+|---|---|
+| `Array.IndexOf(arr, item)` | Index of the first occurrence, or -1 |
+| `Array.LastIndexOf(arr, item)` | Index of the last occurrence, or -1 |
+| `Array.Exists(arr, x => ...)` | True if any element matches |
+| `Array.Find(arr, x => ...)` | First matching element |
+| `Array.FindAll(arr, x => ...)` | All matching elements |
+| `Array.FindIndex(arr, x => ...)` | Index of the first match, or -1 |
+| `Array.FindLast(arr, x => ...)` | Last matching element |
+| `Array.FindLastIndex(arr, x => ...)` | Index of the last match, or -1 |
+| `Array.TrueForAll(arr, x => ...)` | True if every element matches |
+| `Array.ConvertAll(arr, x => ...)` | Project each element |
+
+### Examples
+
+```csharp
+// simple list queries
+bool hasTag = db.Table<Product>()
+    .Where(p => p.Tags.Contains("electronics"))
+    .Any();
+
+int tagCount = db.Table<Product>()
+    .Select(p => p.Tags.Count())
+    .First();
+
+// predicate on simple types
+List<Product> filtered = db.Table<Product>()
+    .Where(p => p.Tags.Any(t => t.StartsWith("elec")))
+    .ToList();
+
+// predicate on complex types
+List<Order> orders = db.Table<Order>()
+    .Where(o => o.Items.Any(i => i.Price > 100 && i.Category == "Books"))
+    .ToList();
+
+// nested property access works too
+bool hasLocal = db.Table<Company>()
+    .Select(c => c.Offices.Any(o => o.Address.City == "Springfield"))
+    .First();
+
+// aggregate with selector
+decimal maxPrice = db.Table<Order>()
+    .Select(o => o.Items.Max(i => i.Price))
+    .First();
+
+// collection results
+List<string> sorted = db.Table<Product>()
+    .Select(p => p.Tags.OrderBy(t => t).Take(3))
+    .First();
+
+// chaining works
+string firstSorted = db.Table<Product>()
+    .Select(p => p.Tags.OrderBy(t => t).First())
+    .First();
+```
+
+### Property access on JSON columns
+
+When you access a property on a JSON-stored object, `AddJson()` translates it to `json_extract`. This works in `Where`, `Select`, `OrderBy`, and anywhere else you use a property:
+
+```csharp
+// property access on a single JSON object
+string city = db.Table<Contact>()
+    .Select(c => c.HomeAddress.City)
+    .First();
+// SQL: SELECT json_extract(t0.HomeAddress, '$.City') ...
+
+// property access on the result of a collection method
+string street = db.Table<Order>()
+    .Select(o => o.Items.First(i => i.Price > 50).Name)
+    .First();
+```
+
+### What is not supported
+
+These patterns are not translated to SQL and will either fall back to client-side evaluation or throw an error:
+
+- **Predicate overloads with start index or count.** `FindIndex(int startIndex, Predicate<T>)` and similar overloads that take a start index are not supported. Only the single-predicate overloads work.
+- **`OrderBy` / `OrderByDescending` as the final result in a Select.** The C# return type is `IOrderedEnumerable<T>`, which cannot be deserialized back to `List<T>`. Chain another method after it instead, like `.First()` or `.Take(n)`.
+- **`List<T>.Reverse()` in a Select.** The C# compiler picks the void instance method over the LINQ extension. Use `Enumerable.Reverse(list)` with the static call syntax instead.
+- **`ThenBy` / `ThenByDescending`.** Secondary sorting after `OrderBy` is not supported.
+- **`GroupBy`, `SelectMany`, `Zip`.** These are not supported.
+- **Predicate methods that return complex objects directly.** `Find(x => ...)` and `First(x => ...)` return the raw JSON value from the database. If you access a property on the result (like `.Street`), it works. If you try to return the whole object, you get the JSON string, not the deserialized object.
+- **Multi-level method chaining on collections.** `list.Where(x => ...).Where(x => ...)` does not work because the result of the first `Where` is a JSON string, not a queryable collection.
+
+---
+
 ## Native AOT
 
-`SQLiteJsonConverter<T>` and `SQLiteJsonbConverter<T>` both use `JsonTypeInfo<T>` for serialization, so they are fully compatible with Native AOT and trimming. The `AddJson()` method carries a `[DynamicDependency]` attribute that tells the trimmer to keep all public methods on `SQLiteJsonFunctions`, so those marker methods are never removed from the output.
+`SQLiteJsonConverter<T>` and `SQLiteJsonbConverter<T>` both use `JsonTypeInfo<T>` for serialization, so they are fully compatible with Native AOT and trimming. The `AddJson()` method carries a `[DynamicDependency]` attribute that tells the trimmer to keep all public methods on `SQLiteJsonFunctions` and `Enumerable`, so those methods are never removed from the output.
 
 You do not need to do anything extra beyond providing a source-generated `JsonSerializerContext` as shown above.

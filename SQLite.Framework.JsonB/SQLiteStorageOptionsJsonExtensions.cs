@@ -111,6 +111,154 @@ public static class SQLiteStorageOptionsJsonExtensions
         t[listOpenType.GetMethod(nameof(List<>.IndexOf), [listT])!] =
             (instance, args) => $"COALESCE((SELECT key FROM json_each({instance}) WHERE value = {args[0]} LIMIT 1), -1)";
 
+        t[ListMethod(nameof(List<>.LastIndexOf), 1)] =
+            (instance, args) => $"COALESCE((SELECT key FROM json_each({instance}) WHERE value = {args[0]} ORDER BY key DESC LIMIT 1), -1)";
+
+        t[ListMethod(nameof(List<>.GetRange), 2)] =
+            (instance, args) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({instance}) LIMIT {args[1]} OFFSET {args[0]}))";
+
+#if NET9_0_OR_GREATER
+        t[ListMethod(nameof(List<>.Slice), 2)] =
+            (instance, args) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({instance}) LIMIT {args[1]} OFFSET {args[0]}))";
+#endif
+
+        t[ArrayMethod(nameof(Array.IndexOf), 2)] =
+            (_, args) => $"COALESCE((SELECT key FROM json_each({args[0]}) WHERE value = {args[1]} LIMIT 1), -1)";
+
+        t[ArrayMethod(nameof(Array.LastIndexOf), 2)] =
+            (_, args) => $"COALESCE((SELECT key FROM json_each({args[0]}) WHERE value = {args[1]} ORDER BY key DESC LIMIT 1), -1)";
+
+        t[EnumerableMethod(nameof(Enumerable.Distinct), 1)] =
+            (_, args) => $"(SELECT json_group_array(DISTINCT value) FROM json_each({args[0]}))";
+
+        t[EnumerableMethod(nameof(Enumerable.Reverse), 1)] =
+            (_, args) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({args[0]}) ORDER BY key DESC))";
+
+        t[EnumerableMethod(nameof(Enumerable.Skip), 2)] =
+            (_, args) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({args[0]}) LIMIT -1 OFFSET {args[1]}))";
+
+        t[EnumerableMethod(nameof(Enumerable.Take), 2)] =
+            (_, args) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({args[0]}) LIMIT {args[1]}))";
+
+        t[EnumerableMethod(nameof(Enumerable.Concat), 2)] =
+            (_, args) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({args[0]}) UNION ALL SELECT value FROM json_each({args[1]})))";
+
+        t[EnumerableMethod(nameof(Enumerable.Union), 2)] =
+            (_, args) => $"(SELECT json_group_array(value) FROM (SELECT DISTINCT value FROM json_each({args[0]}) UNION SELECT DISTINCT value FROM json_each({args[1]})))";
+
+        t[EnumerableMethod(nameof(Enumerable.Intersect), 2)] =
+            (_, args) => $"(SELECT json_group_array(value) FROM json_each({args[0]}) WHERE value IN (SELECT value FROM json_each({args[1]})))";
+
+        t[EnumerableMethod(nameof(Enumerable.Except), 2)] =
+            (_, args) => $"(SELECT json_group_array(value) FROM json_each({args[0]}) WHERE value NOT IN (SELECT value FROM json_each({args[1]})))";
+
+        Dictionary<MethodInfo, SQLitePredicateMethodTranslator> p = options.PredicateMethodTranslators;
+
+        p[ListMethod(nameof(List<>.Exists), 1)] =
+            (instance, predicate) => $"EXISTS (SELECT 1 FROM json_each({instance}) WHERE {predicate})";
+
+        p[ListMethod(nameof(List<>.Find), 1)] =
+            (instance, predicate) => $"(SELECT value FROM json_each({instance}) WHERE {predicate} ORDER BY key LIMIT 1)";
+
+        p[ListMethod(nameof(List<>.FindAll), 1)] =
+            (instance, predicate) => $"(SELECT json_group_array(value) FROM json_each({instance}) WHERE {predicate})";
+
+        p[ListMethod(nameof(List<>.FindIndex), 1)] =
+            (instance, predicate) => $"COALESCE((SELECT key FROM json_each({instance}) WHERE {predicate} ORDER BY key LIMIT 1), -1)";
+
+        p[ListMethod(nameof(List<>.FindLast), 1)] =
+            (instance, predicate) => $"(SELECT value FROM json_each({instance}) WHERE {predicate} ORDER BY key DESC LIMIT 1)";
+
+        p[ListMethod(nameof(List<>.FindLastIndex), 1)] =
+            (instance, predicate) => $"COALESCE((SELECT key FROM json_each({instance}) WHERE {predicate} ORDER BY key DESC LIMIT 1), -1)";
+
+        p[ListMethod(nameof(List<>.TrueForAll), 1)] =
+            (instance, predicate) => $"NOT EXISTS (SELECT 1 FROM json_each({instance}) WHERE NOT ({predicate}))";
+
+        p[ArrayPredicateMethod(nameof(Array.Exists))] =
+            (instance, predicate) => $"EXISTS (SELECT 1 FROM json_each({instance}) WHERE {predicate})";
+
+        p[ArrayPredicateMethod(nameof(Array.Find))] =
+            (instance, predicate) => $"(SELECT value FROM json_each({instance}) WHERE {predicate} ORDER BY key LIMIT 1)";
+
+        p[ArrayPredicateMethod(nameof(Array.FindAll))] =
+            (instance, predicate) => $"(SELECT json_group_array(value) FROM json_each({instance}) WHERE {predicate})";
+
+        p[ArrayPredicateMethod(nameof(Array.FindIndex))] =
+            (instance, predicate) => $"COALESCE((SELECT key FROM json_each({instance}) WHERE {predicate} ORDER BY key LIMIT 1), -1)";
+
+        p[ArrayPredicateMethod(nameof(Array.FindLast))] =
+            (instance, predicate) => $"(SELECT value FROM json_each({instance}) WHERE {predicate} ORDER BY key DESC LIMIT 1)";
+
+        p[ArrayPredicateMethod(nameof(Array.FindLastIndex))] =
+            (instance, predicate) => $"COALESCE((SELECT key FROM json_each({instance}) WHERE {predicate} ORDER BY key DESC LIMIT 1), -1)";
+
+        p[ArrayPredicateMethod(nameof(Array.TrueForAll))] =
+            (instance, predicate) => $"NOT EXISTS (SELECT 1 FROM json_each({instance}) WHERE NOT ({predicate}))";
+
+        p[ArrayPredicateMethod(nameof(Array.ConvertAll))] =
+            (instance, projection) => $"(SELECT json_group_array({projection}) FROM json_each({instance}))";
+
+        p[EnumerableSelectorMethod(nameof(Enumerable.Min))] =
+            (instance, selector) => $"(SELECT MIN({selector}) FROM json_each({instance}))";
+
+        p[EnumerableSelectorMethod(nameof(Enumerable.Max))] =
+            (instance, selector) => $"(SELECT MAX({selector}) FROM json_each({instance}))";
+
+        foreach (MethodInfo m in typeof(Enumerable).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.GetParameters().Length == 2 && m.IsGenericMethod))
+        {
+            if (m.Name == nameof(Enumerable.Sum))
+            {
+                p[m.GetGenericMethodDefinition()] = (instance, selector) => $"(SELECT SUM({selector}) FROM json_each({instance}))";
+            }
+            else if (m.Name == nameof(Enumerable.Average))
+            {
+                p[m.GetGenericMethodDefinition()] = (instance, selector) => $"(SELECT AVG({selector}) FROM json_each({instance}))";
+            }
+        }
+
+        p[EnumerableMethod(nameof(Enumerable.Any), 2)] =
+            (instance, predicate) => $"EXISTS (SELECT 1 FROM json_each({instance}) WHERE {predicate})";
+
+        p[EnumerableMethod(nameof(Enumerable.All), 2)] =
+            (instance, predicate) => $"NOT EXISTS (SELECT 1 FROM json_each({instance}) WHERE NOT ({predicate}))";
+
+        p[EnumerableMethod(nameof(Enumerable.Count), 2)] =
+            (instance, predicate) => $"(SELECT COUNT(*) FROM json_each({instance}) WHERE {predicate})";
+
+        p[EnumerableMethod(nameof(Enumerable.First), 2)] =
+            (instance, predicate) => $"(SELECT value FROM json_each({instance}) WHERE {predicate} ORDER BY key LIMIT 1)";
+
+        p[EnumerableMethod(nameof(Enumerable.FirstOrDefault), 2)] =
+            (instance, predicate) => $"(SELECT value FROM json_each({instance}) WHERE {predicate} ORDER BY key LIMIT 1)";
+
+        p[EnumerableMethod(nameof(Enumerable.Last), 2)] =
+            (instance, predicate) => $"(SELECT value FROM json_each({instance}) WHERE {predicate} ORDER BY key DESC LIMIT 1)";
+
+        p[EnumerableMethod(nameof(Enumerable.LastOrDefault), 2)] =
+            (instance, predicate) => $"(SELECT value FROM json_each({instance}) WHERE {predicate} ORDER BY key DESC LIMIT 1)";
+
+        p[EnumerableMethod(nameof(Enumerable.Single), 2)] =
+            (instance, predicate) => $"CASE WHEN (SELECT COUNT(*) FROM json_each({instance}) WHERE {predicate}) = 1 THEN (SELECT value FROM json_each({instance}) WHERE {predicate} LIMIT 1) ELSE NULL END";
+
+        p[EnumerableMethod(nameof(Enumerable.SingleOrDefault), 2)] =
+            (instance, predicate) => $"CASE WHEN (SELECT COUNT(*) FROM json_each({instance}) WHERE {predicate}) = 1 THEN (SELECT value FROM json_each({instance}) WHERE {predicate} LIMIT 1) ELSE NULL END";
+
+        p[EnumerableMethod(nameof(Enumerable.Where), 2)] =
+            (instance, predicate) => $"(SELECT json_group_array(value) FROM json_each({instance}) WHERE {predicate})";
+
+        p[EnumerableMethod(nameof(Enumerable.Select), 2)] =
+            (instance, predicate) => $"(SELECT json_group_array({predicate}) FROM json_each({instance}))";
+
+        p[EnumerableMethod(nameof(Enumerable.OrderBy), 2)] =
+            (instance, predicate) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({instance}) ORDER BY {predicate}))";
+
+        p[EnumerableMethod(nameof(Enumerable.OrderByDescending), 2)] =
+            (instance, predicate) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({instance}) ORDER BY {predicate} DESC))";
+
+        options.PropertyTranslators.Add((memberName, instanceSql) => $"json_extract({instanceSql}, '$.{memberName}')");
+
         return options;
     }
 
@@ -131,6 +279,38 @@ public static class SQLiteStorageOptionsJsonExtensions
         return typeof(Enumerable)
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
             .First(m => m.Name == name && m.GetParameters().Length == paramCount && m.IsGenericMethod)
+            .GetGenericMethodDefinition();
+    }
+
+    private static MethodInfo ListMethod(string name, int paramCount)
+    {
+        return typeof(List<>).GetMethods()
+            .First(m => m.Name == name && m.GetParameters().Length == paramCount);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Array generic methods are looked up by name for custom translator registration.")]
+    private static MethodInfo ArrayMethod(string name, int paramCount)
+    {
+        return typeof(Array)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .First(m => m.Name == name && m.GetParameters().Length == paramCount && m.IsGenericMethod)
+            .GetGenericMethodDefinition();
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Array generic methods are looked up by name for custom translator registration.")]
+    private static MethodInfo ArrayPredicateMethod(string name)
+    {
+        return typeof(Array)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .First(m => m.Name == name && m.GetParameters().Length == 2 && m.IsGenericMethod)
+            .GetGenericMethodDefinition();
+    }
+
+    private static MethodInfo EnumerableSelectorMethod(string name)
+    {
+        return typeof(Enumerable)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .First(m => m.Name == name && m.GetParameters().Length == 2 && m.IsGenericMethod && m.GetGenericArguments().Length == 2)
             .GetGenericMethodDefinition();
     }
 }

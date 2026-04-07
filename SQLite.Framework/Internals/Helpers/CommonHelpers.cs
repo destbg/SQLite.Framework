@@ -98,6 +98,25 @@ internal static class CommonHelpers
         return (string.Empty, null);
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Interface lookup is only used for known collection types with registered converters.")]
+    public static Type? GetEnumerableElementType(Type type)
+    {
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+        {
+            return type.GetGenericArguments()[0];
+        }
+
+        foreach (Type iface in type.GetInterfaces())
+        {
+            if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+            {
+                return iface.GetGenericArguments()[0];
+            }
+        }
+
+        return null;
+    }
+
     public static bool IsConstant(Expression node)
     {
         return node switch

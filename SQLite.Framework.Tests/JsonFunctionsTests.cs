@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using SQLite.Framework.JsonB;
 using SQLite.Framework.Tests.Helpers;
 
@@ -433,6 +434,196 @@ public class JsonFunctionsTests
         Assert.Equal(-1, result);
     }
 
+    [Fact]
+    public void List_Any_WithPredicate_Match()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.Any(x => x == "b"))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void List_Any_WithPredicate_NoMatch()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.Any(x => x == "z"))
+            .First();
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void List_All_AllMatch()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.All(x => x != "z"))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void List_All_NotAllMatch()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.All(x => x != "a"))
+            .First();
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void List_Count_WithPredicate()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "a", "b"] });
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.Count(x => x == "a"))
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public void List_First_WithPredicate()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.First(x => x != "a"))
+            .First();
+
+        Assert.Equal("b", result);
+    }
+
+    [Fact]
+    public void List_Last_WithPredicate()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Last(x => x != "c"))
+            .First();
+
+        Assert.Equal("b", result);
+    }
+
+    [Fact]
+    public void List_Where_ReturnsFilteredList()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "a"))
+            .First();
+
+        Assert.Equal(2, result.Count());
+        Assert.DoesNotContain("a", result);
+    }
+
+    [Fact]
+    public void List_OrderBy_ReturnsSortedFirst()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x).First())
+            .First();
+
+        Assert.Equal("a", result);
+    }
+
+    [Fact]
+    public void List_OrderByDescending_ReturnsSortedFirst()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderByDescending(x => x).First())
+            .First();
+
+        Assert.Equal("c", result);
+    }
+
+    [Fact]
+    public void List_Distinct_RemovesDuplicates()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "a", "b"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Distinct())
+            .First();
+
+        Assert.Equal(2, result.Count());
+        Assert.Contains("a", result);
+        Assert.Contains("b", result);
+    }
+
+    [Fact]
+    public void List_Skip_SkipsItems()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Skip(1))
+            .First();
+
+        Assert.Equal(["b", "c"], result);
+    }
+
+    [Fact]
+    public void List_Take_TakesItems()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Take(2))
+            .First();
+
+        Assert.Equal(["a", "b"], result);
+    }
+
+    [Fact]
+    public void List_Concat_CombinesLists()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+        db.Table<ListRow>().Add(new ListRow { Id = 2, Tags = ["c", "d"] });
+
+        List<string> other = ["c", "d"];
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Where(r => r.Id == 1)
+            .Select(r => r.Tags.Concat(other))
+            .First();
+
+        Assert.Equal(4, result.Count());
+        Assert.Contains("a", result);
+        Assert.Contains("d", result);
+    }
+
     private static TestDatabase CreateNumericListDb(string? methodName = null)
     {
         TestDatabase db = new(methodName);
@@ -469,6 +660,342 @@ public class JsonFunctionsTests
         Assert.Equal(4.0, result);
     }
 
+    [Fact]
+    public void List_Reverse_ReturnsReversed()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => Enumerable.Reverse(r.Tags))
+            .First();
+
+        Assert.Equal(["c", "b", "a"], result);
+    }
+
+    [Fact]
+    public void List_Union_CombinesDistinct()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        List<string> other = ["b", "c"];
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Where(r => r.Id == 1)
+            .Select(r => r.Tags.Union(other))
+            .First();
+
+        Assert.Equal(3, result.Count());
+        Assert.Contains("a", result);
+        Assert.Contains("b", result);
+        Assert.Contains("c", result);
+    }
+
+    [Fact]
+    public void List_Intersect_ReturnsCommon()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        List<string> other = ["b", "c", "d"];
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Where(r => r.Id == 1)
+            .Select(r => r.Tags.Intersect(other))
+            .First();
+
+        Assert.Equal(2, result.Count());
+        Assert.Contains("b", result);
+        Assert.Contains("c", result);
+    }
+
+    [Fact]
+    public void List_Except_RemovesCommon()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        List<string> other = ["b", "c"];
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Where(r => r.Id == 1)
+            .Select(r => r.Tags.Except(other))
+            .First();
+
+        Assert.Single(result);
+        Assert.Contains("a", result);
+    }
+
+    [Fact]
+    public void ComplexType_Min_WithSelector()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "Main St", City = "Zebra" },
+                new Address { Street = "Oak Ave", City = "Alpha" }
+            ]
+        });
+
+        string? result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Min(x => x.City))
+            .First();
+
+        Assert.Equal("Alpha", result);
+    }
+
+    [Fact]
+    public void ComplexType_Max_WithSelector()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "Main St", City = "Zebra" },
+                new Address { Street = "Oak Ave", City = "Alpha" }
+            ]
+        });
+
+        string? result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Max(x => x.City))
+            .First();
+
+        Assert.Equal("Zebra", result);
+    }
+
+    [Fact]
+    public void ComplexType_Sum_WithSelector()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "1", City = "A" },
+                new Address { Street = "2", City = "B" },
+                new Address { Street = "3", City = "C" }
+            ]
+        });
+
+        int result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Sum(x => x.Street.Length))
+            .First();
+
+        Assert.Equal(3, result);
+    }
+
+    [Fact]
+    public void ComplexType_Average_WithSelector()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "1", City = "A" },
+                new Address { Street = "22", City = "B" },
+                new Address { Street = "333", City = "C" }
+            ]
+        });
+
+        double result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Average(x => x.Street.Length))
+            .First();
+
+        Assert.Equal(2.0, result);
+    }
+
+    [Fact]
+    public void List_LastIndexOf_ReturnsLastIndex()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a", "c"] });
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.LastIndexOf("a"))
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public void List_GetRange_ReturnsSublist()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c", "d"] });
+
+        List<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.GetRange(1, 2))
+            .First();
+
+        Assert.Equal(["b", "c"], result);
+    }
+
+    [Fact]
+    public void List_Exists_Match()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.Exists(x => x == "b"))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void List_Find_ReturnsFirstMatch()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["apple", "banana", "cherry"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Find(x => x != "apple"))
+            .First();
+
+        Assert.Equal("banana", result);
+    }
+
+    [Fact]
+    public void List_FindAll_ReturnsAllMatches()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc", "dd"] });
+
+        List<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.FindAll(x => x.Length > 1))
+            .First();
+
+        Assert.Equal(3, result.Count);
+    }
+
+    [Fact]
+    public void List_FindIndex_ReturnsIndex()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.FindIndex(x => x == "b"))
+            .First();
+
+        Assert.Equal(1, result);
+    }
+
+    [Fact]
+    public void List_FindLast_ReturnsLastMatch()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.FindLast(x => x == "a"))
+            .First();
+
+        Assert.Equal("a", result);
+    }
+
+    [Fact]
+    public void List_FindLastIndex_ReturnsLastIndex()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a", "c"] });
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.FindLastIndex(x => x == "a"))
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public void List_TrueForAll_AllMatch()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.TrueForAll(x => x.Length == 1))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Array_IndexOf_ReturnsIndex()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        int result = db.Table<ArrayRow>()
+            .Select(r => Array.IndexOf(r.Tags, "b"))
+            .First();
+
+        Assert.Equal(1, result);
+    }
+
+    [Fact]
+    public void Array_Exists_Match()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        bool result = db.Table<ArrayRow>()
+            .Select(r => Array.Exists(r.Tags, x => x == "b"))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Array_FindIndex_ReturnsIndex()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        int result = db.Table<ArrayRow>()
+            .Select(r => Array.FindIndex(r.Tags, x => x != "a"))
+            .First();
+
+        Assert.Equal(1, result);
+    }
+
+    [Fact]
+    public void Array_TrueForAll_AllMatch()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b"] });
+
+        bool result = db.Table<ArrayRow>()
+            .Select(r => Array.TrueForAll(r.Tags, x => x.Length == 1))
+            .First();
+
+        Assert.True(result);
+    }
+
+    private static TestDatabase CreateArrayDb(string? methodName = null)
+    {
+        TestDatabase db = new(methodName);
+        db.StorageOptions.AddJson();
+        db.StorageOptions.TypeConverters[typeof(string[])] =
+            new SQLiteJsonConverter<string[]>(TestJsonContext.Default.StringArray);
+        db.Table<ArrayRow>().CreateTable();
+        return db;
+    }
+
+    private class ArrayRow
+    {
+        [Key]
+        public int Id { get; set; }
+        public string[] Tags { get; set; } = [];
+    }
+
     private class ListRow
     {
         [Key]
@@ -481,5 +1008,261 @@ public class JsonFunctionsTests
         [Key]
         public int Id { get; set; }
         public List<int> Numbers { get; set; } = [];
+    }
+
+    private static TestDatabase CreateAddressListDb(string? methodName = null)
+    {
+        TestDatabase db = new(methodName);
+        db.StorageOptions.AddJson();
+        db.StorageOptions.TypeConverters[typeof(List<Address>)] =
+            new SQLiteJsonConverter<List<Address>>(TestJsonContext.Default.ListAddress);
+        db.Table<AddressListRow>().CreateTable();
+        return db;
+    }
+
+    [Fact]
+    public void ComplexType_Any_WithPredicate_Match()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses = [new Address { Street = "Main St", City = "Springfield" }, new Address { Street = "Oak Ave", City = "Shelbyville" }]
+        });
+
+        bool result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Any(x => x.City == "Springfield"))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ComplexType_Any_WithPredicate_NoMatch()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses = [new Address { Street = "Main St", City = "Springfield" }]
+        });
+
+        bool result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Any(x => x.City == "nowhere"))
+            .First();
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ComplexType_All_AllMatch()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses = [new Address { Street = "Main St", City = "Springfield" }, new Address { Street = "Oak Ave", City = "Shelbyville" }]
+        });
+
+        bool result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.All(x => x.City != ""))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ComplexType_Count_WithPredicate()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "Main St", City = "Springfield" },
+                new Address { Street = "Elm St", City = "Springfield" },
+                new Address { Street = "Oak Ave", City = "Shelbyville" }
+            ]
+        });
+
+        int result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Count(x => x.City == "Springfield"))
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public void ComplexType_Any_InWhereClause()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses = [new Address { Street = "Main St", City = "Springfield" }]
+        });
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 2,
+            Addresses = [new Address { Street = "Oak Ave", City = "Shelbyville" }]
+        });
+
+        List<AddressListRow> result = db.Table<AddressListRow>()
+            .Where(r => r.Addresses.Any(x => x.City == "Springfield"))
+            .ToList();
+
+        Assert.Single(result);
+        Assert.Equal(1, result[0].Id);
+    }
+
+    [Fact]
+    public void ComplexType_Any_CompoundPredicate()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "Main St", City = "Springfield" },
+                new Address { Street = "Oak Ave", City = "Springfield" }
+            ]
+        });
+
+        bool result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Any(x => x.City == "Springfield" && x.Street == "Oak Ave"))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ComplexType_Any_WithChainedMethods()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses = [new Address { Street = "Main St", City = "Springfield" }]
+        });
+
+        bool result = db.Table<AddressListRow>()
+            .Where(r => r.Addresses.Any(x => x.City.StartsWith("Spring")))
+            .Any();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ComplexType_Where_WithPredicate()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "Main St", City = "Springfield" },
+                new Address { Street = "Oak Ave", City = "Shelbyville" },
+                new Address { Street = "Elm St", City = "Springfield" }
+            ]
+        });
+
+        IEnumerable<Address> result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Where(x => x.City == "Springfield"))
+            .First();
+
+        Assert.Equal(2, result.Count());
+    }
+
+    [Fact]
+    public void PredicateMethodTranslator_ExactMethodMatch()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        MethodInfo method = typeof(JsonFunctionsTests)
+            .GetMethod(nameof(CustomPredicate), BindingFlags.NonPublic | BindingFlags.Static)!;
+        db.StorageOptions.PredicateMethodTranslators[method] =
+            (instance, predicate) => $"(SELECT COUNT(*) FROM json_each({instance}) WHERE {predicate})";
+
+        int result = db.Table<ListRow>()
+            .Select(r => CustomPredicate(r.Tags, x => x != "a"))
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    private static int CustomPredicate(List<string> source, Func<string, bool> predicate)
+    {
+        throw new NotSupportedException();
+    }
+
+    [Fact]
+    public void ComplexType_Any_NestedProperty()
+    {
+        using TestDatabase db = new();
+        db.StorageOptions.AddJson();
+        db.StorageOptions.TypeConverters[typeof(List<Person>)] =
+            new SQLiteJsonConverter<List<Person>>(TestJsonContext.Default.ListPerson);
+        db.Table<PersonListRow>().CreateTable();
+        db.Table<PersonListRow>().Add(new PersonListRow
+        {
+            Id = 1,
+            People =
+            [
+                new Person { Name = "Alice", Home = new Address { Street = "Main St", City = "Springfield" } },
+                new Person { Name = "Bob", Home = new Address { Street = "Oak Ave", City = "Shelbyville" } }
+            ]
+        });
+
+        bool result = db.Table<PersonListRow>()
+            .Select(r => r.People.Any(x => x.Home.City == "Springfield"))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void PropertyTranslator_MemberAccessOnJsonColumn()
+    {
+        using TestDatabase db = new();
+        db.StorageOptions.AddJson();
+        db.StorageOptions.TypeConverters[typeof(Address)] =
+            new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address);
+        db.Table<SingleAddressRow>().CreateTable();
+        db.Table<SingleAddressRow>().Add(new SingleAddressRow
+        {
+            Id = 1,
+            Address = new Address { Street = "Main St", City = "Springfield" }
+        });
+
+        string? result = db.Table<SingleAddressRow>()
+            .Select(r => r.Address.City)
+            .First();
+
+        Assert.Equal("Springfield", result);
+    }
+
+    private class SingleAddressRow
+    {
+        [Key]
+        public int Id { get; set; }
+        public Address Address { get; set; } = new();
+    }
+
+    private class PersonListRow
+    {
+        [Key]
+        public int Id { get; set; }
+        public List<Person> People { get; set; } = [];
+    }
+
+    private class AddressListRow
+    {
+        [Key]
+        public int Id { get; set; }
+        public List<Address> Addresses { get; set; } = [];
     }
 }
