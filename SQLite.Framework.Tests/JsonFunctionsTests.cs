@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.JsonB;
 using SQLite.Framework.Tests.Helpers;
 
@@ -1008,6 +1009,231 @@ public class JsonFunctionsTests
         [Key]
         public int Id { get; set; }
         public List<int> Numbers { get; set; } = [];
+    }
+
+    [Fact]
+    public void Chain_OrderBy_ThenBy_SortsMultipleKeys()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "B", City = "Z" },
+                new Address { Street = "A", City = "Z" },
+                new Address { Street = "A", City = "A" }
+            ]
+        });
+
+        SQLiteCommand command1 = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.OrderBy(x => x.City).ThenBy(x => x.Street).First().Street)
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT json_extract((
+                         SELECT value
+                         FROM json_each(a0.Addresses)
+                         ORDER BY json_extract(value, '$.City') ASC, json_extract(value, '$.Street') ASC
+                         LIMIT 1
+                     ), '$.Street') AS "Street"
+                     FROM "AddressListRow" AS a0
+                     """, command1.CommandText);
+
+        string? result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.OrderBy(x => x.City).ThenBy(x => x.Street).First().Street)
+            .First();
+
+        Assert.Equal("A", result);
+    }
+
+    [Fact]
+    public void Chain_OrderBy_ThenByDescending_MixedSort()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "A", City = "Z" },
+                new Address { Street = "B", City = "Z" },
+                new Address { Street = "C", City = "A" }
+            ]
+        });
+
+        SQLiteCommand command = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.OrderBy(x => x.City).ThenByDescending(x => x.Street).First().Street)
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT json_extract((
+                         SELECT value
+                         FROM json_each(a0.Addresses)
+                         ORDER BY json_extract(value, '$.City') ASC, json_extract(value, '$.Street') DESC
+                         LIMIT 1
+                     ), '$.Street') AS "Street"
+                     FROM "AddressListRow" AS a0
+                     """, command.CommandText);
+
+        string? result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.OrderBy(x => x.City).ThenByDescending(x => x.Street).First().Street)
+            .First();
+
+        Assert.Equal("C", result);
+    }
+
+    [Fact]
+    public void Chain_Where_OrderBy_ThenBy_Combined()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "X", City = "Remove" },
+                new Address { Street = "B", City = "Keep" },
+                new Address { Street = "A", City = "Keep" }
+            ]
+        });
+
+        string? result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses
+                .Where(x => x.City == "Keep")
+                .OrderBy(x => x.City).ThenBy(x => x.Street)
+                .First().Street)
+            .First();
+
+        Assert.Equal("A", result);
+    }
+
+    [Fact]
+    public void Chain_Where_Count()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc", "dd"] });
+
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x.Length > 1).Count())
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT (
+                         SELECT COUNT(*)
+                         FROM json_each(l0.Tags)
+                         WHERE LENGTH(value) > @p0
+                     ) AS "6"
+                     FROM "ListRow" AS l0
+                     """, command.CommandText);
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x.Length > 1).Count())
+            .First();
+
+        Assert.Equal(3, result);
+    }
+
+    [Fact]
+    public void Chain_OrderBy_Take()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x).Take(2))
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT (
+                         SELECT json_group_array(value)
+                         FROM (
+                             SELECT value
+                             FROM json_each(l0.Tags)
+                             ORDER BY value ASC
+                             LIMIT @p0
+                         )
+                     ) AS "4"
+                     FROM "ListRow" AS l0
+                     """, command.CommandText);
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x).Take(2))
+            .First();
+
+        Assert.Equal(["a", "b"], result);
+    }
+
+    [Fact]
+    public void Chain_SelectMany_FlattensNested()
+    {
+        using TestDatabase db = new();
+        db.StorageOptions.AddJson();
+        db.StorageOptions.TypeConverters[typeof(List<PersonWithTags>)] =
+            new SQLiteJsonConverter<List<PersonWithTags>>(TestJsonContext.Default.ListPersonWithTags);
+        db.StorageOptions.TypeConverters[typeof(List<string>)] =
+            new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
+        db.Table<PersonWithTagsRow>().CreateTable();
+        db.Table<PersonWithTagsRow>().Add(new PersonWithTagsRow
+        {
+            Id = 1,
+            People =
+            [
+                new PersonWithTags { Name = "Alice", Tags = ["a", "b"] },
+                new PersonWithTags { Name = "Bob", Tags = ["c"] }
+            ]
+        });
+
+        SQLiteCommand command = db.Table<PersonWithTagsRow>()
+            .Select(r => r.People.SelectMany(p => p.Tags))
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT (
+                         SELECT json_group_array(n.value)
+                         FROM json_each(p0.People) e, json_each(json_extract(e.value, '$.Tags')) n
+                     ) AS "3"
+                     FROM "PersonWithTagsRow" AS p0
+                     """, command.CommandText);
+
+        IEnumerable<string> result = db.Table<PersonWithTagsRow>()
+            .Select(r => r.People.SelectMany(p => p.Tags))
+            .First();
+
+        Assert.Equal(3, result.Count());
+    }
+
+    [Fact]
+    public void Chain_GroupBy_Count()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a", "c", "a"] });
+
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => r.Tags.GroupBy(x => x).Count())
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT (
+                         SELECT COUNT(*)
+                         FROM json_each(l0.Tags)
+                         GROUP BY value
+                     ) AS "3"
+                     FROM "ListRow" AS l0
+                     """, command.CommandText);
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.GroupBy(x => x).Count())
+            .First();
+
+        Assert.Equal(3, result);
+    }
+
+    private class PersonWithTagsRow
+    {
+        [Key]
+        public int Id { get; set; }
+        public List<PersonWithTags> People { get; set; } = [];
     }
 
     private static TestDatabase CreateAddressListDb(string? methodName = null)

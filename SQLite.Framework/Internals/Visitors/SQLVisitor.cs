@@ -19,8 +19,9 @@ namespace SQLite.Framework.Internals.Visitors;
 /// Not all Expressions are converted to SQL, some are left as is so that the select method can execute
 /// code both as SQL and C#.
 /// </remarks>
-internal class SQLVisitor : ExpressionVisitor
+internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 {
+    SQLiteStorageOptions ISQLExpressionVisitor.StorageOptions => Database.StorageOptions;
     private readonly PropertyVisitor propertyVisitor;
 
     public SQLVisitor(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level)
@@ -540,6 +541,15 @@ internal class SQLVisitor : ExpressionVisitor
         if (node.Method.DeclaringType == typeof(Guid))
         {
             return MethodVisitor.HandleGuidMethod(node);
+        }
+
+        foreach (Func<MethodCallExpression, ISQLExpressionVisitor, Expression?> interceptor in Database.StorageOptions.MethodCallInterceptors)
+        {
+            Expression? intercepted = interceptor(node, this);
+            if (intercepted != null)
+            {
+                return intercepted;
+            }
         }
 
         if (node.Method.DeclaringType == typeof(Queryable))

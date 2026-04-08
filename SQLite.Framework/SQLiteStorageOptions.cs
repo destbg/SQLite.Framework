@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Linq.Expressions;
 using System.Reflection;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
@@ -109,6 +110,13 @@ public class SQLiteStorageOptions
     /// Translators are tried in order until one returns a non-null result.
     /// </summary>
     public List<SQLitePropertyTranslator> PropertyTranslators { get; } = [];
+
+    /// <summary>
+    /// Interceptors that can handle method calls before the default dispatch logic.
+    /// Each interceptor receives the method call expression and a visitor, and returns a translated expression or null to pass.
+    /// Interceptors are tried in order until one returns a non-null result.
+    /// </summary>
+    public List<Func<MethodCallExpression, ISQLExpressionVisitor, Expression?>> MethodCallInterceptors { get; } = [];
 
     internal Type? GetConverterTypeForInterface(Type interfaceType)
     {

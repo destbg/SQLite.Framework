@@ -259,6 +259,8 @@ public static class SQLiteStorageOptionsJsonExtensions
 
         options.PropertyTranslators.Add((memberName, instanceSql) => $"json_extract({instanceSql}, '$.{memberName}')");
 
+        options.MethodCallInterceptors.Add(JsonCollectionVisitor.TryHandle);
+
         return options;
     }
 

@@ -196,8 +196,12 @@ When you store a `List<T>` or `T[]` as JSON, `AddJson()` also registers translat
 |---|---|
 | `Where(x => ...)` | Filter elements |
 | `Select(x => ...)` | Project each element |
+| `SelectMany(x => x.Items)` | Flatten nested collections |
 | `OrderBy(x => ...)` | Sort ascending |
 | `OrderByDescending(x => ...)` | Sort descending |
+| `ThenBy(x => ...)` | Secondary sort ascending (after OrderBy) |
+| `ThenByDescending(x => ...)` | Secondary sort descending (after OrderBy) |
+| `GroupBy(x => ...)` | Group elements by a key |
 | `Distinct()` | Remove duplicates |
 | `Reverse()` | Reverse the order |
 | `Skip(n)` | Skip the first n elements |
@@ -275,9 +279,35 @@ List<string> sorted = db.Table<Product>()
     .Select(p => p.Tags.OrderBy(t => t).Take(3))
     .First();
 
-// chaining works
+// chaining works, methods are combined into a single SQL subquery
 string firstSorted = db.Table<Product>()
     .Select(p => p.Tags.OrderBy(t => t).First())
+    .First();
+
+// secondary sorting with ThenBy
+string result = db.Table<Order>()
+    .Select(o => o.Items
+        .OrderBy(i => i.Category)
+        .ThenByDescending(i => i.Price)
+        .First().Name)
+    .First();
+
+// multiple chained operations become one query
+int count = db.Table<Product>()
+    .Select(p => p.Tags
+        .Where(t => t.Length > 3)
+        .OrderBy(t => t)
+        .Count())
+    .First();
+
+// flatten nested collections with SelectMany
+List<string> allTags = db.Table<Company>()
+    .Select(c => c.Departments.SelectMany(d => d.Tags))
+    .First();
+
+// group by and count
+int distinctGroups = db.Table<Product>()
+    .Select(p => p.Tags.GroupBy(t => t).Count())
     .First();
 ```
 
@@ -298,6 +328,12 @@ string street = db.Table<Order>()
     .First();
 ```
 
+### Method chaining
+
+When you chain two or more methods on a JSON collection, they are combined into a single SQL subquery instead of nesting multiple subqueries. For example, `.Where(...).OrderBy(...).Take(n)` produces one `SELECT ... FROM json_each(...) WHERE ... ORDER BY ... LIMIT n` query.
+
+This also means that combinations like `.Where(...).Count()`, `.OrderBy(...).ThenBy(...).First()`, and `.GroupBy(...).Count()` all work and produce clean SQL.
+
 ### What is not supported
 
 These patterns are not translated to SQL and will either fall back to client-side evaluation or throw an error:
@@ -305,10 +341,9 @@ These patterns are not translated to SQL and will either fall back to client-sid
 - **Predicate overloads with start index or count.** `FindIndex(int startIndex, Predicate<T>)` and similar overloads that take a start index are not supported. Only the single-predicate overloads work.
 - **`OrderBy` / `OrderByDescending` as the final result in a Select.** The C# return type is `IOrderedEnumerable<T>`, which cannot be deserialized back to `List<T>`. Chain another method after it instead, like `.First()` or `.Take(n)`.
 - **`List<T>.Reverse()` in a Select.** The C# compiler picks the void instance method over the LINQ extension. Use `Enumerable.Reverse(list)` with the static call syntax instead.
-- **`ThenBy` / `ThenByDescending`.** Secondary sorting after `OrderBy` is not supported.
-- **`GroupBy`, `SelectMany`, `Zip`.** These are not supported.
+- **`Zip`.** This is not supported.
+- **`GroupBy` with result selector.** `GroupBy(x => x.Key, (key, group) => ...)` with a result selector is not supported yet. You can use `GroupBy(x => x.Key).Count()` and similar aggregations.
 - **Predicate methods that return complex objects directly.** `Find(x => ...)` and `First(x => ...)` return the raw JSON value from the database. If you access a property on the result (like `.Street`), it works. If you try to return the whole object, you get the JSON string, not the deserialized object.
-- **Multi-level method chaining on collections.** `list.Where(x => ...).Where(x => ...)` does not work because the result of the first `Where` is a JSON string, not a queryable collection.
 
 ---
 
