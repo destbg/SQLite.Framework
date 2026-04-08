@@ -407,4 +407,357 @@ public class QueryTests
         Assert.Equal(0, result.Price);
         Assert.Equal(0, result.AuthorId);
     }
+
+    [Fact]
+    public void Linq_Single_WhenMultipleRows_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Table<QueryItem>().Single()
+        );
+    }
+
+    [Fact]
+    public void Linq_Single_WhenNoRows_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Table<QueryItem>().Where(q => q.Id == 999).Single()
+        );
+    }
+
+    [Fact]
+    public void Linq_First_WhenNoRows_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Table<QueryItem>().Where(q => q.Id == 999).First()
+        );
+    }
+
+    [Fact]
+    public void Linq_FirstOrDefault_WhenNoRows_ReturnsNull()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        QueryItem? result = db.Table<QueryItem>()
+            .Where(q => q.Id == 999)
+            .FirstOrDefault();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void Linq_SingleOrDefault_WhenMultipleRows_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Table<QueryItem>().SingleOrDefault()
+        );
+    }
+
+    [Fact]
+    public void Linq_SingleOrDefault_WhenNoRows_ReturnsNull()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        QueryItem? result = db.Table<QueryItem>()
+            .Where(q => q.Id == 999)
+            .SingleOrDefault();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void FromSql_WithNullSql_ThrowsArgumentException()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.FromSql<QueryItem>(null!)
+        );
+    }
+
+    [Fact]
+    public void FromSql_WithEmptySql_ThrowsArgumentException()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.FromSql<QueryItem>("")
+        );
+    }
+
+    [Fact]
+    public void FromSql_WithWhitespaceSql_ThrowsArgumentException()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.FromSql<QueryItem>("   ")
+        );
+    }
+
+    [Fact]
+    public void CommandCreated_EventFires()
+    {
+        using TestDatabase db = SetupDatabase();
+        SQLiteCommand? captured = null;
+        db.CommandCreated += cmd => captured = cmd;
+
+        db.Query<QueryItem>("SELECT * FROM QueryItems");
+
+        Assert.NotNull(captured);
+        Assert.Contains("SELECT", captured.CommandText);
+    }
+
+    [Fact]
+    public void ExecuteScalar_WithExplicitParameters_ReturnsValue()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        double result = db.ExecuteScalar<double>(
+            "SELECT Price FROM QueryItems WHERE Id = @id",
+            new SQLiteParameter { Name = "@id", Value = 1 }
+        );
+
+        Assert.Equal(10.0, result);
+    }
+
+    [Fact]
+    public void ExecuteScalar_WhenNoRows_ReturnsDefault()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int result = db.ExecuteScalar<int>(
+            "SELECT Id FROM QueryItems WHERE Id = @id",
+            new SQLiteParameter { Name = "@id", Value = 999 }
+        );
+
+        Assert.Equal(0, result);
+    }
+
+    [Fact]
+    public void Query_ReturnsEmptyListWhenNoMatch()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<QueryItem> result = db.Query<QueryItem>(
+            "SELECT * FROM QueryItems WHERE Id = @id",
+            new { id = 999 }
+        );
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void QueryFirst_WithExplicitParams_ReturnsFirstRow()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        QueryItem result = db.QueryFirst<QueryItem>(
+            "SELECT * FROM QueryItems WHERE Id = @id",
+            new SQLiteParameter { Name = "@id", Value = 1 }
+        );
+
+        Assert.Equal("Alpha", result.Name);
+    }
+
+    [Fact]
+    public void QueryFirst_WithExplicitParams_WhenNoRows_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.QueryFirst<QueryItem>(
+                "SELECT * FROM QueryItems WHERE Id = @id",
+                new SQLiteParameter { Name = "@id", Value = 999 }
+            )
+        );
+    }
+
+    [Fact]
+    public void QueryFirstOrDefault_WithExplicitParams_ReturnsFirstRow()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        QueryItem? result = db.QueryFirstOrDefault<QueryItem>(
+            "SELECT * FROM QueryItems WHERE Id = @id",
+            new SQLiteParameter { Name = "@id", Value = 2 }
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal("Beta", result.Name);
+    }
+
+    [Fact]
+    public void QueryFirstOrDefault_WithExplicitParams_WhenNoRows_ReturnsNull()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        QueryItem? result = db.QueryFirstOrDefault<QueryItem>(
+            "SELECT * FROM QueryItems WHERE Id = @id",
+            new SQLiteParameter { Name = "@id", Value = 999 }
+        );
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void QuerySingle_WithExplicitParams_ReturnsSingleRow()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        QueryItem result = db.QuerySingle<QueryItem>(
+            "SELECT * FROM QueryItems WHERE Id = @id",
+            new SQLiteParameter { Name = "@id", Value = 3 }
+        );
+
+        Assert.Equal("Gamma", result.Name);
+    }
+
+    [Fact]
+    public void QuerySingle_WithExplicitParams_WhenNoRows_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.QuerySingle<QueryItem>(
+                "SELECT * FROM QueryItems WHERE Id = @id",
+                new SQLiteParameter { Name = "@id", Value = 999 }
+            )
+        );
+    }
+
+    [Fact]
+    public void QuerySingle_WithExplicitParams_WhenMultipleRows_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.QuerySingle<QueryItem>(
+                "SELECT * FROM QueryItems WHERE AuthorId = @authorId",
+                new SQLiteParameter { Name = "@authorId", Value = 1 }
+            )
+        );
+    }
+
+    [Fact]
+    public void QuerySingleOrDefault_WithExplicitParams_ReturnsSingleRow()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        QueryItem? result = db.QuerySingleOrDefault<QueryItem>(
+            "SELECT * FROM QueryItems WHERE Id = @id",
+            new SQLiteParameter { Name = "@id", Value = 1 }
+        );
+
+        Assert.NotNull(result);
+        Assert.Equal("Alpha", result.Name);
+    }
+
+    [Fact]
+    public void QuerySingleOrDefault_WithExplicitParams_WhenNoRows_ReturnsNull()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        QueryItem? result = db.QuerySingleOrDefault<QueryItem>(
+            "SELECT * FROM QueryItems WHERE Id = @id",
+            new SQLiteParameter { Name = "@id", Value = 999 }
+        );
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void QuerySingleOrDefault_WithExplicitParams_WhenMultipleRows_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.QuerySingleOrDefault<QueryItem>(
+                "SELECT * FROM QueryItems WHERE AuthorId = @authorId",
+                new SQLiteParameter { Name = "@authorId", Value = 1 }
+            )
+        );
+    }
+
+    [Fact]
+    public void Query_WithExplicitParamsArray_ReturnsResults()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<QueryItem> result = db.Query<QueryItem>(
+            "SELECT * FROM QueryItems WHERE AuthorId = @authorId AND Price > @price",
+            new SQLiteParameter { Name = "@authorId", Value = 1 },
+            new SQLiteParameter { Name = "@price", Value = 15.0 }
+        );
+
+        Assert.Single(result);
+        Assert.Equal("Beta", result[0].Name);
+    }
+
+    [Fact]
+    public void ExecuteScalar_WithAnonymousObject_ReturnsValue()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int count = db.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM QueryItems WHERE AuthorId = @authorId",
+            new { authorId = 2 }
+        );
+
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public void Linq_Select_Scalar_ReturnsCorrectValues()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<double> prices = db.Table<QueryItem>()
+            .OrderBy(q => q.Id)
+            .Select(q => q.Price)
+            .ToList();
+
+        Assert.Equal([10, 20, 30], prices);
+    }
+
+    [Fact]
+    public void Linq_Count_ReturnsCorrectCount()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int count = db.Table<QueryItem>().Count();
+
+        Assert.Equal(3, count);
+    }
+
+    [Fact]
+    public void Linq_Any_WithMatch_ReturnsTrue()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        bool exists = db.Table<QueryItem>()
+            .Where(q => q.Name == "Alpha")
+            .Any();
+
+        Assert.True(exists);
+    }
+
+    [Fact]
+    public void Linq_Any_WithNoMatch_ReturnsFalse()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        bool exists = db.Table<QueryItem>()
+            .Where(q => q.Name == "Nobody")
+            .Any();
+
+        Assert.False(exists);
+    }
 }

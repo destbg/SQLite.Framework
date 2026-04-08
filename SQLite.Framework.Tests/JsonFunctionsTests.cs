@@ -1229,6 +1229,340 @@ public class JsonFunctionsTests
         Assert.Equal(3, result);
     }
 
+    [Fact]
+    public void Chain_OrderByDescending_First()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderByDescending(x => x).First())
+            .First();
+
+        Assert.Equal("c", result);
+    }
+
+    [Fact]
+    public void Chain_Where_Select()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["apple", "banana", "cherry"] });
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x.Length > 5).Select(x => x.Length).Count())
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public void Chain_Where_Skip()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c", "d"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "a").Skip(1))
+            .First();
+
+        Assert.Equal(["c", "d"], result);
+    }
+
+    [Fact]
+    public void Chain_Where_Last()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "c").Last())
+            .First();
+
+        Assert.Equal("b", result);
+    }
+
+    [Fact]
+    public void Chain_OrderBy_Last_ReversesOrder()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x).Last())
+            .First();
+
+        Assert.Equal("c", result);
+    }
+
+    [Fact]
+    public void Chain_Where_Single()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x == "b").Single())
+            .First();
+
+        Assert.Equal("b", result);
+    }
+
+    [Fact]
+    public void Chain_Where_Any()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x.Length > 2).Any())
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Chain_Where_All()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["aa", "bb", "cc"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x.Length == 2).All(x => x.Length == 2))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Chain_Where_Min()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "a").Min())
+            .First();
+
+        Assert.Equal("b", result);
+    }
+
+    [Fact]
+    public void Chain_Where_Max()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "c").Max())
+            .First();
+
+        Assert.Equal("b", result);
+    }
+
+    [Fact]
+    public void Chain_Where_Distinct()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a", "b", "c"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "c").Distinct())
+            .First();
+
+        Assert.Equal(2, result.Count());
+    }
+
+    [Fact]
+    public void Chain_OrderBy_Reverse()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x).Reverse())
+            .First();
+
+        Assert.Equal(["c", "b", "a"], result);
+    }
+
+    [Fact]
+    public void Chain_Where_ElementAt()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c", "d"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "a").ElementAt(1))
+            .First();
+
+        Assert.Equal("c", result);
+    }
+
+    [Fact]
+    public void Chain_Where_Contains()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "c").Contains("b"))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Chain_First_WithPredicate()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x).First(x => x.Length > 1))
+            .First();
+
+        Assert.Equal("bb", result);
+    }
+
+    [Fact]
+    public void Chain_Last_WithPredicate()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x).Last(x => x.Length > 1))
+            .First();
+
+        Assert.Equal("ccc", result);
+    }
+
+    [Fact]
+    public void Chain_Count_WithPredicate()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x).Count(x => x.Length > 1))
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public void Chain_Any_WithPredicate()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x.Length > 0).Any(x => x.Length > 2))
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Chain_Min_WithSelector()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "Long Street", City = "A" },
+                new Address { Street = "Short", City = "B" }
+            ]
+        });
+
+        string? result = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.Where(x => x.City != "").Min(x => x.Street))
+            .First();
+
+        Assert.Equal("Long Street", result);
+    }
+
+    [Fact]
+    public void Chain_Where_Sum()
+    {
+        using TestDatabase db = CreateNumericListDb();
+        db.Table<NumericListRow>().Add(new NumericListRow { Id = 1, Numbers = [1, 2, 3, 4, 5] });
+
+        int result = db.Table<NumericListRow>()
+            .Select(r => r.Numbers.Where(x => x > 2).Sum())
+            .First();
+
+        Assert.Equal(12, result);
+    }
+
+    [Fact]
+    public void Chain_Where_Average()
+    {
+        using TestDatabase db = CreateNumericListDb();
+        db.Table<NumericListRow>().Add(new NumericListRow { Id = 1, Numbers = [2, 4, 6] });
+
+        double result = db.Table<NumericListRow>()
+            .Select(r => r.Numbers.Where(x => x > 2).Average())
+            .First();
+
+        Assert.Equal(5.0, result);
+    }
+
+    [Fact]
+    public void Chain_Skip_Take()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c", "d", "e"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Skip(1).Take(2))
+            .First();
+
+        Assert.Equal(["b", "c"], result);
+    }
+
+    [Fact]
+    public void Chain_OrderBy_Distinct()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["b", "a", "b", "a", "c"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x).Distinct())
+            .First();
+
+        Assert.Equal(3, result.Count());
+    }
+
+    [Fact]
+    public void Chain_Where_SimpleCollection()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "a").Distinct())
+            .First();
+
+        Assert.Equal(2, result.Count());
+        Assert.DoesNotContain("a", result);
+    }
+
+    [Fact]
+    public void Chain_Reverse_NoExistingOrder()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x != "z").Reverse())
+            .First();
+
+        Assert.Equal(["c", "b", "a"], result);
+    }
+
     private class PersonWithTagsRow
     {
         [Key]

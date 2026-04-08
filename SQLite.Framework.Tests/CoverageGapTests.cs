@@ -541,4 +541,317 @@ public class CoverageGapTests
         public string Title { get; set; } = string.Empty;
         public List<string> Tags { get; } = [];
     }
+
+    [Fact]
+    public void VisitBinary_EnumCastOnLeft_ComparesCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<EnumEntity>().CreateTable();
+        db.Table<EnumEntity>().Add(new EnumEntity { Id = 1, Category = BookCategory.Fiction });
+        db.Table<EnumEntity>().Add(new EnumEntity { Id = 2, Category = BookCategory.NonFiction });
+
+        List<EnumEntity> results = db.Table<EnumEntity>()
+            .Where(e => (int)e.Category == 1)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(BookCategory.Fiction, results[0].Category);
+    }
+
+    [Fact]
+    public void VisitBinary_EnumCastOnRight_ComparesCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<EnumEntity>().CreateTable();
+        db.Table<EnumEntity>().Add(new EnumEntity { Id = 1, Category = BookCategory.Fiction });
+        db.Table<EnumEntity>().Add(new EnumEntity { Id = 2, Category = BookCategory.NonFiction });
+
+        int value = 2;
+        List<EnumEntity> results = db.Table<EnumEntity>()
+            .Where(e => value == (int)e.Category)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(BookCategory.NonFiction, results[0].Category);
+    }
+
+    [Fact]
+    public void VisitBinary_CharComparedToInt_FiltersCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<CharEntity>().CreateTable();
+        db.Table<CharEntity>().Add(new CharEntity { Id = 1, Letter = 'A' });
+        db.Table<CharEntity>().Add(new CharEntity { Id = 2, Letter = 'B' });
+
+        List<CharEntity> results = db.Table<CharEntity>()
+            .Where(e => e.Letter == 65)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal('A', results[0].Letter);
+    }
+
+    [Fact]
+    public void VisitBinary_IntComparedToChar_FiltersCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<CharEntity>().CreateTable();
+        db.Table<CharEntity>().Add(new CharEntity { Id = 1, Letter = 'A' });
+        db.Table<CharEntity>().Add(new CharEntity { Id = 2, Letter = 'B' });
+
+        int code = 66;
+        List<CharEntity> results = db.Table<CharEntity>()
+            .Where(e => code == e.Letter)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal('B', results[0].Letter);
+    }
+
+    [Fact]
+    public void VisitConditional_TernaryInSelect_ProducesCaseWhen()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 50.0 });
+
+        List<string> results = db.Table<Book>()
+            .Select(b => b.Price > 20 ? "expensive" : "cheap")
+            .ToList();
+
+        Assert.Contains("cheap", results);
+        Assert.Contains("expensive", results);
+    }
+
+    [Fact]
+    public void VisitConditional_TernaryInWhere_FiltersCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 50.0 });
+
+        bool useHighPrice = true;
+        double threshold = useHighPrice ? 20.0 : 5.0;
+        List<Book> results = db.Table<Book>()
+            .Where(b => b.Price > threshold)
+            .ToList();
+
+        Assert.Single(results);
+    }
+
+    [Fact]
+    public void VisitUnary_CastIntToChar_ProducesCharFunction()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 65, Title = "A", AuthorId = 1, Price = 1.0 });
+
+        SQLiteCommand command = db.Table<Book>()
+            .Select(b => (char)b.Id)
+            .ToSqlCommand();
+
+        Assert.Contains("CHAR", command.CommandText);
+    }
+
+    [Fact]
+    public void VisitUnary_CastCharToInt_ProducesUnicodeFunction()
+    {
+        using TestDatabase db = new();
+        db.Table<CharEntity>().CreateTable();
+        db.Table<CharEntity>().Add(new CharEntity { Id = 1, Letter = 'A' });
+
+        SQLiteCommand command = db.Table<CharEntity>()
+            .Select(e => (int)e.Letter)
+            .ToSqlCommand();
+
+        Assert.Contains("UNICODE", command.CommandText);
+    }
+
+    [Fact]
+    public void VisitUnary_CastEnumToUnderlyingType_PreservesValue()
+    {
+        using TestDatabase db = new();
+        db.Table<EnumEntity>().CreateTable();
+        db.Table<EnumEntity>().Add(new EnumEntity { Id = 1, Category = BookCategory.NonFiction });
+
+        int result = db.Table<EnumEntity>()
+            .Select(e => (int)e.Category)
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public void VisitUnary_Negate_ProducesMinusOperator()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
+
+        double result = db.Table<Book>()
+            .Select(b => -b.Price)
+            .First();
+
+        Assert.Equal(-10.0, result);
+    }
+
+    [Fact]
+    public void VisitUnary_Not_ProducesNotOperator()
+    {
+        using TestDatabase db = new();
+        db.Table<EnumEntity>().CreateTable();
+        db.Table<EnumEntity>().Add(new EnumEntity { Id = 1, Category = BookCategory.Fiction, IsActive = true });
+        db.Table<EnumEntity>().Add(new EnumEntity { Id = 2, Category = BookCategory.NonFiction, IsActive = false });
+
+        List<EnumEntity> results = db.Table<EnumEntity>()
+            .Where(e => !e.IsActive)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(2, results[0].Id);
+    }
+
+    [Fact]
+    public void VisitBinary_Coalesce_ProducesCoalesceFunction()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().CreateTable();
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Name = null });
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Name = "Bob" });
+
+        List<string> results = db.Table<NullableEntity>()
+            .Select(e => e.Name ?? "Unknown")
+            .ToList();
+
+        Assert.Contains("Unknown", results);
+        Assert.Contains("Bob", results);
+    }
+
+    [Fact]
+    public void VisitBinary_NullEquality_ProducesIsNull()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().CreateTable();
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Name = null });
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Name = "Bob" });
+
+        List<NullableEntity> results = db.Table<NullableEntity>()
+            .Where(e => e.Name == null)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
+    }
+
+    [Fact]
+    public void VisitBinary_NullInequality_ProducesIsNotNull()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().CreateTable();
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Name = null });
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Name = "Bob" });
+
+        List<NullableEntity> results = db.Table<NullableEntity>()
+            .Where(e => e.Name != null)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(2, results[0].Id);
+    }
+
+    [Fact]
+    public void VisitBinary_Modulo_ComputesCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.0 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2.0 });
+        db.Table<Book>().Add(new Book { Id = 3, Title = "C", AuthorId = 3, Price = 3.0 });
+
+        List<Book> results = db.Table<Book>()
+            .Where(b => b.Id % 2 == 1)
+            .ToList();
+
+        Assert.Equal(2, results.Count);
+    }
+
+    [Fact]
+    public void VisitBinary_Multiply_ComputesCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 5.0 });
+
+        double result = db.Table<Book>()
+            .Select(b => b.Price * 3)
+            .First();
+
+        Assert.Equal(15.0, result);
+    }
+
+    [Fact]
+    public void VisitBinary_Divide_ComputesCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
+
+        double result = db.Table<Book>()
+            .Select(b => b.Price / 2)
+            .First();
+
+        Assert.Equal(5.0, result);
+    }
+
+    [Fact]
+    public void VisitBinary_Subtract_ComputesCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
+
+        double result = db.Table<Book>()
+            .Select(b => b.Price - 3)
+            .First();
+
+        Assert.Equal(7.0, result);
+    }
+
+    [Fact]
+    public void VisitUnary_CastToGenericType_ProducesCast()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.5 });
+
+        SQLiteCommand command = db.Table<Book>()
+            .Select(b => (long)b.Price)
+            .ToSqlCommand();
+
+        Assert.Contains("CAST", command.CommandText);
+    }
+
+    private class EnumEntity
+    {
+        [Key]
+        public int Id { get; set; }
+        public BookCategory Category { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    private class CharEntity
+    {
+        [Key]
+        public int Id { get; set; }
+        public char Letter { get; set; }
+    }
+
+    private class NullableEntity
+    {
+        [Key]
+        public int Id { get; set; }
+        public string? Name { get; set; }
+    }
 }

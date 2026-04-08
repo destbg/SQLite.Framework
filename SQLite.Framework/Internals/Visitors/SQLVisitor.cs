@@ -147,11 +147,11 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             if (CommonHelpers.IsConstant(leftNode))
             {
                 int value = (int)CommonHelpers.GetConstantValue(leftNode)!;
-                rightNode = Expression.Constant(((char)value).ToString());
+                leftNode = Expression.Constant(((char)value).ToString());
             }
             else
             {
-                rightNode = Expression.MakeUnary(ExpressionType.Convert, rightNode, typeof(char));
+                leftNode = Expression.MakeUnary(ExpressionType.Convert, leftNode, typeof(char));
             }
         }
 
