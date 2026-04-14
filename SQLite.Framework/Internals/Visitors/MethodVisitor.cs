@@ -736,7 +736,9 @@ internal class MethodVisitor
             return Expression.Call(node.Object, node.Method, arguments.Select(f => f.Expression));
         }
 
-        if (node.Object == null && CommonHelpers.IsSimple(node.Method.ReturnType, visitor.Database.StorageOptions))
+        if (node.Object == null
+            && CommonHelpers.IsSimple(node.Method.ReturnType, visitor.Database.StorageOptions)
+            && arguments.All(f => f.IsConstant))
         {
             object? result = node.Method.Invoke(null, [
                 enumerable,
@@ -781,7 +783,7 @@ internal class MethodVisitor
             }
         }
 
-        return node;
+        return Expression.Call(node.Object, node.Method, arguments.Select(f => f.Expression));
     }
 
     public Expression HandleGroupingMethod(MethodCallExpression node)

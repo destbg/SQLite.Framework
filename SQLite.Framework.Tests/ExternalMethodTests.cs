@@ -391,6 +391,32 @@ public class ExternalMethodTests
     }
 
     [Fact]
+    public void CallExternalDictionaryGetValueOrDefault()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Dictionary<int, string> authorNames = new()
+        {
+            { 1, "Author 1" },
+            { 2, "Author 2" },
+        };
+
+        List<(int BookId, string AuthorName)> results = (
+            from b in db.Table<Book>()
+            orderby b.Id
+            select new
+            {
+                BookId = b.Id,
+                AuthorName = authorNames.GetValueOrDefault(b.AuthorId, "Unknown"),
+            }
+        ).AsEnumerable().Select(x => (x.BookId, x.AuthorName)).ToList();
+
+        Assert.Equal(2, results.Count);
+        Assert.Equal((1, "Author 1"), results[0]);
+        Assert.Equal((2, "Author 1"), results[1]);
+    }
+
+    [Fact]
     public void ExternalModelMembers()
     {
         using TestDatabase db = SetupDatabase();
