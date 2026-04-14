@@ -65,7 +65,7 @@ internal class MethodVisitor
                     return new SQLExpression(
                         node.Method.ReturnType,
                         visitor.IdentifierIndex.Index++,
-                        $"CASE WHEN INSTR({obj.Sql}, {arguments[0].Sql}) = 0 THEN -1 ELSE LENGTH({obj.Sql}) - INSTR(REPLACE(REPLACE({obj.Sql}, REPLACE({arguments[0].Sql}, '%', '\\%'), '<<<>>>'), '<<<>>>', ''), '<<<>>>') - LENGTH(REPLACE({arguments[0].Sql}, '%', '\\%')) END",
+                        $"CASE WHEN LENGTH({arguments[0].Sql}) = 0 THEN LENGTH({obj.Sql}) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, {obj.Sql} UNION ALL SELECT pos + INSTR(rem, {arguments[0].Sql}), SUBSTR(rem, INSTR(rem, {arguments[0].Sql}) + 1) FROM find_pos WHERE INSTR(rem, {arguments[0].Sql}) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END",
                         parameters
                     );
                 }

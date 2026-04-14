@@ -971,6 +971,233 @@ public class MethodCallTests
     }
 
     [Fact]
+    public void StringLastIndexOf_WhenLastMatchNotAtEnd_ReturnsCorrectIndex()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("an"))
+            .First();
+
+        Assert.Equal("banana".LastIndexOf("an"), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_SingleChar_ReturnsLastPosition()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("a"))
+            .First();
+
+        Assert.Equal("banana".LastIndexOf("a"), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_NoMatch_ReturnsMinusOne()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("xyz"))
+            .First();
+
+        Assert.Equal(-1, result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_EmptyNeedle_ReturnsLastIndex()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf(""))
+            .First();
+
+        Assert.Equal("banana".LastIndexOf(""), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_EmptyNeedle_EmptyHaystack_ReturnsZero()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf(""))
+            .First();
+
+        Assert.Equal("".LastIndexOf(""), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_FullMatch_ReturnsZero()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "hello", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("hello"))
+            .First();
+
+        Assert.Equal(0, result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_MatchAtStart_ReturnsZero()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "hello world", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("hello"))
+            .First();
+
+        Assert.Equal(0, result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_MatchAtEnd_ReturnsCorrectIndex()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "hello world", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("world"))
+            .First();
+
+        Assert.Equal("hello world".LastIndexOf("world"), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_OverlappingMatches_ReturnsLastNonOverlapping()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "aaaa", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("aa"))
+            .First();
+
+        Assert.Equal("aaaa".LastIndexOf("aa"), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_WithSpecialCharacters_ReturnsCorrectIndex()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a_b_c_d", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("_"))
+            .First();
+
+        Assert.Equal("a_b_c_d".LastIndexOf("_"), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_WithPercentCharacter_ReturnsCorrectIndex()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "50% off, 20% off", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("%"))
+            .First();
+
+        Assert.Equal("50% off, 20% off".LastIndexOf("%"), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_OldSentinelInData_ReturnsCorrectIndex()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a<<<>>>b<<<>>>a", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("a"))
+            .First();
+
+        Assert.Equal("a<<<>>>b<<<>>>a".LastIndexOf("a"), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_InWhere_FiltersCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "apple", AuthorId = 1, Price = 2.0 });
+        db.Table<Book>().Add(new Book { Id = 3, Title = "grape", AuthorId = 1, Price = 3.0 });
+
+        List<Book> results = db.Table<Book>()
+            .Where(b => b.Title.LastIndexOf("a") == 5)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal("banana", results[0].Title);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_EmptyHaystack_ReturnsMinusOne()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("x"))
+            .First();
+
+        Assert.Equal(-1, result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_SingleMatch_ReturnsCorrectIndex()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "hello world", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf(" "))
+            .First();
+
+        Assert.Equal("hello world".LastIndexOf(" "), result);
+    }
+
+    [Fact]
+    public void StringLastIndexOf_MatchIsSingleCharRepeated_ReturnsLastPosition()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "abcabcabc", AuthorId = 1, Price = 1.0 });
+
+        int result = db.Table<Book>()
+            .Select(b => b.Title.LastIndexOf("b"))
+            .First();
+
+        Assert.Equal("abcabcabc".LastIndexOf("b"), result);
+    }
+
+    [Fact]
     public void StringLastIndexOf()
     {
         using TestDatabase db = new();
@@ -987,7 +1214,7 @@ public class MethodCallTests
         Assert.Equal("test", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0.BookId AS "Id",
-                            CASE WHEN INSTR(b0.BookTitle, @p0) = 0 THEN -1 ELSE LENGTH(b0.BookTitle) - INSTR(REPLACE(REPLACE(b0.BookTitle, REPLACE(@p0, '%', '\%'), '<<<>>>'), '<<<>>>', ''), '<<<>>>') - LENGTH(REPLACE(@p0, '%', '\%')) END AS "LastIndex"
+                            CASE WHEN LENGTH(@p0) = 0 THEN LENGTH(b0.BookTitle) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, b0.BookTitle UNION ALL SELECT pos + INSTR(rem, @p0), SUBSTR(rem, INSTR(rem, @p0) + 1) FROM find_pos WHERE INSTR(rem, @p0) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END AS "LastIndex"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

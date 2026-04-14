@@ -68,7 +68,7 @@ var rounded = await db.Table<Book>()
 | `s.Replace(old, new)` | `REPLACE(s, old, new)` |
 | `s.Substring(start, length)` | `SUBSTR(s, start + 1, length)` |
 | `s.IndexOf(value)` | `INSTR(s, value) - 1` |
-| `s.LastIndexOf(value)` | `CASE WHEN INSTR(s, value) = 0 THEN -1 ELSE LENGTH(s) - INSTR(REPLACE(REPLACE(s, REPLACE(value, '%', '\%'), '<<<>>>'), '<<<>>>', ''), '<<<>>>') - LENGTH(REPLACE(value, '%', '\%')) END` |
+| `s.LastIndexOf(value)` | `CASE WHEN LENGTH(value) = 0 THEN LENGTH(s) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, s UNION ALL SELECT pos + INSTR(rem, value), SUBSTR(rem, INSTR(rem, value) + 1) FROM find_pos WHERE INSTR(rem, value) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END` |
 | `s.Insert(index, value)` | `SUBSTR(s, 1, index) \|\| value \|\| SUBSTR(s, index + 1)` |
 | `s.Remove(start)` | `SUBSTR(s, 1, start)` |
 | `s.Remove(start, count)` | `SUBSTR(s, 1, start) \|\| SUBSTR(s, start + count + 1)` |
