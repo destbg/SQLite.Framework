@@ -8,15 +8,14 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class CommandHelpers
 {
-    public static Dictionary<string, (int Index, SQLiteColumnType ColumnType)> GetColumnNames(sqlite3_stmt statement)
+    public static Dictionary<string, int> GetColumnNames(sqlite3_stmt statement)
     {
         int columnCount = raw.sqlite3_column_count(statement);
-        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columnNames = new(columnCount);
+        Dictionary<string, int> columnNames = new(columnCount);
         for (int i = 0; i < columnCount; i++)
         {
             string name = raw.sqlite3_column_name(statement, i).utf8_to_string();
-            SQLiteColumnType columnType = (SQLiteColumnType)raw.sqlite3_column_type(statement, i);
-            columnNames[name] = (i, columnType);
+            columnNames[name] = i;
         }
 
         return columnNames;

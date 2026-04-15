@@ -1,7 +1,33 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
+
+[Table("NullableNumericRows")]
+file sealed class NullableNumericRow
+{
+    [Key]
+    public int Id { get; set; }
+    public int? IntValue { get; set; }
+    public long? LongValue { get; set; }
+    public short? ShortValue { get; set; }
+    public byte? ByteValue { get; set; }
+    public sbyte? SByteValue { get; set; }
+    public uint? UIntValue { get; set; }
+    public ulong? ULongValue { get; set; }
+    public ushort? UShortValue { get; set; }
+}
+
+[Table("MixedNullableRows")]
+file sealed class MixedNullableRow
+{
+    [Key]
+    public int Id { get; set; }
+    public int? Value { get; set; }
+}
 
 public class NumericTypeTests
 {
@@ -405,6 +431,56 @@ public class NumericTypeTests
         List<Book> results = query.ToList();
         Assert.Single(results);
         Assert.Equal("20.75", results[0].Title);
+    }
+
+    [Fact]
+    public async Task NullableIntegers_RoundTripNullValues()
+    {
+        using TestDatabase db = new();
+
+        db.Table<NullableNumericRow>().CreateTable();
+        db.Table<NullableNumericRow>().Add(new NullableNumericRow
+        {
+            Id = 1,
+            IntValue = null,
+            LongValue = null,
+            ShortValue = null,
+            ByteValue = null,
+            SByteValue = null,
+            UIntValue = null,
+            ULongValue = null,
+            UShortValue = null,
+        });
+
+        List<NullableNumericRow> results = await db.Table<NullableNumericRow>()
+            .Where(r => r.Id == 1)
+            .ToListAsync();
+
+        NullableNumericRow result = Assert.Single(results);
+        Assert.Null(result.IntValue);
+        Assert.Null(result.LongValue);
+        Assert.Null(result.ShortValue);
+        Assert.Null(result.ByteValue);
+        Assert.Null(result.SByteValue);
+        Assert.Null(result.UIntValue);
+        Assert.Null(result.ULongValue);
+        Assert.Null(result.UShortValue);
+    }
+
+    [Fact]
+    public async Task MixedNullable_FirstRowHasValue_SecondRowNullStaysNull()
+    {
+        using TestDatabase db = new();
+
+        db.Table<MixedNullableRow>().CreateTable();
+        await db.Table<MixedNullableRow>().AddAsync(new MixedNullableRow { Id = 1, Value = 9 });
+        await db.Table<MixedNullableRow>().AddAsync(new MixedNullableRow { Id = 2, Value = null });
+
+        List<MixedNullableRow> rows = await db.Table<MixedNullableRow>().ToListAsync();
+
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(9, rows.Single(r => r.Id == 1).Value);
+        Assert.Null(rows.Single(r => r.Id == 2).Value);
     }
 
     [Fact]

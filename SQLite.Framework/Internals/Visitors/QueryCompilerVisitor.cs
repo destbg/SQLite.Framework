@@ -47,8 +47,8 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     {
         return new CompiledExpression(node.Type, ctx =>
         {
-            (int index, SQLiteColumnType columnType) = ctx.Columns[node.IdentifierText];
-            return ctx.Reader.GetValue(index, columnType, node.Type);
+            int index = ctx.Columns[node.IdentifierText];
+            return ctx.Reader.GetValue(index, ctx.Reader.GetColumnType(index), node.Type);
         });
     }
 

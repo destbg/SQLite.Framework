@@ -20,7 +20,7 @@ public static class SQLiteCommandExtensions
     {
         using SQLiteDataReader reader = command.ExecuteReader();
 
-        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = [];
+        Dictionary<string, int> columns = [];
 
         while (reader.Read())
         {
@@ -43,7 +43,7 @@ public static class SQLiteCommandExtensions
         {
             using SQLiteDataReader reader = command.ExecuteReader();
 
-            Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = [];
+            Dictionary<string, int> columns = [];
 
             while (reader.Read())
             {
@@ -66,7 +66,7 @@ public static class SQLiteCommandExtensions
         {
             using SQLiteDataReader reader = command.ExecuteReader();
 
-            Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns = [];
+            Dictionary<string, int> columns = [];
 
             while (reader.Read())
             {

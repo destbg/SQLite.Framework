@@ -11,7 +11,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class BuildQueryObject
 {
-    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns, Func<QueryContext, object?>? createInstance)
+    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, Dictionary<string, int> columns, Func<QueryContext, object?>? createInstance)
     {
         if (createInstance != null)
         {
@@ -45,14 +45,14 @@ internal static class BuildQueryObject
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All types should be part of the client assembly.")]
-    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns, SQLiteStorageOptions options)
+    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, Dictionary<string, int> columns, SQLiteStorageOptions options)
     {
         if (CommonHelpers.IsSimple(type, options))
         {
             string columnName = prefix.TrimEnd('.');
-            if (columns.TryGetValue(columnName, out (int Index, SQLiteColumnType ColumnType) column))
+            if (columns.TryGetValue(columnName, out int columnIndex))
             {
-                object? value = reader.GetValue(column.Index, column.ColumnType, type);
+                object? value = reader.GetValue(columnIndex, reader.GetColumnType(columnIndex), type);
 
                 if (value == null)
                 {
@@ -89,9 +89,9 @@ internal static class BuildQueryObject
 
             if (CommonHelpers.IsSimple(propType, options))
             {
-                if (columns.TryGetValue(columnName, out (int Index, SQLiteColumnType ColumnType) column))
+                if (columns.TryGetValue(columnName, out int columnIndex))
                 {
-                    object? val = reader.GetValue(column.Index, column.ColumnType, propType);
+                    object? val = reader.GetValue(columnIndex, reader.GetColumnType(columnIndex), propType);
                     if (val != null)
                     {
                         Type targetType = Nullable.GetUnderlyingType(propType) ?? propType;

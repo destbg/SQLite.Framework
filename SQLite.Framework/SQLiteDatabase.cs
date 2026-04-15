@@ -181,7 +181,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         using SQLiteDataReader reader = cmd.ExecuteReader();
 
-        Dictionary<string, (int Index, SQLiteColumnType ColumnType)> columns;
+        Dictionary<string, int> columns;
 
         if (query.ThrowOnMoreThanOne)
         {
