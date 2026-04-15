@@ -20,6 +20,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 {
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object connectionOpenLock = new();
+    // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
+    private readonly object tableMappingsLock = new();
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
     private readonly AsyncLocal<bool> holdsConnectionLock = new();
     private readonly AsyncLocal<sqlite3?> transactionHandle = new();
@@ -81,7 +83,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Returns the cached table mappings in the current database instance.
     /// </summary>
-    public IReadOnlyCollection<TableMapping> TableMappings => tableMappings.Values;
+    public IReadOnlyCollection<TableMapping> TableMappings
+    {
+        get
+        {
+            lock (tableMappingsLock)
+            {
+                return tableMappings.Values.ToArray();
+            }
+        }
+    }
 
     /// <summary>
     /// Controls how specific .NET types are stored in and read from the database.
@@ -217,13 +228,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
     {
-        if (!tableMappings.TryGetValue(type, out TableMapping? table))
+        lock (tableMappingsLock)
         {
-            table = new TableMapping(type, StorageOptions);
-            tableMappings.Add(type, table);
-        }
+            if (!tableMappings.TryGetValue(type, out TableMapping? table))
+            {
+                table = new TableMapping(type, StorageOptions);
+                tableMappings.Add(type, table);
+            }
 
-        return table;
+            return table;
+        }
     }
 
     /// <summary>
@@ -231,13 +245,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public TableMapping TableMapping<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
     {
-        if (!tableMappings.TryGetValue(typeof(T), out TableMapping? table))
+        lock (tableMappingsLock)
         {
-            table = new TableMapping(typeof(T), StorageOptions);
-            tableMappings.Add(typeof(T), table);
-        }
+            if (!tableMappings.TryGetValue(typeof(T), out TableMapping? table))
+            {
+                table = new TableMapping(typeof(T), StorageOptions);
+                tableMappings.Add(typeof(T), table);
+            }
 
-        return table;
+            return table;
+        }
     }
 
     /// <summary>

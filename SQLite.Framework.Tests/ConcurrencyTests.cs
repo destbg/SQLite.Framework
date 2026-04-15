@@ -407,6 +407,47 @@ public class ConcurrencyTests
     }
 
     [Fact]
+    public async Task ConcurrentTableMapping_DistinctTypes_AllSucceed()
+    {
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            using TestDatabase db = new();
+
+            Type[] types = [typeof(Book), typeof(Author), typeof(Publisher), typeof(NumericType)];
+
+            Barrier barrier = new(types.Length);
+
+            Task[] tasks = types.Select(t => Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                _ = db.TableMapping(t);
+            })).ToArray();
+
+            await Task.WhenAll(tasks);
+        }
+    }
+
+    [Fact]
+    public async Task ConcurrentTableMapping_SameType_AllSucceed()
+    {
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            using TestDatabase db = new();
+
+            const int parallelism = 16;
+            Barrier barrier = new(parallelism);
+
+            Task[] tasks = Enumerable.Range(0, parallelism).Select(i => Task.Run(() =>
+            {
+                barrier.SignalAndWait();
+                _ = db.TableMapping<Book>();
+            })).ToArray();
+
+            await Task.WhenAll(tasks);
+        }
+    }
+
+    [Fact]
     public async Task Write_CompletesWhileBackgroundReadIsInProgress()
     {
         using ManualResetEventSlim readStarted = new(false);
