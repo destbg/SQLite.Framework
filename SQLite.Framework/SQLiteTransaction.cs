@@ -69,8 +69,9 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
     /// <summary>
     /// Commits the transaction.
     /// </summary>
-    public Task CommitAsync()
+    public Task CommitAsync(CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         Commit();
         return Task.CompletedTask;
     }
@@ -105,8 +106,9 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
     /// <summary>
     /// Rolls back the transaction.
     /// </summary>
-    public Task RollbackAsync()
+    public Task RollbackAsync(CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         Rollback();
         return Task.CompletedTask;
     }
