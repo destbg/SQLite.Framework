@@ -598,8 +598,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return CreateCommand(sql, ToParameterList(parameters)).ExecuteNonQuery();
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "IGrouping<TKey, TElement> is referenced by user code; in JIT TKey and TElement flow transitively. In AOT this path will throw a clear NotSupportedException below.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<TKey, TElement> is referenced by user code; in JIT TKey and TElement flow transitively. In AOT this path will throw a clear NotSupportedException below.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "TKey and TElement come from the caller's statically-referenced IGrouping<TKey, TElement>, so AOT preserves them whenever the closed type participates in shared generic code.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "TKey and TElement come from the caller's statically-referenced IGrouping<TKey, TElement>, so AOT preserves them whenever the closed type participates in shared generic code.")]
     internal IEnumerable<T> ExecuteSequenceQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression expression)
     {
         if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(IGrouping<,>))
