@@ -163,7 +163,9 @@ public class CoverageGapTests
 
         await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
         SQLiteTransaction tx2 = awaiter.GetResult();
+#pragma warning restore xUnit1031 // Do not use blocking task operations in test method
         tx2.Rollback();
 
         await lockHolder;
