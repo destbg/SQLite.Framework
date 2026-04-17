@@ -7,6 +7,7 @@ namespace SQLite.Framework.Internals.Models;
 /// <summary>
 /// Represents a resolved expression by <see cref="SQLVisitor.ResolveExpression"/>
 /// </summary>
+[ExcludeFromCodeCoverage]
 internal class ResolvedModel
 {
     public required bool IsConstant { get; init; }

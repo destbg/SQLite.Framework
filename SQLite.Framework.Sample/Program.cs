@@ -87,6 +87,10 @@ public static partial class Program
         Console.WriteLine("\n=== 13. JSONB LIST QUERIES ===");
         JsonBListDemo();
 
+        // === GROUP BY TO DICTIONARY ===
+        Console.WriteLine("\n=== 14. GROUP BY TO DICTIONARY ===");
+        await GroupByToDictionaryDemo(db);
+
         Console.WriteLine("\n=== Sample completed successfully! ===");
     }
 
@@ -1405,6 +1409,23 @@ public static partial class Program
 
         db.Table<Product>().RemoveRange(nonTransProducts, false);
         Console.WriteLine("Non-transactional delete");
+    }
+
+    private static async Task GroupByToDictionaryDemo(SQLiteDatabase db)
+    {
+        List<Product> activeProducts = await db.Table<Product>()
+            .Where(p => p.IsActive)
+            .ToListAsync();
+
+        Dictionary<int, List<Product>> byCategory = activeProducts
+            .GroupBy(p => p.CategoryId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        Console.WriteLine($"Products grouped by category: {byCategory.Count} categories");
+        foreach (KeyValuePair<int, List<Product>> kvp in byCategory.OrderBy(kvp => kvp.Key))
+        {
+            Console.WriteLine($"  Category {kvp.Key}: {kvp.Value.Count} products");
+        }
     }
 
     private static void CustomTypeConverterExample()

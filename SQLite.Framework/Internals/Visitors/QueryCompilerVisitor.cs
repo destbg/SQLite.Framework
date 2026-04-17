@@ -2,7 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Numerics;
 using System.Reflection;
-using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 
@@ -43,12 +42,19 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                                  ?? throw new InvalidOperationException("Binary operator method not found.");
     }
 
+    private readonly IReadOnlyCollection<ParameterExpression>? inputParameters;
+
+    public QueryCompilerVisitor(IReadOnlyCollection<ParameterExpression>? inputParameters = null)
+    {
+        this.inputParameters = inputParameters;
+    }
+
     public Expression VisitSQLExpression(SQLExpression node)
     {
         return new CompiledExpression(node.Type, ctx =>
         {
-            int index = ctx.Columns[node.IdentifierText];
-            return ctx.Reader.GetValue(index, ctx.Reader.GetColumnType(index), node.Type);
+            int index = ctx.Columns![node.IdentifierText];
+            return ctx.Reader!.GetValue(index, ctx.Reader.GetColumnType(index), node.Type);
         });
     }
 
@@ -225,9 +231,13 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         throw new NotSupportedException($"The new expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitParameter(ParameterExpression node)
     {
+        if (inputParameters != null && inputParameters.Contains(node))
+        {
+            return new CompiledExpression(node.Type, ctx => ctx.Input);
+        }
+
         throw new NotSupportedException($"The parameter expression '{node}' is not supported.");
     }
 

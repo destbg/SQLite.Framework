@@ -222,4 +222,248 @@ public class GroupByTests
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
+
+    [Fact]
+    public async Task GroupBy_ToDictionaryAsync_WithToListValueSelector()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 },
+        });
+
+        Dictionary<int, List<Book>> byAuthor = await db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .ToDictionaryAsync(g => g.Key, g => g.ToList());
+
+        Assert.Equal(2, byAuthor.Count);
+        Assert.Equal(2, byAuthor[1].Count);
+        Assert.Single(byAuthor[2]);
+    }
+
+    [Fact]
+    public async Task GroupBy_ClientSideAfterToListAsync_AotCompatible()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 },
+        });
+
+        List<Book> rows = await db.Table<Book>().ToListAsync();
+        Dictionary<int, List<Book>> byAuthor = rows
+            .GroupBy(b => b.AuthorId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        Assert.Equal(2, byAuthor.Count);
+        Assert.Equal(2, byAuthor[1].Count);
+        Assert.Single(byAuthor[2]);
+    }
+
+    [Fact]
+    public void GroupBy_ToList_ReturnsGroupings()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 },
+            new Book { Id = 4, Title = "D", AuthorId = 2, Price = 4 },
+            new Book { Id = 5, Title = "E", AuthorId = 3, Price = 5 },
+        });
+
+        List<IGrouping<int, Book>> groups = db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .ToList();
+
+        Assert.Equal(3, groups.Count);
+
+        IGrouping<int, Book> g1 = groups.Single(g => g.Key == 1);
+        Assert.Equal(2, g1.Count());
+        Assert.All(g1, b => Assert.Equal(1, b.AuthorId));
+
+        IGrouping<int, Book> g2 = groups.Single(g => g.Key == 2);
+        Assert.Equal(2, g2.Count());
+
+        IGrouping<int, Book> g3 = groups.Single(g => g.Key == 3);
+        Assert.Single(g3);
+    }
+
+    [Fact]
+    public async Task GroupBy_ToListAsync_ReturnsGroupings()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 },
+        });
+
+        List<IGrouping<int, Book>> groups = await db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .ToListAsync();
+
+        Assert.Equal(2, groups.Count);
+        Assert.Equal(2, groups.Single(g => g.Key == 1).Count());
+        Assert.Single(groups.Single(g => g.Key == 2));
+    }
+
+    [Fact]
+    public async Task GroupBy_ToArrayAsync_ReturnsGroupings()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 },
+        });
+
+        IGrouping<int, Book>[] groups = await db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .ToArrayAsync();
+
+        Assert.Equal(2, groups.Length);
+    }
+
+    [Fact]
+    public void GroupBy_Foreach_IteratesEachGrouping()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 },
+        });
+
+        Dictionary<int, int> counts = new();
+        foreach (IGrouping<int, Book> g in db.Table<Book>().GroupBy(b => b.AuthorId))
+        {
+            counts[g.Key] = g.Count();
+        }
+
+        Assert.Equal(2, counts.Count);
+        Assert.Equal(2, counts[1]);
+        Assert.Equal(1, counts[2]);
+    }
+
+    [Fact]
+    public async Task GroupBy_WithWhere_GroupsFilteredRows()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 5 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 20 },
+            new Book { Id = 4, Title = "D", AuthorId = 3, Price = 1 },
+        });
+
+        List<IGrouping<int, Book>> groups = await db.Table<Book>()
+            .Where(b => b.Price >= 5)
+            .GroupBy(b => b.AuthorId)
+            .ToListAsync();
+
+        Assert.Equal(2, groups.Count);
+        Assert.DoesNotContain(groups, g => g.Key == 3);
+        Assert.Equal(2, groups.Single(g => g.Key == 1).Count());
+    }
+
+    [Fact]
+    public void GroupBy_KeyIsIdentity_GroupsByWholeRow()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 },
+        });
+
+        List<IGrouping<Book, Book>> groups = db.Table<Book>()
+            .GroupBy(b => b)
+            .ToList();
+
+        Assert.Equal(2, groups.Count);
+        Assert.All(groups, g => Assert.Single(g));
+    }
+
+    [Fact]
+    public void GroupBy_NestedMemberKey_GroupsCorrectly()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Foo", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "Foo", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "Bar", AuthorId = 2, Price = 3 },
+        });
+
+        Dictionary<int, List<Book>> byTitleLength = db.Table<Book>()
+            .GroupBy(b => b.Title.Length)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        Assert.Single(byTitleLength);
+        Assert.Equal(3, byTitleLength.Keys.Single());
+        Assert.Equal(3, byTitleLength[3].Count);
+    }
+
+    [Fact]
+    public async Task GroupBy_EmptySource_YieldsNoGroups()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+
+        List<IGrouping<int, Book>> groups = await db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .ToListAsync();
+
+        Assert.Empty(groups);
+    }
+
+    [Fact]
+    public void GroupBy_Count_ReturnsNumberOfGroups()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 },
+            new Book { Id = 4, Title = "D", AuthorId = 3, Price = 4 },
+        });
+
+        int count = db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .ToList()
+            .Count;
+
+        Assert.Equal(3, count);
+    }
 }

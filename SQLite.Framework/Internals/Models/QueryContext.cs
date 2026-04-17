@@ -9,6 +9,7 @@ namespace SQLite.Framework.Internals.Models;
 [ExcludeFromCodeCoverage]
 internal class QueryContext
 {
-    public required SQLiteDataReader Reader { get; init; }
-    public required Dictionary<string, int> Columns { get; init; }
+    public SQLiteDataReader? Reader { get; init; }
+    public Dictionary<string, int>? Columns { get; init; }
+    public object? Input { get; init; }
 }
