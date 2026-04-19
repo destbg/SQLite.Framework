@@ -444,6 +444,64 @@ public class ExternalMethodTests
         Assert.Equal("Author 1", author.Name);
     }
 
+    private static string FormatBookTitle(Book book)
+    {
+        return $"[{book.Id}] {book.Title}";
+    }
+
+    private static string FormatAuthorName(Author author)
+    {
+        return $"{author.Name} <{author.Email}>";
+    }
+
+    private static string FormatBookByAuthor(Book book, Author author)
+    {
+        return $"{book.Title} by {author.Name}";
+    }
+
+    [Fact]
+    public void Select_MethodCallOnRow_ToList()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<string> titles = db.Table<Book>()
+            .OrderBy(b => b.Id)
+            .Select(b => FormatBookTitle(b))
+            .ToList();
+
+        Assert.Equal(new[] { "[1] Book 1", "[2] Book 2" }, titles);
+    }
+
+    [Fact]
+    public void Select_MethodCallOnJoinVariable_ToList()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<string> names = (
+            from book in db.Table<Book>()
+            join author in db.Table<Author>() on book.AuthorId equals author.Id
+            orderby book.Id
+            select FormatAuthorName(author)
+        ).ToList();
+
+        Assert.Equal(new[] { "Author 1 <author@mail.com>", "Author 1 <author@mail.com>" }, names);
+    }
+
+    [Fact]
+    public void Select_MethodCallOnJoinVariables_ToList()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<string> lines = (
+            from book in db.Table<Book>()
+            join author in db.Table<Author>() on book.AuthorId equals author.Id
+            orderby book.Id
+            select FormatBookByAuthor(book, author)
+        ).ToList();
+
+        Assert.Equal(new[] { "Book 1 by Author 1", "Book 2 by Author 1" }, lines);
+    }
+
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(methodName);

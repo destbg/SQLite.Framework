@@ -96,7 +96,10 @@ internal class SQLTranslator
 
         if (queryableMethodVisitor.Joins.Any(f => f.IsGroupJoin))
         {
-            throw new NotSupportedException("Group joins that are not turned into LEFT JOIN are not supported.");
+            throw new NotSupportedException(
+                "Group joins are only supported when flattened into a LEFT JOIN. " +
+                "Use the pattern `from x in table join y in other on x.Id equals y.Id into g from y in g.DefaultIfEmpty() select ...` " +
+                "so the framework can translate it to a LEFT JOIN.");
         }
 
         bool useExists = queryableMethodVisitor.IsAny || queryableMethodVisitor.IsAll;
@@ -285,7 +288,12 @@ internal class SQLTranslator
         }
 
         Func<QueryContext, object?>? createObject;
-        if (selectMethodExpression is null or ParameterExpression or MethodCallExpression or MemberExpression { Expression: not SQLExpression })
+        if (selectMethodExpression is null
+            or ParameterExpression
+            or MemberExpression { Expression: not SQLExpression }
+            || (selectMethodExpression is MethodCallExpression mce
+                && (mce.Method.DeclaringType == typeof(Queryable)
+                    || mce.Method.DeclaringType == typeof(Enumerable))))
         {
             createObject = null;
         }

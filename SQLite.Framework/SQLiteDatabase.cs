@@ -8,7 +8,6 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
-using SQLite.Framework.Internals.Visitors;
 using SQLite.Framework.Models;
 using SQLitePCL;
 
@@ -19,10 +18,6 @@ namespace SQLite.Framework;
 /// </summary>
 public class SQLiteDatabase : IQueryProvider, IDisposable
 {
-    private static readonly MethodInfo ExecuteGroupingQueryGeneric = typeof(SQLiteDatabase)
-        .GetMethod(nameof(ExecuteGroupingQuery), BindingFlags.Instance | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException($"Could not find {nameof(ExecuteGroupingQuery)} method.");
-
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object connectionOpenLock = new();
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
@@ -598,15 +593,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return CreateCommand(sql, ToParameterList(parameters)).ExecuteNonQuery();
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "TKey and TElement come from the caller's statically-referenced IGrouping<TKey, TElement>, so AOT preserves them whenever the closed type participates in shared generic code.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "TKey and TElement come from the caller's statically-referenced IGrouping<TKey, TElement>, so AOT preserves them whenever the closed type participates in shared generic code.")]
     internal IEnumerable<T> ExecuteSequenceQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression expression)
     {
         if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(IGrouping<,>))
         {
-            return (IEnumerable<T>)ExecuteGroupingQueryGeneric
-                .MakeGenericMethod(typeof(T).GetGenericArguments())
-                .Invoke(this, [expression])!;
+            Type[] args = typeof(T).GetGenericArguments();
+            throw new NotSupportedException(
+                $"Materializing GroupBy results as IGrouping<{args[0].Name}, {args[1].Name}> is not supported. " +
+                $"Either project the grouping in SQL (e.g. `.GroupBy(x => x.Key).Select(g => new {{ g.Key, Count = g.Count() }})`) " +
+                $"so the result is reduced server-side, or materialize rows first and group client-side " +
+                $"(`.ToListAsync()` then LINQ `.GroupBy(...)`).");
         }
 
         SQLTranslator translator = new(this);
@@ -750,45 +746,4 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         };
     }
 
-    private IEnumerable<IGrouping<TKey, TElement>> ExecuteGroupingQuery<TKey, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
-        where TKey : notnull
-    {
-        if (expression is not MethodCallExpression mce
-            || mce.Method.DeclaringType != typeof(Queryable)
-            || mce.Method.Name != nameof(Queryable.GroupBy)
-            || mce.Arguments.Count != 2)
-        {
-            throw new NotSupportedException("Materializing IGrouping<,> is only supported for a direct GroupBy call with a key selector.");
-        }
-
-        Expression source = mce.Arguments[0];
-        LambdaExpression keyLambda = (LambdaExpression)CommonHelpers.StripQuotes(mce.Arguments[1]);
-
-        QueryCompilerVisitor compiler = new(keyLambda.Parameters);
-        CompiledExpression body = (CompiledExpression)compiler.Visit(keyLambda.Body);
-
-        SQLTranslator translator = new(this);
-        SQLQuery query = translator.Translate(source);
-        SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
-
-        Dictionary<TKey, List<TElement>> groups = new();
-        List<TKey> order = new();
-        foreach (TElement row in command.ExecuteQueryInternal<TElement>(query))
-        {
-            TKey key = (TKey)body.Call(new QueryContext { Input = row })!;
-            if (!groups.TryGetValue(key, out List<TElement>? list))
-            {
-                list = new List<TElement>();
-                groups.Add(key, list);
-                order.Add(key);
-            }
-
-            list.Add(row);
-        }
-
-        foreach (TKey key in order)
-        {
-            yield return new Grouping<TKey, TElement>(key, groups[key]);
-        }
-    }
 }

@@ -96,6 +96,7 @@ internal class QueryableMethodVisitor
     private Expression VisitSelect(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
+        lambda = RowParameterExpander.ExpandRowsInMethodCalls(lambda, visitor.MethodArguments.Keys);
         visitor.IsInSelectProjection = true;
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(lambda);
 
@@ -233,6 +234,7 @@ internal class QueryableMethodVisitor
         visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
         visitor.MethodArguments[resultSelector.Parameters[1]] = newTableColumns;
 
+        resultSelector = RowParameterExpander.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
 
         visitor.MethodArguments[innerKey.Parameters[0]] = newTableColumns;
@@ -328,6 +330,7 @@ internal class QueryableMethodVisitor
                 visitor.MethodArguments[resultSelector.Parameters[1]] = result;
             }
 
+            resultSelector = RowParameterExpander.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
         }
         else
@@ -337,6 +340,7 @@ internal class QueryableMethodVisitor
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
             visitor.MethodArguments[resultSelector.Parameters[1]] = newTableColumns;
 
+            resultSelector = RowParameterExpander.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
 
             Joins.Add(new JoinInfo
@@ -531,7 +535,10 @@ internal class QueryableMethodVisitor
     {
         if (GroupBys.Count != 0)
         {
-            throw new NotSupportedException("GroupBy is only supported once in a query.");
+            throw new NotSupportedException(
+                "Only a single GroupBy is supported per query. " +
+                "Combine both groupings into one projection (e.g. `.GroupBy(x => new { x.A, x.B }).Select(g => ...)`), " +
+                "or materialize the first result with `.ToListAsync()` and perform the second GroupBy client-side.");
         }
 
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
@@ -542,7 +549,10 @@ internal class QueryableMethodVisitor
 
         if (GroupBys.Count == 0)
         {
-            throw new NotSupportedException("There was a problem when compiling the GroupBy expression.");
+            throw new NotSupportedException(
+                $"Could not translate the GroupBy key selector `{lambda}` to SQL. " +
+                "The key selector must reference columns of the table (e.g. `.GroupBy(x => x.CategoryId)` " +
+                "or `.GroupBy(x => new {{ x.A, x.B }})`).");
         }
 
         bool isMember = false;
