@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
@@ -6,6 +7,14 @@ namespace SQLite.Framework.Tests;
 
 public class GroupByTests
 {
+    private static void SkipIfAot()
+    {
+        if (!RuntimeFeature.IsDynamicCodeSupported)
+        {
+            Assert.Skip("Materializing IGrouping<TKey, TElement> with a value-type key requires MakeGenericMethod, which is not supported under Native AOT.");
+        }
+    }
+
     [Fact]
     public void GroupByTableWithMultiResult()
     {
@@ -226,6 +235,7 @@ public class GroupByTests
     [Fact]
     public async Task GroupBy_ToDictionaryAsync_WithToListValueSelector()
     {
+        SkipIfAot();
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
@@ -271,6 +281,7 @@ public class GroupByTests
     [Fact]
     public void GroupBy_ToList_ReturnsGroupings()
     {
+        SkipIfAot();
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
@@ -303,6 +314,7 @@ public class GroupByTests
     [Fact]
     public async Task GroupBy_ToListAsync_ReturnsGroupings()
     {
+        SkipIfAot();
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
@@ -325,6 +337,7 @@ public class GroupByTests
     [Fact]
     public async Task GroupBy_ToArrayAsync_ReturnsGroupings()
     {
+        SkipIfAot();
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
@@ -344,6 +357,7 @@ public class GroupByTests
     [Fact]
     public void GroupBy_Foreach_IteratesEachGrouping()
     {
+        SkipIfAot();
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
@@ -368,6 +382,7 @@ public class GroupByTests
     [Fact]
     public async Task GroupBy_WithWhere_GroupsFilteredRows()
     {
+        SkipIfAot();
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
@@ -412,6 +427,7 @@ public class GroupByTests
     [Fact]
     public void GroupBy_NestedMemberKey_GroupsCorrectly()
     {
+        SkipIfAot();
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
@@ -434,6 +450,7 @@ public class GroupByTests
     [Fact]
     public async Task GroupBy_EmptySource_YieldsNoGroups()
     {
+        SkipIfAot();
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
@@ -448,6 +465,7 @@ public class GroupByTests
     [Fact]
     public void GroupBy_Count_ReturnsNumberOfGroups()
     {
+        SkipIfAot();
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();

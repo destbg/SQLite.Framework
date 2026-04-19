@@ -306,9 +306,10 @@ public class ConcurrencyTests
         await Task.WhenAll(tasks);
     }
 
-    [MultiCoreFact]
+    [Fact]
     public async Task EightAsyncTasks_ConcurrentReads_CanHoldReadLockSimultaneously()
     {
+        MultiCoreFact.SkipIfInsufficientCores();
         using ConcurrencyTrackingDatabase db = new();
         db.ReadHoldMilliseconds = 50;
         db.Table<Book>().CreateTable();
@@ -475,14 +476,13 @@ public class ConcurrencyTests
     }
 }
 
-[AttributeUsage(AttributeTargets.Method)]
-file sealed class MultiCoreFactAttribute : FactAttribute
+file static class MultiCoreFact
 {
-    public MultiCoreFactAttribute(int minimumCores = 4)
+    public static void SkipIfInsufficientCores(int minimumCores = 4)
     {
         if (Environment.ProcessorCount < minimumCores)
         {
-            Skip = $"Requires at least {minimumCores} logical processors (machine has {Environment.ProcessorCount}).";
+            Assert.Skip($"Requires at least {minimumCores} logical processors (machine has {Environment.ProcessorCount}).");
         }
     }
 }

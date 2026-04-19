@@ -732,7 +732,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return name;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Parameter objects are user-provided and not subject to trimming constraints.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Parameter objects are user-provided; callers using an anonymous object must preserve its properties (anonymous types declared in user code are preserved automatically).")]
     private static List<SQLiteParameter> ToParameterList(object parameters)
     {
         return parameters switch

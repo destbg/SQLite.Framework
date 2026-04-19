@@ -509,9 +509,133 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         throw new NotSupportedException($"List binding '{node.Member.Name}' is not supported inside a nested member binding.");
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Generic operator methods are resolved at runtime; types are preserved via TrimmerRootDescriptor")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Generic operator methods are resolved at runtime; types are preserved via TrimmerRootDescriptor")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
     private static object? InvokeOperator(MethodInfo openMethod, object left, object right)
+    {
+        if (openMethod == BinaryAdditionOperator)
+        {
+            return left switch
+            {
+                int l => l + (int)right,
+                long l => l + (long)right,
+                double l => l + (double)right,
+                float l => l + (float)right,
+                decimal l => l + (decimal)right,
+                short l => (short)(l + (short)right),
+                ushort l => (ushort)(l + (ushort)right),
+                byte l => (byte)(l + (byte)right),
+                sbyte l => (sbyte)(l + (sbyte)right),
+                uint l => l + (uint)right,
+                ulong l => l + (ulong)right,
+                _ => InvokeGenericOperator(openMethod, left, right)
+            };
+        }
+
+        if (openMethod == BinarySubtractionOperator)
+        {
+            return left switch
+            {
+                int l => l - (int)right,
+                long l => l - (long)right,
+                double l => l - (double)right,
+                float l => l - (float)right,
+                decimal l => l - (decimal)right,
+                short l => (short)(l - (short)right),
+                ushort l => (ushort)(l - (ushort)right),
+                byte l => (byte)(l - (byte)right),
+                sbyte l => (sbyte)(l - (sbyte)right),
+                uint l => l - (uint)right,
+                ulong l => l - (ulong)right,
+                _ => InvokeGenericOperator(openMethod, left, right)
+            };
+        }
+
+        if (openMethod == BinaryMultiplyOperator)
+        {
+            return left switch
+            {
+                int l => l * (int)right,
+                long l => l * (long)right,
+                double l => l * (double)right,
+                float l => l * (float)right,
+                decimal l => l * (decimal)right,
+                short l => (short)(l * (short)right),
+                ushort l => (ushort)(l * (ushort)right),
+                byte l => (byte)(l * (byte)right),
+                sbyte l => (sbyte)(l * (sbyte)right),
+                uint l => l * (uint)right,
+                ulong l => l * (ulong)right,
+                _ => InvokeGenericOperator(openMethod, left, right)
+            };
+        }
+
+        if (openMethod == BinaryDivisionOperator)
+        {
+            return left switch
+            {
+                int l => l / (int)right,
+                long l => l / (long)right,
+                double l => l / (double)right,
+                float l => l / (float)right,
+                decimal l => l / (decimal)right,
+                short l => (short)(l / (short)right),
+                ushort l => (ushort)(l / (ushort)right),
+                byte l => (byte)(l / (byte)right),
+                sbyte l => (sbyte)(l / (sbyte)right),
+                uint l => l / (uint)right,
+                ulong l => l / (ulong)right,
+                _ => InvokeGenericOperator(openMethod, left, right)
+            };
+        }
+
+        if (openMethod == BinaryModulusOperator)
+        {
+            return left switch
+            {
+                int l => l % (int)right,
+                long l => l % (long)right,
+                double l => l % (double)right,
+                float l => l % (float)right,
+                decimal l => l % (decimal)right,
+                short l => (short)(l % (short)right),
+                ushort l => (ushort)(l % (ushort)right),
+                byte l => (byte)(l % (byte)right),
+                sbyte l => (sbyte)(l % (sbyte)right),
+                uint l => l % (uint)right,
+                ulong l => l % (ulong)right,
+                _ => InvokeGenericOperator(openMethod, left, right)
+            };
+        }
+
+        return InvokeGenericOperator(openMethod, left, right);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
+    private static object? InvokeUnaryOperator(MethodInfo openMethod, object operand)
+    {
+        if (openMethod == BinaryNegationOperator)
+        {
+            return operand switch
+            {
+                int o => -o,
+                long o => -o,
+                double o => -o,
+                float o => -o,
+                decimal o => -o,
+                short o => -o,
+                sbyte o => -o,
+                _ => InvokeGenericUnaryOperator(openMethod, operand)
+            };
+        }
+
+        return InvokeGenericUnaryOperator(openMethod, operand);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; user types implementing IAdditionOperators etc. must supply DynamicDependency hints under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; user types implementing IAdditionOperators etc. must supply DynamicDependency hints under AOT.")]
+    private static object? InvokeGenericOperator(MethodInfo openMethod, object left, object right)
     {
         Type type = left.GetType();
         MethodInfo concrete;
@@ -527,9 +651,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return concrete.Invoke(null, [left, right]);
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Generic operator methods are resolved at runtime; types are preserved via TrimmerRootDescriptor")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Generic operator methods are resolved at runtime; types are preserved via TrimmerRootDescriptor")]
-    private static object? InvokeUnaryOperator(MethodInfo openMethod, object operand)
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; user types implementing IUnaryNegationOperators must supply DynamicDependency hints under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; user types implementing IUnaryNegationOperators must supply DynamicDependency hints under AOT.")]
+    private static object? InvokeGenericUnaryOperator(MethodInfo openMethod, object operand)
     {
         Type type = operand.GetType();
         MethodInfo concrete;

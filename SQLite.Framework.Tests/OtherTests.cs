@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Exceptions;
@@ -352,6 +353,7 @@ public class OtherTests
     }
 
     [Fact]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties, typeof(BaseCastEntity))]
     public void CastTable()
     {
         using TestDatabase db = new();

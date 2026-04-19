@@ -204,9 +204,10 @@ public class WalConcurrencyTests
         Assert.Equal(24, await db.Table<Book>().CountAsync());
     }
 
-    [MultiCoreFact]
+    [Fact]
     public async Task WalMode_ConcurrentWrites_AreNotSerialized()
     {
+        MultiCoreFact.SkipIfInsufficientCores();
         using WalTrackingDatabase db = new();
         db.LockHoldMilliseconds = 50;
         db.Table<Book>().CreateTable();
@@ -227,9 +228,10 @@ public class WalConcurrencyTests
         Assert.Equal(8, db.Table<Book>().Count());
     }
 
-    [MultiCoreFact]
+    [Fact]
     public async Task WalMode_EightAsyncTasks_WritesAreNotSerialized()
     {
+        MultiCoreFact.SkipIfInsufficientCores();
         using WalTrackingDatabase db = new();
         db.LockHoldMilliseconds = 50;
         db.Table<Book>().CreateTable();
@@ -250,9 +252,10 @@ public class WalConcurrencyTests
         Assert.Equal(8, await db.Table<Book>().CountAsync());
     }
 
-    [MultiCoreFact]
+    [Fact]
     public async Task WalMode_EightMixedTasks_WritesAreNotSerialized()
     {
+        MultiCoreFact.SkipIfInsufficientCores();
         using WalTrackingDatabase db = new();
         db.LockHoldMilliseconds = 50;
         db.Table<Book>().CreateTable();
@@ -902,14 +905,13 @@ public class WalConcurrencyTests
     }
 }
 
-[AttributeUsage(AttributeTargets.Method)]
-file sealed class MultiCoreFactAttribute : FactAttribute
+file static class MultiCoreFact
 {
-    public MultiCoreFactAttribute(int minimumCores = 4)
+    public static void SkipIfInsufficientCores(int minimumCores = 4)
     {
         if (Environment.ProcessorCount < minimumCores)
         {
-            Skip = $"Requires at least {minimumCores} logical processors (machine has {Environment.ProcessorCount}).";
+            Assert.Skip($"Requires at least {minimumCores} logical processors (machine has {Environment.ProcessorCount}).");
         }
     }
 }
