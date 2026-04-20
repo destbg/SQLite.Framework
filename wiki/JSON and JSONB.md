@@ -42,20 +42,19 @@ Create a `JsonSerializerContext` that includes all types you want to store as JS
 public partial class AppJsonContext : JsonSerializerContext;
 ```
 
-Register the converter in `StorageOptions` before you use the table:
+Register the converter on the `SQLiteOptionsBuilder` before building the options:
 
 ```csharp
-// TEXT column
-db.StorageOptions.TypeConverters[typeof(Address)] =
-    new SQLiteJsonConverter<Address>(AppJsonContext.Default.Address);
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    // TEXT column
+    .AddTypeConverter<Address>(new SQLiteJsonConverter<Address>(AppJsonContext.Default.Address))
+    // or for JSONB binary BLOB column
+    // .AddTypeConverter<Address>(new SQLiteJsonbConverter<Address>(AppJsonContext.Default.Address))
+    // collections work the same way
+    .AddTypeConverter<List<string>>(new SQLiteJsonConverter<List<string>>(AppJsonContext.Default.ListString))
+    .Build();
 
-// or for JSONB binary BLOB column
-db.StorageOptions.TypeConverters[typeof(Address)] =
-    new SQLiteJsonbConverter<Address>(AppJsonContext.Default.Address);
-
-// collections work the same way
-db.StorageOptions.TypeConverters[typeof(List<string>)] =
-    new SQLiteJsonConverter<List<string>>(AppJsonContext.Default.ListString);
+using var db = new SQLiteDatabase(options);
 ```
 
 After that, any model with an `Address` property is handled automatically:
@@ -99,11 +98,17 @@ SQLite has a set of built-in JSON functions such as `json_extract`, `json_set`, 
 
 ### Setup
 
+Call `AddJson()` on the `SQLiteOptionsBuilder` before building the options:
+
 ```csharp
-db.StorageOptions.AddJson();
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .AddJson()
+    .Build();
+
+using var db = new SQLiteDatabase(options);
 ```
 
-`AddJson` registers translators for every method on `SQLiteJsonFunctions`. Call it once when setting up the database.
+`AddJson` registers translators for every method on `SQLiteJsonFunctions`. Call it once when setting up the builder.
 
 ### Available functions
 

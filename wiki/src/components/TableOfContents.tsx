@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { slugify } from '../utils'
+import OpenInButton from './OpenInButton'
 
 // @ts-expect-error
 const markdownFiles = import.meta.glob('../../*.md', {
@@ -56,31 +57,36 @@ export default function TableOfContents() {
         return () => window.removeEventListener('scroll', updateActive)
     }, [slug])
 
-    if (headings.length === 0) return null
+    if (headings.length === 0 && !content) return null
 
     return (
         <aside className="toc">
-            <p className="toc-title">On this page</p>
-            <ul className="toc-list">
-                {headings.map(h => (
-                    <li key={h.id}>
-                        <a
-                            href={`#${h.id}`}
-                            className={[
-                                'toc-link',
-                                h.level === 3 ? 'toc-link--h3' : '',
-                                activeId === h.id ? 'toc-link--active' : '',
-                            ].filter(Boolean).join(' ')}
-                            onClick={e => {
-                                e.preventDefault()
-                                document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth' })
-                            }}
-                        >
-                            {h.text}
-                        </a>
-                    </li>
-                ))}
-            </ul>
+            <div className="toc-header">
+                <p className="toc-title">On this page</p>
+                <OpenInButton slug={slug} markdown={content} />
+            </div>
+            {headings.length > 0 && (
+                <ul className="toc-list">
+                    {headings.map(h => (
+                        <li key={h.id}>
+                            <a
+                                href={`#${h.id}`}
+                                className={[
+                                    'toc-link',
+                                    h.level === 3 ? 'toc-link--h3' : '',
+                                    activeId === h.id ? 'toc-link--active' : '',
+                                ].filter(Boolean).join(' ')}
+                                onClick={e => {
+                                    e.preventDefault()
+                                    document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth' })
+                                }}
+                            >
+                                {h.text}
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </aside>
     )
 }

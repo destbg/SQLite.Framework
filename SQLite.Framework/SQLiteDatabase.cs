@@ -37,11 +37,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="SQLiteDatabase" /> class.
+    /// Initializes a new instance of the <see cref="SQLiteDatabase" /> class from a read-only
+    /// <see cref="SQLiteOptions" /> instance. Use <see cref="SQLiteOptionsBuilder" /> to construct one.
     /// </summary>
-    public SQLiteDatabase(string databasePath)
+    public SQLiteDatabase(SQLiteOptions options)
     {
-        DatabasePath = databasePath;
+        Options = options;
     }
 
     /// <summary>
@@ -64,23 +65,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public bool IsConnecting { get; private set; }
 
     /// <summary>
-    /// The connection string to the SQLite database.
-    /// </summary>
-    public SQLiteOpenFlags OpenFlags { get; set; } = SQLiteOpenFlags.Create | SQLiteOpenFlags.ReadWrite;
-
-    /// <summary>
-    /// The path to the SQLite database file.
-    /// </summary>
-    public string DatabasePath { get; }
-
-#if SQLITECIPHER
-    /// <summary>
-    /// The encryption key for the SQLCipher database. Set this before the first operation.
-    /// </summary>
-    public string? Key { get; set; }
-#endif
-
-    /// <summary>
     /// Returns the cached table mappings in the current database instance.
     /// </summary>
     public IReadOnlyCollection<TableMapping> TableMappings
@@ -95,17 +79,10 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Controls how specific .NET types are stored in and read from the database.
+    /// The configuration for the database. Pass an <see cref="SQLiteOptions" /> built
+    /// via <see cref="SQLiteOptionsBuilder" /> to the constructor.
     /// </summary>
-    public SQLiteStorageOptions StorageOptions { get; set; } = new();
-
-    /// <summary>
-    /// When <see langword="true" />, the database operates in WAL (Write-Ahead Logging) mode.
-    /// Concurrent writes from independent async contexts proceed without serialization.
-    /// A <c>PRAGMA journal_mode = WAL</c> statement is issued automatically when the connection
-    /// is first opened. Set this before the first database operation.
-    /// </summary>
-    public bool IsWalMode { get; set; }
+    public SQLiteOptions Options { get; }
 
     /// <summary>
     /// Gets or sets the user-defined version number stored in the database file header.
@@ -232,7 +209,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             if (!tableMappings.TryGetValue(type, out TableMapping? table))
             {
-                table = new TableMapping(type, StorageOptions);
+                table = new TableMapping(type, Options);
                 tableMappings.Add(type, table);
             }
 
@@ -249,7 +226,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             if (!tableMappings.TryGetValue(typeof(T), out TableMapping? table))
             {
-                table = new TableMapping(typeof(T), StorageOptions);
+                table = new TableMapping(typeof(T), Options);
                 tableMappings.Add(typeof(T), table);
             }
 
@@ -338,9 +315,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 IsConnecting = true;
 
                 SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
-                    DatabasePath,
+                    Options.DatabasePath,
                     out sqlite3 handle,
-                    (int)OpenFlags,
+                    (int)Options.OpenFlags,
                     null
                 );
 
@@ -352,9 +329,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 Handle = handle;
 
 #if SQLITECIPHER
-                if (!string.IsNullOrEmpty(Key))
+                if (!string.IsNullOrEmpty(Options.EncryptionKey))
                 {
-                    raw.sqlite3_prepare_v2(Handle, $"PRAGMA key = '{Key.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
+                    raw.sqlite3_prepare_v2(Handle, $"PRAGMA key = '{Options.EncryptionKey.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
                     raw.sqlite3_step(keyStmt);
                     raw.sqlite3_finalize(keyStmt);
                 }
@@ -362,7 +339,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
                 IsConnected = true;
 
-                if (IsWalMode)
+                if (Options.IsWalMode)
                 {
                     raw.sqlite3_prepare_v2(Handle, "PRAGMA journal_mode = WAL", out sqlite3_stmt walStmt);
                     raw.sqlite3_step(walStmt);
@@ -385,7 +362,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return NoOpLockObject.Instance;
         }
 
-        if (IsWalMode)
+        if (Options.IsWalMode)
         {
             AcquireWalWrite();
             return new WalWriteLockObject(this);
@@ -663,9 +640,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     internal sqlite3 OpenTransactionConnection()
     {
         SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
-            DatabasePath,
+            Options.DatabasePath,
             out sqlite3 handle,
-            (int)OpenFlags,
+            (int)Options.OpenFlags,
             null
         );
 
@@ -675,9 +652,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 
 #if SQLITECIPHER
-        if (!string.IsNullOrEmpty(Key))
+        if (!string.IsNullOrEmpty(Options.EncryptionKey))
         {
-            raw.sqlite3_prepare_v2(handle, $"PRAGMA key = '{Key.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
+            raw.sqlite3_prepare_v2(handle, $"PRAGMA key = '{Options.EncryptionKey.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
             raw.sqlite3_step(keyStmt);
             raw.sqlite3_finalize(keyStmt);
         }
@@ -745,5 +722,4 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 .ToList()
         };
     }
-
 }

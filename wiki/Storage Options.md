@@ -1,15 +1,18 @@
 # Storage Options
 
-`SQLiteStorageOptions` controls how specific .NET types are stored in and read from the database.
-You can configure it when creating a database:
+`SQLiteOptions` controls how specific .NET types are stored in and read from the database. Build one via `SQLiteOptionsBuilder`, then hand the immutable result to `SQLiteDatabase`:
 
 ```csharp
-var db = new SQLiteDatabase("mydb.sqlite", new SQLiteStorageOptions
-{
-    DateTimeStorage = DateTimeStorageMode.TextFormatted,
-    DateTimeFormat = "yyyy-MM-dd HH:mm:ss"
-});
+SQLiteOptions options = new SQLiteOptionsBuilder("mydb.sqlite")
+    .UseDateTimeStorage(DateTimeStorageMode.TextFormatted, "yyyy-MM-dd HH:mm:ss")
+    .Build();
+
+using SQLiteDatabase db = new(options);
 ```
+
+`UseDateTimeStorage`, `UseDateTimeOffsetStorage`, `UseTimeSpanStorage`, `UseDateOnlyStorage`, `UseTimeOnlyStorage`, `UseDecimalStorage`, and `UseEnumStorage` each set the corresponding mode and optionally the format string. Chain them together with `AddTypeConverter`, `AddMethodTranslator`, `AddPredicateMethodTranslator`, `AddPropertyTranslator`, `AddMethodCallInterceptor`, `UseWalMode`, `UseOpenFlags`, and `UseEncryptionKey` to configure the whole database in one place.
+
+Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you need to change a setting, build a new options instance.
 
 ---
 

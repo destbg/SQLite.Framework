@@ -47,7 +47,7 @@ internal class PropertyVisitor
 
     public Expression HandleDateTimeProperty(string propertyName, Type type, SQLExpression node)
     {
-        if (visitor.Database.StorageOptions.DateTimeStorage == DateTimeStorageMode.TextFormatted)
+        if (visitor.Database.Options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
         {
             throw new NotSupportedException(
                 $"DateTime.{propertyName} cannot be used in a LINQ query when DateTimeStorage is set to TextFormatted." +
@@ -77,7 +77,7 @@ internal class PropertyVisitor
 
     public Expression HandleDateTimeOffsetProperty(string propertyName, Type type, SQLExpression node)
     {
-        if (visitor.Database.StorageOptions.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
+        if (visitor.Database.Options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
         {
             throw new NotSupportedException(
                 $"DateTimeOffset.{propertyName} cannot be used in a LINQ query when DateTimeOffsetStorage is set to TextFormatted." +
@@ -107,7 +107,7 @@ internal class PropertyVisitor
 
     public Expression HandleTimeSpanProperty(string propertyName, Type type, SQLExpression node)
     {
-        if (visitor.Database.StorageOptions.TimeSpanStorage == TimeSpanStorageMode.Text)
+        if (visitor.Database.Options.TimeSpanStorage == TimeSpanStorageMode.Text)
         {
             throw new NotSupportedException(
                 $"TimeSpan.{propertyName} cannot be used in a LINQ query when TimeSpanStorage is set to Text." +
@@ -182,7 +182,7 @@ internal class PropertyVisitor
 
     public Expression HandleDateOnlyProperty(string propertyName, Type type, SQLExpression node)
     {
-        if (visitor.Database.StorageOptions.DateOnlyStorage == DateOnlyStorageMode.Text)
+        if (visitor.Database.Options.DateOnlyStorage == DateOnlyStorageMode.Text)
         {
             throw new NotSupportedException(
                 $"DateOnly.{propertyName} cannot be used in a LINQ query when DateOnlyStorage is set to Text." +
@@ -202,7 +202,7 @@ internal class PropertyVisitor
 
     public Expression HandleTimeOnlyProperty(string propertyName, Type type, SQLExpression node)
     {
-        if (visitor.Database.StorageOptions.TimeOnlyStorage == TimeOnlyStorageMode.Text)
+        if (visitor.Database.Options.TimeOnlyStorage == TimeOnlyStorageMode.Text)
         {
             throw new NotSupportedException(
                 $"TimeOnly.{propertyName} cannot be used in a LINQ query when TimeOnlyStorage is set to Text." +

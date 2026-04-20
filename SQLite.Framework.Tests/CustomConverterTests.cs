@@ -279,24 +279,30 @@ public class CustomConverterTests
         Assert.Equal("HELLO", result.Upper);
     }
 
-    private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.TypeConverters[typeof(Points)] = new PointsConverter();
+        TestDatabase db = new(b =>
+        {
+            b.TypeConverters[typeof(Points)] = new PointsConverter();
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<ScoreEntity>().CreateTable();
         db.Table<NullableScoreEntity>().CreateTable();
         return db;
     }
 
-    private static TestDatabase SetupMethodTranslatorDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupMethodTranslatorDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.MethodTranslators[
-            typeof(SqlFunctions).GetMethod(nameof(SqlFunctions.Upper))!
-        ] = (_, args) => $"upper({args[0]})";
-        db.StorageOptions.MethodTranslators[
-            typeof(SqlFunctions).GetMethod(nameof(SqlFunctions.Replace))!
-        ] = (_, args) => $"replace({args[0]}, {args[1]}, {args[2]})";
+        TestDatabase db = new(b =>
+        {
+            b.MethodTranslators[
+                typeof(SqlFunctions).GetMethod(nameof(SqlFunctions.Upper))!
+            ] = (_, args) => $"upper({args[0]})";
+            b.MethodTranslators[
+                typeof(SqlFunctions).GetMethod(nameof(SqlFunctions.Replace))!
+            ] = (_, args) => $"replace({args[0]}, {args[1]}, {args[2]})";
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<TagEntity>().CreateTable();
         return db;
     }

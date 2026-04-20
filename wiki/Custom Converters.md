@@ -1,8 +1,6 @@
 # Custom Converters
 
-`SQLiteStorageOptions` lets you register custom type converters and custom method translators.
-Type converters control how a .NET type is stored in and read from the database.
-Method translators let you map a .NET method call to a SQL function when building queries.
+`SQLiteOptionsBuilder` lets you register custom type converters and custom method translators before calling `Build()`. Type converters control how a .NET type is stored in and read from the database. Method translators let you map a .NET method call to a SQL function when building queries.
 
 ---
 
@@ -49,13 +47,14 @@ public class MoneyConverter : ISQLiteTypeConverter
 }
 ```
 
-Register the converter when creating the database:
+Register the converter on the builder and hand the built options to the database:
 
 ```csharp
-var options = new SQLiteStorageOptions();
-options.TypeConverters[typeof(Money)] = new MoneyConverter();
+SQLiteOptions options = new SQLiteOptionsBuilder("shop.db")
+    .AddTypeConverter<Money>(new MoneyConverter())
+    .Build();
 
-using var db = new SQLiteDatabase("shop.db", options);
+using var db = new SQLiteDatabase(options);
 ```
 
 After that, any model with a `Money` property is handled automatically:
@@ -82,8 +81,7 @@ The converter is called transparently when binding parameters and when reading r
 A method translator maps a .NET method to a SQL expression.
 This is useful for SQL functions that have no .NET equivalent, such as the JSON functions built into SQLite.
 
-Register translators in `MethodTranslators` using the `MethodInfo` as the key
-and a `SQLiteMethodTranslator` delegate as the value:
+Register translators on the builder by calling `AddMethodTranslator`. Pass the `MethodInfo` as the key and a `SQLiteMethodTranslator` delegate as the value:
 
 ```csharp
 public delegate string SQLiteMethodTranslator(string? instanceSql, string[] argumentsSql);
@@ -112,15 +110,16 @@ public static class JsonFunctions
 Register translators for each one:
 
 ```csharp
-var options = new SQLiteStorageOptions();
+SQLiteOptions options = new SQLiteOptionsBuilder("data.db")
+    .AddMethodTranslator(
+        typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.JsonExtract))!,
+        (_, args) => $"json_extract({args[0]}, {args[1]})")
+    .AddMethodTranslator(
+        typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.JsonObject))!,
+        (_, args) => $"json_object({args[0]}, {args[1]})")
+    .Build();
 
-options.MethodTranslators[typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.JsonExtract))!] =
-    (_, args) => $"json_extract({args[0]}, {args[1]})";
-
-options.MethodTranslators[typeof(JsonFunctions).GetMethod(nameof(JsonFunctions.JsonObject))!] =
-    (_, args) => $"json_object({args[0]}, {args[1]})";
-
-using var db = new SQLiteDatabase("data.db", options);
+using var db = new SQLiteDatabase(options);
 ```
 
 Now you can use those methods inside LINQ queries and they will be translated to SQL:

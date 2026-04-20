@@ -83,14 +83,16 @@ Most types are stored the same way by both libraries and need no attention. A fe
 If your project used non-default sqlite-net-pcl storage settings, you can configure `SQLite.Framework` to write data in the same format. This means new rows will be consistent with existing ones and you do not need to migrate your database at all:
 
 ```csharp
-SQLiteDatabase db = new("myapp.db3");
-
 // Match sqlite-net-pcl settings where StoreDateTimeAsTicks = false and StoreTimeSpanAsTicks = false
-db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
-db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
+SQLiteOptions options = new SQLiteOptionsBuilder("myapp.db3")
+    .UseDateTimeStorage(DateTimeStorageMode.TextFormatted)
+    .UseTimeSpanStorage(TimeSpanStorageMode.Text)
+    .Build();
+
+using SQLiteDatabase db = new(options);
 ```
 
-If some of your tables use one format and others use a different format, you can still read all of them. `SQLite.Framework` detects the stored format when reading and handles both. The `StorageOptions` only controls what format is used when writing.
+If some of your tables use one format and others use a different format, you can still read all of them. `SQLite.Framework` detects the stored format when reading and handles both. The options only control what format is used when writing.
 
 ### DateTime
 

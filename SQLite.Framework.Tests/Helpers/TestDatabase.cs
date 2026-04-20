@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 
 namespace SQLite.Framework.Tests.Helpers;
 
@@ -12,12 +12,24 @@ public class TestDatabase : SQLiteDatabase
 #endif
 
     public TestDatabase([CallerMemberName] string? methodName = null)
-        : base($"{methodName}_{Guid.NewGuid():N}.db3")
+        : this(null, methodName)
     {
-        File.Delete(DatabasePath);
+    }
+
+    public TestDatabase(Action<SQLiteOptionsBuilder>? configure, [CallerMemberName] string? methodName = null)
+        : base(BuildOptions(methodName, configure))
+    {
+        File.Delete(Options.DatabasePath);
+    }
+
+    private static SQLiteOptions BuildOptions(string? methodName, Action<SQLiteOptionsBuilder>? configure)
+    {
+        SQLiteOptionsBuilder builder = new($"{methodName}_{Guid.NewGuid():N}.db3");
 #if SQLITECIPHER
-        Key = "test-key";
+        builder.UseEncryptionKey("test-key");
 #endif
+        configure?.Invoke(builder);
+        return builder.Build();
     }
 
     public override void Dispose()
@@ -31,9 +43,9 @@ public class TestDatabase : SQLiteDatabase
         {
             try
             {
-                if (File.Exists(DatabasePath))
+                if (File.Exists(Options.DatabasePath))
                 {
-                    File.Delete(DatabasePath);
+                    File.Delete(Options.DatabasePath);
                 }
                 break;
             }
@@ -49,7 +61,7 @@ public class TestDatabase : SQLiteDatabase
 
         foreach (string suffix in new[] { "-wal", "-shm" })
         {
-            string sidecar = DatabasePath + suffix;
+            string sidecar = Options.DatabasePath + suffix;
             if (File.Exists(sidecar))
             {
                 File.Delete(sidecar);

@@ -524,13 +524,119 @@ body {
     background: var(--bg);
 }
 
+.toc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
 .toc-title {
     font-size: 0.6875rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-muted);
-    margin-bottom: 12px;
+    margin: 0;
+}
+
+.open-in {
+    position: relative;
+}
+
+.open-in-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+
+.open-in-button:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+    background: var(--bg-subtle);
+}
+
+.open-in-chevron {
+    transition: transform 0.15s ease;
+}
+
+.open-in-chevron--open {
+    transform: rotate(180deg);
+}
+
+.open-in-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    padding: 4px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+}
+
+:root[data-theme="light"] .open-in-menu {
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+}
+
+.open-in-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.1s, color 0.1s;
+}
+
+.open-in-item:hover,
+.open-in-item:focus-visible {
+    background: var(--bg-subtle);
+    color: var(--text);
+    outline: none;
+}
+
+.open-in-icon {
+    flex: 0 0 auto;
+    color: var(--text-muted);
+}
+
+.open-in-item:hover .open-in-icon,
+.open-in-item:focus-visible .open-in-icon {
+    color: var(--text);
+}
+
+.open-in-label {
+    flex: 1;
+}
+
+.open-in-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 2px;
 }
 
 .toc-list {

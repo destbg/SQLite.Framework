@@ -10,15 +10,18 @@ public class JsonFunctionsTests
 {
     private static TestDatabase CreateDb(string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.AddJson();
+        TestDatabase db = new(b => b.AddJson(), methodName);
         db.Table<JsonRow>().CreateTable();
         return db;
     }
 
     private static void Seed(TestDatabase db, int id, string json)
     {
-        db.Table<JsonRow>().Add(new JsonRow { Id = id, Data = json });
+        db.Table<JsonRow>().Add(new JsonRow
+        {
+            Id = id,
+            Data = json
+        });
     }
 
     [Fact]
@@ -193,12 +196,15 @@ public class JsonFunctionsTests
     }
 #endif
 
-    private static TestDatabase CreateListDb(string? methodName = null)
+    private static TestDatabase CreateListDb(Action<SQLiteOptionsBuilder>? configure = null, string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.AddJson();
-        db.StorageOptions.TypeConverters[typeof(List<string>)] =
-            new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
+        TestDatabase db = new(b =>
+        {
+            b.AddJson();
+            b.TypeConverters[typeof(List<string>)] =
+                new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<ListRow>().CreateTable();
         return db;
     }
@@ -207,8 +213,16 @@ public class JsonFunctionsTests
     public void List_Contains_MatchingItem_ReturnsRow()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["fiction", "bestseller"] });
-        db.Table<ListRow>().Add(new ListRow { Id = 2, Tags = ["non-fiction"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["fiction", "bestseller"]
+        });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 2,
+            Tags = ["non-fiction"]
+        });
 
         List<ListRow> results = db.Table<ListRow>()
             .Where(r => r.Tags.Contains("fiction"))
@@ -222,7 +236,11 @@ public class JsonFunctionsTests
     public void List_Contains_NoMatch_ReturnsEmpty()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["fiction"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["fiction"]
+        });
 
         List<ListRow> results = db.Table<ListRow>()
             .Where(r => r.Tags.Contains("mystery"))
@@ -235,8 +253,16 @@ public class JsonFunctionsTests
     public void List_Any_NonEmptyList_ReturnsRow()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["fiction"] });
-        db.Table<ListRow>().Add(new ListRow { Id = 2, Tags = [] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["fiction"]
+        });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 2,
+            Tags = []
+        });
 
         List<ListRow> results = db.Table<ListRow>()
             .Where(r => r.Tags.Any())
@@ -250,7 +276,11 @@ public class JsonFunctionsTests
     public void List_Any_AllEmpty_ReturnsEmpty()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = [] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = []
+        });
 
         List<ListRow> results = db.Table<ListRow>()
             .Where(r => r.Tags.Any())
@@ -263,7 +293,11 @@ public class JsonFunctionsTests
     public void List_Count_ReturnsItemCount()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.Count())
@@ -276,7 +310,11 @@ public class JsonFunctionsTests
     public void List_First_ReturnsFirstItem()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["x", "y", "z"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["x", "y", "z"]
+        });
 
         string result = db.Table<ListRow>()
             .Select(r => r.Tags.First())
@@ -289,7 +327,11 @@ public class JsonFunctionsTests
     public void List_FirstOrDefault_ReturnsFirstItem()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["x", "y"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["x", "y"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.FirstOrDefault())
@@ -302,7 +344,11 @@ public class JsonFunctionsTests
     public void List_Last_ReturnsLastItem()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["x", "y", "z"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["x", "y", "z"]
+        });
 
         string result = db.Table<ListRow>()
             .Select(r => r.Tags.Last())
@@ -315,7 +361,11 @@ public class JsonFunctionsTests
     public void List_LastOrDefault_ReturnsLastItem()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["x", "y", "z"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["x", "y", "z"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.LastOrDefault())
@@ -328,7 +378,11 @@ public class JsonFunctionsTests
     public void List_ElementAt_ReturnsItemAtIndex()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         string result = db.Table<ListRow>()
             .Select(r => r.Tags.ElementAt(1))
@@ -341,6 +395,7 @@ public class JsonFunctionsTests
     {
         [Key]
         public int Id { get; set; }
+
         public string Data { get; set; } = "";
     }
 
@@ -348,7 +403,11 @@ public class JsonFunctionsTests
     public void List_Min_ReturnsMinItem()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["banana", "apple", "cherry"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["banana", "apple", "cherry"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Min())
@@ -361,7 +420,11 @@ public class JsonFunctionsTests
     public void List_Max_ReturnsMaxItem()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["banana", "apple", "cherry"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["banana", "apple", "cherry"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Max())
@@ -374,7 +437,11 @@ public class JsonFunctionsTests
     public void List_Single_ReturnsSingleItem()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["only"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["only"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Single())
@@ -387,7 +454,11 @@ public class JsonFunctionsTests
     public void List_Single_MultipleItems_ReturnsNull()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Single())
@@ -400,7 +471,11 @@ public class JsonFunctionsTests
     public void List_SingleOrDefault_ReturnsSingleItem()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["only"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["only"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.SingleOrDefault())
@@ -413,7 +488,11 @@ public class JsonFunctionsTests
     public void List_IndexOf_ReturnsIndex()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.IndexOf("b"))
@@ -426,7 +505,11 @@ public class JsonFunctionsTests
     public void List_IndexOf_NotFound_ReturnsMinusOne()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.IndexOf("z"))
@@ -439,7 +522,11 @@ public class JsonFunctionsTests
     public void List_Any_WithPredicate_Match()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.Any(x => x == "b"))
@@ -452,7 +539,11 @@ public class JsonFunctionsTests
     public void List_Any_WithPredicate_NoMatch()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.Any(x => x == "z"))
@@ -465,7 +556,11 @@ public class JsonFunctionsTests
     public void List_All_AllMatch()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.All(x => x != "z"))
@@ -478,7 +573,11 @@ public class JsonFunctionsTests
     public void List_All_NotAllMatch()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.All(x => x != "a"))
@@ -491,7 +590,11 @@ public class JsonFunctionsTests
     public void List_Count_WithPredicate()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "a", "b"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.Count(x => x == "a"))
@@ -504,7 +607,11 @@ public class JsonFunctionsTests
     public void List_First_WithPredicate()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.First(x => x != "a"))
@@ -517,7 +624,11 @@ public class JsonFunctionsTests
     public void List_Last_WithPredicate()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Last(x => x != "c"))
@@ -530,7 +641,11 @@ public class JsonFunctionsTests
     public void List_Where_ReturnsFilteredList()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "a"))
@@ -544,7 +659,11 @@ public class JsonFunctionsTests
     public void List_OrderBy_ReturnsSortedFirst()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["c", "a", "b"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderBy(x => x).First())
@@ -557,7 +676,11 @@ public class JsonFunctionsTests
     public void List_OrderByDescending_ReturnsSortedFirst()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["c", "a", "b"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderByDescending(x => x).First())
@@ -570,7 +693,11 @@ public class JsonFunctionsTests
     public void List_Distinct_RemovesDuplicates()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "a", "b"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.Distinct())
@@ -585,7 +712,11 @@ public class JsonFunctionsTests
     public void List_Skip_SkipsItems()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.Skip(1))
@@ -598,7 +729,11 @@ public class JsonFunctionsTests
     public void List_Take_TakesItems()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.Take(2))
@@ -611,8 +746,16 @@ public class JsonFunctionsTests
     public void List_Concat_CombinesLists()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
-        db.Table<ListRow>().Add(new ListRow { Id = 2, Tags = ["c", "d"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b"]
+        });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 2,
+            Tags = ["c", "d"]
+        });
 
         List<string> other = ["c", "d"];
         IEnumerable<string> result = db.Table<ListRow>()
@@ -627,10 +770,12 @@ public class JsonFunctionsTests
 
     private static TestDatabase CreateNumericListDb(string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.AddJson();
-        db.StorageOptions.TypeConverters[typeof(List<int>)] =
-            new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32);
+        TestDatabase db = new(b =>
+        {
+            b.AddJson();
+            b.TypeConverters[typeof(List<int>)] =
+                new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32);
+        }, methodName);
         db.Table<NumericListRow>().CreateTable();
         return db;
     }
@@ -639,7 +784,11 @@ public class JsonFunctionsTests
     public void List_Sum_ReturnsSumOfItems()
     {
         using TestDatabase db = CreateNumericListDb();
-        db.Table<NumericListRow>().Add(new NumericListRow { Id = 1, Numbers = [1, 2, 3, 4] });
+        db.Table<NumericListRow>().Add(new NumericListRow
+        {
+            Id = 1,
+            Numbers = [1, 2, 3, 4]
+        });
 
         int result = db.Table<NumericListRow>()
             .Select(r => r.Numbers.Sum())
@@ -652,7 +801,11 @@ public class JsonFunctionsTests
     public void List_Average_ReturnsAverageOfItems()
     {
         using TestDatabase db = CreateNumericListDb();
-        db.Table<NumericListRow>().Add(new NumericListRow { Id = 1, Numbers = [2, 4, 6] });
+        db.Table<NumericListRow>().Add(new NumericListRow
+        {
+            Id = 1,
+            Numbers = [2, 4, 6]
+        });
 
         double result = db.Table<NumericListRow>()
             .Select(r => r.Numbers.Average())
@@ -665,7 +818,11 @@ public class JsonFunctionsTests
     public void List_Reverse_ReturnsReversed()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => Enumerable.Reverse(r.Tags))
@@ -678,7 +835,11 @@ public class JsonFunctionsTests
     public void List_Union_CombinesDistinct()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b"]
+        });
 
         List<string> other = ["b", "c"];
         IEnumerable<string> result = db.Table<ListRow>()
@@ -696,7 +857,11 @@ public class JsonFunctionsTests
     public void List_Intersect_ReturnsCommon()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         List<string> other = ["b", "c", "d"];
         IEnumerable<string> result = db.Table<ListRow>()
@@ -713,7 +878,11 @@ public class JsonFunctionsTests
     public void List_Except_RemovesCommon()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         List<string> other = ["b", "c"];
         IEnumerable<string> result = db.Table<ListRow>()
@@ -734,8 +903,16 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "Main St", City = "Zebra" },
-                new Address { Street = "Oak Ave", City = "Alpha" }
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Zebra"
+                },
+                new Address
+                {
+                    Street = "Oak Ave",
+                    City = "Alpha"
+                }
             ]
         });
 
@@ -755,8 +932,16 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "Main St", City = "Zebra" },
-                new Address { Street = "Oak Ave", City = "Alpha" }
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Zebra"
+                },
+                new Address
+                {
+                    Street = "Oak Ave",
+                    City = "Alpha"
+                }
             ]
         });
 
@@ -776,9 +961,21 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "1", City = "A" },
-                new Address { Street = "2", City = "B" },
-                new Address { Street = "3", City = "C" }
+                new Address
+                {
+                    Street = "1",
+                    City = "A"
+                },
+                new Address
+                {
+                    Street = "2",
+                    City = "B"
+                },
+                new Address
+                {
+                    Street = "3",
+                    City = "C"
+                }
             ]
         });
 
@@ -798,9 +995,21 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "1", City = "A" },
-                new Address { Street = "22", City = "B" },
-                new Address { Street = "333", City = "C" }
+                new Address
+                {
+                    Street = "1",
+                    City = "A"
+                },
+                new Address
+                {
+                    Street = "22",
+                    City = "B"
+                },
+                new Address
+                {
+                    Street = "333",
+                    City = "C"
+                }
             ]
         });
 
@@ -815,7 +1024,11 @@ public class JsonFunctionsTests
     public void List_LastIndexOf_ReturnsLastIndex()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "a", "c"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.LastIndexOf("a"))
@@ -828,7 +1041,11 @@ public class JsonFunctionsTests
     public void List_GetRange_ReturnsSublist()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c", "d"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c", "d"]
+        });
 
         List<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.GetRange(1, 2))
@@ -841,7 +1058,11 @@ public class JsonFunctionsTests
     public void List_Exists_Match()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.Exists(x => x == "b"))
@@ -854,7 +1075,11 @@ public class JsonFunctionsTests
     public void List_Find_ReturnsFirstMatch()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["apple", "banana", "cherry"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["apple", "banana", "cherry"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Find(x => x != "apple"))
@@ -867,7 +1092,11 @@ public class JsonFunctionsTests
     public void List_FindAll_ReturnsAllMatches()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc", "dd"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "bb", "ccc", "dd"]
+        });
 
         List<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.FindAll(x => x.Length > 1))
@@ -880,7 +1109,11 @@ public class JsonFunctionsTests
     public void List_FindIndex_ReturnsIndex()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.FindIndex(x => x == "b"))
@@ -893,7 +1126,11 @@ public class JsonFunctionsTests
     public void List_FindLast_ReturnsLastMatch()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "a"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.FindLast(x => x == "a"))
@@ -906,7 +1143,11 @@ public class JsonFunctionsTests
     public void List_FindLastIndex_ReturnsLastIndex()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "a", "c"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.FindLastIndex(x => x == "a"))
@@ -919,7 +1160,11 @@ public class JsonFunctionsTests
     public void List_TrueForAll_AllMatch()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.TrueForAll(x => x.Length == 1))
@@ -932,7 +1177,11 @@ public class JsonFunctionsTests
     public void Array_IndexOf_ReturnsIndex()
     {
         using TestDatabase db = CreateArrayDb();
-        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ArrayRow>().Add(new ArrayRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         int result = db.Table<ArrayRow>()
             .Select(r => Array.IndexOf(r.Tags, "b"))
@@ -945,7 +1194,11 @@ public class JsonFunctionsTests
     public void Array_Exists_Match()
     {
         using TestDatabase db = CreateArrayDb();
-        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ArrayRow>().Add(new ArrayRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         bool result = db.Table<ArrayRow>()
             .Select(r => Array.Exists(r.Tags, x => x == "b"))
@@ -958,7 +1211,11 @@ public class JsonFunctionsTests
     public void Array_FindIndex_ReturnsIndex()
     {
         using TestDatabase db = CreateArrayDb();
-        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ArrayRow>().Add(new ArrayRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         int result = db.Table<ArrayRow>()
             .Select(r => Array.FindIndex(r.Tags, x => x != "a"))
@@ -971,7 +1228,11 @@ public class JsonFunctionsTests
     public void Array_TrueForAll_AllMatch()
     {
         using TestDatabase db = CreateArrayDb();
-        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b"] });
+        db.Table<ArrayRow>().Add(new ArrayRow
+        {
+            Id = 1,
+            Tags = ["a", "b"]
+        });
 
         bool result = db.Table<ArrayRow>()
             .Select(r => Array.TrueForAll(r.Tags, x => x.Length == 1))
@@ -982,10 +1243,12 @@ public class JsonFunctionsTests
 
     private static TestDatabase CreateArrayDb(string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.AddJson();
-        db.StorageOptions.TypeConverters[typeof(string[])] =
-            new SQLiteJsonConverter<string[]>(TestJsonContext.Default.StringArray);
+        TestDatabase db = new(b =>
+        {
+            b.AddJson();
+            b.TypeConverters[typeof(string[])] =
+                new SQLiteJsonConverter<string[]>(TestJsonContext.Default.StringArray);
+        }, methodName);
         db.Table<ArrayRow>().CreateTable();
         return db;
     }
@@ -994,6 +1257,7 @@ public class JsonFunctionsTests
     {
         [Key]
         public int Id { get; set; }
+
         public string[] Tags { get; set; } = [];
     }
 
@@ -1001,6 +1265,7 @@ public class JsonFunctionsTests
     {
         [Key]
         public int Id { get; set; }
+
         public List<string> Tags { get; set; } = [];
     }
 
@@ -1008,6 +1273,7 @@ public class JsonFunctionsTests
     {
         [Key]
         public int Id { get; set; }
+
         public List<int> Numbers { get; set; } = [];
     }
 
@@ -1020,9 +1286,21 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "B", City = "Z" },
-                new Address { Street = "A", City = "Z" },
-                new Address { Street = "A", City = "A" }
+                new Address
+                {
+                    Street = "B",
+                    City = "Z"
+                },
+                new Address
+                {
+                    Street = "A",
+                    City = "Z"
+                },
+                new Address
+                {
+                    Street = "A",
+                    City = "A"
+                }
             ]
         });
 
@@ -1056,9 +1334,21 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "A", City = "Z" },
-                new Address { Street = "B", City = "Z" },
-                new Address { Street = "C", City = "A" }
+                new Address
+                {
+                    Street = "A",
+                    City = "Z"
+                },
+                new Address
+                {
+                    Street = "B",
+                    City = "Z"
+                },
+                new Address
+                {
+                    Street = "C",
+                    City = "A"
+                }
             ]
         });
 
@@ -1092,9 +1382,21 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "X", City = "Remove" },
-                new Address { Street = "B", City = "Keep" },
-                new Address { Street = "A", City = "Keep" }
+                new Address
+                {
+                    Street = "X",
+                    City = "Remove"
+                },
+                new Address
+                {
+                    Street = "B",
+                    City = "Keep"
+                },
+                new Address
+                {
+                    Street = "A",
+                    City = "Keep"
+                }
             ]
         });
 
@@ -1112,7 +1414,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Count()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc", "dd"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "bb", "ccc", "dd"]
+        });
 
         SQLiteCommand command = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x.Length > 1).Count())
@@ -1138,7 +1444,11 @@ public class JsonFunctionsTests
     public void Chain_OrderBy_Take()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["c", "a", "b"]
+        });
 
         SQLiteCommand command = db.Table<ListRow>()
             .Select(r => r.Tags.OrderBy(x => x).Take(2))
@@ -1167,20 +1477,30 @@ public class JsonFunctionsTests
     [Fact]
     public void Chain_SelectMany_FlattensNested()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.AddJson();
-        db.StorageOptions.TypeConverters[typeof(List<PersonWithTags>)] =
-            new SQLiteJsonConverter<List<PersonWithTags>>(TestJsonContext.Default.ListPersonWithTags);
-        db.StorageOptions.TypeConverters[typeof(List<string>)] =
-            new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
+        using TestDatabase db = new(b =>
+        {
+            b.AddJson();
+            b.TypeConverters[typeof(List<PersonWithTags>)] =
+                new SQLiteJsonConverter<List<PersonWithTags>>(TestJsonContext.Default.ListPersonWithTags);
+            b.TypeConverters[typeof(List<string>)] =
+                new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
+        });
         db.Table<PersonWithTagsRow>().CreateTable();
         db.Table<PersonWithTagsRow>().Add(new PersonWithTagsRow
         {
             Id = 1,
             People =
             [
-                new PersonWithTags { Name = "Alice", Tags = ["a", "b"] },
-                new PersonWithTags { Name = "Bob", Tags = ["c"] }
+                new PersonWithTags
+                {
+                    Name = "Alice",
+                    Tags = ["a", "b"]
+                },
+                new PersonWithTags
+                {
+                    Name = "Bob",
+                    Tags = ["c"]
+                }
             ]
         });
 
@@ -1207,7 +1527,11 @@ public class JsonFunctionsTests
     public void Chain_GroupBy_Count()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a", "c", "a"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "a", "c", "a"]
+        });
 
         SQLiteCommand command = db.Table<ListRow>()
             .Select(r => r.Tags.GroupBy(x => x).Count())
@@ -1233,7 +1557,11 @@ public class JsonFunctionsTests
     public void Chain_OrderByDescending_First()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderByDescending(x => x).First())
@@ -1246,7 +1574,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Select()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["apple", "banana", "cherry"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["apple", "banana", "cherry"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x.Length > 5).Select(x => x.Length).Count())
@@ -1259,7 +1591,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Skip()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c", "d"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c", "d"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "a").Skip(1))
@@ -1272,7 +1608,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Last()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "c").Last())
@@ -1285,7 +1625,11 @@ public class JsonFunctionsTests
     public void Chain_OrderBy_Last_ReversesOrder()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["c", "a", "b"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderBy(x => x).Last())
@@ -1298,7 +1642,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Single()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x == "b").Single())
@@ -1311,7 +1659,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Any()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "bb", "ccc"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x.Length > 2).Any())
@@ -1324,7 +1676,11 @@ public class JsonFunctionsTests
     public void Chain_Where_All()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["aa", "bb", "cc"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["aa", "bb", "cc"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x.Length == 2).All(x => x.Length == 2))
@@ -1337,7 +1693,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Min()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["c", "a", "b"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "a").Min())
@@ -1350,7 +1710,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Max()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["c", "a", "b"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "c").Max())
@@ -1363,7 +1727,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Distinct()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "a", "b", "c"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "c").Distinct())
@@ -1376,7 +1744,11 @@ public class JsonFunctionsTests
     public void Chain_OrderBy_Reverse()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["c", "a", "b"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["c", "a", "b"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderBy(x => x).Reverse())
@@ -1389,7 +1761,11 @@ public class JsonFunctionsTests
     public void Chain_Where_ElementAt()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c", "d"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c", "d"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "a").ElementAt(1))
@@ -1402,7 +1778,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Contains()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "c").Contains("b"))
@@ -1415,7 +1795,11 @@ public class JsonFunctionsTests
     public void Chain_First_WithPredicate()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "bb", "ccc"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderBy(x => x).First(x => x.Length > 1))
@@ -1428,7 +1812,11 @@ public class JsonFunctionsTests
     public void Chain_Last_WithPredicate()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "bb", "ccc"]
+        });
 
         string? result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderBy(x => x).Last(x => x.Length > 1))
@@ -1441,7 +1829,11 @@ public class JsonFunctionsTests
     public void Chain_Count_WithPredicate()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "bb", "ccc"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderBy(x => x).Count(x => x.Length > 1))
@@ -1454,7 +1846,11 @@ public class JsonFunctionsTests
     public void Chain_Any_WithPredicate()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "bb", "ccc"]
+        });
 
         bool result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x.Length > 0).Any(x => x.Length > 2))
@@ -1472,8 +1868,16 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "Long Street", City = "A" },
-                new Address { Street = "Short", City = "B" }
+                new Address
+                {
+                    Street = "Long Street",
+                    City = "A"
+                },
+                new Address
+                {
+                    Street = "Short",
+                    City = "B"
+                }
             ]
         });
 
@@ -1488,7 +1892,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Sum()
     {
         using TestDatabase db = CreateNumericListDb();
-        db.Table<NumericListRow>().Add(new NumericListRow { Id = 1, Numbers = [1, 2, 3, 4, 5] });
+        db.Table<NumericListRow>().Add(new NumericListRow
+        {
+            Id = 1,
+            Numbers = [1, 2, 3, 4, 5]
+        });
 
         int result = db.Table<NumericListRow>()
             .Select(r => r.Numbers.Where(x => x > 2).Sum())
@@ -1501,7 +1909,11 @@ public class JsonFunctionsTests
     public void Chain_Where_Average()
     {
         using TestDatabase db = CreateNumericListDb();
-        db.Table<NumericListRow>().Add(new NumericListRow { Id = 1, Numbers = [2, 4, 6] });
+        db.Table<NumericListRow>().Add(new NumericListRow
+        {
+            Id = 1,
+            Numbers = [2, 4, 6]
+        });
 
         double result = db.Table<NumericListRow>()
             .Select(r => r.Numbers.Where(x => x > 2).Average())
@@ -1514,7 +1926,11 @@ public class JsonFunctionsTests
     public void Chain_Skip_Take()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c", "d", "e"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c", "d", "e"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.Skip(1).Take(2))
@@ -1527,7 +1943,11 @@ public class JsonFunctionsTests
     public void Chain_OrderBy_Distinct()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["b", "a", "b", "a", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["b", "a", "b", "a", "c"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderBy(x => x).Distinct())
@@ -1540,7 +1960,11 @@ public class JsonFunctionsTests
     public void Chain_Where_SimpleCollection()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "a").Distinct())
@@ -1554,7 +1978,11 @@ public class JsonFunctionsTests
     public void Chain_Reverse_NoExistingOrder()
     {
         using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x != "z").Reverse())
@@ -1567,15 +1995,18 @@ public class JsonFunctionsTests
     {
         [Key]
         public int Id { get; set; }
+
         public List<PersonWithTags> People { get; set; } = [];
     }
 
     private static TestDatabase CreateAddressListDb(string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.AddJson();
-        db.StorageOptions.TypeConverters[typeof(List<Address>)] =
-            new SQLiteJsonConverter<List<Address>>(TestJsonContext.Default.ListAddress);
+        TestDatabase db = new(b =>
+        {
+            b.AddJson();
+            b.TypeConverters[typeof(List<Address>)] =
+                new SQLiteJsonConverter<List<Address>>(TestJsonContext.Default.ListAddress);
+        }, methodName);
         db.Table<AddressListRow>().CreateTable();
         return db;
     }
@@ -1587,7 +2018,19 @@ public class JsonFunctionsTests
         db.Table<AddressListRow>().Add(new AddressListRow
         {
             Id = 1,
-            Addresses = [new Address { Street = "Main St", City = "Springfield" }, new Address { Street = "Oak Ave", City = "Shelbyville" }]
+            Addresses =
+            [
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Springfield"
+                },
+                new Address
+                {
+                    Street = "Oak Ave",
+                    City = "Shelbyville"
+                }
+            ]
         });
 
         bool result = db.Table<AddressListRow>()
@@ -1604,7 +2047,14 @@ public class JsonFunctionsTests
         db.Table<AddressListRow>().Add(new AddressListRow
         {
             Id = 1,
-            Addresses = [new Address { Street = "Main St", City = "Springfield" }]
+            Addresses =
+            [
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Springfield"
+                }
+            ]
         });
 
         bool result = db.Table<AddressListRow>()
@@ -1621,7 +2071,19 @@ public class JsonFunctionsTests
         db.Table<AddressListRow>().Add(new AddressListRow
         {
             Id = 1,
-            Addresses = [new Address { Street = "Main St", City = "Springfield" }, new Address { Street = "Oak Ave", City = "Shelbyville" }]
+            Addresses =
+            [
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Springfield"
+                },
+                new Address
+                {
+                    Street = "Oak Ave",
+                    City = "Shelbyville"
+                }
+            ]
         });
 
         bool result = db.Table<AddressListRow>()
@@ -1640,9 +2102,21 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "Main St", City = "Springfield" },
-                new Address { Street = "Elm St", City = "Springfield" },
-                new Address { Street = "Oak Ave", City = "Shelbyville" }
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Springfield"
+                },
+                new Address
+                {
+                    Street = "Elm St",
+                    City = "Springfield"
+                },
+                new Address
+                {
+                    Street = "Oak Ave",
+                    City = "Shelbyville"
+                }
             ]
         });
 
@@ -1660,12 +2134,26 @@ public class JsonFunctionsTests
         db.Table<AddressListRow>().Add(new AddressListRow
         {
             Id = 1,
-            Addresses = [new Address { Street = "Main St", City = "Springfield" }]
+            Addresses =
+            [
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Springfield"
+                }
+            ]
         });
         db.Table<AddressListRow>().Add(new AddressListRow
         {
             Id = 2,
-            Addresses = [new Address { Street = "Oak Ave", City = "Shelbyville" }]
+            Addresses =
+            [
+                new Address
+                {
+                    Street = "Oak Ave",
+                    City = "Shelbyville"
+                }
+            ]
         });
 
         List<AddressListRow> result = db.Table<AddressListRow>()
@@ -1685,8 +2173,16 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "Main St", City = "Springfield" },
-                new Address { Street = "Oak Ave", City = "Springfield" }
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Springfield"
+                },
+                new Address
+                {
+                    Street = "Oak Ave",
+                    City = "Springfield"
+                }
             ]
         });
 
@@ -1704,7 +2200,14 @@ public class JsonFunctionsTests
         db.Table<AddressListRow>().Add(new AddressListRow
         {
             Id = 1,
-            Addresses = [new Address { Street = "Main St", City = "Springfield" }]
+            Addresses =
+            [
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Springfield"
+                }
+            ]
         });
 
         bool result = db.Table<AddressListRow>()
@@ -1723,9 +2226,21 @@ public class JsonFunctionsTests
             Id = 1,
             Addresses =
             [
-                new Address { Street = "Main St", City = "Springfield" },
-                new Address { Street = "Oak Ave", City = "Shelbyville" },
-                new Address { Street = "Elm St", City = "Springfield" }
+                new Address
+                {
+                    Street = "Main St",
+                    City = "Springfield"
+                },
+                new Address
+                {
+                    Street = "Oak Ave",
+                    City = "Shelbyville"
+                },
+                new Address
+                {
+                    Street = "Elm St",
+                    City = "Springfield"
+                }
             ]
         });
 
@@ -1739,13 +2254,18 @@ public class JsonFunctionsTests
     [Fact]
     public void PredicateMethodTranslator_ExactMethodMatch()
     {
-        using TestDatabase db = CreateListDb();
-        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
-
         MethodInfo method = typeof(JsonFunctionsTests)
             .GetMethod(nameof(CustomPredicate), BindingFlags.NonPublic | BindingFlags.Static)!;
-        db.StorageOptions.PredicateMethodTranslators[method] =
-            (instance, predicate) => $"(SELECT COUNT(*) FROM json_each({instance}) WHERE {predicate})";
+        using TestDatabase db = CreateListDb(b =>
+        {
+            b.PredicateMethodTranslators[method] =
+                (instance, predicate) => $"(SELECT COUNT(*) FROM json_each({instance}) WHERE {predicate})";
+        });
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c"]
+        });
 
         int result = db.Table<ListRow>()
             .Select(r => CustomPredicate(r.Tags, x => x != "a"))
@@ -1762,18 +2282,36 @@ public class JsonFunctionsTests
     [Fact]
     public void ComplexType_Any_NestedProperty()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.AddJson();
-        db.StorageOptions.TypeConverters[typeof(List<Person>)] =
-            new SQLiteJsonConverter<List<Person>>(TestJsonContext.Default.ListPerson);
+        using TestDatabase db = new(b =>
+        {
+            b.AddJson();
+            b.TypeConverters[typeof(List<Person>)] =
+                new SQLiteJsonConverter<List<Person>>(TestJsonContext.Default.ListPerson);
+        });
         db.Table<PersonListRow>().CreateTable();
         db.Table<PersonListRow>().Add(new PersonListRow
         {
             Id = 1,
             People =
             [
-                new Person { Name = "Alice", Home = new Address { Street = "Main St", City = "Springfield" } },
-                new Person { Name = "Bob", Home = new Address { Street = "Oak Ave", City = "Shelbyville" } }
+                new Person
+                {
+                    Name = "Alice",
+                    Home = new Address
+                    {
+                        Street = "Main St",
+                        City = "Springfield"
+                    }
+                },
+                new Person
+                {
+                    Name = "Bob",
+                    Home = new Address
+                    {
+                        Street = "Oak Ave",
+                        City = "Shelbyville"
+                    }
+                }
             ]
         });
 
@@ -1787,15 +2325,21 @@ public class JsonFunctionsTests
     [Fact]
     public void PropertyTranslator_MemberAccessOnJsonColumn()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.AddJson();
-        db.StorageOptions.TypeConverters[typeof(Address)] =
-            new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address);
+        using TestDatabase db = new(b =>
+        {
+            b.AddJson();
+            b.TypeConverters[typeof(Address)] =
+                new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address);
+        });
         db.Table<SingleAddressRow>().CreateTable();
         db.Table<SingleAddressRow>().Add(new SingleAddressRow
         {
             Id = 1,
-            Address = new Address { Street = "Main St", City = "Springfield" }
+            Address = new Address
+            {
+                Street = "Main St",
+                City = "Springfield"
+            }
         });
 
         string? result = db.Table<SingleAddressRow>()
@@ -1809,6 +2353,7 @@ public class JsonFunctionsTests
     {
         [Key]
         public int Id { get; set; }
+
         public Address Address { get; set; } = new();
     }
 
@@ -1816,6 +2361,7 @@ public class JsonFunctionsTests
     {
         [Key]
         public int Id { get; set; }
+
         public List<Person> People { get; set; } = [];
     }
 
@@ -1823,6 +2369,7 @@ public class JsonFunctionsTests
     {
         [Key]
         public int Id { get; set; }
+
         public List<Address> Addresses { get; set; } = [];
     }
 }

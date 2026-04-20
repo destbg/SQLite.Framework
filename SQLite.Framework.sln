@@ -28,6 +28,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.JsonB", "S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Window", "SQLite.Framework.Window\SQLite.Framework.Window.csproj", "{B3A1C2D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.DependencyInjection", "SQLite.Framework.DependencyInjection\SQLite.Framework.DependencyInjection.csproj", "{8CAE174B-91BA-4E5F-8222-DE30C04066B5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -182,6 +184,18 @@ Global
 		{B3A1C2D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.Build.0 = Release|Any CPU
 		{B3A1C2D4-E5F6-7890-ABCD-EF1234567890}.Release|x86.ActiveCfg = Release|Any CPU
 		{B3A1C2D4-E5F6-7890-ABCD-EF1234567890}.Release|x86.Build.0 = Release|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Debug|x64.Build.0 = Debug|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Debug|x86.Build.0 = Debug|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Release|x64.ActiveCfg = Release|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Release|x64.Build.0 = Release|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Release|x86.ActiveCfg = Release|Any CPU
+		{8CAE174B-91BA-4E5F-8222-DE30C04066B5}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

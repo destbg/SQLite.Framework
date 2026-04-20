@@ -21,7 +21,7 @@ internal static class CommandHelpers
         return columnNames;
     }
 
-    public static object? ReadColumnValue(sqlite3_stmt statement, int index, SQLiteColumnType columnType, Type type, SQLiteStorageOptions options)
+    public static object? ReadColumnValue(sqlite3_stmt statement, int index, SQLiteColumnType columnType, Type type, SQLiteOptions options)
     {
         object? value = columnType switch
         {
@@ -132,7 +132,7 @@ internal static class CommandHelpers
         return Convert.ChangeType(value, type);
     }
 
-    public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteStorageOptions options)
+    public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteOptions options)
     {
         int index = BindParameterIndex(statement, name);
 

@@ -160,10 +160,13 @@ public class TimeSpanTextTests
         Assert.Throws<NotSupportedException>(() => db.Table<TestEntity>().Where(a => a.Time.Days == 2).ToList());
     }
 
-    private static TestDatabase SetupTextStorageDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupTextStorageDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
+        TestDatabase db = new(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<TestEntity>().CreateTable();
         db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (1, @time)",
             new SQLiteParameter
@@ -174,9 +177,9 @@ public class TimeSpanTextTests
         return db;
     }
 
-    private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
+        TestDatabase db = new(configure, methodName);
         db.Table<TestEntity>().CreateTable();
         db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (1, @time)",
             new SQLiteParameter

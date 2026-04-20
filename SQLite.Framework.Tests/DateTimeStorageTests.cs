@@ -11,7 +11,11 @@ public class DateTimeStorageTests
     public void Integer_RoundTrip()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6, 7, 8) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6, 7, 8)
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -22,7 +26,11 @@ public class DateTimeStorageTests
     public void Integer_Where_YearEquals()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3)
+        });
 
         TestEntity? result = db.Table<TestEntity>().FirstOrDefault(a => a.Date.Year == 2000);
 
@@ -33,7 +41,11 @@ public class DateTimeStorageTests
     public void Integer_Select_Year()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int year = db.Table<TestEntity>().Select(a => a.Date.Year).First();
 
@@ -44,7 +56,11 @@ public class DateTimeStorageTests
     public void Integer_Select_Month()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int month = db.Table<TestEntity>().Select(a => a.Date.Month).First();
 
@@ -55,7 +71,11 @@ public class DateTimeStorageTests
     public void Integer_Select_Day()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int day = db.Table<TestEntity>().Select(a => a.Date.Day).First();
 
@@ -66,7 +86,11 @@ public class DateTimeStorageTests
     public void Integer_Select_Hour()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int hour = db.Table<TestEntity>().Select(a => a.Date.Hour).First();
 
@@ -77,7 +101,11 @@ public class DateTimeStorageTests
     public void Integer_Select_Minute()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int minute = db.Table<TestEntity>().Select(a => a.Date.Minute).First();
 
@@ -88,7 +116,11 @@ public class DateTimeStorageTests
     public void Integer_Select_Second()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int second = db.Table<TestEntity>().Select(a => a.Date.Second).First();
 
@@ -98,9 +130,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextTicks_RoundTrip()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6, 7, 8) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6, 7, 8)
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -110,9 +148,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextTicks_Where_YearEquals()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3)
+        });
 
         TestEntity? result = db.Table<TestEntity>().FirstOrDefault(a => a.Date.Year == 2000);
 
@@ -122,9 +166,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextTicks_Select_Year()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int year = db.Table<TestEntity>().Select(a => a.Date.Year).First();
 
@@ -134,9 +184,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextTicks_Select_Month()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int month = db.Table<TestEntity>().Select(a => a.Date.Month).First();
 
@@ -146,9 +202,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextTicks_Select_Day()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int day = db.Table<TestEntity>().Select(a => a.Date.Day).First();
 
@@ -158,9 +220,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextTicks_Select_Hour()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int hour = db.Table<TestEntity>().Select(a => a.Date.Hour).First();
 
@@ -170,9 +238,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextTicks_Select_Minute()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int minute = db.Table<TestEntity>().Select(a => a.Date.Minute).First();
 
@@ -182,9 +256,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextTicks_Select_Second()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int second = db.Table<TestEntity>().Select(a => a.Date.Second).First();
 
@@ -194,9 +274,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextFormatted_RoundTrip()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -206,8 +292,10 @@ public class DateTimeStorageTests
     [Fact]
     public void TextFormatted_Where_YearEquals_Throws()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        });
         db.Table<TestEntity>().CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
@@ -217,9 +305,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextFormatted_Select_Year_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int year = db.Table<TestEntity>().Select(a => a.Date.Year).First();
 
@@ -229,9 +323,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextFormatted_Select_Month_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int month = db.Table<TestEntity>().Select(a => a.Date.Month).First();
 
@@ -241,9 +341,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextFormatted_Select_Day_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int day = db.Table<TestEntity>().Select(a => a.Date.Day).First();
 
@@ -253,9 +359,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextFormatted_Select_Hour_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int hour = db.Table<TestEntity>().Select(a => a.Date.Hour).First();
 
@@ -265,9 +377,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextFormatted_Select_Minute_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int minute = db.Table<TestEntity>().Select(a => a.Date.Minute).First();
 
@@ -277,9 +395,15 @@ public class DateTimeStorageTests
     [Fact]
     public void TextFormatted_Select_Second_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTime(2000, 2, 3, 4, 5, 6)
+        });
 
         int second = db.Table<TestEntity>().Select(a => a.Date.Second).First();
 
@@ -299,9 +423,9 @@ public class DateTimeStorageTests
         Assert.Equal(expected, result.Date);
     }
 
-    private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
+        TestDatabase db = new(configure, methodName);
         db.Table<TestEntity>().CreateTable();
         return db;
     }

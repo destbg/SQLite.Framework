@@ -5,8 +5,8 @@ namespace SQLite.Framework.JsonB;
 /// <summary>
 /// Marker methods for SQLite JSON functions. These methods throw at runtime and are only
 /// valid inside a LINQ query where they are translated to their SQL equivalents.
-/// Register translations by calling <see cref="SQLiteStorageOptionsJsonExtensions.AddJson" />
-/// on your <see cref="SQLiteStorageOptions" />.
+/// Register translations by calling <see cref="SQLiteOptionsBuilderJsonExtensions.AddJson" />
+/// on your <see cref="SQLiteOptions" />.
 /// </summary>
 [ExcludeFromCodeCoverage]
 public static class SQLiteJsonFunctions

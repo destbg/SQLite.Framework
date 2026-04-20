@@ -55,7 +55,12 @@ public class CoverageGapTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        Author other = new() { Name = "X", Email = "X", BirthDate = default };
+        Author other = new()
+        {
+            Name = "X",
+            Email = "X",
+            BirthDate = default
+        };
         Assert.Throws<ArgumentException>(() =>
             db.Table<Book>().ExecuteUpdate(s => s.Set(b => other.Name, "X")));
     }
@@ -85,7 +90,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "Test",
+            AuthorId = 1,
+            Price = 1
+        });
 
         SQLiteCte<Book> cte = db.With(() => db.Table<Book>());
 
@@ -103,7 +114,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "Test",
+            AuthorId = 1,
+            Price = 1
+        });
 
         SQLiteCte<Book> cte = db.With(() => db.Table<Book>());
 
@@ -121,7 +138,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "Test",
+            AuthorId = 1,
+            Price = 1
+        });
 
         System.Collections.IEnumerable query = (System.Collections.IEnumerable)db.Table<Book>().Where(b => b.Id == 1);
 
@@ -183,7 +206,11 @@ public class CoverageGapTests
                     db.Table<Author>(),
                     b => b.AuthorId,
                     a => a.Id,
-                    (book, authors) => new { book, authors }
+                    (book, authors) => new
+                    {
+                        book,
+                        authors
+                    }
                 )
                 .ToSqlCommand();
         });
@@ -192,11 +219,17 @@ public class CoverageGapTests
     [Fact]
     public void DateOnly_StoredAsText_RoundTrip()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.DateOnlyStorage = DateOnlyStorageMode.Text;
+        using TestDatabase db = new(b =>
+        {
+            b.DateOnlyStorage = DateOnlyStorageMode.Text;
+        });
         db.Table<DateOnlyEntity>().CreateTable();
 
-        db.Table<DateOnlyEntity>().Add(new DateOnlyEntity { Id = 1, Date = new DateOnly(2024, 6, 15) });
+        db.Table<DateOnlyEntity>().Add(new DateOnlyEntity
+        {
+            Id = 1,
+            Date = new DateOnly(2024, 6, 15)
+        });
         DateOnlyEntity result = db.Table<DateOnlyEntity>().First();
 
         Assert.Equal(new DateOnly(2024, 6, 15), result.Date);
@@ -205,11 +238,17 @@ public class CoverageGapTests
     [Fact]
     public void TimeOnly_StoredAsText_RoundTrip()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.TimeOnlyStorage = TimeOnlyStorageMode.Text;
+        using TestDatabase db = new(b =>
+        {
+            b.TimeOnlyStorage = TimeOnlyStorageMode.Text;
+        });
         db.Table<TimeOnlyEntity>().CreateTable();
 
-        db.Table<TimeOnlyEntity>().Add(new TimeOnlyEntity { Id = 1, Time = new TimeOnly(14, 30, 45) });
+        db.Table<TimeOnlyEntity>().Add(new TimeOnlyEntity
+        {
+            Id = 1,
+            Time = new TimeOnly(14, 30, 45)
+        });
         TimeOnlyEntity result = db.Table<TimeOnlyEntity>().First();
 
         Assert.Equal(new TimeOnly(14, 30, 45), result.Time);
@@ -218,8 +257,10 @@ public class CoverageGapTests
     [Fact]
     public void DateTimeOffset_TextFormatted_WhereProperty_Throws()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        using TestDatabase db = new(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        });
         db.Table<DateTimeOffsetEntity>().CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
@@ -229,8 +270,10 @@ public class CoverageGapTests
     [Fact]
     public void TimeSpan_Text_WhereProperty_Throws()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
+        using TestDatabase db = new(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
         db.Table<TimeSpanEntity>().CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
@@ -240,10 +283,16 @@ public class CoverageGapTests
     [Fact]
     public void DateOnly_StoredAsText_SelectProperty_ReturnsClientSide()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.DateOnlyStorage = DateOnlyStorageMode.Text;
+        using TestDatabase db = new(b =>
+        {
+            b.DateOnlyStorage = DateOnlyStorageMode.Text;
+        });
         db.Table<DateOnlyEntity>().CreateTable();
-        db.Table<DateOnlyEntity>().Add(new DateOnlyEntity { Id = 1, Date = new DateOnly(2024, 6, 15) });
+        db.Table<DateOnlyEntity>().Add(new DateOnlyEntity
+        {
+            Id = 1,
+            Date = new DateOnly(2024, 6, 15)
+        });
 
         int year = db.Table<DateOnlyEntity>().Select(e => e.Date.Year).First();
 
@@ -253,10 +302,16 @@ public class CoverageGapTests
     [Fact]
     public void TimeOnly_StoredAsText_SelectProperty_ReturnsClientSide()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.TimeOnlyStorage = TimeOnlyStorageMode.Text;
+        using TestDatabase db = new(b =>
+        {
+            b.TimeOnlyStorage = TimeOnlyStorageMode.Text;
+        });
         db.Table<TimeOnlyEntity>().CreateTable();
-        db.Table<TimeOnlyEntity>().Add(new TimeOnlyEntity { Id = 1, Time = new TimeOnly(14, 30, 45) });
+        db.Table<TimeOnlyEntity>().Add(new TimeOnlyEntity
+        {
+            Id = 1,
+            Time = new TimeOnly(14, 30, 45)
+        });
 
         int hour = db.Table<TimeOnlyEntity>().Select(e => e.Time.Hour).First();
 
@@ -266,8 +321,10 @@ public class CoverageGapTests
     [Fact]
     public void DateOnly_Text_WhereProperty_Throws()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.DateOnlyStorage = DateOnlyStorageMode.Text;
+        using TestDatabase db = new(b =>
+        {
+            b.DateOnlyStorage = DateOnlyStorageMode.Text;
+        });
         db.Table<DateOnlyEntity>().CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
@@ -277,8 +334,10 @@ public class CoverageGapTests
     [Fact]
     public void TimeOnly_Text_WhereProperty_Throws()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.TimeOnlyStorage = TimeOnlyStorageMode.Text;
+        using TestDatabase db = new(b =>
+        {
+            b.TimeOnlyStorage = TimeOnlyStorageMode.Text;
+        });
         db.Table<TimeOnlyEntity>().CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
@@ -288,8 +347,10 @@ public class CoverageGapTests
     [Fact]
     public void DateTime_TextFormatted_AddDaysInWhere_Throws()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        using TestDatabase db = new(b =>
+        {
+            b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
+        });
         db.Table<DateTimeEntity>().CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
@@ -334,7 +395,11 @@ public class CoverageGapTests
         IQueryable<Author> filteredAuthors = db.Table<Author>().Where(a => a.Id > 0);
 
         SQLiteCommand command = db.Table<Book>()
-            .Join(filteredAuthors, b => b.AuthorId, a => a.Id, (b, a) => new { b.Title, a.Name })
+            .Join(filteredAuthors, b => b.AuthorId, a => a.Id, (b, a) => new
+            {
+                b.Title,
+                a.Name
+            })
             .ToSqlCommand();
 
         Assert.Contains("SELECT", command.CommandText);
@@ -345,6 +410,7 @@ public class CoverageGapTests
     {
         [Key]
         public int Id { get; set; }
+
         public DateOnly Date { get; set; }
     }
 
@@ -352,6 +418,7 @@ public class CoverageGapTests
     {
         [Key]
         public int Id { get; set; }
+
         public TimeOnly Time { get; set; }
     }
 
@@ -359,6 +426,7 @@ public class CoverageGapTests
     {
         [Key]
         public int Id { get; set; }
+
         public DateTimeOffset Date { get; set; }
     }
 
@@ -366,6 +434,7 @@ public class CoverageGapTests
     {
         [Key]
         public int Id { get; set; }
+
         public TimeSpan Duration { get; set; }
     }
 
@@ -373,6 +442,7 @@ public class CoverageGapTests
     {
         [Key]
         public int Id { get; set; }
+
         public DateTime Date { get; set; }
     }
 
@@ -382,14 +452,35 @@ public class CoverageGapTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
-        db.Table<Author>().Add(new Author { Id = 1, Name = "Alice", Email = "alice@example.com", BirthDate = new DateTime(1980, 1, 1) });
-        db.Table<Book>().Add(new Book { Id = 1, Title = "Test Book", AuthorId = 1, Price = 9.99 });
+        db.Table<Author>().Add(new Author
+        {
+            Id = 1,
+            Name = "Alice",
+            Email = "alice@example.com",
+            BirthDate = new DateTime(1980, 1, 1)
+        });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "Test Book",
+            AuthorId = 1,
+            Price = 9.99
+        });
 
         BookWithAuthorDto result = (
             from b in db.Table<Book>()
             join a in db.Table<Author>() on b.AuthorId equals a.Id
-            select new { b, a } into x
-            select new BookWithAuthorDto { Title = x.b.Title, Author = x.a }
+            select new
+            {
+                b,
+                a
+            }
+            into x
+            select new BookWithAuthorDto
+            {
+                Title = x.b.Title,
+                Author = x.a
+            }
         ).First();
 
         Assert.Equal("Test Book", result.Title);
@@ -414,12 +505,27 @@ public class CoverageGapTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
         db.Table<Book>().AddRange([
-            new Book { Id = 1, Title = "Match", AuthorId = 1, Price = 10 },
-            new Book { Id = 2, Title = "Other", AuthorId = 1, Price = 20 }
+            new Book
+            {
+                Id = 1,
+                Title = "Match",
+                AuthorId = 1,
+                Price = 10
+            },
+            new Book
+            {
+                Id = 2,
+                Title = "Other",
+                AuthorId = 1,
+                Price = 20
+            }
         ]);
 
         List<Book> results = db.Table<Book>()
-            .Where(b => b.Title == new TitleFilter { Value = "Match" }.Value)
+            .Where(b => b.Title == new TitleFilter
+            {
+                Value = "Match"
+            }.Value)
             .ToList();
 
         Assert.Single(results);
@@ -438,14 +544,24 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "WAL Book", AuthorId = 1, Price = 9.99 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "WAL Book",
+            AuthorId = 1,
+            Price = 9.99
+        });
 
         BookWithTags result = db.Table<Book>()
             .Where(b => b.Id == 1)
             .Select(b => new BookWithTags
             {
                 Title = b.Title,
-                Tags = { "fiction", "bestseller" }
+                Tags =
+                {
+                    "fiction",
+                    "bestseller"
+                }
             })
             .First();
 
@@ -460,7 +576,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "WAL Book", AuthorId = 1, Price = 9.99 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "WAL Book",
+            AuthorId = 1,
+            Price = 9.99
+        });
 
         BookWithTags result = db.Table<Book>()
             .Where(b => b.Id == 1)
@@ -468,7 +590,11 @@ public class CoverageGapTests
             .Select(t => new BookWithTags
             {
                 Title = t,
-                Tags = { "fiction", "bestseller" }
+                Tags =
+                {
+                    "fiction",
+                    "bestseller"
+                }
             })
             .First();
 
@@ -483,8 +609,20 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.0 });
-        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 1.0
+        });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 2,
+            Title = "B",
+            AuthorId = 2,
+            Price = 2.0
+        });
 
         BookCategory category = BookCategory.Fiction;
         List<Book> results = db.Table<Book>().Where(b => b.AuthorId == (int)category).ToList();
@@ -498,8 +636,20 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.0 });
-        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 1.0
+        });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 2,
+            Title = "B",
+            AuthorId = 2,
+            Price = 2.0
+        });
 
         long id = 1L;
         List<Book> results = db.Table<Book>().Where(b => b.Id == (int)id).ToList();
@@ -514,9 +664,27 @@ public class CoverageGapTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
         db.Table<Author>().CreateTable();
-        db.Table<Author>().Add(new Author { Id = 1, Name = "Alice", Email = "a@a.com", BirthDate = DateTime.Today });
-        db.Table<Author>().Add(new Author { Id = 2, Name = "Bob", Email = "b@b.com", BirthDate = DateTime.Today });
-        db.Table<Book>().Add(new Book { Id = 1, Title = "Book A", AuthorId = 1, Price = 1.0 });
+        db.Table<Author>().Add(new Author
+        {
+            Id = 1,
+            Name = "Alice",
+            Email = "a@a.com",
+            BirthDate = DateTime.Today
+        });
+        db.Table<Author>().Add(new Author
+        {
+            Id = 2,
+            Name = "Bob",
+            Email = "b@b.com",
+            BirthDate = DateTime.Today
+        });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "Book A",
+            AuthorId = 1,
+            Price = 1.0
+        });
 
         var books = db.Table<Book>();
         List<Author> results = db.Table<Author>()
@@ -549,8 +717,16 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<EnumEntity>().CreateTable();
-        db.Table<EnumEntity>().Add(new EnumEntity { Id = 1, Category = BookCategory.Fiction });
-        db.Table<EnumEntity>().Add(new EnumEntity { Id = 2, Category = BookCategory.NonFiction });
+        db.Table<EnumEntity>().Add(new EnumEntity
+        {
+            Id = 1,
+            Category = BookCategory.Fiction
+        });
+        db.Table<EnumEntity>().Add(new EnumEntity
+        {
+            Id = 2,
+            Category = BookCategory.NonFiction
+        });
 
         List<EnumEntity> results = db.Table<EnumEntity>()
             .Where(e => (int)e.Category == 1)
@@ -565,8 +741,16 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<EnumEntity>().CreateTable();
-        db.Table<EnumEntity>().Add(new EnumEntity { Id = 1, Category = BookCategory.Fiction });
-        db.Table<EnumEntity>().Add(new EnumEntity { Id = 2, Category = BookCategory.NonFiction });
+        db.Table<EnumEntity>().Add(new EnumEntity
+        {
+            Id = 1,
+            Category = BookCategory.Fiction
+        });
+        db.Table<EnumEntity>().Add(new EnumEntity
+        {
+            Id = 2,
+            Category = BookCategory.NonFiction
+        });
 
         int value = 2;
         List<EnumEntity> results = db.Table<EnumEntity>()
@@ -582,8 +766,16 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<CharEntity>().CreateTable();
-        db.Table<CharEntity>().Add(new CharEntity { Id = 1, Letter = 'A' });
-        db.Table<CharEntity>().Add(new CharEntity { Id = 2, Letter = 'B' });
+        db.Table<CharEntity>().Add(new CharEntity
+        {
+            Id = 1,
+            Letter = 'A'
+        });
+        db.Table<CharEntity>().Add(new CharEntity
+        {
+            Id = 2,
+            Letter = 'B'
+        });
 
         List<CharEntity> results = db.Table<CharEntity>()
             .Where(e => e.Letter == 65)
@@ -598,8 +790,16 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<CharEntity>().CreateTable();
-        db.Table<CharEntity>().Add(new CharEntity { Id = 1, Letter = 'A' });
-        db.Table<CharEntity>().Add(new CharEntity { Id = 2, Letter = 'B' });
+        db.Table<CharEntity>().Add(new CharEntity
+        {
+            Id = 1,
+            Letter = 'A'
+        });
+        db.Table<CharEntity>().Add(new CharEntity
+        {
+            Id = 2,
+            Letter = 'B'
+        });
 
         int code = 66;
         List<CharEntity> results = db.Table<CharEntity>()
@@ -615,8 +815,20 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
-        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 50.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 10.0
+        });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 2,
+            Title = "B",
+            AuthorId = 2,
+            Price = 50.0
+        });
 
         List<string> results = db.Table<Book>()
             .Select(b => b.Price > 20 ? "expensive" : "cheap")
@@ -631,8 +843,20 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
-        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 50.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 10.0
+        });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 2,
+            Title = "B",
+            AuthorId = 2,
+            Price = 50.0
+        });
 
         bool useHighPrice = true;
         double threshold = useHighPrice ? 20.0 : 5.0;
@@ -648,7 +872,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 65, Title = "A", AuthorId = 1, Price = 1.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 65,
+            Title = "A",
+            AuthorId = 1,
+            Price = 1.0
+        });
 
         SQLiteCommand command = db.Table<Book>()
             .Select(b => (char)b.Id)
@@ -662,7 +892,11 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<CharEntity>().CreateTable();
-        db.Table<CharEntity>().Add(new CharEntity { Id = 1, Letter = 'A' });
+        db.Table<CharEntity>().Add(new CharEntity
+        {
+            Id = 1,
+            Letter = 'A'
+        });
 
         SQLiteCommand command = db.Table<CharEntity>()
             .Select(e => (int)e.Letter)
@@ -676,7 +910,11 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<EnumEntity>().CreateTable();
-        db.Table<EnumEntity>().Add(new EnumEntity { Id = 1, Category = BookCategory.NonFiction });
+        db.Table<EnumEntity>().Add(new EnumEntity
+        {
+            Id = 1,
+            Category = BookCategory.NonFiction
+        });
 
         int result = db.Table<EnumEntity>()
             .Select(e => (int)e.Category)
@@ -690,7 +928,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 10.0
+        });
 
         double result = db.Table<Book>()
             .Select(b => -b.Price)
@@ -704,8 +948,18 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<EnumEntity>().CreateTable();
-        db.Table<EnumEntity>().Add(new EnumEntity { Id = 1, Category = BookCategory.Fiction, IsActive = true });
-        db.Table<EnumEntity>().Add(new EnumEntity { Id = 2, Category = BookCategory.NonFiction, IsActive = false });
+        db.Table<EnumEntity>().Add(new EnumEntity
+        {
+            Id = 1,
+            Category = BookCategory.Fiction,
+            IsActive = true
+        });
+        db.Table<EnumEntity>().Add(new EnumEntity
+        {
+            Id = 2,
+            Category = BookCategory.NonFiction,
+            IsActive = false
+        });
 
         List<EnumEntity> results = db.Table<EnumEntity>()
             .Where(e => !e.IsActive)
@@ -720,8 +974,16 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<NullableEntity>().CreateTable();
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Name = null });
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Name = "Bob" });
+        db.Table<NullableEntity>().Add(new NullableEntity
+        {
+            Id = 1,
+            Name = null
+        });
+        db.Table<NullableEntity>().Add(new NullableEntity
+        {
+            Id = 2,
+            Name = "Bob"
+        });
 
         List<string> results = db.Table<NullableEntity>()
             .Select(e => e.Name ?? "Unknown")
@@ -736,8 +998,16 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<NullableEntity>().CreateTable();
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Name = null });
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Name = "Bob" });
+        db.Table<NullableEntity>().Add(new NullableEntity
+        {
+            Id = 1,
+            Name = null
+        });
+        db.Table<NullableEntity>().Add(new NullableEntity
+        {
+            Id = 2,
+            Name = "Bob"
+        });
 
         List<NullableEntity> results = db.Table<NullableEntity>()
             .Where(e => e.Name == null)
@@ -752,8 +1022,16 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<NullableEntity>().CreateTable();
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Name = null });
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Name = "Bob" });
+        db.Table<NullableEntity>().Add(new NullableEntity
+        {
+            Id = 1,
+            Name = null
+        });
+        db.Table<NullableEntity>().Add(new NullableEntity
+        {
+            Id = 2,
+            Name = "Bob"
+        });
 
         List<NullableEntity> results = db.Table<NullableEntity>()
             .Where(e => e.Name != null)
@@ -768,9 +1046,27 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.0 });
-        db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2.0 });
-        db.Table<Book>().Add(new Book { Id = 3, Title = "C", AuthorId = 3, Price = 3.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 1.0
+        });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 2,
+            Title = "B",
+            AuthorId = 2,
+            Price = 2.0
+        });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 3,
+            Title = "C",
+            AuthorId = 3,
+            Price = 3.0
+        });
 
         List<Book> results = db.Table<Book>()
             .Where(b => b.Id % 2 == 1)
@@ -784,7 +1080,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 5.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 5.0
+        });
 
         double result = db.Table<Book>()
             .Select(b => b.Price * 3)
@@ -798,7 +1100,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 10.0
+        });
 
         double result = db.Table<Book>()
             .Select(b => b.Price / 2)
@@ -812,7 +1120,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.0 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 10.0
+        });
 
         double result = db.Table<Book>()
             .Select(b => b.Price - 3)
@@ -826,7 +1140,13 @@ public class CoverageGapTests
     {
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10.5 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "A",
+            AuthorId = 1,
+            Price = 10.5
+        });
 
         SQLiteCommand command = db.Table<Book>()
             .Select(b => (long)b.Price)
@@ -839,6 +1159,7 @@ public class CoverageGapTests
     {
         [Key]
         public int Id { get; set; }
+
         public BookCategory Category { get; set; }
         public bool IsActive { get; set; }
     }
@@ -847,6 +1168,7 @@ public class CoverageGapTests
     {
         [Key]
         public int Id { get; set; }
+
         public char Letter { get; set; }
     }
 
@@ -854,6 +1176,7 @@ public class CoverageGapTests
     {
         [Key]
         public int Id { get; set; }
+
         public string? Name { get; set; }
     }
 }

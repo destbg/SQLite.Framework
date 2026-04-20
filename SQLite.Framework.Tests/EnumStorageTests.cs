@@ -11,7 +11,11 @@ public class EnumStorageTests
     public void Integer_RoundTrip()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Status = TestStatus.Active });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Status = TestStatus.Active
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -22,9 +26,21 @@ public class EnumStorageTests
     public void Integer_RoundTrip_AllValues()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Status = TestStatus.Active });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Status = TestStatus.Inactive });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 3, Status = TestStatus.Pending });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Status = TestStatus.Active
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Status = TestStatus.Inactive
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 3,
+            Status = TestStatus.Pending
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().OrderBy(a => a.Id).ToList();
 
@@ -37,8 +53,16 @@ public class EnumStorageTests
     public void Integer_Where_EnumEquals()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Status = TestStatus.Active });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Status = TestStatus.Inactive });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Status = TestStatus.Active
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Status = TestStatus.Inactive
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().Where(a => a.Status == TestStatus.Active).ToList();
 
@@ -50,8 +74,16 @@ public class EnumStorageTests
     public void Integer_Where_EnumNotEquals()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Status = TestStatus.Active });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Status = TestStatus.Inactive });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Status = TestStatus.Active
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Status = TestStatus.Inactive
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().Where(a => a.Status != TestStatus.Active).ToList();
 
@@ -62,9 +94,15 @@ public class EnumStorageTests
     [Fact]
     public void Text_RoundTrip()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.EnumStorage = EnumStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Status = TestStatus.Active });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.EnumStorage = EnumStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Status = TestStatus.Active
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -74,11 +112,25 @@ public class EnumStorageTests
     [Fact]
     public void Text_RoundTrip_AllValues()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.EnumStorage = EnumStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Status = TestStatus.Active });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Status = TestStatus.Inactive });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 3, Status = TestStatus.Pending });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.EnumStorage = EnumStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Status = TestStatus.Active
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Status = TestStatus.Inactive
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 3,
+            Status = TestStatus.Pending
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().OrderBy(a => a.Id).ToList();
 
@@ -90,10 +142,20 @@ public class EnumStorageTests
     [Fact]
     public void Text_Where_EnumEquals()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.EnumStorage = EnumStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Status = TestStatus.Active });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Status = TestStatus.Inactive });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.EnumStorage = EnumStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Status = TestStatus.Active
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Status = TestStatus.Inactive
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().Where(a => a.Status == TestStatus.Active).ToList();
 
@@ -104,10 +166,20 @@ public class EnumStorageTests
     [Fact]
     public void Text_Where_EnumNotEquals()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.EnumStorage = EnumStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Status = TestStatus.Active });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Status = TestStatus.Inactive });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.EnumStorage = EnumStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Status = TestStatus.Active
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Status = TestStatus.Inactive
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().Where(a => a.Status != TestStatus.Active).ToList();
 
@@ -118,19 +190,25 @@ public class EnumStorageTests
     [Fact]
     public void Text_UnknownValue_ReturnsDefault()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.EnumStorage = EnumStorageMode.Text;
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.EnumStorage = EnumStorageMode.Text;
+        });
         db.Execute("INSERT INTO TestEntity (Id, Status) VALUES (1, @status)",
-            new SQLiteParameter { Name = "@status", Value = "UnknownStatus" });
+            new SQLiteParameter
+            {
+                Name = "@status",
+                Value = "UnknownStatus"
+            });
 
         TestEntity result = db.Table<TestEntity>().First();
 
         Assert.Equal(default, result.Status);
     }
 
-    private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
+        TestDatabase db = new(configure, methodName);
         db.Table<TestEntity>().CreateTable();
         return db;
     }

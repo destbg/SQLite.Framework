@@ -45,7 +45,7 @@ internal class JsonCollectionVisitor
     ];
 
     private readonly SQLVisitor visitor;
-    private readonly SQLiteStorageOptions options;
+    private readonly SQLiteOptions options;
 
     private readonly List<string> wheres = [];
     private readonly List<string> orderBys = [];
@@ -59,7 +59,7 @@ internal class JsonCollectionVisitor
     private string? existsWrapper;
     private string? crossJoin;
 
-    public JsonCollectionVisitor(SQLVisitor visitor, SQLiteStorageOptions options)
+    public JsonCollectionVisitor(SQLVisitor visitor, SQLiteOptions options)
     {
         this.visitor = visitor;
         this.options = options;
@@ -83,12 +83,12 @@ internal class JsonCollectionVisitor
             return null;
         }
 
-        if (!IsJsonCollection(sourceModel.SQLExpression.Type, sqlVisitor.Database.StorageOptions))
+        if (!IsJsonCollection(sourceModel.SQLExpression.Type, sqlVisitor.Database.Options))
         {
             return null;
         }
 
-        JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.StorageOptions);
+        JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
         if (sourceModel.SQLExpression.Parameters != null)
         {
             jcv.parameters.AddRange(sourceModel.SQLExpression.Parameters);
@@ -102,7 +102,7 @@ internal class JsonCollectionVisitor
         }
 
         string sql = jcv.BuildSql(sourceModel.SQLExpression.Sql);
-        Type coercedType = CoerceType(resultType, sourceModel.SQLExpression.Type, sqlVisitor.Database.StorageOptions);
+        Type coercedType = CoerceType(resultType, sourceModel.SQLExpression.Type, sqlVisitor.Database.Options);
         return new SQLExpression(coercedType, sqlVisitor.IdentifierIndex.Index++, sql,
             jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null);
     }
@@ -150,7 +150,7 @@ internal class JsonCollectionVisitor
         return current;
     }
 
-    private static bool IsJsonCollection(Type type, SQLiteStorageOptions options)
+    private static bool IsJsonCollection(Type type, SQLiteOptions options)
     {
         return options.TypeConverters.ContainsKey(type)
                && CommonHelpers.GetEnumerableElementType(type) != null;
@@ -592,7 +592,7 @@ internal class JsonCollectionVisitor
         }
     }
 
-    private static Type CoerceType(Type declaredType, Type sourceType, SQLiteStorageOptions options)
+    private static Type CoerceType(Type declaredType, Type sourceType, SQLiteOptions options)
     {
         if (!options.TypeConverters.ContainsKey(sourceType))
         {

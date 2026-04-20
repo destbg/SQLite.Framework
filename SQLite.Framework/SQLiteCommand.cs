@@ -56,7 +56,7 @@ public class SQLiteCommand
         try
         {
             sqlite3_stmt statement = CreateStatement();
-            return new SQLiteDataReader(database.GetActiveHandle(), statement, connectionLock, database.StorageOptions);
+            return new SQLiteDataReader(database.GetActiveHandle(), statement, connectionLock, database.Options);
         }
         catch
         {
@@ -106,7 +106,7 @@ public class SQLiteCommand
 
     private void BindParameters(sqlite3_stmt statement)
     {
-        SQLiteStorageOptions options = database.StorageOptions;
+        SQLiteOptions options = database.Options;
         foreach (SQLiteParameter parameter in Parameters)
         {
             CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);

@@ -15,10 +15,14 @@ dotnet add package SQLite.Framework.Window
 
 ## Setup
 
-Call `AddWindow()` once when setting up your database:
+Call `AddWindow()` on the `SQLiteOptionsBuilder` before calling `Build()`:
 
 ```csharp
-db.StorageOptions.AddWindow();
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .AddWindow()
+    .Build();
+
+using var db = new SQLiteDatabase(options);
 ```
 
 This registers translators for every method on `SQLiteWindowFunctions` and `FrameBoundary`. After that you can use them inside any LINQ `Select`.

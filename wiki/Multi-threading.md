@@ -6,13 +6,17 @@ You do not need to set anything up for this. It works out of the box.
 
 ## WAL mode
 
-Setting `IsWalMode = true` switches the database to WAL (Write-Ahead Logging) journal mode. In this mode writes no longer block each other. Multiple writes from different threads can run at the same time, and reads are never blocked by writers.
+Calling `UseWalMode()` on the builder switches the database to WAL (Write-Ahead Logging) journal mode. In this mode writes no longer block each other. Multiple writes from different threads can run at the same time, and reads are never blocked by writers.
 
 ```csharp
-var db = new SQLiteDatabase("app.db") { IsWalMode = true };
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .UseWalMode()
+    .Build();
+
+using var db = new SQLiteDatabase(options);
 ```
 
-The framework issues `PRAGMA journal_mode = WAL` automatically when the connection is first opened. Set `IsWalMode` before the first database operation.
+The framework issues `PRAGMA journal_mode = WAL` automatically when the connection is first opened. Configure the builder before calling `Build()` — the resulting options are immutable.
 
 With WAL enabled, eight concurrent writes run in parallel instead of queuing up:
 

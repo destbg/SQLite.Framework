@@ -27,7 +27,8 @@ public static partial class Program
         }
 
         // Initialize database
-        using SQLiteDatabase db = new("sample.db");
+        SQLiteOptions options = new SQLiteOptionsBuilder("sample.db").Build();
+        using SQLiteDatabase db = new(options);
 
         // Setup database schema
         SetupDatabase(db);
@@ -1430,24 +1431,16 @@ public static partial class Program
 
     private static void CustomTypeConverterExample()
     {
-        PointsConverter converter = new();
-        SQLiteStorageOptions options = new()
-        {
-            TypeConverters =
-            {
-                [typeof(Points)] = converter
-            }
-        };
-
         if (File.Exists("points.db"))
         {
             File.Delete("points.db");
         }
 
-        using SQLiteDatabase pointsDb = new("points.db")
-        {
-            StorageOptions = options
-        };
+        SQLiteOptions options = new SQLiteOptionsBuilder("points.db")
+            .AddTypeConverter<Points>(new PointsConverter())
+            .Build();
+
+        using SQLiteDatabase pointsDb = new(options);
         pointsDb.Table<ScoreRecord>().CreateTable();
 
         pointsDb.Table<ScoreRecord>().Add(new ScoreRecord
@@ -1516,10 +1509,12 @@ public static partial class Program
 {
     private static void JsonBListDemo()
     {
-        using SQLiteDatabase db = new(":memory:");
-        db.StorageOptions.AddJson();
-        db.StorageOptions.TypeConverters[typeof(List<string>)] =
-            new SQLiteJsonConverter<List<string>>(SampleJsonContext.Default.ListString);
+        SQLiteOptions options = new SQLiteOptionsBuilder(":memory:")
+            .AddJson()
+            .AddTypeConverter<List<string>>(new SQLiteJsonConverter<List<string>>(SampleJsonContext.Default.ListString))
+            .Build();
+
+        using SQLiteDatabase db = new(options);
 
         db.Table<TaggedProduct>().CreateTable();
         db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 1, Name = "Laptop", Tags = ["electronics", "computers"] });

@@ -29,7 +29,11 @@ public class JsonConverterTests
     public void JsonConverter_ToDatabase_WithValue_ReturnsJson()
     {
         SQLiteJsonConverter<Address> converter = new(TestJsonContext.Default.Address);
-        object? result = converter.ToDatabase(new Address { Street = "1 Main St", City = "Town" });
+        object? result = converter.ToDatabase(new Address
+        {
+            Street = "1 Main St",
+            City = "Town"
+        });
         Assert.IsType<string>(result);
         Assert.Contains("Main St", (string)result!);
     }
@@ -62,7 +66,11 @@ public class JsonConverterTests
     public void JsonbConverter_ToDatabase_WithValue_ReturnsJson()
     {
         SQLiteJsonbConverter<Address> converter = new(TestJsonContext.Default.Address);
-        object? result = converter.ToDatabase(new Address { Street = "2 Elm St", City = "City" });
+        object? result = converter.ToDatabase(new Address
+        {
+            Street = "2 Elm St",
+            City = "City"
+        });
         Assert.IsType<string>(result);
         Assert.Contains("Elm St", (string)result!);
     }
@@ -312,40 +320,52 @@ public class JsonConverterTests
     }
 #endif
 
-    private static TestDatabase SetupJsonDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupJsonDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.TypeConverters[typeof(Address)] =
-            new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address);
+        TestDatabase db = new(b =>
+        {
+            b.TypeConverters[typeof(Address)] =
+                new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address);
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<ContactEntity>().CreateTable();
         db.Table<NullableContactEntity>().CreateTable();
         return db;
     }
 
-    private static TestDatabase SetupJsonTagDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupJsonTagDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.TypeConverters[typeof(TagList)] =
-            new SQLiteJsonConverter<TagList>(TestJsonContext.Default.TagList);
+        TestDatabase db = new(b =>
+        {
+            b.TypeConverters[typeof(TagList)] =
+                new SQLiteJsonConverter<TagList>(TestJsonContext.Default.TagList);
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<TaggedEntity>().CreateTable();
         return db;
     }
 
-    private static TestDatabase SetupJsonbDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupJsonbDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.TypeConverters[typeof(Address)] =
-            new SQLiteJsonbConverter<Address>(TestJsonContext.Default.Address);
+        TestDatabase db = new(b =>
+        {
+            b.TypeConverters[typeof(Address)] =
+                new SQLiteJsonbConverter<Address>(TestJsonContext.Default.Address);
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<ContactEntity>().CreateTable();
         db.Table<NullableContactEntity>().CreateTable();
         return db;
     }
 
-    private static TestDatabase SetupJsonbTagDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupJsonbTagDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.TypeConverters[typeof(TagList)] =
-            new SQLiteJsonbConverter<TagList>(TestJsonContext.Default.TagList);
+        TestDatabase db = new(b =>
+        {
+            b.TypeConverters[typeof(TagList)] =
+                new SQLiteJsonbConverter<TagList>(TestJsonContext.Default.TagList);
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<TaggedEntity>().CreateTable();
         return db;
     }

@@ -12,7 +12,11 @@ public class DecimalStorageTests
     public void Real_RoundTrip()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 1234.56m });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 1234.56m
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -23,8 +27,16 @@ public class DecimalStorageTests
     public void Real_Where_Equals()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 10.00m });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Price = 20.00m });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 10.00m
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Price = 20.00m
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().Where(a => a.Price == 10.00m).ToList();
 
@@ -36,8 +48,16 @@ public class DecimalStorageTests
     public void Real_Where_GreaterThan()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 10.00m });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Price = 20.00m });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 10.00m
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Price = 20.00m
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().Where(a => a.Price > 15.00m).ToList();
 
@@ -49,9 +69,21 @@ public class DecimalStorageTests
     public void Real_OrderBy()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 30.00m });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Price = 10.00m });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 3, Price = 20.00m });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 30.00m
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Price = 10.00m
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 3,
+            Price = 20.00m
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().OrderBy(a => a.Price).ToList();
 
@@ -63,8 +95,12 @@ public class DecimalStorageTests
     [Fact]
     public void Text_RoundTrip()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 1234.56m });
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 1234.56m
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -74,7 +110,7 @@ public class DecimalStorageTests
     [Fact]
     public void Text_Select_NoCastInRootProjection()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
 
         SQLiteCommand command = db.Table<TestEntity>().ToSqlCommand();
 
@@ -84,8 +120,12 @@ public class DecimalStorageTests
     [Fact]
     public void Text_RoundTrip_HighPrecision()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 1234567890.1234567890m });
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 1234567890.1234567890m
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -95,8 +135,12 @@ public class DecimalStorageTests
     [Fact]
     public void Text_RoundTrip_Zero()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 0m });
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 0m
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -106,8 +150,12 @@ public class DecimalStorageTests
     [Fact]
     public void Text_RoundTrip_Negative()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = -99.99m });
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = -99.99m
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -117,9 +165,17 @@ public class DecimalStorageTests
     [Fact]
     public void Text_Where_GreaterThan()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 10.00m });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Price = 20.00m });
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 10.00m
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Price = 20.00m
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().Where(a => a.Price > 15.00m).ToList();
 
@@ -130,7 +186,7 @@ public class DecimalStorageTests
     [Fact]
     public void Text_Where_GreaterThan_CastsToReal()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
 
         SQLiteCommand command = db.Table<TestEntity>().Where(a => a.Price > 15.00m).ToSqlCommand();
 
@@ -146,9 +202,17 @@ public class DecimalStorageTests
     [Fact]
     public void Text_Where_LessThan()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 10.00m });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Price = 20.00m });
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 10.00m
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Price = 20.00m
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().Where(a => a.Price < 15.00m).ToList();
 
@@ -159,10 +223,22 @@ public class DecimalStorageTests
     [Fact]
     public void Text_OrderBy()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 30.00m });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Price = 10.00m });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 3, Price = 20.00m });
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 30.00m
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Price = 10.00m
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 3,
+            Price = 20.00m
+        });
 
         List<TestEntity> results = db.Table<TestEntity>().OrderBy(a => a.Price).ToList();
 
@@ -174,19 +250,28 @@ public class DecimalStorageTests
     [Fact]
     public void Text_CustomFormat_RoundTrip()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
-        db.StorageOptions.DecimalFormat = "F4";
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 1234.5678m });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DecimalFormat = "F4";
+        }, DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 1234.5678m
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
         Assert.Equal(1234.5678m, result.Price);
     }
 
-    private static TestDatabase SetupDatabase(DecimalStorageMode storage = DecimalStorageMode.Real, [CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, DecimalStorageMode storage = DecimalStorageMode.Real, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.DecimalStorage = storage;
+        TestDatabase db = new(b =>
+        {
+            b.DecimalStorage = storage;
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<TestEntity>().CreateTable();
         return db;
     }
@@ -194,7 +279,7 @@ public class DecimalStorageTests
     [Fact]
     public void Text_SelectContains_ProducesInSubquery()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
 
         SQLiteCommand command = db.Table<TestEntity>()
             .Select(f => db.Table<TestEntity>().Select(s => s.Price).Contains(f.Price))
@@ -213,9 +298,17 @@ public class DecimalStorageTests
     [Fact]
     public void Text_SelectContains_ReturnsCorrectResults()
     {
-        using TestDatabase db = SetupDatabase(DecimalStorageMode.Text);
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Price = 10.00m });
-        db.Table<TestEntity>().Add(new TestEntity { Id = 2, Price = 20.00m });
+        using TestDatabase db = SetupDatabase(null, DecimalStorageMode.Text);
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Price = 10.00m
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 2,
+            Price = 20.00m
+        });
 
         List<bool> results = db.Table<TestEntity>()
             .Select(f => db.Table<TestEntity>().Select(s => s.Price).Contains(f.Price))
@@ -232,5 +325,4 @@ public class DecimalStorageTests
 
         public required decimal Price { get; set; }
     }
-
 }

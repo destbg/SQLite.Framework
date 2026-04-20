@@ -364,7 +364,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     private string WrapParam(string placeholder, TableColumn column)
     {
-        if (Database.StorageOptions.TypeConverters.TryGetValue(column.PropertyType, out ISQLiteTypeConverter? conv)
+        if (Database.Options.TypeConverters.TryGetValue(column.PropertyType, out ISQLiteTypeConverter? conv)
             && conv.ParameterSqlExpression is { } paramExpr)
         {
             return string.Format(paramExpr, placeholder);

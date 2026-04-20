@@ -414,7 +414,7 @@ internal class MethodVisitor
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
-            if (visitor.Database.StorageOptions.DateTimeStorage == DateTimeStorageMode.TextFormatted)
+            if (visitor.Database.Options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
             {
                 if (visitor.IsInSelectProjection && visitor.Level == 0)
                 {
@@ -465,7 +465,7 @@ internal class MethodVisitor
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
-            if (visitor.Database.StorageOptions.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
+            if (visitor.Database.Options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
             {
                 if (visitor.IsInSelectProjection && visitor.Level == 0)
                     return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
@@ -513,7 +513,7 @@ internal class MethodVisitor
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
 
-            if (visitor.Database.StorageOptions.TimeSpanStorage == TimeSpanStorageMode.Text)
+            if (visitor.Database.Options.TimeSpanStorage == TimeSpanStorageMode.Text)
             {
                 if (visitor.IsInSelectProjection && visitor.Level == 0)
                 {
@@ -579,7 +579,7 @@ internal class MethodVisitor
             ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
             if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null) || node.Method.Name == nameof(DateOnly.ToString)
-                || visitor.Database.StorageOptions.DateOnlyStorage == DateOnlyStorageMode.Text)
+                || visitor.Database.Options.DateOnlyStorage == DateOnlyStorageMode.Text)
             {
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
@@ -612,7 +612,7 @@ internal class MethodVisitor
             ResolvedModel obj = visitor.ResolveExpression(node.Object);
 
             if (obj.SQLExpression == null || arguments.Any(f => f.SQLExpression == null) || node.Method.Name == nameof(TimeOnly.ToString)
-                || visitor.Database.StorageOptions.TimeOnlyStorage == TimeOnlyStorageMode.Text)
+                || visitor.Database.Options.TimeOnlyStorage == TimeOnlyStorageMode.Text)
             {
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
             }
@@ -737,7 +737,7 @@ internal class MethodVisitor
         }
 
         if (node.Object == null
-            && CommonHelpers.IsSimple(node.Method.ReturnType, visitor.Database.StorageOptions)
+            && CommonHelpers.IsSimple(node.Method.ReturnType, visitor.Database.Options)
             && arguments.All(f => f.IsConstant))
         {
             object? result = node.Method.Invoke(null, [

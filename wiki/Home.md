@@ -3,7 +3,8 @@
 A lightweight [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapping) for SQLite, built for .NET. It gives you LINQ queries, async support, and AOT compatibility, with an API that will feel familiar if you have used Entity Framework before.
 
 ```csharp
-using SQLiteDatabase db = new("library.db");
+SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
+using SQLiteDatabase db = new(options);
 
 var books = db.Table<Book>();
 await books.CreateTableAsync();
@@ -19,10 +20,13 @@ var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 |---|---|
 | `SQLite.Framework` | Default. Uses the SQLite version that ships with the OS. Works on all major platforms. |
 | `SQLite.Framework.Bundled` | Ships its own SQLite binary. Use this when the OS-provided SQLite is too old or you need a specific version. |
-| `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. Set the `Key` property before the first operation to enable encryption. |
+| `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. Call `UseEncryptionKey` on the options builder to enable encryption. |
 | `SQLite.Framework.Base` | No SQLite provider included. Use this when you want to supply your own SQLitePCLRaw provider. You are responsible for calling `SQLitePCL.Batteries_V2.Init()` before creating a database. |
+| `SQLite.Framework.JsonB` | JSON and JSONB function support for LINQ queries. Call `AddJson` on the options builder. |
+| `SQLite.Framework.Window` | SQL window function support (`ROW_NUMBER`, `RANK`, `SUM OVER`, etc.). Call `AddWindow` on the options builder. |
+| `SQLite.Framework.DependencyInjection` | `AddSQLiteDatabase` helpers for `Microsoft.Extensions.DependencyInjection`. Use it to register a `SQLiteDatabase` (or a subclass) into an `IServiceCollection`. |
 
-All packages expose the same API and assembly name, so you can swap between them without changing any code.
+All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose the same API and assembly name, so you can swap between them without changing any code. The other packages layer optional features on top.
 
 ## Features
 
@@ -58,4 +62,5 @@ All packages expose the same API and assembly name, so you can swap between them
 - [Window Functions](Window%20Functions)
 - [Performance](Performance)
 - [Native AOT](Native%20AOT)
+- [Dependency Injection](Dependency%20Injection)
 - [Migrating from sqlite-net-pcl](Migrating%20from%20sqlite-net-pcl)

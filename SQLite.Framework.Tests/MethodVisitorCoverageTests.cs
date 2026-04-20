@@ -27,7 +27,13 @@ public class MethodVisitorCoverageTests
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "xTestx", AuthorId = 1, Price = 10 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "xTestx",
+            AuthorId = 1,
+            Price = 10
+        });
 
         List<Book> results = db.Table<Book>()
             .Where(b => b.Title.Trim('x') == "Test")
@@ -42,7 +48,13 @@ public class MethodVisitorCoverageTests
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "xTest", AuthorId = 1, Price = 10 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "xTest",
+            AuthorId = 1,
+            Price = 10
+        });
 
         List<Book> results = db.Table<Book>()
             .Where(b => b.Title.TrimStart('x') == "Test")
@@ -57,7 +69,13 @@ public class MethodVisitorCoverageTests
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "Testx", AuthorId = 1, Price = 10 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 1,
+            Title = "Testx",
+            AuthorId = 1,
+            Price = 10
+        });
 
         List<Book> results = db.Table<Book>()
             .Where(b => b.Title.TrimEnd('x') == "Test")
@@ -69,8 +87,10 @@ public class MethodVisitorCoverageTests
     [Fact]
     public void DateTimeOffset_TextFormatted_AddDaysInWhere_Throws()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        using TestDatabase db = new(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        });
         db.Table<DateTimeOffsetMethodEntity>().CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
@@ -82,8 +102,10 @@ public class MethodVisitorCoverageTests
     [Fact]
     public void TimeSpan_Text_AddInWhere_Throws()
     {
-        using TestDatabase db = new();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
+        using TestDatabase db = new(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
         db.Table<TimeSpanMethodEntity>().CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
@@ -98,7 +120,13 @@ public class MethodVisitorCoverageTests
         using TestDatabase db = new();
 
         db.Table<Book>().CreateTable();
-        db.Table<Book>().Add(new Book { Id = 42, Title = "Test", AuthorId = 1, Price = 10 });
+        db.Table<Book>().Add(new Book
+        {
+            Id = 42,
+            Title = "Test",
+            AuthorId = 1,
+            Price = 10
+        });
 
         string? result = db.Table<Book>()
             .Select(b => b.Id.ToString())
@@ -137,6 +165,7 @@ public class MethodVisitorCoverageTests
     {
         [Key]
         public int Id { get; set; }
+
         public DateTimeOffset Date { get; set; }
     }
 
@@ -144,6 +173,7 @@ public class MethodVisitorCoverageTests
     {
         [Key]
         public int Id { get; set; }
+
         public TimeSpan Duration { get; set; }
     }
 }

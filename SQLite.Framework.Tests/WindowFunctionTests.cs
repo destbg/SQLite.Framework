@@ -315,17 +315,45 @@ public class WindowFunctionTests
         Assert.Equal(5L, results[4].RowNum);
     }
 
-    private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
-        db.StorageOptions.AddWindow();
+        TestDatabase db = new(b =>
+        {
+            b.AddWindow();
+            configure?.Invoke(b);
+        }, methodName);
         db.Table<Order>().CreateTable();
         db.Table<Order>().AddRange([
-            new Order { CustomerId = 1, Amount = 100.0, Date = new DateTime(2024, 1, 1) },
-            new Order { CustomerId = 1, Amount = 200.0, Date = new DateTime(2024, 1, 2) },
-            new Order { CustomerId = 2, Amount = 150.0, Date = new DateTime(2024, 1, 1) },
-            new Order { CustomerId = 2, Amount = 250.0, Date = new DateTime(2024, 1, 2) },
-            new Order { CustomerId = 1, Amount = 300.0, Date = new DateTime(2024, 1, 3) },
+            new Order
+            {
+                CustomerId = 1,
+                Amount = 100.0,
+                Date = new DateTime(2024, 1, 1)
+            },
+            new Order
+            {
+                CustomerId = 1,
+                Amount = 200.0,
+                Date = new DateTime(2024, 1, 2)
+            },
+            new Order
+            {
+                CustomerId = 2,
+                Amount = 150.0,
+                Date = new DateTime(2024, 1, 1)
+            },
+            new Order
+            {
+                CustomerId = 2,
+                Amount = 250.0,
+                Date = new DateTime(2024, 1, 2)
+            },
+            new Order
+            {
+                CustomerId = 1,
+                Amount = 300.0,
+                Date = new DateTime(2024, 1, 3)
+            },
         ]);
         return db;
     }
@@ -337,6 +365,7 @@ file class Order
     [Key]
     [AutoIncrement]
     public int Id { get; set; }
+
     public int CustomerId { get; set; }
     public double Amount { get; set; }
     public DateTime Date { get; set; }

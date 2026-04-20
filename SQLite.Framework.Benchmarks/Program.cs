@@ -4,7 +4,8 @@ using SQLite.Framework;
 
 File.Delete("test.db3");
 
-SQLiteDatabase db = new("test.db3");
+SQLiteOptionsBuilder optionsBuilder = new("test.db3");
+SQLiteDatabase db = new(optionsBuilder.Build());
 db.Table<TestEntity>().CreateTable();
 
 List<TestEntity> entities = [];

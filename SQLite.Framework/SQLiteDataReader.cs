@@ -18,18 +18,18 @@ public class SQLiteDataReader : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDataReader" /> class.
     /// </summary>
-    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock, SQLiteStorageOptions storageOptions)
+    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock, SQLiteOptions storageOptions)
     {
         this.handle = handle;
         this.connectionLock = connectionLock;
-        StorageOptions = storageOptions;
+        Options = storageOptions;
         Statement = statement;
     }
 
     /// <summary>
     /// The storage options used by the data reader, which may affect how certain types are read from the database.
     /// </summary>
-    public SQLiteStorageOptions StorageOptions { get; }
+    public SQLiteOptions Options { get; }
 
     /// <summary>
     /// The number of columns in the current row.
@@ -84,6 +84,6 @@ public class SQLiteDataReader : IDisposable
     /// </summary>
     public object? GetValue(int index, SQLiteColumnType columnType, Type type)
     {
-        return CommandHelpers.ReadColumnValue(Statement, index, columnType, type, StorageOptions);
+        return CommandHelpers.ReadColumnValue(Statement, index, columnType, type, Options);
     }
 }

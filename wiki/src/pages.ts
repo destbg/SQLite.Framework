@@ -54,6 +54,7 @@ export const sections: Section[] = [
         pages: [
             { slug: 'JSON and JSONB', title: 'JSON and JSONB' },
             { slug: 'Window Functions', title: 'Window Functions' },
+            { slug: 'Dependency Injection', title: 'Dependency Injection' },
         ],
     },
     {

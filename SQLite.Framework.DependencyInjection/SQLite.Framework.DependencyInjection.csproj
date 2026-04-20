@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0;net8.0</TargetFrameworks>
+        <OutputType>Library</OutputType>
+        <WarningsAsErrors>nullable</WarningsAsErrors>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <LangVersion>preview</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AssemblyName>SQLite.Framework.DependencyInjection</AssemblyName>
+        <PackageId>SQLite.Framework.DependencyInjection</PackageId>
+        <AssemblyTitle>Dependency injection helpers for SQLite.Framework</AssemblyTitle>
+        <Description>Adds `AddSQLiteDatabase` extension methods that register `SQLiteDatabase` (and subclasses) into a `Microsoft.Extensions.DependencyInjection` service collection, matching the pattern used by EntityFrameworkCore's `AddDbContext`.</Description>
+        <Authors>Nikolay Kostadinov</Authors>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Title>SQLite.Framework.DependencyInjection</Title>
+        <PackageProjectUrl>https://github.com/destbg/SQLite.Framework</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>sqlite database orm di dependency-injection</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageIcon>sqlite.png</PackageIcon>
+        <IsAotCompatible>true</IsAotCompatible>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="../README.md">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+        <None Include="../sqlite.png">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../SQLite.Framework/SQLite.Framework.csproj">
+            <PrivateAssets>all</PrivateAssets>
+        </ProjectReference>
+    </ItemGroup>
+
+</Project>

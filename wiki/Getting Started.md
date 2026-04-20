@@ -10,10 +10,11 @@ dotnet add package SQLite.Framework
 
 ## Console App
 
-Create a `SQLiteDatabase` and pass a file path. The connection opens automatically on the first operation.
+Build a read-only `SQLiteOptions` with `SQLiteOptionsBuilder` and hand it to the `SQLiteDatabase` constructor. The database path lives on the options. The connection opens automatically on the first operation.
 
 ```csharp
-using SQLiteDatabase db = new("library.db");
+SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
+using SQLiteDatabase db = new(options);
 
 var authors = db.Table<Author>();
 var books = db.Table<Book>();
@@ -29,11 +30,15 @@ var results = await books.Where(b => b.Price < 50).ToListAsync();
 
 `SQLiteDatabase` implements `IDisposable`, so use it inside a `using` block or statement.
 
+### Why a builder?
+
+`SQLiteOptionsBuilder` is mutable and lets you chain `Use*` / `Add*` calls. Once you call `Build()`, the returned `SQLiteOptions` is fully immutable — which makes it safe to share through dependency injection and reuse across databases without worrying about a late change affecting live code paths.
+
 ## .NET MAUI App
 
 Use `FileSystem.AppDataDirectory` to get a path that works on every platform.
 
-Register `SQLiteDatabase` as a singleton in `MauiProgram.cs` so the DI container creates it once and shares it across your app.
+Add the optional [`SQLite.Framework.DependencyInjection`](Dependency%20Injection) package and call `AddSQLiteDatabase` in `MauiProgram.cs`. The DI container creates the database once (`ServiceLifetime.Singleton` a good choice for mobile apps) and shares it across your app.
 
 ```csharp
 // MauiProgram.cs
@@ -46,7 +51,9 @@ public static class MauiProgram
         builder.UseMauiApp<App>();
 
         string dbPath = Path.Combine(FileSystem.AppDataDirectory, "library.db");
-        builder.Services.AddSingleton(new SQLiteDatabase(dbPath));
+        builder.Services.AddSQLiteDatabase(
+            b => b.DatabasePath = dbPath,
+            ServiceLifetime.Singleton);
 
         builder.Services.AddSingleton<LibraryPage>();
         builder.Services.AddSingleton<LibraryViewModel>();
@@ -55,6 +62,8 @@ public static class MauiProgram
     }
 }
 ```
+
+See the [Dependency Injection](Dependency%20Injection) page for more overloads, including subclassed databases and factory-style registration.
 
 Then accept it through the constructor in your ViewModel or page:
 

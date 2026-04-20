@@ -154,7 +154,7 @@ internal class AliasVisitor
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
                 Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[parameterExpression];
 
-                if (CommonHelpers.IsSimple(parameterExpression.Type, database.StorageOptions))
+                if (CommonHelpers.IsSimple(parameterExpression.Type, database.Options))
                 {
                     result.Add(alias, parameterTableColumns.Values.First());
                 }
@@ -179,7 +179,7 @@ internal class AliasVisitor
 
                 Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
 
-                if (CommonHelpers.IsSimple(memberAssignment.Expression.Type, database.StorageOptions))
+                if (CommonHelpers.IsSimple(memberAssignment.Expression.Type, database.Options))
                 {
                     result.Add(alias, parameterTableColumns[path]);
                 }
@@ -209,7 +209,7 @@ internal class AliasVisitor
 
     private void VisitMemberExpression(MemberExpression memberExpression, string? prefix)
     {
-        if (CommonHelpers.IsSimple(memberExpression.Type, database.StorageOptions))
+        if (CommonHelpers.IsSimple(memberExpression.Type, database.Options))
         {
             Expression columnMapping = visitor.Visit(memberExpression);
             result.Add(CheckPrefix(prefix, memberExpression.Member.Name), columnMapping);

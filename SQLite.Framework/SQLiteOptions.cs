@@ -7,116 +7,135 @@ using SQLite.Framework.Internals.Helpers;
 namespace SQLite.Framework;
 
 /// <summary>
-/// Controls how specific .NET types are stored in and read from the database.
-/// Using the default values allows for higher control over what is translated into SQLite.
+/// Read-only configuration for a <see cref="SQLiteDatabase" />. Build an instance via
+/// <see cref="SQLiteOptionsBuilder" /> and pass it to the <see cref="SQLiteDatabase" /> constructor.
 /// </summary>
-public class SQLiteStorageOptions
+public sealed class SQLiteOptions
 {
     private readonly ConcurrentDictionary<Type, Type?> interfaceToConverterTypeCache = [];
+
+    internal SQLiteOptions()
+    {
+    }
+
+    /// <summary>
+    /// The path to the SQLite database file.
+    /// </summary>
+    public required string DatabasePath { get; init; }
+
+    /// <summary>
+    /// The flags used when opening the SQLite connection.
+    /// </summary>
+    public required SQLiteOpenFlags OpenFlags { get; init; }
+
+    /// <summary>
+    /// When <see langword="true" />, the database operates in WAL (Write-Ahead Logging) mode.
+    /// Concurrent writes from independent async contexts proceed without serialization.
+    /// A <c>PRAGMA journal_mode = WAL</c> statement is issued automatically when the connection is first opened.
+    /// </summary>
+    public required bool IsWalMode { get; init; }
+
+    /// <summary>
+    /// The encryption key for a SQLCipher database. <see langword="null" /> when no key is set.
+    /// Only applied when the framework is compiled with <c>SQLITECIPHER</c>.
+    /// </summary>
+    public required string? EncryptionKey { get; init; }
 
     /// <summary>
     /// Controls how DateTime values are stored. Defaults to <see cref="DateTimeStorageMode.Integer" />.
     /// </summary>
-    public DateTimeStorageMode DateTimeStorage { get; set; } = DateTimeStorageMode.Integer;
+    public required DateTimeStorageMode DateTimeStorage { get; init; }
 
     /// <summary>
     /// The format string used when <see cref="DateTimeStorage" /> is set to <see cref="DateTimeStorageMode.TextFormatted" />.
     /// Defaults to "yyyy-MM-dd HH:mm:ss".
     /// </summary>
-    public string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
+    public required string DateTimeFormat { get; init; }
 
     /// <summary>
     /// Controls how DateTimeOffset values are stored. Defaults to <see cref="DateTimeOffsetStorageMode.Ticks" />.
     /// </summary>
-    public DateTimeOffsetStorageMode DateTimeOffsetStorage { get; set; } = DateTimeOffsetStorageMode.Ticks;
+    public required DateTimeOffsetStorageMode DateTimeOffsetStorage { get; init; }
 
     /// <summary>
     /// The format string used when <see cref="DateTimeOffsetStorage" /> is set to <see cref="DateTimeOffsetStorageMode.TextFormatted" />.
     /// Defaults to "yyyy-MM-dd HH:mm:ss zzz".
     /// </summary>
-    public string DateTimeOffsetFormat { get; set; } = "yyyy-MM-dd HH:mm:ss zzz";
+    public required string DateTimeOffsetFormat { get; init; }
 
     /// <summary>
     /// Controls how TimeSpan values are stored. Defaults to <see cref="TimeSpanStorageMode.Integer" />.
     /// </summary>
-    public TimeSpanStorageMode TimeSpanStorage { get; set; } = TimeSpanStorageMode.Integer;
+    public required TimeSpanStorageMode TimeSpanStorage { get; init; }
 
     /// <summary>
     /// The format string used when <see cref="TimeSpanStorage" /> is set to <see cref="TimeSpanStorageMode.Text" />.
     /// Defaults to "c" (constant/invariant format, e.g. "2.03:04:05.0060070").
     /// </summary>
-    public string TimeSpanFormat { get; set; } = "c";
+    public required string TimeSpanFormat { get; init; }
 
     /// <summary>
     /// Controls how DateOnly values are stored. Defaults to <see cref="DateOnlyStorageMode.Integer" />.
     /// </summary>
-    public DateOnlyStorageMode DateOnlyStorage { get; set; } = DateOnlyStorageMode.Integer;
+    public required DateOnlyStorageMode DateOnlyStorage { get; init; }
 
     /// <summary>
     /// The format string used when <see cref="DateOnlyStorage" /> is set to <see cref="DateOnlyStorageMode.Text" />.
     /// Defaults to "yyyy-MM-dd".
     /// </summary>
-    public string DateOnlyFormat { get; set; } = "yyyy-MM-dd";
+    public required string DateOnlyFormat { get; init; }
 
     /// <summary>
     /// Controls how TimeOnly values are stored. Defaults to <see cref="TimeOnlyStorageMode.Integer" />.
     /// </summary>
-    public TimeOnlyStorageMode TimeOnlyStorage { get; set; } = TimeOnlyStorageMode.Integer;
+    public required TimeOnlyStorageMode TimeOnlyStorage { get; init; }
 
     /// <summary>
     /// The format string used when <see cref="TimeOnlyStorage" /> is set to <see cref="TimeOnlyStorageMode.Text" />.
     /// Defaults to "HH:mm:ss".
     /// </summary>
-    public string TimeOnlyFormat { get; set; } = "HH:mm:ss";
+    public required string TimeOnlyFormat { get; init; }
 
     /// <summary>
     /// Controls how decimal values are stored. Defaults to <see cref="DecimalStorageMode.Real" />.
     /// </summary>
-    public DecimalStorageMode DecimalStorage { get; set; } = DecimalStorageMode.Real;
+    public required DecimalStorageMode DecimalStorage { get; init; }
 
     /// <summary>
     /// The format string used when <see cref="DecimalStorage" /> is set to <see cref="DecimalStorageMode.Text" />.
     /// Defaults to "G" (general format).
     /// </summary>
-    public string DecimalFormat { get; set; } = "G";
+    public required string DecimalFormat { get; init; }
 
     /// <summary>
     /// Controls how enum values are stored. Defaults to <see cref="EnumStorageMode.Integer" />.
     /// </summary>
-    public EnumStorageMode EnumStorage { get; set; } = EnumStorageMode.Integer;
+    public required EnumStorageMode EnumStorage { get; init; }
 
     /// <summary>
     /// Custom type converters that define how specific .NET types are stored in and read from SQLite.
-    /// The key is the .NET type; the value is the converter implementation.
     /// </summary>
-    public Dictionary<Type, ISQLiteTypeConverter> TypeConverters { get; } = [];
+    public required IReadOnlyDictionary<Type, ISQLiteTypeConverter> TypeConverters { get; init; }
 
     /// <summary>
     /// Custom method translators that convert specific .NET method calls into SQL fragments.
-    /// The key is the <see cref="MethodInfo" /> of the method to translate; the value is the translator delegate.
     /// </summary>
-    public Dictionary<MethodInfo, SQLiteMethodTranslator> MethodTranslators { get; } = [];
+    public required IReadOnlyDictionary<MethodInfo, SQLiteMethodTranslator> MethodTranslators { get; init; }
 
     /// <summary>
     /// Custom method translators for methods that take a predicate lambda as an argument.
-    /// The lambda parameter is automatically bound to <c>value</c> from a <c>json_each</c> subquery.
-    /// The key is the <see cref="MethodInfo" /> of the method to translate; the value is the translator delegate.
     /// </summary>
-    public Dictionary<MethodInfo, SQLitePredicateMethodTranslator> PredicateMethodTranslators { get; } = [];
+    public required IReadOnlyDictionary<MethodInfo, SQLitePredicateMethodTranslator> PredicateMethodTranslators { get; init; }
 
     /// <summary>
     /// Translates property access on custom types into SQL fragments.
-    /// Each translator returns a SQL fragment or <c>null</c> if it does not handle the given member.
-    /// Translators are tried in order until one returns a non-null result.
     /// </summary>
-    public List<SQLitePropertyTranslator> PropertyTranslators { get; } = [];
+    public required IReadOnlyList<SQLitePropertyTranslator> PropertyTranslators { get; init; }
 
     /// <summary>
     /// Interceptors that can handle method calls before the default dispatch logic.
-    /// Each interceptor receives the method call expression and a visitor, and returns a translated expression or null to pass.
-    /// Interceptors are tried in order until one returns a non-null result.
     /// </summary>
-    public List<Func<MethodCallExpression, ISQLExpressionVisitor, Expression?>> MethodCallInterceptors { get; } = [];
+    public required IReadOnlyList<Func<MethodCallExpression, ISQLExpressionVisitor, Expression?>> MethodCallInterceptors { get; init; }
 
     internal Type? GetConverterTypeForInterface(Type interfaceType)
     {

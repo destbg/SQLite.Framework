@@ -11,7 +11,11 @@ public class TimeSpanStorageTests
     public void Integer_RoundTrip()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -22,7 +26,11 @@ public class TimeSpanStorageTests
     public void Integer_Where_DaysEquals()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         TestEntity? result = db.Table<TestEntity>().FirstOrDefault(a => a.Duration.Days == 2);
 
@@ -33,7 +41,11 @@ public class TimeSpanStorageTests
     public void Integer_Where_HoursEquals()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         TestEntity? result = db.Table<TestEntity>().FirstOrDefault(a => a.Duration.Hours == 3);
 
@@ -44,7 +56,11 @@ public class TimeSpanStorageTests
     public void Integer_Select_Days()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         int days = db.Table<TestEntity>().Select(a => a.Duration.Days).First();
 
@@ -55,7 +71,11 @@ public class TimeSpanStorageTests
     public void Integer_Select_Hours()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         int hours = db.Table<TestEntity>().Select(a => a.Duration.Hours).First();
 
@@ -66,7 +86,11 @@ public class TimeSpanStorageTests
     public void Integer_Select_Minutes()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         int minutes = db.Table<TestEntity>().Select(a => a.Duration.Minutes).First();
 
@@ -77,7 +101,11 @@ public class TimeSpanStorageTests
     public void Integer_Select_Seconds()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         int seconds = db.Table<TestEntity>().Select(a => a.Duration.Seconds).First();
 
@@ -88,7 +116,11 @@ public class TimeSpanStorageTests
     public void Integer_Select_TotalDays()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         double totalDays = db.Table<TestEntity>().Select(a => a.Duration.TotalDays).First();
 
@@ -99,7 +131,11 @@ public class TimeSpanStorageTests
     public void Integer_Select_TotalHours()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         double totalHours = db.Table<TestEntity>().Select(a => a.Duration.TotalHours).First();
 
@@ -110,7 +146,11 @@ public class TimeSpanStorageTests
     public void Integer_Select_TotalSeconds()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         double totalSeconds = db.Table<TestEntity>().Select(a => a.Duration.TotalSeconds).First();
 
@@ -120,9 +160,15 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_RoundTrip()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -132,9 +178,15 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_RoundTrip_Negative()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(-1, -2, -3, -4, -5, -6) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(-1, -2, -3, -4, -5, -6)
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -144,9 +196,15 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_RoundTrip_Zero()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = TimeSpan.Zero });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = TimeSpan.Zero
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -156,9 +214,10 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_Where_DaysEquals_Throws()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TestEntity>().Where(a => a.Duration.Days == 2).ToList());
     }
@@ -166,9 +225,10 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_Where_HoursEquals_Throws()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TestEntity>().Where(a => a.Duration.Hours == 3).ToList());
     }
@@ -176,9 +236,15 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_Select_Days_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         int days = db.Table<TestEntity>().Select(a => a.Duration.Days).First();
 
@@ -188,9 +254,15 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_Select_Hours_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         int hours = db.Table<TestEntity>().Select(a => a.Duration.Hours).First();
 
@@ -200,9 +272,15 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_Select_Minutes_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         int minutes = db.Table<TestEntity>().Select(a => a.Duration.Minutes).First();
 
@@ -212,9 +290,15 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_Select_Seconds_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         int seconds = db.Table<TestEntity>().Select(a => a.Duration.Seconds).First();
 
@@ -224,9 +308,15 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_Select_TotalDays_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         double totalDays = db.Table<TestEntity>().Select(a => a.Duration.TotalDays).First();
 
@@ -236,9 +326,15 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_Select_TotalHours_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         double totalHours = db.Table<TestEntity>().Select(a => a.Duration.TotalHours).First();
 
@@ -248,18 +344,24 @@ public class TimeSpanStorageTests
     [Fact]
     public void Text_Select_TotalSeconds_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.TimeSpanStorage = TimeSpanStorageMode.Text;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Duration = new TimeSpan(2, 3, 4, 5, 6, 7) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.TimeSpanStorage = TimeSpanStorageMode.Text;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Duration = new TimeSpan(2, 3, 4, 5, 6, 7)
+        });
 
         double totalSeconds = db.Table<TestEntity>().Select(a => a.Duration.TotalSeconds).First();
 
         Assert.Equal(new TimeSpan(2, 3, 4, 5, 6, 7).TotalSeconds, totalSeconds, 5);
     }
 
-    private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
+        TestDatabase db = new(configure, methodName);
         db.Table<TestEntity>().CreateTable();
         return db;
     }

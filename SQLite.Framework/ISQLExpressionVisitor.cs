@@ -15,5 +15,5 @@ public interface ISQLExpressionVisitor
     /// <summary>
     /// The storage options for the current database.
     /// </summary>
-    SQLiteStorageOptions StorageOptions { get; }
+    SQLiteOptions Options { get; }
 }

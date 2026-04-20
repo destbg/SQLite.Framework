@@ -11,7 +11,11 @@ public class DateTimeOffsetStorageTests
     public void Ticks_RoundTrip()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -23,7 +27,11 @@ public class DateTimeOffsetStorageTests
     {
         using TestDatabase db = SetupDatabase();
         DateTimeOffset original = new(2000, 2, 3, 4, 5, 6, TimeSpan.FromHours(5));
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = original });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = original
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -34,7 +42,11 @@ public class DateTimeOffsetStorageTests
     public void Ticks_Where_YearEquals()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         TestEntity? result = db.Table<TestEntity>().FirstOrDefault(a => a.Date.Year == 2000);
 
@@ -45,7 +57,11 @@ public class DateTimeOffsetStorageTests
     public void Ticks_Select_Year()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int year = db.Table<TestEntity>().Select(a => a.Date.Year).First();
 
@@ -56,7 +72,11 @@ public class DateTimeOffsetStorageTests
     public void Ticks_Select_Month()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int month = db.Table<TestEntity>().Select(a => a.Date.Month).First();
 
@@ -67,7 +87,11 @@ public class DateTimeOffsetStorageTests
     public void Ticks_Select_Day()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int day = db.Table<TestEntity>().Select(a => a.Date.Day).First();
 
@@ -78,7 +102,11 @@ public class DateTimeOffsetStorageTests
     public void Ticks_Select_Hour()
     {
         using TestDatabase db = SetupDatabase();
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int hour = db.Table<TestEntity>().Select(a => a.Date.Hour).First();
 
@@ -88,10 +116,16 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void UtcTicks_RoundTrip_PreservesUtcMoment()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
+        });
         DateTimeOffset original = new(2000, 2, 3, 4, 5, 6, TimeSpan.FromHours(5));
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = original });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = original
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -101,9 +135,15 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void UtcTicks_Where_YearEquals()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         TestEntity? result = db.Table<TestEntity>().FirstOrDefault(a => a.Date.Year == 2000);
 
@@ -113,9 +153,15 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void UtcTicks_Select_Year()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int year = db.Table<TestEntity>().Select(a => a.Date.Year).First();
 
@@ -125,9 +171,15 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void UtcTicks_Select_Month()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int month = db.Table<TestEntity>().Select(a => a.Date.Month).First();
 
@@ -137,9 +189,15 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void UtcTicks_Select_Day()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int day = db.Table<TestEntity>().Select(a => a.Date.Day).First();
 
@@ -149,9 +207,15 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void UtcTicks_Select_Hour()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.UtcTicks;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int hour = db.Table<TestEntity>().Select(a => a.Date.Hour).First();
 
@@ -161,10 +225,16 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void TextFormatted_RoundTrip_PreservesOffset()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        });
         DateTimeOffset original = new(2000, 2, 3, 4, 5, 6, TimeSpan.FromHours(5));
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = original });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = original
+        });
 
         TestEntity result = db.Table<TestEntity>().First();
 
@@ -174,9 +244,10 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void TextFormatted_Where_YearEquals_Throws()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
-
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        });
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TestEntity>().Where(a => a.Date.Year == 2000).ToList());
     }
@@ -184,9 +255,15 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void TextFormatted_Select_Year_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int year = db.Table<TestEntity>().Select(a => a.Date.Year).First();
 
@@ -196,9 +273,15 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void TextFormatted_Select_Month_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int month = db.Table<TestEntity>().Select(a => a.Date.Month).First();
 
@@ -208,9 +291,15 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void TextFormatted_Select_Day_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int day = db.Table<TestEntity>().Select(a => a.Date.Day).First();
 
@@ -220,18 +309,24 @@ public class DateTimeOffsetStorageTests
     [Fact]
     public void TextFormatted_Select_Hour_ComputesClientSide()
     {
-        using TestDatabase db = SetupDatabase();
-        db.StorageOptions.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
-        db.Table<TestEntity>().Add(new TestEntity { Id = 1, Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero) });
+        using TestDatabase db = SetupDatabase(b =>
+        {
+            b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
+        });
+        db.Table<TestEntity>().Add(new TestEntity
+        {
+            Id = 1,
+            Date = new DateTimeOffset(2000, 2, 3, 4, 5, 6, TimeSpan.Zero)
+        });
 
         int hour = db.Table<TestEntity>().Select(a => a.Date.Hour).First();
 
         Assert.Equal(4, hour);
     }
 
-    private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
+    private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
+        TestDatabase db = new(configure, methodName);
         db.Table<TestEntity>().CreateTable();
         return db;
     }

@@ -12,7 +12,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class CommonHelpers
 {
-    public static bool IsSimple(Type type, SQLiteStorageOptions options)
+    public static bool IsSimple(Type type, SQLiteOptions options)
     {
         type = Nullable.GetUnderlyingType(type) ?? type;
 
@@ -214,7 +214,7 @@ internal static class CommonHelpers
         return parameters.ToArray();
     }
 
-    public static SQLiteColumnType TypeToSQLiteType(Type type, SQLiteStorageOptions options)
+    public static SQLiteColumnType TypeToSQLiteType(Type type, SQLiteOptions options)
     {
         type = Nullable.GetUnderlyingType(type) ?? type;
 

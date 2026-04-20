@@ -4,9 +4,9 @@ using System.Reflection;
 namespace SQLite.Framework.Window;
 
 /// <summary>
-/// Extension methods for registering window function support with <see cref="SQLiteStorageOptions" />.
+/// Extension methods for registering window function support with <see cref="SQLiteOptionsBuilder" />.
 /// </summary>
-public static class SQLiteStorageOptionsWindowExtensions
+public static class SQLiteOptionsBuilderWindowExtensions
 {
     /// <summary>
     /// Registers method translators for all <see cref="SQLiteWindowFunctions" /> and
@@ -14,7 +14,7 @@ public static class SQLiteStorageOptionsWindowExtensions
     /// </summary>
     [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(SQLiteWindowFunctions))]
     [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(FrameBoundary))]
-    public static SQLiteStorageOptions AddWindow(this SQLiteStorageOptions options)
+    public static SQLiteOptionsBuilder AddWindow(this SQLiteOptionsBuilder options)
     {
         Dictionary<MethodInfo, SQLiteMethodTranslator> t = options.MethodTranslators;
 

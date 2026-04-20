@@ -23,7 +23,7 @@ internal static class BuildQueryObject
             return createInstance(context);
         }
 
-        SQLiteStorageOptions options = reader.StorageOptions;
+        SQLiteOptions options = reader.Options;
         if (CommonHelpers.IsSimple(elementType, options))
         {
             SQLiteColumnType columnType = reader.GetColumnType(0);
@@ -45,7 +45,7 @@ internal static class BuildQueryObject
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All types should be part of the client assembly.")]
-    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, Dictionary<string, int> columns, SQLiteStorageOptions options)
+    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, Dictionary<string, int> columns, SQLiteOptions options)
     {
         if (CommonHelpers.IsSimple(type, options))
         {

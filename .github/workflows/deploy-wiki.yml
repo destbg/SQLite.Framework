@@ -1,11 +1,9 @@
 name: Deploy wiki to GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'wiki/**'
+  release:
+    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read

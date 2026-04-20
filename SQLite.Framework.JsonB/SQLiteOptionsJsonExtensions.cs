@@ -4,9 +4,9 @@ using System.Reflection;
 namespace SQLite.Framework.JsonB;
 
 /// <summary>
-/// Extension methods for registering JSON and JSONB function support with <see cref="SQLiteStorageOptions" />.
+/// Extension methods for registering JSON and JSONB function support with <see cref="SQLiteOptionsBuilder" />.
 /// </summary>
-public static class SQLiteStorageOptionsJsonExtensions
+public static class SQLiteOptionsBuilderJsonExtensions
 {
     /// <summary>
     /// Registers method translators for all <see cref="SQLiteJsonFunctions" /> methods so they can be used
@@ -14,7 +14,7 @@ public static class SQLiteStorageOptionsJsonExtensions
     /// </summary>
     [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(SQLiteJsonFunctions))]
     [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(Enumerable))]
-    public static SQLiteStorageOptions AddJson(this SQLiteStorageOptions options)
+    public static SQLiteOptionsBuilder AddJson(this SQLiteOptionsBuilder options)
     {
         Dictionary<MethodInfo, SQLiteMethodTranslator> t = options.MethodTranslators;
 

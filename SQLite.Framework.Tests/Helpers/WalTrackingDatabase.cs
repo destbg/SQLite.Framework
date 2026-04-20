@@ -12,9 +12,8 @@ internal class WalTrackingDatabase : TestDatabase
     public int LockHoldMilliseconds { get; set; }
 
     public WalTrackingDatabase([CallerMemberName] string? methodName = null)
-        : base(methodName)
+        : base(b => b.UseWalMode(), methodName)
     {
-        IsWalMode = true;
     }
 
     public override IDisposable Lock()

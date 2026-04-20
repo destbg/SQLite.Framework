@@ -21,7 +21,7 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </remarks>
 internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 {
-    SQLiteStorageOptions ISQLExpressionVisitor.StorageOptions => Database.StorageOptions;
+    SQLiteOptions ISQLExpressionVisitor.Options => Database.Options;
     private readonly PropertyVisitor propertyVisitor;
 
     public SQLVisitor(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level)
@@ -74,7 +74,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
             {
                 string colSql = $"{alias}.{f.Name}";
-                if (Database.StorageOptions.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? conv)
+                if (Database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? conv)
                     && conv.ColumnSqlExpression is { } colExpr)
                 {
                     colSql = string.Format(colExpr, colSql);
@@ -383,7 +383,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
                     if (expression is SQLExpression colExpr && !IsInSelectProjection)
                     {
                         Type colType = Nullable.GetUnderlyingType(colExpr.Type) ?? colExpr.Type;
-                        if (colType == typeof(decimal) && Database.StorageOptions.DecimalStorage == DecimalStorageMode.Text)
+                        if (colType == typeof(decimal) && Database.Options.DecimalStorage == DecimalStorageMode.Text)
                         {
                             return new SQLExpression(colExpr.Type, IdentifierIndex.Index++, $"CAST({colExpr.Sql} AS REAL)", colExpr.Parameters);
                         }
@@ -467,7 +467,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             }
             else
             {
-                string sqliteType = CommonHelpers.TypeToSQLiteType(node.Type, Database.StorageOptions).ToString().ToUpper();
+                string sqliteType = CommonHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
                 return new SQLExpression(node.Type,
                     IdentifierIndex.Index++,
                     $"CAST({resolved.SQLExpression.Sql} AS {sqliteType})",
@@ -543,7 +543,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             return MethodVisitor.HandleGuidMethod(node);
         }
 
-        foreach (Func<MethodCallExpression, ISQLExpressionVisitor, Expression?> interceptor in Database.StorageOptions.MethodCallInterceptors)
+        foreach (Func<MethodCallExpression, ISQLExpressionVisitor, Expression?> interceptor in Database.Options.MethodCallInterceptors)
         {
             Expression? intercepted = interceptor(node, this);
             if (intercepted != null)
@@ -865,7 +865,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 
         if (node.Expression.Type == typeof(DateTime))
         {
-            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.DateTimeStorage == DateTimeStorageMode.TextFormatted)
+            if (IsInSelectProjection && Level == 0 && Database.Options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
             {
                 return node.Update(sqlExpression);
             }
@@ -875,7 +875,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 
         if (node.Expression.Type == typeof(DateTimeOffset))
         {
-            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
+            if (IsInSelectProjection && Level == 0 && Database.Options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
             {
                 return node.Update(sqlExpression);
             }
@@ -885,7 +885,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 
         if (node.Expression.Type == typeof(TimeSpan))
         {
-            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.TimeSpanStorage == TimeSpanStorageMode.Text)
+            if (IsInSelectProjection && Level == 0 && Database.Options.TimeSpanStorage == TimeSpanStorageMode.Text)
             {
                 return node.Update(sqlExpression);
             }
@@ -895,7 +895,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 
         if (node.Expression.Type == typeof(DateOnly))
         {
-            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.DateOnlyStorage == DateOnlyStorageMode.Text)
+            if (IsInSelectProjection && Level == 0 && Database.Options.DateOnlyStorage == DateOnlyStorageMode.Text)
             {
                 return node.Update(sqlExpression);
             }
@@ -905,7 +905,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 
         if (node.Expression.Type == typeof(TimeOnly))
         {
-            if (IsInSelectProjection && Level == 0 && Database.StorageOptions.TimeOnlyStorage == TimeOnlyStorageMode.Text)
+            if (IsInSelectProjection && Level == 0 && Database.Options.TimeOnlyStorage == TimeOnlyStorageMode.Text)
             {
                 return node.Update(sqlExpression);
             }
@@ -925,13 +925,13 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Open generic type methods are looked up by name for custom translator registration.")]
     private bool TryGetMethodTranslator(MethodInfo method, [NotNullWhen(true)] out SQLiteMethodTranslator? translator)
     {
-        if (Database.StorageOptions.MethodTranslators.TryGetValue(method, out translator))
+        if (Database.Options.MethodTranslators.TryGetValue(method, out translator))
         {
             return true;
         }
 
         if (method.IsGenericMethod &&
-            Database.StorageOptions.MethodTranslators.TryGetValue(method.GetGenericMethodDefinition(), out translator))
+            Database.Options.MethodTranslators.TryGetValue(method.GetGenericMethodDefinition(), out translator))
         {
             return true;
         }
@@ -941,7 +941,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             Type openType = method.DeclaringType.GetGenericTypeDefinition();
             MethodInfo? openMethod = openType.GetMethods()
                 .FirstOrDefault(m => m.Name == method.Name && m.GetParameters().Length == method.GetParameters().Length);
-            if (openMethod != null && Database.StorageOptions.MethodTranslators.TryGetValue(openMethod, out translator))
+            if (openMethod != null && Database.Options.MethodTranslators.TryGetValue(openMethod, out translator))
             {
                 return true;
             }
@@ -953,13 +953,13 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Open generic type methods are looked up by name for custom predicate translator registration.")]
     private bool TryGetPredicateMethodTranslator(MethodInfo method, [NotNullWhen(true)] out SQLitePredicateMethodTranslator? translator)
     {
-        if (Database.StorageOptions.PredicateMethodTranslators.TryGetValue(method, out translator))
+        if (Database.Options.PredicateMethodTranslators.TryGetValue(method, out translator))
         {
             return true;
         }
 
         if (method.IsGenericMethod &&
-            Database.StorageOptions.PredicateMethodTranslators.TryGetValue(method.GetGenericMethodDefinition(), out translator))
+            Database.Options.PredicateMethodTranslators.TryGetValue(method.GetGenericMethodDefinition(), out translator))
         {
             return true;
         }
@@ -969,7 +969,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             Type openType = method.DeclaringType.GetGenericTypeDefinition();
             MethodInfo? openMethod = openType.GetMethods()
                 .FirstOrDefault(m => m.Name == method.Name && m.GetParameters().Length == method.GetParameters().Length);
-            if (openMethod != null && Database.StorageOptions.PredicateMethodTranslators.TryGetValue(openMethod, out translator))
+            if (openMethod != null && Database.Options.PredicateMethodTranslators.TryGetValue(openMethod, out translator))
             {
                 return true;
             }
@@ -994,7 +994,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 
         Type elementType = lambda.Parameters[0].Type;
 
-        if (CommonHelpers.IsSimple(elementType, Database.StorageOptions))
+        if (CommonHelpers.IsSimple(elementType, Database.Options))
         {
             SQLExpression valueExpr = new(elementType, -1, "value", (SQLiteParameter[]?)null);
             MethodArguments[lambda.Parameters[0]] = new Dictionary<string, Expression> { [""] = valueExpr };
@@ -1028,7 +1028,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
         {
             string dictKey = string.IsNullOrEmpty(prefix) ? prop.Name : $"{prefix}.{prop.Name}";
 
-            if (CommonHelpers.IsSimple(prop.PropertyType, Database.StorageOptions))
+            if (CommonHelpers.IsSimple(prop.PropertyType, Database.Options))
             {
                 string? sql = TranslateProperty(dictKey, "value");
                 if (sql != null)
@@ -1045,7 +1045,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 
     private string? TranslateProperty(string memberName, string instanceSql)
     {
-        foreach (SQLitePropertyTranslator translator in Database.StorageOptions.PropertyTranslators)
+        foreach (SQLitePropertyTranslator translator in Database.Options.PropertyTranslators)
         {
             string? sql = translator(memberName, instanceSql);
             if (sql != null)
@@ -1059,7 +1059,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 
     private Type CoercedResultType(Type declaredType, Type sourceType)
     {
-        if (!Database.StorageOptions.TypeConverters.ContainsKey(sourceType))
+        if (!Database.Options.TypeConverters.ContainsKey(sourceType))
         {
             return declaredType;
         }

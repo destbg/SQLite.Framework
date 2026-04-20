@@ -5,8 +5,8 @@ namespace SQLite.Framework.Window;
 /// <summary>
 /// Marker methods for SQLite window functions. These methods throw at runtime and are only
 /// valid inside a LINQ query where they are translated to their SQL equivalents.
-/// Register translations by calling <see cref="SQLiteStorageOptionsWindowExtensions.AddWindow" />
-/// on your <see cref="SQLiteStorageOptions" />.
+/// Register translations by calling <see cref="SQLiteOptionsWindowExtensions.AddWindow" />
+/// on your <see cref="SQLiteOptions" />.
 /// </summary>
 [ExcludeFromCodeCoverage]
 public static class SQLiteWindowFunctions

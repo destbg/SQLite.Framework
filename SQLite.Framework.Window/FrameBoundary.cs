@@ -6,7 +6,7 @@ namespace SQLite.Framework.Window;
 /// Represents a boundary in a window frame. Use the static factory methods to create boundaries.
 /// These methods throw at runtime and are only valid inside a LINQ query where they are translated
 /// to their SQL equivalents. Register translations by calling
-/// <see cref="SQLiteStorageOptionsWindowExtensions.AddWindow" /> on your <see cref="SQLiteStorageOptions" />.
+/// <see cref="SQLiteOptionsWindowExtensions.AddWindow" /> on your <see cref="SQLiteOptions" />.
 /// </summary>
 [ExcludeFromCodeCoverage]
 public sealed class FrameBoundary
