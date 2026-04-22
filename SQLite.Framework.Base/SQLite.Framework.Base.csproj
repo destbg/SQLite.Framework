@@ -47,4 +47,13 @@
         <PackageReference Include="SQLitePCLRaw.core" Version="3.0.2" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="SQLite.Framework.JsonB" />
+        <InternalsVisibleTo Include="SQLite.Framework.Window" />
+        <InternalsVisibleTo Include="SQLite.Framework.Tests" />
+        <InternalsVisibleTo Include="SQLite.Framework.Tests.Base" />
+        <InternalsVisibleTo Include="SQLite.Framework.Tests.Bundled" />
+        <InternalsVisibleTo Include="SQLite.Framework.Tests.Cipher" />
+    </ItemGroup>
+
 </Project>
