@@ -1,12 +1,12 @@
 # SQLite.Framework
 
-A lightweight ORM for SQLite, designed for .NET MAUI with AOT support and LINQ-style `IQueryable` querying.
+A lightweight ORM for SQLite, designed for .NET MAUI and Avalonia with AOT support and LINQ-style `IQueryable` querying.
 
 [![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
 
 ## Features
 
-- **AOT-ready**: Designed for Ahead-Of-Time compilation in .NET MAUI apps.
+- **AOT-ready**: Designed for Ahead-Of-Time compilation in .NET MAUI and Avalonia apps.
 - **IQueryable interface**: Write LINQ queries against your SQLite database.
 - **Inspired by EF & sqlite-net-pcl**: Familiar patterns with minimal overhead.
 
@@ -42,7 +42,8 @@ dotnet add package SQLite.Framework
    ```csharp
    using SQLite.Framework;
 
-   var context = new SQLiteDatabase("app.db");
+   var options = new SQLiteOptionsBuilder("app.db").Build();
+   using var context = new SQLiteDatabase(options);
    context.Table<Person>().CreateTable();
    ```
 
@@ -86,10 +87,27 @@ dotnet add package SQLite.Framework
 
 ## AOT Support
 
-In order to use this library in AOT scenarios, you need to make sure the objects you are querying are either:
+For Native AOT builds, install `SQLite.Framework.SourceGenerator` and turn it on when you build your options:
 
-- Part of the assembly that is being AOT compiled (the user's code).
-- Or simply make sure the classes are referenced in your code.
+```bash
+dotnet add package SQLite.Framework.SourceGenerator
+```
+
+```csharp
+using SQLite.Framework.Generated;
+
+var options = new SQLiteOptionsBuilder("app.db")
+    .UseGeneratedMaterializers()
+    .Build();
+```
+
+The generator writes the code that reads SQLite rows into your .NET objects at build time, so the trimmer can see every public type used in a `Select` and no reflection is needed for those. Private types and private methods that appear in a `Select` still go through a small amount of reflection.
+
+`UseGeneratedMaterializers` is generated per project. The class and the extension method are marked `internal`, so if your solution has several projects that build LINQ queries, each one needs its own reference to `SQLite.Framework.SourceGenerator` and its own call to `UseGeneratedMaterializers`.
+
+See the [Source Generator](https://github.com/destbg/SQLite.Framework/wiki/Source-Generator) and [Native AOT](https://github.com/destbg/SQLite.Framework/wiki/Native-AOT) pages for the full setup.
+
+Without the generator, the library still runs under AOT but uses reflection for each query. In that case, make sure the classes you query are either part of the AOT-compiled assembly or referenced directly in your code so the trimmer keeps them.
 
 ## Contributing
 

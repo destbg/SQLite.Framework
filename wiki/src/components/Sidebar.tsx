@@ -36,9 +36,10 @@ export default function Sidebar() {
             <aside className={`sidebar${mobileOpen ? ' sidebar--open' : ''}`}>
                 <div className="sidebar-header">
                     <NavLink to="/" className="sidebar-title" onClick={() => setMobileOpen(false)}>
-                        SQLite.Framework
+                        <img src={`${import.meta.env.BASE_URL}sqlite.png`} alt="" className="sidebar-logo" />
+                        <span>SQLite.Framework</span>
+                        <span className="sidebar-subtitle">Docs</span>
                     </NavLink>
-                    <div className="sidebar-subtitle">Documentation</div>
                 </div>
 
                 <nav className="sidebar-nav">

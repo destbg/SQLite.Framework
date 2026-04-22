@@ -19,9 +19,10 @@ public static class AsyncDatabaseExtensions
     /// When <see langword="false" /> (the default), the transaction uses the shared connection
     /// and holds the exclusive write lock until it is committed or rolled back.
     /// </param>
-    public static SQLiteBeginTransactionAwaitable BeginTransactionAsync(this SQLiteDatabase database, bool separateConnection = false)
+    /// <param name="ct">Token that cancels the wait for the shared connection lock. Has no effect once the transaction has started.</param>
+    public static SQLiteBeginTransactionAwaitable BeginTransactionAsync(this SQLiteDatabase database, bool separateConnection = false, CancellationToken ct = default)
     {
-        return new SQLiteBeginTransactionAwaitable(database, separateConnection);
+        return new SQLiteBeginTransactionAwaitable(database, separateConnection, ct);
     }
 
     /// <summary>

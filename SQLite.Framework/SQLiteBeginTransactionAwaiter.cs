@@ -7,10 +7,9 @@ namespace SQLite.Framework;
 /// Awaiter for <see cref="SQLiteBeginTransactionAwaitable" />.
 /// </summary>
 /// <remarks>
-/// <see cref="GetResult" /> is invoked in the caller's execution context after the <see langword="await" />
-/// completes. This is the only place where <see cref="AsyncLocal{T}" /> mutations are visible to the
-/// caller's subsequent continuations, setting the connection-lock flag here means that every
-/// <c>Lock()</c> call the caller makes afterward correctly short-circuits to a no-op.
+/// <see cref="GetResult" /> runs in the calling thread right after the <see langword="await" />.
+/// Setting the connection lock flag in this step makes later <c>Lock()</c> calls in the same
+/// flow do nothing.
 /// </remarks>
 public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
 {
@@ -19,25 +18,21 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
     private readonly sqlite3? ownedHandle;
     private readonly bool ownsLock;
 
-    internal SQLiteBeginTransactionAwaiter(SQLiteDatabase database, bool separateConnection)
+    internal SQLiteBeginTransactionAwaiter(SQLiteDatabase database, bool separateConnection, CancellationToken cancellationToken)
     {
         this.database = database;
         ownsLock = !database.HoldsConnectionLock;
 
         if (ownsLock && separateConnection)
         {
-            // Open the connection synchronously here (in the caller's flow) so the handle is
-            // available in GetResult(), which also runs in the caller's execution context.
+            cancellationToken.ThrowIfCancellationRequested();
             ownedHandle = database.OpenTransactionConnection();
             savepointTask = Task.FromResult(string.Empty);
             return;
         }
 
-        // When we already hold the lock, create the savepoint synchronously right now
-        // (still in the caller's flow) and wrap in a completed task so no real await happens.
-        // When we need to acquire the lock, kick off the async acquisition immediately.
         savepointTask = ownsLock
-            ? database.AcquireConnectionAndCreateSavepoint()
+            ? database.AcquireConnectionAndCreateSavepoint(cancellationToken)
             : Task.FromResult(database.CreateSavepoint());
     }
 

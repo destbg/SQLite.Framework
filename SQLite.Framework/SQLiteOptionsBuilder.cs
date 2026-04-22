@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using SQLite.Framework.Enums;
+using SQLite.Framework.Models;
 
 namespace SQLite.Framework;
 
@@ -130,6 +131,27 @@ public sealed class SQLiteOptionsBuilder
     /// Interceptors that can handle method calls before the default dispatch logic.
     /// </summary>
     public List<Func<MethodCallExpression, ISQLExpressionVisitor, Expression?>> MethodCallInterceptors { get; } = [];
+
+    /// <summary>
+    /// Generated entity materializers, keyed by the entity's CLR type.
+    /// Populated by the <c>UseGeneratedMaterializers</c> extension emitted by <c>SQLite.Framework.SourceGenerator</c>.
+    /// User code should go through that extension rather than mutating this map directly.
+    /// </summary>
+    public Dictionary<Type, Func<SQLiteQueryContext, object?>> EntityMaterializers { get; } = [];
+
+    /// <summary>
+    /// Generated Select projection materializers, keyed by a canonical signature derived from the
+    /// selector lambda's body. Populated by the <c>UseGeneratedMaterializers</c> extension emitted by
+    /// <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public Dictionary<string, Func<SQLiteQueryContext, object?>> SelectMaterializers { get; } = [];
+
+    /// <summary>
+    /// When <see langword="true" />, any entity or <c>Select</c> projection that would fall back
+    /// to the runtime reflection path throws an <see cref="InvalidOperationException" /> instead.
+    /// Defaults to <see langword="false" />.
+    /// </summary>
+    public bool ReflectionFallbackDisabled { get; set; }
 
     /// <summary>
     /// Sets the flags used when opening the SQLite connection.
@@ -306,6 +328,18 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Disables the runtime reflection fallback. Any entity or <c>Select</c> projection that is
+    /// not covered by a generated materializer will throw an <see cref="InvalidOperationException" />.
+    /// Call this together with <c>UseGeneratedMaterializers</c> to guarantee that every query in
+    /// production is handled by the source generator.
+    /// </summary>
+    public SQLiteOptionsBuilder DisableReflectionFallback(bool disabled = true)
+    {
+        ReflectionFallbackDisabled = disabled;
+        return this;
+    }
+
+    /// <summary>
     /// Produces a read-only <see cref="SQLiteOptions" /> snapshot of this builder's current state.
     /// Subsequent mutations on this builder do not affect the returned options instance.
     /// </summary>
@@ -335,6 +369,9 @@ public sealed class SQLiteOptionsBuilder
             PredicateMethodTranslators = new Dictionary<MethodInfo, SQLitePredicateMethodTranslator>(PredicateMethodTranslators),
             PropertyTranslators = [.. PropertyTranslators],
             MethodCallInterceptors = [.. MethodCallInterceptors],
+            EntityMaterializers = new Dictionary<Type, Func<SQLiteQueryContext, object?>>(EntityMaterializers),
+            SelectMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(SelectMaterializers),
+            ReflectionFallbackDisabled = ReflectionFallbackDisabled,
         };
     }
 }

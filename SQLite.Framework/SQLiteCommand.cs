@@ -56,7 +56,7 @@ public class SQLiteCommand
         try
         {
             sqlite3_stmt statement = CreateStatement();
-            return new SQLiteDataReader(database.GetActiveHandle(), statement, connectionLock, database.Options);
+            return new SQLiteDataReader(database.GetActiveHandle(), statement, connectionLock, database);
         }
         catch
         {

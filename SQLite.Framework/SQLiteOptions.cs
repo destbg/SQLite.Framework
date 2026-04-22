@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
+using SQLite.Framework.Models;
 
 namespace SQLite.Framework;
 
@@ -136,6 +137,27 @@ public sealed class SQLiteOptions
     /// Interceptors that can handle method calls before the default dispatch logic.
     /// </summary>
     public required IReadOnlyList<Func<MethodCallExpression, ISQLExpressionVisitor, Expression?>> MethodCallInterceptors { get; init; }
+
+    /// <summary>
+    /// Generated entity materializers, keyed by the entity's CLR type. Populated by the
+    /// <c>UseGeneratedMaterializers</c> extension emitted by <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public required IReadOnlyDictionary<Type, Func<SQLiteQueryContext, object?>> EntityMaterializers { get; init; }
+
+    /// <summary>
+    /// Generated Select projection materializers, keyed by a canonical signature derived from the
+    /// selector lambda's body. Populated by the <c>UseGeneratedMaterializers</c> extension emitted
+    /// by <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public required IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> SelectMaterializers { get; init; }
+
+    /// <summary>
+    /// When <see langword="true" />, any entity or <c>Select</c> projection that would fall back
+    /// to the runtime reflection path throws an <see cref="InvalidOperationException" /> instead.
+    /// Use this together with <c>UseGeneratedMaterializers</c> to guarantee that every query in
+    /// production goes through the source generator.
+    /// </summary>
+    public bool ReflectionFallbackDisabled { get; init; }
 
     internal Type? GetConverterTypeForInterface(Type interfaceType)
     {

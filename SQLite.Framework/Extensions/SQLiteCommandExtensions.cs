@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 
@@ -29,7 +28,7 @@ public static class SQLiteCommandExtensions
                 columns = CommandHelpers.GetColumnNames(reader.Statement);
             }
 
-            yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns, null)!;
+            yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns, (SQLQuery?)null)!;
         }
     }
 
@@ -52,7 +51,7 @@ public static class SQLiteCommandExtensions
                     columns = CommandHelpers.GetColumnNames(reader.Statement);
                 }
 
-                yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns, query.CreateObject)!;
+                yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns, query)!;
             }
         }
     }
@@ -75,7 +74,7 @@ public static class SQLiteCommandExtensions
                     columns = CommandHelpers.GetColumnNames(reader.Statement);
                 }
 
-                yield return BuildQueryObject.CreateInstance(reader, elementType, columns, query.CreateObject);
+                yield return BuildQueryObject.CreateInstance(reader, elementType, columns, query);
             }
         }
     }

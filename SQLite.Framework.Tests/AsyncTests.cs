@@ -13,7 +13,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        List<int> list = await db.Table<Book>().Select(f => f.Id).ToListAsync();
+        List<int> list = await db.Table<Book>().Select(f => f.Id).ToListAsync(TestContext.Current.CancellationToken);
 
         Assert.NotNull(list);
         Assert.NotEmpty(list);
@@ -42,7 +42,7 @@ public class AsyncTests
                     BirthDate = author.BirthDate
                 }
             }
-        ).ToListAsync();
+        ).ToListAsync(TestContext.Current.CancellationToken);
 
         Assert.NotNull(list);
         Assert.NotEmpty(list);
@@ -68,7 +68,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        Book first = await db.Table<Book>().FirstAsync(f => f.Id == 1);
+        Book first = await db.Table<Book>().FirstAsync(f => f.Id == 1, TestContext.Current.CancellationToken);
 
         Assert.NotNull(first);
         Assert.Equal(1, first.Id);
@@ -84,12 +84,11 @@ public class AsyncTests
 
         try
         {
-            await db.Table<Book>().FirstAsync(f => f.Id == -1);
+            await db.Table<Book>().FirstAsync(f => f.Id == -1, TestContext.Current.CancellationToken);
             Assert.Fail("Expected exception not thrown.");
         }
         catch (InvalidOperationException)
         {
-            // Success
         }
     }
 
@@ -98,7 +97,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        Book? first = await db.Table<Book>().FirstOrDefaultAsync(f => f.Id == 1);
+        Book? first = await db.Table<Book>().FirstOrDefaultAsync(f => f.Id == 1, TestContext.Current.CancellationToken);
 
         Assert.NotNull(first);
         Assert.Equal(1, first.Id);
@@ -112,7 +111,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        Book? first = await db.Table<Book>().FirstOrDefaultAsync(f => f.Id == -1);
+        Book? first = await db.Table<Book>().FirstOrDefaultAsync(f => f.Id == -1, TestContext.Current.CancellationToken);
 
         Assert.Null(first);
     }
@@ -122,7 +121,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        Book single = await db.Table<Book>().SingleAsync(f => f.Id == 1);
+        Book single = await db.Table<Book>().SingleAsync(f => f.Id == 1, TestContext.Current.CancellationToken);
 
         Assert.NotNull(single);
         Assert.Equal(1, single.Id);
@@ -138,12 +137,11 @@ public class AsyncTests
 
         try
         {
-            await db.Table<Book>().SingleAsync(f => f.Id == -1);
+            await db.Table<Book>().SingleAsync(f => f.Id == -1, TestContext.Current.CancellationToken);
             Assert.Fail("Expected exception not thrown.");
         }
         catch (InvalidOperationException)
         {
-            // Success
         }
     }
 
@@ -154,12 +152,11 @@ public class AsyncTests
 
         try
         {
-            await db.Table<Book>().SingleAsync(f => f.AuthorId == 1);
+            await db.Table<Book>().SingleAsync(f => f.AuthorId == 1, TestContext.Current.CancellationToken);
             Assert.Fail("Expected exception not thrown.");
         }
         catch (InvalidOperationException)
         {
-            // Success
         }
     }
 
@@ -168,7 +165,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        Book? single = await db.Table<Book>().SingleOrDefaultAsync(f => f.Id == 1);
+        Book? single = await db.Table<Book>().SingleOrDefaultAsync(f => f.Id == 1, TestContext.Current.CancellationToken);
 
         Assert.NotNull(single);
         Assert.Equal(1, single.Id);
@@ -182,7 +179,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        Book? single = await db.Table<Book>().SingleOrDefaultAsync(f => f.Id == -1);
+        Book? single = await db.Table<Book>().SingleOrDefaultAsync(f => f.Id == -1, TestContext.Current.CancellationToken);
 
         Assert.Null(single);
     }
@@ -192,7 +189,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        bool any = await db.Table<Book>().AnyAsync(f => f.Id == 1);
+        bool any = await db.Table<Book>().AnyAsync(f => f.Id == 1, TestContext.Current.CancellationToken);
 
         Assert.True(any);
     }
@@ -202,7 +199,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        bool any = await db.Table<Book>().AnyAsync(f => f.Id == -1);
+        bool any = await db.Table<Book>().AnyAsync(f => f.Id == -1, TestContext.Current.CancellationToken);
 
         Assert.False(any);
     }
@@ -212,7 +209,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        bool all = await db.Table<Book>().AllAsync(f => f.Title != "Book -1");
+        bool all = await db.Table<Book>().AllAsync(f => f.Title != "Book -1", TestContext.Current.CancellationToken);
 
         Assert.True(all);
     }
@@ -222,7 +219,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        bool all = await db.Table<Book>().AllAsync(f => f.Id != 1);
+        bool all = await db.Table<Book>().AllAsync(f => f.Id != 1, TestContext.Current.CancellationToken);
 
         Assert.False(all);
     }
@@ -232,7 +229,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        int count = await db.Table<Book>().CountAsync(f => f.AuthorId == 1);
+        int count = await db.Table<Book>().CountAsync(f => f.AuthorId == 1, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, count);
     }
@@ -242,7 +239,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        double sum = await db.Table<Book>().SumAsync(f => f.Price);
+        double sum = await db.Table<Book>().SumAsync(f => f.Price, TestContext.Current.CancellationToken);
 
         Assert.Equal(15, sum);
     }
@@ -252,7 +249,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        double max = await db.Table<Book>().MaxAsync(f => f.Price);
+        double max = await db.Table<Book>().MaxAsync(f => f.Price, TestContext.Current.CancellationToken);
 
         Assert.Equal(10, max);
     }
@@ -262,7 +259,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        double min = await db.Table<Book>().MinAsync(f => f.Price);
+        double min = await db.Table<Book>().MinAsync(f => f.Price, TestContext.Current.CancellationToken);
 
         Assert.Equal(5, min);
     }
@@ -272,7 +269,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        double average = await db.Table<Book>().AverageAsync(f => f.Price);
+        double average = await db.Table<Book>().AverageAsync(f => f.Price, TestContext.Current.CancellationToken);
 
         Assert.Equal(7.5, average);
     }
@@ -282,7 +279,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        bool contains = await db.Table<Book>().Select(f => f.Id).ContainsAsync(1);
+        bool contains = await db.Table<Book>().Select(f => f.Id).ContainsAsync(1, TestContext.Current.CancellationToken);
 
         Assert.True(contains);
     }
@@ -292,7 +289,7 @@ public class AsyncTests
     {
         using TestDatabase db = SetupDatabase();
 
-        bool contains = await db.Table<Book>().Select(f => f.Id).ContainsAsync(-1);
+        bool contains = await db.Table<Book>().Select(f => f.Id).ContainsAsync(-1, TestContext.Current.CancellationToken);
 
         Assert.False(contains);
     }

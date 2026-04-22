@@ -14,6 +14,7 @@ jobs:
           - SQLite.Framework.Tests.Bundled
           - SQLite.Framework.Tests.Cipher
           - SQLite.Framework.Tests.Base
+          - SQLite.Framework.Tests.SourceGenerator
     name: ${{ matrix.project }}
     steps:
       - uses: actions/checkout@v4

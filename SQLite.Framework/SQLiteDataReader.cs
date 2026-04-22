@@ -18,18 +18,23 @@ public class SQLiteDataReader : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDataReader" /> class.
     /// </summary>
-    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock, SQLiteOptions storageOptions)
+    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock, SQLiteDatabase database)
     {
         this.handle = handle;
         this.connectionLock = connectionLock;
-        Options = storageOptions;
+        Database = database;
         Statement = statement;
     }
 
     /// <summary>
+    /// The database the reader was created for.
+    /// </summary>
+    public SQLiteDatabase Database { get; }
+
+    /// <summary>
     /// The storage options used by the data reader, which may affect how certain types are read from the database.
     /// </summary>
-    public SQLiteOptions Options { get; }
+    public SQLiteOptions Options => Database.Options;
 
     /// <summary>
     /// The number of columns in the current row.

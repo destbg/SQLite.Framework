@@ -25,6 +25,7 @@ var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 | `SQLite.Framework.JsonB` | JSON and JSONB function support for LINQ queries. Call `AddJson` on the options builder. |
 | `SQLite.Framework.Window` | SQL window function support (`ROW_NUMBER`, `RANK`, `SUM OVER`, etc.). Call `AddWindow` on the options builder. |
 | `SQLite.Framework.DependencyInjection` | `AddSQLiteDatabase` helpers for `Microsoft.Extensions.DependencyInjection`. Use it to register a `SQLiteDatabase` (or a subclass) into an `IServiceCollection`. |
+| `SQLite.Framework.SourceGenerator` | Build-time source generator that writes materializers for your entities and `Select` projections. Avoids reflection for every public type the generator can see. Recommended for Native AOT builds. |
 
 All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose the same API and assembly name, so you can swap between them without changing any code. The other packages layer optional features on top.
 
@@ -62,5 +63,6 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - [Window Functions](Window%20Functions)
 - [Performance](Performance)
 - [Native AOT](Native%20AOT)
+- [Source Generator](Source%20Generator)
 - [Dependency Injection](Dependency%20Injection)
 - [Migrating from sqlite-net-pcl](Migrating%20from%20sqlite-net-pcl)

@@ -78,6 +78,71 @@ public class ResultTests
     }
 
     [Fact]
+    public void CallExternalMethodNullJoin_NullEqualsCheck()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        BookDTO book = (
+            from b in db.Table<Book>()
+            join author in db.Table<Author>() on b.AuthorId equals author.Id - 1 into authorGroup
+            from author in authorGroup.DefaultIfEmpty()
+            where b.Id == 1
+            select new BookDTO
+            {
+                Id = b.Id,
+                Title = b.Title,
+                Author = author == null
+                    ? null
+                    : new AuthorDTO
+                    {
+                        Id = author.Id,
+                        Name = author.Name,
+                        Email = author.Email,
+                        BirthDate = author.BirthDate
+                    }
+            }
+        ).First();
+
+        Assert.NotNull(book);
+        Assert.Equal(1, book.Id);
+        Assert.Equal("Book 1", book.Title);
+        Assert.Null(book.Author);
+    }
+
+    [Fact]
+    public void CallExternalMethodNonNullJoin_ReversedNullCheck()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        BookDTO book = (
+            from b in db.Table<Book>()
+            join author in db.Table<Author>() on b.AuthorId equals author.Id into authorGroup
+            from author in authorGroup.DefaultIfEmpty()
+            where b.Id == 1
+            select new BookDTO
+            {
+                Id = b.Id,
+                Title = b.Title,
+                Author = null != author
+                    ? new AuthorDTO
+                    {
+                        Id = author.Id,
+                        Name = author.Name,
+                        Email = author.Email,
+                        BirthDate = author.BirthDate
+                    }
+                    : null
+            }
+        ).First();
+
+        Assert.NotNull(book);
+        Assert.Equal(1, book.Id);
+        Assert.Equal("Book 1", book.Title);
+        Assert.NotNull(book.Author);
+        Assert.Equal(1, book.Author.Id);
+    }
+
+    [Fact]
     public void SelectWithAnonymousTypeResult()
     {
         using TestDatabase db = SetupDatabase();
@@ -173,7 +238,6 @@ public class ResultTests
         }
         catch (InvalidOperationException)
         {
-            // Success
         }
     }
 
@@ -227,7 +291,6 @@ public class ResultTests
         }
         catch (InvalidOperationException)
         {
-            // Success
         }
     }
 
@@ -243,7 +306,6 @@ public class ResultTests
         }
         catch (InvalidOperationException)
         {
-            // Success
         }
     }
 

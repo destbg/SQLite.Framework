@@ -413,7 +413,6 @@ public class ModifyTests
         catch (SQLiteException ex)
         {
             Assert.Equal(SQLiteResult.Error, ex.Result);
-            // Success
         }
     }
 
@@ -693,7 +692,7 @@ public class ModifyTests
 
         db.Table<Book>().CreateTable();
 
-        await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 });
+        await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 }, TestContext.Current.CancellationToken);
 
         List<Book> list = db.Table<Book>().ToList();
 
@@ -710,8 +709,8 @@ public class ModifyTests
 
         db.Table<Book>().CreateTable();
 
-        await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 });
-        await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1 Updated", AuthorId = 1, Price = 9 });
+        await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 }, TestContext.Current.CancellationToken);
+        await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1 Updated", AuthorId = 1, Price = 9 }, TestContext.Current.CancellationToken);
 
         List<Book> list = db.Table<Book>().ToList();
 
@@ -730,7 +729,7 @@ public class ModifyTests
         await db.Table<Book>().AddOrUpdateRangeAsync([
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
             new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 10 },
-        ]);
+        ], ct: TestContext.Current.CancellationToken);
 
         List<Book> list = db.Table<Book>().ToList();
 
@@ -749,12 +748,12 @@ public class ModifyTests
         await db.Table<Book>().AddRangeAsync([
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
             new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 10 },
-        ]);
+        ], ct: TestContext.Current.CancellationToken);
 
         await db.Table<Book>().AddOrUpdateRangeAsync([
             new Book { Id = 1, Title = "Book 1 Updated", AuthorId = 1, Price = 6 },
             new Book { Id = 2, Title = "Book 2 Updated", AuthorId = 1, Price = 11 },
-        ]);
+        ], ct: TestContext.Current.CancellationToken);
 
         List<Book> list = db.Table<Book>().ToList();
 

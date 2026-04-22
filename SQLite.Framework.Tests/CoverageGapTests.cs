@@ -5,6 +5,9 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#pragma warning disable IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
+#pragma warning disable IL3050 // Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.
+
 namespace SQLite.Framework.Tests;
 
 public class CoverageGapTests
@@ -172,11 +175,11 @@ public class CoverageGapTests
             lockHeld.Set();
             releaseSignal.Wait();
             tx.Commit();
-        });
+        }, TestContext.Current.CancellationToken);
 
-        lockHeld.Wait();
+        lockHeld.Wait(TestContext.Current.CancellationToken);
 
-        SQLiteBeginTransactionAwaiter awaiter = db.BeginTransactionAsync().GetAwaiter();
+        SQLiteBeginTransactionAwaiter awaiter = db.BeginTransactionAsync(ct: TestContext.Current.CancellationToken).GetAwaiter();
         Assert.False(awaiter.IsCompleted);
 
         TaskCompletionSource tcs = new();
@@ -184,7 +187,7 @@ public class CoverageGapTests
 
         releaseSignal.Set();
 
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
         SQLiteTransaction tx2 = awaiter.GetResult();

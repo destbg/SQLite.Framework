@@ -32,7 +32,7 @@ var results = await books.Where(b => b.Price < 50).ToListAsync();
 
 ### Why a builder?
 
-`SQLiteOptionsBuilder` is mutable and lets you chain `Use*` / `Add*` calls. Once you call `Build()`, the returned `SQLiteOptions` is fully immutable — which makes it safe to share through dependency injection and reuse across databases without worrying about a late change affecting live code paths.
+`SQLiteOptionsBuilder` is mutable and lets you chain `Use*` / `Add*` calls. Once you call `Build()`, the returned `SQLiteOptions` is fully immutable, this makes it safe to share through dependency injection and reuse across databases without worrying about a late change affecting live code paths.
 
 ## .NET MAUI App
 

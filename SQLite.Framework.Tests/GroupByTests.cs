@@ -236,7 +236,7 @@ public class GroupByTests
             new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 },
         });
 
-        List<Book> rows = await db.Table<Book>().ToListAsync();
+        List<Book> rows = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Dictionary<int, List<Book>> byAuthor = rows
             .GroupBy(b => b.AuthorId)
             .ToDictionary(g => g.Key, g => g.ToList());
