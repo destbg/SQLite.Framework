@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Models;
 
@@ -10,13 +11,13 @@ namespace SQLite.Framework.Internals.Models;
 [ExcludeFromCodeCoverage]
 internal class CompiledExpression : Expression
 {
-    public CompiledExpression(Type type, Func<QueryContext, object?> call)
+    public CompiledExpression(Type type, Func<SQLiteQueryContext, object?> call)
     {
         Type = type;
         Call = call;
     }
 
-    public new Func<QueryContext, object?> Call { get; }
+    public new Func<SQLiteQueryContext, object?> Call { get; }
 
     public override Type Type { get; }
     public override ExpressionType NodeType => ExpressionType.Call;

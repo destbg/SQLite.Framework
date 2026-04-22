@@ -62,6 +62,7 @@ export const sections: Section[] = [
         pages: [
             { slug: 'Performance', title: 'Performance' },
             { slug: 'Native AOT', title: 'Native AOT' },
+            { slug: 'Source Generator', title: 'Source Generator' },
             { slug: 'Migrating from sqlite-net-pcl', title: 'Migrating from sqlite-net-pcl' },
         ],
     },

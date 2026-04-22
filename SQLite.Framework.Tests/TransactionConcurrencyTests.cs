@@ -43,7 +43,7 @@ public class TransactionConcurrencyTests
 
         await Task.WhenAll(tasks);
 
-        Assert.Equal(8, await db.Table<Book>().CountAsync());
+        Assert.Equal(8, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class TransactionConcurrencyTests
 
         await Task.WhenAll(tasks);
 
-        Assert.Equal(24, await db.Table<Book>().CountAsync());
+        Assert.Equal(24, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -270,13 +270,13 @@ public class TransactionConcurrencyTests
                 Price = 3
             });
             tx.Commit();
-        });
+        }, TestContext.Current.CancellationToken);
 
-        Task queryTask = db.Table<Book>().ToListAsync();
+        Task queryTask = db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
 
         await Task.WhenAll(transactionTask, queryTask);
 
-        List<Book> all = await db.Table<Book>().ToListAsync();
+        List<Book> all = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(3, all.Count);
     }
 
@@ -286,7 +286,7 @@ public class TransactionConcurrencyTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        await using SQLiteTransaction tx = await db.BeginTransactionAsync();
+        await using SQLiteTransaction tx = await db.BeginTransactionAsync(ct: TestContext.Current.CancellationToken);
 
         db.Table<Book>().Add(new Book
         {
@@ -296,7 +296,7 @@ public class TransactionConcurrencyTests
             Price = 1
         });
 
-        List<Book> mid = await db.Table<Book>().ToListAsync();
+        List<Book> mid = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.Single(mid);
 
         db.Table<Book>().Add(new Book
@@ -307,9 +307,9 @@ public class TransactionConcurrencyTests
             Price = 2
         });
 
-        await tx.CommitAsync();
+        await tx.CommitAsync(TestContext.Current.CancellationToken);
 
-        List<Book> all = await db.Table<Book>().ToListAsync();
+        List<Book> all = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, all.Count);
     }
 
@@ -319,7 +319,7 @@ public class TransactionConcurrencyTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        await using (SQLiteTransaction tx = await db.BeginTransactionAsync())
+        await using (SQLiteTransaction tx = await db.BeginTransactionAsync(ct: TestContext.Current.CancellationToken))
         {
             db.Table<Book>().Add(new Book
             {
@@ -328,10 +328,10 @@ public class TransactionConcurrencyTests
                 AuthorId = 1,
                 Price = 1
             });
-            await tx.RollbackAsync();
+            await tx.RollbackAsync(TestContext.Current.CancellationToken);
         }
 
-        List<Book> result = await db.Table<Book>().ToListAsync();
+        List<Book> result = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.Empty(result);
     }
 
@@ -366,9 +366,9 @@ public class TransactionConcurrencyTests
             }
         ];
 
-        await db.Table<Book>().AddRangeAsync(books);
+        await db.Table<Book>().AddRangeAsync(books, ct: TestContext.Current.CancellationToken);
 
-        List<Book> result = await db.Table<Book>().ToListAsync();
+        List<Book> result = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(3, result.Count);
     }
 
@@ -425,13 +425,13 @@ public class TransactionConcurrencyTests
         {
             await using SQLiteTransaction tx = await db.BeginTransactionAsync();
             txStarted.SetResult();
-            await release.WaitAsync();
-            await tx.CommitAsync();
-        });
+            await release.WaitAsync(TestContext.Current.CancellationToken);
+            await tx.CommitAsync(TestContext.Current.CancellationToken);
+        }, TestContext.Current.CancellationToken);
 
         await txStarted.Task;
 
-        List<Book> books = await db.Table<Book>().ToListAsync();
+        List<Book> books = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(5, books.Count);
         Assert.False(txTask.IsCompleted);
 
@@ -457,20 +457,20 @@ public class TransactionConcurrencyTests
         {
             await using SQLiteTransaction tx = await db.BeginTransactionAsync();
             txStarted.SetResult();
-            await release.WaitAsync();
-            await tx.CommitAsync();
-        });
+            await release.WaitAsync(TestContext.Current.CancellationToken);
+            await tx.CommitAsync(TestContext.Current.CancellationToken);
+        }, TestContext.Current.CancellationToken);
 
         await txStarted.Task;
 
         Task queuedTxTask = Task.Run(async () =>
         {
             await using SQLiteTransaction tx = await db.BeginTransactionAsync();
-        });
+        }, TestContext.Current.CancellationToken);
 
-        await Task.Delay(30);
+        await Task.Delay(30, TestContext.Current.CancellationToken);
 
-        List<Book> books = await db.Table<Book>().ToListAsync();
+        List<Book> books = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(5, books.Count);
         Assert.False(queuedTxTask.IsCompleted);
 

@@ -29,6 +29,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly Dictionary<Type, TableMapping> tableMappings = [];
     private int walWriterCount;
 
+#if SQLITE_FRAMEWORK_TESTING
+    private long entityMaterializerHits;
+    private long selectMaterializerHits;
+    private long selectCompilerFallbacks;
+#endif
+
     static SQLiteDatabase()
     {
 #if !NO_SQLITEPCL_RAW_BATTERIES
@@ -84,6 +90,30 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public SQLiteOptions Options { get; }
 
+#if SQLITE_FRAMEWORK_TESTING
+    /// <summary>
+    /// Number of times a generated entity materializer from <see cref="SQLiteOptions.EntityMaterializers" />
+    /// has handled a query row for this database. Read-only counter; increments on every hit.
+    /// Only present when the framework is built with the <c>SQLITE_FRAMEWORK_TESTING</c> symbol.
+    /// </summary>
+    public long EntityMaterializerHits => Interlocked.Read(ref entityMaterializerHits);
+
+    /// <summary>
+    /// Number of times a generated Select materializer from <see cref="SQLiteOptions.SelectMaterializers" />
+    /// has handled a query for this database. Read-only counter; increments on every hit.
+    /// Only present when the framework is built with the <c>SQLITE_FRAMEWORK_TESTING</c> symbol.
+    /// </summary>
+    public long SelectMaterializerHits => Interlocked.Read(ref selectMaterializerHits);
+
+    /// <summary>
+    /// Number of times a Select projection used runtime compilation because no generated
+    /// materializer was found. Parity tests use this to check that every Select uses the
+    /// source generator. A non-zero value means the generator did not cover this shape
+    /// or produced a different signature than the runtime.
+    /// </summary>
+    public long SelectCompilerFallbacks => Interlocked.Read(ref selectCompilerFallbacks);
+#endif
+
     /// <summary>
     /// Gets or sets the user-defined version number stored in the database file header.
     /// This can be used to track schema versions.
@@ -95,17 +125,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     internal bool HoldsConnectionLock => holdsConnectionLock.Value;
-
-    /// <summary>
-    /// Returns the active connection handle for the current async context.
-    /// When a transaction was started with <c>separateConnection: true</c>,
-    /// this returns that transaction's dedicated connection.
-    /// Otherwise, it returns the shared connection handle.
-    /// </summary>
-    internal sqlite3 GetActiveHandle()
-    {
-        return transactionHandle.Value ?? Handle!;
-    }
 
     /// <inheritdoc />
     public virtual void Dispose()
@@ -165,7 +184,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             if (reader.Read())
             {
                 columns = CommandHelpers.GetColumnNames(reader.Statement);
-                TResult result = (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns, query.CreateObject)!;
+                TResult result = (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns, query)!;
 
                 if (reader.Read())
                 {
@@ -178,7 +197,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         else if (reader.Read())
         {
             columns = CommandHelpers.GetColumnNames(reader.Statement);
-            return (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns, query.CreateObject)!;
+            return (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns, query)!;
         }
 
         if (query.ThrowOnEmpty)
@@ -375,10 +394,10 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// Returns a disposable that represents a read operation against the database.
     /// </summary>
     /// <remarks>
-    /// Read operations do not acquire the exclusive connection lock. SQLite's own serialized-mode mutex
-    /// ensures that concurrent statements on the same connection are safe, and WAL mode gives each reader
-    /// a consistent snapshot regardless of concurrent writers. Only write operations and transactions need
-    /// the exclusive lock.
+    /// Read operations do not take the exclusive connection lock. SQLite uses its own mutex
+    /// to keep concurrent statements on the same connection safe, and WAL mode gives each
+    /// reader a consistent snapshot even when other connections are writing. Only write
+    /// operations and transactions need the exclusive lock.
     /// </remarks>
     public virtual IDisposable ReadLock()
     {
@@ -570,6 +589,34 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return CreateCommand(sql, ToParameterList(parameters)).ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Returns the active connection handle for the current async context.
+    /// When a transaction was started with <c>separateConnection: true</c>,
+    /// this returns that transaction's dedicated connection.
+    /// Otherwise, it returns the shared connection handle.
+    /// </summary>
+    internal sqlite3 GetActiveHandle()
+    {
+        return transactionHandle.Value ?? Handle!;
+    }
+
+#if SQLITE_FRAMEWORK_TESTING
+    internal void IncrementEntityMaterializerHits()
+    {
+        Interlocked.Increment(ref entityMaterializerHits);
+    }
+
+    internal void IncrementSelectMaterializerHits()
+    {
+        Interlocked.Increment(ref selectMaterializerHits);
+    }
+
+    internal void IncrementSelectCompilerFallbacks()
+    {
+        Interlocked.Increment(ref selectCompilerFallbacks);
+    }
+#endif
+
     internal IEnumerable<T> ExecuteSequenceQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression expression)
     {
         if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(IGrouping<,>))
@@ -691,9 +738,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         ReleaseTransactionLock();
     }
 
-    internal async Task<string> AcquireConnectionAndCreateSavepoint()
+    internal async Task<string> AcquireConnectionAndCreateSavepoint(CancellationToken cancellationToken)
     {
-        await connectionSemaphore.WaitAsync().ConfigureAwait(false);
+        await connectionSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         holdsConnectionLock.Value = true;
         return CreateSavepoint();
     }

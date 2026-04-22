@@ -246,7 +246,6 @@ public class OtherTests
 
         transaction.Rollback();
 
-        // After rollback, the data should not be present in the table
         Assert.Throws<InvalidOperationException>(() =>
         {
             Publisher publisher = db.Table<Publisher>().First(f => f.Id == 1);
@@ -271,7 +270,6 @@ public class OtherTests
             });
         }
 
-        // After rollback, the data should not be present in the table
         Assert.Throws<InvalidOperationException>(() =>
         {
             Publisher publisher = db.Table<Publisher>().First(f => f.Id == 1);
@@ -438,8 +436,8 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        Task task1 = Task.Run(db.OpenConnection);
-        Task task2 = Task.Run(db.OpenConnection);
+        Task task1 = Task.Run(db.OpenConnection, TestContext.Current.CancellationToken);
+        Task task2 = Task.Run(db.OpenConnection, TestContext.Current.CancellationToken);
         await Task.WhenAll(task1, task2);
 
         Assert.True(db.IsConnected);
@@ -476,7 +474,7 @@ public class OtherTests
                              b0.BookPrice AS "Price"
                       FROM ({sql}) AS b0
                       WHERE b0.BookId = @p1
-                      """, command.CommandText.Replace("\r\n", "\n"));
+                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal("@title", command.Parameters[0].Name);
         Assert.Equal("FromSqlTest", command.Parameters[0].Value);
@@ -532,7 +530,7 @@ public class OtherTests
                          FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
                      ) AS b2 ON b0.BookId = b2.Id
                      WHERE b0.BookId = @p1
-                     """, command.CommandText.Replace("\r\n", "\n"));
+                     """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal("@p1", command.Parameters[0].Name);
         Assert.Equal(1, command.Parameters[0].Value);
@@ -583,7 +581,7 @@ public class OtherTests
                          SELECT b1.BookId AS "Id"
                          FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
                      )
-                     """, command.CommandText.Replace("\r\n", "\n"));
+                     """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
         Assert.Single(command.Parameters);
         Assert.Equal("@title", command.Parameters[0].Name);
         Assert.Equal("FromSqlTest", command.Parameters[0].Value);
@@ -635,7 +633,7 @@ public class OtherTests
 
         GenericMethod<Book>(db, 1);
 
-        static void GenericMethod<T>(TestDatabase db, int id)
+        static void GenericMethod<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(TestDatabase db, int id)
             where T : class, IEntity
         {
             IEntity? result = db.Table<T>().FirstOrDefault(f => f.Id == id);
@@ -683,7 +681,7 @@ public class OtherTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        Assert.Equal(0, await db.GetUserVersionAsync());
+        Assert.Equal(0, await db.GetUserVersionAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -692,9 +690,9 @@ public class OtherTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        await db.SetUserVersionAsync(7);
+        await db.SetUserVersionAsync(7, TestContext.Current.CancellationToken);
 
-        Assert.Equal(7, await db.GetUserVersionAsync());
+        Assert.Equal(7, await db.GetUserVersionAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -703,7 +701,7 @@ public class OtherTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        await db.SetUserVersionAsync(3);
+        await db.SetUserVersionAsync(3, TestContext.Current.CancellationToken);
 
         Assert.Equal(3, db.UserVersion);
     }

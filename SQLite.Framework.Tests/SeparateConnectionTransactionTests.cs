@@ -141,7 +141,7 @@ public class SeparateConnectionTransactionTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true);
+        await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken);
 
         await db.Table<Book>().AddAsync(new Book
         {
@@ -149,8 +149,8 @@ public class SeparateConnectionTransactionTests
             Title = "A",
             AuthorId = 1,
             Price = 1
-        });
-        List<Book> mid = await db.Table<Book>().ToListAsync();
+        }, TestContext.Current.CancellationToken);
+        List<Book> mid = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.Single(mid);
 
         await db.Table<Book>().AddAsync(new Book
@@ -159,10 +159,10 @@ public class SeparateConnectionTransactionTests
             Title = "B",
             AuthorId = 1,
             Price = 2
-        });
-        await tx.CommitAsync();
+        }, TestContext.Current.CancellationToken);
+        await tx.CommitAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(2, await db.Table<Book>().CountAsync());
+        Assert.Equal(2, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -189,13 +189,13 @@ public class SeparateConnectionTransactionTests
         {
             await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true);
             txStarted.SetResult();
-            await release.WaitAsync();
-            await tx.CommitAsync();
-        });
+            await release.WaitAsync(TestContext.Current.CancellationToken);
+            await tx.CommitAsync(TestContext.Current.CancellationToken);
+        }, TestContext.Current.CancellationToken);
 
         await txStarted.Task;
 
-        List<Book> books = await db.Table<Book>().ToListAsync();
+        List<Book> books = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(5, books.Count);
         Assert.False(txTask.IsCompleted);
 
@@ -216,15 +216,15 @@ public class SeparateConnectionTransactionTests
         {
             await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true);
             tx1Started.SetResult();
-            await release.WaitAsync();
-            await tx.CommitAsync();
-        });
+            await release.WaitAsync(TestContext.Current.CancellationToken);
+            await tx.CommitAsync(TestContext.Current.CancellationToken);
+        }, TestContext.Current.CancellationToken);
 
         await tx1Started.Task;
 
-        await using SQLiteTransaction tx2 = await db.BeginTransactionAsync(separateConnection: true);
+        await using SQLiteTransaction tx2 = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken);
         Assert.False(tx1Task.IsCompleted);
-        await tx2.CommitAsync();
+        await tx2.CommitAsync(TestContext.Current.CancellationToken);
 
         release.Release();
         await tx1Task;
@@ -243,9 +243,9 @@ public class SeparateConnectionTransactionTests
         {
             using SQLiteTransaction tx = db.BeginTransaction(separateConnection: true);
             tx1Started.SetResult();
-            release.Wait();
+            release.Wait(TestContext.Current.CancellationToken);
             tx.Commit();
-        });
+        }, TestContext.Current.CancellationToken);
 
         await tx1Started.Task;
 
@@ -263,7 +263,7 @@ public class SeparateConnectionTransactionTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        await using (SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true))
+        await using (SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken))
         {
             await db.Table<Book>().AddAsync(new Book
             {
@@ -271,11 +271,11 @@ public class SeparateConnectionTransactionTests
                 Title = "A",
                 AuthorId = 1,
                 Price = 1
-            });
-            await tx.CommitAsync();
+            }, TestContext.Current.CancellationToken);
+            await tx.CommitAsync(TestContext.Current.CancellationToken);
         }
 
-        Assert.Equal(1, await db.Table<Book>().CountAsync());
+        Assert.Equal(1, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -284,7 +284,7 @@ public class SeparateConnectionTransactionTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        await using (SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true))
+        await using (SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken))
         {
             await db.Table<Book>().AddAsync(new Book
             {
@@ -292,11 +292,11 @@ public class SeparateConnectionTransactionTests
                 Title = "A",
                 AuthorId = 1,
                 Price = 1
-            });
-            await tx.RollbackAsync();
+            }, TestContext.Current.CancellationToken);
+            await tx.RollbackAsync(TestContext.Current.CancellationToken);
         }
 
-        Assert.Equal(0, await db.Table<Book>().CountAsync());
+        Assert.Equal(0, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -305,7 +305,7 @@ public class SeparateConnectionTransactionTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        await using (SQLiteTransaction _ = await db.BeginTransactionAsync(separateConnection: true))
+        await using (SQLiteTransaction _ = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken))
         {
             await db.Table<Book>().AddAsync(new Book
             {
@@ -313,10 +313,10 @@ public class SeparateConnectionTransactionTests
                 Title = "A",
                 AuthorId = 1,
                 Price = 1
-            });
+            }, TestContext.Current.CancellationToken);
         }
 
-        Assert.Equal(0, await db.Table<Book>().CountAsync());
+        Assert.Equal(0, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -455,9 +455,9 @@ public class SeparateConnectionTransactionTests
             },
         ];
 
-        await db.Table<Book>().AddRangeAsync(books, separateConnection: true);
+        await db.Table<Book>().AddRangeAsync(books, separateConnection: true, ct: TestContext.Current.CancellationToken);
 
-        Assert.Equal(3, await db.Table<Book>().CountAsync());
+        Assert.Equal(3, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -484,7 +484,7 @@ public class SeparateConnectionTransactionTests
             },
         ];
 
-        await db.Table<Book>().AddRangeAsync(books);
+        await db.Table<Book>().AddRangeAsync(books, ct: TestContext.Current.CancellationToken);
 
         List<Book> updated = books.Select(b => new Book
         {
@@ -493,9 +493,9 @@ public class SeparateConnectionTransactionTests
             AuthorId = b.AuthorId,
             Price = b.Price
         }).ToList();
-        await db.Table<Book>().UpdateRangeAsync(updated, separateConnection: true);
+        await db.Table<Book>().UpdateRangeAsync(updated, separateConnection: true, ct: TestContext.Current.CancellationToken);
 
-        List<Book> result = await db.Table<Book>().ToListAsync();
+        List<Book> result = await db.Table<Book>().ToListAsync(TestContext.Current.CancellationToken);
         Assert.All(result, b => Assert.StartsWith("Updated", b.Title));
     }
 
@@ -523,9 +523,9 @@ public class SeparateConnectionTransactionTests
             },
         ];
 
-        await db.Table<Book>().AddRangeAsync(books);
-        await db.Table<Book>().RemoveRangeAsync(books, separateConnection: true);
+        await db.Table<Book>().AddRangeAsync(books, ct: TestContext.Current.CancellationToken);
+        await db.Table<Book>().RemoveRangeAsync(books, separateConnection: true, ct: TestContext.Current.CancellationToken);
 
-        Assert.Equal(0, await db.Table<Book>().CountAsync());
+        Assert.Equal(0, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 }

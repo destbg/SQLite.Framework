@@ -19,31 +19,31 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Pack SQLite.Framework
-        run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
         working-directory: ./SQLite.Framework
 
       - name: Pack SQLite.Framework.Bundled
-        run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
         working-directory: ./SQLite.Framework.Bundled
 
       - name: Pack SQLite.Framework.Cipher
-        run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
         working-directory: ./SQLite.Framework.Cipher
 
       - name: Pack SQLite.Framework.Base
-        run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
         working-directory: ./SQLite.Framework.Base
 
       - name: Pack SQLite.Framework.JsonB
-        run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
         working-directory: ./SQLite.Framework.JsonB
 
       - name: Pack SQLite.Framework.Window
-        run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
         working-directory: ./SQLite.Framework.Window
 
       - name: Pack SQLite.Framework.DependencyInjection
-        run: dotnet pack -c Release /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
         working-directory: ./SQLite.Framework.DependencyInjection
 
       - name: Archive NuGet Packages

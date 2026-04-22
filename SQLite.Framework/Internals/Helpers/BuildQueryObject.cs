@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Models;
+using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Helpers;
 
@@ -11,16 +12,21 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class BuildQueryObject
 {
-    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, Dictionary<string, int> columns, Func<QueryContext, object?>? createInstance)
+    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, Dictionary<string, int> columns, SQLQuery? query)
     {
-        if (createInstance != null)
+        if (query?.CreateObject != null)
         {
-            QueryContext context = new()
+            SQLiteQueryContext context = new()
             {
                 Reader = reader,
-                Columns = columns
+                Columns = columns,
+                ReflectedMethods = query.ReflectedMethods,
+                ReflectedMethodInstances = query.ReflectedMethodInstances,
+                CapturedValues = query.CapturedValues,
+                ReflectedTypes = query.ReflectedTypes,
+                ReflectedMembers = query.ReflectedMembers,
             };
-            return createInstance(context);
+            return query.CreateObject(context);
         }
 
         SQLiteOptions options = reader.Options;
@@ -38,6 +44,27 @@ internal static class BuildQueryObject
                 SQLiteColumnType columnType = reader.GetColumnType(0);
                 return reader.GetValue(0, columnType, converterType);
             }
+        }
+
+        if (options.EntityMaterializers.TryGetValue(elementType, out Func<SQLiteQueryContext, object?>? generated))
+        {
+#if SQLITE_FRAMEWORK_TESTING
+            reader.Database.IncrementEntityMaterializerHits();
+#endif
+            SQLiteQueryContext context = new()
+            {
+                Reader = reader,
+                Columns = columns
+            };
+            return generated(context);
+        }
+
+        if (options.ReflectionFallbackDisabled)
+        {
+            throw new InvalidOperationException(
+                $"Entity materializer for {elementType.FullName} fell back to runtime reflection but ReflectionFallbackDisabled is set. " +
+                "Either install SQLite.Framework.SourceGenerator and call UseGeneratedMaterializers so this type gets a generated materializer, " +
+                "or remove the DisableReflectionFallback call.");
         }
 
         return BuildInternal(elementType, reader, string.Empty, columns, options);

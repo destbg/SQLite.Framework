@@ -169,10 +169,16 @@ body {
     padding: 20px 20px 18px;
     border-bottom: 1px solid var(--sidebar-border);
     flex-shrink: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 .sidebar-title {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     color: #e6edf3;
     font-size: 0.9375rem;
     font-weight: 600;
@@ -184,12 +190,18 @@ body {
     color: #ffffff;
 }
 
+.sidebar-logo {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    object-fit: contain;
+}
+
 .sidebar-subtitle {
     color: var(--sidebar-text);
     font-size: 0.75rem;
-    margin-top: 3px;
     letter-spacing: 0.02em;
-    text-transform: uppercase;
+    margin-top: 0.15rem;
 }
 
 .sidebar-nav {
@@ -349,6 +361,44 @@ body {
 
 .markdown-content {
     max-width: var(--content-max);
+}
+
+.page-stage {
+    position: relative;
+}
+
+.page-layer--in {
+    animation: page-fade-in 200ms ease both;
+}
+
+.page-layer--out {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    animation: page-fade-out 200ms ease both;
+}
+
+@keyframes page-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes page-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-layer--in,
+    .page-layer--out {
+        animation: none;
+    }
+
+    .page-layer--out {
+        display: none;
+    }
 }
 
 .markdown-content h1 {
@@ -670,6 +720,79 @@ body {
     font-size: 0.8rem;
 }
 
+.page-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+
+.page-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    text-decoration: none;
+    background: var(--bg);
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    min-width: 0;
+}
+
+.page-nav-link:hover {
+    border-color: var(--link);
+    background: var(--bg-subtle);
+    text-decoration: none;
+}
+
+.page-nav-link--next {
+    grid-column: 2;
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.page-nav-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.page-nav-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+
+.page-nav-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--heading);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.page-nav-link:hover .page-nav-title {
+    color: var(--link);
+}
+
+.page-nav-arrow {
+    color: var(--text-muted);
+    font-size: 1.125rem;
+    flex-shrink: 0;
+}
+
+.page-nav-link:hover .page-nav-arrow {
+    color: var(--link);
+}
+
 @media (max-width: 1280px) {
     .toc {
         display: none;
@@ -701,5 +824,13 @@ body {
     .content {
         margin-left: 0;
         padding: 64px 20px 48px;
+    }
+
+    .page-nav {
+        grid-template-columns: 1fr;
+    }
+
+    .page-nav-link--next {
+        grid-column: 1;
     }
 }

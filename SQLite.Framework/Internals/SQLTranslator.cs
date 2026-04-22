@@ -18,6 +18,7 @@ namespace SQLite.Framework.Internals;
 /// </remarks>
 internal class SQLTranslator
 {
+    private readonly SQLiteDatabase database;
     private readonly int level;
     private readonly bool isInnerQuery;
     private readonly List<SQLiteParameter> parameters = [];
@@ -26,6 +27,7 @@ internal class SQLTranslator
 
     public SQLTranslator(SQLiteDatabase database)
     {
+        this.database = database;
         IndexWrapper paramIndex = new();
         IndexWrapper identifierIndex = new();
         TableIndexWrapper tableIndex = new();
@@ -36,6 +38,7 @@ internal class SQLTranslator
 
     public SQLTranslator(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level, bool isInnerQuery)
     {
+        this.database = database;
         this.level = level;
         this.isInnerQuery = isInnerQuery;
         Visitor = new SQLVisitor(database, paramIndex, identifierIndex, tableIndex, level);
@@ -287,7 +290,12 @@ internal class SQLTranslator
             }
         }
 
-        Func<QueryContext, object?>? createObject;
+        Func<SQLiteQueryContext, object?>? createObject;
+        IReadOnlyList<MethodInfo>? reflectedMethods = null;
+        IReadOnlyList<object?>? reflectedInstances = null;
+        IReadOnlyList<object?>? capturedValues = null;
+        IReadOnlyList<Type>? reflectedTypes = null;
+        IReadOnlyList<MemberInfo>? reflectedMembers = null;
         if (selectMethodExpression is null
             or ParameterExpression
             or MemberExpression { Expression: not SQLExpression }
@@ -299,9 +307,58 @@ internal class SQLTranslator
         }
         else
         {
-            QueryCompilerVisitor compilerVisitor = new();
-            CompiledExpression compiledExpression = (CompiledExpression)compilerVisitor.Visit(selectMethodExpression);
-            createObject = compiledExpression.Call;
+            IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> selectMaterializers = database.Options.SelectMaterializers;
+            string? rawSignature = queryableMethodVisitor.RawSelectSignature;
+            if (selectMaterializers.Count > 0 && rawSignature != null
+                && selectMaterializers.TryGetValue(rawSignature, out Func<SQLiteQueryContext, object?>? generated))
+            {
+#if SQLITE_FRAMEWORK_TESTING
+                database.IncrementSelectMaterializerHits();
+#endif
+                createObject = generated;
+
+                ReflectedBindingsCollector collector = new();
+                collector.Visit(selectMethodExpression);
+                if (collector.Methods.Count > 0)
+                {
+                    reflectedMethods = collector.Methods;
+                    reflectedInstances = collector.Instances;
+                }
+                if (collector.CapturedValues.Count > 0)
+                {
+                    capturedValues = collector.CapturedValues;
+                }
+                if (collector.Types.Count > 0)
+                {
+                    reflectedTypes = collector.Types;
+                }
+                if (collector.Members.Count > 0)
+                {
+                    reflectedMembers = collector.Members;
+                }
+            }
+            else
+            {
+                if (rawSignature != null && database.Options.ReflectionFallbackDisabled)
+                {
+                    throw new InvalidOperationException(
+                        "Select projection fell back to runtime reflection but ReflectionFallbackDisabled is set. " +
+                        "The source generator did not cover this projection shape. " +
+                        $"Projection signature: {rawSignature}. " +
+                        "Either install SQLite.Framework.SourceGenerator and call UseGeneratedMaterializers, " +
+                        "change the Select to a shape the generator supports, " +
+                        "or remove the DisableReflectionFallback call.");
+                }
+#if SQLITE_FRAMEWORK_TESTING
+                if (rawSignature != null)
+                {
+                    database.IncrementSelectCompilerFallbacks();
+                }
+#endif
+                QueryCompilerVisitor compilerVisitor = new();
+                CompiledExpression compiledExpression = (CompiledExpression)compilerVisitor.Visit(selectMethodExpression);
+                createObject = compiledExpression.Call;
+            }
         }
 
         return new SQLQuery
@@ -311,7 +368,12 @@ internal class SQLTranslator
             CreateObject = createObject,
             Reverse = queryableMethodVisitor.Reverse,
             ThrowOnEmpty = queryableMethodVisitor.ThrowOnEmpty,
-            ThrowOnMoreThanOne = queryableMethodVisitor.ThrowOnMoreThanOne
+            ThrowOnMoreThanOne = queryableMethodVisitor.ThrowOnMoreThanOne,
+            ReflectedMethods = reflectedMethods,
+            ReflectedMethodInstances = reflectedInstances,
+            CapturedValues = capturedValues,
+            ReflectedTypes = reflectedTypes,
+            ReflectedMembers = reflectedMembers,
         };
     }
 

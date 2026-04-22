@@ -1,4 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Models;
 
@@ -10,8 +12,13 @@ internal class SQLQuery
 {
     public required string Sql { get; init; }
     public required List<SQLiteParameter> Parameters { get; init; }
-    public required Func<QueryContext, object?>? CreateObject { get; init; }
+    public required Func<SQLiteQueryContext, object?>? CreateObject { get; init; }
     public required bool Reverse { get; init; }
     public required bool ThrowOnEmpty { get; init; }
     public required bool ThrowOnMoreThanOne { get; init; }
+    public IReadOnlyList<MethodInfo>? ReflectedMethods { get; init; }
+    public IReadOnlyList<object?>? ReflectedMethodInstances { get; init; }
+    public IReadOnlyList<object?>? CapturedValues { get; init; }
+    public IReadOnlyList<Type>? ReflectedTypes { get; init; }
+    public IReadOnlyList<MemberInfo>? ReflectedMembers { get; init; }
 }

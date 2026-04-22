@@ -16,7 +16,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
 using var db = new SQLiteDatabase(options);
 ```
 
-The framework issues `PRAGMA journal_mode = WAL` automatically when the connection is first opened. Configure the builder before calling `Build()` — the resulting options are immutable.
+The framework issues `PRAGMA journal_mode = WAL` automatically when the connection is first opened. Configure the builder before calling `Build()`, so the resulting options are immutable.
 
 With WAL enabled, eight concurrent writes run in parallel instead of queuing up:
 

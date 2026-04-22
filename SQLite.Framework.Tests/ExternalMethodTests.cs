@@ -356,6 +356,30 @@ public class ExternalMethodTests
     }
 
     [Fact]
+    public void ListInit_WithCapturedIndex()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int index = 2;
+
+        Author author = (
+            from a in db.Table<Author>()
+            where a.Id == 1
+            select new Author
+            {
+                Id = new List<int> { 10, 20, 30 }[index],
+                Name = a.Name,
+                Email = a.Email,
+                BirthDate = a.BirthDate,
+            }
+        ).First();
+
+        Assert.NotNull(author);
+        Assert.Equal(30, author.Id);
+        Assert.Equal("Author 1", author.Name);
+    }
+
+    [Fact]
     public void ArrayInit()
     {
         using TestDatabase db = SetupDatabase();

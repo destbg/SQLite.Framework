@@ -130,6 +130,9 @@ internal static class CommonHelpers
             UnaryExpression ue => IsConstant(ue.Operand),
             NewArrayExpression na => na.Expressions.Select(IsConstant).All(f => f),
             MemberInitExpression mie => mie.Bindings.All(b => b is MemberAssignment ma && IsConstant(ma.Expression)),
+            NewExpression ne => ne.Arguments.All(IsConstant),
+            ListInitExpression lie => IsConstant(lie.NewExpression)
+                && lie.Initializers.All(init => init.Arguments.All(IsConstant)),
             _ => false
         };
     }
@@ -154,6 +157,8 @@ internal static class CommonHelpers
             NewArrayExpression na =>
                 na.Expressions.Select(GetConstantValue),
             MemberInitExpression mie => CreateMember(mie),
+            NewExpression ne => CreateNew(ne),
+            ListInitExpression lie => CreateListInit(lie),
             _ => throw new NotSupportedException($"Cannot evaluate expression of type {node.NodeType}")
         };
     }
@@ -257,8 +262,10 @@ internal static class CommonHelpers
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of user assembly")]
     private static object CreateMember(MemberInitExpression memberInit)
     {
-        object instance = Activator.CreateInstance(memberInit.Type)
-                          ?? throw new InvalidOperationException($"Cannot create instance of type {memberInit.Type}");
+        object instance = memberInit.NewExpression.Constructor != null
+            ? CreateNew(memberInit.NewExpression)
+            : Activator.CreateInstance(memberInit.Type)
+              ?? throw new InvalidOperationException($"Cannot create instance of type {memberInit.Type}");
 
         foreach (MemberBinding binding in memberInit.Bindings)
         {
@@ -282,6 +289,32 @@ internal static class CommonHelpers
             {
                 throw new NotSupportedException($"Unsupported binding type: {binding.GetType()}");
             }
+        }
+
+        return instance;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "NewExpression.Type is rooted by the user's Select lambda.")]
+    private static object CreateNew(NewExpression newExpression)
+    {
+        if (newExpression.Constructor == null)
+        {
+            return Activator.CreateInstance(newExpression.Type)
+                ?? throw new InvalidOperationException($"Cannot create instance of type {newExpression.Type}");
+        }
+
+        object?[] args = newExpression.Arguments.Select(GetConstantValue).ToArray();
+        return newExpression.Constructor.Invoke(args);
+    }
+
+    private static object CreateListInit(ListInitExpression listInit)
+    {
+        object instance = CreateNew(listInit.NewExpression);
+
+        foreach (ElementInit init in listInit.Initializers)
+        {
+            object?[] args = init.Arguments.Select(GetConstantValue).ToArray();
+            init.AddMethod.Invoke(instance, args);
         }
 
         return instance;

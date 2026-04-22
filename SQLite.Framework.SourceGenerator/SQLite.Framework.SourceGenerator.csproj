@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <AssemblyName>SQLite.Framework.SourceGenerator</AssemblyName>
+        <PackageId>SQLite.Framework.SourceGenerator</PackageId>
+        <AssemblyTitle>Source generator for SQLite.Framework</AssemblyTitle>
+        <Description>Roslyn source generator that emits materializers for entities and Select projections used with SQLite.Framework. Avoids reflection for every public type the generator can see and makes queries AOT-safe. Opt in by calling UseGeneratedMaterializers on your SQLiteOptionsBuilder.</Description>
+        <Authors>Nikolay Kostadinov</Authors>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Title>SQLite.Framework.SourceGenerator</Title>
+        <PackageProjectUrl>https://github.com/destbg/SQLite.Framework</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>sqlite database orm source-generator aot</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageIcon>sqlite.png</PackageIcon>
+        <DevelopmentDependency>true</DevelopmentDependency>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="../README.md">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+        <None Include="../sqlite.png">
+            <Pack>true</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+        <None Include="$(OutputPath)/$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" PrivateAssets="all" />
+    </ItemGroup>
+
+</Project>

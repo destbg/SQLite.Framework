@@ -80,7 +80,7 @@ public class ConcurrencyTests
 
         await Task.WhenAll(tasks);
 
-        Assert.Equal(8, await db.Table<Book>().CountAsync());
+        Assert.Equal(8, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class ConcurrencyTests
                     Book? result = db.Table<Book>().FirstOrDefault(b => b.Id == id);
                     Assert.NotNull(result);
                     Assert.Equal(updated, result.Title);
-                }));
+                }, TestContext.Current.CancellationToken));
             }
             else
             {
@@ -227,7 +227,7 @@ public class ConcurrencyTests
 
         await Task.WhenAll(tasks);
 
-        Assert.Equal(24, await db.Table<Book>().CountAsync());
+        Assert.Equal(24, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -363,7 +363,7 @@ public class ConcurrencyTests
 
         await Task.WhenAll([.. background, .. foreground]);
 
-        Assert.Equal(8, await db.Table<Book>().CountAsync());
+        Assert.Equal(8, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -387,7 +387,7 @@ public class ConcurrencyTests
                     db.Table<Book>().Add(new Book { Id = id, Title = title, AuthorId = 1, Price = id });
                     db.Table<Book>().Update(new Book { Id = id, Title = updated, AuthorId = 1, Price = id });
                     _ = db.Table<Book>().FirstOrDefault(b => b.Id == id);
-                }));
+                }, TestContext.Current.CancellationToken));
             }
             else
             {
@@ -421,7 +421,10 @@ public class ConcurrencyTests
             Task[] tasks = types.Select(t => Task.Run(() =>
             {
                 barrier.SignalAndWait();
+#pragma warning disable IL2067 // Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to tapping(t);rget method. The parameter of method does not have matching annotations.
                 _ = db.TableMapping(t);
+#pragma warning restore IL2067 // Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The parameter of method does not have matching annotations.
+
             })).ToArray();
 
             await Task.WhenAll(tasks);
@@ -464,9 +467,9 @@ public class ConcurrencyTests
 
         Task readTask = Task.Run(() => db.Table<Book>().ToList());
 
-        readStarted.Wait();
+        readStarted.Wait(TestContext.Current.CancellationToken);
 
-        await db.Table<Book>().UpdateAsync(new Book { Id = 1, Title = "Updated", AuthorId = 1, Price = 1 });
+        await db.Table<Book>().UpdateAsync(new Book { Id = 1, Title = "Updated", AuthorId = 1, Price = 1 }, TestContext.Current.CancellationToken);
 
         releaseRead.Set();
         await readTask;

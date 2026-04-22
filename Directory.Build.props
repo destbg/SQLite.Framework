@@ -1,0 +1,11 @@
+<Project>
+
+    <PropertyGroup>
+        <SQLiteFrameworkTesting Condition="'$(SQLiteFrameworkTesting)' == ''">true</SQLiteFrameworkTesting>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(SQLiteFrameworkTesting)' == 'true'">
+        <DefineConstants>$(DefineConstants);SQLITE_FRAMEWORK_TESTING</DefineConstants>
+    </PropertyGroup>
+
+</Project>

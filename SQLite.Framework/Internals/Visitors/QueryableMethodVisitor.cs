@@ -45,6 +45,10 @@ internal class QueryableMethodVisitor
 
     public bool IsInnerQuery { get; set; }
 
+    public string? RawSelectSignature { get; private set; }
+
+    public LambdaExpression? PreviousSelectLambda { get; set; }
+
     public Expression Visit(MethodCallExpression node)
     {
         return node.Method.Name switch
@@ -97,6 +101,25 @@ internal class QueryableMethodVisitor
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
         lambda = RowParameterExpander.ExpandRowsInMethodCalls(lambda, visitor.MethodArguments.Keys);
+        if (database.Options.SelectMaterializers.Count > 0)
+        {
+            if (lambda.Body is not ParameterExpression || PreviousSelectLambda != null)
+            {
+                Expression signatureBody = lambda.Body;
+                if (PreviousSelectLambda != null)
+                {
+                    Expression? flattened = TryFlattenChainedSelectBody(lambda, PreviousSelectLambda);
+                    if (flattened != null)
+                    {
+                        signatureBody = flattened;
+                    }
+                }
+
+                RawSelectSignature = SelectSignature.Compute(signatureBody);
+            }
+        }
+
+        PreviousSelectLambda = lambda;
         visitor.IsInSelectProjection = true;
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(lambda);
 
@@ -814,5 +837,32 @@ internal class QueryableMethodVisitor
         }
 
         return (newTableColumns, entityType, sql);
+    }
+
+    private static Expression? TryFlattenChainedSelectBody(LambdaExpression outer, LambdaExpression inner)
+    {
+        if (outer.Body is MemberExpression outerMa
+            && outerMa.Expression is ParameterExpression outerParam1
+            && outerParam1 == outer.Parameters[0]
+            && inner.Body is MemberInitExpression innerMie)
+        {
+            foreach (MemberBinding binding in innerMie.Bindings)
+            {
+                if (binding is MemberAssignment ma && ma.Member.Name == outerMa.Member.Name)
+                {
+                    return ma.Expression;
+                }
+            }
+        }
+
+        ParameterExpression outerParam = outer.Parameters[0];
+        ParameterSubstitutor substitutor = new(outerParam, inner.Body);
+        Expression rewritten = substitutor.Visit(outer.Body);
+        if (rewritten != outer.Body)
+        {
+            return rewritten;
+        }
+
+        return null;
     }
 }

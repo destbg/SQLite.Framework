@@ -454,7 +454,7 @@ public class NumericTypeTests
 
         List<NullableNumericRow> results = await db.Table<NullableNumericRow>()
             .Where(r => r.Id == 1)
-            .ToListAsync();
+            .ToListAsync(TestContext.Current.CancellationToken);
 
         NullableNumericRow result = Assert.Single(results);
         Assert.Null(result.IntValue);
@@ -473,10 +473,10 @@ public class NumericTypeTests
         using TestDatabase db = new();
 
         db.Table<MixedNullableRow>().CreateTable();
-        await db.Table<MixedNullableRow>().AddAsync(new MixedNullableRow { Id = 1, Value = 9 });
-        await db.Table<MixedNullableRow>().AddAsync(new MixedNullableRow { Id = 2, Value = null });
+        await db.Table<MixedNullableRow>().AddAsync(new MixedNullableRow { Id = 1, Value = 9 }, TestContext.Current.CancellationToken);
+        await db.Table<MixedNullableRow>().AddAsync(new MixedNullableRow { Id = 2, Value = null }, TestContext.Current.CancellationToken);
 
-        List<MixedNullableRow> rows = await db.Table<MixedNullableRow>().ToListAsync();
+        List<MixedNullableRow> rows = await db.Table<MixedNullableRow>().ToListAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(2, rows.Count);
         Assert.Equal(9, rows.Single(r => r.Id == 1).Value);
