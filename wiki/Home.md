@@ -38,7 +38,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - Bulk delete and update with `ExecuteDelete` and `ExecuteUpdate`
 - Transactions using SQLite savepoints
 - Raw SQL via `FromSql`
-- AOT compatible, works great in .NET MAUI apps
+- AOT compatible, works great in .NET MAUI and Avalonia apps
 - Supports .NET 8, 9, and 10
 
 ## Pages
