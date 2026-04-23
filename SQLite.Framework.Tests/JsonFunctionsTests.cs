@@ -1316,7 +1316,7 @@ public class JsonFunctionsTests
                          LIMIT 1
                      ), '$.Street') AS "Street"
                      FROM "AddressListRow" AS a0
-                     """, command1.CommandText);
+                     """.Replace("\r\n", "\n"), command1.CommandText.Replace("\r\n", "\n"));
 
         string? result = db.Table<AddressListRow>()
             .Select(r => r.Addresses.OrderBy(x => x.City).ThenBy(x => x.Street).First().Street)
@@ -1364,7 +1364,7 @@ public class JsonFunctionsTests
                          LIMIT 1
                      ), '$.Street') AS "Street"
                      FROM "AddressListRow" AS a0
-                     """, command.CommandText);
+                     """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
 
         string? result = db.Table<AddressListRow>()
             .Select(r => r.Addresses.OrderBy(x => x.City).ThenByDescending(x => x.Street).First().Street)
@@ -1431,7 +1431,7 @@ public class JsonFunctionsTests
                          WHERE LENGTH(value) > @p0
                      ) AS "6"
                      FROM "ListRow" AS l0
-                     """, command.CommandText);
+                     """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.Where(x => x.Length > 1).Count())
@@ -1465,7 +1465,7 @@ public class JsonFunctionsTests
                          )
                      ) AS "4"
                      FROM "ListRow" AS l0
-                     """, command.CommandText);
+                     """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
 
         IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => r.Tags.OrderBy(x => x).Take(2))
@@ -1514,7 +1514,7 @@ public class JsonFunctionsTests
                          FROM json_each(p0.People) e, json_each(json_extract(e.value, '$.Tags')) n
                      ) AS "3"
                      FROM "PersonWithTagsRow" AS p0
-                     """, command.CommandText);
+                     """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
 
         IEnumerable<string> result = db.Table<PersonWithTagsRow>()
             .Select(r => r.People.SelectMany(p => p.Tags))
@@ -1544,7 +1544,7 @@ public class JsonFunctionsTests
                          GROUP BY value
                      ) AS "3"
                      FROM "ListRow" AS l0
-                     """, command.CommandText);
+                     """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
 
         int result = db.Table<ListRow>()
             .Select(r => r.Tags.GroupBy(x => x).Count())
