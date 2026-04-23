@@ -1,23 +1,16 @@
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR && SQLITE_FRAMEWORK_TESTING
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 using SQLite.Framework.Generated;
+using SQLite.Framework.JsonB;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
-/// <summary>
-/// Proves the source generator produced materializers, registered them on the builder,
-/// and that the runtime actually dispatches through them. Only compiled in the mirror
-/// test project where <c>SQLITE_FRAMEWORK_SOURCE_GENERATOR</c> is defined.
-/// </summary>
 public class GeneratedMaterializersParityAsserts
 {
-    /// <summary>
-    /// Lower bound for how many entity materializers the generator should emit across the
-    /// test compilation. Bump this number if you add new tracked entity types and want the
-    /// scan to stay meaningful; do not lower it.
-    /// </summary>
     private const int MinEntityMaterializerCount = 3;
 
     [Fact]
@@ -66,6 +59,21 @@ public class GeneratedMaterializersParityAsserts
             $"Expected at least {MinEntityMaterializerCount} registered entity materializers, found {options.EntityMaterializers.Count}.");
         Assert.Contains(typeof(Book), options.EntityMaterializers.Keys);
         Assert.Contains(typeof(Author), options.EntityMaterializers.Keys);
+    }
+
+    [Fact]
+    public void UseGeneratedMaterializers_IncludesEntitiesWithTypeConverterProperties()
+    {
+        using TestDatabase db = new(b =>
+            b.AddTypeConverter<Address>(new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address)));
+
+        _ = db.Table<EntityWithConvertedProperty>();
+
+        SQLiteOptions options = new SQLiteOptionsBuilder(":memory:")
+            .UseGeneratedMaterializers()
+            .Build();
+
+        Assert.Contains(typeof(EntityWithConvertedProperty), options.EntityMaterializers.Keys);
     }
 
     [Fact]
@@ -186,6 +194,15 @@ public class GeneratedMaterializersParityAsserts
     private static string PrivateLabel(int value)
     {
         return "L" + value;
+    }
+
+    [Table("EntityWithConvertedProperties")]
+    public class EntityWithConvertedProperty
+    {
+        [Key]
+        public int Id { get; set; }
+        public required string Name { get; set; }
+        public required Address Payload { get; set; }
     }
 }
 #endif

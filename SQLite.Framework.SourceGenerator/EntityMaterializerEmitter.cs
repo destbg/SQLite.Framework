@@ -146,13 +146,28 @@ internal static class EntityMaterializerEmitter
                 continue;
             }
 
-            if (!IsSupportedPropertyType(prop.Type))
+            if (!IsEmittablePropertyType(prop.Type))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private static bool IsEmittablePropertyType(ITypeSymbol type)
+    {
+        if (IsSupportedPropertyType(type))
+        {
+            return true;
+        }
+
+        if (type is INamedTypeSymbol nullable && nullable.IsGenericType && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
+        {
+            type = nullable.TypeArguments[0];
+        }
+
+        return type.TypeKind != TypeKind.Interface && !type.IsAbstract;
     }
 
     private static bool IsSupportedPropertyType(ITypeSymbol type)
