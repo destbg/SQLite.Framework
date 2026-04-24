@@ -46,6 +46,7 @@ internal class QueryableMethodVisitor
     public bool IsInnerQuery { get; set; }
 
     public string? RawSelectSignature { get; private set; }
+    public Expression? LastSelectLambdaBody { get; private set; }
 
     public LambdaExpression? PreviousSelectLambda { get; set; }
 
@@ -116,6 +117,7 @@ internal class QueryableMethodVisitor
                 }
 
                 RawSelectSignature = SelectSignature.Compute(signatureBody);
+                LastSelectLambdaBody = signatureBody;
             }
         }
 

@@ -90,17 +90,19 @@ If all your queries live in one project (the common case for small apps), instal
 
 The generator produces two kinds of materializers.
 
-**Entity materializers** map a row to a table entity (the classes you register with `db.Table<T>()`). This covers simple properties, nullable types, custom converters, and the built-in types listed in [Data Types](Data%20Types.md).
+**Entity materializers** map a row to a .NET class. The generator scans every `db.Table<T>()`, `db.Query<T>`, `db.FromSql<T>`, `db.With<T>`, `.Cast<T>()`, and `.OfType<T>()` call to find target types. It also scans `Select` and `SelectMany` projection result types, and the types produced by `select` clauses in query syntax. Nested private and `file sealed` classes work through a reflection-based materializer that is still registered per type, so the runtime never falls back.
 
-**Select materializers** cover the body of a `Select` lambda. This includes:
+**Select materializers** cover the body of a `Select`, `SelectMany`, `Join`, or `GroupBy` key selector. This includes:
 
 - Anonymous types: `Select(b => new { b.Id, b.Title })`
 - Object initialisers: `Select(b => new BookView { Id = b.Id, Title = b.Title })`
+- Object initialisers with nested entity construction: `Select(b => new BookDto { Id = b.Id, Author = new AuthorDto { ... } })`
 - Method calls on rows, including your own methods: `Select(b => FormatTitle(b))`
 - Captured locals from the surrounding method: `Select(b => new { b.Id, Prefix = prefix + b.Title })`
 - Joins and group joins written in query syntax.
+- Anonymous types returned from chains, with correct member names preserved.
 
-A tiny number of shapes still fall back to the runtime path, such as projections into private nested types. If you want the build to fail fast when that happens, turn on `DisableReflectionFallback` on the options builder so the first query with an unsupported shape throws at runtime (see "Fail fast when reflection would be used" below).
+Shapes that still fall back to the runtime path include anonymous types whose members use a type with a custom converter (for example a user-defined `struct` bound through `AddTypeConverter`). Turn on `DisableReflectionFallback` to make the first such query throw instead of silently using reflection.
 
 ## Combining with AOT
 

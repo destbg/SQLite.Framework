@@ -21,4 +21,5 @@ internal class SQLQuery
     public IReadOnlyList<object?>? CapturedValues { get; init; }
     public IReadOnlyList<Type>? ReflectedTypes { get; init; }
     public IReadOnlyList<MemberInfo>? ReflectedMembers { get; init; }
+    public IReadOnlyList<ConstructorInfo>? ReflectedConstructors { get; init; }
 }

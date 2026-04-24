@@ -296,7 +296,51 @@ internal class SQLTranslator
         IReadOnlyList<object?>? capturedValues = null;
         IReadOnlyList<Type>? reflectedTypes = null;
         IReadOnlyList<MemberInfo>? reflectedMembers = null;
-        if (selectMethodExpression is null
+        IReadOnlyList<ConstructorInfo>? reflectedConstructors = null;
+        IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> selectMaterializers2 = database.Options.SelectMaterializers;
+        string? rawSignature2 = queryableMethodVisitor.RawSelectSignature;
+        Func<SQLiteQueryContext, object?>? generatedAnon = null;
+        bool hasReflectedArg = queryableMethodVisitor.LastSelectLambdaBody is NewExpression ne
+            && ne.Type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
+            && ne.Arguments.Any(a => !a.Type.IsVisible || (a.Type.DeclaringType != null && !a.Type.DeclaringType.IsVisible));
+
+        if (hasReflectedArg
+            && rawSignature2 != null
+            && selectMaterializers2.Count > 0
+            && selectMaterializers2.TryGetValue(rawSignature2, out generatedAnon))
+        {
+#if SQLITE_FRAMEWORK_TESTING
+            database.IncrementSelectMaterializerHits();
+#endif
+            createObject = generatedAnon;
+            if (selectMethodExpression != null)
+            {
+                ReflectedBindingsCollector anonCollector = new();
+                anonCollector.Visit(queryableMethodVisitor.LastSelectLambdaBody);
+                if (anonCollector.Methods.Count > 0)
+                {
+                    reflectedMethods = anonCollector.Methods;
+                    reflectedInstances = anonCollector.Instances;
+                }
+                if (anonCollector.CapturedValues.Count > 0)
+                {
+                    capturedValues = anonCollector.CapturedValues;
+                }
+                if (anonCollector.Types.Count > 0)
+                {
+                    reflectedTypes = anonCollector.Types;
+                }
+                if (anonCollector.Members.Count > 0)
+                {
+                    reflectedMembers = anonCollector.Members;
+                }
+                if (anonCollector.Constructors.Count > 0)
+                {
+                    reflectedConstructors = anonCollector.Constructors;
+                }
+            }
+        }
+        else if (selectMethodExpression is null
             or ParameterExpression
             or MemberExpression { Expression: not SQLExpression }
             || (selectMethodExpression is MethodCallExpression mce
@@ -336,6 +380,10 @@ internal class SQLTranslator
                 {
                     reflectedMembers = collector.Members;
                 }
+                if (collector.Constructors.Count > 0)
+                {
+                    reflectedConstructors = collector.Constructors;
+                }
             }
             else
             {
@@ -374,6 +422,7 @@ internal class SQLTranslator
             CapturedValues = capturedValues,
             ReflectedTypes = reflectedTypes,
             ReflectedMembers = reflectedMembers,
+            ReflectedConstructors = reflectedConstructors,
         };
     }
 

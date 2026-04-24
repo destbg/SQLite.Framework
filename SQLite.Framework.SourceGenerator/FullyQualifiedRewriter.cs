@@ -18,6 +18,36 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
 
     public bool Failed { get; private set; }
 
+    public override SyntaxNode? VisitAnonymousObjectMemberDeclarator(AnonymousObjectMemberDeclaratorSyntax node)
+    {
+        if (node.NameEquals == null)
+        {
+            string? inferredName = node.Expression switch
+            {
+                IdentifierNameSyntax id => id.Identifier.ValueText,
+                MemberAccessExpressionSyntax ma => ma.Name.Identifier.ValueText,
+                _ => null
+            };
+
+            ExpressionSyntax? rewritten = (ExpressionSyntax?)Visit(node.Expression);
+            if (rewritten == null)
+            {
+                return null;
+            }
+
+            if (inferredName != null)
+            {
+                return SyntaxFactory.AnonymousObjectMemberDeclarator(
+                    SyntaxFactory.NameEquals(SyntaxFactory.IdentifierName(inferredName)),
+                    rewritten);
+            }
+
+            return SyntaxFactory.AnonymousObjectMemberDeclarator(rewritten);
+        }
+
+        return base.VisitAnonymousObjectMemberDeclarator(node);
+    }
+
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
     {
         SyntaxKind kind = node.Kind();

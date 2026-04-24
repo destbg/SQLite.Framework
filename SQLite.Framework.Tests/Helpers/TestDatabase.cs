@@ -34,6 +34,7 @@ public class TestDatabase : SQLiteDatabase
         configure?.Invoke(builder);
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR
         builder.UseGeneratedMaterializers();
+        builder.DisableReflectionFallback();
 #endif
         return builder.Build();
     }
@@ -54,9 +55,7 @@ public class TestDatabase : SQLiteDatabase
         {
             throw new InvalidOperationException(
                 $"Source-generator parity check: {fallbacks} Select projection(s) fell back to the runtime compiler. " +
-                "Every Select in this test should be covered by a generated materializer. " +
-                "If the test uses a known-unsupported shape (private nested type as Select target), " +
-                "set AllowSelectCompilerFallback=true on the TestDatabase.");
+                "With ReflectionFallbackDisabled the runtime should throw before reaching this state; a non-zero count means the strict check was bypassed.");
         }
 #endif
 

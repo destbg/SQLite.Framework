@@ -12,6 +12,29 @@ namespace SQLite.Framework.SourceGenerator;
 [Generator(LanguageNames.CSharp)]
 public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 {
+    private static readonly HashSet<string> EntityReturningGenericMethods = new()
+    {
+        "Table",
+        "With",
+        "WithRecursive",
+        "Query",
+        "QueryAsync",
+        "QueryFirst",
+        "QueryFirstAsync",
+        "QueryFirstOrDefault",
+        "QueryFirstOrDefaultAsync",
+        "QuerySingle",
+        "QuerySingleAsync",
+        "QuerySingleOrDefault",
+        "QuerySingleOrDefaultAsync",
+        "FromSql",
+        "ExecuteScalar",
+        "ExecuteScalarAsync",
+        "Values",
+        "Cast",
+        "OfType",
+    };
+
     private const string SQLiteDatabaseFullName = "SQLite.Framework.SQLiteDatabase";
 
     /// <inheritdoc />
@@ -35,6 +58,12 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 transform: static (ctx, _) => ExtractProjectionTypeFromSelect(ctx))
             .Where(static t => t is not null);
 
+        IncrementalValuesProvider<INamedTypeSymbol?> fromQueryProjections = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => node is SelectClauseSyntax,
+                transform: static (ctx, _) => ExtractProjectionTypeFromQuery(ctx))
+            .Where(static t => t is not null);
+
         IncrementalValuesProvider<SelectInvocation?> selectInvocations = context.SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (node, _) => IsCandidateSelectInvocation(node),
@@ -53,18 +82,30 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 transform: static (ctx, _) => ExtractGroupByKey(ctx))
             .Where(static t => t.HasValue);
 
+        IncrementalValuesProvider<(INamedTypeSymbol Container, string PropName, INamedTypeSymbol Nested)?> nestedInits = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => node is ObjectCreationExpressionSyntax,
+                transform: static (ctx, _) => ExtractNestedInits(ctx))
+            .SelectMany(static (list, _) => list)
+            .Where(static t => t.HasValue);
+
         IncrementalValueProvider<ImmutableArray<INamedTypeSymbol?>> allEntities =
             fromInvocations.Collect()
                 .Combine(fromMembers.Collect())
                 .Combine(fromSelectProjections.Collect())
-                .Select(static (pair, _) => pair.Left.Left.AddRange(pair.Left.Right).AddRange(pair.Right));
+                .Combine(fromQueryProjections.Collect())
+                .Select(static (pair, _) => pair.Left.Left.Left
+                    .AddRange(pair.Left.Left.Right)
+                    .AddRange(pair.Left.Right)
+                    .AddRange(pair.Right));
 
-        IncrementalValueProvider<(Compilation Compilation, ImmutableArray<INamedTypeSymbol?> Entities, ImmutableArray<SelectInvocation?> Selects, ImmutableArray<(GroupByKeyInvocation Invocation, SemanticModel Model)?> GroupKeys)> source =
+        IncrementalValueProvider<(Compilation Compilation, ImmutableArray<INamedTypeSymbol?> Entities, ImmutableArray<SelectInvocation?> Selects, ImmutableArray<(GroupByKeyInvocation Invocation, SemanticModel Model)?> GroupKeys, ImmutableArray<(INamedTypeSymbol Container, string PropName, INamedTypeSymbol Nested)?> NestedInits)> source =
             context.CompilationProvider.Combine(allEntities)
                 .Combine(selectInvocations.Collect())
                 .Combine(querySelects.Collect())
                 .Combine(groupByKeys.Collect())
-                .Select(static (p, _) => (p.Left.Left.Left.Left, p.Left.Left.Left.Right, p.Left.Left.Right.AddRange(p.Left.Right), p.Right));
+                .Combine(nestedInits.Collect())
+                .Select(static (p, _) => (p.Left.Left.Left.Left.Left, p.Left.Left.Left.Left.Right, p.Left.Left.Left.Right.AddRange(p.Left.Left.Right), p.Left.Right, p.Right));
 
         context.RegisterSourceOutput(source, (spc, pair) =>
         {
@@ -72,14 +113,23 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             ImmutableArray<INamedTypeSymbol?> entities = pair.Entities;
             ImmutableArray<SelectInvocation?> selects = pair.Selects;
             ImmutableArray<(GroupByKeyInvocation Invocation, SemanticModel Model)?> groupKeys = pair.GroupKeys;
+            ImmutableArray<(INamedTypeSymbol Container, string PropName, INamedTypeSymbol Nested)?> nestedInitsArr = pair.NestedInits;
+
+            HashSet<(INamedTypeSymbol, string)> nestedInitSet = new();
+            foreach ((INamedTypeSymbol Container, string PropName, INamedTypeSymbol Nested)? entry in nestedInitsArr)
+            {
+                if (entry is { } e)
+                {
+                    nestedInitSet.Add((e.Container, e.PropName));
+                }
+            }
 
             HashSet<INamedTypeSymbol> unique = new(SymbolEqualityComparer.Default);
             foreach (INamedTypeSymbol? symbol in entities)
             {
                 if (symbol != null
                     && !symbol.IsAbstract
-                    && !symbol.IsGenericType
-                    && IsPubliclyReachable(symbol)
+                    && (!symbol.IsGenericType || symbol.IsAnonymousType)
                     && !IsFrameworkType(symbol))
                 {
                     unique.Add(symbol);
@@ -109,7 +159,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 return;
             }
 
-            string generated = EntityMaterializerEmitter.Emit("SQLite.Framework.Generated", unique, uniqueSelects.Values, uniqueGroupKeys.Values);
+            string generated = EntityMaterializerEmitter.Emit("SQLite.Framework.Generated", unique, uniqueSelects.Values, uniqueGroupKeys.Values, nestedInitSet);
             spc.AddSource("SQLiteFrameworkGeneratedMaterializers.g.cs", generated);
         });
     }
@@ -775,9 +825,14 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
     {
         for (INamedTypeSymbol? current = symbol; current != null; current = current.ContainingType)
         {
-            if (current.DeclaredAccessibility != Accessibility.Public)
+            switch (current.DeclaredAccessibility)
             {
-                return false;
+                case Accessibility.Public:
+                case Accessibility.Internal:
+                case Accessibility.ProtectedOrInternal:
+                    continue;
+                default:
+                    return false;
             }
         }
 
@@ -814,7 +869,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 
         if (invocation.Expression is MemberAccessExpressionSyntax access
             && access.Name is GenericNameSyntax generic
-            && generic.Identifier.ValueText == "Table")
+            && EntityReturningGenericMethods.Contains(generic.Identifier.ValueText))
         {
             return true;
         }
@@ -830,12 +885,16 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (method.Name != "Table" || method.TypeArguments.Length != 1)
+        if (!EntityReturningGenericMethods.Contains(method.Name) || method.TypeArguments.Length != 1)
         {
             return null;
         }
 
-        if (method.ContainingType.ToDisplayString() != SQLiteDatabaseFullName)
+        string containingType = method.ContainingType.ToDisplayString();
+        if (containingType != SQLiteDatabaseFullName
+            && containingType != "SQLite.Framework.Extensions.AsyncDatabaseExtensions"
+            && containingType != "System.Linq.Queryable"
+            && containingType != "System.Linq.Enumerable")
         {
             return null;
         }
@@ -867,7 +926,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             _ => string.Empty
         };
 
-        return name == "Select";
+        return name == "Select" || name == "SelectMany";
     }
 
     private static INamedTypeSymbol? ExtractProjectionTypeFromSelect(GeneratorSyntaxContext ctx)
@@ -878,7 +937,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (method.Name != "Select")
+        if (method.Name != "Select" && method.Name != "SelectMany")
         {
             return null;
         }
@@ -889,12 +948,135 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (method.TypeArguments.Length < 2 || method.TypeArguments[1] is not INamedTypeSymbol projection)
+        INamedTypeSymbol? projection = null;
+        if (method.ReturnType is INamedTypeSymbol namedReturn && namedReturn.IsGenericType && namedReturn.TypeArguments.Length > 0)
+        {
+            projection = namedReturn.TypeArguments[namedReturn.TypeArguments.Length - 1] as INamedTypeSymbol;
+        }
+        projection ??= method.TypeArguments.LastOrDefault() as INamedTypeSymbol;
+
+        return projection;
+    }
+
+    private static ImmutableArray<(INamedTypeSymbol Container, string PropName, INamedTypeSymbol Nested)?> ExtractNestedInits(GeneratorSyntaxContext ctx)
+    {
+        if (ctx.Node is not ObjectCreationExpressionSyntax outer || outer.Initializer == null)
+        {
+            return ImmutableArray<(INamedTypeSymbol, string, INamedTypeSymbol)?>.Empty;
+        }
+
+        if (!IsInsideLinqProjection(outer))
+        {
+            return ImmutableArray<(INamedTypeSymbol, string, INamedTypeSymbol)?>.Empty;
+        }
+
+        if (ctx.SemanticModel.GetTypeInfo(outer).Type is not INamedTypeSymbol containerType)
+        {
+            return ImmutableArray<(INamedTypeSymbol, string, INamedTypeSymbol)?>.Empty;
+        }
+
+        List<(INamedTypeSymbol, string, INamedTypeSymbol)?> results = new();
+        foreach (ExpressionSyntax child in outer.Initializer.Expressions)
+        {
+            if (child is not AssignmentExpressionSyntax assign)
+            {
+                continue;
+            }
+            if (assign.Left is not IdentifierNameSyntax leftId)
+            {
+                continue;
+            }
+
+            INamedTypeSymbol? nestedType = null;
+            if (assign.Right is ObjectCreationExpressionSyntax nestedCreate)
+            {
+                nestedType = ctx.SemanticModel.GetTypeInfo(nestedCreate).Type as INamedTypeSymbol;
+            }
+            else if (ctx.SemanticModel.GetTypeInfo(assign.Right).Type is INamedTypeSymbol rightType
+                && rightType.TypeKind == TypeKind.Class
+                && !IsPrimitiveLike(rightType))
+            {
+                nestedType = rightType;
+            }
+
+            if (nestedType == null)
+            {
+                continue;
+            }
+            results.Add((containerType, leftId.Identifier.ValueText, nestedType));
+        }
+        return results.ToImmutableArray();
+    }
+
+    private static bool IsPrimitiveLike(INamedTypeSymbol type)
+    {
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_Boolean:
+            case SpecialType.System_Byte:
+            case SpecialType.System_SByte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+            case SpecialType.System_Single:
+            case SpecialType.System_Double:
+            case SpecialType.System_Decimal:
+            case SpecialType.System_Char:
+            case SpecialType.System_String:
+            case SpecialType.System_DateTime:
+                return true;
+        }
+        string full = type.ToDisplayString();
+        return full is "System.DateTimeOffset"
+            or "System.TimeSpan"
+            or "System.DateOnly"
+            or "System.TimeOnly"
+            or "System.Guid";
+    }
+
+    private static bool IsInsideLinqProjection(SyntaxNode node)
+    {
+        for (SyntaxNode? current = node; current != null; current = current.Parent)
+        {
+            if (current is SelectClauseSyntax)
+            {
+                return true;
+            }
+
+            if (current is LambdaExpressionSyntax lambda
+                && lambda.Parent is ArgumentSyntax arg
+                && arg.Parent is ArgumentListSyntax argList
+                && argList.Parent is InvocationExpressionSyntax inv
+                && inv.Expression is MemberAccessExpressionSyntax ma)
+            {
+                string name = ma.Name switch
+                {
+                    GenericNameSyntax g => g.Identifier.ValueText,
+                    IdentifierNameSyntax i => i.Identifier.ValueText,
+                    _ => string.Empty
+                };
+                if (name is "Select" or "SelectMany" or "Join" or "LeftJoin" or "RightJoin" or "GroupJoin" or "GroupBy")
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static INamedTypeSymbol? ExtractProjectionTypeFromQuery(GeneratorSyntaxContext ctx)
+    {
+        if (ctx.Node is not SelectClauseSyntax selectClause)
         {
             return null;
         }
 
-        return projection;
+        ITypeSymbol? type = ctx.SemanticModel.GetTypeInfo(selectClause.Expression).Type
+            ?? ctx.SemanticModel.GetTypeInfo(selectClause.Expression).ConvertedType;
+        return type as INamedTypeSymbol;
     }
 
     private static INamedTypeSymbol? ExtractEntityFromMember(GeneratorSyntaxContext ctx)

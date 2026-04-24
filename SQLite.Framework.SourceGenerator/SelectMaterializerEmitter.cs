@@ -31,35 +31,68 @@ internal static class SelectMaterializerEmitter
             return false;
         }
 
-        string? bodyText = RewriteBody(body, emitCtx);
-        if (bodyText == null)
+        bool hasReflectedLeaf = emitCtx.Leaves.Any(l => l.IsReflected);
+        bool anonCtorPath = hasReflectedLeaf
+            && body is AnonymousObjectCreationExpressionSyntax;
+
+        string? bodyText;
+        if (anonCtorPath)
         {
-            return false;
+            StringBuilder args = new();
+            args.Append("ctx.ReflectedConstructors![0].Invoke(new object?[] { ");
+            for (int i = 0; i < emitCtx.Leaves.Count; i++)
+            {
+                if (i > 0)
+                {
+                    args.Append(", ");
+                }
+                args.Append(emitCtx.Leaves[i].VarName);
+            }
+            args.Append(" })");
+            bodyText = args.ToString();
+        }
+        else
+        {
+            bodyText = RewriteBody(body, emitCtx);
+            if (bodyText == null)
+            {
+                return false;
+            }
         }
 
         sb.Append("        private static object? ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
         sb.AppendLine("        {");
         sb.AppendLine("            var reader = ctx.Reader!;");
 
+        int reflectedLeafIndex = 0;
         for (int i = 0; i < emitCtx.Leaves.Count; i++)
         {
             LeafInfo leaf = emitCtx.Leaves[i];
-            string typeText = FormatType(leaf.Type);
-            string typeOfText = FormatType(StripNullableSymbol(leaf.Type));
-
-            if (leaf.IsNullable)
+            string typeOfText;
+            if (leaf.IsReflected)
             {
-                sb.Append("            object? ").Append(leaf.VarName).Append(" = reader.GetValue(").Append(i)
-                    .Append(", reader.GetColumnType(").Append(i).Append("), typeof(")
-                    .Append(typeOfText).AppendLine("));");
+                typeOfText = "ctx.ReflectedTypes![" + reflectedLeafIndex + "]";
+                reflectedLeafIndex++;
             }
             else
             {
+                typeOfText = "typeof(" + FormatType(StripNullableSymbol(leaf.Type)) + ")";
+            }
+
+            if (leaf.IsNullable || leaf.IsReflected)
+            {
+                sb.Append("            object? ").Append(leaf.VarName).Append(" = reader.GetValue(").Append(i)
+                    .Append(", reader.GetColumnType(").Append(i).Append("), ")
+                    .Append(typeOfText).AppendLine(");");
+            }
+            else
+            {
+                string typeText = FormatType(leaf.Type);
                 sb.Append("            ")
                     .Append(typeText).Append(' ').Append(leaf.VarName).Append(" = (")
                     .Append(typeText).Append(")reader.GetValue(").Append(i)
-                    .Append(", reader.GetColumnType(").Append(i).Append("), typeof(")
-                    .Append(typeOfText).AppendLine("))!;");
+                    .Append(", reader.GetColumnType(").Append(i).Append("), ")
+                    .Append(typeOfText).AppendLine(")!;");
             }
         }
 
@@ -138,15 +171,16 @@ internal static class SelectMaterializerEmitter
                 if (access.Expression is IdentifierNameSyntax rowIdent && IsRowReference(rowIdent, ctx))
                 {
                     ITypeSymbol? leafType = ctx.Model.GetTypeInfo(access).ConvertedType ?? ctx.Model.GetTypeInfo(access).Type;
-                    if (leafType == null || !IsTypePubliclyReachable(leafType))
+                    if (leafType == null)
                     {
                         return false;
                     }
 
+                    bool isReflected = !IsTypePubliclyReachable(leafType);
                     bool isNullable = IsNullableRangeVarIdentifier(rowIdent, ctx);
                     int idx = ctx.Leaves.Count;
                     string varName = "__leaf_" + idx;
-                    ctx.Leaves.Add(new LeafInfo(access, leafType, varName, isNullable));
+                    ctx.Leaves.Add(new LeafInfo(access, leafType, varName, isNullable, isReflected));
                     ctx.LeafIndexBySyntax[access] = idx;
                     if (isNullable && ctx.Model.GetSymbolInfo(rowIdent).Symbol is { } rowSym)
                     {

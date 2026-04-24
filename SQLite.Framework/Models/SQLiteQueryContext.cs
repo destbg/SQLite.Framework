@@ -53,4 +53,11 @@ public class SQLiteQueryContext
     /// collections. The generator reads them by index.
     /// </summary>
     public IReadOnlyList<MemberInfo>? ReflectedMembers { get; init; }
+
+    /// <summary>
+    /// Constructors the generator cannot call by name, for example the constructor of an anonymous
+    /// type whose members include a type that is not visible from the generated file.
+    /// The generator reads them by index and invokes them with positional arguments.
+    /// </summary>
+    public IReadOnlyList<ConstructorInfo>? ReflectedConstructors { get; init; }
 }

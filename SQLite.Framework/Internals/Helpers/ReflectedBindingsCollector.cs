@@ -13,6 +13,7 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
     public List<object?> CapturedValues { get; } = [];
     public List<Type> Types { get; } = [];
     public List<MemberInfo> Members { get; } = [];
+    public List<ConstructorInfo> Constructors { get; } = [];
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
@@ -60,6 +61,25 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
         return base.VisitMemberInit(node);
     }
 
+    protected override Expression VisitNew(NewExpression node)
+    {
+        if (node.Constructor != null
+            && IsAnonymousType(node.Type)
+            && node.Arguments.Any(arg => !IsTypeVisible(arg.Type)))
+        {
+            Constructors.Add(node.Constructor);
+            foreach (Expression arg in node.Arguments)
+            {
+                if (!IsTypeVisible(arg.Type))
+                {
+                    Types.Add(arg.Type);
+                }
+            }
+        }
+
+        return base.VisitNew(node);
+    }
+
     private void CollectBindingMembers(IReadOnlyCollection<MemberBinding> bindings)
     {
         foreach (MemberBinding binding in bindings)
@@ -70,6 +90,12 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
                 CollectBindingMembers(mmb.Bindings);
             }
         }
+    }
+
+    private static bool IsAnonymousType(Type type)
+    {
+        return type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
+            || type.Name.StartsWith("<>h__TransparentIdentifier", StringComparison.Ordinal);
     }
 
     private static bool IsTypeVisible(Type type)

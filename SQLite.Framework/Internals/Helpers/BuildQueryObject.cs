@@ -25,6 +25,7 @@ internal static class BuildQueryObject
                 CapturedValues = query.CapturedValues,
                 ReflectedTypes = query.ReflectedTypes,
                 ReflectedMembers = query.ReflectedMembers,
+                ReflectedConstructors = query.ReflectedConstructors,
             };
             return query.CreateObject(context);
         }

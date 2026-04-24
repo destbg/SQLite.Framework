@@ -1,4 +1,7 @@
 using SQLite.Framework.Tests.Entities;
+#if SQLITE_FRAMEWORK_SOURCE_GENERATOR
+using SQLite.Framework.Generated;
+#endif
 
 namespace SQLite.Framework.Tests;
 
@@ -78,4 +81,44 @@ public class ReflectionFallbackTests : IDisposable
             .Build();
         Assert.True(options.ReflectionFallbackDisabled);
     }
+
+    [Fact]
+    public void ThrowsWhenGroupByWouldUseReflectionForKeySelector()
+    {
+        using SQLiteDatabase db = CreateDatabase(disableFallback: true);
+
+        db.Table<Book>().CreateTable();
+        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Table<Book>().GroupBy(b => b.AuthorId).ToList());
+
+        Assert.Contains("ReflectionFallbackDisabled", ex.Message);
+        Assert.Contains("GroupBy", ex.Message);
+    }
+
+#if SQLITE_FRAMEWORK_SOURCE_GENERATOR
+    [Fact]
+    public void GroupByWorksUnderStrictModeWithGeneratedMaterializer()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(databasePath)
+            .UseGeneratedMaterializers()
+            .DisableReflectionFallback()
+            .Build();
+        using SQLiteDatabase db = new(options);
+
+        db.Table<Book>().CreateTable();
+        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
+        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (2, 'B', 1, 20)");
+        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (3, 'C', 2, 30)");
+
+        Dictionary<int, List<Book>> byAuthor = db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        Assert.Equal(2, byAuthor.Count);
+        Assert.Equal(2, byAuthor[1].Count);
+        Assert.Single(byAuthor[2]);
+    }
+#endif
 }
