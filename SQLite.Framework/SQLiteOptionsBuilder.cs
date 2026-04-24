@@ -147,6 +147,13 @@ public sealed class SQLiteOptionsBuilder
     public Dictionary<string, Func<SQLiteQueryContext, object?>> SelectMaterializers { get; } = [];
 
     /// <summary>
+    /// Generated GroupBy key-selector extractors, keyed by a canonical signature derived from the
+    /// key selector lambda's body. Populated by the <c>UseGeneratedMaterializers</c> extension
+    /// emitted by <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public Dictionary<string, Func<SQLiteQueryContext, object?>> GroupByKeyMaterializers { get; } = [];
+
+    /// <summary>
     /// When <see langword="true" />, any entity or <c>Select</c> projection that would fall back
     /// to the runtime reflection path throws an <see cref="InvalidOperationException" /> instead.
     /// Defaults to <see langword="false" />.
@@ -371,6 +378,7 @@ public sealed class SQLiteOptionsBuilder
             MethodCallInterceptors = [.. MethodCallInterceptors],
             EntityMaterializers = new Dictionary<Type, Func<SQLiteQueryContext, object?>>(EntityMaterializers),
             SelectMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(SelectMaterializers),
+            GroupByKeyMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(GroupByKeyMaterializers),
             ReflectionFallbackDisabled = ReflectionFallbackDisabled,
         };
     }

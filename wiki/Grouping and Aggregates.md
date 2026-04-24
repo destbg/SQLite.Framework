@@ -96,3 +96,37 @@ var authorStats = await (
     select new { Author = g.Key, BookCount = g.Count(), AvgPrice = g.Average(b => b.Price) }
 ).ToListAsync();
 ```
+
+## Materializing Groupings
+
+You can also turn a `GroupBy` straight into a list or dictionary of `IGrouping<TKey, TElement>`:
+
+```csharp
+var byAuthor = db.Table<Book>()
+    .GroupBy(b => b.AuthorId)
+    .ToDictionary(g => g.Key, g => g.ToList());
+
+foreach (IGrouping<int, Book> group in db.Table<Book>().GroupBy(b => b.AuthorId))
+{
+    Console.WriteLine($"Author {group.Key}");
+    foreach (Book book in group)
+    {
+        Console.WriteLine($"  {book.Title}");
+    }
+}
+```
+
+The SQL asks for every matching row. There is no `GROUP BY` in the SQL. The groups are built in memory after the rows come back. The key selector runs once per row in .NET.
+
+When you install `SQLite.Framework.SourceGenerator`, the generator writes a small method for each key selector shape it can see. Those methods do not use reflection, so this query works even with `DisableReflectionFallback` set. Without the generator, the framework uses reflection at run time to read the key from each row. In strict mode without the generator, the query throws with a clear error.
+
+The generator writes code for the common shapes:
+
+- `b => b.Id`, a simple property access.
+- `b => new { b.X, b.Y }`, an anonymous type key.
+- `b => b.X > 0`, a simple boolean or numeric check.
+- `b => b.X + b.Y`, simple arithmetic.
+
+Shapes the generator cannot write code for include calls to your own methods and casts to types the generator does not know. For those, either change the key to one of the shapes above, or fetch the rows with `ToListAsync()` first and call LINQ `GroupBy` on the result.
+
+Only a direct `GroupBy(keySelector)` call works here. If you need to filter or order the groups, do it after the `ToDictionary` or `ToList`.

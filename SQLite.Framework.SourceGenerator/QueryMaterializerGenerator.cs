@@ -47,23 +47,31 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 transform: static (ctx, _) => ExtractSelectFromQuery(ctx))
             .Where(static t => t is not null);
 
+        IncrementalValuesProvider<(GroupByKeyInvocation Invocation, SemanticModel Model)?> groupByKeys = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => IsCandidateGroupByInvocation(node),
+                transform: static (ctx, _) => ExtractGroupByKey(ctx))
+            .Where(static t => t.HasValue);
+
         IncrementalValueProvider<ImmutableArray<INamedTypeSymbol?>> allEntities =
             fromInvocations.Collect()
                 .Combine(fromMembers.Collect())
                 .Combine(fromSelectProjections.Collect())
                 .Select(static (pair, _) => pair.Left.Left.AddRange(pair.Left.Right).AddRange(pair.Right));
 
-        IncrementalValueProvider<(Compilation Compilation, ImmutableArray<INamedTypeSymbol?> Entities, ImmutableArray<SelectInvocation?> Selects)> source =
+        IncrementalValueProvider<(Compilation Compilation, ImmutableArray<INamedTypeSymbol?> Entities, ImmutableArray<SelectInvocation?> Selects, ImmutableArray<(GroupByKeyInvocation Invocation, SemanticModel Model)?> GroupKeys)> source =
             context.CompilationProvider.Combine(allEntities)
                 .Combine(selectInvocations.Collect())
                 .Combine(querySelects.Collect())
-                .Select(static (p, _) => (p.Left.Left.Left, p.Left.Left.Right, p.Left.Right.AddRange(p.Right)));
+                .Combine(groupByKeys.Collect())
+                .Select(static (p, _) => (p.Left.Left.Left.Left, p.Left.Left.Left.Right, p.Left.Left.Right.AddRange(p.Left.Right), p.Right));
 
         context.RegisterSourceOutput(source, (spc, pair) =>
         {
             Compilation compilation = pair.Compilation;
             ImmutableArray<INamedTypeSymbol?> entities = pair.Entities;
             ImmutableArray<SelectInvocation?> selects = pair.Selects;
+            ImmutableArray<(GroupByKeyInvocation Invocation, SemanticModel Model)?> groupKeys = pair.GroupKeys;
 
             HashSet<INamedTypeSymbol> unique = new(SymbolEqualityComparer.Default);
             foreach (INamedTypeSymbol? symbol in entities)
@@ -87,14 +95,183 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 }
             }
 
-            if (unique.Count == 0 && uniqueSelects.Count == 0)
+            Dictionary<string, (GroupByKeyInvocation Invocation, SemanticModel Model)> uniqueGroupKeys = new();
+            foreach ((GroupByKeyInvocation Invocation, SemanticModel Model)? entry in groupKeys)
+            {
+                if (entry is { } pair2 && !uniqueGroupKeys.ContainsKey(pair2.Invocation.Signature))
+                {
+                    uniqueGroupKeys[pair2.Invocation.Signature] = pair2;
+                }
+            }
+
+            if (unique.Count == 0 && uniqueSelects.Count == 0 && uniqueGroupKeys.Count == 0)
             {
                 return;
             }
 
-            string generated = EntityMaterializerEmitter.Emit("SQLite.Framework.Generated", unique, uniqueSelects.Values);
+            string generated = EntityMaterializerEmitter.Emit("SQLite.Framework.Generated", unique, uniqueSelects.Values, uniqueGroupKeys.Values);
             spc.AddSource("SQLiteFrameworkGeneratedMaterializers.g.cs", generated);
         });
+    }
+
+    private static bool IsCandidateGroupByInvocation(SyntaxNode node)
+    {
+        if (node is QueryExpressionSyntax query && query.Body.SelectOrGroup is GroupClauseSyntax)
+        {
+            return true;
+        }
+
+        if (node is not InvocationExpressionSyntax invocation)
+        {
+            return false;
+        }
+
+        if (invocation.Expression is not MemberAccessExpressionSyntax access)
+        {
+            return false;
+        }
+
+        string name = access.Name switch
+        {
+            GenericNameSyntax generic => generic.Identifier.ValueText,
+            IdentifierNameSyntax ident => ident.Identifier.ValueText,
+            _ => string.Empty
+        };
+
+        return name == "GroupBy";
+    }
+
+    private static (GroupByKeyInvocation Invocation, SemanticModel Model)? ExtractGroupByKey(GeneratorSyntaxContext ctx)
+    {
+        LambdaExpressionSyntax? lambda = null;
+
+        if (ctx.Node is InvocationExpressionSyntax invocation)
+        {
+            if (ctx.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+            {
+                return null;
+            }
+
+            if (method.Name != "GroupBy")
+            {
+                return null;
+            }
+
+            string containingType = method.ContainingType.ToDisplayString();
+            if (containingType != "System.Linq.Queryable" && containingType != "System.Linq.Enumerable")
+            {
+                return null;
+            }
+
+            if (invocation.ArgumentList.Arguments.Count < 1)
+            {
+                return null;
+            }
+
+            ExpressionSyntax keyArg = invocation.ArgumentList.Arguments[0].Expression;
+            while (keyArg is ParenthesizedExpressionSyntax paren)
+            {
+                keyArg = paren.Expression;
+            }
+
+            if (keyArg is not LambdaExpressionSyntax methodLambda)
+            {
+                return null;
+            }
+
+            lambda = methodLambda;
+        }
+        else if (ctx.Node is QueryExpressionSyntax query
+            && query.Body.SelectOrGroup is GroupClauseSyntax groupClause)
+        {
+            return ExtractGroupFromQuery(ctx, query, groupClause);
+        }
+
+        if (lambda == null)
+        {
+            return null;
+        }
+
+        ParameterSyntax? paramSyntax = lambda switch
+        {
+            SimpleLambdaExpressionSyntax simple => simple.Parameter,
+            ParenthesizedLambdaExpressionSyntax paren when paren.ParameterList.Parameters.Count == 1
+                => paren.ParameterList.Parameters[0],
+            _ => null
+        };
+
+        if (paramSyntax == null)
+        {
+            return null;
+        }
+
+        if (ctx.SemanticModel.GetDeclaredSymbol(paramSyntax) is not IParameterSymbol rowSymbol)
+        {
+            return null;
+        }
+
+        if (lambda.Body is not ExpressionSyntax bodyExpr)
+        {
+            return null;
+        }
+
+        SelectSignatureCtx writerCtx = BuildFluentCtx(rowSymbol, ctx.SemanticModel);
+        string? signature = SelectSignatureWriter.TryCompute(bodyExpr, writerCtx);
+        if (signature == null)
+        {
+            return null;
+        }
+
+        ITypeSymbol? keyType = ctx.SemanticModel.GetTypeInfo(bodyExpr).Type
+            ?? ctx.SemanticModel.GetTypeInfo(bodyExpr).ConvertedType;
+        if (keyType == null)
+        {
+            return null;
+        }
+
+        return (new GroupByKeyInvocation(signature, bodyExpr, paramSyntax, rowSymbol, keyType), ctx.SemanticModel);
+    }
+
+    private static (GroupByKeyInvocation Invocation, SemanticModel Model)? ExtractGroupFromQuery(GeneratorSyntaxContext ctx, QueryExpressionSyntax query, GroupClauseSyntax groupClause)
+    {
+        FromClauseSyntax fromClause = query.FromClause;
+        if (ctx.SemanticModel.GetDeclaredSymbol(fromClause) is not IRangeVariableSymbol rangeVar)
+        {
+            return null;
+        }
+
+        ITypeSymbol? rangeType = SelectSignatureWriter.ResolveRangeVariableType(rangeVar, ctx.SemanticModel);
+        if (rangeType == null)
+        {
+            return null;
+        }
+
+        ExpressionSyntax bodyExpr = groupClause.ByExpression;
+        while (bodyExpr is ParenthesizedExpressionSyntax paren)
+        {
+            bodyExpr = paren.Expression;
+        }
+
+        Dictionary<ISymbol, RowBinding> bindings = new(SymbolEqualityComparer.Default)
+        {
+            [rangeVar] = new RowBinding((string?)null, rangeType)
+        };
+        SelectSignatureCtx writerCtx = new(rangeType, bindings, ctx.SemanticModel);
+
+        string? signature = SelectSignatureWriter.TryCompute(bodyExpr, writerCtx);
+        if (signature == null)
+        {
+            return null;
+        }
+
+        ITypeSymbol? keyType = ctx.SemanticModel.GetTypeInfo(bodyExpr).Type
+            ?? ctx.SemanticModel.GetTypeInfo(bodyExpr).ConvertedType;
+        if (keyType == null)
+        {
+            return null;
+        }
+
+        return null;
     }
 
     private static bool UpstreamContainsSelect(ExpressionSyntax expr, SemanticModel model)

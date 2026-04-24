@@ -152,6 +152,14 @@ public sealed class SQLiteOptions
     public required IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> SelectMaterializers { get; init; }
 
     /// <summary>
+    /// Generated GroupBy key-selector extractors, keyed by a canonical signature derived from the
+    /// key selector lambda's body. Each entry reads <see cref="SQLiteQueryContext.Input" /> (the
+    /// already-materialized row) and returns the group key. Populated by the
+    /// <c>UseGeneratedMaterializers</c> extension emitted by <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public required IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> GroupByKeyMaterializers { get; init; }
+
+    /// <summary>
     /// When <see langword="true" />, any entity or <c>Select</c> projection that would fall back
     /// to the runtime reflection path throws an <see cref="InvalidOperationException" /> instead.
     /// Use this together with <c>UseGeneratedMaterializers</c> to guarantee that every query in

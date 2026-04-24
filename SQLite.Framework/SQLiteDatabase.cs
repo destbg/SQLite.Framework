@@ -8,6 +8,7 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
+using SQLite.Framework.Internals.Visitors;
 using SQLite.Framework.Models;
 using SQLitePCL;
 
@@ -18,6 +19,10 @@ namespace SQLite.Framework;
 /// </summary>
 public class SQLiteDatabase : IQueryProvider, IDisposable
 {
+    private static readonly MethodInfo ExecuteGroupingQueryGeneric = typeof(SQLiteDatabase)
+        .GetMethod(nameof(ExecuteGroupingQuery), BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException($"Could not find {nameof(ExecuteGroupingQuery)} method.");
+
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object connectionOpenLock = new();
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
@@ -617,16 +622,15 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 #endif
 
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "IGrouping<TKey, TElement> is referenced by user code; TKey and TElement are already rooted by their own code.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<TKey, TElement> is referenced by user code; TKey and TElement are already rooted by their own code.")]
     internal IEnumerable<T> ExecuteSequenceQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression expression)
     {
         if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(IGrouping<,>))
         {
-            Type[] args = typeof(T).GetGenericArguments();
-            throw new NotSupportedException(
-                $"Materializing GroupBy results as IGrouping<{args[0].Name}, {args[1].Name}> is not supported. " +
-                $"Either project the grouping in SQL (e.g. `.GroupBy(x => x.Key).Select(g => new {{ g.Key, Count = g.Count() }})`) " +
-                $"so the result is reduced server-side, or materialize rows first and group client-side " +
-                $"(`.ToListAsync()` then LINQ `.GroupBy(...)`).");
+            return (IEnumerable<T>)ExecuteGroupingQueryGeneric
+                .MakeGenericMethod(typeof(T).GetGenericArguments())
+                .Invoke(this, [expression])!;
         }
 
         SQLTranslator translator = new(this);
@@ -750,6 +754,75 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         string name = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
         CreateCommand($"SAVEPOINT {name}", []).ExecuteNonQuery();
         return name;
+    }
+
+    private IEnumerable<IGrouping<TKey, TElement>> ExecuteGroupingQuery<TKey, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
+        where TKey : notnull
+    {
+        if (expression is not MethodCallExpression mce
+            || mce.Method.DeclaringType != typeof(Queryable)
+            || mce.Method.Name != nameof(Queryable.GroupBy)
+            || mce.Arguments.Count != 2)
+        {
+            throw new NotSupportedException(
+                "Materializing IGrouping<,> is only supported for a direct GroupBy(keySelector) call. " +
+                "Wrapping GroupBy in other LINQ operators before materialization is not supported. " +
+                "Move the extra operators after the ToList/ToDictionary call, or materialize with ToListAsync() first and group client-side.");
+        }
+
+        Expression source = mce.Arguments[0];
+        LambdaExpression keyLambda = (LambdaExpression)CommonHelpers.StripQuotes(mce.Arguments[1]);
+
+        string keySignature = SelectSignature.Compute(keyLambda.Body);
+        Func<SQLiteQueryContext, object?>? keyExtractor = null;
+        if (Options.GroupByKeyMaterializers.TryGetValue(keySignature, out Func<SQLiteQueryContext, object?>? generated))
+        {
+            keyExtractor = generated;
+        }
+        else if (Options.ReflectionFallbackDisabled)
+        {
+            throw new InvalidOperationException(
+                $"GroupBy key selector fell back to runtime reflection but ReflectionFallbackDisabled is set. " +
+                $"The source generator did not cover this key shape. " +
+                $"Key signature: {keySignature}. " +
+                "Install SQLite.Framework.SourceGenerator and call UseGeneratedMaterializers, " +
+                "change the key selector to a shape the generator supports (member access, anonymous type, or simple operator), " +
+                "or remove the DisableReflectionFallback call.");
+        }
+
+        CompiledExpression? compiledKey = null;
+        if (keyExtractor == null)
+        {
+            QueryCompilerVisitor compiler = new(keyLambda.Parameters);
+            compiledKey = (CompiledExpression)compiler.Visit(keyLambda.Body);
+        }
+
+        SQLTranslator translator = new(this);
+        SQLQuery query = translator.Translate(source);
+        SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
+
+        Dictionary<TKey, List<TElement>> groups = new();
+        List<TKey> order = new();
+        foreach (TElement row in command.ExecuteQueryInternal<TElement>(query))
+        {
+            SQLiteQueryContext keyContext = new() { Input = row };
+            TKey key = keyExtractor != null
+                ? (TKey)keyExtractor(keyContext)!
+                : (TKey)compiledKey!.Call(keyContext)!;
+            if (!groups.TryGetValue(key, out List<TElement>? list))
+            {
+                list = new List<TElement>();
+                groups.Add(key, list);
+                order.Add(key);
+            }
+
+            list.Add(row);
+        }
+
+        foreach (TKey key in order)
+        {
+            yield return new Grouping<TKey, TElement>(key, groups[key]);
+        }
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Parameter objects are user-provided; callers using an anonymous object must preserve its properties (anonymous types declared in user code are preserved automatically).")]

@@ -247,16 +247,142 @@ public class GroupByTests
     }
 
     [Fact]
-    public void GroupBy_MaterializeAsIGrouping_ThrowsActionableException()
+    public void GroupBy_ToList_YieldsGroupingsInInsertionOrder()
     {
         using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 7, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 3, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 7, Price = 3 },
+            new Book { Id = 4, Title = "D", AuthorId = 3, Price = 4 },
+        });
+
+        List<IGrouping<int, Book>> groups = db.Table<Book>()
+            .OrderBy(b => b.Id)
+            .GroupBy(b => b.AuthorId)
+            .ToList();
+
+        Assert.Equal(2, groups.Count);
+        Assert.Equal(7, groups[0].Key);
+        Assert.Equal(3, groups[1].Key);
+        Assert.Equal(new[] { "A", "C" }, groups[0].Select(b => b.Title));
+        Assert.Equal(new[] { "B", "D" }, groups[1].Select(b => b.Title));
+    }
+
+    [Fact]
+    public void GroupBy_ToDictionary_BuildsDictionaryOfLists()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 },
+        });
+
+        Dictionary<int, List<Book>> byAuthor = db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        Assert.Equal(2, byAuthor.Count);
+        Assert.Equal(new[] { "A", "B" }, byAuthor[1].Select(b => b.Title));
+        Assert.Equal(new[] { "C" }, byAuthor[2].Select(b => b.Title));
+    }
+
+    [Fact]
+    public void GroupBy_ForEach_EnumeratesElementsPerGroup()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 10, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 10, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 20, Price = 3 },
+        });
+
+        int totalRows = 0;
+        int totalGroups = 0;
+        foreach (IGrouping<int, Book> group in db.Table<Book>().GroupBy(b => b.AuthorId))
+        {
+            totalGroups++;
+            foreach (Book _ in group)
+            {
+                totalRows++;
+            }
+        }
+
+        Assert.Equal(2, totalGroups);
+        Assert.Equal(3, totalRows);
+    }
+
+    [Fact]
+    public void GroupBy_CompositeKey_AnonymousType()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.0 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2.0 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 5.0 },
+            new Book { Id = 4, Title = "D", AuthorId = 2, Price = 4.0 },
+        });
+
+        Dictionary<(int AuthorId, bool Cheap), List<string>> byKey = db.Table<Book>()
+            .OrderBy(b => b.Id)
+            .GroupBy(b => new { b.AuthorId, Cheap = b.Price < 3.0 })
+            .ToDictionary(g => (g.Key.AuthorId, g.Key.Cheap), g => g.Select(b => b.Title).ToList());
+
+        Assert.Equal(3, byKey.Count);
+        Assert.Equal(new[] { "A", "B" }, byKey[(1, true)]);
+        Assert.Equal(new[] { "C" }, byKey[(1, false)]);
+        Assert.Equal(new[] { "D" }, byKey[(2, false)]);
+    }
+
+    [Fact]
+    public void GroupBy_WithWhereAndOrderBy_PreservesFilter()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 5 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 50 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 100 },
+        });
+
+        List<IGrouping<int, Book>> groups = db.Table<Book>()
+            .Where(b => b.Price > 10)
+            .OrderBy(b => b.Id)
+            .GroupBy(b => b.AuthorId)
+            .ToList();
+
+        Assert.Equal(2, groups.Count);
+        Assert.Equal(new[] { 1, 2 }, groups.Select(g => g.Key));
+        Assert.Single(groups[0]);
+        Assert.Equal("B", groups[0].Single().Title);
+        Assert.Single(groups[1]);
+        Assert.Equal("C", groups[1].Single().Title);
+    }
+
+    [Fact]
+    public void GroupBy_EmptyResult_ReturnsEmpty()
+    {
+        using TestDatabase db = new();
+
         db.Table<Book>().CreateTable();
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(
-            () => db.Table<Book>().GroupBy(b => b.AuthorId).ToList());
+        List<IGrouping<int, Book>> groups = db.Table<Book>().GroupBy(b => b.AuthorId).ToList();
 
-        Assert.Contains("IGrouping", ex.Message);
-        Assert.Contains(".Select(g =>", ex.Message);
-        Assert.Contains(".ToListAsync()", ex.Message);
+        Assert.Empty(groups);
     }
 }
