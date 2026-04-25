@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using System.Text;
 using SQLite.Framework.Attributes;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Models;
 
 namespace SQLite.Framework;
@@ -45,6 +47,11 @@ public class SQLiteTable : BaseSQLiteTable
     /// </summary>
     public int CreateTable()
     {
+        if (Table.IsFullTextSearch)
+        {
+            return CreateFullTextSearchTable();
+        }
+
         string columns = string.Join(", ", Table.Columns.Select(c => c.GetCreateColumnSql()));
 
         string sql = $"CREATE TABLE IF NOT EXISTS \"{Table.TableName}\" ({columns})";
@@ -83,8 +90,18 @@ public class SQLiteTable : BaseSQLiteTable
     /// </summary>
     public int DropTable()
     {
+        int count = 0;
+        if (Table.IsFullTextSearch && Table.FullTextSearch!.AutoSync == FtsAutoSync.Triggers)
+        {
+            foreach (string trigger in TriggerNames())
+            {
+                count += Database.CreateCommand($"DROP TRIGGER IF EXISTS \"{trigger}\"", []).ExecuteNonQuery();
+            }
+        }
+
         string sql = $"DROP TABLE IF EXISTS \"{Table.TableName}\"";
-        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+        count += Database.CreateCommand(sql, []).ExecuteNonQuery();
+        return count;
     }
 
     /// <summary>
@@ -97,6 +114,135 @@ public class SQLiteTable : BaseSQLiteTable
     {
         string sql = $"DELETE FROM \"{Table.TableName}\"";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
+
+    private int CreateFullTextSearchTable()
+    {
+        FtsTableInfo fts = Table.FullTextSearch!;
+        StringBuilder sb = new();
+        sb.Append("CREATE VIRTUAL TABLE IF NOT EXISTS \"");
+        sb.Append(Table.TableName);
+        sb.Append("\" USING fts5(");
+
+        bool first = true;
+        foreach (FtsIndexedColumn column in fts.IndexedColumns)
+        {
+            if (!first)
+            {
+                sb.Append(", ");
+            }
+
+            first = false;
+            sb.Append(column.Name);
+            if (column.Unindexed)
+            {
+                sb.Append(" UNINDEXED");
+            }
+        }
+
+        if (fts.ContentMode == FtsContentMode.External)
+        {
+            string sourceTable = ResolveContentTableName(fts);
+            string contentRowId = ResolveContentRowIdColumn(fts);
+            sb.Append(", content='");
+            sb.Append(sourceTable.Replace("'", "''"));
+            sb.Append("', content_rowid='");
+            sb.Append(contentRowId.Replace("'", "''"));
+            sb.Append('\'');
+        }
+        else if (fts.ContentMode == FtsContentMode.Contentless)
+        {
+            sb.Append(", content=''");
+        }
+
+        sb.Append(", tokenize='");
+        sb.Append(fts.TokenizerClause.Replace("'", "''"));
+        sb.Append('\'');
+
+        if (!string.IsNullOrEmpty(fts.Attribute.Prefix))
+        {
+            sb.Append(", prefix='");
+            sb.Append(fts.Attribute.Prefix.Replace("'", "''"));
+            sb.Append('\'');
+        }
+
+        sb.Append(')');
+
+        int count = Database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
+
+        if (fts.ContentMode == FtsContentMode.External && fts.AutoSync == FtsAutoSync.Triggers)
+        {
+            foreach (string triggerSql in BuildTriggerSql(fts))
+            {
+                count += Database.CreateCommand(triggerSql, []).ExecuteNonQuery();
+            }
+        }
+
+        return count;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
+    private string ResolveContentTableName(FtsTableInfo fts)
+    {
+        Type sourceType = fts.Attribute.ContentTable!;
+        TableMapping sourceMapping = Database.TableMapping(sourceType);
+        return sourceMapping.TableName;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
+    private string ResolveContentRowIdColumn(FtsTableInfo fts)
+    {
+        if (!string.IsNullOrEmpty(fts.Attribute.ContentRowIdColumn))
+        {
+            return fts.Attribute.ContentRowIdColumn!;
+        }
+
+        Type sourceType = fts.Attribute.ContentTable!;
+        TableMapping sourceMapping = Database.TableMapping(sourceType);
+        TableColumn? pk = sourceMapping.Columns.FirstOrDefault(c => c.IsPrimaryKey);
+        if (pk != null)
+        {
+            return pk.Name;
+        }
+
+        throw new InvalidOperationException($"FTS5 entity '{Table.Type.Name}' targets '{sourceType.Name}' but the source has no [Key] property. Mark the primary key with [Key] or set ContentRowIdColumn on [FullTextSearch].");
+    }
+
+    private IEnumerable<string> BuildTriggerSql(FtsTableInfo fts)
+    {
+        string ftsName = Table.TableName;
+        string sourceTable = ResolveContentTableName(fts);
+        string sourceRowId = ResolveContentRowIdColumn(fts);
+
+        string columnList = string.Join(", ", fts.IndexedColumns.Select(c => c.Name));
+        string newValues = string.Join(", ", fts.IndexedColumns.Select(c => "new." + c.Name));
+        string oldValues = string.Join(", ", fts.IndexedColumns.Select(c => "old." + c.Name));
+
+        (string ai, string ad, string au) = TriggerNamesTuple();
+
+        yield return $"CREATE TRIGGER IF NOT EXISTS \"{ai}\" AFTER INSERT ON \"{sourceTable}\" BEGIN " +
+                     $"INSERT INTO \"{ftsName}\"(rowid, {columnList}) VALUES (new.{sourceRowId}, {newValues}); END";
+
+        yield return $"CREATE TRIGGER IF NOT EXISTS \"{ad}\" AFTER DELETE ON \"{sourceTable}\" BEGIN " +
+                     $"INSERT INTO \"{ftsName}\"(\"{ftsName}\", rowid, {columnList}) VALUES('delete', old.{sourceRowId}, {oldValues}); END";
+
+        yield return $"CREATE TRIGGER IF NOT EXISTS \"{au}\" AFTER UPDATE ON \"{sourceTable}\" BEGIN " +
+                     $"INSERT INTO \"{ftsName}\"(\"{ftsName}\", rowid, {columnList}) VALUES('delete', old.{sourceRowId}, {oldValues}); " +
+                     $"INSERT INTO \"{ftsName}\"(rowid, {columnList}) VALUES (new.{sourceRowId}, {newValues}); END";
+    }
+
+    private (string ai, string ad, string au) TriggerNamesTuple()
+    {
+        string baseName = Table.TableName + "_sync";
+        return (baseName + "_ai", baseName + "_ad", baseName + "_au");
+    }
+
+    private IEnumerable<string> TriggerNames()
+    {
+        (string ai, string ad, string au) = TriggerNamesTuple();
+        yield return ai;
+        yield return ad;
+        yield return au;
     }
 }
 

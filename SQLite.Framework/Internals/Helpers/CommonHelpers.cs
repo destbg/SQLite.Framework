@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Text;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Models;
+using SQLite.Framework.Internals.Visitors;
 
 namespace SQLite.Framework.Internals.Helpers;
 
@@ -257,6 +258,20 @@ internal static class CommonHelpers
             _ when type.IsEnum => SQLiteColumnType.Integer,
             _ => throw new NotSupportedException($"The type {type} is not supported.")
         };
+    }
+
+    /// <summary>
+    /// Renders the inner expression tree of an <c>SQLiteFTS5.Match(entity, predicate)</c> call into
+    /// a series of FTS5 query parts. Each part is either a literal string fragment or a SQL
+    /// expression that produces an FTS5-quoted token at runtime (for column references inside
+    /// <c>f.Term</c>, <c>f.Phrase</c>, etc.).
+    /// </summary>
+    public static List<FtsQueryPart> RenderFTSMatch(Expression predicate, SQLVisitor visitor)
+    {
+        FtsRenderState state = new(visitor);
+        state.Write(predicate, parentPrecedence: 0);
+        state.FlushLiteral();
+        return state.Parts;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of user assembly")]

@@ -100,7 +100,7 @@ internal sealed class RowParameterExpander : ExpressionVisitor
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Row types are preserved via DynamicallyAccessedMembers on the Queryable<T> type parameter.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Row types are preserved via DynamicallyAccessedMembers on the Queryable<T> type parameter.")]
-    private static Expression BuildMaterialization(Expression rowReference)
+    private static MemberInitExpression BuildMaterialization(Expression rowReference)
     {
         Type type = rowReference.Type;
         ConstructorInfo? ctor = type.GetConstructor(Type.EmptyTypes);

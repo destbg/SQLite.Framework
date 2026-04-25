@@ -2,9 +2,11 @@ using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
+using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
@@ -634,6 +636,18 @@ internal class MethodVisitor
         return node;
     }
 
+    public Expression HandleFTS5Method(MethodCallExpression node)
+    {
+        return node.Method.Name switch
+        {
+            nameof(SQLiteFTS5.Match) => HandleFTS5Match(node),
+            nameof(SQLiteFTS5.Rank) => HandleFTS5Rank(node),
+            nameof(SQLiteFTS5.Snippet) => HandleFTS5Snippet(node),
+            nameof(SQLiteFTS5.Highlight) => HandleFTS5Highlight(node),
+            _ => throw new NotSupportedException($"SQLiteFTS5.{node.Method.Name} can only be used inside Match, OrderBy, or Select."),
+        };
+    }
+
     public Expression HandleGuidMethod(MethodCallExpression node)
     {
         List<ResolvedModel> arguments = node.Arguments
@@ -1163,6 +1177,247 @@ internal class MethodVisitor
         return node;
     }
 
+    private SQLExpression HandleFTS5Match(MethodCallExpression node)
+    {
+        Expression first = node.Arguments[0];
+        Expression second = node.Arguments[1];
+
+        bool firstIsColumn = node.Method.GetParameters()[0].ParameterType == typeof(string);
+
+        Type entityType;
+        string? columnName = null;
+
+        if (firstIsColumn)
+        {
+            if (first is MemberExpression me && me.Expression != null)
+            {
+                columnName = me.Member.Name;
+                entityType = me.Expression.Type;
+            }
+            else if (first is UnaryExpression { NodeType: ExpressionType.Convert, Operand: MemberExpression me2 } && me2.Expression != null)
+            {
+                columnName = me2.Member.Name;
+                entityType = me2.Expression.Type;
+            }
+            else
+            {
+                throw new NotSupportedException("SQLiteFTS5.Match column reference must be a direct property access like a.Title.");
+            }
+        }
+        else
+        {
+            entityType = first.Type;
+        }
+
+        string tableName = ResolveFTS5TableName(entityType);
+
+        if (second.Type == typeof(string))
+        {
+            object? value = CommonHelpers.GetConstantValue(second);
+            string queryString = (string)(value ?? string.Empty);
+            if (columnName != null)
+            {
+                queryString = "{" + columnName + "} : " + queryString;
+            }
+
+            string pName = $"@p{visitor.ParamIndex.Index++}";
+            SQLiteParameter parameter = new() { Name = pName, Value = queryString };
+            return new SQLExpression(typeof(bool), visitor.IdentifierIndex.Index++, $"\"{tableName}\" MATCH {pName}", [parameter]);
+        }
+
+        Expression body = UnwrapPredicateBody(second);
+        List<FtsQueryPart> parts = CommonHelpers.RenderFTSMatch(body, visitor);
+        return BuildFTS5MatchSql(tableName, columnName, parts);
+    }
+
+    private SQLExpression BuildFTS5MatchSql(string tableName, string? columnName, List<FtsQueryPart> parts)
+    {
+        bool hasDynamic = parts.Any(p => p.DynamicSql != null);
+
+        if (!hasDynamic)
+        {
+            string body = string.Concat(parts.Select(p => p.LiteralText));
+            string queryString = columnName != null ? "{" + columnName + "} : (" + body + ")" : body;
+            string pName = $"@p{visitor.ParamIndex.Index++}";
+            SQLiteParameter parameter = new() { Name = pName, Value = queryString };
+            return new SQLExpression(typeof(bool), visitor.IdentifierIndex.Index++, $"\"{tableName}\" MATCH {pName}", [parameter]);
+        }
+
+        StringBuilder operand = new();
+        List<SQLiteParameter> parameters = [];
+
+        if (columnName != null)
+        {
+            string prefixLiteral = "{" + columnName + "} : (";
+            AppendLiteralPart(operand, parameters, prefixLiteral);
+        }
+
+        for (int i = 0; i < parts.Count; i++)
+        {
+            FtsQueryPart part = parts[i];
+            if (part.LiteralText != null)
+            {
+                AppendLiteralPart(operand, parameters, part.LiteralText);
+            }
+            else
+            {
+                AppendDynamicPart(operand, parameters, part.DynamicSql!);
+            }
+        }
+
+        if (columnName != null)
+        {
+            AppendLiteralPart(operand, parameters, ")");
+        }
+
+        return new SQLExpression(typeof(bool), visitor.IdentifierIndex.Index++, $"\"{tableName}\" MATCH ({operand})", parameters.ToArray());
+    }
+
+    private void AppendLiteralPart(StringBuilder operand, List<SQLiteParameter> parameters, string text)
+    {
+        if (operand.Length > 0)
+        {
+            operand.Append(" || ");
+        }
+
+        string pName = $"@p{visitor.ParamIndex.Index++}";
+        parameters.Add(new SQLiteParameter { Name = pName, Value = text });
+        operand.Append(pName);
+    }
+
+    private static Expression UnwrapPredicateBody(Expression expr)
+    {
+        Expression stripped = CommonHelpers.StripQuotes(expr);
+        if (stripped is LambdaExpression lambda)
+        {
+            return lambda.Body;
+        }
+
+        return expr;
+    }
+
+    private SQLExpression HandleFTS5Rank(MethodCallExpression node)
+    {
+        string alias = ResolveEntityAlias(node.Arguments[0]);
+        return new SQLExpression(typeof(double), visitor.IdentifierIndex.Index++, $"{alias}.rank");
+    }
+
+    private SQLExpression HandleFTS5Snippet(MethodCallExpression node)
+    {
+        Type entityType = node.Arguments[0].Type;
+        string tableName = ResolveFTS5TableName(entityType);
+        int columnIndex = ResolveFTS5ColumnIndex(entityType, node.Arguments[1]);
+
+        SQLExpression before = ResolveAuxArg(node.Arguments[2]);
+        SQLExpression after = ResolveAuxArg(node.Arguments[3]);
+        SQLExpression ellipsis = ResolveAuxArg(node.Arguments[4]);
+        SQLExpression tokens = ResolveAuxArg(node.Arguments[5]);
+
+        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(before, after, ellipsis, tokens);
+        return new SQLExpression(typeof(string), visitor.IdentifierIndex.Index++, $"snippet(\"{tableName}\", {columnIndex}, {before.Sql}, {after.Sql}, {ellipsis.Sql}, {tokens.Sql})", parameters);
+    }
+
+    private SQLExpression HandleFTS5Highlight(MethodCallExpression node)
+    {
+        Type entityType = node.Arguments[0].Type;
+        string tableName = ResolveFTS5TableName(entityType);
+        int columnIndex = ResolveFTS5ColumnIndex(entityType, node.Arguments[1]);
+
+        SQLExpression before = ResolveAuxArg(node.Arguments[2]);
+        SQLExpression after = ResolveAuxArg(node.Arguments[3]);
+
+        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(before, after);
+        return new SQLExpression(typeof(string), visitor.IdentifierIndex.Index++, $"highlight(\"{tableName}\", {columnIndex}, {before.Sql}, {after.Sql})", parameters);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Entity type is referenced by user code via the LINQ expression.")]
+    private string ResolveFTS5TableName(Type entityType)
+    {
+        TableMapping mapping = visitor.Database.TableMapping(entityType);
+        if (mapping.FullTextSearch == null)
+        {
+            throw new NotSupportedException($"SQLiteFTS5 method requires an entity with [FullTextSearch]; '{entityType.Name}' does not.");
+        }
+
+        return mapping.TableName;
+    }
+
+    private SQLExpression ResolveAuxArg(Expression expr)
+    {
+        ResolvedModel resolved = visitor.ResolveExpression(expr);
+        if (resolved.SQLExpression != null)
+        {
+            return resolved.SQLExpression;
+        }
+
+        object? value = CommonHelpers.GetConstantValue(expr);
+        string pName = $"@p{visitor.ParamIndex.Index++}";
+        return new SQLExpression(expr.Type, visitor.IdentifierIndex.Index++, pName, value);
+    }
+
+    private string ResolveEntityAlias(Expression entity)
+    {
+        if (entity is ParameterExpression pe && visitor.MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? dict))
+        {
+            foreach (KeyValuePair<string, Expression> kv in dict)
+            {
+                if (kv.Value is SQLExpression sql)
+                {
+                    int dot = sql.Sql.IndexOf('.');
+                    if (dot > 0)
+                    {
+                        return sql.Sql[..dot];
+                    }
+                }
+            }
+        }
+
+        if (entity is MemberExpression member)
+        {
+            ResolvedModel resolved = visitor.ResolveExpression(member);
+            if (resolved.SQLExpression != null)
+            {
+                int dot = resolved.SQLExpression.Sql.IndexOf('.');
+                if (dot > 0)
+                {
+                    return resolved.SQLExpression.Sql[..dot];
+                }
+            }
+        }
+
+        throw new NotSupportedException($"SQLiteFTS5 method requires a direct entity reference; got {entity}.");
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Entity type is referenced by user code via the LINQ expression.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Entity type is referenced by user code.")]
+    private int ResolveFTS5ColumnIndex(Type entityType, Expression columnArg)
+    {
+        TableMapping mapping = visitor.Database.TableMapping(entityType);
+        if (mapping.FullTextSearch == null)
+        {
+            throw new NotSupportedException($"SQLiteFTS5 method requires an entity with [FullTextSearch]; '{entityType.Name}' does not.");
+        }
+
+        string columnName = columnArg switch
+        {
+            MemberExpression me => me.Member.Name,
+            UnaryExpression { NodeType: ExpressionType.Convert, Operand: MemberExpression me2 } => me2.Member.Name,
+            _ => throw new NotSupportedException("SQLiteFTS5 column argument must be a direct property reference like a.Title.")
+        };
+
+        for (int i = 0; i < mapping.FullTextSearch.IndexedColumns.Count; i++)
+        {
+            if (mapping.FullTextSearch.IndexedColumns[i].Name == columnName || mapping.FullTextSearch.IndexedColumns[i].Property.Name == columnName)
+            {
+                return i;
+            }
+        }
+
+        throw new NotSupportedException($"SQLiteFTS5 column '{columnName}' is not declared on FTS entity '{entityType.Name}'.");
+    }
+
     private SQLExpression ResolveLike(MethodInfo method, SQLExpression obj, List<ResolvedModel> arguments, Func<object?, string> selectParameter, Func<SQLExpression, string> selectValue)
     {
         string rest = "ESCAPE '\\'";
@@ -1401,5 +1656,22 @@ internal class MethodVisitor
         SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(allExpressions.ToArray());
 
         return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex.Index++, sql, parameters);
+    }
+
+    private static void AppendDynamicPart(StringBuilder operand, List<SQLiteParameter> parameters, SQLExpression sql)
+    {
+        if (operand.Length > 0)
+        {
+            operand.Append(" || ");
+        }
+
+        if (sql.Parameters != null)
+        {
+            parameters.AddRange(sql.Parameters);
+        }
+
+        operand.Append("printf('\"%w\"', ");
+        operand.Append(sql.Sql);
+        operand.Append(')');
     }
 }

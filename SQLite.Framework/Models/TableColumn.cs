@@ -16,6 +16,11 @@ public class TableColumn
     /// Initializes a new instance of the <see cref="TableColumn"/> class.
     /// </summary>
     public TableColumn(PropertyInfo property, SQLiteOptions options)
+        : this(property, options, false)
+    {
+    }
+
+    internal TableColumn(PropertyInfo property, SQLiteOptions options, bool isFtsRowId)
     {
         ColumnAttribute? columnAttribute = property.GetCustomAttribute<ColumnAttribute>();
         Type type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
@@ -23,12 +28,13 @@ public class TableColumn
         NullabilityInfoContext nullabilityInfoContext = new();
 
         PropertyInfo = property;
-        Name = columnAttribute?.Name ?? property.Name;
+        Name = isFtsRowId ? "rowid" : columnAttribute?.Name ?? property.Name;
         PropertyType = type;
         Indices = property.GetCustomAttributes<IndexedAttribute>().ToArray();
         IsPrimaryKey = keyProperty != null;
         IsAutoIncrement = property.GetCustomAttribute<AutoIncrementAttribute>() != null;
-        IsNullable = !IsPrimaryKey && (
+        IsFtsRowId = isFtsRowId;
+        IsNullable = !IsPrimaryKey && !isFtsRowId && (
             Nullable.GetUnderlyingType(property.PropertyType) != null
             || nullabilityInfoContext.Create(property).ReadState == NullabilityState.Nullable
         );
@@ -75,6 +81,11 @@ public class TableColumn
     /// Indicates whether the column is an auto-incrementing primary key.
     /// </summary>
     public bool IsAutoIncrement { get; }
+
+    /// <summary>
+    /// Indicates whether the column is the implicit <c>rowid</c> on an FTS5 virtual table.
+    /// </summary>
+    public bool IsFtsRowId { get; }
 
     /// <summary>
     /// Indicates whether the column can be null.

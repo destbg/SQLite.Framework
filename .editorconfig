@@ -98,3 +98,6 @@ dotnet_diagnostic.RCS1021.severity = none
 # IDE0305: Simplify collection initialization
 dotnet_style_prefer_collection_expression = never
 dotnet_style_namespace_match_folder = true:suggestion
+
+[*.cs]
+csharp_indent_case_contents_when_block = false

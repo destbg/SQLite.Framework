@@ -39,6 +39,7 @@ export const sections: Section[] = [
             { slug: 'Multi-threading', title: 'Multi-threading' },
             { slug: 'Raw SQL', title: 'Raw SQL' },
             { slug: 'Common Table Expressions', title: 'Common Table Expressions' },
+            { slug: 'Full Text Search', title: 'Full Text Search' },
         ],
     },
     {

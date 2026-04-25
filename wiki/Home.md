@@ -38,6 +38,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - Bulk delete and update with `ExecuteDelete` and `ExecuteUpdate`
 - Transactions using SQLite savepoints
 - Raw SQL via `FromSql`
+- Full-text search through SQLite's FTS5 module
 - AOT compatible, works great in .NET MAUI and Avalonia apps
 - Supports .NET 8, 9, and 10
 
@@ -61,6 +62,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - [Custom Converters](Custom%20Converters)
 - [JSON and JSONB](JSON%20and%20JSONB)
 - [Window Functions](Window%20Functions)
+- [Full Text Search](Full%20Text%20Search)
 - [Performance](Performance)
 - [Native AOT](Native%20AOT)
 - [Source Generator](Source%20Generator)
