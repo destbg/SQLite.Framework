@@ -12,6 +12,9 @@ public class SQLiteJsonConverter<T> : ISQLiteTypeConverter
 {
     private readonly JsonTypeInfo<T> typeInfo;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SQLiteJsonConverter{T}" /> class.
+    /// </summary>
     public SQLiteJsonConverter(JsonTypeInfo<T> typeInfo)
     {
         this.typeInfo = typeInfo;

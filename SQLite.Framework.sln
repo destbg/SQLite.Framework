@@ -4,9 +4,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework", "SQLite.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Tests", "Tests\SQLite.Framework.Tests\SQLite.Framework.Tests.csproj", "{78D78A0E-311A-439E-9300-061AD007C89D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Benchmarks", "SQLite.Framework.Benchmarks\SQLite.Framework.Benchmarks.csproj", "{588CB281-C4A6-4780-A316-831A4342CE38}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Benchmarks", "Sample\SQLite.Framework.Benchmarks\SQLite.Framework.Benchmarks.csproj", "{588CB281-C4A6-4780-A316-831A4342CE38}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Sample", "SQLite.Framework.Sample\SQLite.Framework.Sample.csproj", "{A20B2DD4-A613-4E3C-9013-6CD1F3B8A10E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Sample", "Sample\SQLite.Framework.Sample\SQLite.Framework.Sample.csproj", "{A20B2DD4-A613-4E3C-9013-6CD1F3B8A10E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Bundled", "SQLite.Framework.Bundled\SQLite.Framework.Bundled.csproj", "{3C5FD941-FDC8-44F0-B8B5-DD6DE0777235}"
 EndProject
