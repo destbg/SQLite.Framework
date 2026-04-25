@@ -1,8 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <DefineConstants>$(DefineConstants);NO_SQLITEPCL_RAW_BATTERIES</DefineConstants>
-    </PropertyGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -24,7 +20,6 @@
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.0" />
         <PackageReference Include="xunit.v3.aot.mtp-v2" Version="4.0.0-pre.81"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0-pre.4"/>
-        <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -32,13 +27,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Include="../SQLite.Framework.Tests/**/*.cs" Exclude="../SQLite.Framework.Tests/obj/**/*.cs"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\SQLite.Framework.Base\SQLite.Framework.Base.csproj"/>
-        <ProjectReference Include="..\SQLite.Framework.JsonB\SQLite.Framework.JsonB.csproj"/>
-        <ProjectReference Include="..\SQLite.Framework.Window\SQLite.Framework.Window.csproj"/>
+        <ProjectReference Include="..\..\SQLite.Framework\SQLite.Framework.csproj"/>
+        <ProjectReference Include="..\..\SQLite.Framework.JsonB\SQLite.Framework.JsonB.csproj"/>
+        <ProjectReference Include="..\..\SQLite.Framework.Window\SQLite.Framework.Window.csproj"/>
+        <TrimmerRootDescriptor Include="TrimmerRootDescriptor.xml"/>
     </ItemGroup>
 
 </Project>

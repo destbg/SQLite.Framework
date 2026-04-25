@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <DefineConstants>$(DefineConstants);SQLITE_FRAMEWORK_SOURCE_GENERATOR</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
@@ -28,12 +32,15 @@
 
     <ItemGroup>
         <Compile Include="../SQLite.Framework.Tests/**/*.cs" Exclude="../SQLite.Framework.Tests/obj/**/*.cs"/>
+        <None Include="../SQLite.Framework.Tests/TrimmerRootDescriptor.xml" />
+        <TrimmerRootDescriptor Include="../SQLite.Framework.Tests/TrimmerRootDescriptor.xml"/>
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\SQLite.Framework.Bundled\SQLite.Framework.Bundled.csproj"/>
-        <ProjectReference Include="..\SQLite.Framework.JsonB\SQLite.Framework.JsonB.csproj"/>
-        <ProjectReference Include="..\SQLite.Framework.Window\SQLite.Framework.Window.csproj"/>
+        <ProjectReference Include="..\..\SQLite.Framework\SQLite.Framework.csproj"/>
+        <ProjectReference Include="..\..\SQLite.Framework.JsonB\SQLite.Framework.JsonB.csproj"/>
+        <ProjectReference Include="..\..\SQLite.Framework.Window\SQLite.Framework.Window.csproj"/>
+        <ProjectReference Include="..\..\SQLite.Framework.SourceGenerator\SQLite.Framework.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
     </ItemGroup>
 
 </Project>
