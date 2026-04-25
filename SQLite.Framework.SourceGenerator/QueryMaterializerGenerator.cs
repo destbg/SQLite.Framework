@@ -1088,12 +1088,14 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             _ => null
         };
 
-        if (type is INamedTypeSymbol named
-            && named.IsGenericType
-            && named.OriginalDefinition.ToDisplayString() == "SQLite.Framework.SQLiteTable<T>"
-            && named.TypeArguments.Length == 1)
+        for (INamedTypeSymbol? current = type as INamedTypeSymbol; current != null; current = current.BaseType)
         {
-            return named.TypeArguments[0] as INamedTypeSymbol;
+            if (current.IsGenericType
+                && current.OriginalDefinition.ToDisplayString() == "SQLite.Framework.SQLiteTable<T>"
+                && current.TypeArguments.Length == 1)
+            {
+                return current.TypeArguments[0] as INamedTypeSymbol;
+            }
         }
 
         return null;

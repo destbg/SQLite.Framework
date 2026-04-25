@@ -13,6 +13,22 @@ namespace SQLite.Framework.Extensions;
 public static class QueryableExtensions
 {
     /// <summary>
+    /// Tells the framework to skip every <see cref="SQLiteOptions.QueryFilters" /> entry that would
+    /// otherwise apply to this query. Combine with <c>Where</c> as usual: the user's <c>Where</c>
+    /// still runs; only the framework-injected filters are dropped. The opt-out applies to the
+    /// entire wrapped subtree, including <c>Join</c>-ed tables.
+    /// </summary>
+    public static IQueryable<T> IgnoreQueryFilters<T>(this IQueryable<T> source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return source.Provider.CreateQuery<T>(
+            Expression.Call(
+                null,
+                new Func<IQueryable<T>, IQueryable<T>>(IgnoreQueryFilters).Method,
+                source.Expression));
+    }
+
+    /// <summary>
     /// Executes the query and deletes the records from the database.
     /// </summary>
     public static int ExecuteDelete<T>(this IQueryable<T> source)

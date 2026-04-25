@@ -183,16 +183,16 @@ internal static class SelectSignatureWriter
         switch (node)
         {
             case IdentifierNameSyntax ident:
+            {
+                ISymbol? sym = ctx.Model.GetSymbolInfo(ident).Symbol;
+                return sym switch
                 {
-                    ISymbol? sym = ctx.Model.GetSymbolInfo(ident).Symbol;
-                    return sym switch
-                    {
-                        ILocalSymbol => true,
-                        IFieldSymbol { IsStatic: false } => true,
-                        IPropertySymbol { IsStatic: false } => true,
-                        _ => false
-                    };
-                }
+                    ILocalSymbol => true,
+                    IFieldSymbol { IsStatic: false } => true,
+                    IPropertySymbol { IsStatic: false } => true,
+                    _ => false
+                };
+            }
             case MemberAccessExpressionSyntax ma:
                 ISymbol? member = ctx.Model.GetSymbolInfo(ma).Symbol;
                 if (member is IFieldSymbol or IPropertySymbol)
@@ -390,14 +390,16 @@ internal static class SelectSignatureWriter
             return false;
         }
 
-        sb.Append("(Call ").Append(FormatType(type));
-        sb.Append(' ').Append(FormatType(method.ContainingType)).Append('.').Append(method.Name);
-
         ExpressionSyntax? receiver = null;
         if (!method.IsStatic && invocation.Expression is MemberAccessExpressionSyntax ma)
         {
             receiver = ma.Expression;
         }
+
+        ITypeSymbol? effectiveContainingType = ResolveContainingTypeForExpressionTree(method, receiver, ctx);
+
+        sb.Append("(Call ").Append(FormatType(type));
+        sb.Append(' ').Append(FormatType(effectiveContainingType)).Append('.').Append(method.Name);
 
         bool expandRowArgs = !IsFrameworkTranslatedMethod(method);
 
@@ -435,6 +437,27 @@ internal static class SelectSignatureWriter
 
         sb.Append(')');
         return true;
+    }
+
+    private static ITypeSymbol? ResolveContainingTypeForExpressionTree(IMethodSymbol method, ExpressionSyntax? receiver, SelectSignatureCtx ctx)
+    {
+        if (method.IsStatic || receiver == null || method.OverriddenMethod == null)
+        {
+            return method.ContainingType;
+        }
+
+        ITypeSymbol? receiverType = ctx.Model.GetTypeInfo(receiver).Type;
+        if (receiverType is null || receiverType.IsValueType)
+        {
+            return method.ContainingType;
+        }
+
+        IMethodSymbol baseMethod = method;
+        while (baseMethod.OverriddenMethod != null)
+        {
+            baseMethod = baseMethod.OverriddenMethod;
+        }
+        return baseMethod.ContainingType;
     }
 
     private static bool AppendExpandedRow(StringBuilder sb, ExpressionSyntax rowExpr, SelectSignatureCtx ctx)

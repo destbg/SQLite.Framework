@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Extensions;
@@ -98,19 +99,52 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Performs an INSERT OR REPLACE operation on the database table using the row.
+    /// Performs an <c>INSERT OR REPLACE</c> operation on the database table using the row.
     /// </summary>
     public static Task<int> AddOrUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.AddOrUpdate, item, ct);
+        return ExecuteAsync(() => source.AddOrUpdate(item, SQLiteConflict.Replace), ct);
     }
 
     /// <summary>
-    /// Performs an INSERT OR REPLACE operation on the database table using the rows.
+    /// Performs an <c>INSERT OR &lt;conflict&gt;</c> operation on the database table using the row.
+    /// </summary>
+    public static Task<int> AddOrUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, SQLiteConflict conflict, CancellationToken ct = default)
+    {
+        return ExecuteAsync(() => source.AddOrUpdate(item, conflict), ct);
+    }
+
+    /// <summary>
+    /// Performs an <c>INSERT OR REPLACE</c> operation on the database table using the rows.
     /// </summary>
     public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.AddOrUpdateRange, collection, runInTransaction, separateConnection, ct);
+        return ExecuteAsync(() => source.AddOrUpdateRange(collection, runInTransaction, separateConnection, SQLiteConflict.Replace), ct);
+    }
+
+    /// <summary>
+    /// Performs an <c>INSERT OR &lt;conflict&gt;</c> operation on the database table using the rows.
+    /// </summary>
+    public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, SQLiteConflict conflict, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    {
+        return ExecuteAsync(() => source.AddOrUpdateRange(collection, runInTransaction, separateConnection, conflict), ct);
+    }
+
+    /// <summary>
+    /// Performs an <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> upsert built through the
+    /// <see cref="UpsertBuilder{T}" /> DSL.
+    /// </summary>
+    public static Task<int> UpsertAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, Action<UpsertBuilder<T>> configure, CancellationToken ct = default)
+    {
+        return ExecuteAsync(() => source.Upsert(item, configure), ct);
+    }
+
+    /// <summary>
+    /// Range version of <see cref="UpsertAsync" />.
+    /// </summary>
+    public static Task<int> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    {
+        return ExecuteAsync(() => source.UpsertRange(collection, configure, runInTransaction, separateConnection), ct);
     }
 
     /// <summary>

@@ -84,7 +84,7 @@ public class CoverageGapTests
         using TestDatabase db = new();
         db.Table<Book>().CreateTable();
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>().ExecuteUpdate(s => s.Set(b => b.Title, b => string.Intern(b.Title))));
     }
 

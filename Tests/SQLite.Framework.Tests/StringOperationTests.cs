@@ -203,7 +203,7 @@ public class StringOperationTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (CASE WHEN LENGTH(b0.BookTitle) >= @p0 THEN b0.BookTitle ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB((@p0 - LENGTH(b0.BookTitle)) / 2 + (@p0 - LENGTH(b0.BookTitle)) % 2)), '00', @p1), 1, @p0 - LENGTH(b0.BookTitle)) || b0.BookTitle) END) = @p2
+                     WHERE (CASE WHEN LENGTH(b0.BookTitle) >= @p0 THEN b0.BookTitle ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0.BookTitle))), '00', @p1), 1, @p0 - LENGTH(b0.BookTitle)) || b0.BookTitle) END) = @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -229,7 +229,7 @@ public class StringOperationTests
                             b0.BookAuthorId AS "AuthorId",
                             b0.BookPrice AS "Price"
                      FROM "Books" AS b0
-                     WHERE (CASE WHEN LENGTH(b0.BookTitle) >= @p0 THEN b0.BookTitle ELSE (b0.BookTitle || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB((@p0 - LENGTH(b0.BookTitle)) / 2 + (@p0 - LENGTH(b0.BookTitle)) % 2)), '00', @p1), 1, @p0 - LENGTH(b0.BookTitle)))) END) = @p2
+                     WHERE (CASE WHEN LENGTH(b0.BookTitle) >= @p0 THEN b0.BookTitle ELSE (b0.BookTitle || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0.BookTitle))), '00', @p1), 1, @p0 - LENGTH(b0.BookTitle)))) END) = @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

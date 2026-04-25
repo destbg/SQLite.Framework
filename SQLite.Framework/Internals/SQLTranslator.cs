@@ -71,6 +71,7 @@ internal class SQLTranslator
 
     public void Visit(Expression node)
     {
+        node = QueryFilterInjector.Inject(node, Visitor.Database.Options);
         if (node is MethodCallExpression mce)
         {
             selectMethodExpression = TranslateMethodExpression(mce);

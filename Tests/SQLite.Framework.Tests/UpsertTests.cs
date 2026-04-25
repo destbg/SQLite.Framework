@@ -74,7 +74,6 @@ public class UpsertTests
         Book stored = db.Table<Book>().Single();
         Assert.Equal("updated", stored.Title);
         Assert.Equal(7, stored.Price);
-        // AuthorId was not in the DO UPDATE list, so it stays at 1.
         Assert.Equal(1, stored.AuthorId);
     }
 
@@ -125,6 +124,20 @@ public class UpsertTests
     }
 
     [Fact]
+    public void Upsert_HookReturnsFalse_SkipsInsertReturnsZero()
+    {
+        using TestDatabase db = new(b => b.OnAddOrUpdate<Book>((_, _) => false));
+        db.Table<Book>().CreateTable();
+
+        int affected = db.Table<Book>().Upsert(
+            new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 },
+            c => c.OnConflict(b => b.Id).DoUpdateAll());
+
+        Assert.Equal(0, affected);
+        Assert.Empty(db.Table<Book>().ToList());
+    }
+
+    [Fact]
     public void Upsert_OnConflictMissingMethod_ThrowsAtConfigure()
     {
         using TestDatabase db = new();
@@ -146,6 +159,24 @@ public class UpsertTests
             db.Table<Book>().Upsert(
                 new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 },
                 c => c.OnConflict(b => b.Id).DoUpdate()));
+    }
+
+    [Fact]
+    public void Upsert_OnConflictCalledTwice_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().CreateTable();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Table<Book>().Upsert(
+                new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 },
+                c =>
+                {
+                    c.OnConflict(b => b.Id);
+                    c.OnConflict(b => b.AuthorId);
+                }));
+
+        Assert.Equal("OnConflict was already called for this Upsert.", ex.Message);
     }
 
     private sealed class SqlInspectingTable : SQLiteTable<Book>

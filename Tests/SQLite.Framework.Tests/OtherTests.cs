@@ -416,8 +416,8 @@ public class OtherTests
         using SQLiteDataReader reader = queryCommand.ExecuteReader();
 
         Assert.True(reader.Read());
-        Assert.Equal(1, reader.GetValue(0, SQLiteColumnType.Integer, typeof(int))); // Id
-        Assert.Equal("Test Name", reader.GetValue(1, SQLiteColumnType.Text, typeof(string))); // Name
+        Assert.Equal(1, reader.GetValue(0, SQLiteColumnType.Integer, typeof(int)));
+        Assert.Equal("Test Name", reader.GetValue(1, SQLiteColumnType.Text, typeof(string)));
     }
 
     [Fact]

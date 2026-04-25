@@ -161,6 +161,74 @@ public sealed class SQLiteOptionsBuilder
     public bool ReflectionFallbackDisabled { get; set; }
 
     /// <summary>
+    /// Per-entity hooks that fire before <c>Add</c>. Mutate the entity here for things like an
+    /// audit timestamp.
+    /// </summary>
+    public Dictionary<Type, List<Delegate>> AddHooks { get; } = [];
+
+    /// <summary>
+    /// Per-entity hooks that fire before <c>Update</c>.
+    /// </summary>
+    public Dictionary<Type, List<Delegate>> UpdateHooks { get; } = [];
+
+    /// <summary>
+    /// Per-entity hooks that fire before <c>Remove</c>. Useful for soft delete: flip a flag and
+    /// call <c>Update</c> from inside the hook, then return <see langword="false" /> to skip the
+    /// default DELETE.
+    /// </summary>
+    public Dictionary<Type, List<Delegate>> RemoveHooks { get; } = [];
+
+    /// <summary>
+    /// Per-entity hooks that fire before <c>AddOrUpdate</c> and <c>Upsert</c>.
+    /// </summary>
+    public Dictionary<Type, List<Delegate>> AddOrUpdateHooks { get; } = [];
+
+    /// <summary>
+    /// Cross-cutting action hooks that run before every CRUD action across every entity.
+    /// Populated through <see cref="OnAction" />.
+    /// </summary>
+    public List<SQLiteActionHook> OnActionHooks { get; } = [];
+
+    /// <summary>
+    /// Query filters keyed by registration type. Populated through <see cref="AddQueryFilter{T}" />.
+    /// Each filter is a typed lambda; the registration type can be the entity type or an interface,
+    /// in which case the filter applies to every entity assignable to that interface.
+    /// </summary>
+    public Dictionary<Type, List<LambdaExpression>> QueryFilters { get; } = [];
+
+    /// <summary>
+    /// Registers a predicate the framework injects into every query against <typeparamref name="T" />,
+    /// or every query against any entity that implements <typeparamref name="T" /> when it is an
+    /// interface. The framework rewrites the filter's parameter from <typeparamref name="T" /> to
+    /// the concrete entity type when it injects the filter, so the same registration covers every
+    /// matching entity. Multiple filters per type are AND-combined. Use
+    /// <c>IQueryable&lt;T&gt;.IgnoreQueryFilters()</c> on a per-query basis to opt out.
+    /// </summary>
+    public SQLiteOptionsBuilder AddQueryFilter<T>(Expression<Func<T, bool>> predicate)
+    {
+        if (!QueryFilters.TryGetValue(typeof(T), out List<LambdaExpression>? list))
+        {
+            list = [];
+            QueryFilters[typeof(T)] = list;
+        }
+        list.Add(predicate);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a cross-cutting hook that runs before every CRUD action across every entity.
+    /// The hook can mutate the entity and rewrite the action (for example, turn
+    /// <see cref="SQLiteAction.Remove" /> into <see cref="SQLiteAction.Update" /> for a
+    /// soft-delete scenario). Multiple hooks chain in registration order; each receives the
+    /// action returned by the previous hook.
+    /// </summary>
+    public SQLiteOptionsBuilder OnAction(SQLiteActionHook hook)
+    {
+        OnActionHooks.Add(hook);
+        return this;
+    }
+
+    /// <summary>
     /// Sets the flags used when opening the SQLite connection.
     /// </summary>
     public SQLiteOptionsBuilder UseOpenFlags(SQLiteOpenFlags flags)
@@ -335,6 +403,97 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Registers an action that runs before every <c>Add</c> for <typeparamref name="T" />.
+    /// The action can mutate the entity. The default INSERT always runs after.
+    /// </summary>
+    public SQLiteOptionsBuilder OnAdd<T>(Action<T> hook)
+    {
+        return OnAdd<T>((_, item) =>
+        {
+            hook(item);
+            return true;
+        });
+    }
+
+    /// <summary>
+    /// Registers a function that runs before every <c>Add</c> for <typeparamref name="T" />.
+    /// Return <see langword="false" /> to skip the default INSERT (and any later hooks).
+    /// </summary>
+    public SQLiteOptionsBuilder OnAdd<T>(Func<SQLiteDatabase, T, bool> hook)
+    {
+        AppendHook(AddHooks, typeof(T), hook);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers an action that runs before every <c>Update</c> for <typeparamref name="T" />.
+    /// </summary>
+    public SQLiteOptionsBuilder OnUpdate<T>(Action<T> hook)
+    {
+        return OnUpdate<T>((_, item) =>
+        {
+            hook(item);
+            return true;
+        });
+    }
+
+    /// <summary>
+    /// Registers a function that runs before every <c>Update</c> for <typeparamref name="T" />.
+    /// Return <see langword="false" /> to skip the default UPDATE.
+    /// </summary>
+    public SQLiteOptionsBuilder OnUpdate<T>(Func<SQLiteDatabase, T, bool> hook)
+    {
+        AppendHook(UpdateHooks, typeof(T), hook);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers an action that runs before every <c>Remove</c> for <typeparamref name="T" />.
+    /// </summary>
+    public SQLiteOptionsBuilder OnRemove<T>(Action<T> hook)
+    {
+        return OnRemove<T>((_, item) =>
+        {
+            hook(item);
+            return true;
+        });
+    }
+
+    /// <summary>
+    /// Registers a function that runs before every <c>Remove</c> for <typeparamref name="T" />.
+    /// Return <see langword="false" /> to skip the default DELETE. Combine with an
+    /// <c>Update</c> call inside the hook to implement soft delete.
+    /// </summary>
+    public SQLiteOptionsBuilder OnRemove<T>(Func<SQLiteDatabase, T, bool> hook)
+    {
+        AppendHook(RemoveHooks, typeof(T), hook);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers an action that runs before every <c>AddOrUpdate</c> and <c>Upsert</c> for
+    /// <typeparamref name="T" />.
+    /// </summary>
+    public SQLiteOptionsBuilder OnAddOrUpdate<T>(Action<T> hook)
+    {
+        return OnAddOrUpdate<T>((_, item) =>
+        {
+            hook(item);
+            return true;
+        });
+    }
+
+    /// <summary>
+    /// Registers a function that runs before every <c>AddOrUpdate</c> and <c>Upsert</c> for
+    /// <typeparamref name="T" />. Return <see langword="false" /> to skip the default operation.
+    /// </summary>
+    public SQLiteOptionsBuilder OnAddOrUpdate<T>(Func<SQLiteDatabase, T, bool> hook)
+    {
+        AppendHook(AddOrUpdateHooks, typeof(T), hook);
+        return this;
+    }
+
+    /// <summary>
     /// Disables the runtime reflection fallback. Any entity or <c>Select</c> projection that is
     /// not covered by a generated materializer will throw an <see cref="InvalidOperationException" />.
     /// Call this together with <c>UseGeneratedMaterializers</c> to guarantee that every query in
@@ -380,6 +539,42 @@ public sealed class SQLiteOptionsBuilder
             SelectMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(SelectMaterializers),
             GroupByKeyMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(GroupByKeyMaterializers),
             ReflectionFallbackDisabled = ReflectionFallbackDisabled,
+            AddHooks = SnapshotHooks(AddHooks),
+            UpdateHooks = SnapshotHooks(UpdateHooks),
+            RemoveHooks = SnapshotHooks(RemoveHooks),
+            AddOrUpdateHooks = SnapshotHooks(AddOrUpdateHooks),
+            OnActionHooks = [.. OnActionHooks],
+            QueryFilters = SnapshotQueryFilters(QueryFilters),
         };
+    }
+
+    private static Dictionary<Type, IReadOnlyList<LambdaExpression>> SnapshotQueryFilters(Dictionary<Type, List<LambdaExpression>> source)
+    {
+        Dictionary<Type, IReadOnlyList<LambdaExpression>> snapshot = new(source.Count);
+        foreach (KeyValuePair<Type, List<LambdaExpression>> kvp in source)
+        {
+            snapshot[kvp.Key] = [.. kvp.Value];
+        }
+        return snapshot;
+    }
+
+    private static void AppendHook(Dictionary<Type, List<Delegate>> store, Type entityType, Delegate hook)
+    {
+        if (!store.TryGetValue(entityType, out List<Delegate>? list))
+        {
+            list = [];
+            store[entityType] = list;
+        }
+        list.Add(hook);
+    }
+
+    private static Dictionary<Type, IReadOnlyList<Delegate>> SnapshotHooks(Dictionary<Type, List<Delegate>> source)
+    {
+        Dictionary<Type, IReadOnlyList<Delegate>> snapshot = new(source.Count);
+        foreach (KeyValuePair<Type, List<Delegate>> kvp in source)
+        {
+            snapshot[kvp.Key] = [.. kvp.Value];
+        }
+        return snapshot;
     }
 }

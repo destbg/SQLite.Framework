@@ -184,7 +184,7 @@ internal class MethodVisitor
                         return new SQLExpression(
                             node.Method.ReturnType,
                             visitor.IdentifierIndex.Index++,
-                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(({arguments[0].Sql} - LENGTH({obj.Sql})) / 2 + ({arguments[0].Sql} - LENGTH({obj.Sql})) % 2)), '00', {spaceParam.Name}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})) || {obj.Sql}) END)",
+                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB({arguments[0].Sql} - LENGTH({obj.Sql}))), '00', {spaceParam.Name}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})) || {obj.Sql}) END)",
                             parameters
                         );
                     }
@@ -215,7 +215,7 @@ internal class MethodVisitor
                         return new SQLExpression(
                             node.Method.ReturnType,
                             visitor.IdentifierIndex.Index++,
-                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE ({obj.Sql} || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(({arguments[0].Sql} - LENGTH({obj.Sql})) / 2 + ({arguments[0].Sql} - LENGTH({obj.Sql})) % 2)), '00', {spaceParam.Name}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})))) END)",
+                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE ({obj.Sql} || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB({arguments[0].Sql} - LENGTH({obj.Sql}))), '00', {spaceParam.Name}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})))) END)",
                             parameters
                         );
                     }
@@ -272,7 +272,7 @@ internal class MethodVisitor
                     );
                 }
 
-                return node;
+                throw new NotSupportedException("string.Join with a non-array source is not translatable to SQL.");
             case nameof(string.Compare):
                 return new SQLExpression(
                     node.Method.ReturnType,
@@ -306,7 +306,7 @@ internal class MethodVisitor
                     CommonHelpers.CombineParameters(arguments[0].SQLExpression!, arguments[1].SQLExpression!)
                 );
             default:
-                return node;
+                throw new NotSupportedException($"string.{node.Method.Name} is not translatable to SQL.");
         }
     }
 
@@ -361,6 +361,12 @@ internal class MethodVisitor
                 $"FLOOR({arguments[0].Sql})",
                 parameters
             ),
+            nameof(Math.Truncate) => new SQLExpression(
+                node.Method.ReturnType,
+                visitor.IdentifierIndex.Index++,
+                $"TRUNC({arguments[0].Sql})",
+                parameters
+            ),
             nameof(Math.Pow) => new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex.Index++,
@@ -397,7 +403,7 @@ internal class MethodVisitor
                 $"LOG10({arguments[0].Sql})",
                 parameters
             ),
-            _ => node
+            _ => throw new NotSupportedException($"Math.{node.Method.Name} is not translatable to SQL.")
         };
     }
 
@@ -440,7 +446,7 @@ internal class MethodVisitor
                 nameof(DateTime.AddMilliseconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMillisecond),
                 nameof(DateTime.AddMicroseconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMicrosecond),
                 nameof(DateTime.AddTicks) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
-                _ => node
+                _ => throw new NotSupportedException($"DateTime.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -449,7 +455,7 @@ internal class MethodVisitor
             return expression;
         }
 
-        return node;
+        throw new NotSupportedException($"DateTime.{node.Method.Name} is not translatable to SQL.");
     }
 
     public Expression HandleDateTimeOffsetMethod(MethodCallExpression node)
@@ -488,7 +494,7 @@ internal class MethodVisitor
                 nameof(DateTimeOffset.AddMilliseconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMillisecond),
                 nameof(DateTimeOffset.AddMicroseconds) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMicrosecond),
                 nameof(DateTimeOffset.AddTicks) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
-                _ => node
+                _ => throw new NotSupportedException($"DateTimeOffset.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -497,7 +503,7 @@ internal class MethodVisitor
             return expression;
         }
 
-        return node;
+        throw new NotSupportedException($"DateTimeOffset.{node.Method.Name} is not translatable to SQL.");
     }
 
     public Expression HandleTimeSpanMethod(MethodCallExpression node)
@@ -548,7 +554,7 @@ internal class MethodVisitor
                     $"ABS({obj.Sql})",
                     obj.Parameters
                 ),
-                _ => node
+                _ => throw new NotSupportedException($"TimeSpan.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -566,7 +572,7 @@ internal class MethodVisitor
             nameof(TimeSpan.FromMilliseconds) => ResolveParse(node.Method, arguments, TimeSpan.TicksPerMillisecond),
             nameof(TimeSpan.FromMicroseconds) => ResolveParse(node.Method, arguments, TimeSpan.TicksPerMicrosecond),
             nameof(TimeSpan.FromTicks) => ResolveParse(node.Method, arguments, 1),
-            _ => node
+            _ => throw new NotSupportedException($"TimeSpan.{node.Method.Name} is not translatable to SQL.")
         };
     }
 
@@ -591,7 +597,7 @@ internal class MethodVisitor
                 nameof(DateOnly.AddYears) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "years"),
                 nameof(DateOnly.AddMonths) => ResolveRelativeDate(node.Method, obj.SQLExpression, arguments, "months"),
                 nameof(DateOnly.AddDays) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerDay),
-                _ => node
+                _ => throw new NotSupportedException($"DateOnly.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -600,7 +606,7 @@ internal class MethodVisitor
             return expression;
         }
 
-        return node;
+        throw new NotSupportedException($"DateOnly.{node.Method.Name} is not translatable to SQL.");
     }
 
     public Expression HandleTimeOnlyMethod(MethodCallExpression node)
@@ -624,7 +630,7 @@ internal class MethodVisitor
                 nameof(TimeOnly.Add) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, 1),
                 nameof(TimeOnly.AddHours) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerHour),
                 nameof(TimeOnly.AddMinutes) => ResolveDateAdd(node.Method, obj.SQLExpression, arguments, TimeSpan.TicksPerMinute),
-                _ => node
+                _ => throw new NotSupportedException($"TimeOnly.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -633,7 +639,7 @@ internal class MethodVisitor
             return expression;
         }
 
-        return node;
+        throw new NotSupportedException($"TimeOnly.{node.Method.Name} is not translatable to SQL.");
     }
 
     public Expression HandleFTS5Method(MethodCallExpression node)
@@ -678,7 +684,7 @@ internal class MethodVisitor
             return expression;
         }
 
-        return node;
+        throw new NotSupportedException($"Guid.{node.Method.Name} is not translatable to SQL.");
     }
 
     public Expression HandleQueryableMethod(MethodCallExpression node)
@@ -739,7 +745,7 @@ internal class MethodVisitor
                 $"{arguments[0].Sql} IN ({Environment.NewLine}{query.Sql}{Environment.NewLine})",
                 parameters
             ),
-            _ => node
+            _ => throw new NotSupportedException($"Queryable.{node.Method.Name} is not translatable to SQL.")
         };
     }
 
@@ -860,7 +866,7 @@ internal class MethodVisitor
             nameof(Enumerable.Average) => AggregateExpression(node, "AVG", sqlExpression),
             nameof(Enumerable.Min) => AggregateExpression(node, "MIN", sqlExpression),
             nameof(Enumerable.Max) => AggregateExpression(node, "MAX", sqlExpression),
-            _ => node
+            _ => throw new NotSupportedException($"Grouping aggregate {node.Method.Name} is not translatable to SQL.")
         };
     }
 
@@ -999,7 +1005,7 @@ internal class MethodVisitor
             );
         }
 
-        return node;
+        throw new NotSupportedException($"Enum.{node.Method.Name} is not translatable to SQL.");
     }
 
     public Expression HandleCharMethod(MethodCallExpression node)
@@ -1076,7 +1082,7 @@ internal class MethodVisitor
             return expression;
         }
 
-        return node;
+        throw new NotSupportedException($"char.{node.Method.Name} is not translatable to SQL.");
     }
 
     public Expression HandleIntegerMethod(MethodCallExpression node)
@@ -1125,7 +1131,7 @@ internal class MethodVisitor
             );
         }
 
-        return node;
+        throw new NotSupportedException($"{node.Method.DeclaringType?.Name}.{node.Method.Name} is not translatable to SQL.");
     }
 
     public Expression HandleFloatingPointMethod(MethodCallExpression node)
@@ -1174,7 +1180,7 @@ internal class MethodVisitor
             );
         }
 
-        return node;
+        throw new NotSupportedException($"{node.Method.DeclaringType?.Name}.{node.Method.Name} is not translatable to SQL.");
     }
 
     private SQLExpression HandleFTS5Match(MethodCallExpression node)

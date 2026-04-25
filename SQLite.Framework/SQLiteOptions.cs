@@ -167,6 +167,49 @@ public sealed class SQLiteOptions
     /// </summary>
     public bool ReflectionFallbackDisabled { get; init; }
 
+    /// <summary>
+    /// Per-entity hooks that fire before <c>Add</c>. Each delegate is a
+    /// <c>Func&lt;SQLiteDatabase, T, bool&gt;</c>. Returning <see langword="false" /> skips the
+    /// default INSERT and any later hooks. Populated through
+    /// <see cref="SQLiteOptionsBuilder.OnAdd{T}(Action{T})" /> and its overloads.
+    /// </summary>
+    public required IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> AddHooks { get; init; }
+
+    /// <summary>
+    /// Per-entity hooks that fire before <c>Update</c>. Returning <see langword="false" /> skips
+    /// the default UPDATE.
+    /// </summary>
+    public required IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> UpdateHooks { get; init; }
+
+    /// <summary>
+    /// Per-entity hooks that fire before <c>Remove</c>. Returning <see langword="false" /> skips
+    /// the default DELETE. Useful for soft delete: flip a flag and call <c>Update</c> from inside
+    /// the hook, then return <see langword="false" />.
+    /// </summary>
+    public required IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> RemoveHooks { get; init; }
+
+    /// <summary>
+    /// Per-entity hooks that fire before <c>AddOrUpdate</c> and <c>Upsert</c>. Returning
+    /// <see langword="false" /> skips the default operation.
+    /// </summary>
+    public required IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> AddOrUpdateHooks { get; init; }
+
+    /// <summary>
+    /// Cross-cutting action hooks that run before every CRUD action, in registration order.
+    /// Each hook receives the action returned by the previous hook and may mutate the entity
+    /// or rewrite the action. The framework runs the action returned by the last hook.
+    /// </summary>
+    public required IReadOnlyList<SQLiteActionHook> OnActionHooks { get; init; }
+
+    /// <summary>
+    /// Predicates that the framework injects into every <c>Table&lt;E&gt;()</c> reference
+    /// at query-translation time. The dictionary key is the registered type (either the entity
+    /// type or an interface). A filter applies to every entity type assignable to that key,
+    /// so a single registration against an interface like <c>ISoftDelete</c> covers every
+    /// entity that implements it. Multiple filters per key are AND-combined.
+    /// </summary>
+    public required IReadOnlyDictionary<Type, IReadOnlyList<LambdaExpression>> QueryFilters { get; init; }
+
     internal Type? GetConverterTypeForInterface(Type interfaceType)
     {
         if (interfaceToConverterTypeCache.TryGetValue(interfaceType, out Type? cached))

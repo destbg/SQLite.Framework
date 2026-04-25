@@ -144,6 +144,136 @@ public class EntityHookTests
     }
 
     [Fact]
+    public void OnUpdateRange_HookFiresPerRow_CountsAllRows()
+    {
+        int hookCount = 0;
+        using TestDatabase db = new(b => b.OnUpdate<AuditedEntity>(_ => hookCount++));
+        db.Table<AuditedEntity>().CreateTable();
+        db.Table<AuditedEntity>().AddRange(new[]
+        {
+            new AuditedEntity { Name = "a" },
+            new AuditedEntity { Name = "b" },
+            new AuditedEntity { Name = "c" },
+        });
+
+        List<AuditedEntity> rows = db.Table<AuditedEntity>().ToList();
+        foreach (AuditedEntity row in rows)
+        {
+            row.Name += "-updated";
+        }
+
+        int affected = db.Table<AuditedEntity>().UpdateRange(rows);
+
+        Assert.Equal(3, affected);
+        Assert.Equal(3, hookCount);
+        Assert.All(db.Table<AuditedEntity>().ToList(), e => Assert.EndsWith("-updated", e.Name));
+    }
+
+    [Fact]
+    public void OnUpdateRange_OneHookCancelsOneRow_OthersUpdate()
+    {
+        using TestDatabase db = new(b => b.OnUpdate<AuditedEntity>((_, e) => e.Name != "skip-update"));
+        db.Table<AuditedEntity>().CreateTable();
+        db.Table<AuditedEntity>().AddRange(new[]
+        {
+            new AuditedEntity { Name = "a" },
+            new AuditedEntity { Name = "b" },
+            new AuditedEntity { Name = "c" },
+        });
+
+        List<AuditedEntity> rows = db.Table<AuditedEntity>().ToList();
+        rows[1].Name = "skip-update";
+        rows[0].Name = "a-updated";
+        rows[2].Name = "c-updated";
+
+        int affected = db.Table<AuditedEntity>().UpdateRange(rows);
+
+        Assert.Equal(2, affected);
+        List<string> stored = db.Table<AuditedEntity>().Select(e => e.Name).ToList();
+        Assert.Contains("a-updated", stored);
+        Assert.Contains("c-updated", stored);
+        Assert.Contains("b", stored);
+    }
+
+    [Fact]
+    public void OnRemoveRange_HookFiresPerRow_CountsAllRows()
+    {
+        int hookCount = 0;
+        using TestDatabase db = new(b => b.OnRemove<AuditedEntity>(_ => hookCount++));
+        db.Table<AuditedEntity>().CreateTable();
+        db.Table<AuditedEntity>().AddRange(new[]
+        {
+            new AuditedEntity { Name = "a" },
+            new AuditedEntity { Name = "b" },
+            new AuditedEntity { Name = "c" },
+        });
+
+        List<AuditedEntity> rows = db.Table<AuditedEntity>().ToList();
+        int affected = db.Table<AuditedEntity>().RemoveRange(rows);
+
+        Assert.Equal(3, affected);
+        Assert.Equal(3, hookCount);
+        Assert.Empty(db.Table<AuditedEntity>().ToList());
+    }
+
+    [Fact]
+    public void OnRemoveRange_OneHookCancelsOneRow_OthersRemove()
+    {
+        using TestDatabase db = new(b => b.OnRemove<AuditedEntity>((_, e) => e.Name != "keep"));
+        db.Table<AuditedEntity>().CreateTable();
+        db.Table<AuditedEntity>().AddRange(new[]
+        {
+            new AuditedEntity { Name = "a" },
+            new AuditedEntity { Name = "keep" },
+            new AuditedEntity { Name = "c" },
+        });
+
+        List<AuditedEntity> rows = db.Table<AuditedEntity>().ToList();
+        int affected = db.Table<AuditedEntity>().RemoveRange(rows);
+
+        Assert.Equal(2, affected);
+        AuditedEntity remaining = Assert.Single(db.Table<AuditedEntity>().ToList());
+        Assert.Equal("keep", remaining.Name);
+    }
+
+    [Fact]
+    public void OnAddOrUpdateRange_HookFiresPerRow_CountsAllRows()
+    {
+        int hookCount = 0;
+        using TestDatabase db = new(b => b.OnAddOrUpdate<AuditedEntity>(_ => hookCount++));
+        db.Table<AuditedEntity>().CreateTable();
+
+        int affected = db.Table<AuditedEntity>().AddOrUpdateRange(new[]
+        {
+            new AuditedEntity { Name = "a" },
+            new AuditedEntity { Name = "b" },
+            new AuditedEntity { Name = "c" },
+        });
+
+        Assert.Equal(3, affected);
+        Assert.Equal(3, hookCount);
+        Assert.Equal(3, db.Table<AuditedEntity>().Count());
+    }
+
+    [Fact]
+    public void OnAddOrUpdateRange_OneHookCancelsOneRow_OthersExecute()
+    {
+        using TestDatabase db = new(b => b.OnAddOrUpdate<AuditedEntity>((_, e) => e.Name != "skip"));
+        db.Table<AuditedEntity>().CreateTable();
+
+        int affected = db.Table<AuditedEntity>().AddOrUpdateRange(new[]
+        {
+            new AuditedEntity { Name = "a" },
+            new AuditedEntity { Name = "skip" },
+            new AuditedEntity { Name = "c" },
+        });
+
+        Assert.Equal(2, affected);
+        Assert.Equal(2, db.Table<AuditedEntity>().Count());
+        Assert.DoesNotContain(db.Table<AuditedEntity>().ToList(), e => e.Name == "skip");
+    }
+
+    [Fact]
     public void OnAdd_HookOnDifferentEntity_DoesNotFire()
     {
         int auditedHookCount = 0;
@@ -158,8 +288,6 @@ public class EntityHookTests
     [Fact]
     public void Hooks_FireBeforeSubclassOverrides()
     {
-        // Sanity check that an OnAdd hook is observable before the row hits AddOrRemoveItem.
-        // We capture the entity's state in the hook and check the same state was persisted.
         DateTime stamp = new(2026, 3, 3, 0, 0, 0, DateTimeKind.Utc);
         using TestDatabase db = new(b => b.OnAdd<AuditedEntity>(e => e.CreatedAt = stamp));
         db.Table<AuditedEntity>().CreateTable();

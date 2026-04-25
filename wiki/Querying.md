@@ -159,3 +159,39 @@ var results = await db.Table<Book>()
     .Select(b => new { b.Title, b.Price })
     .ToListAsync();
 ```
+
+## Global Query Filters
+
+Register a predicate on the options builder and the framework injects it into every query against that entity. Useful for soft delete or row-level scoping, so the user code does not have to repeat the filter on every call site.
+
+```csharp
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .AddQueryFilter<Book>(b => !b.IsDeleted)
+    .Build();
+
+// The filter is applied automatically.
+List<Book> books = db.Table<Book>().ToList();
+
+// Composes with the user's Where, ExecuteUpdate, and ExecuteDelete.
+db.Table<Book>().Where(b => b.Price > 10).ToList();
+db.Table<Book>().ExecuteDelete();
+```
+
+The registration type can be an interface, in which case the filter applies to every entity that implements it. One registration covers all matching entities; no per-entity hookup needed:
+
+```csharp
+public interface ISoftDelete
+{
+    bool IsDeleted { get; set; }
+}
+
+builder.AddQueryFilter<ISoftDelete>(e => !e.IsDeleted);
+```
+
+Multiple filters per type are AND-combined. To opt out of every registered filter for a single query, call `IgnoreQueryFilters`:
+
+```csharp
+List<Book> all = db.Table<Book>().IgnoreQueryFilters().ToList();
+```
+
+The opt-out covers the whole query, including joined tables. Filters compose with `Join`, `GroupJoin`, `Count`, `Any`, `ExecuteUpdate`, and `ExecuteDelete`.

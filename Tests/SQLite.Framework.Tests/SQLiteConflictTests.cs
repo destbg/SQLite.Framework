@@ -82,7 +82,6 @@ public class SQLiteConflictTests
             tx.Commit();
         });
 
-        // Rollback undoes the Id=2 insert too.
         List<Book> all = db.Table<Book>().ToList();
         Assert.Single(all);
         Assert.Equal(1, all[0].Id);

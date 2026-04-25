@@ -1,9 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using SQLite.Framework.Attributes;
+using SQLite.Framework.Tests.Interfaces;
 
 namespace SQLite.Framework.Tests.Entities;
 
-public class AuditedEntity
+public class AuditedEntity : ISoftDelete
 {
     [Key]
     [AutoIncrement]

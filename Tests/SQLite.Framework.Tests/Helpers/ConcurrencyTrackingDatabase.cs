@@ -17,10 +17,6 @@ internal class ConcurrencyTrackingDatabase : TestDatabase
     public int MaxConcurrentLockHolders => maxConcurrentHolders;
     public int MaxConcurrentReadHolders => maxConcurrentReadHolders;
 
-    /// <summary>
-    /// When set, each ReadLock holder sleeps for this duration before releasing.
-    /// Use this to guarantee measurable overlap in concurrency tests on fast machines.
-    /// </summary>
     public int ReadHoldMilliseconds { get; set; }
 
     public ConcurrencyTrackingDatabase([CallerMemberName] string? methodName = null)
@@ -32,7 +28,6 @@ internal class ConcurrencyTrackingDatabase : TestDatabase
 
         int current = Interlocked.Increment(ref activeHolders);
 
-        // Atomically update the running maximum.
         int snapshot;
         do
         {
@@ -44,9 +39,6 @@ internal class ConcurrencyTrackingDatabase : TestDatabase
         }
         while (Interlocked.CompareExchange(ref maxConcurrentHolders, current, snapshot) != snapshot);
 
-        // Decrement BEFORE releasing the inner lock so that a thread unblocked by the
-        // release cannot increment the counter before we decrement, which would produce
-        // a false max-of-2 reading even when serialization is correct.
         return new TrackingLock(inner, () => Interlocked.Decrement(ref activeHolders));
     }
 
@@ -88,8 +80,8 @@ internal class ConcurrencyTrackingDatabase : TestDatabase
 
         public void Dispose()
         {
-            onDispose(); // decrement while still holding the lock
-            inner.Dispose(); // then release the lock
+            onDispose();
+            inner.Dispose();
         }
     }
 }
