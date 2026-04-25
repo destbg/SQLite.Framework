@@ -179,6 +179,39 @@ public class UpsertTests
         Assert.Equal("OnConflict was already called for this Upsert.", ex.Message);
     }
 
+    [Fact]
+    public void Upsert_OnConflict_NewExpressionWithNonMember_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        Assert.Throws<NotSupportedException>(() =>
+            inspector.GetSql(c => c.OnConflict(b => new { b.Id, Lit = 5 }).DoNothing()));
+    }
+
+    [Fact]
+    public void Upsert_OnConflict_NonMemberBody_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        Assert.Throws<NotSupportedException>(() =>
+            inspector.GetSql(c => c.OnConflict(b => 5).DoNothing()));
+    }
+
+    [Fact]
+    public void Upsert_DoUpdate_NonMemberArg_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        Assert.Throws<NotSupportedException>(() =>
+            inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdate(b => b.Price + 1)));
+    }
+
     private sealed class SqlInspectingTable : SQLiteTable<Book>
     {
         public SqlInspectingTable(SQLiteDatabase database, TableMapping table) : base(database, table) { }

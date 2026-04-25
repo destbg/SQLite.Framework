@@ -89,6 +89,39 @@ public class CoverageGapTests
     }
 
     [Fact]
+    public void ExecuteUpdate_SetOnDirectField_Throws()
+    {
+        using TestDatabase db = new();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.Table<BookWithField>().ExecuteUpdate(s => s.Set(b => b.Title, "X")));
+    }
+
+    [Fact]
+    public void ExecuteUpdate_SetExpressionNotSqlExpression_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.Table<Book>().ExecuteUpdate(s => s.Set(b => b.Title,
+                b => b is Book ? "a" : "b")));
+    }
+
+    [Fact]
+    public void Select_PassRowToClientMethod_RowTypeWithoutParameterlessCtor_Throws()
+    {
+        using TestDatabase db = new();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<BookNoParameterlessCtor>()
+                .Select(b => DescribeRow(b))
+                .ToSqlCommand());
+    }
+
+    private static string DescribeRow(BookNoParameterlessCtor b) => b.Id.ToString();
+
+    [Fact]
     public void ExecuteUpdate_SetExpressionNotTranslatable_Throws()
     {
         using TestDatabase db = new();
@@ -711,6 +744,12 @@ public class CoverageGapTests
     private class BookWithField
     {
         public string Title = string.Empty;
+    }
+
+    private class BookNoParameterlessCtor
+    {
+        public BookNoParameterlessCtor(int id) { Id = id; }
+        public int Id { get; }
     }
 
     private enum BookCategory

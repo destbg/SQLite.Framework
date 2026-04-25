@@ -63,7 +63,7 @@ dotnet add package SQLite.Framework
 
    ```csharp
    // Insert
-   context.Add(new Person { Name = "Alice" });
+   context.Table<Person>().Add(new Person { Name = "Alice" });
 
    // Query
    var results = context.Table<Person>()
@@ -77,7 +77,7 @@ dotnet add package SQLite.Framework
 
    ```csharp
    // Insert
-   await context.AddAsync(new Person { Name = "Alice" });
+   await context.Table<Person>().AddAsync(new Person { Name = "Alice" });
 
    // Query
    var results = await context.Table<Person>()

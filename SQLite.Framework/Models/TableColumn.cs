@@ -15,12 +15,7 @@ public class TableColumn
     /// <summary>
     /// Initializes a new instance of the <see cref="TableColumn"/> class.
     /// </summary>
-    public TableColumn(PropertyInfo property, SQLiteOptions options)
-        : this(property, options, false)
-    {
-    }
-
-    internal TableColumn(PropertyInfo property, SQLiteOptions options, bool isFtsRowId)
+    public TableColumn(PropertyInfo property, SQLiteOptions options, bool isFtsRowId = false)
     {
         ColumnAttribute? columnAttribute = property.GetCustomAttribute<ColumnAttribute>();
         Type type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;

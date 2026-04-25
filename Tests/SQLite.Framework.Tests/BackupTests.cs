@@ -1,3 +1,4 @@
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
@@ -94,5 +95,38 @@ public class BackupTests
     {
         using TestDatabase source = new();
         Assert.Throws<ArgumentException>(() => source.BackupTo(""));
+    }
+
+    [Fact]
+    public async Task BackupToAsync_Database_CopiesAllRows()
+    {
+        using TestDatabase source = new();
+        source.Schema.CreateTable<Book>();
+        source.Table<Book>().Add(new Book { Id = 1, Title = "async-copy", AuthorId = 1, Price = 1 });
+
+        using TestDatabase destination = new();
+        await source.BackupToAsync(destination, ct: TestContext.Current.CancellationToken);
+
+        Book row = destination.Table<Book>().Single();
+        Assert.Equal("async-copy", row.Title);
+    }
+
+    [Fact]
+    public async Task BackupToAsync_Path_CreatesFile()
+    {
+        using TestDatabase source = new();
+        source.Schema.CreateTable<Book>();
+        source.Table<Book>().Add(new Book { Id = 7, Title = "to-file", AuthorId = 1, Price = 1 });
+
+        string path = Path.Combine(Path.GetTempPath(), $"backup_async_{Guid.NewGuid():N}.db3");
+        try
+        {
+            await source.BackupToAsync(path, TestContext.Current.CancellationToken);
+            Assert.True(File.Exists(path));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
     }
 }

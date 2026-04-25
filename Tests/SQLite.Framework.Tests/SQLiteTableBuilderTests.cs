@@ -136,6 +136,66 @@ public class SQLiteTableBuilderTests
     }
 
     [Fact]
+    public void Builder_Check_StringConstant_InlinesAsLiteral()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Check(b => b.Title != "")
+            .Create();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BooksArchive'");
+
+        Assert.Contains("''", sql);
+        Assert.DoesNotContain("@p", sql);
+    }
+
+    [Fact]
+    public void Builder_Check_DoubleConstant_InlinesAsLiteral()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<ProductLine>()
+            .Check(p => p.Quantity > 0)
+            .Check(p => p.Price > 0.5m)
+            .Create();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ProductLines'");
+
+        Assert.Contains("0.5", sql);
+        Assert.DoesNotContain("@p", sql);
+    }
+
+    [Fact]
+    public void Builder_Check_StringWithApostrophe_DoublesQuote()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Check(b => b.Title != "O'Reilly")
+            .Create();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BooksArchive'");
+
+        Assert.Contains("'O''Reilly'", sql);
+    }
+
+    [Fact]
+    public void Builder_Check_UntranslatableExpression_Throws()
+    {
+        using TestDatabase db = new();
+
+        Guid id = Guid.NewGuid();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<BookArchive>()
+                .Check(b => b.Title != id.ToString().Substring(0, 8) || b.AuthorId == 1)
+                .Create());
+    }
+
+    [Fact]
     public void Builder_NamedCheckConstraint_EmitsConstraintName()
     {
         using TestDatabase db = new();

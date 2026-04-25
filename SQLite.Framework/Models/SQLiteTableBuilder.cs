@@ -179,11 +179,8 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             throw new ArgumentException("Expected a property access expression on the entity, like b => b.Title.", nameof(column));
         }
 
-        TableColumn? col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name);
-        if (col == null)
-        {
-            throw new ArgumentException($"Property '{member.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
-        }
+        TableColumn? col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name)
+            ?? throw new ArgumentException($"Property '{member.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
 
         return col;
     }

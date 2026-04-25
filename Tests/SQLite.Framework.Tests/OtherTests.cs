@@ -327,6 +327,31 @@ public class OtherTests
     }
 
     [Fact]
+    public void TableColumn_IsFtsRowId_TrueOnlyForRowIdColumn()
+    {
+        using TestDatabase db = new();
+
+        TableMapping mapping = db.TableMapping<ArticleSearch>();
+
+        TableColumn rowId = mapping.Columns.Single(c => c.IsFtsRowId);
+        Assert.Equal("rowid", rowId.Name);
+        Assert.Equal(nameof(ArticleSearch.Id), rowId.PropertyInfo.Name);
+
+        Assert.All(mapping.Columns.Where(c => c.PropertyInfo.Name != nameof(ArticleSearch.Id)),
+            c => Assert.False(c.IsFtsRowId));
+    }
+
+    [Fact]
+    public void TableColumn_IsFtsRowId_FalseOnNonFtsTable()
+    {
+        using TestDatabase db = new();
+
+        TableMapping mapping = db.TableMapping<Book>();
+
+        Assert.All(mapping.Columns, c => Assert.False(c.IsFtsRowId));
+    }
+
+    [Fact]
     public void GetNonGenericTable()
     {
         using TestDatabase db = new();

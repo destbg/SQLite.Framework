@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
@@ -1382,9 +1383,20 @@ internal class MethodVisitor
         return expr;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "FTS5 entity type is referenced by user code.")]
     private SQLExpression HandleFTS5Rank(MethodCallExpression node)
     {
         string alias = ResolveEntityAlias(node.Arguments[0]);
+        Type entityType = node.Arguments[0].Type;
+        TableMapping mapping = visitor.Database.TableMapping(entityType);
+
+        if (mapping.FullTextSearch != null && mapping.FullTextSearch.IndexedColumns.Any(c => c.Weight != 1.0))
+        {
+            string weights = string.Join(", ", mapping.FullTextSearch.IndexedColumns
+                .Select(c => c.Weight.ToString(CultureInfo.InvariantCulture)));
+            return new SQLExpression(typeof(double), visitor.IdentifierIndex.Index++, $"bm25(\"{mapping.TableName}\", {weights})");
+        }
+
         return new SQLExpression(typeof(double), visitor.IdentifierIndex.Index++, $"{alias}.rank");
     }
 

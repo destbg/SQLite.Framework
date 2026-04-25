@@ -73,16 +73,11 @@ public class TableMapping
 
     private bool IsFtsColumn(PropertyInfo property)
     {
-        if (FullTextSearch == null)
-        {
-            return true;
-        }
-
         if (IsFtsRowIdProperty(property))
         {
             return true;
         }
 
-        return FullTextSearch.IndexedColumns.Any(c => c.Property == property);
+        return FullTextSearch!.IndexedColumns.Any(c => c.Property == property);
     }
 }

@@ -78,7 +78,7 @@ public class FullTextSearchTests
     }
 
     [Fact]
-    public void OrderByRank_EmitsRankColumn()
+    public void OrderByRank_WithCustomWeights_EmitsBm25Function()
     {
         using TestDatabase db = new();
         db.Schema.CreateTable<Article>();
@@ -97,8 +97,23 @@ public class FullTextSearchTests
                    a0.Body AS "Body"
             FROM "ArticleSearch" AS a0
             WHERE "ArticleSearch" MATCH @p0
-            ORDER BY a0.rank ASC
+            ORDER BY bm25("ArticleSearch", 10, 1) ASC
             """, N(command.CommandText));
+    }
+
+    [Fact]
+    public void OrderByRank_WithDefaultWeights_EmitsRankColumn()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SimpleSearchEntity>();
+
+        SQLiteCommand command = db.Table<SimpleSearchEntity>()
+            .Where(a => SQLiteFunctions.Match(a, "native"))
+            .OrderBy(a => SQLiteFunctions.Rank(a))
+            .ToSqlCommand();
+
+        Assert.Contains(".rank", N(command.CommandText));
+        Assert.DoesNotContain("bm25(", N(command.CommandText));
     }
 
     [Fact]
@@ -331,6 +346,31 @@ public class FullTextSearchTests
             .ToList();
 
         Assert.Equal(2, results.Count);
+    }
+
+    [Fact]
+    public void OrderBy_Rank_AppliesColumnWeights()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
+
+        db.Table<Article>().AddRange(new[]
+        {
+            new Article { Title = "Plain headline", Body = "kryptonite shows up only in the body.", PublishedAt = DateTime.UtcNow },
+            new Article { Title = "kryptonite in headline", Body = "Body has nothing special here.", PublishedAt = DateTime.UtcNow },
+        });
+
+        List<int> orderedIds = db.Table<ArticleSearch>()
+            .Where(a => SQLiteFunctions.Match(a, "kryptonite"))
+            .OrderBy(a => SQLiteFunctions.Rank(a))
+            .Select(a => a.Id)
+            .ToList();
+
+        Assert.Equal(2, orderedIds.Count);
+        int firstId = orderedIds[0];
+        Article first = db.Table<Article>().Single(a => a.Id == firstId);
+        Assert.Contains("kryptonite", first.Title);
     }
 
     [Fact]
