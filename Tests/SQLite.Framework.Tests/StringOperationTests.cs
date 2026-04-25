@@ -11,7 +11,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Short", AuthorId = 1, Price = 10 },
@@ -47,7 +47,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 10 },
@@ -84,7 +84,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 10 },
@@ -117,7 +117,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "", AuthorId = 1, Price = 10 },
@@ -151,7 +151,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "  ", AuthorId = 1, Price = 10 },
@@ -239,7 +239,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -272,7 +272,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -303,7 +303,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -334,7 +334,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -367,7 +367,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -466,7 +466,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<BookWithNotes>().CreateTable();
+        db.Schema.CreateTable<BookWithNotes>();
         db.Table<BookWithNotes>().Add(new BookWithNotes
         {
             Id = 1,
@@ -506,7 +506,7 @@ public class StringOperationTests
     {
         using TestDatabase db = new();
 
-        db.Table<BookWithNotes>().CreateTable();
+        db.Schema.CreateTable<BookWithNotes>();
         db.Table<BookWithNotes>().Add(new BookWithNotes
         {
             Id = 1,

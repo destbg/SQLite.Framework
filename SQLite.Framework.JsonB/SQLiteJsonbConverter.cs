@@ -10,8 +10,15 @@ namespace SQLite.Framework.JsonB;
 /// so SQLite handles all encoding and decoding.
 /// Pass a <see cref="JsonTypeInfo{T}" /> from a <c>JsonSerializerContext</c> to keep the converter AOT-safe.
 /// </summary>
-public class SQLiteJsonbConverter<T>(JsonTypeInfo<T> typeInfo) : ISQLiteTypeConverter
+public class SQLiteJsonbConverter<T> : ISQLiteTypeConverter
 {
+    private readonly JsonTypeInfo<T> typeInfo;
+
+    public SQLiteJsonbConverter(JsonTypeInfo<T> typeInfo)
+    {
+        this.typeInfo = typeInfo;
+    }
+
     /// <inheritdoc />
     public SQLiteColumnType ColumnType => SQLiteColumnType.Blob;
 

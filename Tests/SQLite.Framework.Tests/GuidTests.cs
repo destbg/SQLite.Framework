@@ -76,7 +76,7 @@ public class GuidTests
     {
         TestDatabase db = new(methodName);
 
-        db.Table<TestEntity>().CreateTable();
+        db.Schema.CreateTable<TestEntity>();
 
         db.Table<TestEntity>().AddRange(new[]
         {

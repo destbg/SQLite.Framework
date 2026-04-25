@@ -556,7 +556,7 @@ public class CteTests
     public void WithRecursive_TreeTraversal_GeneratesRecursiveQuery()
     {
         using TestDatabase db = new();
-        db.Table<TreeNode>().CreateTable();
+        db.Schema.CreateTable<TreeNode>();
 
         SQLiteCte<TreeNode> cte = db.WithRecursive<TreeNode>(self =>
             db.Table<TreeNode>().Where(n => n.ParentId == null)
@@ -572,7 +572,7 @@ public class CteTests
     public void With_ExecuteQuery_ReturnsResults()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange([
             new Book
             {

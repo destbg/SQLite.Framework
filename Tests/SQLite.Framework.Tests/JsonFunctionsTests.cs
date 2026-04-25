@@ -11,7 +11,7 @@ public class JsonFunctionsTests
     private static TestDatabase CreateDb(string? methodName = null)
     {
         TestDatabase db = new(b => b.AddJson(), methodName);
-        db.Table<JsonRow>().CreateTable();
+        db.Schema.CreateTable<JsonRow>();
         return db;
     }
 
@@ -205,7 +205,7 @@ public class JsonFunctionsTests
                 new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
             configure?.Invoke(b);
         }, methodName);
-        db.Table<ListRow>().CreateTable();
+        db.Schema.CreateTable<ListRow>();
         return db;
     }
 
@@ -776,7 +776,7 @@ public class JsonFunctionsTests
             b.TypeConverters[typeof(List<int>)] =
                 new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32);
         }, methodName);
-        db.Table<NumericListRow>().CreateTable();
+        db.Schema.CreateTable<NumericListRow>();
         return db;
     }
 
@@ -1249,7 +1249,7 @@ public class JsonFunctionsTests
             b.TypeConverters[typeof(string[])] =
                 new SQLiteJsonConverter<string[]>(TestJsonContext.Default.StringArray);
         }, methodName);
-        db.Table<ArrayRow>().CreateTable();
+        db.Schema.CreateTable<ArrayRow>();
         return db;
     }
 
@@ -1485,7 +1485,7 @@ public class JsonFunctionsTests
             b.TypeConverters[typeof(List<string>)] =
                 new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
         });
-        db.Table<PersonWithTagsRow>().CreateTable();
+        db.Schema.CreateTable<PersonWithTagsRow>();
         db.Table<PersonWithTagsRow>().Add(new PersonWithTagsRow
         {
             Id = 1,
@@ -2007,7 +2007,7 @@ public class JsonFunctionsTests
             b.TypeConverters[typeof(List<Address>)] =
                 new SQLiteJsonConverter<List<Address>>(TestJsonContext.Default.ListAddress);
         }, methodName);
-        db.Table<AddressListRow>().CreateTable();
+        db.Schema.CreateTable<AddressListRow>();
         return db;
     }
 
@@ -2288,7 +2288,7 @@ public class JsonFunctionsTests
             b.TypeConverters[typeof(List<Person>)] =
                 new SQLiteJsonConverter<List<Person>>(TestJsonContext.Default.ListPerson);
         });
-        db.Table<PersonListRow>().CreateTable();
+        db.Schema.CreateTable<PersonListRow>();
         db.Table<PersonListRow>().Add(new PersonListRow
         {
             Id = 1,
@@ -2331,7 +2331,7 @@ public class JsonFunctionsTests
             b.TypeConverters[typeof(Address)] =
                 new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address);
         });
-        db.Table<SingleAddressRow>().CreateTable();
+        db.Schema.CreateTable<SingleAddressRow>();
         db.Table<SingleAddressRow>().Add(new SingleAddressRow
         {
             Id = 1,

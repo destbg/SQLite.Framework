@@ -272,7 +272,7 @@ public class DecimalStorageTests
             b.DecimalStorage = storage;
             configure?.Invoke(b);
         }, methodName);
-        db.Table<TestEntity>().CreateTable();
+        db.Schema.CreateTable<TestEntity>();
         return db;
     }
 

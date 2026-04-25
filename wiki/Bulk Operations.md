@@ -75,6 +75,33 @@ await db.Table<Book>()
     );
 ```
 
+## Insert Rows From a Query
+
+`InsertFromQuery` copies rows from one query into a table using a single `INSERT INTO ... SELECT` statement. The data never round-trips through your code, so this is the fastest way to copy or archive rows.
+
+```csharp
+// Copy all out of stock books into the archive table
+db.Table<BookArchive>().InsertFromQuery(
+    db.Table<Book>()
+        .Where(b => b.InStock == false)
+        .Select(b => new BookArchive
+        {
+            Id = b.Id,
+            Title = b.Title,
+            AuthorId = b.AuthorId,
+            Price = b.Price,
+        }));
+```
+
+The source must be a query from the same database. The columns are inserted in the table's column order, so primary keys from the source are preserved. `OnAdd` hooks do not fire for the inserted rows, the same as `ExecuteUpdate` and `ExecuteDelete`.
+
+The async version is `InsertFromQueryAsync`:
+
+```csharp
+await db.Table<BookArchive>().InsertFromQueryAsync(
+    db.Table<Book>().Where(b => b.InStock == false).Select(b => new BookArchive { ... }));
+```
+
 ## Sync Versions
 
 All of the above have synchronous versions:

@@ -1,6 +1,8 @@
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#pragma warning disable CS0618 // intentionally exercises the obsolete SQLiteTable.CreateTable() shim to confirm subclass forwarding still works
+
 namespace SQLite.Framework.Tests;
 
 public class SQLiteTableSubclassTests

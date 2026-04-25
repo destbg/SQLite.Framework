@@ -328,8 +328,8 @@ public class JsonConverterTests
                 new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address);
             configure?.Invoke(b);
         }, methodName);
-        db.Table<ContactEntity>().CreateTable();
-        db.Table<NullableContactEntity>().CreateTable();
+        db.Schema.CreateTable<ContactEntity>();
+        db.Schema.CreateTable<NullableContactEntity>();
         return db;
     }
 
@@ -341,7 +341,7 @@ public class JsonConverterTests
                 new SQLiteJsonConverter<TagList>(TestJsonContext.Default.TagList);
             configure?.Invoke(b);
         }, methodName);
-        db.Table<TaggedEntity>().CreateTable();
+        db.Schema.CreateTable<TaggedEntity>();
         return db;
     }
 
@@ -353,8 +353,8 @@ public class JsonConverterTests
                 new SQLiteJsonbConverter<Address>(TestJsonContext.Default.Address);
             configure?.Invoke(b);
         }, methodName);
-        db.Table<ContactEntity>().CreateTable();
-        db.Table<NullableContactEntity>().CreateTable();
+        db.Schema.CreateTable<ContactEntity>();
+        db.Schema.CreateTable<NullableContactEntity>();
         return db;
     }
 
@@ -366,7 +366,7 @@ public class JsonConverterTests
                 new SQLiteJsonbConverter<TagList>(TestJsonContext.Default.TagList);
             configure?.Invoke(b);
         }, methodName);
-        db.Table<TaggedEntity>().CreateTable();
+        db.Schema.CreateTable<TaggedEntity>();
         return db;
     }
 }

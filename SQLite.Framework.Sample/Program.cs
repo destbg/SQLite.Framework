@@ -99,12 +99,12 @@ public static partial class Program
     {
         Console.WriteLine("Creating database schema...");
 
-        db.Table<Category>().CreateTable();
-        db.Table<Product>().CreateTable();
-        db.Table<Customer>().CreateTable();
-        db.Table<Order>().CreateTable();
-        db.Table<OrderItem>().CreateTable();
-        db.Table<Review>().CreateTable();
+        db.Schema.CreateTable<Category>();
+        db.Schema.CreateTable<Product>();
+        db.Schema.CreateTable<Customer>();
+        db.Schema.CreateTable<Order>();
+        db.Schema.CreateTable<OrderItem>();
+        db.Schema.CreateTable<Review>();
 
         Console.WriteLine("Database schema created");
     }
@@ -1441,7 +1441,7 @@ public static partial class Program
             .Build();
 
         using SQLiteDatabase pointsDb = new(options);
-        pointsDb.Table<ScoreRecord>().CreateTable();
+        pointsDb.Schema.CreateTable<ScoreRecord>();
 
         pointsDb.Table<ScoreRecord>().Add(new ScoreRecord
         {
@@ -1516,7 +1516,7 @@ public static partial class Program
 
         using SQLiteDatabase db = new(options);
 
-        db.Table<TaggedProduct>().CreateTable();
+        db.Schema.CreateTable<TaggedProduct>();
         db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 1, Name = "Laptop", Tags = ["electronics", "computers"] });
         db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 2, Name = "Novel", Tags = ["books", "fiction"] });
         db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 3, Name = "Keyboard", Tags = ["electronics", "accessories"] });

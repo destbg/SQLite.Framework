@@ -30,7 +30,7 @@ public class ReflectionFallbackTests : IDisposable
     {
         using SQLiteDatabase db = CreateDatabase(disableFallback: true);
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
@@ -44,7 +44,7 @@ public class ReflectionFallbackTests : IDisposable
     {
         using SQLiteDatabase db = CreateDatabase(disableFallback: true);
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
@@ -58,7 +58,7 @@ public class ReflectionFallbackTests : IDisposable
     {
         using SQLiteDatabase db = CreateDatabase(disableFallback: false);
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
 
         List<Book> books = db.Table<Book>().ToList();
@@ -87,7 +87,7 @@ public class ReflectionFallbackTests : IDisposable
     {
         using SQLiteDatabase db = CreateDatabase(disableFallback: true);
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
@@ -107,7 +107,7 @@ public class ReflectionFallbackTests : IDisposable
             .Build();
         using SQLiteDatabase db = new(options);
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
         db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (2, 'B', 1, 20)");
         db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (3, 'C', 2, 30)");

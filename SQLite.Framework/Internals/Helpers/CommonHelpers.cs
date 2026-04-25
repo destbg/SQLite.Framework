@@ -261,10 +261,10 @@ internal static class CommonHelpers
     }
 
     /// <summary>
-    /// Renders the inner expression tree of an <c>SQLiteFTS5.Match(entity, predicate)</c> call into
-    /// a series of FTS5 query parts. Each part is either a literal string fragment or a SQL
-    /// expression that produces an FTS5-quoted token at runtime (for column references inside
-    /// <c>f.Term</c>, <c>f.Phrase</c>, etc.).
+    /// Walks the inner expression tree of an <c>SQLiteFunctions.Match(entity, predicate)</c> call
+    /// and turns it into a list of FTS5 query parts. Each part is either a literal string or a SQL
+    /// expression that builds an FTS5-quoted token at runtime (for column references inside
+    /// <c>f.Term</c>, <c>f.Phrase</c>, and so on).
     /// </summary>
     public static List<FtsQueryPart> RenderFTSMatch(Expression predicate, SQLVisitor visitor)
     {

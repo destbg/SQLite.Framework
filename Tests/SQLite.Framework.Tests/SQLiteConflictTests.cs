@@ -14,7 +14,7 @@ public class SQLiteConflictTests
     public void AddOrUpdate_DefaultReplace_OverwritesRow()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "first", AuthorId = 1, Price = 5 });
         db.Table<Book>().AddOrUpdate(new Book { Id = 1, Title = "second", AuthorId = 1, Price = 7 });
@@ -28,7 +28,7 @@ public class SQLiteConflictTests
     public void AddOrUpdate_Ignore_KeepsExistingRow()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 5 });
 
         int affected = db.Table<Book>().AddOrUpdate(new Book { Id = 1, Title = "ignored", AuthorId = 1, Price = 9 }, SQLiteConflict.Ignore);
@@ -43,7 +43,7 @@ public class SQLiteConflictTests
     public void AddOrUpdate_Abort_ThrowsOnConflict()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 5 });
 
         Assert.Throws<SQLiteException>(() =>
@@ -57,7 +57,7 @@ public class SQLiteConflictTests
     public void AddOrUpdate_Fail_ThrowsOnConflict()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 5 });
 
         Assert.Throws<SQLiteException>(() =>
@@ -71,7 +71,7 @@ public class SQLiteConflictTests
     public void AddOrUpdate_Rollback_ThrowsAndRollsBackTransaction()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 5 });
 
         Assert.Throws<SQLiteException>(() =>
@@ -92,7 +92,7 @@ public class SQLiteConflictTests
     public void AddOrUpdateRange_Ignore_SkipsConflictRowsInsertsRest()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 5 });
 
         int affected = db.Table<Book>().AddOrUpdateRange(new[]

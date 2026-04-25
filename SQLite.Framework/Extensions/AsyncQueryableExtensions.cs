@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using SQLite.Framework.Enums;
+using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Extensions;
@@ -21,7 +22,7 @@ public static class AsyncQueryableExtensions
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
         }
 
-        return ExecuteAsync(source.ExecuteDelete, ct);
+        return AsyncRunner.Run(source.ExecuteDelete, ct);
     }
 
     /// <summary>
@@ -34,7 +35,7 @@ public static class AsyncQueryableExtensions
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
         }
 
-        return ExecuteAsync(source.ExecuteDelete, predicate, ct);
+        return AsyncRunner.Run(source.ExecuteDelete, predicate, ct);
     }
 
     /// <summary>
@@ -47,7 +48,7 @@ public static class AsyncQueryableExtensions
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
         }
 
-        return ExecuteAsync(source.ExecuteUpdate, setters, ct);
+        return AsyncRunner.Run(source.ExecuteUpdate, setters, ct);
     }
 
     /// <summary>
@@ -55,7 +56,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Add, item, ct);
+        return AsyncRunner.Run(source.Add, item, ct);
     }
 
     /// <summary>
@@ -63,7 +64,16 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.AddRange, collection, runInTransaction, separateConnection, ct);
+        return AsyncRunner.Run(source.AddRange, collection, runInTransaction, separateConnection, ct);
+    }
+
+    /// <summary>
+    /// Copies rows from <paramref name="query" /> into <paramref name="source" /> using a single
+    /// <c>INSERT INTO ... SELECT</c> statement. Runs on a background thread.
+    /// </summary>
+    public static Task<int> InsertFromQueryAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IQueryable<T> query, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(source.InsertFromQuery, query, ct);
     }
 
     /// <summary>
@@ -71,7 +81,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> UpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Update, item, ct);
+        return AsyncRunner.Run(source.Update, item, ct);
     }
 
     /// <summary>
@@ -79,7 +89,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.UpdateRange, collection, runInTransaction, separateConnection, ct);
+        return AsyncRunner.Run(source.UpdateRange, collection, runInTransaction, separateConnection, ct);
     }
 
     /// <summary>
@@ -87,7 +97,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> RemoveAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Remove, item, ct);
+        return AsyncRunner.Run(source.Remove, item, ct);
     }
 
     /// <summary>
@@ -95,7 +105,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.RemoveRange, collection, runInTransaction, separateConnection, ct);
+        return AsyncRunner.Run(source.RemoveRange, collection, runInTransaction, separateConnection, ct);
     }
 
     /// <summary>
@@ -103,7 +113,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddOrUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, CancellationToken ct = default)
     {
-        return ExecuteAsync(() => source.AddOrUpdate(item, SQLiteConflict.Replace), ct);
+        return AsyncRunner.Run(() => source.AddOrUpdate(item, SQLiteConflict.Replace), ct);
     }
 
     /// <summary>
@@ -111,7 +121,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddOrUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, SQLiteConflict conflict, CancellationToken ct = default)
     {
-        return ExecuteAsync(() => source.AddOrUpdate(item, conflict), ct);
+        return AsyncRunner.Run(() => source.AddOrUpdate(item, conflict), ct);
     }
 
     /// <summary>
@@ -119,7 +129,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return ExecuteAsync(() => source.AddOrUpdateRange(collection, runInTransaction, separateConnection, SQLiteConflict.Replace), ct);
+        return AsyncRunner.Run(() => source.AddOrUpdateRange(collection, runInTransaction, separateConnection, SQLiteConflict.Replace), ct);
     }
 
     /// <summary>
@@ -127,7 +137,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, SQLiteConflict conflict, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return ExecuteAsync(() => source.AddOrUpdateRange(collection, runInTransaction, separateConnection, conflict), ct);
+        return AsyncRunner.Run(() => source.AddOrUpdateRange(collection, runInTransaction, separateConnection, conflict), ct);
     }
 
     /// <summary>
@@ -136,7 +146,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> UpsertAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, Action<UpsertBuilder<T>> configure, CancellationToken ct = default)
     {
-        return ExecuteAsync(() => source.Upsert(item, configure), ct);
+        return AsyncRunner.Run(() => source.Upsert(item, configure), ct);
     }
 
     /// <summary>
@@ -144,7 +154,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return ExecuteAsync(() => source.UpsertRange(collection, configure, runInTransaction, separateConnection), ct);
+        return AsyncRunner.Run(() => source.UpsertRange(collection, configure, runInTransaction, separateConnection), ct);
     }
 
     /// <summary>
@@ -155,23 +165,29 @@ public static class AsyncQueryableExtensions
     /// </remarks>
     public static Task<int> ClearAsync(this SQLiteTable source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Clear, ct);
+        return AsyncRunner.Run(source.Clear, ct);
     }
 
     /// <summary>
     /// Creates the table in the database if it does not exist.
     /// </summary>
+    [Obsolete("Use Database.Schema.CreateTableAsync<T>() instead.")]
     public static Task<int> CreateTableAsync(this SQLiteTable source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.CreateTable, ct);
+#pragma warning disable CS0618
+        return AsyncRunner.Run(source.CreateTable, ct);
+#pragma warning restore CS0618
     }
 
     /// <summary>
     /// Deletes the table from the database.
     /// </summary>
+    [Obsolete("Use Database.Schema.DropTableAsync<T>() instead.")]
     public static Task<int> DropTableAsync(this SQLiteTable source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.DropTable, ct);
+#pragma warning disable CS0618
+        return AsyncRunner.Run(source.DropTable, ct);
+#pragma warning restore CS0618
     }
 
     /// <summary>
@@ -180,7 +196,7 @@ public static class AsyncQueryableExtensions
     public static Task<Dictionary<TKey, TElement>> ToDictionaryAsync<TSource, TKey, TElement>(this IQueryable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector, CancellationToken ct = default)
         where TKey : notnull
     {
-        return ExecuteAsync(source.ToDictionary, keySelector, elementSelector, ct);
+        return AsyncRunner.Run(source.ToDictionary, keySelector, elementSelector, ct);
     }
 
     /// <summary>
@@ -190,7 +206,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<T[]> ToArrayAsync<T>(this IQueryable<T> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.ToArray, ct);
+        return AsyncRunner.Run(source.ToArray, ct);
     }
 
     /// <summary>
@@ -198,7 +214,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<List<T>> ToListAsync<T>(this IQueryable<T> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.ToList, ct);
+        return AsyncRunner.Run(source.ToList, ct);
     }
 
     /// <summary>
@@ -206,7 +222,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<HashSet<T>> ToHashSetAsync<T>(this IQueryable<T> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.ToHashSet, ct);
+        return AsyncRunner.Run(source.ToHashSet, ct);
     }
 
     /// <summary>
@@ -215,7 +231,7 @@ public static class AsyncQueryableExtensions
     public static Task<ILookup<TKey, TElement>> ToLookupAsync<TSource, TKey, TElement>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector, CancellationToken ct = default)
         where TKey : notnull
     {
-        return ExecuteAsync(source.ToLookup, keySelector, elementSelector, ct);
+        return AsyncRunner.Run(source.ToLookup, keySelector, elementSelector, ct);
     }
 
     /// <summary>
@@ -223,7 +239,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.First, ct);
+        return AsyncRunner.Run(source.First, ct);
     }
 
     /// <summary>
@@ -231,7 +247,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.First, predicate, ct);
+        return AsyncRunner.Run(source.First, predicate, ct);
     }
 
     /// <summary>
@@ -239,7 +255,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.FirstOrDefault, ct);
+        return AsyncRunner.Run(source.FirstOrDefault, ct);
     }
 
     /// <summary>
@@ -247,7 +263,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> source, TSource defaultValue, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.FirstOrDefault, defaultValue, ct);
+        return AsyncRunner.Run(source.FirstOrDefault, defaultValue, ct);
     }
 
     /// <summary>
@@ -255,7 +271,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.FirstOrDefault, predicate, ct);
+        return AsyncRunner.Run(source.FirstOrDefault, predicate, ct);
     }
 
     /// <summary>
@@ -263,7 +279,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, TSource defaultValue, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.FirstOrDefault, predicate, defaultValue, ct);
+        return AsyncRunner.Run(source.FirstOrDefault, predicate, defaultValue, ct);
     }
 
     /// <summary>
@@ -272,7 +288,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Single, ct);
+        return AsyncRunner.Run(source.Single, ct);
     }
 
     /// <summary>
@@ -281,7 +297,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Single, predicate, ct);
+        return AsyncRunner.Run(source.Single, predicate, ct);
     }
 
     /// <summary>
@@ -290,7 +306,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.SingleOrDefault, ct);
+        return AsyncRunner.Run(source.SingleOrDefault, ct);
     }
 
     /// <summary>
@@ -299,7 +315,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> source, TSource defaultValue, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.SingleOrDefault, defaultValue, ct);
+        return AsyncRunner.Run(source.SingleOrDefault, defaultValue, ct);
     }
 
     /// <summary>
@@ -308,7 +324,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.SingleOrDefault, predicate, ct);
+        return AsyncRunner.Run(source.SingleOrDefault, predicate, ct);
     }
 
     /// <summary>
@@ -317,7 +333,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, TSource defaultValue, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.SingleOrDefault, predicate, defaultValue, ct);
+        return AsyncRunner.Run(source.SingleOrDefault, predicate, defaultValue, ct);
     }
 
     /// <summary>
@@ -325,7 +341,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> ContainsAsync<TSource>(this IQueryable<TSource> source, TSource item, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Contains, item, ct);
+        return AsyncRunner.Run(source.Contains, item, ct);
     }
 
     /// <summary>
@@ -333,7 +349,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> AnyAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Any, ct);
+        return AsyncRunner.Run(source.Any, ct);
     }
 
     /// <summary>
@@ -341,7 +357,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> AnyAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Any, predicate, ct);
+        return AsyncRunner.Run(source.Any, predicate, ct);
     }
 
     /// <summary>
@@ -349,7 +365,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> AllAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.All, predicate, ct);
+        return AsyncRunner.Run(source.All, predicate, ct);
     }
 
     /// <summary>
@@ -357,7 +373,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> CountAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Count, ct);
+        return AsyncRunner.Run(source.Count, ct);
     }
 
     /// <summary>
@@ -365,7 +381,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> CountAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Count, predicate, ct);
+        return AsyncRunner.Run(source.Count, predicate, ct);
     }
 
     /// <summary>
@@ -373,7 +389,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.LongCount, ct);
+        return AsyncRunner.Run(source.LongCount, ct);
     }
 
     /// <summary>
@@ -381,7 +397,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.LongCount, predicate, ct);
+        return AsyncRunner.Run(source.LongCount, predicate, ct);
     }
 
     /// <summary>
@@ -389,7 +405,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> MinAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Min, ct);
+        return AsyncRunner.Run(source.Min, ct);
     }
 
     /// <summary>
@@ -397,7 +413,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TResult?> MinAsync<TSource, TResult>(this IQueryable<TSource> source, Expression<Func<TSource, TResult>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Min, selector, ct);
+        return AsyncRunner.Run(source.Min, selector, ct);
     }
 
     /// <summary>
@@ -405,7 +421,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> MaxAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Max, ct);
+        return AsyncRunner.Run(source.Max, ct);
     }
 
     /// <summary>
@@ -413,7 +429,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TResult?> MaxAsync<TSource, TResult>(this IQueryable<TSource> source, Expression<Func<TSource, TResult>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Max, selector, ct);
+        return AsyncRunner.Run(source.Max, selector, ct);
     }
 
     /// <summary>
@@ -421,7 +437,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> SumAsync(this IQueryable<int> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -429,7 +445,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int?> SumAsync(this IQueryable<int?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -437,7 +453,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> SumAsync(this IQueryable<long> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -445,7 +461,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long?> SumAsync(this IQueryable<long?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -453,7 +469,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> SumAsync(this IQueryable<float> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -461,7 +477,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> SumAsync(this IQueryable<float?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -469,7 +485,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> SumAsync(this IQueryable<double> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -477,7 +493,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> SumAsync(this IQueryable<double?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -485,7 +501,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> SumAsync(this IQueryable<decimal> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -493,7 +509,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> SumAsync(this IQueryable<decimal?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, ct);
+        return AsyncRunner.Run(source.Sum, ct);
     }
 
     /// <summary>
@@ -501,7 +517,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -509,7 +525,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -517,7 +533,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -525,7 +541,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -533,7 +549,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -541,7 +557,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -549,7 +565,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -557,7 +573,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -565,7 +581,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -573,7 +589,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Sum, selector, ct);
+        return AsyncRunner.Run(source.Sum, selector, ct);
     }
 
     /// <summary>
@@ -581,7 +597,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync(this IQueryable<int> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -589,7 +605,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync(this IQueryable<int?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -597,7 +613,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync(this IQueryable<long> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -605,7 +621,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync(this IQueryable<long?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -613,7 +629,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> AverageAsync(this IQueryable<float> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -621,7 +637,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> AverageAsync(this IQueryable<float?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -629,7 +645,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync(this IQueryable<double> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -637,7 +653,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync(this IQueryable<double?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -645,7 +661,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> AverageAsync(this IQueryable<decimal> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -653,7 +669,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> AverageAsync(this IQueryable<decimal?> source, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, ct);
+        return AsyncRunner.Run(source.Average, ct);
     }
 
     /// <summary>
@@ -661,7 +677,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 
     /// <summary>
@@ -669,7 +685,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 
     /// <summary>
@@ -677,7 +693,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 
     /// <summary>
@@ -685,7 +701,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 
     /// <summary>
@@ -693,7 +709,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 
     /// <summary>
@@ -701,7 +717,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 
     /// <summary>
@@ -709,7 +725,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 
     /// <summary>
@@ -717,7 +733,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 
     /// <summary>
@@ -725,7 +741,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 
     /// <summary>
@@ -733,26 +749,6 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal?>> selector, CancellationToken ct = default)
     {
-        return ExecuteAsync(source.Average, selector, ct);
-    }
-
-    private static Task<T> ExecuteAsync<T>(Func<T> execute, CancellationToken ct)
-    {
-        return Task.Factory.StartNew(execute, ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-    }
-
-    private static Task<T> ExecuteAsync<T, TP>(Func<TP, T> execute, TP parameter, CancellationToken ct)
-    {
-        return Task.Factory.StartNew(() => execute(parameter), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-    }
-
-    private static Task<T> ExecuteAsync<T, TP1, TP2>(Func<TP1, TP2, T> execute, TP1 parameter1, TP2 parameter2, CancellationToken ct)
-    {
-        return Task.Factory.StartNew(() => execute(parameter1, parameter2), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-    }
-
-    private static Task<T> ExecuteAsync<T, TP1, TP2, TP3>(Func<TP1, TP2, TP3, T> execute, TP1 parameter1, TP2 parameter2, TP3 parameter3, CancellationToken ct)
-    {
-        return Task.Factory.StartNew(() => execute(parameter1, parameter2, parameter3), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return AsyncRunner.Run(source.Average, selector, ct);
     }
 }

@@ -296,7 +296,7 @@ public class DateTimeStorageTests
         {
             b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
         });
-        db.Table<TestEntity>().CreateTable();
+        db.Schema.CreateTable<TestEntity>();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TestEntity>().Where(a => a.Date.Year == 2000).ToList());
@@ -426,7 +426,7 @@ public class DateTimeStorageTests
     private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(configure, methodName);
-        db.Table<TestEntity>().CreateTable();
+        db.Schema.CreateTable<TestEntity>();
         return db;
     }
 

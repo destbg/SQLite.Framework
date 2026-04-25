@@ -40,6 +40,11 @@ export const sections: Section[] = [
             { slug: 'Raw SQL', title: 'Raw SQL' },
             { slug: 'Common Table Expressions', title: 'Common Table Expressions' },
             { slug: 'Full Text Search', title: 'Full Text Search' },
+            { slug: 'SQLite Functions', title: 'SQLite Functions' },
+            { slug: 'Pragmas', title: 'Pragmas' },
+            { slug: 'Backup', title: 'Backup' },
+            { slug: 'Attached Databases', title: 'Attached Databases' },
+            { slug: 'Schema', title: 'Schema' },
         ],
     },
     {

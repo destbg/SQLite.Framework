@@ -9,15 +9,15 @@ var books = db.Table<Book>();
 ## Create Table
 
 ```csharp
-await books.CreateTableAsync();
+await db.Schema.CreateTableAsync<Book>();
 ```
 
-Uses `CREATE TABLE IF NOT EXISTS`, so it is safe to call on every startup. If you have `[Indexed]` attributes on your model, the indexes are created at the same time.
+Uses `CREATE TABLE IF NOT EXISTS`, so it is safe to call on every startup. If you have `[Indexed]` attributes on your model, the indexes are created at the same time. See [Schema](Schema) for the full set of DDL operations.
 
 ## Drop Table
 
 ```csharp
-await books.DropTableAsync();
+await db.Schema.DropTableAsync<Book>();
 ```
 
 Uses `DROP TABLE IF EXISTS`.
@@ -108,7 +108,7 @@ await books.RemoveRangeAsync(toDelete);
 await books.ClearAsync();
 ```
 
-Deletes every row in the table. The table itself does not get deleted, for that use the `DropTableAsync()` method.
+Deletes every row in the table. The table itself does not get deleted, for that use `db.Schema.DropTableAsync<T>()`.
 
 ## Sync Versions
 
@@ -124,8 +124,8 @@ books.UpdateRange(list);
 books.Remove(book);
 books.RemoveRange(toDelete);
 books.Clear();
-books.CreateTable();
-books.DropTable();
+db.Schema.CreateTable<Book>();
+db.Schema.DropTable<Book>();
 ```
 
 ## Insert with a conflict choice
@@ -234,7 +234,7 @@ For deeper changes that the hooks above cannot express (custom SQL, replacing ho
 | `WrapParam(placeholder, column)` | Wrap parameters with custom SQL functions, for example `jsonb(@p0)`. |
 | `AddOrRemoveItem(columns, sql, item)` | Mutate the entity right before binding, for example to stamp `CreatedAt`. Called by Add, Remove, AddOrUpdate, and Upsert. |
 | `UpdateItem(columns, primaryColumns, sql, item)` | Same as above but for Update. |
-| `CreateTable()` / `DropTable()` / `Clear()` | Replace the schema operations entirely. |
+| `Clear()` | Replace the row-clear operation entirely. To customize DDL, subclass `SQLiteSchema` and register it with `UseSchema`. |
 
 Example: an auditing table that stamps a row counter on every insert.
 
@@ -267,7 +267,7 @@ public class MyDatabase : SQLiteDatabase
 Then use it as you would any other table:
 
 ```csharp
-db.Books.CreateTable();
+db.Schema.CreateTable<Book>();
 db.Books.Add(new Book { ... });
 ```
 

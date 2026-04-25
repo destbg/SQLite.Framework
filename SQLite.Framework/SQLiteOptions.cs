@@ -210,6 +210,21 @@ public sealed class SQLiteOptions
     /// </summary>
     public required IReadOnlyDictionary<Type, IReadOnlyList<LambdaExpression>> QueryFilters { get; init; }
 
+    /// <summary>
+    /// Builds the <see cref="SQLitePragmas" /> instance returned by <see cref="SQLiteDatabase.Pragmas" />.
+    /// The default builds the built-in class. To add more pragmas, register a class
+    /// that inherits from <see cref="SQLitePragmas" /> through <see cref="SQLiteOptionsBuilder.UsePragmas" />.
+    /// </summary>
+    public required Func<SQLiteDatabase, SQLitePragmas> PragmasFactory { get; init; }
+
+    /// <summary>
+    /// Builds the <see cref="SQLiteSchema" /> instance returned by <see cref="SQLiteDatabase.Schema" />.
+    /// The default builds the built-in class. To customize how DDL is generated (for example,
+    /// to override FTS5 trigger SQL), register a subclass of <see cref="SQLiteSchema" /> through
+    /// <see cref="SQLiteOptionsBuilder.UseSchema" />.
+    /// </summary>
+    public required Func<SQLiteDatabase, SQLiteSchema> SchemaFactory { get; init; }
+
     internal Type? GetConverterTypeForInterface(Type interfaceType)
     {
         if (interfaceToConverterTypeCache.TryGetValue(interfaceType, out Type? cached))

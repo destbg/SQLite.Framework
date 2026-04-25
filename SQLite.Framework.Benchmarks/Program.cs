@@ -6,7 +6,7 @@ File.Delete("test.db3");
 
 SQLiteOptionsBuilder optionsBuilder = new("test.db3");
 SQLiteDatabase db = new(optionsBuilder.Build());
-db.Table<TestEntity>().CreateTable();
+db.Schema.CreateTable<TestEntity>();
 
 List<TestEntity> entities = [];
 

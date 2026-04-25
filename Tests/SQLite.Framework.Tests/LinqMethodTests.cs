@@ -11,8 +11,8 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -52,7 +52,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -90,7 +90,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -115,7 +115,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -135,7 +135,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -154,7 +154,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -170,7 +170,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -189,7 +189,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.Throws<NotSupportedException>(() => db.Table<Book>().DefaultIfEmpty().ToList());
     }
@@ -199,7 +199,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -217,7 +217,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -250,7 +250,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -270,8 +270,8 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -302,7 +302,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -333,7 +333,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -367,7 +367,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -388,7 +388,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -409,8 +409,8 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Author>().AddRange(new[]
         {
@@ -440,8 +440,8 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Author>().Add(new Author
         {
@@ -491,7 +491,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -528,7 +528,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book A", AuthorId = 1, Price = 10 },
@@ -550,7 +550,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -572,7 +572,7 @@ public class LinqMethodTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },

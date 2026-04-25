@@ -16,7 +16,7 @@ public class OnActionTests
             seen = action;
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "x" });
 
@@ -32,7 +32,7 @@ public class OnActionTests
             seen = action;
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "x" });
         seen = null;
 
@@ -52,7 +52,7 @@ public class OnActionTests
             seen = action;
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "x" });
         seen = null;
 
@@ -71,7 +71,7 @@ public class OnActionTests
             seen = action;
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         db.Table<AuditedEntity>().AddOrUpdate(new AuditedEntity { Name = "x" });
 
@@ -87,7 +87,7 @@ public class OnActionTests
             seen = action;
             return action;
         }));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Upsert(
             new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 },
@@ -108,7 +108,7 @@ public class OnActionTests
             }
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "still here" });
 
         AuditedEntity row = db.Table<AuditedEntity>().Single();
@@ -124,7 +124,7 @@ public class OnActionTests
     public void OnAction_ReturnsSkip_NoSqlIssued()
     {
         using TestDatabase db = new(b => b.OnAction((_, _, _) => SQLiteAction.Skip));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         int affected = db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "x" });
 
@@ -137,7 +137,7 @@ public class OnActionTests
     {
         using TestDatabase db = new(b => b.OnAction((_, _, action) =>
             action == SQLiteAction.Add ? SQLiteAction.AddOrUpdate : action));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book { Id = 1, Title = "first", AuthorId = 1, Price = 1 });
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "second", AuthorId = 2, Price = 2 });
@@ -157,7 +157,7 @@ public class OnActionTests
             }
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "original" });
 
@@ -179,7 +179,7 @@ public class OnActionTests
                 seen.Add(action);
                 return SQLiteAction.Add;
             }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         int affected = db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "x" });
 
@@ -196,7 +196,7 @@ public class OnActionTests
             captured = database;
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "x" });
 
@@ -212,7 +212,7 @@ public class OnActionTests
             hookCount++;
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         int affected = db.Table<AuditedEntity>().AddRange(new[]
         {
@@ -234,7 +234,7 @@ public class OnActionTests
             if (entity is AuditedEntity { Name: "skip" }) return SQLiteAction.Skip;
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         int affected = db.Table<AuditedEntity>().AddRange(new[]
         {
@@ -259,7 +259,7 @@ public class OnActionTests
             }
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
         db.Table<AuditedEntity>().AddRange(new[]
         {
             new AuditedEntity { Name = "a" },
@@ -279,7 +279,7 @@ public class OnActionTests
     {
         using TestDatabase db = new(b => b.OnAction((_, _, action) =>
             action == SQLiteAction.AddOrUpdate ? SQLiteAction.Add : action));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().AddOrUpdate(new Book { Id = 1, Title = "first", AuthorId = 1, Price = 1 });
 
@@ -291,7 +291,7 @@ public class OnActionTests
     public void OnAction_UpsertRewrittenToSkip_NoSqlIssued()
     {
         using TestDatabase db = new(b => b.OnAction((_, _, _) => SQLiteAction.Skip));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int affected = db.Table<Book>().Upsert(
             new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 },
@@ -310,7 +310,7 @@ public class OnActionTests
             seen.Add(action);
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
         db.Table<AuditedEntity>().AddRange(new[]
         {
             new AuditedEntity { Name = "a" },
@@ -336,7 +336,7 @@ public class OnActionTests
             if (entity is AuditedEntity { Name: "skip-me" }) return SQLiteAction.Skip;
             return action;
         }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
         db.Table<AuditedEntity>().AddRange(new[]
         {
             new AuditedEntity { Name = "a" },
@@ -363,7 +363,7 @@ public class OnActionTests
             seen.Add(action);
             return action;
         }));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 1 });
         seen.Clear();
 
@@ -387,7 +387,7 @@ public class OnActionTests
             if (entity is Book { Id: 2 }) return SQLiteAction.Skip;
             return action;
         }));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int affected = db.Table<Book>().AddOrUpdateRange(new[]
         {
@@ -409,7 +409,7 @@ public class OnActionTests
             if (entity is Book { Id: 2 }) return SQLiteAction.Skip;
             return action;
         }));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int affected = db.Table<Book>().UpsertRange(new[]
         {
@@ -434,7 +434,7 @@ public class OnActionTests
                 actionCalled = true;
                 return action;
             }));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         int affected = db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "x" });
 
@@ -446,7 +446,7 @@ public class OnActionTests
     public void OnAction_UnknownActionThrows()
     {
         using TestDatabase db = new(b => b.OnAction((_, _, _) => (SQLiteAction)999));
-        db.Table<AuditedEntity>().CreateTable();
+        db.Schema.CreateTable<AuditedEntity>();
 
         Assert.Throws<InvalidOperationException>(() =>
             db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "x" }));

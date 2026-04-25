@@ -286,8 +286,8 @@ public class CustomConverterTests
             b.TypeConverters[typeof(Points)] = new PointsConverter();
             configure?.Invoke(b);
         }, methodName);
-        db.Table<ScoreEntity>().CreateTable();
-        db.Table<NullableScoreEntity>().CreateTable();
+        db.Schema.CreateTable<ScoreEntity>();
+        db.Schema.CreateTable<NullableScoreEntity>();
         return db;
     }
 
@@ -303,7 +303,7 @@ public class CustomConverterTests
             ] = (_, args) => $"replace({args[0]}, {args[1]}, {args[2]})";
             configure?.Invoke(b);
         }, methodName);
-        db.Table<TagEntity>().CreateTable();
+        db.Schema.CreateTable<TagEntity>();
         return db;
     }
 

@@ -298,8 +298,8 @@ public class AsyncTests
     {
         TestDatabase db = new(methodName);
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {

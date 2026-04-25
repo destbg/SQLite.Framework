@@ -16,7 +16,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         string? mode = db.ExecuteScalar<string>("PRAGMA journal_mode");
         Assert.Equal("wal", mode);
@@ -26,7 +26,7 @@ public class WalConcurrencyTests
     public async Task NonWalMode_WritesAreStillSerialized()
     {
         using ConcurrencyTrackingDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -59,7 +59,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -96,7 +96,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -133,7 +133,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         List<Task> tasks = [];
 
@@ -207,7 +207,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -251,7 +251,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -294,7 +294,7 @@ public class WalConcurrencyTests
         MultiCoreFact.SkipIfInsufficientCores();
         using WalTrackingDatabase db = new();
         db.LockHoldMilliseconds = 50;
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Barrier barrier = new(8);
 
@@ -324,7 +324,7 @@ public class WalConcurrencyTests
         MultiCoreFact.SkipIfInsufficientCores();
         using WalTrackingDatabase db = new();
         db.LockHoldMilliseconds = 50;
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Barrier barrier = new(8);
 
@@ -354,7 +354,7 @@ public class WalConcurrencyTests
         MultiCoreFact.SkipIfInsufficientCores();
         using WalTrackingDatabase db = new();
         db.LockHoldMilliseconds = 50;
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Barrier barrier = new(8);
         List<Task> tasks = [];
@@ -408,7 +408,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 8; i++)
         {
@@ -440,7 +440,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 8; i++)
         {
@@ -479,7 +479,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 8; i++)
         {
@@ -532,7 +532,7 @@ public class WalConcurrencyTests
         using ManualResetEventSlim releaseRead = new(false);
         using HoldableReadDatabase db = new(readStarted, releaseRead);
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 5; i++)
         {
@@ -571,7 +571,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -596,7 +596,7 @@ public class WalConcurrencyTests
         using ManualResetEventSlim writeAcquired = new(false);
         using ManualResetEventSlim releaseWrite = new(false);
         using WalWriteHoldingDatabase db = new(writeAcquired, releaseWrite);
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.ArmHold();
 
@@ -637,7 +637,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         TaskCompletionSource txStarted = new();
         SemaphoreSlim txRelease = new(0, 1);
@@ -683,7 +683,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -724,7 +724,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -765,7 +765,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -812,7 +812,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -859,7 +859,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int activeTransactions = 0;
         int maxActiveTransactions = 0;
@@ -913,7 +913,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int activeTransactions = 0;
         int maxActiveTransactions = 0;
@@ -967,7 +967,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Add(new Book
         {
@@ -1012,7 +1012,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         await using SQLiteTransaction tx = await db.BeginTransactionAsync(ct: TestContext.Current.CancellationToken);
 
@@ -1048,7 +1048,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         await using (SQLiteTransaction tx = await db.BeginTransactionAsync(ct: TestContext.Current.CancellationToken))
         {
@@ -1073,7 +1073,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         List<Book> books =
         [
@@ -1113,7 +1113,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         using (SQLiteTransaction tx = db.BeginTransaction())
         {
@@ -1151,7 +1151,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         using (SQLiteTransaction _ = db.BeginTransaction())
         {
@@ -1188,7 +1188,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 5; i++)
         {
@@ -1229,7 +1229,7 @@ public class WalConcurrencyTests
         {
             b.IsWalMode = true;
         });
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 5; i++)
         {

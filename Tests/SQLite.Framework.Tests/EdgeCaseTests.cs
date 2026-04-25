@@ -13,7 +13,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         List<Book> results = db.Table<Book>().ToList();
 
@@ -26,7 +26,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -45,7 +45,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -64,7 +64,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Book? result = db.Table<Book>().FirstOrDefault();
 
@@ -76,7 +76,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.Throws<InvalidOperationException>(() => db.Table<Book>().First());
     }
@@ -86,7 +86,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int count = db.Table<Book>().Count();
 
@@ -98,7 +98,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.Throws<NullReferenceException>(() => db.Table<Book>().Sum(b => b.Price));
     }
@@ -108,7 +108,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         bool any = db.Table<Book>().Any();
 
@@ -120,7 +120,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         bool all = db.Table<Book>().All(b => b.Price > 0);
 
@@ -132,7 +132,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.Throws<SQLiteException>(() =>
         {
@@ -151,7 +151,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Add(new Book
         {
@@ -178,7 +178,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Update(new Book
         {
@@ -197,7 +197,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Remove(new Book
         {
@@ -216,7 +216,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -236,7 +236,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -258,7 +258,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         string longString = new('X', 10000);
         db.Table<Book>().Add(new Book
@@ -294,13 +294,13 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
-        db.Table<Publisher>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
+        db.Schema.CreateTable<Publisher>();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
-        db.Table<Publisher>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
+        db.Schema.CreateTable<Publisher>();
 
         Assert.True(true);
     }
@@ -310,7 +310,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().DropTable();
+        db.Schema.DropTable<Book>();
 
         Assert.True(true);
     }
@@ -320,8 +320,8 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Book>().DropTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.DropTable<Book>();
 
         Assert.Throws<SQLiteException>(() => db.Table<Book>().ToList());
     }
@@ -331,7 +331,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -348,7 +348,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -367,7 +367,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -386,7 +386,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -419,7 +419,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         IQueryable<Book> query1 = db.Table<Book>().Where(b => b.Id == 1);
         IQueryable<Book> query2 = db.Table<Book>().Where(b => b.Id == 2);
@@ -433,7 +433,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         IQueryable<Book> query1 = db.Table<Book>().Where(b => b.Id == 1);
         IQueryable<Book> query2 = db.Table<Book>().Where(b => b.Id == 2);
@@ -447,7 +447,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
@@ -477,7 +477,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Author>();
         db.Table<Author>().Add(new Author
         {
             Id = 1,
@@ -497,7 +497,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Book[] books = Enumerable.Range(1, 1000).Select(i => new Book
         {
@@ -519,7 +519,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         {
             using SQLiteTransaction transaction = db.BeginTransaction();
@@ -541,7 +541,7 @@ public class EdgeCaseTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         using (SQLiteTransaction transaction1 = db.BeginTransaction())
         {
@@ -577,7 +577,7 @@ public class EdgeCaseTests
     public void AnonymousTypeProjection_NullableColumn_ReturnsNull()
     {
         using TestDatabase db = new();
-        db.Table<NullableColumnEntity>().CreateTable();
+        db.Schema.CreateTable<NullableColumnEntity>();
         db.Table<NullableColumnEntity>().Add(new NullableColumnEntity { Id = 1, Value = null });
 
         var result = db.Table<NullableColumnEntity>()

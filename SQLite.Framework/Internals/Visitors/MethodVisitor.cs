@@ -642,15 +642,23 @@ internal class MethodVisitor
         throw new NotSupportedException($"TimeOnly.{node.Method.Name} is not translatable to SQL.");
     }
 
-    public Expression HandleFTS5Method(MethodCallExpression node)
+    public Expression HandleSQLiteFunctionsMethod(MethodCallExpression node)
     {
         return node.Method.Name switch
         {
-            nameof(SQLiteFTS5.Match) => HandleFTS5Match(node),
-            nameof(SQLiteFTS5.Rank) => HandleFTS5Rank(node),
-            nameof(SQLiteFTS5.Snippet) => HandleFTS5Snippet(node),
-            nameof(SQLiteFTS5.Highlight) => HandleFTS5Highlight(node),
-            _ => throw new NotSupportedException($"SQLiteFTS5.{node.Method.Name} can only be used inside Match, OrderBy, or Select."),
+            nameof(SQLiteFunctions.Match) => HandleFTS5Match(node),
+            nameof(SQLiteFunctions.Rank) => HandleFTS5Rank(node),
+            nameof(SQLiteFunctions.Snippet) => HandleFTS5Snippet(node),
+            nameof(SQLiteFunctions.Highlight) => HandleFTS5Highlight(node),
+            nameof(SQLiteFunctions.Random) => new SQLExpression(typeof(double), visitor.IdentifierIndex.Index++, "RANDOM()", null),
+            nameof(SQLiteFunctions.RandomBlob) => HandleFunctionsRandomBlob(node),
+            nameof(SQLiteFunctions.Glob) => HandleFunctionsGlob(node),
+            nameof(SQLiteFunctions.UnixEpoch) => HandleFunctionsUnixEpoch(node),
+            nameof(SQLiteFunctions.Printf) => HandleFunctionsPrintf(node),
+            nameof(SQLiteFunctions.Regexp) => HandleFunctionsRegexp(node),
+            nameof(SQLiteFunctions.Changes) => new SQLExpression(typeof(long), visitor.IdentifierIndex.Index++, "changes()", null),
+            nameof(SQLiteFunctions.TotalChanges) => new SQLExpression(typeof(long), visitor.IdentifierIndex.Index++, "total_changes()", null),
+            _ => throw new NotSupportedException($"SQLiteFunctions.{node.Method.Name} is not translatable to SQL."),
         };
     }
 
@@ -1183,6 +1191,78 @@ internal class MethodVisitor
         throw new NotSupportedException($"{node.Method.DeclaringType?.Name}.{node.Method.Name} is not translatable to SQL.");
     }
 
+    private SQLExpression HandleFunctionsRandomBlob(MethodCallExpression node)
+    {
+        ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
+        return new SQLExpression(
+            typeof(byte[]),
+            visitor.IdentifierIndex.Index++,
+            $"RANDOMBLOB({arg.Sql})",
+            arg.Parameters);
+    }
+
+    private SQLExpression HandleFunctionsGlob(MethodCallExpression node)
+    {
+        ResolvedModel pattern = visitor.ResolveExpression(node.Arguments[0]);
+        ResolvedModel value = visitor.ResolveExpression(node.Arguments[1]);
+        return new SQLExpression(
+            typeof(bool),
+            visitor.IdentifierIndex.Index++,
+            $"({value.Sql} GLOB {pattern.Sql})",
+            CommonHelpers.CombineParameters(value.SQLExpression!, pattern.SQLExpression!));
+    }
+
+    private SQLExpression HandleFunctionsUnixEpoch(MethodCallExpression node)
+    {
+        if (node.Arguments.Count == 0)
+        {
+            return new SQLExpression(typeof(long), visitor.IdentifierIndex.Index++, "unixepoch()", null);
+        }
+
+        ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
+        return new SQLExpression(
+            typeof(long),
+            visitor.IdentifierIndex.Index++,
+            $"unixepoch({arg.Sql})",
+            arg.Parameters);
+    }
+
+    private SQLExpression HandleFunctionsPrintf(MethodCallExpression node)
+    {
+        ResolvedModel format = visitor.ResolveExpression(node.Arguments[0]);
+
+        List<ResolvedModel> rest = [];
+        if (node.Arguments[1] is NewArrayExpression arrayExpr)
+        {
+            foreach (Expression e in arrayExpr.Expressions)
+            {
+                rest.Add(visitor.ResolveExpression(e));
+            }
+        }
+
+        string argsSql = rest.Count == 0
+            ? string.Empty
+            : ", " + string.Join(", ", rest.Select(r => r.Sql));
+
+        SQLExpression[] all = [format.SQLExpression!, .. rest.Select(r => r.SQLExpression!)];
+        return new SQLExpression(
+            typeof(string),
+            visitor.IdentifierIndex.Index++,
+            $"printf({format.Sql}{argsSql})",
+            CommonHelpers.CombineParameters(all));
+    }
+
+    private SQLExpression HandleFunctionsRegexp(MethodCallExpression node)
+    {
+        ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
+        ResolvedModel pattern = visitor.ResolveExpression(node.Arguments[1]);
+        return new SQLExpression(
+            typeof(bool),
+            visitor.IdentifierIndex.Index++,
+            $"({value.Sql} REGEXP {pattern.Sql})",
+            CommonHelpers.CombineParameters(value.SQLExpression!, pattern.SQLExpression!));
+    }
+
     private SQLExpression HandleFTS5Match(MethodCallExpression node)
     {
         Expression first = node.Arguments[0];
@@ -1207,7 +1287,7 @@ internal class MethodVisitor
             }
             else
             {
-                throw new NotSupportedException("SQLiteFTS5.Match column reference must be a direct property access like a.Title.");
+                throw new NotSupportedException("SQLiteFunctions.Match column reference must be a direct property access like a.Title.");
             }
         }
         else

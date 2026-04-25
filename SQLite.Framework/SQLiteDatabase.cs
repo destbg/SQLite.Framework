@@ -120,14 +120,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 #endif
 
     /// <summary>
-    /// Gets or sets the user-defined version number stored in the database file header.
-    /// This can be used to track schema versions.
+    /// Typed access to common SQLite pragmas like foreign keys, journal mode, cache size, and user version.
+    /// The instance is built the first time you read this property using <see cref="SQLiteOptions.PragmasFactory" />.
     /// </summary>
-    public int UserVersion
-    {
-        get => ExecuteScalar<int?>("PRAGMA user_version") ?? 0;
-        set => Execute($"PRAGMA user_version = {value}");
-    }
+    public SQLitePragmas Pragmas { get => field ??= Options.PragmasFactory(this); private set; }
+
+    /// <summary>
+    /// DDL operations on the database, including create, drop, alter, and inspection. The instance
+    /// is built the first time you read this property using <see cref="SQLiteOptions.SchemaFactory" />.
+    /// </summary>
+    public SQLiteSchema Schema { get => field ??= Options.SchemaFactory(this); private set; }
 
     internal bool HoldsConnectionLock => holdsConnectionLock.Value;
 
@@ -259,17 +261,19 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Creates a new table for the specified type.
+    /// Returns a queryable wrapper for the table mapped to <typeparamref name="T" />. Override on a
+    /// <see cref="SQLiteDatabase" /> subclass to dispatch by entity type to a custom <see cref="SQLiteTable{T}" /> subclass.
     /// </summary>
-    public SQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+    public virtual SQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
     {
         return new SQLiteTable<T>(this, TableMapping<T>());
     }
 
     /// <summary>
-    /// Creates a new table for the specified type.
+    /// Returns a queryable wrapper for the table mapped to <paramref name="type" />. Override on
+    /// a <see cref="SQLiteDatabase" /> subclass to dispatch by entity type.
     /// </summary>
-    public SQLiteTable Table([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
+    public virtual SQLiteTable Table([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
     {
         return new SQLiteTable(this, TableMapping(type));
     }
@@ -373,6 +377,115 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 IsConnecting = false;
             }
         }
+    }
+
+    /// <summary>
+    /// Copies this database into <paramref name="destination" /> using SQLite's backup API.
+    /// The source database stays open for reads and writes during the copy. If a page changes
+    /// while the copy is running, SQLite re-copies it for you. Use this for backups, for saving
+    /// an in-memory database to a file, or for loading a file into memory at startup.
+    /// </summary>
+    /// <param name="destination">The database to copy into. Existing data in it is replaced.</param>
+    /// <param name="sourceName">The schema name of the source. The default is <c>main</c>. Pass another name to back up an attached database.</param>
+    /// <param name="destName">The schema name of the destination. The default is <c>main</c>.</param>
+    public virtual void BackupTo(SQLiteDatabase destination, string sourceName = "main", string destName = "main")
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+
+        OpenConnection();
+        destination.OpenConnection();
+
+        using IDisposable sourceLock = Lock();
+        using IDisposable destLock = destination.Lock();
+
+        sqlite3_backup handle = raw.sqlite3_backup_init(destination.Handle!, destName, Handle!, sourceName);
+        if (handle == null)
+        {
+            SQLiteResult code = (SQLiteResult)raw.sqlite3_errcode(destination.Handle!);
+            string message = raw.sqlite3_errmsg(destination.Handle!).utf8_to_string();
+            throw new SQLiteException(code, message, null);
+        }
+
+        try
+        {
+            while (true)
+            {
+                SQLiteResult result = (SQLiteResult)raw.sqlite3_backup_step(handle, -1);
+                if (result == SQLiteResult.Done)
+                {
+                    return;
+                }
+
+                if (result == SQLiteResult.Busy || result == SQLiteResult.Locked)
+                {
+                    Thread.Sleep(50);
+                    continue;
+                }
+
+                string message = raw.sqlite3_errmsg(destination.Handle!).utf8_to_string();
+                throw new SQLiteException(result, message, null);
+            }
+        }
+        finally
+        {
+            raw.sqlite3_backup_finish(handle);
+        }
+    }
+
+    /// <summary>
+    /// Opens a destination database at <paramref name="destinationPath" />, runs the backup, and
+    /// closes the destination for you. The destination file is overwritten if it already exists.
+    /// On SQLCipher builds, the destination uses the same encryption key as this database so the
+    /// backup file is encrypted the same way.
+    /// </summary>
+    public virtual void BackupTo(string destinationPath)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(destinationPath);
+
+        SQLiteOptionsBuilder destBuilder = new(destinationPath);
+        if (!string.IsNullOrEmpty(Options.EncryptionKey))
+        {
+            destBuilder.UseEncryptionKey(Options.EncryptionKey);
+        }
+        using SQLiteDatabase destination = new(destBuilder.Build());
+        BackupTo(destination);
+    }
+
+    /// <summary>
+    /// Attaches another SQLite file to this connection under the given schema name. After this
+    /// call you can read tables in the attached file with raw SQL, like
+    /// <c>SELECT * FROM aux.Books</c>.
+    /// </summary>
+    /// <param name="path">Path to the database file to attach.</param>
+    /// <param name="schemaName">The name to give the attached database. Must be a plain identifier
+    /// (letters, digits, and underscores).</param>
+    /// <param name="encryptionKey">SQLCipher encryption key for the attached file. Only used in the
+    /// SQLCipher build. Pass <see langword="null" /> to skip the key step. Pass an empty string when
+    /// the attached file is plain SQLite (not encrypted) and the main database is encrypted.</param>
+    public virtual void AttachDatabase(string path, string schemaName, string? encryptionKey = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        ValidateSchemaName(schemaName);
+
+        string sql = $"ATTACH DATABASE '{path.Replace("'", "''")}' AS \"{schemaName}\"";
+#if SQLITECIPHER
+        if (encryptionKey != null)
+        {
+            sql += $" KEY '{encryptionKey.Replace("'", "''")}'";
+        }
+#endif
+        Execute(sql);
+    }
+
+    /// <summary>
+    /// Detaches a previously attached database from this connection.
+    /// </summary>
+    /// <param name="schemaName">The name the database was attached with.</param>
+    public virtual void DetachDatabase(string schemaName)
+    {
+        ValidateSchemaName(schemaName);
+
+        Execute($"DETACH DATABASE \"{schemaName}\"");
     }
 
     /// <summary>
@@ -754,6 +867,21 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         string name = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
         CreateCommand($"SAVEPOINT {name}", []).ExecuteNonQuery();
         return name;
+    }
+
+    private static void ValidateSchemaName(string schemaName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(schemaName);
+
+        foreach (char c in schemaName)
+        {
+            if (!char.IsLetterOrDigit(c) && c != '_')
+            {
+                throw new ArgumentException(
+                    "Schema name must contain only letters, digits, and underscores.",
+                    nameof(schemaName));
+            }
+        }
     }
 
     private IEnumerable<IGrouping<TKey, TElement>> ExecuteGroupingQuery<TKey, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)

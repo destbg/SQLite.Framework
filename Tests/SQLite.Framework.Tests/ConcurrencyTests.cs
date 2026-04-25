@@ -12,7 +12,7 @@ public class ConcurrencyTests
     public async Task EightSyncTasks_EachInsertReadUpdate_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -40,7 +40,7 @@ public class ConcurrencyTests
     public async Task EightSyncTasks_NeverHoldLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -59,7 +59,7 @@ public class ConcurrencyTests
     public async Task EightAsyncTasks_EachInsertReadUpdate_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -87,7 +87,7 @@ public class ConcurrencyTests
     public async Task EightAsyncTasks_NeverHoldLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -106,7 +106,7 @@ public class ConcurrencyTests
     public async Task EightMixedTasks_EachInsertReadUpdate_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         List<Task> tasks = [];
 
@@ -165,7 +165,7 @@ public class ConcurrencyTests
     public async Task EightSyncTasks_AddRange_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -188,7 +188,7 @@ public class ConcurrencyTests
     public async Task EightSyncTasks_AddRange_NeverHoldLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -211,7 +211,7 @@ public class ConcurrencyTests
     public async Task EightAsyncTasks_AddRangeAsync_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -234,7 +234,7 @@ public class ConcurrencyTests
     public async Task EightAsyncTasks_AddRangeAsync_NeverHoldLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -257,7 +257,7 @@ public class ConcurrencyTests
     public async Task EightSyncTasks_ConcurrentReads_AllReturnCorrectData()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 8; i++)
         {
@@ -280,7 +280,7 @@ public class ConcurrencyTests
     public async Task EightAsyncTasks_ConcurrentReads_AllReturnCorrectData()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 8; i++)
         {
@@ -312,7 +312,7 @@ public class ConcurrencyTests
         MultiCoreFact.SkipIfInsufficientCores();
         using ConcurrencyTrackingDatabase db = new();
         db.ReadHoldMilliseconds = 50;
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 8; i++)
         {
@@ -338,7 +338,7 @@ public class ConcurrencyTests
     public async Task ConcurrentReadsAndWrites_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 8; i++)
         {
@@ -370,7 +370,7 @@ public class ConcurrencyTests
     public async Task EightMixedTasks_NeverHoldLockSimultaneously()
     {
         using ConcurrencyTrackingDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         List<Task> tasks = [];
 
@@ -458,7 +458,7 @@ public class ConcurrencyTests
         using ManualResetEventSlim releaseRead = new(false);
         using HoldableReadDatabase db = new(readStarted, releaseRead);
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 5; i++)
         {

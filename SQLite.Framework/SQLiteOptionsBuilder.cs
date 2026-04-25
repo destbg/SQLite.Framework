@@ -197,6 +197,18 @@ public sealed class SQLiteOptionsBuilder
     public Dictionary<Type, List<LambdaExpression>> QueryFilters { get; } = [];
 
     /// <summary>
+    /// Builds the <see cref="SQLitePragmas" /> instance the first time <see cref="SQLiteDatabase.Pragmas" /> is read.
+    /// The default builds the built-in <see cref="SQLitePragmas" /> class.
+    /// </summary>
+    public Func<SQLiteDatabase, SQLitePragmas> PragmasFactory { get; set; } = static db => new SQLitePragmas(db);
+
+    /// <summary>
+    /// Builds the <see cref="SQLiteSchema" /> instance the first time <see cref="SQLiteDatabase.Schema" /> is read.
+    /// The default builds the built-in <see cref="SQLiteSchema" /> class.
+    /// </summary>
+    public Func<SQLiteDatabase, SQLiteSchema> SchemaFactory { get; set; } = static db => new SQLiteSchema(db);
+
+    /// <summary>
     /// Registers a predicate the framework injects into every query against <typeparamref name="T" />,
     /// or every query against any entity that implements <typeparamref name="T" /> when it is an
     /// interface. The framework rewrites the filter's parameter from <typeparamref name="T" /> to
@@ -506,6 +518,27 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Sets a custom factory for <see cref="SQLiteDatabase.Pragmas" />. Use this to add more pragmas
+    /// by passing a class that inherits from <see cref="SQLitePragmas" />.
+    /// </summary>
+    public SQLiteOptionsBuilder UsePragmas(Func<SQLiteDatabase, SQLitePragmas> factory)
+    {
+        PragmasFactory = factory ?? throw new ArgumentNullException(nameof(factory));
+        return this;
+    }
+
+    /// <summary>
+    /// Sets a custom factory for <see cref="SQLiteDatabase.Schema" />. Use this to plug in a
+    /// subclass of <see cref="SQLiteSchema" /> that overrides DDL generation, for example FTS5
+    /// trigger SQL.
+    /// </summary>
+    public SQLiteOptionsBuilder UseSchema(Func<SQLiteDatabase, SQLiteSchema> factory)
+    {
+        SchemaFactory = factory ?? throw new ArgumentNullException(nameof(factory));
+        return this;
+    }
+
+    /// <summary>
     /// Produces a read-only <see cref="SQLiteOptions" /> snapshot of this builder's current state.
     /// Subsequent mutations on this builder do not affect the returned options instance.
     /// </summary>
@@ -545,6 +578,8 @@ public sealed class SQLiteOptionsBuilder
             AddOrUpdateHooks = SnapshotHooks(AddOrUpdateHooks),
             OnActionHooks = [.. OnActionHooks],
             QueryFilters = SnapshotQueryFilters(QueryFilters),
+            PragmasFactory = PragmasFactory,
+            SchemaFactory = SchemaFactory,
         };
     }
 

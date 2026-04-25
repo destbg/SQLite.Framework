@@ -228,7 +228,7 @@ public class GroupByTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
@@ -251,7 +251,7 @@ public class GroupByTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "A", AuthorId = 7, Price = 1 },
@@ -277,7 +277,7 @@ public class GroupByTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
@@ -299,7 +299,7 @@ public class GroupByTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "A", AuthorId = 10, Price = 1 },
@@ -327,7 +327,7 @@ public class GroupByTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.0 },
@@ -352,7 +352,7 @@ public class GroupByTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "A", AuthorId = 1, Price = 5 },
@@ -379,7 +379,7 @@ public class GroupByTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         List<IGrouping<int, Book>> groups = db.Table<Book>().GroupBy(b => b.AuthorId).ToList();
 

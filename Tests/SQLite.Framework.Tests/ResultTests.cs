@@ -635,7 +635,7 @@ public class ResultTests
     {
         using TestDatabase db = new();
 
-        db.Table<NullableEntity>().CreateTable();
+        db.Schema.CreateTable<NullableEntity>();
 
         db.Table<NullableEntity>().Add(new NullableEntity
         {
@@ -761,8 +761,8 @@ public class ResultTests
     {
         TestDatabase db = new(methodName);
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {

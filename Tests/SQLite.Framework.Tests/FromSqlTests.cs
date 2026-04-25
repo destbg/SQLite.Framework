@@ -248,7 +248,7 @@ public class FromSqlTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -274,7 +274,7 @@ public class FromSqlTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -308,7 +308,7 @@ public class FromSqlTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -344,7 +344,7 @@ public class FromSqlTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -382,7 +382,7 @@ public class FromSqlTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -418,7 +418,7 @@ public class FromSqlTests
     {
         using TestDatabase db = new();
 
-        db.Table<SimpleEntity>().CreateTable();
+        db.Schema.CreateTable<SimpleEntity>();
         db.Table<SimpleEntity>().Add(new SimpleEntity
         {
             Id = 1,

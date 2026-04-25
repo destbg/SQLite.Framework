@@ -1,10 +1,10 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
-using System.Text;
-using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
+using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Helpers;
+using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
 
 namespace SQLite.Framework;
@@ -44,65 +44,24 @@ public class SQLiteTable : BaseSQLiteTable
     }
 
     /// <summary>
-    /// Creates the table in the database if it does not exist.
+    /// Creates the table in the database if it does not exist. Forwards to
+    /// <see cref="SQLiteSchema.CreateTable(Type)" />.
     /// </summary>
+    [Obsolete("Use Database.Schema.CreateTable<T>() instead.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Table.Type comes from a TableMapping that already preserves public properties.")]
     public virtual int CreateTable()
     {
-        if (Table.IsFullTextSearch)
-        {
-            return CreateFullTextSearchTable();
-        }
-
-        string columns = string.Join(", ", Table.Columns.Select(c => c.GetCreateColumnSql()));
-
-        string sql = $"CREATE TABLE IF NOT EXISTS \"{Table.TableName}\" ({columns})";
-
-        if (Table.WithoutRowId)
-        {
-            sql += " WITHOUT ROWID";
-        }
-
-        int count = Database.CreateCommand(sql, []).ExecuteNonQuery();
-
-        foreach (TableColumn tableColumn in Table.Columns)
-        {
-            foreach (IndexedAttribute index in tableColumn.Indices)
-            {
-                string indexName = index.Name ?? ("idx_" + tableColumn.Name + "_" + index.Order);
-
-                if (index.IsUnique)
-                {
-                    string uniqueSql = $"CREATE UNIQUE INDEX IF NOT EXISTS \"{indexName}\" ON \"{Table.TableName}\" ({tableColumn.Name})";
-                    count += Database.CreateCommand(uniqueSql, []).ExecuteNonQuery();
-                }
-                else
-                {
-                    string indexSql = $"CREATE INDEX IF NOT EXISTS \"{indexName}\" ON \"{Table.TableName}\" ({tableColumn.Name})";
-                    count += Database.CreateCommand(indexSql, []).ExecuteNonQuery();
-                }
-            }
-        }
-
-        return count;
+        return Database.Schema.CreateTable(Table.Type);
     }
 
     /// <summary>
-    /// Deletes the table from the database.
+    /// Deletes the table from the database. Forwards to <see cref="SQLiteSchema.DropTable(Type)" />.
     /// </summary>
+    [Obsolete("Use Database.Schema.DropTable<T>() instead.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Table.Type comes from a TableMapping that already preserves public properties.")]
     public virtual int DropTable()
     {
-        int count = 0;
-        if (Table.IsFullTextSearch && Table.FullTextSearch!.AutoSync == FtsAutoSync.Triggers)
-        {
-            foreach (string trigger in TriggerNames())
-            {
-                count += Database.CreateCommand($"DROP TRIGGER IF EXISTS \"{trigger}\"", []).ExecuteNonQuery();
-            }
-        }
-
-        string sql = $"DROP TABLE IF EXISTS \"{Table.TableName}\"";
-        count += Database.CreateCommand(sql, []).ExecuteNonQuery();
-        return count;
+        return Database.Schema.DropTable(Table.Type);
     }
 
     /// <summary>
@@ -115,166 +74,6 @@ public class SQLiteTable : BaseSQLiteTable
     {
         string sql = $"DELETE FROM \"{Table.TableName}\"";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
-    }
-
-    /// <summary>
-    /// Emits the <c>CREATE VIRTUAL TABLE ... USING fts5(...)</c> statement plus any
-    /// <c>AFTER</c> sync triggers when <see cref="FtsTableInfo.AutoSync" /> is set to
-    /// <see cref="FtsAutoSync.Triggers" />. Override to change how an FTS5 table is created
-    /// (for example, to add extra options or skip trigger creation).
-    /// </summary>
-    /// <returns>The total number of rows affected by the issued statements.</returns>
-    protected virtual int CreateFullTextSearchTable()
-    {
-        FtsTableInfo fts = Table.FullTextSearch!;
-        StringBuilder sb = new();
-        sb.Append("CREATE VIRTUAL TABLE IF NOT EXISTS \"");
-        sb.Append(Table.TableName);
-        sb.Append("\" USING fts5(");
-
-        bool first = true;
-        foreach (FtsIndexedColumn column in fts.IndexedColumns)
-        {
-            if (!first)
-            {
-                sb.Append(", ");
-            }
-
-            first = false;
-            sb.Append(column.Name);
-            if (column.Unindexed)
-            {
-                sb.Append(" UNINDEXED");
-            }
-        }
-
-        if (fts.ContentMode == FtsContentMode.External)
-        {
-            string sourceTable = ResolveContentTableName(fts);
-            string contentRowId = ResolveContentRowIdColumn(fts);
-            sb.Append(", content='");
-            sb.Append(sourceTable.Replace("'", "''"));
-            sb.Append("', content_rowid='");
-            sb.Append(contentRowId.Replace("'", "''"));
-            sb.Append('\'');
-        }
-        else if (fts.ContentMode == FtsContentMode.Contentless)
-        {
-            sb.Append(", content=''");
-        }
-
-        sb.Append(", tokenize='");
-        sb.Append(fts.TokenizerClause.Replace("'", "''"));
-        sb.Append('\'');
-
-        if (!string.IsNullOrEmpty(fts.Attribute.Prefix))
-        {
-            sb.Append(", prefix='");
-            sb.Append(fts.Attribute.Prefix.Replace("'", "''"));
-            sb.Append('\'');
-        }
-
-        sb.Append(')');
-
-        int count = Database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
-
-        if (fts.ContentMode == FtsContentMode.External && fts.AutoSync == FtsAutoSync.Triggers)
-        {
-            foreach (string triggerSql in BuildTriggerSql(fts))
-            {
-                count += Database.CreateCommand(triggerSql, []).ExecuteNonQuery();
-            }
-        }
-
-        return count;
-    }
-
-    /// <summary>
-    /// Returns the SQL table name of the source content table for an external-content FTS5 table.
-    /// Override to change how the source table name is resolved.
-    /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
-    protected virtual string ResolveContentTableName(FtsTableInfo fts)
-    {
-        Type sourceType = fts.Attribute.ContentTable!;
-        TableMapping sourceMapping = Database.TableMapping(sourceType);
-        return sourceMapping.TableName;
-    }
-
-    /// <summary>
-    /// Returns the column name on the source table that the FTS5 virtual table's <c>rowid</c>
-    /// links to. Defaults to the source table's <c>[Key]</c> property, falling back to
-    /// <see cref="FullTextSearchAttribute.ContentRowIdColumn" /> when set. Override to choose a
-    /// different column.
-    /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
-    protected virtual string ResolveContentRowIdColumn(FtsTableInfo fts)
-    {
-        if (!string.IsNullOrEmpty(fts.Attribute.ContentRowIdColumn))
-        {
-            return fts.Attribute.ContentRowIdColumn!;
-        }
-
-        Type sourceType = fts.Attribute.ContentTable!;
-        TableMapping sourceMapping = Database.TableMapping(sourceType);
-        TableColumn? pk = sourceMapping.Columns.FirstOrDefault(c => c.IsPrimaryKey);
-        if (pk != null)
-        {
-            return pk.Name;
-        }
-
-        throw new InvalidOperationException($"FTS5 entity '{Table.Type.Name}' targets '{sourceType.Name}' but the source has no [Key] property. Mark the primary key with [Key] or set ContentRowIdColumn on [FullTextSearch].");
-    }
-
-    /// <summary>
-    /// Yields the FTS5 sync trigger statements (insert, delete, update) that keep the FTS
-    /// virtual table aligned with its external content table. Override to change the trigger
-    /// shape, for example to add a <c>WHERE</c> clause or use partial triggers.
-    /// </summary>
-    protected virtual IEnumerable<string> BuildTriggerSql(FtsTableInfo fts)
-    {
-        string ftsName = Table.TableName;
-        string sourceTable = ResolveContentTableName(fts);
-        string sourceRowId = ResolveContentRowIdColumn(fts);
-
-        string columnList = string.Join(", ", fts.IndexedColumns.Select(c => c.Name));
-        string newValues = string.Join(", ", fts.IndexedColumns.Select(c => "new." + c.Name));
-        string oldValues = string.Join(", ", fts.IndexedColumns.Select(c => "old." + c.Name));
-
-        (string ai, string ad, string au) = TriggerNamesTuple();
-
-        yield return $"CREATE TRIGGER IF NOT EXISTS \"{ai}\" AFTER INSERT ON \"{sourceTable}\" BEGIN " +
-                     $"INSERT INTO \"{ftsName}\"(rowid, {columnList}) VALUES (new.{sourceRowId}, {newValues}); END";
-
-        yield return $"CREATE TRIGGER IF NOT EXISTS \"{ad}\" AFTER DELETE ON \"{sourceTable}\" BEGIN " +
-                     $"INSERT INTO \"{ftsName}\"(\"{ftsName}\", rowid, {columnList}) VALUES('delete', old.{sourceRowId}, {oldValues}); END";
-
-        yield return $"CREATE TRIGGER IF NOT EXISTS \"{au}\" AFTER UPDATE ON \"{sourceTable}\" BEGIN " +
-                     $"INSERT INTO \"{ftsName}\"(\"{ftsName}\", rowid, {columnList}) VALUES('delete', old.{sourceRowId}, {oldValues}); " +
-                     $"INSERT INTO \"{ftsName}\"(rowid, {columnList}) VALUES (new.{sourceRowId}, {newValues}); END";
-    }
-
-    /// <summary>
-    /// Returns the names of the three FTS5 sync triggers (after-insert, after-delete, after-update)
-    /// emitted alongside the virtual table. Override to use a different naming convention.
-    /// </summary>
-    protected virtual (string ai, string ad, string au) TriggerNamesTuple()
-    {
-        string baseName = Table.TableName + "_sync";
-        return (baseName + "_ai", baseName + "_ad", baseName + "_au");
-    }
-
-    /// <summary>
-    /// Enumerates the trigger names that <see cref="DropTable" /> drops before the virtual table.
-    /// Override if <see cref="TriggerNamesTuple" /> alone is not enough to express which triggers
-    /// belong to this table.
-    /// </summary>
-    protected virtual IEnumerable<string> TriggerNames()
-    {
-        (string ai, string ad, string au) = TriggerNamesTuple();
-        yield return ai;
-        yield return ad;
-        yield return au;
     }
 }
 
@@ -464,6 +263,38 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 ? DefaultUpsert(item, configure)
                 : DispatchAction(final, item);
         });
+    }
+
+    /// <summary>
+    /// Copies rows from <paramref name="source" /> into this table using a single
+    /// <c>INSERT INTO ... SELECT</c> statement, so the data never round-trips through your code.
+    /// The source must be a queryable from the same database (a table or a LINQ chain over one).
+    /// All columns are inserted in the table's column order, so primary keys from the source are
+    /// preserved. No <c>OnAdd</c> hooks fire for the inserted rows.
+    /// </summary>
+    /// <param name="source">The query whose rows will be inserted into this table.</param>
+    /// <returns>The number of rows inserted.</returns>
+    public virtual int InsertFromQuery(IQueryable<T> source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        if (source is not BaseSQLiteTable sourceTable)
+        {
+            throw new InvalidOperationException($"Source must be a framework queryable (a {nameof(SQLiteTable)} or a LINQ chain over one).");
+        }
+
+        if (sourceTable.Database != Database)
+        {
+            throw new InvalidOperationException("Source must belong to the same database as the target.");
+        }
+
+        SQLTranslator translator = new(Database);
+        SQLQuery sourceQuery = translator.Translate(source.Expression);
+
+        string columnList = string.Join(", ", Table.Columns.Select(c => c.Name));
+        string sql = $"INSERT INTO \"{Table.TableName}\" ({columnList}){Environment.NewLine}{sourceQuery.Sql}";
+
+        return Database.CreateCommand(sql, sourceQuery.Parameters).ExecuteNonQuery();
     }
 
     IEnumerator<T> IEnumerable<T>.GetEnumerator()

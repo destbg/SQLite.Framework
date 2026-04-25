@@ -21,7 +21,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Add(new Book
         {
@@ -198,7 +198,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Publisher>().CreateTable();
+        db.Schema.CreateTable<Publisher>();
 
         db.Table<Publisher>().Add(new Publisher
         {
@@ -233,7 +233,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Publisher>().CreateTable();
+        db.Schema.CreateTable<Publisher>();
 
         using SQLiteTransaction transaction = db.BeginTransaction();
 
@@ -257,7 +257,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Publisher>().CreateTable();
+        db.Schema.CreateTable<Publisher>();
 
         {
             using SQLiteTransaction transaction = db.BeginTransaction();
@@ -281,7 +281,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Publisher>().CreateTable();
+        db.Schema.CreateTable<Publisher>();
 
         db.Table<Publisher>().Add(new Publisher
         {
@@ -303,7 +303,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<RequiredEntity>().CreateTable();
+        db.Schema.CreateTable<RequiredEntity>();
 
         db.Table<RequiredEntity>().Add(new RequiredEntity
         {
@@ -321,7 +321,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Publisher>().CreateTable();
+        db.Schema.CreateTable<Publisher>();
 
         Assert.Single(db.TableMappings);
     }
@@ -331,7 +331,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Publisher>().CreateTable();
+        db.Schema.CreateTable<Publisher>();
 
         db.Table<Publisher>().Add(new Publisher
         {
@@ -356,7 +356,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<CastEntity>().CreateTable();
+        db.Schema.CreateTable<CastEntity>();
 
         db.Table<CastEntity>().Add(new CastEntity
         {
@@ -448,7 +448,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -494,7 +494,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -550,7 +550,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -599,7 +599,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<RequiredEntity>().CreateTable();
+        db.Schema.CreateTable<RequiredEntity>();
         db.Table<RequiredEntity>().Add(new RequiredEntity
         {
             Id = 1,
@@ -622,7 +622,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -641,69 +641,6 @@ public class OtherTests
             Assert.NotNull(result);
             Assert.Equal(id, result.Id);
         }
-    }
-
-    [Fact]
-    public void UserVersion_DefaultsToZero()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
-
-        Assert.Equal(0, db.UserVersion);
-    }
-
-    [Fact]
-    public void UserVersion_SetAndGet_ReturnsCorrectValue()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
-
-        db.UserVersion = 5;
-
-        Assert.Equal(5, db.UserVersion);
-    }
-
-    [Fact]
-    public void UserVersion_CanBeUpdated()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
-
-        db.UserVersion = 1;
-        db.UserVersion = 2;
-
-        Assert.Equal(2, db.UserVersion);
-    }
-
-    [Fact]
-    public async Task GetUserVersionAsync_DefaultsToZero()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
-
-        Assert.Equal(0, await db.GetUserVersionAsync(TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task SetUserVersionAsync_AndGet_ReturnsCorrectValue()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
-
-        await db.SetUserVersionAsync(7, TestContext.Current.CancellationToken);
-
-        Assert.Equal(7, await db.GetUserVersionAsync(TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task SetUserVersionAsync_SyncGetReflectsAsyncSet()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
-
-        await db.SetUserVersionAsync(3, TestContext.Current.CancellationToken);
-
-        Assert.Equal(3, db.UserVersion);
     }
 
     private class BaseCastEntity

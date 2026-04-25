@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using SQLite.Framework.Internals.Helpers;
 
 namespace SQLite.Framework.Extensions;
 
@@ -30,7 +31,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<List<T>> QueryAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.Query<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.Query<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -38,7 +39,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<List<T>> QueryAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.Query<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.Query<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -46,7 +47,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T> QueryFirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.QueryFirst<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.QueryFirst<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -54,7 +55,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T> QueryFirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.QueryFirst<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.QueryFirst<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -62,7 +63,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> QueryFirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.QueryFirstOrDefault<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.QueryFirstOrDefault<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -70,7 +71,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> QueryFirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.QueryFirstOrDefault<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.QueryFirstOrDefault<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -78,7 +79,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T> QuerySingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.QuerySingle<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.QuerySingle<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -86,7 +87,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T> QuerySingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.QuerySingle<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.QuerySingle<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -95,7 +96,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> QuerySingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.QuerySingleOrDefault<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.QuerySingleOrDefault<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -104,7 +105,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> QuerySingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.QuerySingleOrDefault<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.QuerySingleOrDefault<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -112,7 +113,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> ExecuteScalarAsync<T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.ExecuteScalar<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.ExecuteScalar<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -120,7 +121,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<T?> ExecuteScalarAsync<T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.ExecuteScalar<T>, sql, parameters, ct);
+        return AsyncRunner.Run(database.ExecuteScalar<T>, sql, parameters, ct);
     }
 
     /// <summary>
@@ -128,7 +129,7 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<int> ExecuteAsync(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.Execute, sql, parameters, ct);
+        return AsyncRunner.Run(database.Execute, sql, parameters, ct);
     }
 
     /// <summary>
@@ -136,27 +137,40 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<int> ExecuteAsync(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
-        return ExecuteAsync(database.Execute, sql, parameters, ct);
+        return AsyncRunner.Run(database.Execute, sql, parameters, ct);
     }
 
     /// <summary>
-    /// Returns the user-defined version number stored in the database file header.
+    /// Copies the database into <paramref name="destination" /> using SQLite's backup API. Runs on a
+    /// background thread.
     /// </summary>
-    public static Task<int> GetUserVersionAsync(this SQLiteDatabase database, CancellationToken ct = default)
+    public static Task BackupToAsync(this SQLiteDatabase database, SQLiteDatabase destination, string sourceName = "main", string destName = "main", CancellationToken ct = default)
     {
-        return Task.Factory.StartNew(() => database.UserVersion, ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return AsyncRunner.Run(() => database.BackupTo(destination, sourceName, destName), ct);
     }
 
     /// <summary>
-    /// Sets the user-defined version number stored in the database file header.
+    /// Copies the database into a new file at <paramref name="destinationPath" />. Runs on a
+    /// background thread.
     /// </summary>
-    public static Task SetUserVersionAsync(this SQLiteDatabase database, int version, CancellationToken ct = default)
+    public static Task BackupToAsync(this SQLiteDatabase database, string destinationPath, CancellationToken ct = default)
     {
-        return Task.Factory.StartNew(() => database.UserVersion = version, ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return AsyncRunner.Run(() => database.BackupTo(destinationPath), ct);
     }
 
-    private static Task<T> ExecuteAsync<T, TP1, TP2>(Func<TP1, TP2, T> execute, TP1 parameter1, TP2 parameter2, CancellationToken ct)
+    /// <summary>
+    /// Attaches another SQLite file to this connection. Runs on a background thread.
+    /// </summary>
+    public static Task AttachDatabaseAsync(this SQLiteDatabase database, string path, string schemaName, string? encryptionKey = null, CancellationToken ct = default)
     {
-        return Task.Factory.StartNew(() => execute(parameter1, parameter2), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return AsyncRunner.Run(() => database.AttachDatabase(path, schemaName, encryptionKey), ct);
+    }
+
+    /// <summary>
+    /// Detaches a previously attached database from this connection. Runs on a background thread.
+    /// </summary>
+    public static Task DetachDatabaseAsync(this SQLiteDatabase database, string schemaName, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(() => database.DetachDatabase(schemaName), ct);
     }
 }

@@ -13,8 +13,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -57,8 +57,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -101,8 +101,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -155,8 +155,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -209,8 +209,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -257,8 +257,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -305,8 +305,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -350,8 +350,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -383,8 +383,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -403,7 +403,7 @@ public class ModifyTests
                 Price = 10
             }
         });
-        db.Table<Book>().DropTable();
+        db.Schema.DropTable<Book>();
 
         try
         {
@@ -421,8 +421,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -460,8 +460,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -499,8 +499,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -546,8 +546,8 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -593,7 +593,7 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().AddOrUpdate(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 });
 
@@ -610,7 +610,7 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 });
         db.Table<Book>().AddOrUpdate(new Book { Id = 1, Title = "Book 1 Updated", AuthorId = 1, Price = 9 });
@@ -628,7 +628,7 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().AddOrUpdateRange([
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
@@ -649,7 +649,7 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().AddRange([
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
@@ -675,7 +675,7 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().AddOrUpdateRange([
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
@@ -690,7 +690,7 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 }, TestContext.Current.CancellationToken);
 
@@ -707,7 +707,7 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 }, TestContext.Current.CancellationToken);
         await db.Table<Book>().AddOrUpdateAsync(new Book { Id = 1, Title = "Book 1 Updated", AuthorId = 1, Price = 9 }, TestContext.Current.CancellationToken);
@@ -724,7 +724,7 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         await db.Table<Book>().AddOrUpdateRangeAsync([
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
@@ -743,7 +743,7 @@ public class ModifyTests
     {
         using TestDatabase db = new();
 
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         await db.Table<Book>().AddRangeAsync([
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },

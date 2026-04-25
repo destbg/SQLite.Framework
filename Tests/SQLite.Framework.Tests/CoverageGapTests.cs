@@ -43,10 +43,20 @@ public class CoverageGapTests
     }
 
     [Fact]
+    public void InsertFromQuery_OnNonSQLiteQueryable_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<BookArchive>();
+
+        IQueryable<BookArchive> queryable = Array.Empty<BookArchive>().AsQueryable();
+        Assert.Throws<InvalidOperationException>(() => db.Table<BookArchive>().InsertFromQuery(queryable));
+    }
+
+    [Fact]
     public void ExecuteUpdate_SetOnMethodExpression_Throws()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.Throws<ArgumentException>(() =>
             db.Table<Book>().ExecuteUpdate(s => s.Set(b => b.Title.ToUpper(), "X")));
@@ -56,7 +66,7 @@ public class CoverageGapTests
     public void ExecuteUpdate_SetOnNonDirectProperty_Throws()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Author other = new()
         {
@@ -72,7 +82,7 @@ public class CoverageGapTests
     public void ExecuteUpdate_SetOnField_Throws()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.Throws<ArgumentException>(() =>
             db.Table<Book>().ExecuteUpdate(s => s.Set(b => ((BookWithField)(object)b).Title, "X")));
@@ -82,7 +92,7 @@ public class CoverageGapTests
     public void ExecuteUpdate_SetExpressionNotTranslatable_Throws()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>().ExecuteUpdate(s => s.Set(b => b.Title, b => string.Intern(b.Title))));
@@ -92,7 +102,7 @@ public class CoverageGapTests
     public void SQLiteCteTyped_GetEnumerator_ExecutesQuery()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -116,7 +126,7 @@ public class CoverageGapTests
     public void SQLiteCte_NonGenericGetEnumerator_ExecutesQuery()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -140,7 +150,7 @@ public class CoverageGapTests
     public void Queryable_IEnumerable_GetEnumerator_IteratesRows()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -164,7 +174,7 @@ public class CoverageGapTests
     public async Task BeginTransactionAwaiter_OnCompleted_InvokedWhenContended()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         ManualResetEventSlim lockHeld = new(false);
         ManualResetEventSlim releaseSignal = new(false);
@@ -226,7 +236,7 @@ public class CoverageGapTests
         {
             b.DateOnlyStorage = DateOnlyStorageMode.Text;
         });
-        db.Table<DateOnlyEntity>().CreateTable();
+        db.Schema.CreateTable<DateOnlyEntity>();
 
         db.Table<DateOnlyEntity>().Add(new DateOnlyEntity
         {
@@ -245,7 +255,7 @@ public class CoverageGapTests
         {
             b.TimeOnlyStorage = TimeOnlyStorageMode.Text;
         });
-        db.Table<TimeOnlyEntity>().CreateTable();
+        db.Schema.CreateTable<TimeOnlyEntity>();
 
         db.Table<TimeOnlyEntity>().Add(new TimeOnlyEntity
         {
@@ -264,7 +274,7 @@ public class CoverageGapTests
         {
             b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
         });
-        db.Table<DateTimeOffsetEntity>().CreateTable();
+        db.Schema.CreateTable<DateTimeOffsetEntity>();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<DateTimeOffsetEntity>().Where(e => e.Date.Year == 2024).ToList());
@@ -277,7 +287,7 @@ public class CoverageGapTests
         {
             b.TimeSpanStorage = TimeSpanStorageMode.Text;
         });
-        db.Table<TimeSpanEntity>().CreateTable();
+        db.Schema.CreateTable<TimeSpanEntity>();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TimeSpanEntity>().Where(e => e.Duration.Days == 1).ToList());
@@ -290,7 +300,7 @@ public class CoverageGapTests
         {
             b.DateOnlyStorage = DateOnlyStorageMode.Text;
         });
-        db.Table<DateOnlyEntity>().CreateTable();
+        db.Schema.CreateTable<DateOnlyEntity>();
         db.Table<DateOnlyEntity>().Add(new DateOnlyEntity
         {
             Id = 1,
@@ -309,7 +319,7 @@ public class CoverageGapTests
         {
             b.TimeOnlyStorage = TimeOnlyStorageMode.Text;
         });
-        db.Table<TimeOnlyEntity>().CreateTable();
+        db.Schema.CreateTable<TimeOnlyEntity>();
         db.Table<TimeOnlyEntity>().Add(new TimeOnlyEntity
         {
             Id = 1,
@@ -328,7 +338,7 @@ public class CoverageGapTests
         {
             b.DateOnlyStorage = DateOnlyStorageMode.Text;
         });
-        db.Table<DateOnlyEntity>().CreateTable();
+        db.Schema.CreateTable<DateOnlyEntity>();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<DateOnlyEntity>().Where(e => e.Date.Year == 2024).ToList());
@@ -341,7 +351,7 @@ public class CoverageGapTests
         {
             b.TimeOnlyStorage = TimeOnlyStorageMode.Text;
         });
-        db.Table<TimeOnlyEntity>().CreateTable();
+        db.Schema.CreateTable<TimeOnlyEntity>();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TimeOnlyEntity>().Where(e => e.Time.Hour == 14).ToList());
@@ -354,7 +364,7 @@ public class CoverageGapTests
         {
             b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
         });
-        db.Table<DateTimeEntity>().CreateTable();
+        db.Schema.CreateTable<DateTimeEntity>();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<DateTimeEntity>().Where(e => e.Date.AddDays(1) > DateTime.Now).ToList());
@@ -453,8 +463,8 @@ public class CoverageGapTests
     public void MemberInit_NonSimpleTypeMember_MapsNestedColumns()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
         db.Table<Author>().Add(new Author
         {
             Id = 1,
@@ -506,7 +516,7 @@ public class CoverageGapTests
     public void Where_WithInlineFieldInitializer_FiltersCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().AddRange([
             new Book
             {
@@ -546,7 +556,7 @@ public class CoverageGapTests
     public void Select_WithMemberListBinding_PopulatesCollection()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -578,7 +588,7 @@ public class CoverageGapTests
     public void Select_Chained_WithMemberListBinding_PopulatesCollection()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -611,7 +621,7 @@ public class CoverageGapTests
     public void ConstantEnumCastToInt_Where_FiltersCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -638,7 +648,7 @@ public class CoverageGapTests
     public void ConstantLongCastToInt_Where_FiltersCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -665,8 +675,8 @@ public class CoverageGapTests
     public void CapturedTableVariable_InSubquery_FiltersCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
-        db.Table<Author>().CreateTable();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
         db.Table<Author>().Add(new Author
         {
             Id = 1,
@@ -719,7 +729,7 @@ public class CoverageGapTests
     public void VisitBinary_EnumCastOnLeft_ComparesCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<EnumEntity>().CreateTable();
+        db.Schema.CreateTable<EnumEntity>();
         db.Table<EnumEntity>().Add(new EnumEntity
         {
             Id = 1,
@@ -743,7 +753,7 @@ public class CoverageGapTests
     public void VisitBinary_EnumCastOnRight_ComparesCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<EnumEntity>().CreateTable();
+        db.Schema.CreateTable<EnumEntity>();
         db.Table<EnumEntity>().Add(new EnumEntity
         {
             Id = 1,
@@ -768,7 +778,7 @@ public class CoverageGapTests
     public void VisitBinary_CharComparedToInt_FiltersCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<CharEntity>().CreateTable();
+        db.Schema.CreateTable<CharEntity>();
         db.Table<CharEntity>().Add(new CharEntity
         {
             Id = 1,
@@ -792,7 +802,7 @@ public class CoverageGapTests
     public void VisitBinary_IntComparedToChar_FiltersCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<CharEntity>().CreateTable();
+        db.Schema.CreateTable<CharEntity>();
         db.Table<CharEntity>().Add(new CharEntity
         {
             Id = 1,
@@ -817,7 +827,7 @@ public class CoverageGapTests
     public void VisitConditional_TernaryInSelect_ProducesCaseWhen()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -845,7 +855,7 @@ public class CoverageGapTests
     public void VisitConditional_TernaryInWhere_FiltersCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -874,7 +884,7 @@ public class CoverageGapTests
     public void VisitUnary_CastIntToChar_ProducesCharFunction()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 65,
@@ -894,7 +904,7 @@ public class CoverageGapTests
     public void VisitUnary_CastCharToInt_ProducesUnicodeFunction()
     {
         using TestDatabase db = new();
-        db.Table<CharEntity>().CreateTable();
+        db.Schema.CreateTable<CharEntity>();
         db.Table<CharEntity>().Add(new CharEntity
         {
             Id = 1,
@@ -912,7 +922,7 @@ public class CoverageGapTests
     public void VisitUnary_CastEnumToUnderlyingType_PreservesValue()
     {
         using TestDatabase db = new();
-        db.Table<EnumEntity>().CreateTable();
+        db.Schema.CreateTable<EnumEntity>();
         db.Table<EnumEntity>().Add(new EnumEntity
         {
             Id = 1,
@@ -930,7 +940,7 @@ public class CoverageGapTests
     public void VisitUnary_Negate_ProducesMinusOperator()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -950,7 +960,7 @@ public class CoverageGapTests
     public void VisitUnary_Not_ProducesNotOperator()
     {
         using TestDatabase db = new();
-        db.Table<EnumEntity>().CreateTable();
+        db.Schema.CreateTable<EnumEntity>();
         db.Table<EnumEntity>().Add(new EnumEntity
         {
             Id = 1,
@@ -976,7 +986,7 @@ public class CoverageGapTests
     public void VisitBinary_Coalesce_ProducesCoalesceFunction()
     {
         using TestDatabase db = new();
-        db.Table<NullableEntity>().CreateTable();
+        db.Schema.CreateTable<NullableEntity>();
         db.Table<NullableEntity>().Add(new NullableEntity
         {
             Id = 1,
@@ -1000,7 +1010,7 @@ public class CoverageGapTests
     public void VisitBinary_NullEquality_ProducesIsNull()
     {
         using TestDatabase db = new();
-        db.Table<NullableEntity>().CreateTable();
+        db.Schema.CreateTable<NullableEntity>();
         db.Table<NullableEntity>().Add(new NullableEntity
         {
             Id = 1,
@@ -1024,7 +1034,7 @@ public class CoverageGapTests
     public void VisitBinary_NullInequality_ProducesIsNotNull()
     {
         using TestDatabase db = new();
-        db.Table<NullableEntity>().CreateTable();
+        db.Schema.CreateTable<NullableEntity>();
         db.Table<NullableEntity>().Add(new NullableEntity
         {
             Id = 1,
@@ -1048,7 +1058,7 @@ public class CoverageGapTests
     public void VisitBinary_Modulo_ComputesCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -1082,7 +1092,7 @@ public class CoverageGapTests
     public void VisitBinary_Multiply_ComputesCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -1102,7 +1112,7 @@ public class CoverageGapTests
     public void VisitBinary_Divide_ComputesCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -1122,7 +1132,7 @@ public class CoverageGapTests
     public void VisitBinary_Subtract_ComputesCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -1142,7 +1152,7 @@ public class CoverageGapTests
     public void VisitUnary_CastToGenericType_ProducesCast()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book
         {
             Id = 1,

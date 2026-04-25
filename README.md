@@ -44,7 +44,7 @@ dotnet add package SQLite.Framework
 
    var options = new SQLiteOptionsBuilder("app.db").Build();
    using var context = new SQLiteDatabase(options);
-   context.Table<Person>().CreateTable();
+   context.Schema.CreateTable<Person>();
    ```
 
     On the table class, you can use the following:

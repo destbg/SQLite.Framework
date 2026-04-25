@@ -70,7 +70,7 @@ internal sealed class FtsRenderState
                 return;
         }
 
-        throw new NotSupportedException($"Unsupported expression inside SQLiteFTS5.Match: {node}. Use the builder methods (f.Term, f.Phrase, f.Prefix, f.Near, f.Column) with C# &&, ||, or ! to build the query.");
+        throw new NotSupportedException($"Unsupported expression inside SQLiteFunctions.Match: {node}. Use the builder methods (f.Term, f.Phrase, f.Prefix, f.Near, f.Column) with C# &&, ||, or ! to build the query.");
     }
 
     private void WriteAnd(BinaryExpression node, int parentPrecedence)
@@ -260,7 +260,7 @@ internal sealed class FtsRenderState
             return ResolveColumnName(u.Operand);
         }
 
-        throw new NotSupportedException($"SQLiteFTS5.Column expects a property reference like a.Title for its first argument, got: {expr}");
+        throw new NotSupportedException($"SQLiteFunctions.Column expects a property reference like a.Title for its first argument, got: {expr}");
     }
 
     private static string EscapeTerm(string term)

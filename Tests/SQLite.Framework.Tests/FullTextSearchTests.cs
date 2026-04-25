@@ -12,11 +12,11 @@ public class FullTextSearchTests
     public void Match_BindsQueryStringAsParameter()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, "native aot"))
+            .Where(a => SQLiteFunctions.Match(a, "native aot"))
             .ToSqlCommand();
 
         Assert.Single(command.Parameters);
@@ -35,11 +35,11 @@ public class FullTextSearchTests
     public void Match_ExpressionDsl_RendersFts5QueryString()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, f => f.Term("native") && f.Prefix("aot")))
+            .Where(a => SQLiteFunctions.Match(a, f => f.Term("native") && f.Prefix("aot")))
             .ToSqlCommand();
 
         Assert.Single(command.Parameters);
@@ -58,11 +58,11 @@ public class FullTextSearchTests
     public void Match_ColumnScopedString_RendersColumnPrefixInQuery()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a.Title, "native"))
+            .Where(a => SQLiteFunctions.Match(a.Title, "native"))
             .ToSqlCommand();
 
         Assert.Single(command.Parameters);
@@ -81,12 +81,12 @@ public class FullTextSearchTests
     public void OrderByRank_EmitsRankColumn()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, "native"))
-            .OrderBy(a => SQLiteFTS5.Rank(a))
+            .Where(a => SQLiteFunctions.Match(a, "native"))
+            .OrderBy(a => SQLiteFunctions.Rank(a))
             .ToSqlCommand();
 
         Assert.Single(command.Parameters);
@@ -105,12 +105,12 @@ public class FullTextSearchTests
     public void Snippet_EmitsSnippetAuxiliaryFunction()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, "native"))
-            .Select(a => new { a.Id, Snip = SQLiteFTS5.Snippet(a, a.Body, "<b>", "</b>", "...", 8) })
+            .Where(a => SQLiteFunctions.Match(a, "native"))
+            .Select(a => new { a.Id, Snip = SQLiteFunctions.Snippet(a, a.Body, "<b>", "</b>", "...", 8) })
             .ToSqlCommand();
 
         Assert.Equal(5, command.Parameters.Count);
@@ -127,12 +127,12 @@ public class FullTextSearchTests
     public void Highlight_EmitsHighlightAuxiliaryFunction()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, "native"))
-            .Select(a => new { a.Id, Hl = SQLiteFTS5.Highlight(a, a.Title, "[", "]") })
+            .Where(a => SQLiteFunctions.Match(a, "native"))
+            .Select(a => new { a.Id, Hl = SQLiteFunctions.Highlight(a, a.Title, "[", "]") })
             .ToSqlCommand();
 
         Assert.Equal(3, command.Parameters.Count);
@@ -149,8 +149,8 @@ public class FullTextSearchTests
     public void Match_TermThatLooksLikeKeyword_IsQuoted()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         db.Table<Article>().Add(new Article
         {
@@ -160,7 +160,7 @@ public class FullTextSearchTests
         });
 
         List<ArticleSearch> hits = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, f => f.Term("AND")))
+            .Where(a => SQLiteFunctions.Match(a, f => f.Term("AND")))
             .ToList();
 
         Assert.Single(hits);
@@ -170,8 +170,8 @@ public class FullTextSearchTests
     public void Match_DynamicTermFromColumn_ResolvesPerRow()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         db.Table<Article>().Add(new Article
         {
@@ -183,7 +183,7 @@ public class FullTextSearchTests
         var hits = (
                 from s in db.Table<ArticleSearch>()
                 join a in db.Table<Article>() on s.Id equals a.Id
-                where SQLiteFTS5.Match(s, f => f.Term(a.Title))
+                where SQLiteFunctions.Match(s, f => f.Term(a.Title))
                 select s.Id)
             .ToList();
 
@@ -194,13 +194,13 @@ public class FullTextSearchTests
     public void Match_DynamicTermFromColumn_EmitsPrintfSql()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand command = (
             from s in db.Table<ArticleSearch>()
             join a in db.Table<Article>() on s.Id equals a.Id
-            where SQLiteFTS5.Match(s, f => f.Term(a.Title))
+            where SQLiteFunctions.Match(s, f => f.Term(a.Title))
             select s.Id).ToSqlCommand();
 
         Assert.Empty(command.Parameters);
@@ -217,12 +217,12 @@ public class FullTextSearchTests
     public void CreateTable_TokenizerWithSpecialChars_RoundTripsCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<CategorisedSearch>().CreateTable();
+        db.Schema.CreateTable<CategorisedSearch>();
 
         db.CreateCommand("INSERT INTO CategorisedSearch(rowid, Body) VALUES (1, 'hello-world example_token 42')", []).ExecuteNonQuery();
 
         List<CategorisedSearch> hits = db.Table<CategorisedSearch>()
-            .Where(c => SQLiteFTS5.Match(c, f => f.Term("example_token")))
+            .Where(c => SQLiteFunctions.Match(c, f => f.Term("example_token")))
             .ToList();
 
         Assert.Single(hits);
@@ -233,8 +233,8 @@ public class FullTextSearchTests
     public void CreateTable_ExternalContent_CreatesVirtualTable()
     {
         using TestDatabase db = new();
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         long count = db.ExecuteScalar<long>("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ArticleSearch'");
         Assert.Equal(1, count);
@@ -245,7 +245,7 @@ public class FullTextSearchTests
     public void CreateTable_InternalContentTrigram_CreatesVirtualTable()
     {
         using TestDatabase db = new();
-        db.Table<ArticleSearchInternal>().CreateTable();
+        db.Schema.CreateTable<ArticleSearchInternal>();
 
         long count = db.ExecuteScalar<long>("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ArticleSearchInternal'");
         Assert.Equal(1, count);
@@ -259,7 +259,7 @@ public class FullTextSearchTests
         SeedArticles(db);
 
         List<ArticleSearch> results = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, "native"))
+            .Where(a => SQLiteFunctions.Match(a, "native"))
             .OrderBy(a => a.Id)
             .ToList();
 
@@ -274,7 +274,7 @@ public class FullTextSearchTests
         SeedArticles(db);
 
         List<ArticleSearch> results = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, f => f.Term("native") && f.Term("aot")))
+            .Where(a => SQLiteFunctions.Match(a, f => f.Term("native") && f.Term("aot")))
             .ToList();
 
         Assert.Single(results);
@@ -287,7 +287,7 @@ public class FullTextSearchTests
         SeedArticles(db);
 
         List<ArticleSearch> results = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, f => f.Term("aot") || f.Term("trimmer")))
+            .Where(a => SQLiteFunctions.Match(a, f => f.Term("aot") || f.Term("trimmer")))
             .ToList();
 
         Assert.True(results.Count >= 2);
@@ -300,7 +300,7 @@ public class FullTextSearchTests
         SeedArticles(db);
 
         List<ArticleSearch> results = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, f => f.Prefix("nativ")))
+            .Where(a => SQLiteFunctions.Match(a, f => f.Prefix("nativ")))
             .ToList();
 
         Assert.Equal(2, results.Count);
@@ -313,7 +313,7 @@ public class FullTextSearchTests
         SeedArticles(db);
 
         List<ArticleSearch> results = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a.Title, "native"))
+            .Where(a => SQLiteFunctions.Match(a.Title, "native"))
             .ToList();
 
         Assert.Single(results);
@@ -326,8 +326,8 @@ public class FullTextSearchTests
         SeedArticles(db);
 
         List<ArticleSearch> results = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, "native"))
-            .OrderBy(a => SQLiteFTS5.Rank(a))
+            .Where(a => SQLiteFunctions.Match(a, "native"))
+            .OrderBy(a => SQLiteFunctions.Rank(a))
             .ToList();
 
         Assert.Equal(2, results.Count);
@@ -340,8 +340,8 @@ public class FullTextSearchTests
         SeedArticles(db);
 
         var hits = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, "native"))
-            .Select(a => new { a.Id, Snip = SQLiteFTS5.Snippet(a, a.Body, "<b>", "</b>", "...", 8) })
+            .Where(a => SQLiteFunctions.Match(a, "native"))
+            .Select(a => new { a.Id, Snip = SQLiteFunctions.Snippet(a, a.Body, "<b>", "</b>", "...", 8) })
             .ToList();
 
         Assert.NotEmpty(hits);
@@ -355,8 +355,8 @@ public class FullTextSearchTests
         SeedArticles(db);
 
         var hits = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, "native"))
-            .Select(a => new { a.Id, Hl = SQLiteFTS5.Highlight(a, a.Title, "[", "]") })
+            .Where(a => SQLiteFunctions.Match(a, "native"))
+            .Select(a => new { a.Id, Hl = SQLiteFunctions.Highlight(a, a.Title, "[", "]") })
             .ToList();
 
         Assert.NotEmpty(hits);
@@ -385,7 +385,7 @@ public class FullTextSearchTests
         db.Table<Article>().Update(first);
 
         List<ArticleSearch> hits = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFTS5.Match(a, "apples"))
+            .Where(a => SQLiteFunctions.Match(a, "apples"))
             .ToList();
 
         Assert.Single(hits);
@@ -411,12 +411,12 @@ public class FullTextSearchTests
     public void Trigram_SubstringSearch_FindsRow()
     {
         using TestDatabase db = new();
-        db.Table<ArticleSearchInternal>().CreateTable();
+        db.Schema.CreateTable<ArticleSearchInternal>();
         db.CreateCommand("INSERT INTO ArticleSearchInternal(rowid, Code) VALUES (1, 'ExecuteUpdate')", []).ExecuteNonQuery();
         db.CreateCommand("INSERT INTO ArticleSearchInternal(rowid, Code) VALUES (2, 'BatchInsert')", []).ExecuteNonQuery();
 
         List<ArticleSearchInternal> hits = db.Table<ArticleSearchInternal>()
-            .Where(a => SQLiteFTS5.Match(a, "ecuteUpd"))
+            .Where(a => SQLiteFunctions.Match(a, "ecuteUpd"))
             .ToList();
 
         Assert.Single(hits);
@@ -433,7 +433,7 @@ public class FullTextSearchTests
         var hits = (
                 from s in db.Table<ArticleSearch>()
                 join a in db.Table<Article>() on s.Id equals a.Id
-                where SQLiteFTS5.Match(s, "native")
+                where SQLiteFunctions.Match(s, "native")
                 select new { s.Id, a.Title, a.PublishedAt }
             )
             .ToList();
@@ -444,8 +444,8 @@ public class FullTextSearchTests
 
     private static void SeedArticles(TestDatabase db)
     {
-        db.Table<Article>().CreateTable();
-        db.Table<ArticleSearch>().CreateTable();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
 
         DateTime now = new(2026, 04, 01, 0, 0, 0, DateTimeKind.Utc);
         db.Table<Article>().AddRange(new[]

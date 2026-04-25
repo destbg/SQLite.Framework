@@ -4,14 +4,14 @@ namespace SQLite.Framework;
 
 /// <summary>
 /// FTS5 query builder. Used as the lambda parameter of
-/// <see cref="SQLiteFTS5.Match{T}(T, Func{SQLiteFTS5Builder, bool})" /> so that you can write
-/// <c>f =&gt; f.Term("a") || f.Term("b")</c> without repeating the <c>SQLiteFTS5.</c> prefix.
-/// All methods on this type throw at runtime; they are only valid inside the LINQ expression tree.
+/// <see cref="SQLiteFunctions.Match{T}(T, Func{SQLiteFTS5Builder, bool})" /> so you can write
+/// <c>f =&gt; f.Term("a") || f.Term("b")</c> without repeating the <c>SQLiteFunctions.</c> prefix.
+/// All methods on this type throw at runtime. They are only valid inside the LINQ expression tree.
 /// </summary>
 [ExcludeFromCodeCoverage]
 public sealed class SQLiteFTS5Builder
 {
-    private const string OutsideQuery = "SQLiteFTS5Builder methods can only be used inside an SQLiteFTS5.Match lambda.";
+    private const string OutsideQuery = "SQLiteFTS5Builder methods can only be used inside an SQLiteFunctions.Match lambda.";
 
     internal SQLiteFTS5Builder()
     {

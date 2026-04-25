@@ -503,9 +503,9 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             return new SQLExpression(typeof(bool), IdentifierIndex.Index++, $"{obj.Sql} = {argument.Sql}", parameters);
         }
 
-        if (node.Method.DeclaringType == typeof(SQLiteFTS5))
+        if (node.Method.DeclaringType == typeof(SQLiteFunctions))
         {
-            return MethodVisitor.HandleFTS5Method(node);
+            return MethodVisitor.HandleSQLiteFunctionsMethod(node);
         }
 
         if (node.Method.DeclaringType == typeof(string))

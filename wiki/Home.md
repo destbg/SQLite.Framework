@@ -6,9 +6,9 @@ A lightweight [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapp
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
 using SQLiteDatabase db = new(options);
 
-var books = db.Table<Book>();
-await books.CreateTableAsync();
+await db.Schema.CreateTableAsync<Book>();
 
+var books = db.Table<Book>();
 await books.AddAsync(new Book { Title = "Clean Code", Price = 29.99m });
 
 var affordable = await books.Where(b => b.Price < 30).ToListAsync();
@@ -57,12 +57,17 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - [Multi-threading](Multi-threading)
 - [Raw SQL](Raw%20SQL)
 - [Common Table Expressions](Common%20Table%20Expressions)
+- [Pragmas](Pragmas)
+- [Backup](Backup)
+- [Attached Databases](Attached%20Databases)
+- [Schema](Schema)
 - [Data Types](Data%20Types)
 - [Storage Options](Storage%20Options)
 - [Custom Converters](Custom%20Converters)
 - [JSON and JSONB](JSON%20and%20JSONB)
 - [Window Functions](Window%20Functions)
 - [Full Text Search](Full%20Text%20Search)
+- [SQLite Functions](SQLite%20Functions)
 - [Performance](Performance)
 - [Native AOT](Native%20AOT)
 - [Source Generator](Source%20Generator)

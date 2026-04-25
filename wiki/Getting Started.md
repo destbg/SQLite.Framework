@@ -16,11 +16,11 @@ Build a read-only `SQLiteOptions` with `SQLiteOptionsBuilder` and hand it to the
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
 using SQLiteDatabase db = new(options);
 
+await db.Schema.CreateTableAsync<Author>();
+await db.Schema.CreateTableAsync<Book>();
+
 var authors = db.Table<Author>();
 var books = db.Table<Book>();
-
-await authors.CreateTableAsync();
-await books.CreateTableAsync();
 
 await authors.AddAsync(new Author { Name = "Robert Martin", Country = "USA" });
 await books.AddAsync(new Book { Title = "Clean Code", AuthorId = 1, Price = 29.99m });
@@ -79,8 +79,8 @@ public class LibraryViewModel
 
     public async Task InitializeAsync()
     {
-        await _db.Table<Author>().CreateTableAsync();
-        await _db.Table<Book>().CreateTableAsync();
+        await _db.Schema.CreateTableAsync<Author>();
+        await _db.Schema.CreateTableAsync<Book>();
     }
 
     public Task<List<Book>> GetBooksAsync()
@@ -92,11 +92,11 @@ public class LibraryViewModel
 
 ## Schema Setup
 
-Call `CreateTableAsync()` once at startup for each model.
+Call `CreateTableAsync<T>()` once at startup for each model.
 
 ```csharp
-await db.Table<Author>().CreateTableAsync();
-await db.Table<Book>().CreateTableAsync();
+await db.Schema.CreateTableAsync<Author>();
+await db.Schema.CreateTableAsync<Book>();
 ```
 
 The models used throughout this wiki:
@@ -146,18 +146,18 @@ See [Defining Models](Defining%20Models) for the full list of attributes and opt
 SQLite stores a 32-bit integer in the database file header called the user version. It starts at zero and you control it entirely. Use it to track which migrations have already run so your app can apply only what is missing on each launch.
 
 ```csharp
-await db.Table<Author>().CreateTableAsync();
-await db.Table<Book>().CreateTableAsync();
+await db.Schema.CreateTableAsync<Author>();
+await db.Schema.CreateTableAsync<Book>();
 
-if (db.UserVersion == 1)
+if (db.Pragmas.UserVersion == 1)
 {
     db.Execute("ALTER TABLE Books ADD COLUMN BookGenre TEXT");
-    db.UserVersion = 2;
+    db.Pragmas.UserVersion = 2;
 }
-if (db.UserVersion == 2)
+if (db.Pragmas.UserVersion == 2)
 {
     db.Execute("ALTER TABLE Books ADD COLUMN BookInStock INTEGER NOT NULL DEFAULT 0");
-    db.UserVersion = 3;
+    db.Pragmas.UserVersion = 3;
 }
 ```
 
@@ -166,6 +166,6 @@ Each block runs only once. On the next launch `UserVersion` is already at the la
 There are the async versions:
 
 ```csharp
-int version = await db.GetUserVersionAsync();
-await db.SetUserVersionAsync(2);
+int version = await db.Pragmas.GetUserVersionAsync();
+await db.Pragmas.SetUserVersionAsync(2);
 ```

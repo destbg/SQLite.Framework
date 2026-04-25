@@ -12,7 +12,7 @@ public class TransactionConcurrencyTests
     public async Task EightConcurrentAsyncTransactions_EachInsertReadUpdate_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -50,7 +50,7 @@ public class TransactionConcurrencyTests
     public async Task EightConcurrentAsyncTransactions_WithAddRange_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
         {
@@ -76,7 +76,7 @@ public class TransactionConcurrencyTests
     public async Task EightConcurrentSyncTransactions_WithAddRange_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -102,7 +102,7 @@ public class TransactionConcurrencyTests
     public async Task EightConcurrentSyncTransactions_EachInsertReadUpdate_AllSucceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
         {
@@ -140,7 +140,7 @@ public class TransactionConcurrencyTests
     public async Task EightConcurrentSyncTransactions_NeverRunSimultaneously()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int activeTransactions = 0;
         int maxActiveTransactions = 0;
@@ -191,7 +191,7 @@ public class TransactionConcurrencyTests
     public async Task EightConcurrentAsyncTransactions_NeverRunSimultaneously()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int activeTransactions = 0;
         int maxActiveTransactions = 0;
@@ -242,7 +242,7 @@ public class TransactionConcurrencyTests
     public async Task ConcurrentTransactionAndAsyncQuery_DoNotInterleave()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Add(new Book
         {
@@ -284,7 +284,7 @@ public class TransactionConcurrencyTests
     public async Task AsyncTransaction_WithAwaitedQueriesInside_WorksCorrectly()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         await using SQLiteTransaction tx = await db.BeginTransactionAsync(ct: TestContext.Current.CancellationToken);
 
@@ -317,7 +317,7 @@ public class TransactionConcurrencyTests
     public async Task AsyncTransaction_Rollback_RevertsChanges()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         await using (SQLiteTransaction tx = await db.BeginTransactionAsync(ct: TestContext.Current.CancellationToken))
         {
@@ -339,7 +339,7 @@ public class TransactionConcurrencyTests
     public async Task NestedTransactionViaAddRange_DoesNotDeadlock()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         List<Book> books =
         [
@@ -376,7 +376,7 @@ public class TransactionConcurrencyTests
     public void TransactionRollback_ReleasesLock_SoNextTransactionCanProceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         using (SQLiteTransaction tx = db.BeginTransaction())
         {
@@ -411,7 +411,7 @@ public class TransactionConcurrencyTests
     public async Task Read_CompletesWhileTransactionHoldsWriteLock()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 5; i++)
         {
@@ -443,7 +443,7 @@ public class TransactionConcurrencyTests
     public async Task Read_DoesNotWaitBehindQueuedTransaction()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         for (int i = 0; i < 5; i++)
         {
@@ -483,7 +483,7 @@ public class TransactionConcurrencyTests
     public void TransactionDispose_ReleasesLock_SoNextTransactionCanProceed()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         using (SQLiteTransaction _ = db.BeginTransaction())
         {

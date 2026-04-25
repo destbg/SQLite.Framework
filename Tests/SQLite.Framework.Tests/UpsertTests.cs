@@ -12,7 +12,7 @@ public class UpsertTests
     public void Upsert_DoNothing_EmitsExpectedSqlAndKeepsExistingRow()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoNothing());
@@ -35,7 +35,7 @@ public class UpsertTests
     public void Upsert_DoUpdateAll_EmitsExpectedSqlAndUpdatesAllNonKeyColumns()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdateAll());
@@ -58,7 +58,7 @@ public class UpsertTests
     public void Upsert_DoUpdateSpecific_EmitsExpectedSqlAndUpdatesOnlyListedColumns()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdate(b => b.Title, b => b.Price));
@@ -81,7 +81,7 @@ public class UpsertTests
     public void Upsert_OnConflictComposite_EmitsExpectedSql()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
         SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
 
         string sql = inspector.GetSql(c => c.OnConflict(b => new { b.AuthorId, b.Title }).DoUpdate(b => b.Price));
@@ -95,7 +95,7 @@ public class UpsertTests
     {
         int hookCount = 0;
         using TestDatabase db = new(b => b.OnAddOrUpdate<Book>(_ => hookCount++));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int affected = db.Table<Book>().UpsertRange(new[]
         {
@@ -114,7 +114,7 @@ public class UpsertTests
     {
         int hookCount = 0;
         using TestDatabase db = new(b => b.OnAddOrUpdate<Book>(_ => hookCount++));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         db.Table<Book>().Upsert(
             new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 },
@@ -127,7 +127,7 @@ public class UpsertTests
     public void Upsert_HookReturnsFalse_SkipsInsertReturnsZero()
     {
         using TestDatabase db = new(b => b.OnAddOrUpdate<Book>((_, _) => false));
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         int affected = db.Table<Book>().Upsert(
             new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 },
@@ -141,7 +141,7 @@ public class UpsertTests
     public void Upsert_OnConflictMissingMethod_ThrowsAtConfigure()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.Throws<InvalidOperationException>(() =>
             db.Table<Book>().Upsert(
@@ -153,7 +153,7 @@ public class UpsertTests
     public void Upsert_DoUpdateWithNoColumns_Throws()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.Throws<ArgumentException>(() =>
             db.Table<Book>().Upsert(
@@ -165,7 +165,7 @@ public class UpsertTests
     public void Upsert_OnConflictCalledTwice_Throws()
     {
         using TestDatabase db = new();
-        db.Table<Book>().CreateTable();
+        db.Schema.CreateTable<Book>();
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
             db.Table<Book>().Upsert(
