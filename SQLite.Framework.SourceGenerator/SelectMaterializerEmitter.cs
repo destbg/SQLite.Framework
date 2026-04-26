@@ -76,7 +76,7 @@ internal static class SelectMaterializerEmitter
             }
             else
             {
-                typeOfText = "typeof(" + FormatType(StripNullableSymbol(leaf.Type)) + ")";
+                typeOfText = "typeof(" + FormatType(StripNullableSymbol(leaf.Type), writerCtx.TypeArgSubstitutions) + ")";
             }
 
             if (leaf.IsNullable || leaf.IsReflected)
@@ -87,7 +87,7 @@ internal static class SelectMaterializerEmitter
             }
             else
             {
-                string typeText = FormatType(leaf.Type);
+                string typeText = FormatType(leaf.Type, writerCtx.TypeArgSubstitutions);
                 sb.Append("            ")
                     .Append(typeText).Append(' ').Append(leaf.VarName).Append(" = (")
                     .Append(typeText).Append(")reader.GetValue(").Append(i)
@@ -438,6 +438,12 @@ internal static class SelectMaterializerEmitter
     internal static string FormatType(ITypeSymbol symbol)
     {
         return symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+    }
+
+    internal static string FormatType(ITypeSymbol symbol, IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? substitutions)
+    {
+        ITypeSymbol? mapped = SelectSignatureWriter.Substitute(symbol, substitutions);
+        return (mapped ?? symbol).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
     }
 
     internal static ITypeSymbol StripNullableSymbol(ITypeSymbol type)

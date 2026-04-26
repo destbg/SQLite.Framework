@@ -84,7 +84,7 @@ internal static class SelectSignatureWriter
                 || (conversion.IsExplicit && !conversion.IsReference);
             if (needsTreeConvert)
             {
-                sb.Append("(Convert ").Append(FormatType(convertedType)).Append(' ');
+                sb.Append("(Convert ").Append(FormatType(convertedType, ctx.TypeArgSubstitutions)).Append(' ');
                 if (!AppendWithType(sb, node, declaredType, ctx))
                 {
                     return false;
@@ -138,16 +138,16 @@ internal static class SelectSignatureWriter
                 return true;
 
             case IdentifierNameSyntax capturedIdent when IsCapturedValue(capturedIdent, ctx):
-                AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedIdent).Type ?? type);
+                AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedIdent).Type ?? type, ctx);
                 return true;
 
             case MemberAccessExpressionSyntax capturedMember when capturedMember.Kind() == SyntaxKind.SimpleMemberAccessExpression
                 && IsCapturedValue(capturedMember, ctx):
-                AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedMember).Type ?? type);
+                AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedMember).Type ?? type, ctx);
                 return true;
 
             case LiteralExpressionSyntax:
-                AppendConstant(sb, type);
+                AppendConstant(sb, type, ctx);
                 return true;
 
             case CastExpressionSyntax cast:
@@ -207,9 +207,9 @@ internal static class SelectSignatureWriter
         }
     }
 
-    private static void AppendCapturedValue(StringBuilder sb, ITypeSymbol? type)
+    private static void AppendCapturedValue(StringBuilder sb, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        sb.Append("(CapturedValue ").Append(FormatType(type)).Append(')');
+        sb.Append("(CapturedValue ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(')');
     }
 
     private static bool AppendElementAccess(StringBuilder sb, ElementAccessExpressionSyntax indexer, ITypeSymbol? type, SelectSignatureCtx ctx)
@@ -219,7 +219,7 @@ internal static class SelectSignatureWriter
 
         if (isArray && indexer.ArgumentList.Arguments.Count == 1)
         {
-            sb.Append("(ArrayIndex ").Append(FormatType(type)).Append(' ');
+            sb.Append("(ArrayIndex ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
             if (!TryAppend(sb, indexer.Expression, ctx))
             {
                 return false;
@@ -236,8 +236,8 @@ internal static class SelectSignatureWriter
         if (ctx.Model.GetSymbolInfo(indexer).Symbol is IPropertySymbol { IsIndexer: true } prop
             && prop.GetMethod is IMethodSymbol getter)
         {
-            sb.Append("(Call ").Append(FormatType(type)).Append(' ')
-                .Append(FormatType(getter.ContainingType)).Append('.').Append(getter.Name).Append(' ');
+            sb.Append("(Call ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ')
+                .Append(FormatType(getter.ContainingType, ctx.TypeArgSubstitutions)).Append('.').Append(getter.Name).Append(' ');
             if (!TryAppend(sb, indexer.Expression, ctx))
             {
                 return false;
@@ -273,16 +273,16 @@ internal static class SelectSignatureWriter
     {
         if (binding.MemberPath == null || binding.MemberPath.Count == 0)
         {
-            sb.Append("(Parameter ").Append(FormatType(exprType)).Append(' ').Append(FormatType(ctx.OuterRowType)).Append(')');
+            sb.Append("(Parameter ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(ctx.OuterRowType, ctx.TypeArgSubstitutions)).Append(')');
             return;
         }
 
         for (int i = binding.MemberPath.Count - 1; i >= 0; i--)
         {
             ITypeSymbol type = binding.MemberPath[i].Type;
-            sb.Append("(MemberAccess ").Append(FormatType(type)).Append(' ').Append(binding.MemberPath[i].Name).Append(' ');
+            sb.Append("(MemberAccess ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ').Append(binding.MemberPath[i].Name).Append(' ');
         }
-        sb.Append("(Parameter ").Append(FormatType(ctx.OuterRowType)).Append(' ').Append(FormatType(ctx.OuterRowType)).Append(')');
+        sb.Append("(Parameter ").Append(FormatType(ctx.OuterRowType, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(ctx.OuterRowType, ctx.TypeArgSubstitutions)).Append(')');
         for (int i = 0; i < binding.MemberPath.Count; i++)
         {
             sb.Append(')');
@@ -297,7 +297,7 @@ internal static class SelectSignatureWriter
             return false;
         }
 
-        sb.Append('(').Append(nodeType).Append(' ').Append(FormatType(type));
+        sb.Append('(').Append(nodeType).Append(' ').Append(FormatType(type, ctx.TypeArgSubstitutions));
         sb.Append(' ');
         if (!TryAppend(sb, bin.Left, ctx))
         {
@@ -326,7 +326,7 @@ internal static class SelectSignatureWriter
             return false;
         }
 
-        sb.Append('(').Append(nodeType).Append(' ').Append(FormatType(type)).Append(' ');
+        sb.Append('(').Append(nodeType).Append(' ').Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
         if (!TryAppend(sb, unary.Operand, ctx))
         {
             return false;
@@ -337,7 +337,7 @@ internal static class SelectSignatureWriter
 
     private static bool AppendConditional(StringBuilder sb, ConditionalExpressionSyntax cond, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        sb.Append("(Conditional ").Append(FormatType(type)).Append(' ');
+        sb.Append("(Conditional ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
         if (!TryAppend(sb, cond.Condition, ctx))
         {
             return false;
@@ -370,12 +370,33 @@ internal static class SelectSignatureWriter
 
         if (isStatic)
         {
-            sb.Append("(MemberAccess ").Append(FormatType(type)).Append(' ').Append(memberName).Append(" null)");
+            sb.Append("(MemberAccess ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ').Append(memberName).Append(" null)");
             return true;
         }
 
-        sb.Append("(MemberAccess ").Append(FormatType(type)).Append(' ').Append(memberName).Append(' ');
-        if (!TryAppend(sb, access.Expression, ctx))
+        sb.Append("(MemberAccess ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ').Append(memberName).Append(' ');
+
+        ITypeSymbol? memberContainingType = memberSym?.ContainingType;
+        ITypeSymbol? receiverDeclaredType = ctx.Model.GetTypeInfo(access.Expression).Type;
+        ITypeSymbol? substitutedReceiverType = Substitute(receiverDeclaredType, ctx.TypeArgSubstitutions);
+        ITypeSymbol? substitutedMemberContainingType = Substitute(memberContainingType, ctx.TypeArgSubstitutions);
+        bool insertReceiverConvert = substitutedReceiverType != null
+            && substitutedMemberContainingType != null
+            && !SymbolEqualityComparer.Default.Equals(substitutedReceiverType, substitutedMemberContainingType)
+            && memberContainingType is INamedTypeSymbol mct
+            && (mct.TypeKind == TypeKind.Interface
+                || (substitutedReceiverType is ITypeParameterSymbol tp && tp.ConstraintTypes.Any(c => SymbolEqualityComparer.Default.Equals(c, mct))));
+
+        if (insertReceiverConvert)
+        {
+            sb.Append("(Convert ").Append(FormatType(memberContainingType, ctx.TypeArgSubstitutions)).Append(' ');
+            if (!TryAppend(sb, access.Expression, ctx))
+            {
+                return false;
+            }
+            sb.Append(')');
+        }
+        else if (!TryAppend(sb, access.Expression, ctx))
         {
             return false;
         }
@@ -398,8 +419,8 @@ internal static class SelectSignatureWriter
 
         ITypeSymbol? effectiveContainingType = ResolveContainingTypeForExpressionTree(method, receiver, ctx);
 
-        sb.Append("(Call ").Append(FormatType(type));
-        sb.Append(' ').Append(FormatType(effectiveContainingType)).Append('.').Append(method.Name);
+        sb.Append("(Call ").Append(FormatType(type, ctx.TypeArgSubstitutions));
+        sb.Append(' ').Append(FormatType(effectiveContainingType, ctx.TypeArgSubstitutions)).Append('.').Append(method.Name);
 
         bool expandRowArgs = !IsFrameworkTranslatedMethod(method);
 
@@ -506,12 +527,12 @@ internal static class SelectSignatureWriter
 
         string innerSig = inner.ToString();
 
-        sb.Append("(MemberInit ").Append(FormatType(rowType)).Append(' ');
-        sb.Append("(New ").Append(FormatType(rowType)).Append(' ').Append(FormatType(rowType)).Append(')');
+        sb.Append("(MemberInit ").Append(FormatType(rowType, ctx.TypeArgSubstitutions)).Append(' ');
+        sb.Append("(New ").Append(FormatType(rowType, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(rowType, ctx.TypeArgSubstitutions)).Append(')');
         foreach (IPropertySymbol prop in props)
         {
             sb.Append(' ').Append("Assignment").Append(':').Append(prop.Name).Append('=');
-            sb.Append("(MemberAccess ").Append(FormatType(prop.Type)).Append(' ').Append(prop.Name).Append(' ');
+            sb.Append("(MemberAccess ").Append(FormatType(prop.Type, ctx.TypeArgSubstitutions)).Append(' ').Append(prop.Name).Append(' ');
             sb.Append(innerSig);
             sb.Append(')');
         }
@@ -618,10 +639,10 @@ internal static class SelectSignatureWriter
 
         if (isMemberInit)
         {
-            sb.Append("(MemberInit ").Append(FormatType(exprType)).Append(' ');
+            sb.Append("(MemberInit ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(' ');
         }
 
-        sb.Append("(New ").Append(FormatType(exprType)).Append(' ').Append(FormatType(declaredType));
+        sb.Append("(New ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(declaredType, ctx.TypeArgSubstitutions));
         if (args != null)
         {
             foreach (ArgumentSyntax a in args)
@@ -671,9 +692,9 @@ internal static class SelectSignatureWriter
         return true;
     }
 
-    private static bool AppendListInit(StringBuilder sb, ITypeSymbol? exprType)
+    private static bool AppendListInit(StringBuilder sb, ITypeSymbol? exprType, SelectSignatureCtx ctx)
     {
-        sb.Append("(ListInit ").Append(FormatType(exprType)).Append(')');
+        sb.Append("(ListInit ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(')');
         return true;
     }
 
@@ -708,7 +729,7 @@ internal static class SelectSignatureWriter
             }
         }
 
-        sb.Append("(CapturedValue ").Append(FormatType(exprType)).Append(')');
+        sb.Append("(CapturedValue ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(')');
         return true;
     }
 
@@ -808,7 +829,7 @@ internal static class SelectSignatureWriter
     {
         if (node.Initializer == null)
         {
-            sb.Append("(NewArrayBounds ").Append(FormatType(type));
+            sb.Append("(NewArrayBounds ").Append(FormatType(type, ctx.TypeArgSubstitutions));
             foreach (ExpressionSyntax sizeExpr in node.Type.RankSpecifiers.SelectMany(r => r.Sizes).OfType<ExpressionSyntax>())
             {
                 sb.Append(' ');
@@ -831,7 +852,7 @@ internal static class SelectSignatureWriter
 
     private static bool AppendArrayInit(StringBuilder sb, ITypeSymbol? type, SeparatedSyntaxList<ExpressionSyntax> elements, SelectSignatureCtx ctx)
     {
-        sb.Append("(NewArrayInit ").Append(FormatType(type));
+        sb.Append("(NewArrayInit ").Append(FormatType(type, ctx.TypeArgSubstitutions));
         foreach (ExpressionSyntax el in elements)
         {
             sb.Append(' ');
@@ -873,7 +894,7 @@ internal static class SelectSignatureWriter
             memberValues.Add(decl.Expression);
         }
 
-        sb.Append("(New ").Append(FormatType(type)).Append(' ').Append(FormatType(type));
+        sb.Append("(New ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(type, ctx.TypeArgSubstitutions));
         foreach (ExpressionSyntax val in memberValues)
         {
             sb.Append(' ');
@@ -896,14 +917,14 @@ internal static class SelectSignatureWriter
         return true;
     }
 
-    private static void AppendConstant(StringBuilder sb, ITypeSymbol? type)
+    private static void AppendConstant(StringBuilder sb, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        sb.Append("(Constant ").Append(FormatType(type)).Append(')');
+        sb.Append("(Constant ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(')');
     }
 
     private static bool AppendCast(StringBuilder sb, CastExpressionSyntax cast, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        sb.Append("(Convert ").Append(FormatType(type)).Append(' ');
+        sb.Append("(Convert ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
         if (!TryAppend(sb, cast.Expression, ctx))
         {
             return false;
@@ -935,6 +956,13 @@ internal static class SelectSignatureWriter
 
     internal static string FormatType(ITypeSymbol? symbol)
     {
+        return FormatType(symbol, null);
+    }
+
+    internal static string FormatType(ITypeSymbol? symbol, IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? substitutions)
+    {
+        symbol = Substitute(symbol, substitutions);
+
         if (symbol == null)
         {
             return "null";
@@ -942,20 +970,20 @@ internal static class SelectSignatureWriter
 
         if (symbol is IArrayTypeSymbol array)
         {
-            return FormatType(array.ElementType) + "[]";
+            return FormatType(array.ElementType, substitutions) + "[]";
         }
 
         if (symbol is INamedTypeSymbol anon && anon.IsAnonymousType)
         {
             if (anon.IsGenericType && anon.TypeArguments.Length > 0)
             {
-                string args = string.Join(",", anon.TypeArguments.Select(FormatType));
+                string args = string.Join(",", anon.TypeArguments.Select(t => FormatType(t, substitutions)));
                 return "<anonymous<" + args + ">>";
             }
 
             if (anon.GetMembers().OfType<IPropertySymbol>().Any())
             {
-                string args = string.Join(",", anon.GetMembers().OfType<IPropertySymbol>().Select(p => FormatType(p.Type)));
+                string args = string.Join(",", anon.GetMembers().OfType<IPropertySymbol>().Select(p => FormatType(p.Type, substitutions)));
                 return "<anonymous<" + args + ">>";
             }
 
@@ -972,11 +1000,53 @@ internal static class SelectSignatureWriter
                 defName = defName.Substring(0, tick);
             }
 
-            string args = string.Join(",", named.TypeArguments.Select(FormatType));
+            string args = string.Join(",", named.TypeArguments.Select(t => FormatType(t, substitutions)));
             return defName + "<" + args + ">";
         }
 
         return GetFullName(symbol);
+    }
+
+    internal static ITypeSymbol? Substitute(ITypeSymbol? symbol, IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? substitutions)
+    {
+        if (symbol == null || substitutions == null || substitutions.Count == 0)
+        {
+            return symbol;
+        }
+
+        if (symbol is ITypeParameterSymbol tp && substitutions.TryGetValue(tp, out ITypeSymbol? mapped))
+        {
+            return mapped;
+        }
+
+        if (symbol is IArrayTypeSymbol array)
+        {
+            ITypeSymbol? mappedElem = Substitute(array.ElementType, substitutions);
+            return SymbolEqualityComparer.Default.Equals(mappedElem, array.ElementType)
+                ? array
+                : symbol;
+        }
+
+        if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsAnonymousType)
+        {
+            ITypeSymbol[] args = named.TypeArguments.ToArray();
+            bool changed = false;
+            for (int i = 0; i < args.Length; i++)
+            {
+                ITypeSymbol? sub = Substitute(args[i], substitutions);
+                if (sub != null && !SymbolEqualityComparer.Default.Equals(sub, args[i]))
+                {
+                    args[i] = sub;
+                    changed = true;
+                }
+            }
+            if (changed)
+            {
+                return named.OriginalDefinition.Construct(args);
+            }
+        }
+
+        return symbol;
     }
 
     private static string GetFullName(ITypeSymbol symbol)

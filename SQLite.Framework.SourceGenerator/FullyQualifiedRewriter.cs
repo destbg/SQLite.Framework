@@ -105,7 +105,8 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return false;
         }
         ITypeSymbol? type = ctx.Model.GetTypeInfo(node).Type;
-        return type != null && !SelectMaterializerEmitter.IsTypeAccessibleFromGenerator(type, ctx.GeneratorAssembly);
+        ITypeSymbol? effective = SelectSignatureWriter.Substitute(type, ctx.WriterCtx.TypeArgSubstitutions) ?? type;
+        return effective != null && !SelectMaterializerEmitter.IsTypeAccessibleFromGenerator(effective, ctx.GeneratorAssembly);
     }
 
     private ExpressionSyntax BuildPrivateMemberInitCall(BaseObjectCreationExpressionSyntax node)
@@ -130,7 +131,7 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         hb.Append("        private static object ").Append(helperName).Append("(SQLite.Framework.Models.SQLiteQueryContext ctx");
         foreach (LeafInfo leaf in ctx.Leaves)
         {
-            hb.Append(", ").Append(SelectMaterializerEmitter.FormatType(leaf.Type)).Append(' ').Append(leaf.VarName);
+            hb.Append(", ").Append(SelectMaterializerEmitter.FormatType(leaf.Type, ctx.WriterCtx.TypeArgSubstitutions)).Append(' ').Append(leaf.VarName);
         }
         hb.AppendLine(")");
         hb.AppendLine("        {");
@@ -219,7 +220,7 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             LeafInfo leaf = ctx.Leaves[leafIndex];
             if (leaf.IsNullable)
             {
-                return SyntaxFactory.ParseExpression("((" + SelectMaterializerEmitter.FormatType(leaf.Type) + ")" + leaf.VarName + "!)");
+                return SyntaxFactory.ParseExpression("((" + SelectMaterializerEmitter.FormatType(leaf.Type, ctx.WriterCtx.TypeArgSubstitutions) + ")" + leaf.VarName + "!)");
             }
             return SyntaxFactory.IdentifierName(leaf.VarName);
         }
@@ -235,12 +236,12 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
 
         if (symbol is ITypeSymbol typeSymbol)
         {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol));
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol, ctx.WriterCtx.TypeArgSubstitutions));
         }
 
         if (ctx.Model.GetSymbolInfo(node.Expression).Symbol is ITypeSymbol receiverType)
         {
-            return SyntaxFactory.ParseExpression(SelectMaterializerEmitter.FormatType(receiverType) + "." + QualifyName(node.Name));
+            return SyntaxFactory.ParseExpression(SelectMaterializerEmitter.FormatType(receiverType, ctx.WriterCtx.TypeArgSubstitutions) + "." + QualifyName(node.Name));
         }
 
         return base.VisitMemberAccessExpression(node);
@@ -278,22 +279,22 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
 
         if (symbol is ITypeSymbol typeSymbol)
         {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol));
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol, ctx.WriterCtx.TypeArgSubstitutions));
         }
 
         if (symbol is IMethodSymbol { IsStatic: true } method && method.ContainingType != null)
         {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(method.ContainingType) + "." + method.Name);
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(method.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + method.Name);
         }
 
         if (symbol is IFieldSymbol { IsStatic: true } field && field.ContainingType != null)
         {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(field.ContainingType) + "." + field.Name);
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(field.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + field.Name);
         }
 
         if (symbol is IPropertySymbol { IsStatic: true } prop && prop.ContainingType != null)
         {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(prop.ContainingType) + "." + prop.Name);
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(prop.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + prop.Name);
         }
 
         return base.VisitIdentifierName(node);
@@ -340,7 +341,7 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             }
 
             IMethodSymbol reduced = method.ReducedFrom;
-            string qualifiedTarget = SelectMaterializerEmitter.FormatType(reduced.ContainingType) + "." + reduced.Name;
+            string qualifiedTarget = SelectMaterializerEmitter.FormatType(reduced.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + reduced.Name;
             return SyntaxFactory.InvocationExpression(
                 SyntaxFactory.ParseExpression(qualifiedTarget),
                 SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)));
@@ -364,7 +365,7 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
                 }
                 first = false;
                 ITypeSymbol? argSymbol = ctx.Model.GetTypeInfo(typeArg).Type;
-                sb.Append(argSymbol != null ? SelectMaterializerEmitter.FormatType(argSymbol) : typeArg.ToString());
+                sb.Append(argSymbol != null ? SelectMaterializerEmitter.FormatType(argSymbol, ctx.WriterCtx.TypeArgSubstitutions) : typeArg.ToString());
             }
             sb.Append('>');
             return sb.ToString();
@@ -401,7 +402,7 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             argExprs.Add(argExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString());
         }
 
-        string returnType = SelectMaterializerEmitter.FormatType(method.ReturnType);
+        string returnType = SelectMaterializerEmitter.FormatType(method.ReturnType, ctx.WriterCtx.TypeArgSubstitutions);
         string instanceText = receiverExpr != null
             ? "(object?)(" + receiverExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString() + ")"
             : "ctx.ReflectedMethodInstances![" + slot + "]";
@@ -416,13 +417,13 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
     private ExpressionSyntax BuildCapturedValueExpression(ITypeSymbol? type)
     {
         int slot = capturedValueSlots++;
-        string capturedType = type != null ? SelectMaterializerEmitter.FormatType(type) : "object";
+        string capturedType = type != null ? SelectMaterializerEmitter.FormatType(type, ctx.WriterCtx.TypeArgSubstitutions) : "object";
         return SyntaxFactory.ParseExpression("((" + capturedType + ")ctx.CapturedValues![" + slot + "]!)");
     }
 
     private ExpressionSyntax BuildRowMaterialization(RowExpansion expansion)
     {
-        string typeText = SelectMaterializerEmitter.FormatType(expansion.RowType);
+        string typeText = SelectMaterializerEmitter.FormatType(expansion.RowType, ctx.WriterCtx.TypeArgSubstitutions);
         StringBuilder sb = new();
         sb.Append("new ").Append(typeText).Append(" { ");
         for (int i = 0; i < expansion.Properties.Count; i++)
