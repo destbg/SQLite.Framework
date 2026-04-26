@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq.Expressions;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Exceptions;
@@ -395,6 +396,681 @@ public class OtherTests
         Assert.Single(table);
         Assert.Equal(1, table[0].Id);
         Assert.IsNotType<CastEntity>(table[0]);
+    }
+
+    [Fact]
+    public void Where_InterfaceCastInsideLambda_FiltersByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "dead", IsDeleted = true },
+        });
+
+        List<SoftDeletableBook> live = db.Table<SoftDeletableBook>()
+            .Where(f => !((ISoftDelete)f).IsDeleted)
+            .ToList();
+
+        Assert.Single(live);
+        Assert.Equal("live", live[0].Title);
+    }
+
+    [Fact]
+    public void Cast_ToInterface_WhereByInterfaceProperty_FiltersCorrectly()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "dead", IsDeleted = true },
+        });
+
+        List<ISoftDelete> live = db.Table<SoftDeletableBook>()
+            .Cast<ISoftDelete>()
+            .Where(f => !f.IsDeleted)
+            .ToList();
+
+        Assert.Single(live);
+        Assert.False(live[0].IsDeleted);
+    }
+
+    [Fact]
+    public void Select_InterfaceCastInsideLambda_ProjectsInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "dead", IsDeleted = true },
+        });
+
+        List<bool> deletedFlags = db.Table<SoftDeletableBook>()
+            .OrderBy(b => b.Id)
+            .Select(f => ((ISoftDelete)f).IsDeleted)
+            .ToList();
+
+        Assert.Equal([false, true], deletedFlags);
+    }
+
+    [Fact]
+    public void Cast_ToInterface_SelectInterfaceProperty_Projects()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "dead", IsDeleted = true },
+        });
+
+        List<bool> deletedFlags = db.Table<SoftDeletableBook>()
+            .Cast<ISoftDelete>()
+            .Select(f => f.IsDeleted)
+            .ToList();
+
+        Assert.Equal(2, deletedFlags.Count);
+        Assert.Contains(false, deletedFlags);
+        Assert.Contains(true, deletedFlags);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_FiltersByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "dead", IsDeleted = true },
+        });
+
+        List<SoftDeletableBook> live = FilterNotDeleted(db.Table<SoftDeletableBook>());
+
+        Assert.Single(live);
+        Assert.Equal("live", live[0].Title);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_FirstByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "dead", IsDeleted = true },
+        });
+
+        SoftDeletableBook first = FirstNotDeleted(db.Table<SoftDeletableBook>());
+
+        Assert.Equal("live", first.Title);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_SelectInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "dead", IsDeleted = true },
+        });
+
+        List<bool> flags = ProjectDeletedFlags(db.Table<SoftDeletableBook>());
+
+        Assert.Equal(2, flags.Count);
+        Assert.Contains(true, flags);
+        Assert.Contains(false, flags);
+    }
+
+    private static List<T> FilterNotDeleted<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.Where(f => !f.IsDeleted).ToList();
+    }
+
+    private static T FirstNotDeleted<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.Where(f => !f.IsDeleted).First();
+    }
+
+    private static List<bool> ProjectDeletedFlags<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.Select(f => f.IsDeleted).ToList();
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_OrderByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = true },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = false },
+        });
+
+        List<SoftDeletableBook> ordered = OrderByDeleted(db.Table<SoftDeletableBook>());
+
+        Assert.Equal("b", ordered[0].Title);
+        Assert.Equal("a", ordered[1].Title);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_CountByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true },
+            new SoftDeletableBook { Id = 3, Title = "c", IsDeleted = false },
+        });
+
+        int liveCount = CountNotDeleted(db.Table<SoftDeletableBook>());
+
+        Assert.Equal(2, liveCount);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_AnyByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().Add(new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false });
+
+        Assert.False(AnyDeleted(db.Table<SoftDeletableBook>()));
+
+        db.Table<SoftDeletableBook>().Add(new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true });
+
+        Assert.True(AnyDeleted(db.Table<SoftDeletableBook>()));
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_AllByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = false },
+        });
+
+        Assert.True(AllNotDeleted(db.Table<SoftDeletableBook>()));
+
+        db.Table<SoftDeletableBook>().Add(new SoftDeletableBook { Id = 3, Title = "c", IsDeleted = true });
+
+        Assert.False(AllNotDeleted(db.Table<SoftDeletableBook>()));
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_ExecuteDeleteByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true },
+            new SoftDeletableBook { Id = 3, Title = "c", IsDeleted = true },
+        });
+
+        int affected = HardDeleteSoftDeleted(db.Table<SoftDeletableBook>());
+
+        Assert.Equal(2, affected);
+        Assert.Single(db.Table<SoftDeletableBook>().ToList());
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_GroupByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true },
+            new SoftDeletableBook { Id = 3, Title = "c", IsDeleted = false },
+        });
+
+        Dictionary<bool, int> counts = GroupByDeletedCount(db.Table<SoftDeletableBook>());
+
+        Assert.Equal(2, counts[false]);
+        Assert.Equal(1, counts[true]);
+    }
+
+    private static List<T> OrderByDeleted<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.OrderBy(f => f.IsDeleted).ToList();
+    }
+
+    private static int CountNotDeleted<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.Count(f => !f.IsDeleted);
+    }
+
+    private static bool AnyDeleted<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.Any(f => f.IsDeleted);
+    }
+
+    private static bool AllNotDeleted<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.All(f => !f.IsDeleted);
+    }
+
+    private static int HardDeleteSoftDeleted<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.Where(f => f.IsDeleted).ExecuteDelete();
+    }
+
+    private static Dictionary<bool, int> GroupByDeletedCount<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source
+            .GroupBy(f => f.IsDeleted)
+            .Select(g => new { Key = g.Key, Count = g.Count() })
+            .ToDictionary(x => x.Key, x => x.Count);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_MultipleInterfaceConstraints_FiltersByBoth()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true },
+            new SoftDeletableBook { Id = 3, Title = "c", IsDeleted = false },
+        });
+
+        SoftDeletableBook? hit = FindLiveById(db.Table<SoftDeletableBook>(), 3);
+
+        Assert.NotNull(hit);
+        Assert.Equal("c", hit.Title);
+    }
+
+    [Fact]
+    public void GenericConstrainedClass_RepositoryPattern_FiltersAndCounts()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true },
+        });
+
+        Repository<SoftDeletableBook> repo = new(db.Table<SoftDeletableBook>());
+
+        Assert.Equal(1, repo.LiveCount());
+        Assert.Single(repo.Live());
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_TakeWithInterfacePredicate_LimitsResult()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = false },
+            new SoftDeletableBook { Id = 3, Title = "c", IsDeleted = false },
+        });
+
+        List<SoftDeletableBook> top2 = TopLive(db.Table<SoftDeletableBook>(), 2);
+
+        Assert.Equal(2, top2.Count);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_DistinctByInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = false },
+            new SoftDeletableBook { Id = 3, Title = "c", IsDeleted = true },
+        });
+
+        List<bool> distinctFlags = DistinctDeletedFlags(db.Table<SoftDeletableBook>());
+
+        Assert.Equal(2, distinctFlags.Count);
+        Assert.Contains(false, distinctFlags);
+        Assert.Contains(true, distinctFlags);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_ExecuteUpdate_SetsInterfaceProperty()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = false },
+        });
+
+        int affected = SoftDeleteAll(db.Table<SoftDeletableBook>());
+
+        Assert.Equal(2, affected);
+        Assert.All(db.Table<SoftDeletableBook>().ToList(), b => Assert.True(b.IsDeleted));
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_AggregateMaxId()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 7, Title = "b", IsDeleted = false },
+            new SoftDeletableBook { Id = 5, Title = "c", IsDeleted = true },
+        });
+
+        Assert.Equal(7, MaxIdAcrossAll(db.Table<SoftDeletableBook>()));
+        Assert.Equal(7, MaxIdLive(db.Table<SoftDeletableBook>()));
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_ChainedFilterOrderTake()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true },
+            new SoftDeletableBook { Id = 3, Title = "c", IsDeleted = false },
+            new SoftDeletableBook { Id = 4, Title = "d", IsDeleted = false },
+        });
+
+        List<SoftDeletableBook> top = NewestLive(db.Table<SoftDeletableBook>(), 2);
+
+        Assert.Equal(2, top.Count);
+        Assert.Equal(4, top[0].Id);
+        Assert.Equal(3, top[1].Id);
+    }
+
+    private static T? FindLiveById<T>(IQueryable<T> source, int id)
+        where T : IEntity, ISoftDelete
+    {
+        return source.Where(f => f.Id == id && !f.IsDeleted).FirstOrDefault();
+    }
+
+    private static List<T> TopLive<T>(IQueryable<T> source, int count)
+        where T : ISoftDelete
+    {
+        return source.Where(f => !f.IsDeleted).Take(count).ToList();
+    }
+
+    private static List<bool> DistinctDeletedFlags<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.Select(f => f.IsDeleted).Distinct().ToList();
+    }
+
+    private static int SoftDeleteAll<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.ExecuteUpdate(s => s.Set(f => f.IsDeleted, true));
+    }
+
+    private static int MaxIdAcrossAll<T>(IQueryable<T> source)
+        where T : IEntity
+    {
+        return source.Max(f => f.Id);
+    }
+
+    private static int MaxIdLive<T>(IQueryable<T> source)
+        where T : IEntity, ISoftDelete
+    {
+        return source.Where(f => !f.IsDeleted).Max(f => f.Id);
+    }
+
+    private static List<T> NewestLive<T>(IQueryable<T> source, int count)
+        where T : IEntity, ISoftDelete
+    {
+        return source
+            .Where(f => !f.IsDeleted)
+            .OrderByDescending(f => f.Id)
+            .Take(count)
+            .ToList();
+    }
+
+    private sealed class Repository<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>
+        where T : ISoftDelete
+    {
+        private readonly IQueryable<T> source;
+
+        public Repository(IQueryable<T> source)
+        {
+            this.source = source;
+        }
+
+        public List<T> Live() => source.Where(f => !f.IsDeleted).ToList();
+
+        public int LiveCount() => source.Count(f => !f.IsDeleted);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_SumOverIdInterface()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = false },
+            new SoftDeletableBook { Id = 3, Title = "c", IsDeleted = true },
+        });
+
+        Assert.Equal(6, SumIds(db.Table<SoftDeletableBook>()));
+        Assert.Equal(3, SumLiveIds(db.Table<SoftDeletableBook>()));
+        Assert.Equal(1, MinIdLive(db.Table<SoftDeletableBook>()));
+        Assert.Equal(1.5, AverageLiveId(db.Table<SoftDeletableBook>()));
+    }
+
+    [Fact]
+    public async Task GenericConstrainedMethod_AsyncWhere_FiltersAsync()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        await db.Table<SoftDeletableBook>().AddRangeAsync(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true },
+        }, ct: TestContext.Current.CancellationToken);
+
+        List<SoftDeletableBook> live = await FilterNotDeletedAsync(db.Table<SoftDeletableBook>(), TestContext.Current.CancellationToken);
+
+        Assert.Single(live);
+        Assert.Equal("a", live[0].Title);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_NestedGenericChain_WorksThroughLayers()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true },
+        });
+
+        int liveCount = OuterLiveCount(db.Table<SoftDeletableBook>());
+
+        Assert.Equal(1, liveCount);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_ExtensionMethod_FiltersAndCounts()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = true },
+        });
+
+        int count = db.Table<SoftDeletableBook>().LiveCount();
+
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_TwoTypeParameters_ProjectByInterfaceKey()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 7, Title = "a", IsDeleted = false },
+            new SoftDeletableBook { Id = 9, Title = "b", IsDeleted = true },
+        });
+
+        Dictionary<int, bool> dict = ToDeletedById<SoftDeletableBook, int>(db.Table<SoftDeletableBook>(), f => f.Id);
+
+        Assert.False(dict[7]);
+        Assert.True(dict[9]);
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_ExecuteDeleteByPredicateBuiltFromInterface()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = true },
+            new SoftDeletableBook { Id = 2, Title = "b", IsDeleted = false },
+        });
+
+        int affected = ExecuteDeleteWithPredicate(db.Table<SoftDeletableBook>(), f => f.IsDeleted);
+
+        Assert.Equal(1, affected);
+        Assert.Single(db.Table<SoftDeletableBook>().ToList());
+    }
+
+    [Fact]
+    public void GenericConstrainedMethod_AddItem_ConstrainedByInterface()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SoftDeletableBook>();
+
+        int added = AddNotDeleted(db.Table<SoftDeletableBook>(), new SoftDeletableBook { Id = 1, Title = "added", IsDeleted = false });
+
+        Assert.Equal(1, added);
+        Assert.Single(db.Table<SoftDeletableBook>().ToList());
+    }
+
+    private static int SumIds<T>(IQueryable<T> source)
+        where T : IEntity
+    {
+        return source.Sum(f => f.Id);
+    }
+
+    private static int SumLiveIds<T>(IQueryable<T> source)
+        where T : IEntity, ISoftDelete
+    {
+        return source.Where(f => !f.IsDeleted).Sum(f => f.Id);
+    }
+
+    private static int MinIdLive<T>(IQueryable<T> source)
+        where T : IEntity, ISoftDelete
+    {
+        return source.Where(f => !f.IsDeleted).Min(f => f.Id);
+    }
+
+    private static double AverageLiveId<T>(IQueryable<T> source)
+        where T : IEntity, ISoftDelete
+    {
+        return source.Where(f => !f.IsDeleted).Average(f => f.Id);
+    }
+
+    private static Task<List<T>> FilterNotDeletedAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(IQueryable<T> source, CancellationToken ct)
+        where T : ISoftDelete
+    {
+        return source.Where(f => !f.IsDeleted).ToListAsync(ct);
+    }
+
+    private static int OuterLiveCount<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return InnerLiveCount(source);
+    }
+
+    private static int InnerLiveCount<T>(IQueryable<T> source)
+        where T : ISoftDelete
+    {
+        return source.Count(f => !f.IsDeleted);
+    }
+
+    private static Dictionary<TKey, bool> ToDeletedById<T, TKey>(IQueryable<T> source, Expression<Func<T, TKey>> keySelector)
+        where T : ISoftDelete
+        where TKey : notnull
+    {
+        return source.ToDictionary(keySelector.Compile(), f => f.IsDeleted);
+    }
+
+    private static int ExecuteDeleteWithPredicate<T>(IQueryable<T> source, Expression<Func<T, bool>> predicate)
+        where T : ISoftDelete
+    {
+        return source.Where(predicate).ExecuteDelete();
+    }
+
+    private static int AddNotDeleted<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(SQLiteTable<T> table, T item)
+        where T : ISoftDelete
+    {
+        item.IsDeleted = false;
+        return table.Add(item);
     }
 
     [Fact]

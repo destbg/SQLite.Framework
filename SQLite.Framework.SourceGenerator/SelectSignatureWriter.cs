@@ -447,7 +447,12 @@ internal static class SelectSignatureWriter
         }
 
         ITypeSymbol? receiverType = ctx.Model.GetTypeInfo(receiver).Type;
-        if (receiverType is null || receiverType.IsValueType)
+        if (receiverType is null)
+        {
+            return method.ContainingType;
+        }
+
+        if (receiverType.IsValueType && IsPrimitiveSpecialType(receiverType))
         {
             return method.ContainingType;
         }
@@ -458,6 +463,25 @@ internal static class SelectSignatureWriter
             baseMethod = baseMethod.OverriddenMethod;
         }
         return baseMethod.ContainingType;
+    }
+
+    private static bool IsPrimitiveSpecialType(ITypeSymbol type)
+    {
+        return type.SpecialType is
+            SpecialType.System_Boolean
+            or SpecialType.System_Char
+            or SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64
+            or SpecialType.System_IntPtr
+            or SpecialType.System_UIntPtr
+            or SpecialType.System_Single
+            or SpecialType.System_Double;
     }
 
     private static bool AppendExpandedRow(StringBuilder sb, ExpressionSyntax rowExpr, SelectSignatureCtx ctx)

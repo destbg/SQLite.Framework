@@ -2,7 +2,9 @@ using System.ComponentModel.DataAnnotations;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
+using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Enums;
 using SQLite.Framework.Tests.Helpers;
 
 #pragma warning disable IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
@@ -120,6 +122,730 @@ public class CoverageGapTests
     }
 
     private static string DescribeRow(BookNoParameterlessCtor b) => b.Id.ToString();
+
+    [Fact]
+    public void FromSql_NullParameters_Throws()
+    {
+        using TestDatabase db = new();
+
+        Assert.Throws<ArgumentNullException>(() => db.FromSql<Book>("SELECT * FROM Books", parameters: null!));
+    }
+
+    [Fact]
+    public void FromSql_EmptySql_Throws()
+    {
+        using TestDatabase db = new();
+
+        Assert.Throws<ArgumentException>(() => db.FromSql<Book>(""));
+    }
+
+    [Fact]
+    public void FromSql_WhitespaceSql_Throws()
+    {
+        using TestDatabase db = new();
+
+        Assert.Throws<ArgumentException>(() => db.FromSql<Book>("   "));
+    }
+
+    [Fact]
+    public void Transaction_Commit_AlreadyCompleted_Throws()
+    {
+        using TestDatabase db = new();
+
+        SQLiteTransaction tx = db.BeginTransaction();
+        tx.Commit();
+
+        Assert.Throws<InvalidOperationException>(() => tx.Commit());
+    }
+
+    [Fact]
+    public void Transaction_Rollback_AlreadyCompleted_Throws()
+    {
+        using TestDatabase db = new();
+
+        SQLiteTransaction tx = db.BeginTransaction();
+        tx.Rollback();
+
+        Assert.Throws<InvalidOperationException>(() => tx.Rollback());
+    }
+
+    [Fact]
+    public void Transaction_Rollback_AfterCommit_Throws()
+    {
+        using TestDatabase db = new();
+
+        SQLiteTransaction tx = db.BeginTransaction();
+        tx.Commit();
+
+        Assert.Throws<InvalidOperationException>(() => tx.Rollback());
+    }
+
+    [Fact]
+    public void Upsert_DoubleConfigure_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Book book = new() { Id = 1, Title = "x", AuthorId = 1, Price = 1 };
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Table<Book>().Upsert(book, c =>
+            {
+                UpsertConflictTarget<Book> conflict = c.OnConflict(b => b.Id);
+                conflict.DoNothing();
+                conflict.DoUpdateAll();
+            }));
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateAll_AllColumnsAreConflict_EmitsDoNothing()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        SqlInspector inspector = new(db, db.TableMapping<Book>());
+        string sql = inspector.GetSql(c => c.OnConflict(b => new { b.Id, b.Title, b.AuthorId, b.Price }).DoUpdateAll());
+
+        Assert.Contains("DO NOTHING", sql);
+    }
+
+    [Fact]
+    public void InsertFromQuery_SourceFromDifferentDatabase_Throws()
+    {
+        using TestDatabase target = new();
+        using TestDatabase otherDb = new(methodName: "Other");
+
+        target.Schema.CreateTable<BookArchive>();
+        otherDb.Schema.CreateTable<BookArchive>();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            target.Table<BookArchive>().InsertFromQuery(otherDb.Table<BookArchive>()));
+    }
+
+    [Fact]
+    public void Remove_OnEntityWithoutPrimaryKey_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<NoKeyEntity>();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<NoKeyEntity>().Remove(new NoKeyEntity { Name = "x" }));
+    }
+
+    [Fact]
+    public void AddOrUpdate_UnknownConflictValue_FallsBackToReplace()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Book book = new() { Id = 1, Title = "first", AuthorId = 1, Price = 1 };
+        db.Table<Book>().Add(book);
+
+        int affected = db.Table<Book>().AddOrUpdate(
+            new Book { Id = 1, Title = "second", AuthorId = 1, Price = 1 },
+            (SQLiteConflict)999);
+
+        Assert.Equal(1, affected);
+        Assert.Equal("second", db.Table<Book>().Single().Title);
+    }
+
+    [Fact]
+    public void Schema_CreateIndex_NotMemberExpression_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.CreateIndex<Book>(b => b.Price + 1));
+    }
+
+    [Fact]
+    public void Schema_CreateIndex_BoxedColumn_StripsConvert()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        db.Schema.CreateIndex<Book>(b => (object)b.Price, name: "IX_Boxed_Price");
+
+        Assert.True(db.Schema.IndexExists("IX_Boxed_Price"));
+    }
+
+    [Fact]
+    public void CreateCommand_BindParameterByMissingName_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Execute("SELECT * FROM Books WHERE BookId = @existing",
+                [new SQLiteParameter { Name = "@missing", Value = 1 }]));
+    }
+
+    [Fact]
+    public void Functions_Regexp_TranslatesToSqlRegexpOperator()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => SQLiteFunctions.Regexp(b.Title, "^A.*"))
+            .ToSqlCommand();
+
+        Assert.Contains("REGEXP", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Functions_Match_StringColumnOverload_BuildsScopedMatch()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
+
+        SQLiteCommand cmd = db.Table<ArticleSearch>()
+            .Where(a => SQLiteFunctions.Match(a.Title, "native"))
+            .ToSqlCommand();
+
+        Assert.Contains("MATCH", cmd.CommandText);
+        Assert.Contains("Title", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Functions_Match_StringColumnOverload_NotMemberAccess_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<ArticleSearch>()
+                .Where(a => SQLiteFunctions.Match(a.Title.Substring(0), "native"))
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Functions_Snippet_NonFtsEntity_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .Select(b => SQLiteFunctions.Snippet(b, b.Title, "<", ">", "...", 5))
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Functions_Snippet_ColumnNotInFtsIndex_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<ArticleSearch>()
+                .Select(a => SQLiteFunctions.Snippet(a, a.Id.ToString(), "<", ">", "...", 5))
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Guid_InstanceToStringInsideWhere_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Guid g = Guid.NewGuid();
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<Book>()
+                .Where(b => b.Title == g.ToString())
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Enum_UnsupportedMethod_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<Book>()
+                .Where(b => Enum.GetUnderlyingType(typeof(BookCategory)) != null)
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Char_UnsupportedMethod_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<Book>()
+                .Where(b => char.IsControl(b.Title, 0))
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Int_ToString_TranslatesToCastAsText()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => b.AuthorId.ToString() == "5")
+            .ToSqlCommand();
+
+        Assert.Contains("CAST", cmd.CommandText);
+        Assert.Contains("TEXT", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Int_Parse_TranslatesToCastAsInteger()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => int.Parse(b.Title) > 0)
+            .ToSqlCommand();
+
+        Assert.Contains("CAST", cmd.CommandText);
+        Assert.Contains("INTEGER", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Double_ToString_TranslatesToCastAsText()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => b.Price.ToString() == "5")
+            .ToSqlCommand();
+
+        Assert.Contains("CAST", cmd.CommandText);
+        Assert.Contains("TEXT", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Double_Parse_TranslatesToCastAsReal()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => double.Parse(b.Title) > 0)
+            .ToSqlCommand();
+
+        Assert.Contains("CAST", cmd.CommandText);
+        Assert.Contains("REAL", cmd.CommandText);
+    }
+
+    [Fact]
+    public void TimeOnly_UnsupportedMethod_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<TimeOnlyMethodEntity>();
+
+        TimeOnly t = new(8, 0);
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<TimeOnlyMethodEntity>()
+                .Where(e => e.Time.GetHashCode() == t.GetHashCode())
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void TimeOnly_StaticMethodWithColumn_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<Book>()
+                .Where(b => TimeOnly.Parse(b.Title) > new TimeOnly(0, 0))
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void DateOnly_UnsupportedMethod_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<DateOnlyMethodEntity>();
+
+        DateOnly d = new(2024, 1, 1);
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<DateOnlyMethodEntity>()
+                .Where(e => e.Date.CompareTo(d) > 0)
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Snippet_DynamicAuxArgs_WrapInPrintf()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
+
+        Article seed = new() { Title = "kryptonite tales", Body = "shines bright", PublishedAt = DateTime.UtcNow };
+        db.Table<Article>().Add(seed);
+
+        string before = "{{";
+        string after = "}}";
+        string ellipsis = "…";
+        SQLiteCommand cmd = db.Table<ArticleSearch>()
+            .Where(a => SQLiteFunctions.Match(a, "kryptonite"))
+            .Select(a => SQLiteFunctions.Snippet(a, a.Title, before, after, ellipsis, 5))
+            .ToSqlCommand();
+
+        Assert.Contains("snippet(", cmd.CommandText);
+    }
+
+    [Fact]
+    public void FtsMatch_DynamicTerm_ProducesPrintfWrappedSql()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
+
+        SQLiteCommand cmd = db.Table<ArticleSearch>()
+            .Where(a => SQLiteFunctions.Match(a, f => f.Term(a.Title) && f.Term("static")))
+            .ToSqlCommand();
+
+        Assert.Contains("printf", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Enum_NonGenericParse_WithTypeArgument_TranslatesToCase()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Publisher>();
+
+        SQLiteCommand cmd = db.Table<Publisher>()
+            .Where(p => p.Type == (PublisherType)Enum.Parse(typeof(PublisherType), "Magazine"))
+            .ToSqlCommand();
+
+        Assert.Contains("CASE", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Enum_GenericParse_WithLiteralArgs_FoldsToConstant()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Add(new Publisher
+        {
+            Id = 1,
+            Name = "x",
+            Type = PublisherType.Magazine
+        });
+
+        Publisher row = db.Table<Publisher>()
+            .Single(p => p.Type == Enum.Parse<PublisherType>("Magazine"));
+
+        Assert.Equal(PublisherType.Magazine, row.Type);
+    }
+
+    [Fact]
+    public void Enum_ToString_TranslatesToCaseExpression()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Add(new Publisher
+        {
+            Id = 1,
+            Name = "x",
+            Type = PublisherType.Magazine
+        });
+
+        SQLiteCommand cmd = db.Table<Publisher>()
+            .Where(p => p.Type.ToString() == "Magazine")
+            .ToSqlCommand();
+
+        Assert.Contains("CASE", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Subquery_Contains_BuildsInClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
+
+        db.Table<Author>().Add(new Author { Id = 1, Name = "a", Email = "a@x", BirthDate = new DateTime(2000, 1, 1) });
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => db.Table<Author>().Select(a => a.Id).Contains(b.AuthorId))
+            .ToSqlCommand();
+
+        Assert.Contains("IN (", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Subquery_Any_BuildsExistsClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => db.Table<Author>().Any(a => a.Id == b.AuthorId))
+            .ToSqlCommand();
+
+        Assert.Contains("EXISTS", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Trim_WithCharArrayLiteral_TranslatesToTrim()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "  hello  ", AuthorId = 1, Price = 1 });
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => b.Title.Trim(' ', '\t') == "hello")
+            .ToSqlCommand();
+
+        Assert.Contains("TRIM(", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Select_ListContainsUntranslatableExpr_FallsBackToClientSide()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 3, Price = 1 });
+
+        List<int> ids = [4, 6, 9];
+        var rows = db.Table<Book>()
+            .Select(b => new { b.Id, Hit = ids.Contains(InterceptorHelpers.Double(b.AuthorId)) })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.True(rows[0].Hit);
+    }
+
+    [Fact]
+    public void Select_GuidNewGuidThenToString_RunsClientSide()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        var rows = db.Table<Book>()
+            .Select(b => new { b.Id, Token = Guid.NewGuid().ToString() })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.False(string.IsNullOrEmpty(rows[0].Token));
+    }
+
+    [Fact]
+    public void Select_IntToStringWithUntranslatableArg_FallsBack()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 5, Price = 1 });
+
+        var rows = db.Table<Book>()
+            .Select(b => new { b.Id, Doubled = InterceptorHelpers.Double(b.AuthorId).ToString() })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal("10", rows[0].Doubled);
+    }
+
+    [Fact]
+    public void Select_DoubleParseWithUntranslatableArg_FallsBack()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        var rows = db.Table<Book>()
+            .Select(b => new { b.Id, Parsed = double.Parse(InterceptorHelpers.Double(b.AuthorId).ToString()) })
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void Select_IntParseWithUntranslatableArg_FallsBack()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "5", AuthorId = 1, Price = 1 });
+
+        var rows = db.Table<Book>()
+            .Select(b => new { b.Id, Parsed = int.Parse(InterceptorHelpers.Identity(b.Title)) })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(5, rows[0].Parsed);
+    }
+
+    [Fact]
+    public void Select_DoubleInstanceCompareToWithUntranslatableArg_FallsBack()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 5 });
+
+        var rows = db.Table<Book>()
+            .Select(b => new { b.Id, Cmp = b.Price.CompareTo(InterceptorHelpers.IdentityDouble(b.Price)) })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(0, rows[0].Cmp);
+    }
+
+    [Fact]
+    public void Select_EnumHasFlagWithUntranslatableArg_FallsBack()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Add(new Publisher
+        {
+            Id = 1,
+            Name = "x",
+            Type = PublisherType.Magazine
+        });
+
+        var rows = db.Table<Publisher>()
+            .Select(p => new { p.Id, Match = p.Type.HasFlag(InterceptorHelpers.IdentityEnum(p.Type)) })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.True(rows[0].Match);
+    }
+
+    [Fact]
+    public void Select_GuidParseWithUntranslatableArg_FallsBack()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        Guid sample = Guid.NewGuid();
+        db.Table<Book>().Add(new Book { Id = 1, Title = sample.ToString(), AuthorId = 1, Price = 1 });
+
+        var rows = db.Table<Book>()
+            .Select(b => new { b.Id, Parsed = Guid.Parse(InterceptorHelpers.Identity(b.Title)) })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(sample, rows[0].Parsed);
+    }
+
+    [Fact]
+    public void Select_EnumGenericParseFallsBackWhenInputClientSide()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Add(new Publisher
+        {
+            Id = 1,
+            Name = "Magazine",
+            Type = PublisherType.Magazine
+        });
+
+        var rows = db.Table<Publisher>()
+            .Select(p => new { p.Id, Parsed = Enum.Parse<PublisherType>(InterceptorHelpers.Identity(p.Name)) })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(PublisherType.Magazine, rows[0].Parsed);
+    }
+
+    [Fact]
+    public void Select_CustomMethodTranslator_WithUntranslatableArg_FallsBack()
+    {
+        using TestDatabase db = new(b =>
+        {
+            System.Reflection.MethodInfo doubleMethod = typeof(InterceptorHelpers)
+                .GetMethod(nameof(InterceptorHelpers.Double))!;
+            b.MethodTranslators[doubleMethod] = (_, args) => $"({args[0]} * 2)";
+        });
+
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 5, Price = 1 });
+
+        var rows = db.Table<Book>()
+            .Select(b => new
+            {
+                b.Id,
+                Quad = InterceptorHelpers.Double(InterceptorHelpers.IdentityInt(b.AuthorId))
+            })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(10, rows[0].Quad);
+    }
+
+    [Fact]
+    public void FtsMatch_DynamicTermWithParameters_ForwardsParametersInPrintf()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
+
+        string suffix = "_tail";
+        SQLiteCommand cmd = db.Table<ArticleSearch>()
+            .Where(a => SQLiteFunctions.Match(a, f => f.Term(a.Title + suffix)))
+            .ToSqlCommand();
+
+        Assert.Contains("printf", cmd.CommandText);
+        Assert.True(cmd.Parameters.Count > 0);
+    }
+
+    [Fact]
+    public void Enum_HasFlag_TranslatesToBitwiseAnd()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Add(new Publisher
+        {
+            Id = 1,
+            Name = "x",
+            Type = PublisherType.Magazine
+        });
+
+        SQLiteCommand cmd = db.Table<Publisher>()
+            .Where(p => p.Type.HasFlag(PublisherType.Magazine))
+            .ToSqlCommand();
+
+        Assert.Contains("&", cmd.CommandText);
+    }
+
+
+    [Fact]
+    public void MethodCallInterceptor_ReceivesVisitorAndCanReadOptions()
+    {
+        bool wasCalled = false;
+        SQLiteOptions? capturedOptions = null;
+
+        using TestDatabase db = new(b => b.AddMethodCallInterceptor((node, visitor) =>
+        {
+            if (node.Method.DeclaringType == typeof(InterceptorHelpers) && node.Method.Name == nameof(InterceptorHelpers.Double))
+            {
+                wasCalled = true;
+                capturedOptions = visitor.Options;
+            }
+            return null;
+        }));
+
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 5, Price = 1 });
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<Book>().Where(b => InterceptorHelpers.Double(b.AuthorId) > 0).ToList());
+
+        Assert.True(wasCalled);
+        Assert.Same(db.Options, capturedOptions);
+    }
+
+    private sealed class SqlInspector : SQLiteTable<Book>
+    {
+        public SqlInspector(SQLiteDatabase database, TableMapping table) : base(database, table) { }
+        public string GetSql(Action<UpsertBuilder<Book>> configure) => GetUpsertInfo(configure).Sql;
+    }
 
     [Fact]
     public void ExecuteUpdate_SetExpressionNotTranslatable_Throws()
@@ -751,6 +1477,12 @@ public class CoverageGapTests
         public BookNoParameterlessCtor(int id) { Id = id; }
         public int Id { get; }
     }
+
+    private class NoKeyEntity
+    {
+        public required string Name { get; set; }
+    }
+
 
     private enum BookCategory
     {

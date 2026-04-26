@@ -158,9 +158,18 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
         ResolvedModel resolvedLeft = ResolveExpression(leftNode);
         ResolvedModel resolvedRight = ResolveExpression(rightNode);
 
-        if (resolvedLeft.SQLExpression == null || resolvedRight.SQLExpression == null)
+        bool isArithmeticOp = node.NodeType is ExpressionType.Add
+            or ExpressionType.Subtract
+            or ExpressionType.Multiply
+            or ExpressionType.Divide
+            or ExpressionType.Modulo;
+        bool eitherSideStoredAsTextOrBlob =
+            HasTextOrBlobConverter(leftNode.Type) || HasTextOrBlobConverter(rightNode.Type);
+
+        if (resolvedLeft.SQLExpression == null || resolvedRight.SQLExpression == null
+            || (isArithmeticOp && eitherSideStoredAsTextOrBlob))
         {
-            return Expression.MakeBinary(node.NodeType, resolvedLeft.Expression, resolvedRight.Expression);
+            return Expression.MakeBinary(node.NodeType, resolvedLeft.Expression, resolvedRight.Expression, node.IsLiftedToNull, node.Method);
         }
 
         SQLExpression left = CommonHelpers.BracketIfNeeded(resolvedLeft.SQLExpression);
@@ -346,6 +355,12 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             }
 
             return new SQLExpression(node.Type, IdentifierIndex.Index++, $"@p{ParamIndex.Index++}", value);
+        }
+
+        if (node.Expression is UnaryExpression { NodeType: ExpressionType.Convert } cast
+            && cast.Type.IsAssignableFrom(cast.Operand.Type))
+        {
+            node = node.Update(cast.Operand);
         }
 
         if (node.Expression is not MemberExpression and not ParameterExpression and not SQLExpression)
@@ -924,7 +939,19 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             return new SQLExpression(node.Type, IdentifierIndex.Index++, translatedSql, sqlExpression.Parameters);
         }
 
+        if (node.Expression != null && HasTextOrBlobConverter(node.Expression.Type))
+        {
+            return node.Update(sqlExpression);
+        }
+
         return sqlExpression;
+    }
+
+    private bool HasTextOrBlobConverter(Type type)
+    {
+        Type stripped = Nullable.GetUnderlyingType(type) ?? type;
+        return Database.Options.TypeConverters.TryGetValue(stripped, out ISQLiteTypeConverter? converter)
+            && (converter.ColumnType == SQLiteColumnType.Text || converter.ColumnType == SQLiteColumnType.Blob);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Open generic type methods are looked up by name for custom translator registration.")]

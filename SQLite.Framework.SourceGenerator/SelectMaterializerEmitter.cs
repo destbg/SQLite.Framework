@@ -150,7 +150,7 @@ internal static class SelectMaterializerEmitter
             && privBoc.Initializer != null
             && privBoc.Initializer.Kind() == SyntaxKind.ObjectInitializerExpression
             && ctx.Model.GetTypeInfo(privBoc).Type is ITypeSymbol privType
-            && !IsTypePubliclyReachable(privType))
+            && !IsTypeAccessibleFromGenerator(privType, ctx.GeneratorAssembly))
         {
             foreach (ExpressionSyntax initExpr in privBoc.Initializer.Expressions)
             {
@@ -176,7 +176,7 @@ internal static class SelectMaterializerEmitter
                         return false;
                     }
 
-                    bool isReflected = !IsTypePubliclyReachable(leafType);
+                    bool isReflected = !IsTypeAccessibleFromGenerator(leafType, ctx.GeneratorAssembly);
                     bool isNullable = IsNullableRangeVarIdentifier(rowIdent, ctx);
                     int idx = ctx.Leaves.Count;
                     string varName = "__leaf_" + idx;
@@ -192,7 +192,7 @@ internal static class SelectMaterializerEmitter
                     return true;
                 }
 
-                if (!IsSymbolPubliclyReachable(ctx.Model.GetSymbolInfo(access).Symbol))
+                if (!IsSymbolAccessibleFromGenerator(ctx.Model.GetSymbolInfo(access).Symbol, ctx.GeneratorAssembly))
                 {
                     return false;
                 }
@@ -226,7 +226,7 @@ internal static class SelectMaterializerEmitter
                     return !ctx.WriterCtx.RowBindings.ContainsKey(sym);
                 }
 
-                return IsSymbolPubliclyReachable(sym);
+                return IsSymbolAccessibleFromGenerator(sym, ctx.GeneratorAssembly);
 
             case InvocationExpressionSyntax invoke:
                 if (ctx.Model.GetSymbolInfo(invoke).Symbol is not IMethodSymbol method)
@@ -320,7 +320,7 @@ internal static class SelectMaterializerEmitter
         List<LeafInfo> propLeaves = new();
         foreach (IPropertySymbol prop in props)
         {
-            if (!IsTypePubliclyReachable(prop.Type))
+            if (!IsTypeAccessibleFromGenerator(prop.Type, ctx.GeneratorAssembly))
             {
                 return false;
             }
@@ -358,6 +358,11 @@ internal static class SelectMaterializerEmitter
 
     internal static bool IsSymbolPubliclyReachable(ISymbol? symbol)
     {
+        return IsSymbolAccessibleFromGenerator(symbol, generatorAssembly: null);
+    }
+
+    internal static bool IsSymbolAccessibleFromGenerator(ISymbol? symbol, IAssemblySymbol? generatorAssembly)
+    {
         if (symbol == null)
         {
             return false;
@@ -376,11 +381,21 @@ internal static class SelectMaterializerEmitter
                 continue;
             }
 
-            if (current.DeclaredAccessibility != Accessibility.Public
-                && current.DeclaredAccessibility != Accessibility.NotApplicable)
+            Accessibility acc = current.DeclaredAccessibility;
+            if (acc == Accessibility.Public || acc == Accessibility.NotApplicable)
             {
-                return false;
+                continue;
             }
+
+            if (acc == Accessibility.Internal
+                && generatorAssembly != null
+                && SymbolEqualityComparer.Default.Equals(current.ContainingAssembly, generatorAssembly)
+                && !(current is INamedTypeSymbol named && named.IsFileLocal))
+            {
+                continue;
+            }
+
+            return false;
         }
 
         return true;
@@ -388,31 +403,36 @@ internal static class SelectMaterializerEmitter
 
     internal static bool IsTypePubliclyReachable(ITypeSymbol type)
     {
+        return IsTypeAccessibleFromGenerator(type, generatorAssembly: null);
+    }
+
+    internal static bool IsTypeAccessibleFromGenerator(ITypeSymbol type, IAssemblySymbol? generatorAssembly)
+    {
         if (type is INamedTypeSymbol nullable
             && nullable.IsGenericType
             && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
             && nullable.TypeArguments.Length == 1)
         {
-            return IsTypePubliclyReachable(nullable.TypeArguments[0]);
+            return IsTypeAccessibleFromGenerator(nullable.TypeArguments[0], generatorAssembly);
         }
 
         if (type is IArrayTypeSymbol array)
         {
-            return IsTypePubliclyReachable(array.ElementType);
+            return IsTypeAccessibleFromGenerator(array.ElementType, generatorAssembly);
         }
 
         if (type is INamedTypeSymbol named)
         {
             foreach (ITypeSymbol arg in named.TypeArguments)
             {
-                if (!IsTypePubliclyReachable(arg))
+                if (!IsTypeAccessibleFromGenerator(arg, generatorAssembly))
                 {
                     return false;
                 }
             }
         }
 
-        return IsSymbolPubliclyReachable(type);
+        return IsSymbolAccessibleFromGenerator(type, generatorAssembly);
     }
 
     internal static string FormatType(ITypeSymbol symbol)

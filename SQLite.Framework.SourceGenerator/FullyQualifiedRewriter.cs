@@ -105,7 +105,7 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return false;
         }
         ITypeSymbol? type = ctx.Model.GetTypeInfo(node).Type;
-        return type != null && !SelectMaterializerEmitter.IsTypePubliclyReachable(type);
+        return type != null && !SelectMaterializerEmitter.IsTypeAccessibleFromGenerator(type, ctx.GeneratorAssembly);
     }
 
     private ExpressionSyntax BuildPrivateMemberInitCall(BaseObjectCreationExpressionSyntax node)
@@ -240,7 +240,7 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
 
         if (ctx.Model.GetSymbolInfo(node.Expression).Symbol is ITypeSymbol receiverType)
         {
-            return SyntaxFactory.ParseExpression(SelectMaterializerEmitter.FormatType(receiverType) + "." + node.Name.ToString());
+            return SyntaxFactory.ParseExpression(SelectMaterializerEmitter.FormatType(receiverType) + "." + QualifyName(node.Name));
         }
 
         return base.VisitMemberAccessExpression(node);
@@ -307,7 +307,7 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return node;
         }
 
-        if (!SelectMaterializerEmitter.IsSymbolPubliclyReachable(method))
+        if (!SelectMaterializerEmitter.IsSymbolAccessibleFromGenerator(method, ctx.GeneratorAssembly))
         {
             return BuildReflectedInvocation(node, method);
         }
@@ -347,6 +347,29 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         }
 
         return base.VisitInvocationExpression(node);
+    }
+
+    private string QualifyName(SimpleNameSyntax name)
+    {
+        if (name is GenericNameSyntax gen)
+        {
+            StringBuilder sb = new();
+            sb.Append(gen.Identifier.ValueText).Append('<');
+            bool first = true;
+            foreach (TypeSyntax typeArg in gen.TypeArgumentList.Arguments)
+            {
+                if (!first)
+                {
+                    sb.Append(", ");
+                }
+                first = false;
+                ITypeSymbol? argSymbol = ctx.Model.GetTypeInfo(typeArg).Type;
+                sb.Append(argSymbol != null ? SelectMaterializerEmitter.FormatType(argSymbol) : typeArg.ToString());
+            }
+            sb.Append('>');
+            return sb.ToString();
+        }
+        return name.ToString();
     }
 
     private ExpressionSyntax BuildReflectedInvocation(InvocationExpressionSyntax node, IMethodSymbol method)

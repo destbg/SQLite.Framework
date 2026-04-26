@@ -13,6 +13,11 @@ internal static class GroupByKeyMaterializerEmitter
 {
     public static bool TryEmit(StringBuilder sb, string methodName, GroupByKeyInvocation invocation, SemanticModel model)
     {
+        if (invocation.ParameterSymbol.Type is ITypeParameterSymbol)
+        {
+            return false;
+        }
+
         if (!IsEmittable(invocation.Body, invocation.ParameterSymbol, model))
         {
             return false;

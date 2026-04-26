@@ -3,7 +3,7 @@ using SQLite.Framework.Tests.Interfaces;
 
 namespace SQLite.Framework.Tests.Entities;
 
-public class SoftDeletableBook : ISoftDelete
+public class SoftDeletableBook : IEntity, ISoftDelete
 {
     [Key]
     public int Id { get; set; }

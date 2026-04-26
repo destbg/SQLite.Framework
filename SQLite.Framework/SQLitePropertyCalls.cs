@@ -69,7 +69,15 @@ public class SQLitePropertyCalls<T>
         {
             throw new ArgumentException($"Expression '{propertyGetter}' refers to a method, not a property.");
         }
-        else if (member.Expression is not ParameterExpression)
+
+        Expression target = member.Expression!;
+        if (target is UnaryExpression { NodeType: ExpressionType.Convert } cast
+            && cast.Type.IsAssignableFrom(cast.Operand.Type))
+        {
+            target = cast.Operand;
+        }
+
+        if (target is not ParameterExpression)
         {
             throw new ArgumentException("Invalid property expression.", nameof(propertyGetter));
         }
@@ -79,6 +87,6 @@ public class SQLitePropertyCalls<T>
             throw new ArgumentException($"Expression '{propertyGetter}' refers to a field, not a property.");
         }
 
-        return tableMapping.Columns.First(f => f.PropertyInfo == property).Name;
+        return tableMapping.Columns.First(f => f.PropertyInfo.Name == property.Name).Name;
     }
 }

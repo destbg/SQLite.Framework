@@ -196,6 +196,65 @@ public class SQLiteTableBuilderTests
     }
 
     [Fact]
+    public void Builder_Check_LongConstant_InlinesAsLiteral()
+    {
+        using TestDatabase db = new();
+
+        long limit = 1234567890123L;
+        db.Schema.Table<ProductLine>()
+            .Check(p => (long)p.Quantity < limit)
+            .Create();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ProductLines'");
+
+        Assert.Contains("1234567890123", sql);
+    }
+
+    [Fact]
+    public void Builder_Check_FloatConstant_InlinesAsLiteral()
+    {
+        using TestDatabase db = new();
+
+        float threshold = 2.5f;
+        db.Schema.Table<ProductLine>()
+            .Check(p => (float)p.Price > threshold)
+            .Create();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ProductLines'");
+
+        Assert.Contains("2.5", sql);
+    }
+
+    [Fact]
+    public void Builder_Check_BoolConstant_InlinesAsLiteral()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<ProductLine>()
+            .Check(p => (p.Quantity > 0) == true)
+            .Create();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ProductLines'");
+
+        Assert.Contains("= 1", sql);
+    }
+
+    [Fact]
+    public void Builder_Check_DateTimeConstant_ThrowsNotSupported()
+    {
+        using TestDatabase db = new();
+
+        DateTime cutoff = new(2026, 1, 1);
+        Assert.Throws<NotSupportedException>(() =>
+            db.Schema.Table<Article>()
+                .Check(a => a.PublishedAt > cutoff)
+                .Create());
+    }
+
+    [Fact]
     public void Builder_NamedCheckConstraint_EmitsConstraintName()
     {
         using TestDatabase db = new();

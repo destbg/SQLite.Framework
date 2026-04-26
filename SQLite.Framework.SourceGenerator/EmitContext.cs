@@ -12,6 +12,7 @@ internal sealed class EmitContext
 
     public SelectSignatureCtx WriterCtx { get; }
     public SemanticModel Model => WriterCtx.Model;
+    public IAssemblySymbol GeneratorAssembly => Model.Compilation.Assembly;
     public List<LeafInfo> Leaves { get; } = new();
     public Dictionary<SyntaxNode, int> LeafIndexBySyntax { get; } = new();
     public Dictionary<SyntaxNode, RowExpansion> RowExpansions { get; } = new();

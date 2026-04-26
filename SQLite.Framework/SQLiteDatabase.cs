@@ -749,6 +749,13 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         SQLTranslator translator = new(this);
         SQLQuery query = translator.Translate(expression);
         SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
+
+        if (typeof(T).IsInterface || typeof(T).IsAbstract)
+        {
+            Type concrete = FindRootElementType(expression);
+            return CastSequence<T>(command.ExecuteQueryUntypedInternal(query, concrete));
+        }
+
         return command.ExecuteQueryInternal<T>(query);
     }
 
@@ -869,21 +876,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return name;
     }
 
-    private static void ValidateSchemaName(string schemaName)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(schemaName);
-
-        foreach (char c in schemaName)
-        {
-            if (!char.IsLetterOrDigit(c) && c != '_')
-            {
-                throw new ArgumentException(
-                    "Schema name must contain only letters, digits, and underscores.",
-                    nameof(schemaName));
-            }
-        }
-    }
-
     private IEnumerable<IGrouping<TKey, TElement>> ExecuteGroupingQuery<TKey, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
         where TKey : notnull
     {
@@ -950,6 +942,46 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         foreach (TKey key in order)
         {
             yield return new Grouping<TKey, TElement>(key, groups[key]);
+        }
+    }
+
+    private static void ValidateSchemaName(string schemaName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(schemaName);
+
+        foreach (char c in schemaName)
+        {
+            if (!char.IsLetterOrDigit(c) && c != '_')
+            {
+                throw new ArgumentException(
+                    "Schema name must contain only letters, digits, and underscores.",
+                    nameof(schemaName));
+            }
+        }
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2073", Justification = "BaseSQLiteTable.ElementType comes from Queryable<T> / SQLiteTable<T>, which already require PublicProperties and PublicConstructors via DynamicallyAccessedMembers on T.")]
+    [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "The fallback path is unreachable in practice, every framework queryable chain bottoms out at a BaseSQLiteTable constant. The fallback exists only for defensiveness.")]
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)]
+    private static Type FindRootElementType(Expression expression)
+    {
+        Expression current = expression;
+        while (current is MethodCallExpression mce && mce.Arguments.Count > 0)
+        {
+            current = mce.Arguments[0];
+        }
+        if (CommonHelpers.IsConstant(current) && CommonHelpers.GetConstantValue(current) is BaseSQLiteTable table)
+        {
+            return table.ElementType;
+        }
+        return current.Type.IsGenericType ? current.Type.GetGenericArguments()[0] : current.Type;
+    }
+
+    private static IEnumerable<T> CastSequence<T>(IEnumerable source)
+    {
+        foreach (object item in source)
+        {
+            yield return (T)item;
         }
     }
 
