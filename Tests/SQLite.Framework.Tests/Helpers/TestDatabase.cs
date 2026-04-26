@@ -31,11 +31,11 @@ public class TestDatabase : SQLiteDatabase
 #if SQLITECIPHER
         builder.UseEncryptionKey("test-key");
 #endif
-        configure?.Invoke(builder);
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR
         builder.UseGeneratedMaterializers();
         builder.DisableReflectionFallback();
 #endif
+        configure?.Invoke(builder);
         return builder.Build();
     }
 

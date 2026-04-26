@@ -511,6 +511,42 @@ public class FullTextSearchEscapingTests
     }
 
     [Fact]
+    public void Column_NotOnRightInsideScope_WrapsWithParensAndMatches()
+    {
+        using TestDatabase db = OpenDb(nameof(Column_NotOnRightInsideScope_WrapsWithParensAndMatches));
+        Seed(db, "alpha gamma pages", "unrelated body");
+
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Column(a.Title, f.Term("alpha") && !f.Term("beta"))));
+
+        Assert.Equal("{Title} : (alpha NOT beta)", MatchValue(BuildMatch(db, shape)));
+        Assert.Equal(1, Run(db, shape));
+    }
+
+    [Fact]
+    public void Column_NotOnLeftInsideScope_WrapsWithParensAndMatches()
+    {
+        using TestDatabase db = OpenDb(nameof(Column_NotOnLeftInsideScope_WrapsWithParensAndMatches));
+        Seed(db, "alpha gamma pages", "unrelated body");
+
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Column(a.Title, !f.Term("beta") && f.Term("alpha"))));
+
+        Assert.Equal("{Title} : (alpha NOT beta)", MatchValue(BuildMatch(db, shape)));
+        Assert.Equal(1, Run(db, shape));
+    }
+
+    [Fact]
+    public void Column_FirstArgWrappedInConvert_StripsConvertAndUsesMemberName()
+    {
+        using TestDatabase db = OpenDb(nameof(Column_FirstArgWrappedInConvert_StripsConvertAndUsesMemberName));
+        Seed(db, "the native talk", "unrelated body");
+
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Column((string)(object)a.Title, f.Term("native"))));
+
+        Assert.Equal("{Title} : native", MatchValue(BuildMatch(db, shape)));
+        Assert.Equal(1, Run(db, shape));
+    }
+
+    [Fact]
     public void StringForm_PassesQueryThroughUnchangedAndMatches()
     {
         using TestDatabase db = OpenDb(nameof(StringForm_PassesQueryThroughUnchangedAndMatches));

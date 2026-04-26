@@ -455,6 +455,7 @@ internal static class EntityMaterializerEmitter
         string strippedDisplay = StripNullable(propTypeDisplay);
         string safeColumn = columnName.Replace("\"", "\\\"");
         string idxLocal = "__idx_" + localSuffix;
+        bool isEnum = StripNullableSymbol(propType).TypeKind == TypeKind.Enum;
 
         sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).Append(" = default");
         if (propType.IsReferenceType || propType.NullableAnnotation == NullableAnnotation.Annotated)
@@ -465,7 +466,14 @@ internal static class EntityMaterializerEmitter
         sb.Append(indent).Append("if (columns.TryGetValue(\"").Append(safeColumn).Append("\", out int ").Append(idxLocal).AppendLine("))");
         sb.Append(indent).AppendLine("{");
         sb.Append(indent).Append("    object? __raw_").Append(localSuffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
-        sb.Append(indent).Append("    if (__raw_").Append(localSuffix).AppendLine(" != null)");
+        if (isEnum)
+        {
+            sb.Append(indent).Append("    if (__raw_").Append(localSuffix).Append(" != null && global::System.Enum.IsDefined(typeof(").Append(strippedDisplay).Append("), __raw_").Append(localSuffix).AppendLine("!))");
+        }
+        else
+        {
+            sb.Append(indent).Append("    if (__raw_").Append(localSuffix).AppendLine(" != null)");
+        }
         sb.Append(indent).AppendLine("    {");
         sb.Append(indent).Append("        ").Append(valueLocal).Append(" = (").Append(propTypeDisplay).Append(")__raw_").Append(localSuffix).AppendLine("!;");
         sb.Append(indent).AppendLine("    }");

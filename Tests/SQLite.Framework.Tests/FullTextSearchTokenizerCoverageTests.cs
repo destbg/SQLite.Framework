@@ -255,4 +255,39 @@ public class FullTextSearchTokenizerCoverageTests
 
         Assert.Contains("must have at least one property marked [FullTextIndexed]", ex.Message);
     }
+
+    [Fact]
+    public void NotMapped_Property_IsSkippedFromFtsSchema()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<NotMapped_Search>();
+
+        string sql = ReadSchema(db, "NotMapped_Search");
+        Assert.Contains("Body", sql);
+        Assert.DoesNotContain("IgnoredHelper", sql);
+    }
+
+    [Fact]
+    public void Column_Attribute_OverridesIndexedColumnName()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<ColumnAlias_Search>();
+
+        string sql = ReadSchema(db, "ColumnAlias_Search");
+        Assert.Contains("body_text", sql);
+        Assert.DoesNotContain(" Body ", sql);
+    }
+
+#if !SQLITECIPHER
+    [Fact]
+    public void Trigram_CaseSensitiveAndNoRemoveDiacritics_RendersOpposingFlags()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Trigram_CaseSensitive_Search>();
+
+        Assert.Equal(
+            """CREATE VIRTUAL TABLE "Trigram_CaseSensitive_Search" USING fts5(Code, tokenize='trigram case_sensitive 1 remove_diacritics 0')""",
+            ReadSchema(db, "Trigram_CaseSensitive_Search"));
+    }
+#endif
 }

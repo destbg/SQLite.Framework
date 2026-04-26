@@ -133,108 +133,119 @@ internal sealed class FtsRenderState
         switch (call.Method.Name)
         {
             case nameof(SQLiteFTS5Builder.Term):
-            {
-                Expression arg = call.Arguments[0];
-                if (CommonHelpers.IsConstant(arg))
-                {
-                    string term = (string)CommonHelpers.GetConstantValue(arg)!;
-                    AppendLiteral(EscapeTerm(term));
-                }
-                else
-                {
-                    AppendDynamic(ResolveSqlExpression(arg));
-                }
+                WriteFts5Term(call.Arguments[0]);
                 return;
-            }
             case nameof(SQLiteFTS5Builder.Phrase):
-            {
-                Expression arg = call.Arguments[0];
-                if (CommonHelpers.IsConstant(arg))
-                {
-                    string phrase = (string)CommonHelpers.GetConstantValue(arg)!;
-                    AppendLiteral('"');
-                    AppendLiteral(phrase.Replace("\"", "\"\""));
-                    AppendLiteral('"');
-                }
-                else
-                {
-                    AppendDynamic(ResolveSqlExpression(arg));
-                }
+                WriteFts5Phrase(call.Arguments[0]);
                 return;
-            }
             case nameof(SQLiteFTS5Builder.Prefix):
-            {
-                Expression arg = call.Arguments[0];
-                if (CommonHelpers.IsConstant(arg))
-                {
-                    string prefix = (string)CommonHelpers.GetConstantValue(arg)!;
-                    AppendLiteral(EscapeTerm(prefix));
-                    AppendLiteral('*');
-                }
-                else
-                {
-                    AppendDynamic(ResolveSqlExpression(arg));
-                    AppendLiteral('*');
-                }
+                WriteFts5Prefix(call.Arguments[0]);
                 return;
-            }
             case nameof(SQLiteFTS5Builder.Near):
-            {
-                int distance = (int)CommonHelpers.GetConstantValue(call.Arguments[0])!;
-                Expression termsArg = call.Arguments[1];
-
-                AppendLiteral("NEAR(");
-                if (termsArg is NewArrayExpression nae)
-                {
-                    for (int i = 0; i < nae.Expressions.Count; i++)
-                    {
-                        if (i > 0)
-                        {
-                            AppendLiteral(' ');
-                        }
-
-                        Expression element = nae.Expressions[i];
-                        if (CommonHelpers.IsConstant(element))
-                        {
-                            AppendLiteral(EscapeTerm((string)CommonHelpers.GetConstantValue(element)!));
-                        }
-                        else
-                        {
-                            AppendDynamic(ResolveSqlExpression(element));
-                        }
-                    }
-                }
-                else
-                {
-                    string[] terms = (string[])CommonHelpers.GetConstantValue(termsArg)!;
-                    for (int i = 0; i < terms.Length; i++)
-                    {
-                        if (i > 0)
-                        {
-                            AppendLiteral(' ');
-                        }
-
-                        AppendLiteral(EscapeTerm(terms[i]));
-                    }
-                }
-
-                AppendLiteral(", ");
-                AppendLiteral(distance.ToString(CultureInfo.InvariantCulture));
-                AppendLiteral(')');
+                WriteFts5Near(call.Arguments[0], call.Arguments[1]);
                 return;
-            }
             case nameof(SQLiteFTS5Builder.Column):
-            {
-                string columnName = ResolveColumnName(call.Arguments[0]);
-                AppendLiteral('{');
-                AppendLiteral(columnName);
-                AppendLiteral("} : ");
-                Write(call.Arguments[1], 4);
+                WriteFts5Column(call.Arguments[0], call.Arguments[1]);
                 return;
-            }
         }
 
         throw new NotSupportedException($"Unsupported SQLiteFTS5 method '{call.Method.Name}' inside Match expression.");
+    }
+
+    private void WriteFts5Term(Expression arg)
+    {
+        if (CommonHelpers.IsConstant(arg))
+        {
+            string term = (string)CommonHelpers.GetConstantValue(arg)!;
+            AppendLiteral(EscapeTerm(term));
+        }
+        else
+        {
+            AppendDynamic(ResolveSqlExpression(arg));
+        }
+    }
+
+    private void WriteFts5Phrase(Expression arg)
+    {
+        if (CommonHelpers.IsConstant(arg))
+        {
+            string phrase = (string)CommonHelpers.GetConstantValue(arg)!;
+            AppendLiteral('"');
+            AppendLiteral(phrase.Replace("\"", "\"\""));
+            AppendLiteral('"');
+        }
+        else
+        {
+            AppendDynamic(ResolveSqlExpression(arg));
+        }
+    }
+
+    private void WriteFts5Prefix(Expression arg)
+    {
+        if (CommonHelpers.IsConstant(arg))
+        {
+            string prefix = (string)CommonHelpers.GetConstantValue(arg)!;
+            AppendLiteral(EscapeTerm(prefix));
+            AppendLiteral('*');
+        }
+        else
+        {
+            AppendDynamic(ResolveSqlExpression(arg));
+            AppendLiteral('*');
+        }
+    }
+
+    private void WriteFts5Near(Expression distanceArg, Expression termsArg)
+    {
+        int distance = (int)CommonHelpers.GetConstantValue(distanceArg)!;
+
+        AppendLiteral("NEAR(");
+        if (termsArg is NewArrayExpression nae)
+        {
+            for (int i = 0; i < nae.Expressions.Count; i++)
+            {
+                if (i > 0)
+                {
+                    AppendLiteral(' ');
+                }
+
+                Expression element = nae.Expressions[i];
+                if (CommonHelpers.IsConstant(element))
+                {
+                    AppendLiteral(EscapeTerm((string)CommonHelpers.GetConstantValue(element)!));
+                }
+                else
+                {
+                    AppendDynamic(ResolveSqlExpression(element));
+                }
+            }
+        }
+        else
+        {
+            string[] terms = (string[])CommonHelpers.GetConstantValue(termsArg)!;
+            for (int i = 0; i < terms.Length; i++)
+            {
+                if (i > 0)
+                {
+                    AppendLiteral(' ');
+                }
+
+                AppendLiteral(EscapeTerm(terms[i]));
+            }
+        }
+
+        AppendLiteral(", ");
+        AppendLiteral(distance.ToString(CultureInfo.InvariantCulture));
+        AppendLiteral(')');
+    }
+
+    private void WriteFts5Column(Expression columnArg, Expression bodyArg)
+    {
+        string columnName = ResolveColumnName(columnArg);
+        AppendLiteral('{');
+        AppendLiteral(columnName);
+        AppendLiteral("} : ");
+        Write(bodyArg, 4);
     }
 
     private SQLExpression ResolveSqlExpression(Expression expr)

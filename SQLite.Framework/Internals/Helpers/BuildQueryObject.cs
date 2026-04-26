@@ -127,17 +127,10 @@ internal static class BuildQueryObject
 
                         if (targetType.IsEnum)
                         {
-                            if (val is string enumString)
-                            {
-                                convertedValue = Enum.TryParse(targetType, enumString, out object? parsed) ? parsed : null;
-                            }
-                            else
-                            {
-                                object underlyingType = Convert.ChangeType(val, Enum.GetUnderlyingType(targetType));
-                                convertedValue = Enum.IsDefined(targetType, underlyingType)
-                                    ? Enum.ToObject(targetType, underlyingType)
-                                    : null;
-                            }
+                            object underlyingType = Convert.ChangeType(val, Enum.GetUnderlyingType(targetType));
+                            convertedValue = Enum.IsDefined(targetType, underlyingType)
+                                ? Enum.ToObject(targetType, underlyingType)
+                                : null;
                         }
                         else
                         {
