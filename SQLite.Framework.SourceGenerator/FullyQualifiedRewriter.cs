@@ -417,7 +417,9 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
     private ExpressionSyntax BuildCapturedValueExpression(ITypeSymbol? type)
     {
         int slot = capturedValueSlots++;
-        string capturedType = type != null ? SelectMaterializerEmitter.FormatType(type, ctx.WriterCtx.TypeArgSubstitutions) : "object";
+        string capturedType = type != null && SelectMaterializerEmitter.IsTypeAccessibleFromGenerator(type, ctx.GeneratorAssembly)
+            ? SelectMaterializerEmitter.FormatType(type, ctx.WriterCtx.TypeArgSubstitutions)
+            : "object";
         return SyntaxFactory.ParseExpression("((" + capturedType + ")ctx.CapturedValues![" + slot + "]!)");
     }
 

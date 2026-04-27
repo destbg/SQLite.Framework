@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
 using SQLite.Framework.Internals.Helpers;
@@ -36,7 +34,7 @@ internal class AliasVisitor
         switch (body)
         {
             case NewExpression ne:
-                VisitNewExpression(resultSelector, ne, prefix);
+                VisitNewExpression(ne, prefix);
                 break;
             case MemberInitExpression mie:
                 VisitMemberInitExpression(resultSelector, mie, prefix);
@@ -56,7 +54,7 @@ internal class AliasVisitor
         }
     }
 
-    private void VisitNewExpression(LambdaExpression resultSelector, NewExpression newExpression, string? prefix)
+    private void VisitNewExpression(NewExpression newExpression, string? prefix)
     {
         if (newExpression.Arguments.Count > 0)
         {
@@ -96,39 +94,11 @@ internal class AliasVisitor
                 }
             }
         }
-        else
+        else if (newExpression.Members == null)
         {
-            VisitNewExpressionMembers(resultSelector, newExpression.Members, prefix);
-        }
-    }
-
-    [ExcludeFromCodeCoverage(Justification = "This is an impossible case, but I don't want to remove it just in case.")]
-    private void VisitNewExpressionMembers(LambdaExpression resultSelector, ReadOnlyCollection<MemberInfo>? members, string? prefix)
-    {
-        if (members == null)
-        {
-            throw new NotSupportedException("Cannot translate expression");
-        }
-
-        foreach (MemberInfo memberInfo in members)
-        {
-            string alias = CheckPrefix(prefix, memberInfo.Name);
-            Type propertyType = memberInfo is PropertyInfo pi ? pi.PropertyType : ((FieldInfo)memberInfo).FieldType;
-
-            ParameterExpression expression = resultSelector.Parameters
-                .First(f => (f.Name == memberInfo.Name && f.Type == propertyType) || f.Type == propertyType);
-
-            (string path, ParameterExpression pe) = CommonHelpers.ResolveParameterPath(expression);
-
-            Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
-
-            foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
-            {
-                if (tableColumn.Key.StartsWith(path))
-                {
-                    result.Add($"{alias}.{tableColumn.Key[(path.Length + 1)..]}", tableColumn.Value);
-                }
-            }
+            throw new NotSupportedException(
+                $"Cannot translate Select projection 'new {newExpression.Type.Name}()': " +
+                "use a constructor with arguments or a member-initializer (e.g., 'new T { Prop = value }').");
         }
     }
 

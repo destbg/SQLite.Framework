@@ -98,7 +98,8 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
     {
         if (node.NodeType == ExpressionType.ArrayIndex)
         {
-            return node;
+            Expression resolvedIndex = CommonHelpers.IsConstant(node.Right) ? node.Right : Visit(node.Right);
+            return Expression.MakeBinary(node.NodeType, node.Left, resolvedIndex, node.IsLiftedToNull, node.Method);
         }
 
         Expression leftNode = node.Left;

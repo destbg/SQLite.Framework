@@ -19,14 +19,8 @@ internal static class SelectSignature
         return sb.ToString();
     }
 
-    private static void AppendSignature(StringBuilder sb, Expression? expression)
+    private static void AppendSignature(StringBuilder sb, Expression expression)
     {
-        if (expression == null)
-        {
-            sb.Append("null");
-            return;
-        }
-
         if (expression is MemberExpression capturedMe && CommonHelpers.IsConstant(capturedMe))
         {
             sb.Append("(CapturedValue ").Append(FormatType(expression.Type)).Append(')');
@@ -63,10 +57,10 @@ internal static class SelectSignature
             case MemberExpression me:
                 sb.Append(' ').Append(me.Member.Name);
                 sb.Append(' ');
-                AppendSignature(sb, me.Expression);
+                AppendSignature(sb, me.Expression!);
                 break;
             case MethodCallExpression mce:
-                sb.Append(' ').Append(FormatType(mce.Method.DeclaringType)).Append('.').Append(mce.Method.Name);
+                sb.Append(' ').Append(FormatType(mce.Method.DeclaringType!)).Append('.').Append(mce.Method.Name);
                 if (mce.Object != null)
                 {
                     sb.Append(' ');
@@ -81,7 +75,7 @@ internal static class SelectSignature
             case NewExpression ne:
                 if (ne.Constructor != null)
                 {
-                    sb.Append(' ').Append(FormatType(ne.Constructor.DeclaringType));
+                    sb.Append(' ').Append(FormatType(ne.Constructor.DeclaringType!));
                 }
                 foreach (Expression arg in ne.Arguments)
                 {
@@ -107,13 +101,13 @@ internal static class SelectSignature
                 AppendSignature(sb, mie.NewExpression);
                 foreach (MemberBinding binding in mie.Bindings)
                 {
-                    sb.Append(' ').Append(binding.BindingType).Append(':').Append(binding.Member.Name);
-                    if (binding is MemberAssignment ma)
-                    {
-                        sb.Append('=');
-                        AppendSignature(sb, ma.Expression);
-                    }
+                    AppendBinding(sb, binding);
                 }
+                break;
+            case ListInitExpression lie:
+                sb.Append(' ');
+                AppendSignature(sb, lie.NewExpression);
+                AppendInitializers(sb, lie.Initializers);
                 break;
             case ParameterExpression pe:
                 sb.Append(' ').Append(FormatType(pe.Type));
@@ -139,31 +133,70 @@ internal static class SelectSignature
         sb.Append(')');
     }
 
-    private static string FormatType(Type? type)
+    private static void AppendBinding(StringBuilder sb, MemberBinding binding)
     {
-        if (type == null)
+        sb.Append(' ').Append(binding.BindingType).Append(':').Append(binding.Member.Name);
+        switch (binding)
         {
-            return "null";
+            case MemberAssignment ma:
+                sb.Append('=');
+                AppendSignature(sb, ma.Expression);
+                break;
+            case MemberListBinding mlb:
+                AppendInitializers(sb, mlb.Initializers);
+                break;
+            case MemberMemberBinding mmb:
+                sb.Append("={");
+                foreach (MemberBinding sub in mmb.Bindings)
+                {
+                    AppendBinding(sb, sub);
+                }
+                sb.Append('}');
+                break;
         }
+    }
 
+    private static void AppendInitializers(StringBuilder sb, IReadOnlyCollection<ElementInit> initializers)
+    {
+        sb.Append("=[");
+        bool first = true;
+        foreach (ElementInit init in initializers)
+        {
+            if (!first)
+            {
+                sb.Append(',');
+            }
+            first = false;
+            bool firstArg = true;
+            foreach (Expression arg in init.Arguments)
+            {
+                if (!firstArg)
+                {
+                    sb.Append('+');
+                }
+                firstArg = false;
+                AppendSignature(sb, arg);
+            }
+        }
+        sb.Append(']');
+    }
+
+    private static string FormatType(Type type)
+    {
         if (type.IsArray)
         {
-            return FormatType(type.GetElementType()) + "[]";
+            return FormatType(type.GetElementType()!) + "[]";
         }
 
         if (IsAnonymousType(type))
         {
-            if (type.IsGenericType)
-            {
-                string args = string.Join(",", type.GenericTypeArguments.Select(FormatType));
-                return "<anonymous<" + args + ">>";
-            }
-            return "<anonymous>";
+            string anonArgs = string.Join(",", type.GenericTypeArguments.Select(FormatType));
+            return "<anonymous<" + anonArgs + ">>";
         }
 
         if (type.IsGenericType)
         {
-            string def = type.GetGenericTypeDefinition().FullName ?? type.GetGenericTypeDefinition().Name;
+            string def = type.GetGenericTypeDefinition().FullName!;
             int tick = def.IndexOf('`');
             if (tick >= 0)
             {
@@ -174,7 +207,7 @@ internal static class SelectSignature
             return def + "<" + args + ">";
         }
 
-        return type.FullName ?? type.Name;
+        return type.FullName!;
     }
 
     private static bool IsAnonymousType(Type type)

@@ -632,7 +632,13 @@ internal static class SelectSignatureWriter
         }
         else if (initializer != null && initializer.Kind() == SyntaxKind.CollectionInitializerExpression)
         {
-            return AppendCollectionInitAsCapturedValue(sb, declaredType, exprType, args, initializer, ctx);
+            int saved = sb.Length;
+            if (AppendCollectionInitAsCapturedValue(sb, declaredType, exprType, args, initializer, ctx))
+            {
+                return true;
+            }
+            sb.Length = saved;
+            return AppendListInitWithRowReferences(sb, declaredType, exprType, args, initializer, ctx);
         }
 
         bool isMemberInit = memberBindings != null && memberBindings.Count > 0;
@@ -670,11 +676,19 @@ internal static class SelectSignatureWriter
                     if (init.Kind() == SyntaxKind.CollectionInitializerExpression)
                     {
                         sb.Append(' ').Append("ListBinding").Append(':').Append(leftIdent.Identifier.ValueText);
+                        if (!AppendCollectionInitializerElements(sb, init, ctx))
+                        {
+                            return false;
+                        }
                         continue;
                     }
                     if (init.Kind() == SyntaxKind.ObjectInitializerExpression)
                     {
                         sb.Append(' ').Append("MemberBinding").Append(':').Append(leftIdent.Identifier.ValueText);
+                        if (!AppendNestedObjectInitializer(sb, init, ctx))
+                        {
+                            return false;
+                        }
                         continue;
                     }
                 }
@@ -692,9 +706,108 @@ internal static class SelectSignatureWriter
         return true;
     }
 
-    private static bool AppendListInit(StringBuilder sb, ITypeSymbol? exprType, SelectSignatureCtx ctx)
+    private static bool AppendListInitWithRowReferences(StringBuilder sb, ITypeSymbol? declaredType, ITypeSymbol? exprType, IReadOnlyList<ArgumentSyntax>? args, InitializerExpressionSyntax initializer, SelectSignatureCtx ctx)
     {
-        sb.Append("(ListInit ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(')');
+        sb.Append("(ListInit ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(' ');
+        sb.Append("(New ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(declaredType, ctx.TypeArgSubstitutions));
+        if (args != null)
+        {
+            foreach (ArgumentSyntax a in args)
+            {
+                sb.Append(' ');
+                if (!TryAppend(sb, a.Expression, ctx))
+                {
+                    return false;
+                }
+            }
+        }
+        sb.Append(')');
+
+        if (!AppendCollectionInitializerElements(sb, initializer, ctx))
+        {
+            return false;
+        }
+
+        sb.Append(')');
+        return true;
+    }
+
+    private static bool AppendCollectionInitializerElements(StringBuilder sb, InitializerExpressionSyntax init, SelectSignatureCtx ctx)
+    {
+        sb.Append("=[");
+        bool first = true;
+        foreach (ExpressionSyntax elem in init.Expressions)
+        {
+            if (!first)
+            {
+                sb.Append(',');
+            }
+            first = false;
+
+            if (elem is InitializerExpressionSyntax complex && complex.Kind() == SyntaxKind.ComplexElementInitializerExpression)
+            {
+                bool firstArg = true;
+                foreach (ExpressionSyntax sub in complex.Expressions)
+                {
+                    if (!firstArg)
+                    {
+                        sb.Append('+');
+                    }
+                    firstArg = false;
+                    if (!TryAppend(sb, sub, ctx))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else if (!TryAppend(sb, elem, ctx))
+            {
+                return false;
+            }
+        }
+        sb.Append(']');
+        return true;
+    }
+
+    private static bool AppendNestedObjectInitializer(StringBuilder sb, InitializerExpressionSyntax init, SelectSignatureCtx ctx)
+    {
+        sb.Append("={");
+        foreach (ExpressionSyntax elem in init.Expressions)
+        {
+            if (elem is not AssignmentExpressionSyntax sub || sub.Left is not IdentifierNameSyntax leftIdent)
+            {
+                return false;
+            }
+
+            if (sub.Right is InitializerExpressionSyntax inner)
+            {
+                if (inner.Kind() == SyntaxKind.CollectionInitializerExpression)
+                {
+                    sb.Append(' ').Append("ListBinding").Append(':').Append(leftIdent.Identifier.ValueText);
+                    if (!AppendCollectionInitializerElements(sb, inner, ctx))
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+                if (inner.Kind() == SyntaxKind.ObjectInitializerExpression)
+                {
+                    sb.Append(' ').Append("MemberBinding").Append(':').Append(leftIdent.Identifier.ValueText);
+                    if (!AppendNestedObjectInitializer(sb, inner, ctx))
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+            }
+
+            sb.Append(' ').Append("Assignment").Append(':').Append(leftIdent.Identifier.ValueText).Append('=');
+            if (!TryAppend(sb, sub.Right, ctx))
+            {
+                return false;
+            }
+        }
+        sb.Append('}');
         return true;
     }
 
@@ -894,7 +1007,8 @@ internal static class SelectSignatureWriter
             memberValues.Add(decl.Expression);
         }
 
-        sb.Append("(New ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(type, ctx.TypeArgSubstitutions));
+        ITypeSymbol? actualType = ctx.Model.GetTypeInfo(node).Type ?? type;
+        sb.Append("(New ").Append(FormatType(actualType, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(actualType, ctx.TypeArgSubstitutions));
         foreach (ExpressionSyntax val in memberValues)
         {
             sb.Append(' ');

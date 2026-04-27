@@ -32,21 +32,57 @@ internal static class SelectMaterializerEmitter
         }
 
         bool hasReflectedLeaf = emitCtx.Leaves.Any(l => l.IsReflected);
-        bool anonCtorPath = hasReflectedLeaf
+        bool anonHasNonAccessibleArg = body is AnonymousObjectCreationExpressionSyntax anonForCheck
+            && anonForCheck.Initializers.Any(init =>
+            {
+                ITypeSymbol? argType = writerCtx.Model.GetTypeInfo(init.Expression).Type;
+                return argType != null && !IsTypeAccessibleFromGenerator(argType, emitCtx.GeneratorAssembly);
+            });
+        bool anonCtorPath = (hasReflectedLeaf || anonHasNonAccessibleArg)
             && body is AnonymousObjectCreationExpressionSyntax;
 
         string? bodyText;
         if (anonCtorPath)
         {
+            AnonymousObjectCreationExpressionSyntax anonExpr = (AnonymousObjectCreationExpressionSyntax)body;
+            FullyQualifiedRewriter rewriter = new(emitCtx);
+
             StringBuilder args = new();
             args.Append("ctx.ReflectedConstructors![0].Invoke(new object?[] { ");
-            for (int i = 0; i < emitCtx.Leaves.Count; i++)
+            int leafCursor = 0;
+            for (int i = 0; i < anonExpr.Initializers.Count; i++)
             {
                 if (i > 0)
                 {
                     args.Append(", ");
                 }
-                args.Append(emitCtx.Leaves[i].VarName);
+
+                ExpressionSyntax initExpr = anonExpr.Initializers[i].Expression;
+                int initLeafCount = CountLeavesUnder(emitCtx.Leaves, leafCursor, initExpr);
+                ITypeSymbol? initType = writerCtx.Model.GetTypeInfo(initExpr).Type;
+                bool initIsInaccessibleBoc = initExpr is BaseObjectCreationExpressionSyntax
+                    && initType != null
+                    && !IsTypeAccessibleFromGenerator(initType, emitCtx.GeneratorAssembly);
+
+                if (initIsInaccessibleBoc)
+                {
+                    SyntaxNode? rewritten = rewriter.Visit(initExpr);
+                    if (rewriter.Failed || rewritten is not ExpressionSyntax rewrittenExpr)
+                    {
+                        return false;
+                    }
+                    args.Append(rewrittenExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString());
+                }
+                else if (initLeafCount == 1)
+                {
+                    args.Append(emitCtx.Leaves[leafCursor].VarName);
+                }
+                else
+                {
+                    return false;
+                }
+
+                leafCursor += initLeafCount;
             }
             args.Append(" })");
             bodyText = args.ToString();
@@ -226,6 +262,14 @@ internal static class SelectMaterializerEmitter
                     return !ctx.WriterCtx.RowBindings.ContainsKey(sym);
                 }
 
+                if (sym is ITypeSymbol
+                    && ident.Parent is MemberAccessExpressionSyntax typeReceiverMa
+                    && typeReceiverMa.Expression == ident
+                    && typeReceiverMa.Parent is InvocationExpressionSyntax)
+                {
+                    return true;
+                }
+
                 return IsSymbolAccessibleFromGenerator(sym, ctx.GeneratorAssembly);
 
             case InvocationExpressionSyntax invoke:
@@ -295,6 +339,24 @@ internal static class SelectMaterializerEmitter
     private static bool IsRowReference(IdentifierNameSyntax ident, EmitContext ctx)
     {
         return SelectSignatureWriter.TryGetRowBinding(ident, ctx.WriterCtx, out _);
+    }
+
+    private static int CountLeavesUnder(List<LeafInfo> leaves, int startIndex, SyntaxNode container)
+    {
+        int count = 0;
+        for (int j = startIndex; j < leaves.Count; j++)
+        {
+            SyntaxNode node = leaves[j].Node;
+            if (node == container || node.Ancestors().Contains(container))
+            {
+                count++;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return count;
     }
 
     private static bool IsNullableRangeVarIdentifier(IdentifierNameSyntax ident, EmitContext ctx)

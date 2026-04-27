@@ -52,7 +52,7 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
 
     protected override Expression VisitMemberInit(MemberInitExpression node)
     {
-        if (!IsTypeVisible(node.NewExpression.Type))
+        if (!node.NewExpression.Type.IsVisible)
         {
             Types.Add(node.NewExpression.Type);
             CollectBindingMembers(node.Bindings);
@@ -65,12 +65,12 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
     {
         if (node.Constructor != null
             && IsAnonymousType(node.Type)
-            && node.Arguments.Any(arg => !IsTypeVisible(arg.Type)))
+            && node.Arguments.Any(arg => !arg.Type.IsVisible))
         {
             Constructors.Add(node.Constructor);
             foreach (Expression arg in node.Arguments)
             {
-                if (!IsTypeVisible(arg.Type))
+                if (!arg.Type.IsVisible)
                 {
                     Types.Add(arg.Type);
                 }
@@ -96,26 +96,6 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
     {
         return type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
             || type.Name.StartsWith("<>h__TransparentIdentifier", StringComparison.Ordinal);
-    }
-
-    private static bool IsTypeVisible(Type type)
-    {
-        if (!type.IsVisible)
-        {
-            return false;
-        }
-
-        Type? declaring = type.DeclaringType;
-        while (declaring != null)
-        {
-            if (!declaring.IsVisible)
-            {
-                return false;
-            }
-            declaring = declaring.DeclaringType;
-        }
-
-        return true;
     }
 
     private static bool IsNonPublic(MethodInfo method)

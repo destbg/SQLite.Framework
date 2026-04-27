@@ -1454,17 +1454,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 
     private static bool IsGenericInvocationCandidate(SyntaxNode node)
     {
-        if (node is not InvocationExpressionSyntax invocation)
-        {
-            return false;
-        }
-
-        return invocation.Expression switch
-        {
-            GenericNameSyntax => true,
-            MemberAccessExpressionSyntax { Name: GenericNameSyntax } => true,
-            _ => false
-        };
+        return node is InvocationExpressionSyntax;
     }
 
     private static (IMethodSymbol Method, ImmutableArray<INamedTypeSymbol> TypeArgs)? ExtractMethodInstantiation(GeneratorSyntaxContext ctx)

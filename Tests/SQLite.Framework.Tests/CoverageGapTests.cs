@@ -1,5 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using System.Linq.Expressions;
+using System.Reflection;
 using SQLite.Framework.Attributes;
+using SQLite.Framework.Exceptions;
+using SQLite.Framework.JsonB;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
@@ -1272,6 +1276,285 @@ public class CoverageGapTests
     }
 
     [Fact]
+    public void GroupBy_KeyShapes_ExerciseSignatureCompute()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "alpha", AuthorId = 1, Price = 5 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "beta", AuthorId = 1, Price = 15 });
+        db.Table<Book>().Add(new Book { Id = 3, Title = "gamma", AuthorId = 2, Price = 25 });
+
+        List<IGrouping<int, Book>> byMember = db.Table<Book>().GroupBy(b => b.AuthorId).ToList();
+        Assert.Equal(2, byMember.Count);
+
+        var byAnon = db.Table<Book>().GroupBy(b => new { b.AuthorId, Bucket = b.Price > 10 ? "high" : "low" }).ToList();
+        Assert.NotEmpty(byAnon);
+
+        List<IGrouping<bool, Book>> byBinary = db.Table<Book>().GroupBy(b => b.Price > 10).ToList();
+        Assert.Equal(2, byBinary.Count);
+
+        List<IGrouping<int, Book>> byUnary = db.Table<Book>().GroupBy(b => -b.AuthorId).ToList();
+        Assert.Equal(2, byUnary.Count);
+
+        List<IGrouping<int, Book>> byMethodCall = db.Table<Book>().GroupBy(b => b.Title.Length).ToList();
+        Assert.NotEmpty(byMethodCall);
+
+        List<IGrouping<int, Book>> byConditional = db.Table<Book>().GroupBy(b => b.Price > 10 ? 1 : 0).ToList();
+        Assert.Equal(2, byConditional.Count);
+
+        List<IGrouping<int, Book>> byConstant = db.Table<Book>().GroupBy(b => 7).ToList();
+        Assert.Single(byConstant);
+    }
+
+
+    [Fact]
+    public void Select_AnonymousWithNonVisibleMemberInit_RoundTrips()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 7, Price = 1 });
+
+        var rows = db.Table<Book>()
+            .Select(b => new
+            {
+                b.Id,
+                Wrap = new SqlTranslatorPrivateWrap { Value = b.AuthorId }
+            })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(1, rows[0].Id);
+        Assert.Equal(7, rows[0].Wrap.Value);
+    }
+
+    private sealed class SqlTranslatorPrivateWrap
+    {
+        public int Value { get; set; }
+        public static int Identity(int x) => x;
+    }
+
+    public sealed class SqlTranslatorOuterHolder
+    {
+        public object? Inner { get; set; }
+    }
+
+    [Fact]
+    public void Select_AnonWithReflectedMethodCall_RoundTrips()
+    {
+        using TestDatabase db = new(b =>
+        {
+            b.MethodTranslators[typeof(SqlTranslatorPrivateWrap).GetMethod(nameof(SqlTranslatorPrivateWrap.Identity))!] =
+                (_, args) => $"{args[0]}";
+        });
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 7, Price = 1 });
+
+        var rows = db.Table<Book>()
+            .Select(b => new
+            {
+                Wrap = new SqlTranslatorPrivateWrap { Value = SqlTranslatorPrivateWrap.Identity(b.AuthorId) }
+            })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(7, rows[0].Wrap.Value);
+    }
+
+    [Fact]
+    public void Select_NonAnonWrappingAnonWithReflectedArg_RoundTrips()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 7, Price = 1 });
+
+        List<SqlTranslatorOuterHolder> rows = db.Table<Book>()
+            .Select(b => new SqlTranslatorOuterHolder
+            {
+                Inner = new { Wrap = new SqlTranslatorPrivateWrap { Value = b.AuthorId } }
+            })
+            .ToList();
+
+        Assert.Single(rows);
+        object inner = rows[0].Inner!;
+        object wrap = inner.GetType().GetProperty("Wrap")!.GetValue(inner)!;
+        SqlTranslatorPrivateWrap typedWrap = (SqlTranslatorPrivateWrap)wrap;
+        Assert.Equal(7, typedWrap.Value);
+    }
+
+    [Fact]
+    public void Translate_NonIQueryableExpression_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        IQueryProvider provider = db.Table<Book>().Provider;
+        IQueryable<Book> q = provider.CreateQuery<Book>(Expression.Parameter(typeof(int), "x"));
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => q.ToList());
+        Assert.Equal("Expression is not an IQueryable.", ex.Message);
+    }
+
+    [Fact]
+    public void Translate_MethodCallWithNonQueryableDeclaringType_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        IQueryProvider provider = db.Table<Book>().Provider;
+        Expression nonQueryableCall = Expression.Call(
+            typeof(string).GetMethod(nameof(string.IsNullOrEmpty), [typeof(string)])!,
+            Expression.Constant("hello"));
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => provider.Execute<bool>(nonQueryableCall));
+        Assert.StartsWith("Unsupported method:", ex.Message);
+    }
+
+    [Fact]
+    public void Translate_ZeroArgMethodWithNonTableReturnType_Throws()
+    {
+        using TestDatabase db = new();
+
+        IQueryProvider provider = db.Table<Book>().Provider;
+        Expression voidCall = Expression.Call(
+            Expression.Constant(db),
+            typeof(SQLiteDatabase).GetMethod(nameof(SQLiteDatabase.Dispose))!);
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => provider.Execute<int>(voidCall));
+        Assert.StartsWith("Unsupported method:", ex.Message);
+    }
+
+    public sealed class SqlTranslatorParameterlessProjection
+    {
+        public int Value { get; set; }
+    }
+
+    [Fact]
+    public void Select_ParameterlessConstructorProjection_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 7, Price = 1 });
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => db.Table<Book>()
+            .Select(b => new SqlTranslatorParameterlessProjection())
+            .ToList());
+        Assert.Contains("SqlTranslatorParameterlessProjection", ex.Message);
+        Assert.Contains("constructor with arguments", ex.Message);
+    }
+
+    [Fact]
+    public void Translate_ConstantNonTableQueryable_ThrowsCouldNotIdentifyFromClause()
+    {
+        using TestDatabase db = new();
+
+        IQueryProvider provider = db.Table<Book>().Provider;
+        IQueryable<int> nonSqliteQueryable = new[] { 1, 2, 3 }.AsQueryable();
+        Expression constantExpression = Expression.Constant(nonSqliteQueryable);
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => provider.Execute<int>(constantExpression));
+        Assert.Equal("Could not identify FROM clause.", ex.Message);
+    }
+
+    [Fact]
+    public void Select_NoMaterializerWithReflectionFallbackDisabled_Throws()
+    {
+        SQLiteOptionsBuilder builder = new($"FallbackThrowTest_{Guid.NewGuid():N}.db3");
+        builder.SelectMaterializers["__no_match__"] = _ => null;
+        builder.DisableReflectionFallback();
+        SQLiteOptions options = builder.Build();
+        File.Delete(options.DatabasePath);
+
+        try
+        {
+            using SQLiteDatabase db = new(options);
+            db.Schema.CreateTable<Book>();
+            db.Table<Book>().Add(new Book { Id = 1, Title = "alpha", AuthorId = 7, Price = 1 });
+
+            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => db.Table<Book>()
+                .Select(b => new SqlTranslatorListContainer { Values = { b.Id, b.AuthorId } })
+                .First());
+
+            Assert.Contains("Select projection fell back to runtime reflection", ex.Message);
+            Assert.Contains("ReflectionFallbackDisabled is set", ex.Message);
+        }
+        finally
+        {
+            for (int i = 0; i < 10 && File.Exists(options.DatabasePath); i++)
+            {
+                try { File.Delete(options.DatabasePath); break; }
+                catch (IOException) { Thread.Sleep(50); }
+            }
+        }
+    }
+
+    [Fact]
+    public void Select_MemberInitWithListBinding_RoutesThroughCompilerFallback_IncrementsCounter()
+    {
+        SQLiteOptionsBuilder builder = new($"FallbackListBindTest_{Guid.NewGuid():N}.db3");
+        builder.SelectMaterializers["__no_match__"] = _ => null;
+        SQLiteOptions options = builder.Build();
+        File.Delete(options.DatabasePath);
+
+        try
+        {
+            using SQLiteDatabase db = new(options);
+            db.Schema.CreateTable<Book>();
+            db.Table<Book>().Add(new Book { Id = 1, Title = "alpha", AuthorId = 7, Price = 1 });
+
+            long before = db.SelectCompilerFallbacks;
+            Assert.Throws<NotSupportedException>(() => db.Table<Book>()
+                .Select(b => new SqlTranslatorListContainer { Values = { b.Id, b.AuthorId } })
+                .First());
+            long after = db.SelectCompilerFallbacks;
+
+            Assert.True(after > before);
+        }
+        finally
+        {
+            for (int i = 0; i < 10 && File.Exists(options.DatabasePath); i++)
+            {
+                try { File.Delete(options.DatabasePath); break; }
+                catch (IOException) { Thread.Sleep(50); }
+            }
+        }
+    }
+
+    public sealed class SqlTranslatorListContainer
+    {
+        public List<int> Values { get; } = new();
+    }
+
+    [Fact]
+    public void Select_TopLevelListInitProjection_RoundTrips()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 11, Title = "x", AuthorId = 22, Price = 1 });
+
+        List<List<int>> rows = db.Table<Book>()
+            .Select(b => new List<int> { b.Id, b.AuthorId })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(new List<int> { 11, 22 }, rows[0]);
+    }
+
+    [Fact]
+    public void Select_DictionaryWithMultiArgAdd_RoundTrips()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "alpha", AuthorId = 9, Price = 1 });
+
+        List<Dictionary<int, string>> rows = db.Table<Book>()
+            .Select(b => new Dictionary<int, string> { { b.Id, b.Title } })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal("alpha", rows[0][1]);
+    }
+
+    [Fact]
     public void Where_WithInlineFieldInitializer_FiltersCorrectly()
     {
         using TestDatabase db = new();
@@ -1962,5 +2245,790 @@ public class CoverageGapTests
         public int Id { get; set; }
 
         public string? Name { get; set; }
+    }
+
+    private class PropertyVisitorEntity
+    {
+        [Key]
+        public int Id { get; set; }
+
+        public int? NullableValue { get; set; }
+        public DateTime DateTimeValue { get; set; }
+        public DateTimeOffset DateTimeOffsetValue { get; set; }
+    }
+
+
+    [Fact]
+    public void SQLiteDatabase_OpenConnection_WhenAlreadyConnecting_WaitsForLock()
+    {
+        using TestDatabase db = new();
+        db.OpenConnection();
+
+        PropertyInfo isConnectingProp = typeof(SQLiteDatabase).GetProperty(nameof(SQLiteDatabase.IsConnecting))!;
+        isConnectingProp.SetValue(db, true);
+
+        db.OpenConnection();
+
+        Assert.True(db.IsConnecting);
+
+        isConnectingProp.SetValue(db, false);
+    }
+
+    [Fact]
+    public void SQLiteDatabase_OpenConnection_InvalidPath_Throws()
+    {
+        SQLiteOptionsBuilder builder = new("/no-such-directory-xyz/db.sqlite");
+        SQLiteOptions options = builder.Build();
+        using SQLiteDatabase db = new(options);
+
+        Assert.Throws<SQLiteException>(() => db.OpenConnection());
+    }
+
+    [Fact]
+    public void SQLiteDatabase_BeginTransaction_SeparateConnection_InvalidPath_Throws()
+    {
+        SQLiteOptionsBuilder bad = new("/no-such-directory-xyz/db.sqlite");
+        using SQLiteDatabase badDb = new(bad.Build());
+
+        Assert.Throws<SQLiteException>(() => badDb.BeginTransaction(separateConnection: true));
+    }
+
+    [Fact]
+    public void SQLiteDatabase_Execute_WithSingleSQLiteParameter_PassesThrough()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        int rows = db.Execute(
+            "INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@id, 't', 0, 0)",
+            (object)new SQLiteParameter { Name = "@id", Value = 42 });
+
+        Assert.Equal(1, rows);
+        Assert.Equal(1, db.Table<Book>().Count(b => b.Id == 42));
+    }
+
+    [Fact]
+    public void SQLiteOptions_GetConverterTypeForInterface_SecondCall_HitsCache()
+    {
+        using TestDatabase db = new(b =>
+        {
+            b.AddJson();
+            b.TypeConverters[typeof(List<int>)] =
+                new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32);
+        });
+
+        List<IList<int>> first = db.CreateCommand("SELECT '[1,2,3]'", []).ExecuteQuery<IList<int>>().ToList();
+        List<IList<int>> second = db.CreateCommand("SELECT '[4,5,6]'", []).ExecuteQuery<IList<int>>().ToList();
+
+        Assert.Equal([1, 2, 3], first[0]);
+        Assert.Equal([4, 5, 6], second[0]);
+    }
+
+    [FullTextSearch(ContentMode = FtsContentMode.External, ContentTable = typeof(SchemaSourceWithoutKey))]
+    private class SchemaSearchExternal
+    {
+        [FullTextRowId]
+        public int Id { get; set; }
+
+        [FullTextIndexed]
+        public required string Body { get; set; }
+    }
+
+    private class SchemaSourceWithoutKey
+    {
+        public int RowId { get; set; }
+        public string Body { get; set; } = "";
+    }
+
+    [Fact]
+    public void SQLiteSchema_ExternalFtsWithoutSourceKey_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SchemaSourceWithoutKey>();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => db.Schema.CreateTable<SchemaSearchExternal>());
+        Assert.Contains("SchemaSearchExternal", ex.Message);
+        Assert.Contains("SchemaSourceWithoutKey", ex.Message);
+        Assert.Contains("[Key]", ex.Message);
+    }
+
+    [Fact]
+    public void Queryable_LeftJoin_TranslatesToLeftJoin()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
+        db.Table<Author>().Add(new Author { Id = 1, Name = "Alice", Email = "a@x", BirthDate = new DateTime(1980, 1, 1) });
+        db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "T2", AuthorId = 99, Price = 2 });
+
+        List<int> rows = db.Table<Book>()
+            .LeftJoin(db.Table<Author>(), b => b.AuthorId, a => a.Id, (b, a) => b.Id)
+            .ToList();
+
+        Assert.Equal(2, rows.Count);
+    }
+
+    [Fact]
+    public void Queryable_RightJoin_TranslatesToJoin()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Schema.CreateTable<Author>();
+        db.Table<Author>().Add(new Author { Id = 1, Name = "Alice", Email = "a@x", BirthDate = new DateTime(1980, 1, 1) });
+        db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 1 });
+
+        List<int> rows = db.Table<Book>()
+            .RightJoin(db.Table<Author>(), b => b.AuthorId, a => a.Id, (b, a) => a.Id)
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void GroupBy_TwiceInSameQuery_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .GroupBy(b => b.AuthorId)
+                .GroupBy(g => g.Key)
+                .Select(g2 => g2.Key)
+                .ToList());
+    }
+
+    [Fact]
+    public void Where_NonSqlExpression_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .Where(b => UnsupportedHelper(b.Title))
+                .ToList());
+    }
+
+    [Fact]
+    public void OrderBy_NonSqlExpression_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .OrderBy(b => UnsupportedHelper(b.Title))
+                .ToList());
+    }
+
+    private static bool UnsupportedHelper(string s) => s.Length > 0;
+
+    [Fact]
+    public void Single_WithNonSqlPredicate_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().Single(b => UnsupportedHelper(b.Title)));
+    }
+
+    [Fact]
+    public void Aggregate_NonSqlExpression_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().Sum(b => UnsupportedSelector(b.Title)));
+    }
+
+    private static double UnsupportedSelector(string s) => s.Length;
+
+    private static int UnsupportedHelperReturningInt() => 1;
+    private static long UnsupportedHelperReturningLong() => 1L;
+    private static short UnsupportedHelperReturningShort() => 1;
+    private static byte UnsupportedHelperReturningByte() => 1;
+    private static sbyte UnsupportedHelperReturningSByte() => 1;
+    private static ushort UnsupportedHelperReturningUShort() => 1;
+    private static uint UnsupportedHelperReturningUInt() => 1u;
+    private static ulong UnsupportedHelperReturningULong() => 1ul;
+    private static double UnsupportedHelperReturningDouble() => 1.0;
+    private static float UnsupportedHelperReturningFloat() => 1.0f;
+    private static decimal UnsupportedHelperReturningDecimal() => 1m;
+
+    private static int UnsupportedRowInt(int x) => x + 1;
+    private static long UnsupportedRowLong(long x) => x + 1L;
+    private static short UnsupportedRowShort(short x) => (short)(x + 1);
+    private static byte UnsupportedRowByte(byte x) => (byte)(x + 1);
+    private static sbyte UnsupportedRowSByte(sbyte x) => (sbyte)(x + 1);
+    private static ushort UnsupportedRowUShort(ushort x) => (ushort)(x + 1);
+    private static uint UnsupportedRowUInt(uint x) => x + 1u;
+    private static ulong UnsupportedRowULong(ulong x) => x + 1ul;
+    private static double UnsupportedRowDouble(double x) => x + 1.0;
+    private static float UnsupportedRowFloat(float x) => x + 1.0f;
+    private static decimal UnsupportedRowDecimal(decimal x) => x + 1m;
+    private static bool UnsupportedRowBool(int x) => x > 0;
+
+    private class NumericEntity
+    {
+        [Key]
+        public int Id { get; set; }
+
+        public long LongValue { get; set; }
+        public short ShortValue { get; set; }
+        public byte ByteValue { get; set; }
+        public sbyte SByteValue { get; set; }
+        public ushort UShortValue { get; set; }
+        public uint UIntValue { get; set; }
+        public ulong ULongValue { get; set; }
+        public double DoubleValue { get; set; }
+        public float FloatValue { get; set; }
+        public decimal DecimalValue { get; set; }
+    }
+
+    private static SQLiteDatabase CreateCompilerFallbackDb()
+    {
+        SQLiteOptionsBuilder builder = new($"CompilerTest_{Guid.NewGuid():N}.db3");
+        builder.SelectMaterializers["__no_match_for_compiler_path__"] = _ => null;
+        SQLiteOptions options = builder.Build();
+        File.Delete(options.DatabasePath);
+        return new SQLiteDatabase(options);
+    }
+
+    private class CompilerEntity
+    {
+        [Key]
+        public int Id { get; set; }
+
+        public int Value { get; set; }
+    }
+
+
+    [Fact]
+    public void QueryCompilerVisitor_BoolShortCircuit_AndAlso_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<bool> rows = db.Table<CompilerEntity>()
+            .Select(b => UnsupportedRowBool(b.Id) && b.Id > 0)
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_BinaryComparisons_ReachCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        Assert.NotEmpty(db.Table<CompilerEntity>().Select(b => b.Id > UnsupportedRowInt(b.Id)).ToList());
+        Assert.NotEmpty(db.Table<CompilerEntity>().Select(b => b.Id >= UnsupportedRowInt(b.Id)).ToList());
+        Assert.NotEmpty(db.Table<CompilerEntity>().Select(b => b.Id < UnsupportedRowInt(b.Id)).ToList());
+        Assert.NotEmpty(db.Table<CompilerEntity>().Select(b => b.Id <= UnsupportedRowInt(b.Id)).ToList());
+        Assert.NotEmpty(db.Table<CompilerEntity>().Select(b => b.Id != UnsupportedRowInt(b.Id)).ToList());
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_BoolOps_AllVariants_ReachCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        Assert.NotEmpty(db.Table<CompilerEntity>().Select(b => UnsupportedRowBool(b.Id) && b.Id > 0).ToList());
+        Assert.NotEmpty(db.Table<CompilerEntity>().Select(b => UnsupportedRowBool(b.Id) || b.Id > 0).ToList());
+        Assert.NotEmpty(db.Table<CompilerEntity>().Select(b => UnsupportedRowBool(b.Id) & b.Id > 0).ToList());
+        Assert.NotEmpty(db.Table<CompilerEntity>().Select(b => UnsupportedRowBool(b.Id) | b.Id > 0).ToList());
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_ArrayIndex_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        int[] arr = [10, 20, 30];
+        List<int> rows = db.Table<CompilerEntity>()
+            .Select(b => arr[UnsupportedRowInt(b.Id) % 3])
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_UnaryNegate_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<int> rows = db.Table<CompilerEntity>().Select(b => -UnsupportedRowInt(b.Id)).ToList();
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_UnaryNot_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<bool> rows = db.Table<CompilerEntity>().Select(b => !UnsupportedRowBool(b.Id)).ToList();
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitConditional_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<int> rows = db.Table<CompilerEntity>()
+            .Select(b => b.Id > 0 ? UnsupportedHelperReturningInt() : 0)
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitUnary_NotConvertNegate_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<bool> notRows = db.Table<CompilerEntity>()
+            .Select(b => !(UnsupportedHelperReturningInt() == b.Id))
+            .ToList();
+        Assert.Single(notRows);
+
+        List<long> convertRows = db.Table<CompilerEntity>()
+            .Select(b => (long)(b.Id + UnsupportedHelperReturningInt()))
+            .ToList();
+        Assert.Single(convertRows);
+    }
+
+    private static string UnsupportedReturningString() => "abc";
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitMember_OnRuntimeOnlyInstance_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<int> rows = db.Table<CompilerEntity>()
+            .Select(b => UnsupportedReturningString().Length + b.Id)
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitNew_AnonProjection_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        var rows = db.Table<CompilerEntity>()
+            .Select(b => new { Id = b.Id, Computed = UnsupportedHelperReturningInt() })
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitNewArray_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<int[]> rows = db.Table<CompilerEntity>()
+            .Select(b => new[] { b.Id, UnsupportedHelperReturningInt() })
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    public class CompilerMixedContainer
+    {
+        public string Title { get; set; } = "";
+        public List<int> Items { get; } = new();
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitMemberInit_MixedAssignmentAndListBinding_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<CompilerMixedContainer> rows = db.Table<CompilerEntity>()
+            .Select(b => new CompilerMixedContainer
+            {
+                Title = "x" + UnsupportedRowInt(b.Id),
+                Items = { 1, 2, 3 }
+            })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal([1, 2, 3], rows[0].Items);
+    }
+
+    public class CompilerInner
+    {
+        public int X { get; set; }
+    }
+
+    public class CompilerOuter
+    {
+        public CompilerInner Inner { get; } = new();
+        public int OuterId { get; set; }
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitMemberInit_NestedMemberBinding_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<CompilerOuter> rows = db.Table<CompilerEntity>()
+            .Select(b => new CompilerOuter
+            {
+                OuterId = b.Id,
+                Inner = { X = UnsupportedRowInt(b.Id) }
+            })
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitMemberInit_PropertyAssignment_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<CompilerEntity> rows = db.Table<CompilerEntity>()
+            .Select(b => new CompilerEntity { Id = b.Id, Value = UnsupportedRowInt(b.Value) })
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(11, rows[0].Value);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitListInit_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<List<int>> rows = db.Table<CompilerEntity>()
+            .Select(b => new List<int> { b.Id, UnsupportedHelperReturningInt() })
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitMethodCall_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<string> rows = db.Table<CompilerEntity>()
+            .Select(b => UnsupportedFormat(b.Id))
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    private static string UnsupportedFormat(int x) => "x" + x;
+
+    [Fact]
+    public void QueryCompilerVisitor_BinaryArithmetic_AllNumericTypes_RoundTrip()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<NumericEntity>();
+        db.Table<NumericEntity>().Add(new NumericEntity
+        {
+            Id = 1,
+            LongValue = 10L,
+            ShortValue = 5,
+            ByteValue = 5,
+            SByteValue = 5,
+            UShortValue = 5,
+            UIntValue = 5u,
+            ULongValue = 5ul,
+            DoubleValue = 2.5,
+            FloatValue = 2.5f,
+            DecimalValue = 2.5m
+        });
+
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.LongValue + UnsupportedRowLong(b.LongValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.ShortValue + UnsupportedRowShort(b.ShortValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.ByteValue + UnsupportedRowByte(b.ByteValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.SByteValue + UnsupportedRowSByte(b.SByteValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.UShortValue + UnsupportedRowUShort(b.UShortValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.UIntValue + UnsupportedRowUInt(b.UIntValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.ULongValue + UnsupportedRowULong(b.ULongValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.DoubleValue + UnsupportedRowDouble(b.DoubleValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.FloatValue + UnsupportedRowFloat(b.FloatValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.DecimalValue + UnsupportedRowDecimal(b.DecimalValue)).ToList());
+
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.LongValue - UnsupportedRowLong(b.LongValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.LongValue * UnsupportedRowLong(b.LongValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.LongValue / UnsupportedRowLong(b.LongValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => b.LongValue % UnsupportedRowLong(b.LongValue)).ToList());
+
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => -b.LongValue + UnsupportedRowLong(b.LongValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => -b.ShortValue + UnsupportedRowShort(b.ShortValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => -b.SByteValue + UnsupportedRowSByte(b.SByteValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => -b.DoubleValue + UnsupportedRowDouble(b.DoubleValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => -b.FloatValue + UnsupportedRowFloat(b.FloatValue)).ToList());
+        Assert.NotEmpty(db.Table<NumericEntity>().Select(b => -b.DecimalValue + UnsupportedRowDecimal(b.DecimalValue)).ToList());
+    }
+
+    public class WritableHolder
+    {
+        public string? Title { get; set; }
+    }
+
+    [Fact]
+    public void Select_ChainedIdentitySelectAfterNonSqlProjection_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<Book>()
+                .Select(b => new WritableHolder { Title = UnsupportedHelperString(b.Title) })
+                .Select(b => b)
+                .ToList());
+    }
+
+    private static string UnsupportedHelperString(string s) => s + "x";
+
+    [Fact]
+    public void GroupBy_ParameterlessConstructorKey_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().GroupBy(_ => new SqlTranslatorParameterlessProjection()).Select(g => g.Key).ToList());
+    }
+
+    [Fact]
+    public void GroupBy_WithUnsupportedFunctionOnRowColumn_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().GroupBy(b => UnsupportedSelector(b.Title)).Select(g => g.Key).ToList());
+    }
+
+    [Fact]
+    public void Join_OnNonSqliteIQueryable_ConstantSource_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        IQueryable<int> external = new[] { 1, 2, 3 }.AsQueryable();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().Join(external, b => b.Id, x => x, (b, x) => b.Id).ToList());
+    }
+
+    [Fact]
+    public void Select_ChainedMemberAccessNoMatchingBinding_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 7, Title = "x", AuthorId = 9, Price = 13 });
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .Select(b => new Book { Title = b.Title, AuthorId = b.AuthorId, Price = b.Price })
+                .Select(b => b.Id)
+                .ToList());
+        Assert.Contains("'Id'", ex.Message);
+        Assert.Contains("inner projection", ex.Message);
+    }
+
+    [Fact]
+    public void Select_ChainedMemberAccessMatchedBinding_UsesBindingExpression()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 7, Title = "x", AuthorId = 9, Price = 1 });
+
+        List<int> rows = db.Table<Book>()
+            .Select(b => new Book { Id = b.Id, Title = b.Title, AuthorId = b.AuthorId, Price = b.Price })
+            .Select(b => b.AuthorId)
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(9, rows[0]);
+    }
+
+    [Fact]
+    public void Select_ChainedConstantOuter_ReturnsConstantPerRow()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "y", AuthorId = 2, Price = 2 });
+
+        List<int> rows = db.Table<Book>()
+            .Select(b => new Book { Id = b.Id, Title = b.Title, AuthorId = b.AuthorId, Price = b.Price })
+            .Select(_ => 5)
+            .ToList();
+
+        Assert.Equal([5, 5], rows);
+    }
+
+    [Fact]
+    public void Join_WithNonRecursiveCte_ResolvesAsCteSource()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "y", AuthorId = 2, Price = 2 });
+
+        SQLiteCte<CteCounter> cte = db.With<CteCounter>(() =>
+            db.Values(new CteCounter { N = 1 }).Concat(db.Values(new CteCounter { N = 2 })));
+
+        List<int> rows = (
+            from b in db.Table<Book>()
+            join c in cte on b.Id equals c.N
+            select b.Id
+        ).OrderBy(x => x).ToList();
+
+        Assert.Equal([1, 2], rows);
+    }
+
+    [Fact]
+    public void Join_WithRecursiveCte_ResolvesAsCteSource()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 3, Title = "y", AuthorId = 2, Price = 2 });
+
+        SQLiteCte<CteCounter> cte = db.WithRecursive<CteCounter>(self =>
+            db.Values(new CteCounter { N = 1 })
+                .Concat(from c in self
+                    where c.N < 5
+                    select new CteCounter { N = c.N + 1 }));
+
+        List<int> rows = (
+            from b in db.Table<Book>()
+            join c in cte on b.Id equals c.N
+            select b.Id
+        ).ToList();
+
+        Assert.Equal(2, rows.Count);
+        Assert.Contains(1, rows);
+        Assert.Contains(3, rows);
+    }
+
+    private class CteCounter
+    {
+        public int N { get; set; }
+    }
+
+    [Fact]
+    public void Contains_OnMultiColumnAnon_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        var probe = new { Id = 1, Title = "x" };
+        IQueryable<Book> source = db.Table<Book>();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().Where(b => source.Select(b2 => new { b2.Id, b2.Title }).Contains(probe)).ToList());
+    }
+
+    [Fact]
+    public void SQLiteDataReader_Read_StepError_ThrowsSQLiteException()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand cmd = db.CreateCommand("SELECT abs(-9223372036854775808)", []);
+        using SQLiteDataReader reader = cmd.ExecuteReader();
+
+        Assert.Throws<SQLiteException>(() => reader.Read());
+    }
+
+    [Fact]
+    public void PropertyVisitor_NullableValueProperty_FallsThroughToColumn()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<PropertyVisitorEntity>();
+        db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity { Id = 1, NullableValue = 42 });
+        db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity { Id = 2, NullableValue = 5 });
+
+        List<PropertyVisitorEntity> results = db.Table<PropertyVisitorEntity>()
+            .Where(e => e.NullableValue!.Value > 10)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
+    }
+
+    [Fact]
+    public void PropertyVisitor_DateTimeUnsupportedProperty_FallsThroughToColumn()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<PropertyVisitorEntity>();
+        DateTime stamp = new(2024, 5, 1, 12, 30, 45, DateTimeKind.Utc);
+        db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity { Id = 1, DateTimeValue = stamp });
+
+        List<PropertyVisitorEntity> results = db.Table<PropertyVisitorEntity>()
+            .Where(e => e.DateTimeValue.Date == stamp)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
+    }
+
+    [Fact]
+    public void PropertyVisitor_DateTimeOffsetUnsupportedProperty_FallsThroughToColumn()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<PropertyVisitorEntity>();
+        DateTimeOffset stamp = new(2024, 5, 1, 12, 30, 45, TimeSpan.Zero);
+        db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity { Id = 1, DateTimeOffsetValue = stamp });
+
+        List<PropertyVisitorEntity> results = db.Table<PropertyVisitorEntity>()
+            .Where(e => e.DateTimeOffsetValue.Date == stamp.DateTime)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(1, results[0].Id);
     }
 }

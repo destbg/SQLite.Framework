@@ -102,6 +102,18 @@ internal class QueryableMethodVisitor
     {
         LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(node.Arguments[1]);
         lambda = RowParameterExpander.ExpandRowsInMethodCalls(lambda, visitor.MethodArguments.Keys);
+
+        if (PreviousSelectLambda is { Body: MemberInitExpression prevMie }
+            && lambda.Body is MemberExpression outerMa
+            && outerMa.Expression is ParameterExpression outerParam
+            && outerParam == lambda.Parameters[0]
+            && !prevMie.Bindings.OfType<MemberAssignment>().Any(mb => mb.Member.Name == outerMa.Member.Name))
+        {
+            throw new NotSupportedException(
+                $"Chained Select cannot read '{outerMa.Member.Name}': the inner projection did not initialize that member. " +
+                $"Include '{outerMa.Member.Name}' in the inner projection or restructure the query.");
+        }
+
         if (database.Options.SelectMaterializers.Count > 0)
         {
             if (lambda.Body is not ParameterExpression || PreviousSelectLambda != null)
@@ -328,7 +340,6 @@ internal class QueryableMethodVisitor
 
         if (selector.Body is MethodCallExpression { Method.Name: nameof(Enumerable.DefaultIfEmpty) })
         {
-            // TODO: This gets the last group join of a given type, but if we have two group joins of the same type it may not work.
             if (Joins.Count > 0)
             {
                 Type type = selector.Body.Type.GetGenericArguments()[^1];
@@ -570,6 +581,15 @@ internal class QueryableMethodVisitor
 
         SelectVisitor groupByVisitor = new(GroupBys);
         Expression groupByExpression = visitor.Visit(lambda.Body);
+
+        if (groupByExpression is not SQLExpression && groupByExpression is not NewExpression)
+        {
+            throw new NotSupportedException(
+                $"Could not translate the GroupBy key selector `{lambda}` to SQL. " +
+                "The key selector must reference columns of the table (e.g. `.GroupBy(x => x.CategoryId)` " +
+                "or `.GroupBy(x => new {{ x.A, x.B }})`).");
+        }
+
         groupByVisitor.Visit(groupByExpression);
 
         if (GroupBys.Count == 0)

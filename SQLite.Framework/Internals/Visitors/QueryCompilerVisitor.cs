@@ -28,18 +28,12 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     [DynamicDependency(DynamicallyAccessedMemberTypes.NonPublicMethods, typeof(QueryCompilerVisitor))]
     static QueryCompilerVisitor()
     {
-        BinaryAdditionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryAdditionOperator), BindingFlags.Static | BindingFlags.NonPublic)
-                                 ?? throw new InvalidOperationException("Binary operator method not found.");
-        BinarySubtractionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinarySubtractionOperator), BindingFlags.Static | BindingFlags.NonPublic)
-                                    ?? throw new InvalidOperationException("Binary operator method not found.");
-        BinaryMultiplyOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryMultiplyOperator), BindingFlags.Static | BindingFlags.NonPublic)
-                                 ?? throw new InvalidOperationException("Binary operator method not found.");
-        BinaryDivisionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryDivisionOperator), BindingFlags.Static | BindingFlags.NonPublic)
-                                 ?? throw new InvalidOperationException("Binary operator method not found.");
-        BinaryModulusOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryModulusOperator), BindingFlags.Static | BindingFlags.NonPublic)
-                                ?? throw new InvalidOperationException("Binary operator method not found.");
-        BinaryNegationOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryNegationOperator), BindingFlags.Static | BindingFlags.NonPublic)
-                                 ?? throw new InvalidOperationException("Binary operator method not found.");
+        BinaryAdditionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryAdditionOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinarySubtractionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinarySubtractionOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinaryMultiplyOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryMultiplyOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinaryDivisionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryDivisionOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinaryModulusOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryModulusOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinaryNegationOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryNegationOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
     }
 
     private readonly IReadOnlyCollection<ParameterExpression>? inputParameters;
@@ -170,23 +164,19 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             object? value = CommonHelpers.GetConstantValue(node);
             return new CompiledExpression(node.Type, _ => value);
         }
-        else if (node.Expression != null)
+
+        CompiledExpression innerExpression = (CompiledExpression)Visit(node.Expression!);
+
+        return new CompiledExpression(node.Type, context =>
         {
-            CompiledExpression innerExpression = (CompiledExpression)Visit(node.Expression);
-
-            return new CompiledExpression(node.Type, context =>
+            object? instance = innerExpression.Call(context);
+            return node.Member switch
             {
-                object? instance = innerExpression.Call(context);
-                return node.Member switch
-                {
-                    FieldInfo field => field.GetValue(instance),
-                    PropertyInfo property => property.GetValue(instance),
-                    _ => throw new NotSupportedException($"The member '{node.Member}' is not supported.")
-                };
-            });
-        }
-
-        throw new NotSupportedException($"The member expression '{node}' is not supported.");
+                FieldInfo field => field.GetValue(instance),
+                PropertyInfo property => property.GetValue(instance),
+                _ => throw new NotSupportedException($"The member '{node.Member}' is not supported.")
+            };
+        });
     }
 
     [ExcludeFromCodeCoverage]

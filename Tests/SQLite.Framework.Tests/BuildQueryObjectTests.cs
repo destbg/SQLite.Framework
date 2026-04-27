@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.JsonB;
@@ -78,4 +79,22 @@ public class BuildQueryObjectTests
             db.CreateCommand("SELECT '[1,2,3]'", []).ExecuteQuery<IList<int>>().ToList());
     }
 
+    [Fact]
+    public void ExecuteQuery_AnonymousTypeMissingColumn_LeavesParameterAtDefault()
+    {
+        using TestDatabase db = new();
+
+        var shape = new { Id = 0, MissingProp = (string?)null };
+        var rows = RunAs(db.CreateCommand("SELECT 5 AS Id", []), shape).ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(5, rows[0].Id);
+        Assert.Null(rows[0].MissingProp);
+    }
+
+    private static IEnumerable<TAnon> RunAs<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TAnon>(SQLiteCommand cmd, TAnon shape)
+    {
+        _ = shape;
+        return cmd.ExecuteQuery<TAnon>();
+    }
 }

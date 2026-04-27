@@ -471,7 +471,7 @@ internal class SQLTranslator
             if (callExpression.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
             {
                 object? obj = callExpression.Object != null
-                    ? CommonHelpers.GetConstantValue(callExpression.Object!)
+                    ? CommonHelpers.GetConstantValue(callExpression.Object)
                     : null;
                 BaseSQLiteTable resultTable = (BaseSQLiteTable)callExpression.Method.Invoke(obj, null)!;
 
