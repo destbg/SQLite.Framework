@@ -657,6 +657,19 @@ internal class MethodVisitor
             nameof(SQLiteFunctions.UnixEpoch) => HandleFunctionsUnixEpoch(node),
             nameof(SQLiteFunctions.Printf) => HandleFunctionsPrintf(node),
             nameof(SQLiteFunctions.Regexp) => HandleFunctionsRegexp(node),
+            nameof(SQLiteFunctions.Between) => HandleFunctionsBetween(node),
+            nameof(SQLiteFunctions.In) => HandleFunctionsIn(node),
+            nameof(SQLiteFunctions.Coalesce) => HandleFunctionsVariadic(node, "coalesce", node.Method.ReturnType),
+            nameof(SQLiteFunctions.Nullif) => HandleFunctionsNullif(node),
+            nameof(SQLiteFunctions.Typeof) => HandleFunctionsUnaryFn(node, "typeof", typeof(string)),
+            nameof(SQLiteFunctions.Hex) => HandleFunctionsUnaryFn(node, "hex", typeof(string)),
+            nameof(SQLiteFunctions.Quote) => HandleFunctionsUnaryFn(node, "quote", typeof(string)),
+            nameof(SQLiteFunctions.Zeroblob) => HandleFunctionsUnaryFn(node, "zeroblob", typeof(byte[])),
+            nameof(SQLiteFunctions.Instr) => HandleFunctionsInstr(node),
+            nameof(SQLiteFunctions.LastInsertRowId) => new SQLExpression(typeof(long), visitor.IdentifierIndex.Index++, "last_insert_rowid()", null),
+            nameof(SQLiteFunctions.SqliteVersion) => new SQLExpression(typeof(string), visitor.IdentifierIndex.Index++, "sqlite_version()", null),
+            nameof(SQLiteFunctions.Min) => HandleFunctionsVariadic(node, "min", node.Method.ReturnType),
+            nameof(SQLiteFunctions.Max) => HandleFunctionsVariadic(node, "max", node.Method.ReturnType),
             nameof(SQLiteFunctions.Changes) => new SQLExpression(typeof(long), visitor.IdentifierIndex.Index++, "changes()", null),
             nameof(SQLiteFunctions.TotalChanges) => new SQLExpression(typeof(long), visitor.IdentifierIndex.Index++, "total_changes()", null),
             _ => throw new NotSupportedException($"SQLiteFunctions.{node.Method.Name} is not translatable to SQL."),
@@ -1211,6 +1224,98 @@ internal class MethodVisitor
             visitor.IdentifierIndex.Index++,
             $"({value.Sql} GLOB {pattern.Sql})",
             CommonHelpers.CombineParameters(value.SQLExpression!, pattern.SQLExpression!));
+    }
+
+    private SQLExpression HandleFunctionsBetween(MethodCallExpression node)
+    {
+        ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
+        ResolvedModel low = visitor.ResolveExpression(node.Arguments[1]);
+        ResolvedModel high = visitor.ResolveExpression(node.Arguments[2]);
+        return new SQLExpression(
+            typeof(bool),
+            visitor.IdentifierIndex.Index++,
+            $"({value.Sql} BETWEEN {low.Sql} AND {high.Sql})",
+            CommonHelpers.CombineParameters(value.SQLExpression!, low.SQLExpression!, high.SQLExpression!));
+    }
+
+    private SQLExpression HandleFunctionsIn(MethodCallExpression node)
+    {
+        ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
+        List<ResolvedModel> items = ResolveVariadic(node.Arguments[1]);
+
+        string itemsSql = string.Join(", ", items.Select(r => r.Sql));
+        SQLExpression[] parts = [value.SQLExpression!, .. items.Select(r => r.SQLExpression!)];
+        return new SQLExpression(
+            typeof(bool),
+            visitor.IdentifierIndex.Index++,
+            $"({value.Sql} IN ({itemsSql}))",
+            CommonHelpers.CombineParameters(parts));
+    }
+
+    private SQLExpression HandleFunctionsVariadic(MethodCallExpression node, string sqlFunction, Type returnType)
+    {
+        List<ResolvedModel> items = ResolveVariadic(node.Arguments[0]);
+        string argsSql = string.Join(", ", items.Select(r => r.Sql));
+        SQLExpression[] parts = items.Select(r => r.SQLExpression!).ToArray();
+        return new SQLExpression(
+            returnType,
+            visitor.IdentifierIndex.Index++,
+            $"{sqlFunction}({argsSql})",
+            CommonHelpers.CombineParameters(parts));
+    }
+
+    private SQLExpression HandleFunctionsNullif(MethodCallExpression node)
+    {
+        ResolvedModel a = visitor.ResolveExpression(node.Arguments[0]);
+        ResolvedModel b = visitor.ResolveExpression(node.Arguments[1]);
+        return new SQLExpression(
+            node.Method.ReturnType,
+            visitor.IdentifierIndex.Index++,
+            $"nullif({a.Sql}, {b.Sql})",
+            CommonHelpers.CombineParameters(a.SQLExpression!, b.SQLExpression!));
+    }
+
+    private SQLExpression HandleFunctionsUnaryFn(MethodCallExpression node, string sqlFunction, Type returnType)
+    {
+        ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
+        return new SQLExpression(
+            returnType,
+            visitor.IdentifierIndex.Index++,
+            $"{sqlFunction}({arg.Sql})",
+            arg.Parameters);
+    }
+
+    private SQLExpression HandleFunctionsInstr(MethodCallExpression node)
+    {
+        ResolvedModel haystack = visitor.ResolveExpression(node.Arguments[0]);
+        ResolvedModel needle = visitor.ResolveExpression(node.Arguments[1]);
+        return new SQLExpression(
+            typeof(int),
+            visitor.IdentifierIndex.Index++,
+            $"instr({haystack.Sql}, {needle.Sql})",
+            CommonHelpers.CombineParameters(haystack.SQLExpression!, needle.SQLExpression!));
+    }
+
+    private List<ResolvedModel> ResolveVariadic(Expression argument)
+    {
+        List<ResolvedModel> resolved = [];
+        if (argument is NewArrayExpression arrayExpr)
+        {
+            foreach (Expression e in arrayExpr.Expressions)
+            {
+                resolved.Add(visitor.ResolveExpression(e));
+            }
+        }
+        else
+        {
+            Array array = (Array)CommonHelpers.GetConstantValue(argument)!;
+            Type elementType = argument.Type.GetElementType()!;
+            foreach (object? item in array)
+            {
+                resolved.Add(visitor.ResolveExpression(Expression.Constant(item, elementType)));
+            }
+        }
+        return resolved;
     }
 
     private SQLExpression HandleFunctionsUnixEpoch(MethodCallExpression node)

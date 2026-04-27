@@ -78,6 +78,140 @@ public static class SQLiteFunctions
     }
 
     /// <summary>
+    /// Returns true when <paramref name="value" /> is between <paramref name="low" /> and
+    /// <paramref name="high" /> inclusive. Translates to SQLite's
+    /// <c>value BETWEEN low AND high</c>.
+    /// To express the negated form, wrap the call with <c>!</c> (or compare to <c>false</c>);
+    /// the framework emits <c>NOT (value BETWEEN low AND high)</c>, which SQLite treats
+    /// identically to <c>NOT BETWEEN</c>.
+    /// </summary>
+    public static bool Between<T>(T value, T low, T high)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="value" /> equals any element of <paramref name="values" />.
+    /// Translates to SQLite's <c>value IN (v0, v1, ...)</c>. Negate with <c>!</c> for
+    /// <c>NOT IN</c>-equivalent semantics.
+    /// </summary>
+    public static bool In<T>(T value, params T[] values)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns the first non-null value among <paramref name="values" />, or <see langword="null" />
+    /// if all are null. Translates to SQLite's <c>coalesce(v0, v1, ...)</c>. Pass at least two
+    /// arguments; SQLite requires it.
+    /// </summary>
+    public static T? Coalesce<T>(params T?[] values)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns <see langword="null" /> when <paramref name="a" /> equals <paramref name="b" />,
+    /// otherwise returns <paramref name="a" />. Translates to SQLite's <c>nullif(a, b)</c>.
+    /// </summary>
+    public static T? Nullif<T>(T a, T b)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns the SQLite storage class of <paramref name="value" /> as a lowercase string
+    /// (<c>"null"</c>, <c>"integer"</c>, <c>"real"</c>, <c>"text"</c>, or <c>"blob"</c>).
+    /// Translates to SQLite's <c>typeof(value)</c>.
+    /// </summary>
+    public static string Typeof<T>(T value)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns the upper-case hexadecimal encoding of the BLOB <paramref name="value" />.
+    /// Translates to SQLite's <c>hex(value)</c>.
+    /// </summary>
+    public static string Hex(byte[] value)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns a SQL-quoted string literal representation of <paramref name="value" />, suitable
+    /// for inclusion in a SQL statement. Translates to SQLite's <c>quote(value)</c>.
+    /// </summary>
+    public static string Quote<T>(T value)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns a BLOB of <paramref name="length" /> zero bytes. Translates to SQLite's
+    /// <c>zeroblob(length)</c>.
+    /// </summary>
+    public static byte[] Zeroblob(long length)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns the 1-based index of the first occurrence of <paramref name="needle" /> within
+    /// <paramref name="haystack" />, or 0 when not found. Translates to SQLite's
+    /// <c>instr(haystack, needle)</c>.
+    /// </summary>
+    public static int Instr(string haystack, string needle)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns the rowid of the most recent successful INSERT on the connection. Translates to
+    /// SQLite's <c>last_insert_rowid()</c>.
+    /// </summary>
+    public static long LastInsertRowId()
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns the SQLite library version string. Translates to SQLite's <c>sqlite_version()</c>.
+    /// </summary>
+    public static string SqliteVersion()
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns the per-row minimum of the supplied <paramref name="values" />. Translates to
+    /// SQLite's scalar <c>min(v0, v1, ...)</c>. Always pass at least two values.
+    ///
+    /// Be careful: passing a single value will compile fine but produce wrong results. SQLite
+    /// reads <c>min(x)</c> as the aggregate <c>MIN</c>, which silently turns the whole query
+    /// into an aggregate query and returns one row instead of one per input row. Use LINQ's
+    /// <c>Queryable.Min</c> for the aggregate form.
+    /// </summary>
+    public static T Min<T>(params T[] values)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns the per-row maximum of the supplied <paramref name="values" />. Translates to
+    /// SQLite's scalar <c>max(v0, v1, ...)</c>. Always pass at least two values.
+    ///
+    /// Be careful: passing a single value will compile fine but produce wrong results. SQLite
+    /// reads <c>max(x)</c> as the aggregate <c>MAX</c>, which silently turns the whole query
+    /// into an aggregate query and returns one row instead of one per input row. Use LINQ's
+    /// <c>Queryable.Max</c> for the aggregate form.
+    /// </summary>
+    public static T Max<T>(params T[] values)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
     /// Returns the number of database rows that the most recent SQL statement changed. Translates
     /// to SQLite's <c>changes()</c>.
     /// </summary>
