@@ -95,6 +95,10 @@ transaction.Commit();
 
 The connection is lazy and opens once. Creating a new `SQLiteDatabase` for every operation is wasteful. Create it once and keep it alive for the lifetime of your app or service.
 
+**Use the source generator on hot read paths**
+
+For `Select` projections and entity reads, the source generator emits typed reader code that skips the runtime expression-tree walk and the per-cell boxing the reflection path does. On a small list query (a `Where` plus `ToList` returning ~50 rows) it is up to **24% faster** and uses up to **37% less allocated memory** than the runtime path. See [Source Generator](Source%20Generator) for the full numbers and how to enable it.
+
 **Use WITHOUT ROWID for lookup tables**
 
 If a table is mostly looked up by primary key and rarely scanned in order, `[WithoutRowId]` can reduce the number of B-tree lookups. See [Defining Models](Defining%20Models) for usage.

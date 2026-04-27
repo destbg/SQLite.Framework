@@ -3031,4 +3031,134 @@ public class CoverageGapTests
         Assert.Single(results);
         Assert.Equal(1, results[0].Id);
     }
+
+    [Fact]
+    public void Count_AfterMultiColumnAnonymousProjection_ReturnsRowCount()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
+        db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 1, Price = 3 });
+
+        int count = db.Table<Book>()
+            .Select(b => new { b.Id, b.Title })
+            .Count();
+
+        Assert.Equal(3, count);
+    }
+
+    [Fact]
+    public void LongCount_AfterMultiColumnAnonymousProjection_ReturnsRowCount()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
+
+        long count = db.Table<Book>()
+            .Select(b => new { b.Id, b.Title })
+            .LongCount();
+
+        Assert.Equal(2L, count);
+    }
+
+    [Fact]
+    public void Select_NestedMemberInitWithListBinding_PreservesNestedAndPopulatesList()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 7, Title = "T", AuthorId = 1, Price = 1 });
+
+        WrapperWithInnerAndTags result = db.Table<Book>()
+            .Select(b => new WrapperWithInnerAndTags
+            {
+                Inner = new InnerHolder { X = b.Id },
+                Tags =
+                {
+                    "alpha",
+                    "beta"
+                }
+            })
+            .First();
+
+        Assert.NotNull(result.Inner);
+        Assert.Equal(7, result.Inner.X);
+        Assert.Equal(["alpha", "beta"], result.Tags);
+    }
+
+    [Fact]
+    public void Sum_AfterCastWithoutSelect_ThrowsNotSupported()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(
+            () => db.Table<Book>().Cast<int>().Sum());
+
+        Assert.Contains("Sum requires a single scalar column", ex.Message);
+        Assert.Contains(".Sum(x => x.Column)", ex.Message);
+        Assert.Contains(".Select(x => x.Column).Sum()", ex.Message);
+    }
+
+    [Fact]
+    public void Max_AfterCastWithoutSelect_ThrowsNotSupported()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(
+            () => db.Table<Book>().Cast<int>().Max());
+
+        Assert.Contains("Max requires a single scalar column", ex.Message);
+    }
+
+    [Fact]
+    public void Select_DoubleNestedMemberInitWithListBinding_PreservesDeepStructure()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 4, Title = "T", AuthorId = 9, Price = 2 });
+
+        DeepWrapperWithTags result = db.Table<Book>()
+            .Select(b => new DeepWrapperWithTags
+            {
+                Outer = new OuterHolder
+                {
+                    Inner = new InnerHolder { X = b.AuthorId }
+                },
+                Tags =
+                {
+                    "x"
+                }
+            })
+            .First();
+
+        Assert.Equal(9, result.Outer.Inner.X);
+        Assert.Equal(["x"], result.Tags);
+    }
+
+    private class WrapperWithInnerAndTags
+    {
+        public InnerHolder Inner { get; set; } = new();
+        public List<string> Tags { get; } = [];
+    }
+
+    private class InnerHolder
+    {
+        public int X { get; set; }
+    }
+
+    private class DeepWrapperWithTags
+    {
+        public OuterHolder Outer { get; set; } = new();
+        public List<string> Tags { get; } = [];
+    }
+
+    private class OuterHolder
+    {
+        public InnerHolder Inner { get; set; } = new();
+    }
 }

@@ -127,22 +127,33 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
 
     private void BuildPrivateHelperMethod(string helperName, BaseObjectCreationExpressionSyntax node)
     {
-        StringBuilder hb = ctx.HelperMethods;
-        hb.Append("        private static object ").Append(helperName).Append("(SQLite.Framework.Models.SQLiteQueryContext ctx");
+        StringBuilder localHb = new();
+        localHb.Append("        private static object ").Append(helperName).Append("(SQLite.Framework.Models.SQLiteQueryContext ctx");
         foreach (LeafInfo leaf in ctx.Leaves)
         {
-            hb.Append(", ").Append(SelectMaterializerEmitter.FormatType(leaf.Type, ctx.WriterCtx.TypeArgSubstitutions)).Append(' ').Append(leaf.VarName);
+            localHb.Append(", ").Append(SelectMaterializerEmitter.FormatType(leaf.Type, ctx.WriterCtx.TypeArgSubstitutions)).Append(' ').Append(leaf.VarName);
         }
-        hb.AppendLine(")");
-        hb.AppendLine("        {");
+        localHb.AppendLine(")");
+        localHb.AppendLine("        {");
 
         int typeSlot = ctx.TypeSlotCounter++;
-        int memberSlotCounter = ctx.MemberSlotCounter;
 
-        hb.Append("            object __inst = global::System.Activator.CreateInstance(ctx.ReflectedTypes![")
+        localHb.Append("            object __inst = global::System.Activator.CreateInstance(ctx.ReflectedTypes![")
             .Append(typeSlot).AppendLine("])!;");
 
         InitializerExpressionSyntax initializer = node.Initializer!;
+
+        int slotCursor = ctx.MemberSlotCounter;
+        int bindingCount = 0;
+        foreach (ExpressionSyntax e in initializer.Expressions)
+        {
+            if (e is AssignmentExpressionSyntax)
+            {
+                bindingCount++;
+            }
+        }
+        ctx.MemberSlotCounter = slotCursor + bindingCount;
+
         int listVarCounter = 0;
         foreach (ExpressionSyntax expr in initializer.Expressions)
         {
@@ -152,13 +163,13 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
                 return;
             }
 
-            int memberSlot = memberSlotCounter++;
+            int memberSlot = slotCursor++;
 
             if (assign.Right is InitializerExpressionSyntax rhsInit
                 && rhsInit.Kind() == SyntaxKind.CollectionInitializerExpression)
             {
                 string listVar = "__list_" + listVarCounter++;
-                hb.Append("            global::System.Collections.IList ").Append(listVar)
+                localHb.Append("            global::System.Collections.IList ").Append(listVar)
                     .Append(" = (global::System.Collections.IList)((global::System.Reflection.PropertyInfo)ctx.ReflectedMembers![")
                     .Append(memberSlot).AppendLine("]).GetValue(__inst)!;");
                 foreach (ExpressionSyntax elem in rhsInit.Expressions)
@@ -169,7 +180,7 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
                         Failed = true;
                         return;
                     }
-                    hb.Append("            ").Append(listVar).Append(".Add(")
+                    localHb.Append("            ").Append(listVar).Append(".Add(")
                         .Append(rewrittenExprElem.NormalizeWhitespace(indentation: "", eol: " ").ToFullString())
                         .AppendLine(");");
                 }
@@ -190,18 +201,18 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
                 return;
             }
 
-            hb.Append("            ((global::System.Reflection.PropertyInfo)ctx.ReflectedMembers![")
+            localHb.Append("            ((global::System.Reflection.PropertyInfo)ctx.ReflectedMembers![")
                 .Append(memberSlot)
                 .Append("]).SetValue(__inst, ")
                 .Append(rewrittenExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString())
                 .AppendLine(");");
         }
 
-        ctx.MemberSlotCounter = memberSlotCounter;
+        localHb.AppendLine("            return __inst;");
+        localHb.AppendLine("        }");
+        localHb.AppendLine();
 
-        hb.AppendLine("            return __inst;");
-        hb.AppendLine("        }");
-        hb.AppendLine();
+        ctx.HelperMethods.Append(localHb);
     }
 
     private bool IsCollectionInitConstant(BaseObjectCreationExpressionSyntax node)

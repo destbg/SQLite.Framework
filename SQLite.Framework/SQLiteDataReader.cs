@@ -91,4 +91,44 @@ public class SQLiteDataReader : IDisposable
     {
         return CommandHelpers.ReadColumnValue(Statement, index, columnType, type, Options);
     }
+
+    /// <summary>
+    /// Returns true when the column at <paramref name="index" /> is SQL NULL.
+    /// </summary>
+    public bool IsDBNull(int index)
+    {
+        return raw.sqlite3_column_type(Statement, index) == raw.SQLITE_NULL;
+    }
+
+    /// <summary>
+    /// Reads a 32-bit signed integer column directly. NULL columns return 0.
+    /// </summary>
+    public int GetInt32(int index)
+    {
+        return raw.sqlite3_column_int(Statement, index);
+    }
+
+    /// <summary>
+    /// Reads a 64-bit signed integer column directly. NULL columns return 0.
+    /// </summary>
+    public long GetInt64(int index)
+    {
+        return raw.sqlite3_column_int64(Statement, index);
+    }
+
+    /// <summary>
+    /// Reads a double-precision floating-point column directly. NULL columns return 0.0.
+    /// </summary>
+    public double GetDouble(int index)
+    {
+        return raw.sqlite3_column_double(Statement, index);
+    }
+
+    /// <summary>
+    /// Reads a boolean column stored as INTEGER. Any non-zero value reads as <see langword="true" />.
+    /// </summary>
+    public bool GetBoolean(int index)
+    {
+        return raw.sqlite3_column_int(Statement, index) != 0;
+    }
 }

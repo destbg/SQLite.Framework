@@ -162,34 +162,7 @@ internal class QueryableMethodVisitor
 
             if (lambda.Body is MemberInitExpression mieBody && mieBody.Bindings.OfType<MemberListBinding>().Any())
             {
-                List<MemberBinding> allBindings = [];
-
-                foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
-                {
-                    if (string.IsNullOrEmpty(tableColumn.Key))
-                    {
-                        continue;
-                    }
-
-                    SQLExpression originalSql = (SQLExpression)tableColumn.Value;
-                    PropertyInfo? prop = mieBody.Type.GetProperty(tableColumn.Key);
-
-                    if (prop == null)
-                    {
-                        continue;
-                    }
-
-                    SQLExpression compilerExpr = new(prop.PropertyType, 0, originalSql.Sql)
-                    {
-                        IdentifierText = tableColumn.Key
-                    };
-                    allBindings.Add(Expression.Bind(prop, compilerExpr));
-                }
-
-                foreach (MemberListBinding lb in mieBody.Bindings.OfType<MemberListBinding>())
-                {
-                    allBindings.Add(lb);
-                }
+                List<MemberBinding> allBindings = RebuildBindingsForListInit(mieBody, prefix: null);
 
                 visitor.IsInSelectProjection = false;
                 return Expression.MemberInit(mieBody.NewExpression, allBindings);
@@ -491,11 +464,10 @@ internal class QueryableMethodVisitor
         }
         else
         {
-            select = new SQLExpression(
-                node.Arguments[0].Type,
-                visitor.IdentifierIndex.Index++,
-                $"{function}(*)"
-            );
+            string methodName = node.Method.Name;
+            throw new NotSupportedException(
+                $"{methodName} requires a single scalar column. Use a selector ('.{methodName}(x => x.Column)') " +
+                $"or project to one column first ('.Select(x => x.Column).{methodName}()').");
         }
 
         Selects.Clear();
@@ -859,6 +831,40 @@ internal class QueryableMethodVisitor
         }
 
         return (newTableColumns, entityType, sql);
+    }
+
+    private List<MemberBinding> RebuildBindingsForListInit(MemberInitExpression mie, string? prefix)
+    {
+        List<MemberBinding> rebuilt = [];
+
+        foreach (MemberBinding binding in mie.Bindings)
+        {
+            if (binding is MemberAssignment ma)
+            {
+                string key = prefix is null ? ma.Member.Name : $"{prefix}.{ma.Member.Name}";
+
+                if (ma.Expression is MemberInitExpression nestedMie)
+                {
+                    List<MemberBinding> nested = RebuildBindingsForListInit(nestedMie, key);
+                    rebuilt.Add(Expression.Bind(ma.Member, Expression.MemberInit(nestedMie.NewExpression, nested)));
+                }
+                else if (visitor.TableColumns.TryGetValue(key, out Expression? colExpr) && colExpr is SQLExpression sqlExpr)
+                {
+                    Type memberType = ma.Member is PropertyInfo pi ? pi.PropertyType : ((FieldInfo)ma.Member).FieldType;
+                    SQLExpression compilerExpr = new(memberType, 0, sqlExpr.Sql)
+                    {
+                        IdentifierText = key
+                    };
+                    rebuilt.Add(Expression.Bind(ma.Member, compilerExpr));
+                }
+            }
+            else if (binding is MemberListBinding lb)
+            {
+                rebuilt.Add(lb);
+            }
+        }
+
+        return rebuilt;
     }
 
     private static Expression? TryFlattenChainedSelectBody(LambdaExpression outer, LambdaExpression inner)

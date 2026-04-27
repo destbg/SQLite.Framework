@@ -117,9 +117,27 @@ internal static class SelectMaterializerEmitter
 
             if (leaf.IsNullable || leaf.IsReflected)
             {
-                sb.Append("            object? ").Append(leaf.VarName).Append(" = reader.GetValue(").Append(i)
-                    .Append(", reader.GetColumnType(").Append(i).Append("), ")
-                    .Append(typeOfText).AppendLine(");");
+                if (TryGetFastPathAccessor(leaf.Type, out string? nAccessor, out string? nCast))
+                {
+                    string castOpen = nCast is null ? "" : "(" + nCast + ")";
+                    sb.Append("            object? ").Append(leaf.VarName)
+                        .Append(" = reader.IsDBNull(").Append(i).Append(") ? null : (object)")
+                        .Append(castOpen).Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
+                }
+                else
+                {
+                    sb.Append("            object? ").Append(leaf.VarName).Append(" = reader.GetValue(").Append(i)
+                        .Append(", reader.GetColumnType(").Append(i).Append("), ")
+                        .Append(typeOfText).AppendLine(");");
+                }
+            }
+            else if (TryGetFastPathAccessor(leaf.Type, out string? accessor, out string? cast))
+            {
+                string typeText = FormatType(leaf.Type, writerCtx.TypeArgSubstitutions);
+                string castOpen = cast is null ? "" : "(" + cast + ")";
+                sb.Append("            ")
+                    .Append(typeText).Append(' ').Append(leaf.VarName).Append(" = ")
+                    .Append(castOpen).Append("reader.").Append(accessor).Append("(").Append(i).AppendLine(");");
             }
             else
             {
@@ -519,5 +537,61 @@ internal static class SelectMaterializerEmitter
         }
 
         return type;
+    }
+
+    internal static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out string? cast)
+    {
+        ITypeSymbol stripped = StripNullableSymbol(type);
+        switch (stripped.SpecialType)
+        {
+            case SpecialType.System_Int32:
+                accessor = "GetInt32";
+                cast = null;
+                return true;
+            case SpecialType.System_Int64:
+                accessor = "GetInt64";
+                cast = null;
+                return true;
+            case SpecialType.System_Int16:
+                accessor = "GetInt32";
+                cast = "short";
+                return true;
+            case SpecialType.System_Byte:
+                accessor = "GetInt32";
+                cast = "byte";
+                return true;
+            case SpecialType.System_SByte:
+                accessor = "GetInt32";
+                cast = "sbyte";
+                return true;
+            case SpecialType.System_UInt16:
+                accessor = "GetInt32";
+                cast = "ushort";
+                return true;
+            case SpecialType.System_UInt32:
+                accessor = "GetInt32";
+                cast = "uint";
+                return true;
+            case SpecialType.System_UInt64:
+                accessor = "GetInt64";
+                cast = "ulong";
+                return true;
+            case SpecialType.System_Double:
+                accessor = "GetDouble";
+                cast = null;
+                return true;
+            case SpecialType.System_Single:
+                accessor = "GetDouble";
+                cast = "float";
+                return true;
+            case SpecialType.System_Boolean:
+                accessor = "GetBoolean";
+                cast = null;
+                return true;
+            default:
+                accessor = null;
+                cast = null;
+                return false;
+        }
     }
 }

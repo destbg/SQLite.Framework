@@ -465,6 +465,28 @@ internal static class EntityMaterializerEmitter
         sb.AppendLine(";");
         sb.Append(indent).Append("if (columns.TryGetValue(\"").Append(safeColumn).Append("\", out int ").Append(idxLocal).AppendLine("))");
         sb.Append(indent).AppendLine("{");
+
+        bool isNullable = propType.NullableAnnotation == NullableAnnotation.Annotated || propType.IsReferenceType
+            || (propType is INamedTypeSymbol nt && nt.IsGenericType && nt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T);
+
+        if (!isEnum && SelectMaterializerEmitter.TryGetFastPathAccessor(propType, out string? accessor, out string? cast))
+        {
+            string castOpen = cast is null ? "" : "(" + cast + ")";
+            if (isNullable)
+            {
+                sb.Append(indent).Append("    if (!reader.IsDBNull(").Append(idxLocal).AppendLine("))");
+                sb.Append(indent).AppendLine("    {");
+                sb.Append(indent).Append("        ").Append(valueLocal).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(").Append(idxLocal).AppendLine(");");
+                sb.Append(indent).AppendLine("    }");
+            }
+            else
+            {
+                sb.Append(indent).Append("    ").Append(valueLocal).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(").Append(idxLocal).AppendLine(");");
+            }
+            sb.Append(indent).AppendLine("}");
+            return;
+        }
+
         sb.Append(indent).Append("    object? __raw_").Append(localSuffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
         if (isEnum)
         {
@@ -617,18 +639,41 @@ internal static class EntityMaterializerEmitter
             string strippedDisplay = StripNullableSymbol(prop.Type).ToDisplayString();
 
             sb.Append("            ").Append(propTypeDisplay).Append(" value_").Append(propName).Append(" = default");
-            if (prop.Type.NullableAnnotation == NullableAnnotation.Annotated || prop.Type.IsReferenceType)
+            bool isAnnotatedOrRef = prop.Type.NullableAnnotation == NullableAnnotation.Annotated || prop.Type.IsReferenceType;
+            if (isAnnotatedOrRef)
             {
                 sb.Append("!");
             }
             sb.AppendLine(";");
             sb.Append("            if (columns.TryGetValue(\"").Append(propName).AppendLine("\", out int idx_" + propName + "))");
             sb.AppendLine("            {");
-            sb.Append("                object? raw_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
-            sb.Append("                if (raw_").Append(propName).AppendLine(" != null)");
-            sb.AppendLine("                {");
-            sb.Append("                    value_").Append(propName).Append(" = (").Append(propTypeDisplay).Append(")raw_").Append(propName).AppendLine("!;");
-            sb.AppendLine("                }");
+
+            bool propIsNullable = isAnnotatedOrRef
+                || (prop.Type is INamedTypeSymbol propNt && propNt.IsGenericType && propNt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T);
+
+            if (SelectMaterializerEmitter.TryGetFastPathAccessor(prop.Type, out string? accessor, out string? cast))
+            {
+                string castOpen = cast is null ? "" : "(" + cast + ")";
+                if (propIsNullable)
+                {
+                    sb.Append("                if (!reader.IsDBNull(idx_").Append(propName).AppendLine("))");
+                    sb.AppendLine("                {");
+                    sb.Append("                    value_").Append(propName).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
+                    sb.AppendLine("                }");
+                }
+                else
+                {
+                    sb.Append("                value_").Append(propName).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
+                }
+            }
+            else
+            {
+                sb.Append("                object? raw_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
+                sb.Append("                if (raw_").Append(propName).AppendLine(" != null)");
+                sb.AppendLine("                {");
+                sb.Append("                    value_").Append(propName).Append(" = (").Append(propTypeDisplay).Append(")raw_").Append(propName).AppendLine("!;");
+                sb.AppendLine("                }");
+            }
             sb.AppendLine("            }");
         }
 
