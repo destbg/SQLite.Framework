@@ -755,8 +755,8 @@ public class MethodVisitorCoverageTests
         SQLiteCommand cmd = (
             from book in db.Table<Article>()
             join s in db.Table<ArticleSearch>() on book.Id equals s.Id
-            where SQLiteFunctions.Match(s, "native")
-            orderby SQLiteFunctions.Rank(s)
+            where SQLiteFTS5Functions.Match(s, "native")
+            orderby SQLiteFTS5Functions.Rank(s)
             select book
         ).ToSqlCommand();
 
@@ -772,7 +772,7 @@ public class MethodVisitorCoverageTests
 
         string term = "native";
         SQLiteCommand cmd = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFunctions.Match(a.Title, f => f.Term(term)))
+            .Where(a => SQLiteFTS5Functions.Match(a.Title, f => f.Term(term)))
             .ToSqlCommand();
 
         Assert.Contains(cmd.Parameters, p => string.Equals(p.Value as string, "{Title} : (native)"));
@@ -786,7 +786,7 @@ public class MethodVisitorCoverageTests
         db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand cmd = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFunctions.Match(a.Title, f => f.Term(a.Body)))
+            .Where(a => SQLiteFTS5Functions.Match(a.Title, f => f.Term(a.Body)))
             .ToSqlCommand();
 
         List<string> parameterValues = cmd.Parameters.Select(p => p.Value?.ToString() ?? string.Empty).ToList();
@@ -807,8 +807,8 @@ public class MethodVisitorCoverageTests
                 book => book.Id,
                 s => s.Id,
                 (book, s) => new { Book = book, Search = s })
-            .Where(t => SQLiteFunctions.Match(t.Search, "native"))
-            .OrderBy(t => SQLiteFunctions.Rank(t.Search))
+            .Where(t => SQLiteFTS5Functions.Match(t.Search, "native"))
+            .OrderBy(t => SQLiteFTS5Functions.Rank(t.Search))
             .ToSqlCommand();
 
         Assert.NotNull(cmd);

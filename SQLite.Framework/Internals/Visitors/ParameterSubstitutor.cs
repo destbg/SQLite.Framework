@@ -1,5 +1,3 @@
-using System.Linq.Expressions;
-
 namespace SQLite.Framework.Internals.Visitors;
 
 internal sealed class ParameterSubstitutor : ExpressionVisitor

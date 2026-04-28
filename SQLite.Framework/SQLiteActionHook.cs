@@ -1,5 +1,3 @@
-using SQLite.Framework.Enums;
-
 namespace SQLite.Framework;
 
 /// <summary>

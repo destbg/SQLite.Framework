@@ -1,6 +1,3 @@
-using System.Runtime.CompilerServices;
-using SQLitePCL;
-
 namespace SQLite.Framework;
 
 /// <summary>

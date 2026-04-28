@@ -1,12 +1,14 @@
-using SQLite.Framework.Enums;
-
 namespace SQLite.Framework.Attributes;
 
 /// <summary>
 /// Marks a class as an FTS5 virtual table. The class becomes searchable through
-/// <c>db.Table&lt;T&gt;()</c> and supports <c>SQLiteFunctions.Match</c>, <c>Rank</c>,
+/// <c>db.Table&lt;T&gt;()</c> and supports <c>SQLiteFTS5Functions.Match</c>, <c>Rank</c>,
 /// <c>Snippet</c>, and <c>Highlight</c>.
 /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+[SupportedOSPlatform("android24.0")]
+[SupportedOSPlatform("ios10.0")]
+#endif
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
 public sealed class FullTextSearchAttribute : Attribute
 {

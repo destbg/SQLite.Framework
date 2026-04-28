@@ -38,8 +38,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\SQLite.Framework\SQLite.Framework.csproj"/>
-        <ProjectReference Include="..\..\SQLite.Framework.JsonB\SQLite.Framework.JsonB.csproj"/>
-        <ProjectReference Include="..\..\SQLite.Framework.Window\SQLite.Framework.Window.csproj"/>
         <ProjectReference Include="..\..\SQLite.Framework.SourceGenerator\SQLite.Framework.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
     </ItemGroup>
 

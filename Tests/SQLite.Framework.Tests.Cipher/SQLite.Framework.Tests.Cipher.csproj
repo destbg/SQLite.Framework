@@ -32,12 +32,10 @@
 
     <ItemGroup>
         <Compile Include="../SQLite.Framework.Tests/**/*.cs" Exclude="../SQLite.Framework.Tests/obj/**/*.cs"/>
-        <Compile Include="../../SQLite.Framework.JsonB/**/*.cs" Exclude="../../SQLite.Framework.JsonB/obj/**/*.cs"/>
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\..\SQLite.Framework.Cipher\SQLite.Framework.Cipher.csproj"/>
-        <ProjectReference Include="..\..\SQLite.Framework.Window\SQLite.Framework.Window.csproj"/>
     </ItemGroup>
 
 </Project>

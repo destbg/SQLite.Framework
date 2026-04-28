@@ -1,9 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Linq.Expressions;
-using System.Reflection;
-using SQLite.Framework.Enums;
-using SQLite.Framework.Models;
-
 namespace SQLite.Framework;
 
 /// <summary>
@@ -126,11 +120,6 @@ public sealed class SQLiteOptionsBuilder
     /// Translates property access on custom types into SQL fragments.
     /// </summary>
     public List<SQLitePropertyTranslator> PropertyTranslators { get; } = [];
-
-    /// <summary>
-    /// Interceptors that can handle method calls before the default dispatch logic.
-    /// </summary>
-    public List<Func<MethodCallExpression, ISQLExpressionVisitor, Expression?>> MethodCallInterceptors { get; } = [];
 
     /// <summary>
     /// Generated entity materializers, keyed by the entity's CLR type.
@@ -406,15 +395,6 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
-    /// Appends a method call interceptor.
-    /// </summary>
-    public SQLiteOptionsBuilder AddMethodCallInterceptor(Func<MethodCallExpression, ISQLExpressionVisitor, Expression?> interceptor)
-    {
-        MethodCallInterceptors.Add(interceptor);
-        return this;
-    }
-
-    /// <summary>
     /// Registers an action that runs before every <c>Add</c> for <typeparamref name="T" />.
     /// The action can mutate the entity. The default INSERT always runs after.
     /// </summary>
@@ -567,7 +547,6 @@ public sealed class SQLiteOptionsBuilder
             MethodTranslators = new Dictionary<MethodInfo, SQLiteMethodTranslator>(MethodTranslators),
             PredicateMethodTranslators = new Dictionary<MethodInfo, SQLitePredicateMethodTranslator>(PredicateMethodTranslators),
             PropertyTranslators = [.. PropertyTranslators],
-            MethodCallInterceptors = [.. MethodCallInterceptors],
             EntityMaterializers = new Dictionary<Type, Func<SQLiteQueryContext, object?>>(EntityMaterializers),
             SelectMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(SelectMaterializers),
             GroupByKeyMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(GroupByKeyMaterializers),

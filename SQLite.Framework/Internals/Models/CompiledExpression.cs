@@ -1,7 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Linq.Expressions;
-using SQLite.Framework.Models;
-
 namespace SQLite.Framework.Internals.Models;
 
 /// <summary>

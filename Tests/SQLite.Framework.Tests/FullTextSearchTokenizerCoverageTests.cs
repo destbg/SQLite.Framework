@@ -119,7 +119,7 @@ public class FullTextSearchTokenizerCoverageTests
         db.CreateCommand("INSERT INTO Porter_Default_Search(rowid, Body) VALUES (1, 'running')", []).ExecuteNonQuery();
 
         long hits = db.Table<Porter_Default_Search>()
-            .LongCount(c => SQLiteFunctions.Match(c, f => f.Term("run")));
+            .LongCount(c => SQLiteFTS5Functions.Match(c, f => f.Term("run")));
 
         Assert.Equal(1, hits);
     }
@@ -201,6 +201,7 @@ public class FullTextSearchTokenizerCoverageTests
             ReadSchema(db, "Custom_BacktickArg_Search"));
     }
 
+#if !SQLITECIPHER
     [Fact]
     public void Validation_TwoTokenizerAttributes_Throws()
     {
@@ -211,6 +212,7 @@ public class FullTextSearchTokenizerCoverageTests
 
         Assert.Contains("more than one tokenizer attribute", ex.Message);
     }
+#endif
 
     [Fact]
     public void Validation_ExternalWithoutContentTable_Throws()

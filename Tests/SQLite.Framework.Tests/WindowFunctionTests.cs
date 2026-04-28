@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
-using SQLite.Framework.Window;
 
 namespace SQLite.Framework.Tests;
 
@@ -116,7 +115,7 @@ public class WindowFunctionTests
                 RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
                     .Over()
                     .OrderBy(o.Id)
-                    .Rows(FrameBoundary.UnboundedPreceding(), FrameBoundary.CurrentRow())
+                    .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow())
             })
             .ToSqlCommand();
 
@@ -305,7 +304,7 @@ public class WindowFunctionTests
                 RowNum = SQLiteWindowFunctions.RowNumber()
                     .Over()
                     .OrderBy(o.Id)
-                    .Rows(FrameBoundary.UnboundedPreceding(), FrameBoundary.CurrentRow())
+                    .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow())
             })
             .OrderBy(r => r.Id)
             .ToList();
@@ -315,11 +314,116 @@ public class WindowFunctionTests
         Assert.Equal(5L, results[4].RowNum);
     }
 
+    [Fact]
+    public void Avg_Min_Max_Count_AllProduceCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new
+            {
+                o.Id,
+                Avg = SQLiteWindowFunctions.Avg(o.Amount).Over().PartitionBy(o.CustomerId),
+                Min = SQLiteWindowFunctions.Min(o.Amount).Over().PartitionBy(o.CustomerId),
+                Max = SQLiteWindowFunctions.Max(o.Amount).Over().PartitionBy(o.CustomerId),
+                CntAll = SQLiteWindowFunctions.Count().Over(),
+                CntCol = SQLiteWindowFunctions.Count(o.Amount).Over(),
+            })
+            .ToSqlCommand();
+
+        Assert.Contains("AVG(w0.Amount) OVER ( PARTITION BY w0.CustomerId)", command.CommandText);
+        Assert.Contains("MIN(w0.Amount) OVER ( PARTITION BY w0.CustomerId)", command.CommandText);
+        Assert.Contains("MAX(w0.Amount) OVER ( PARTITION BY w0.CustomerId)", command.CommandText);
+        Assert.Contains("COUNT(*) OVER ()", command.CommandText);
+        Assert.Contains("COUNT(w0.Amount) OVER ()", command.CommandText);
+    }
+
+    [Fact]
+    public void Ranking_PercentRank_CumeDist_NTile_DenseRank_ProduceCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new
+            {
+                o.Id,
+                Pr = SQLiteWindowFunctions.PercentRank().Over().OrderBy(o.Amount),
+                Cd = SQLiteWindowFunctions.CumeDist().Over().OrderBy(o.Amount),
+                Nt = SQLiteWindowFunctions.NTile(4).Over().OrderBy(o.Amount),
+                Dr = SQLiteWindowFunctions.DenseRank().Over().OrderBy(o.Amount),
+            })
+            .ToSqlCommand();
+
+        Assert.Contains("PERCENT_RANK() OVER ( ORDER BY w0.Amount ASC)", command.CommandText);
+        Assert.Contains("CUME_DIST() OVER ( ORDER BY w0.Amount ASC)", command.CommandText);
+        Assert.Contains("NTILE(@p", command.CommandText);
+        Assert.Contains("DENSE_RANK() OVER ( ORDER BY w0.Amount ASC)", command.CommandText);
+    }
+
+    [Fact]
+    public void Lead_AllOverloads_FirstValue_LastValue_NthValue_ProduceCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new
+            {
+                o.Id,
+                Lead1 = SQLiteWindowFunctions.Lead(o.Amount).Over().OrderBy(o.Id),
+                Lead2 = SQLiteWindowFunctions.Lead(o.Amount, 1L).Over().OrderBy(o.Id),
+                Lead3 = SQLiteWindowFunctions.Lead(o.Amount, 1L, 0.0).Over().OrderBy(o.Id),
+                Fv = SQLiteWindowFunctions.FirstValue(o.Amount).Over().OrderBy(o.Id),
+                Lv = SQLiteWindowFunctions.LastValue(o.Amount).Over().OrderBy(o.Id),
+                Nv = SQLiteWindowFunctions.NthValue(o.Amount, 2L).Over().OrderBy(o.Id),
+            })
+            .ToSqlCommand();
+
+        Assert.Contains("LEAD(w0.Amount) OVER ", command.CommandText);
+        Assert.Contains("LEAD(w0.Amount, @", command.CommandText);
+        Assert.Contains("FIRST_VALUE(w0.Amount) OVER ", command.CommandText);
+        Assert.Contains("LAST_VALUE(w0.Amount) OVER ", command.CommandText);
+        Assert.Contains("NTH_VALUE(w0.Amount, @", command.CommandText);
+    }
+
+    [Fact]
+    public void Frame_Range_Groups_ThenOrderBy_ThenPartitionBy_ProduceCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new
+            {
+                o.Id,
+                R = SQLiteWindowFunctions.Sum(o.Amount).Over()
+                    .PartitionBy(o.CustomerId)
+                    .ThenPartitionBy(o.Date)
+                    .OrderBy(o.Id)
+                    .ThenOrderBy(o.Date)
+                    .ThenOrderByDescending(o.Amount)
+                    .Range(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow()),
+                G = SQLiteWindowFunctions.Sum(o.Amount).Over()
+                    .OrderBy(o.Id)
+                    .Groups(SQLiteFrameBoundary.Preceding(2), SQLiteFrameBoundary.Following(1)),
+                Rw = SQLiteWindowFunctions.Sum(o.Amount).Over()
+                    .OrderByDescending(o.Id)
+                    .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.UnboundedFollowing()),
+            })
+            .ToSqlCommand();
+
+        Assert.Contains("PARTITION BY w0.CustomerId, w0.Date", command.CommandText);
+        Assert.Contains("ORDER BY w0.Id ASC, w0.Date ASC, w0.Amount DESC", command.CommandText);
+        Assert.Contains("RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW", command.CommandText);
+        Assert.Contains("GROUPS BETWEEN @p", command.CommandText);
+        Assert.Contains("PRECEDING AND @p", command.CommandText);
+        Assert.Contains("FOLLOWING", command.CommandText);
+        Assert.Contains("ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING", command.CommandText);
+        Assert.Contains("ORDER BY w0.Id DESC", command.CommandText);
+    }
+
     private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(b =>
         {
-            b.AddWindow();
             configure?.Invoke(b);
         }, methodName);
         db.Schema.CreateTable<Order>();

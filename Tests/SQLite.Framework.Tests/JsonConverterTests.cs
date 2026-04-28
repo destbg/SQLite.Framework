@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
-using SQLite.Framework.JsonB;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -345,6 +344,7 @@ public class JsonConverterTests
         return db;
     }
 
+#if !SQLITECIPHER
     private static TestDatabase SetupJsonbDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(b =>
@@ -369,6 +369,7 @@ public class JsonConverterTests
         db.Schema.CreateTable<TaggedEntity>();
         return db;
     }
+#endif
 }
 
 public class Address

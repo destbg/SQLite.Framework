@@ -1,11 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Reflection;
 using System.Text;
-using SQLite.Framework.Attributes;
-using SQLite.Framework.Enums;
-using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Helpers;
 
@@ -81,7 +76,11 @@ internal static class FtsMappingReader
     {
         Unicode61TokenizerAttribute? unicode = type.GetCustomAttribute<Unicode61TokenizerAttribute>();
         PorterTokenizerAttribute? porter = type.GetCustomAttribute<PorterTokenizerAttribute>();
+#if SQLITECIPHER
+        object? trigram = null;
+#else
         TrigramTokenizerAttribute? trigram = type.GetCustomAttribute<TrigramTokenizerAttribute>();
+#endif
         AsciiTokenizerAttribute? ascii = type.GetCustomAttribute<AsciiTokenizerAttribute>();
         CustomTokenizerAttribute? custom = type.GetCustomAttribute<CustomTokenizerAttribute>();
 
@@ -97,10 +96,12 @@ internal static class FtsMappingReader
             return Render(custom.Name, custom.Arguments);
         }
 
+#if !SQLITECIPHER
         if (trigram != null)
         {
             return Render("trigram", "case_sensitive", trigram.CaseSensitive ? "1" : "0", "remove_diacritics", trigram.RemoveDiacritics ? "1" : "0");
         }
+#endif
 
         if (ascii != null)
         {

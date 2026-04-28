@@ -1,9 +1,4 @@
 using System.Collections.Concurrent;
-using System.Linq.Expressions;
-using System.Reflection;
-using SQLite.Framework.Enums;
-using SQLite.Framework.Internals.Helpers;
-using SQLite.Framework.Models;
 
 namespace SQLite.Framework;
 
@@ -132,11 +127,6 @@ public sealed class SQLiteOptions
     /// Translates property access on custom types into SQL fragments.
     /// </summary>
     public required IReadOnlyList<SQLitePropertyTranslator> PropertyTranslators { get; init; }
-
-    /// <summary>
-    /// Interceptors that can handle method calls before the default dispatch logic.
-    /// </summary>
-    public required IReadOnlyList<Func<MethodCallExpression, ISQLExpressionVisitor, Expression?>> MethodCallInterceptors { get; init; }
 
     /// <summary>
     /// Generated entity materializers, keyed by the entity's CLR type. Populated by the

@@ -1,7 +1,4 @@
-﻿using SQLite.Framework.Enums;
-using SQLitePCL;
-
-namespace SQLite.Framework.Internals.Helpers;
+﻿namespace SQLite.Framework.Internals.Helpers;
 
 /// <summary>
 /// This class contains helper methods for working with SQLite commands.

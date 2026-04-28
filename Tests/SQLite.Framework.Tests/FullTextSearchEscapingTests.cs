@@ -47,7 +47,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_BareAlphanumeric_EmitsBareAndMatches));
         Seed(db, "title", "native aot apps");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("aot")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("aot")));
 
         Assert.Equal("aot", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -59,7 +59,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_WithDigits_EmitsBareAndMatches));
         Seed(db, "title", "release v9 today");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("v9")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("v9")));
 
         Assert.Equal("v9", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -71,7 +71,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_AllDigits_EmitsBareAndMatches));
         Seed(db, "title", "released in 2024");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("2024")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("2024")));
 
         Assert.Equal("2024", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -83,7 +83,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_WithUnderscore_EmitsBareAndMatches));
         Seed(db, "title", "hello_world stuff");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("hello_world")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("hello_world")));
 
         Assert.Equal("hello_world", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -95,7 +95,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_WithSpace_GetsQuotedAndMatchesPhrase));
         Seed(db, "title", "say hello world today");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("hello world")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("hello world")));
 
         Assert.Equal("\"hello world\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -107,7 +107,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_WithHyphen_GetsQuotedAndMatchesAdjacentTokens));
         Seed(db, "title", "the hello world is here");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("hello-world")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("hello-world")));
 
         Assert.Equal("\"hello-world\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -119,7 +119,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_WithSingleQuote_GetsQuotedAndMatchesAdjacentTokens));
         Seed(db, "title", "saw the foo bar today");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("foo'bar")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("foo'bar")));
 
         Assert.Equal("\"foo'bar\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -131,7 +131,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_WithDoubleQuote_GetsDoubledAndMatchesAdjacentTokens));
         Seed(db, "title", "say hello world here");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("hello\"world")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("hello\"world")));
 
         Assert.Equal("\"hello\"\"world\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -143,7 +143,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_WithBacktick_GetsQuotedAndMatchesAdjacentTokens));
         Seed(db, "title", "the foo bar shows up");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("foo`bar")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("foo`bar")));
 
         Assert.Equal("\"foo`bar\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -155,7 +155,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_MixedQuoteChars_OnlyDoubleQuoteIsDoubledAndMatchesAdjacentTokens));
         Seed(db, "title", "the a b c d ends");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("a\"b'c`d")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("a\"b'c`d")));
 
         Assert.Equal("\"a\"\"b'c`d\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -167,7 +167,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_Empty_GetsQuotedAsEmptyTokenAndMatchesNothing));
         Seed(db, "title", "any content here");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("")));
 
         Assert.Equal("\"\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(0, Run(db, shape));
@@ -179,7 +179,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_UppercaseAnd_GetsQuotedAndMatchesLowercased));
         Seed(db, "title", "X AND Y combined");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("AND")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("AND")));
 
         Assert.Equal("\"AND\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -191,7 +191,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_UppercaseOr_GetsQuotedAndMatchesLowercased));
         Seed(db, "title", "X OR Y picked");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("OR")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("OR")));
 
         Assert.Equal("\"OR\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -203,7 +203,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_UppercaseNot_GetsQuotedAndMatchesLowercased));
         Seed(db, "title", "tea is NOT coffee");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("NOT")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("NOT")));
 
         Assert.Equal("\"NOT\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -215,7 +215,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_UppercaseNear_GetsQuotedAndMatchesLowercased));
         Seed(db, "title", "look NEAR the corner");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("NEAR")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("NEAR")));
 
         Assert.Equal("\"NEAR\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -227,7 +227,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Term_LowercaseKeyword_StaysBareAndMatches));
         Seed(db, "title", "salt and pepper");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("and")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("and")));
 
         Assert.Equal("and", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -239,7 +239,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Phrase_Plain_GetsQuotedAndMatchesAdjacent));
         Seed(db, "title", "shipping native aot today");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Phrase("native aot")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Phrase("native aot")));
 
         Assert.Equal("\"native aot\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -251,7 +251,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Phrase_BareWord_StillGetsQuotedAndMatches));
         Seed(db, "title", "native code generation");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Phrase("native")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Phrase("native")));
 
         Assert.Equal("\"native\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -263,7 +263,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Phrase_WithDoubleQuote_DoublesInnerQuoteAndMatches));
         Seed(db, "title", "she said hi yesterday");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Phrase("said \"hi\"")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Phrase("said \"hi\"")));
 
         Assert.Equal("\"said \"\"hi\"\"\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -275,7 +275,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Phrase_WithSingleQuote_PassesThroughAndMatches));
         Seed(db, "title", "today it s fine actually");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Phrase("it's fine")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Phrase("it's fine")));
 
         Assert.Equal("\"it's fine\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -287,7 +287,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Phrase_WithBacktick_PassesThroughAndMatches));
         Seed(db, "title", "the foo bar example");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Phrase("foo`bar")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Phrase("foo`bar")));
 
         Assert.Equal("\"foo`bar\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -299,7 +299,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Phrase_Empty_GetsEmptyQuotesAndMatchesNothing));
         Seed(db, "title", "any content here");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Phrase("")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Phrase("")));
 
         Assert.Equal("\"\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(0, Run(db, shape));
@@ -311,7 +311,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Prefix_Bare_AppendsStarAndMatches));
         Seed(db, "title", "use native code");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Prefix("nativ")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Prefix("nativ")));
 
         Assert.Equal("nativ*", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -323,7 +323,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Prefix_NeedsQuoting_QuotesAndAppendsStarAndMatches));
         Seed(db, "title", "say hello worldwide today");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Prefix("hello world")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Prefix("hello world")));
 
         Assert.Equal("\"hello world\"*", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -335,7 +335,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Prefix_WithDoubleQuote_DoublesAndQuotesAndAppendsStarAndMatches));
         Seed(db, "title", "say hello worldwide together");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Prefix("hello\"world")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Prefix("hello\"world")));
 
         Assert.Equal("\"hello\"\"world\"*", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -347,7 +347,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Near_PlainTerms_EmitsBareTokensAndMatches));
         Seed(db, "title", "looking ahead in time");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Near(2, "ahead", "time")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Near(2, "ahead", "time")));
 
         Assert.Equal("NEAR(ahead time, 2)", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -359,7 +359,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Near_TermWithSpace_QuotesItAndMatches));
         Seed(db, "title", "today the hello world saw foo nearby");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Near(5, "hello world", "foo")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Near(5, "hello world", "foo")));
 
         Assert.Equal("NEAR(\"hello world\" foo, 5)", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -371,7 +371,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Near_TermWithDoubleQuote_DoublesQuoteAndMatches));
         Seed(db, "title", "the a b extra c here");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Near(3, "a\"b", "c")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Near(3, "a\"b", "c")));
 
         Assert.Equal("NEAR(\"a\"\"b\" c, 3)", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -383,7 +383,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(And_TwoTerms_JoinsWithAndAndMatchesBoth));
         Seed(db, "title", "alpha and beta together");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("alpha") && f.Term("beta")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("alpha") && f.Term("beta")));
 
         Assert.Equal("alpha AND beta", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -395,7 +395,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Or_TwoTerms_JoinsWithOrAndMatchesEither));
         Seed(db, "title", "only alpha appears here");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("alpha") || f.Term("beta")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("alpha") || f.Term("beta")));
 
         Assert.Equal("alpha OR beta", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -407,7 +407,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Not_BinaryViaAndRight_EmitsFts5NotAndMatches));
         Seed(db, "title", "alpha gamma delta words");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("alpha") && !f.Term("beta")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("alpha") && !f.Term("beta")));
 
         Assert.Equal("alpha NOT beta", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -420,7 +420,7 @@ public class FullTextSearchEscapingTests
 
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
             db.Table<ArticleSearch>()
-                .Where(a => SQLiteFunctions.Match(a, f => !f.Term("a")))
+                .Where(a => SQLiteFTS5Functions.Match(a, f => !f.Term("a")))
                 .ToSqlCommand());
 
         Assert.Contains("FTS5 has no unary NOT operator", ex.Message);
@@ -432,7 +432,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Precedence_AndOverOr_DoesNotParenthesizeAndMatches));
         Seed(db, "title", "alpha is here today");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("alpha") || f.Term("beta") && f.Term("gamma")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("alpha") || f.Term("beta") && f.Term("gamma")));
 
         Assert.Equal("alpha OR beta AND gamma", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -444,7 +444,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Precedence_OrInsideAnd_GetsParenthesizedAndMatches));
         Seed(db, "title", "alpha and gamma show up");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Term("alpha") && (f.Term("beta") || f.Term("gamma"))));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("alpha") && (f.Term("beta") || f.Term("gamma"))));
 
         Assert.Equal("alpha AND (beta OR gamma)", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -456,7 +456,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Precedence_OrInsideAndLeft_GetsParenthesizedAndMatches));
         Seed(db, "title", "alpha and gamma show up");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => (f.Term("alpha") || f.Term("beta")) && f.Term("gamma")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => (f.Term("alpha") || f.Term("beta")) && f.Term("gamma")));
 
         Assert.Equal("(alpha OR beta) AND gamma", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -468,7 +468,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Not_BinaryViaAndLeft_ReordersAndEmitsFts5NotAndMatches));
         Seed(db, "title", "gamma and beta only");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => !f.Term("alpha") && f.Term("beta")));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => !f.Term("alpha") && f.Term("beta")));
 
         Assert.Equal("beta NOT alpha", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -480,7 +480,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Column_StaticTerm_EmitsColumnScopeAndMatches));
         Seed(db, "the native talk", "unrelated body content");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Column(a.Title, f.Term("native"))));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Column(a.Title, f.Term("native"))));
 
         Assert.Equal("{Title} : native", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -492,7 +492,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Column_TermWithSpace_QuotesInsideScopeAndMatches));
         Seed(db, "say hello world today", "unrelated body");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Column(a.Title, f.Term("hello world"))));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Column(a.Title, f.Term("hello world"))));
 
         Assert.Equal("{Title} : \"hello world\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -504,7 +504,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Column_OrInsideScope_WrapsWithParensAndMatches));
         Seed(db, "alpha pages", "unrelated body");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Column(a.Title, f.Term("alpha") || f.Term("beta"))));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Column(a.Title, f.Term("alpha") || f.Term("beta"))));
 
         Assert.Equal("{Title} : (alpha OR beta)", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -516,7 +516,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Column_NotOnRightInsideScope_WrapsWithParensAndMatches));
         Seed(db, "alpha gamma pages", "unrelated body");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Column(a.Title, f.Term("alpha") && !f.Term("beta"))));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Column(a.Title, f.Term("alpha") && !f.Term("beta"))));
 
         Assert.Equal("{Title} : (alpha NOT beta)", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -528,7 +528,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Column_NotOnLeftInsideScope_WrapsWithParensAndMatches));
         Seed(db, "alpha gamma pages", "unrelated body");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Column(a.Title, !f.Term("beta") && f.Term("alpha"))));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Column(a.Title, !f.Term("beta") && f.Term("alpha"))));
 
         Assert.Equal("{Title} : (alpha NOT beta)", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -540,7 +540,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(Column_FirstArgWrappedInConvert_StripsConvertAndUsesMemberName));
         Seed(db, "the native talk", "unrelated body");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Column((string)(object)a.Title, f.Term("native"))));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Column((string)(object)a.Title, f.Term("native"))));
 
         Assert.Equal("{Title} : native", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -552,7 +552,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(StringForm_PassesQueryThroughUnchangedAndMatches));
         Seed(db, "title", "shipping native aot ready binaries");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, "native AND \"aot ready\""));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, "native AND \"aot ready\""));
 
         Assert.Equal("native AND \"aot ready\"", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -564,7 +564,7 @@ public class FullTextSearchEscapingTests
         using TestDatabase db = OpenDb(nameof(StringForm_ColumnScoped_WrapsInColumnPrefixAndMatches));
         Seed(db, "the native talk", "unrelated body");
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a.Title, "native"));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a.Title, "native"));
 
         Assert.Equal("{Title} : native", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -579,23 +579,23 @@ public class FullTextSearchEscapingTests
         SQLiteCommand cmd = (
             from s in db.Table<ArticleSearch>()
             join a in db.Table<Article>() on s.Id equals a.Id
-            where SQLiteFunctions.Match(s, f => f.Term("native") && f.Term(a.Title))
+            where SQLiteFTS5Functions.Match(s, f => f.Term("native") && f.Term(a.Title))
             select s.Id).ToSqlCommand();
 
         Assert.Single(cmd.Parameters);
         Assert.Equal("native AND ", cmd.Parameters[0].Value);
         Assert.Equal(
-            """
+            N("""
             SELECT a0.rowid AS "Id"
             FROM "ArticleSearch" AS a0
             JOIN "Article" AS a1 ON a0.rowid = a1.Id
             WHERE "ArticleSearch" MATCH (@p0 || printf('"%w"', a1.Title))
-            """, N(cmd.CommandText));
+            """), N(cmd.CommandText));
 
         long matches = (
             from s in db.Table<ArticleSearch>()
             join a in db.Table<Article>() on s.Id equals a.Id
-            where SQLiteFunctions.Match(s, f => f.Term("native") && f.Term(a.Title))
+            where SQLiteFTS5Functions.Match(s, f => f.Term("native") && f.Term(a.Title))
             select s.Id).LongCount();
         Assert.Equal(1, matches);
     }
@@ -609,23 +609,23 @@ public class FullTextSearchEscapingTests
         SQLiteCommand cmd = (
             from s in db.Table<ArticleSearch>()
             join a in db.Table<Article>() on s.Id equals a.Id
-            where SQLiteFunctions.Match(s, f => f.Prefix(a.Title))
+            where SQLiteFTS5Functions.Match(s, f => f.Prefix(a.Title))
             select s.Id).ToSqlCommand();
 
         Assert.Single(cmd.Parameters);
         Assert.Equal("*", cmd.Parameters[0].Value);
         Assert.Equal(
-            """
+            N("""
             SELECT a0.rowid AS "Id"
             FROM "ArticleSearch" AS a0
             JOIN "Article" AS a1 ON a0.rowid = a1.Id
             WHERE "ArticleSearch" MATCH (printf('"%w"', a1.Title) || @p0)
-            """, N(cmd.CommandText));
+            """), N(cmd.CommandText));
 
         long matches = (
             from s in db.Table<ArticleSearch>()
             join a in db.Table<Article>() on s.Id equals a.Id
-            where SQLiteFunctions.Match(s, f => f.Prefix(a.Title))
+            where SQLiteFTS5Functions.Match(s, f => f.Prefix(a.Title))
             select s.Id).LongCount();
         Assert.Equal(1, matches);
     }
@@ -639,22 +639,22 @@ public class FullTextSearchEscapingTests
         SQLiteCommand cmd = (
             from s in db.Table<ArticleSearch>()
             join a in db.Table<Article>() on s.Id equals a.Id
-            where SQLiteFunctions.Match(s, f => f.Phrase(a.Title))
+            where SQLiteFTS5Functions.Match(s, f => f.Phrase(a.Title))
             select s.Id).ToSqlCommand();
 
         Assert.Empty(cmd.Parameters);
         Assert.Equal(
-            """
+            N("""
             SELECT a0.rowid AS "Id"
             FROM "ArticleSearch" AS a0
             JOIN "Article" AS a1 ON a0.rowid = a1.Id
             WHERE "ArticleSearch" MATCH (printf('"%w"', a1.Title))
-            """, N(cmd.CommandText));
+            """), N(cmd.CommandText));
 
         long matches = (
             from s in db.Table<ArticleSearch>()
             join a in db.Table<Article>() on s.Id equals a.Id
-            where SQLiteFunctions.Match(s, f => f.Phrase(a.Title))
+            where SQLiteFTS5Functions.Match(s, f => f.Phrase(a.Title))
             select s.Id).LongCount();
         Assert.Equal(1, matches);
     }
@@ -668,24 +668,24 @@ public class FullTextSearchEscapingTests
         SQLiteCommand cmd = (
             from s in db.Table<ArticleSearch>()
             join a in db.Table<Article>() on s.Id equals a.Id
-            where SQLiteFunctions.Match(s, f => f.Near(2, a.Title, "static"))
+            where SQLiteFTS5Functions.Match(s, f => f.Near(2, a.Title, "static"))
             select s.Id).ToSqlCommand();
 
         Assert.Equal(2, cmd.Parameters.Count);
         Assert.Equal("NEAR(", cmd.Parameters[0].Value);
         Assert.Equal(" static, 2)", cmd.Parameters[1].Value);
         Assert.Equal(
-            """
+            N("""
             SELECT a0.rowid AS "Id"
             FROM "ArticleSearch" AS a0
             JOIN "Article" AS a1 ON a0.rowid = a1.Id
             WHERE "ArticleSearch" MATCH (@p0 || printf('"%w"', a1.Title) || @p1)
-            """, N(cmd.CommandText));
+            """), N(cmd.CommandText));
 
         long matches = (
             from s in db.Table<ArticleSearch>()
             join a in db.Table<Article>() on s.Id equals a.Id
-            where SQLiteFunctions.Match(s, f => f.Near(2, a.Title, "static"))
+            where SQLiteFTS5Functions.Match(s, f => f.Near(2, a.Title, "static"))
             select s.Id).LongCount();
         Assert.Equal(1, matches);
     }
@@ -699,7 +699,7 @@ public class FullTextSearchEscapingTests
         var hits = (
                 from s in db.Table<ArticleSearch>()
                 join a in db.Table<Article>() on s.Id equals a.Id
-                where SQLiteFunctions.Match(s, f => f.Term(a.Title))
+                where SQLiteFTS5Functions.Match(s, f => f.Term(a.Title))
                 select s.Id)
             .ToList();
 
@@ -713,7 +713,7 @@ public class FullTextSearchEscapingTests
         Seed(db, "plain title", "body containing a quoted word among the tokens");
 
         var hits = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFunctions.Match(a, f => f.Term("hello\"world")))
+            .Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("hello\"world")))
             .ToList();
 
         Assert.Empty(hits);
@@ -726,7 +726,7 @@ public class FullTextSearchEscapingTests
         Seed(db, "title", "looking ahead in time");
         string[] terms = ["ahead", "time"];
 
-        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFunctions.Match(a, f => f.Near(2, terms)));
+        Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a, f => f.Near(2, terms)));
 
         Assert.Equal("NEAR(ahead time, 2)", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
@@ -739,10 +739,10 @@ public class FullTextSearchEscapingTests
 
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
             db.Table<ArticleSearch>()
-                .Where(a => SQLiteFunctions.Match(a, f => a.Title == "x"))
+                .Where(a => SQLiteFTS5Functions.Match(a, f => a.Title == "x"))
                 .ToSqlCommand());
 
-        Assert.Contains("Unsupported expression inside SQLiteFunctions.Match", ex.Message);
+        Assert.Contains("Unsupported expression inside SQLiteFTS5Functions.Match", ex.Message);
     }
 
     [Fact]
@@ -752,10 +752,10 @@ public class FullTextSearchEscapingTests
 
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
             db.Table<ArticleSearch>()
-                .Where(a => SQLiteFunctions.Match(a, f => true))
+                .Where(a => SQLiteFTS5Functions.Match(a, f => true))
                 .ToSqlCommand());
 
-        Assert.Contains("Unsupported expression inside SQLiteFunctions.Match", ex.Message);
+        Assert.Contains("Unsupported expression inside SQLiteFTS5Functions.Match", ex.Message);
     }
 
     [Fact]
@@ -765,7 +765,7 @@ public class FullTextSearchEscapingTests
 
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
             db.Table<ArticleSearch>()
-                .Where(a => SQLiteFunctions.Match(a, f => f.Column("Title", f.Term("native"))))
+                .Where(a => SQLiteFTS5Functions.Match(a, f => f.Column("Title", f.Term("native"))))
                 .ToSqlCommand());
 
         Assert.Contains("expects a property reference like a.Title", ex.Message);
@@ -779,7 +779,7 @@ public class FullTextSearchEscapingTests
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
             (from s in db.Table<ArticleSearch>()
              join a in db.Table<Article>() on s.Id equals a.Id
-             where SQLiteFunctions.Match(s, f => f.Term(a.Title.ToString()))
+             where SQLiteFTS5Functions.Match(s, f => f.Term(a.Title.ToString()))
              select s.Id).ToSqlCommand());
 
         Assert.Contains("could not be translated to SQL", ex.Message);

@@ -1,7 +1,4 @@
-﻿using System.Collections;
-using System.Linq.Expressions;
-
-namespace SQLite.Framework.Models;
+﻿namespace SQLite.Framework.Models;
 
 /// <summary>
 /// Represents a base class for SQLite tables.

@@ -1,9 +1,4 @@
-﻿using SQLite.Framework.Enums;
-using SQLite.Framework.Exceptions;
-using SQLite.Framework.Internals.Helpers;
-using SQLitePCL;
-
-namespace SQLite.Framework;
+﻿namespace SQLite.Framework;
 
 /// <summary>
 /// Represents a command to be executed against the SQLite database.

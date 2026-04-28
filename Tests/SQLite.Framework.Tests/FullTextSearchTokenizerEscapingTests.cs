@@ -54,7 +54,7 @@ public class FullTextSearchTokenizerEscapingTests
         db.CreateCommand("INSERT INTO TokenChars_Underscore_Search(rowid, Body) VALUES (1, 'hello_world standalone')", []).ExecuteNonQuery();
 
         long hits = db.Table<TokenChars_Underscore_Search>()
-            .LongCount(c => SQLiteFunctions.Match(c, f => f.Term("hello_world")));
+            .LongCount(c => SQLiteFTS5Functions.Match(c, f => f.Term("hello_world")));
 
         Assert.Equal(1, hits);
     }
@@ -67,9 +67,9 @@ public class FullTextSearchTokenizerEscapingTests
         db.CreateCommand("INSERT INTO Separators_Punct_Search(rowid, Body) VALUES (1, 'apple,banana;cherry')", []).ExecuteNonQuery();
 
         long hitsBanana = db.Table<Separators_Punct_Search>()
-            .LongCount(c => SQLiteFunctions.Match(c, f => f.Term("banana")));
+            .LongCount(c => SQLiteFTS5Functions.Match(c, f => f.Term("banana")));
         long hitsCherry = db.Table<Separators_Punct_Search>()
-            .LongCount(c => SQLiteFunctions.Match(c, f => f.Term("cherry")));
+            .LongCount(c => SQLiteFTS5Functions.Match(c, f => f.Term("cherry")));
 
         Assert.Equal(1, hitsBanana);
         Assert.Equal(1, hitsCherry);

@@ -1,5 +1,3 @@
-using SQLitePCL;
-
 namespace SQLite.Framework;
 
 /// <summary>

@@ -1,8 +1,4 @@
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
-using SQLite.Framework.Enums;
-
-namespace SQLite.Framework.JsonB;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Stores a .NET object as a JSONB binary blob using SQLite's built-in <c>jsonb()</c> function.
@@ -10,6 +6,12 @@ namespace SQLite.Framework.JsonB;
 /// so SQLite handles all encoding and decoding.
 /// Pass a <see cref="JsonTypeInfo{T}" /> from a <c>JsonSerializerContext</c> to keep the converter AOT-safe.
 /// </summary>
+#if SQLITECIPHER
+[Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support; otherwise switch to SQLiteJsonConverter<T> for plain JSON TEXT storage.", error: true)]
+#elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+[SupportedOSPlatform("android36.0")]
+[UnsupportedOSPlatform("ios")]
+#endif
 public class SQLiteJsonbConverter<T> : ISQLiteTypeConverter
 {
     private readonly JsonTypeInfo<T> typeInfo;

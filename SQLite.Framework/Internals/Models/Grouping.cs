@@ -1,6 +1,3 @@
-using System.Collections;
-using System.Diagnostics.CodeAnalysis;
-
 namespace SQLite.Framework.Internals.Models;
 
 [ExcludeFromCodeCoverage]

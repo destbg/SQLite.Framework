@@ -21,7 +21,7 @@ public class CteTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal(
-            """
+            N("""
             WITH cte0 AS (
                 SELECT b1.BookId AS "Id",
                    b1.BookTitle AS "Title",
@@ -34,7 +34,7 @@ public class CteTests
                    b0.AuthorId AS "AuthorId",
                    b0.Price AS "Price"
             FROM cte0 AS b0
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class CteTests
         Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal(
-            """
+            N("""
             WITH cte0 AS (
                 SELECT b1.BookId AS "Id",
                    b1.BookTitle AS "Title",
@@ -63,7 +63,7 @@ public class CteTests
                    b0.AuthorId AS "AuthorId",
                    b0.Price AS "Price"
             FROM cte0 AS b0
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class CteTests
         Assert.Single(command.Parameters);
         Assert.Equal(10.0, command.Parameters[0].Value);
         Assert.Equal(
-            """
+            N("""
             WITH cte0 AS (
                 SELECT b1.BookId AS "Id",
                    b1.BookTitle AS "Title",
@@ -98,7 +98,7 @@ public class CteTests
             SELECT b0.Id AS "Id",
                    b0.Title AS "Title"
             FROM cte0 AS b0
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public class CteTests
         Assert.Single(command.Parameters);
         Assert.Equal(5.0, command.Parameters[0].Value);
         Assert.Equal(
-            """
+            N("""
             WITH cte0 AS (
                 SELECT b1.BookId AS "Id",
                    b1.BookTitle AS "Title",
@@ -134,7 +134,7 @@ public class CteTests
                    a1.AuthorName AS "AuthorName"
             FROM cte0 AS b0
             JOIN "Authors" AS a1 ON b0.AuthorId = a1.AuthorId
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -147,10 +147,10 @@ public class CteTests
         Assert.Single(command.Parameters);
         Assert.Equal(42, command.Parameters[0].Value);
         Assert.Equal(
-            """
+            N("""
             SELECT i0."column__1" AS "2"
             FROM (SELECT @p1 AS "column__1") AS i0
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -168,11 +168,11 @@ public class CteTests
         Assert.Equal("hello", command.Parameters.Single(p => p.Name == "@p1").Value);
         Assert.Equal(7, command.Parameters.Single(p => p.Name == "@p2").Value);
         Assert.Equal(
-            """
+            N("""
             SELECT f0."Col" AS "Col",
                    f0."Num" AS "Num"
             FROM (SELECT @p1 AS "Col", @p2 AS "Num") AS f0
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -187,14 +187,14 @@ public class CteTests
         Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters.Single(p => p.Name == "@p1").Value);
         Assert.Equal(
-            """
+            N("""
             WITH cte0 AS (
                 SELECT i1."column__1" AS "2"
                 FROM (SELECT @p1 AS "column__1") AS i1
             )
             SELECT *
             FROM cte0 AS i0
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public class CteTests
         Assert.Equal(10, command.Parameters.Single(p => p.Name == "@p2").Value);
         Assert.Equal(1, command.Parameters.Single(p => p.Name == "@p3").Value);
         Assert.Equal(
-            """
+            N("""
             WITH RECURSIVE cte0 AS (
                 SELECT c1."X" AS "X"
                 FROM (SELECT @p1 AS "X") AS c1
@@ -233,7 +233,7 @@ public class CteTests
             SELECT c0.X AS "X"
             FROM cte0 AS c0
             ORDER BY c0.X ASC
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -262,7 +262,7 @@ public class CteTests
         Assert.Equal(1, command.Parameters.Single(p => p.Name == "@p3").Value);
         Assert.Equal(100, command.Parameters.Single(p => p.Name == "@p4").Value);
         Assert.Equal(
-            """
+            N("""
             WITH RECURSIVE cte0 AS (
                 SELECT f1."A" AS "A",
                    f1."B" AS "B"
@@ -276,7 +276,7 @@ public class CteTests
             SELECT f0.A AS "A",
                    f0.B AS "B"
             FROM cte0 AS f0
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -335,7 +335,7 @@ public class CteTests
         Assert.Equal(1, command.Parameters.Single(p => p.Name == "@p1").Value);
         Assert.Equal(1, command.Parameters.Single(p => p.Name == "@p2").Value);
         Assert.Equal(
-            """
+            N("""
             WITH RECURSIVE cte0 AS (
                     SELECT o2.Name AS "Name",
                    o2.Boss AS "Boss"
@@ -356,7 +356,7 @@ public class CteTests
                    o0.Level AS "Level"
             FROM cte1 AS o0
             ORDER BY o0.Level ASC, o0.Name ASC
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -384,7 +384,7 @@ public class CteTests
         Assert.Single(command.Parameters);
         Assert.Equal("Alice", command.Parameters.Single(p => p.Name == "@p0").Value);
         Assert.Equal(
-            """
+            N("""
             WITH RECURSIVE cte0 AS (
                     SELECT o2.Name AS "Name",
                    o2.Boss AS "Boss"
@@ -401,7 +401,7 @@ public class CteTests
             )
             SELECT w0.Name AS "Name"
             FROM cte1 AS w0
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -456,7 +456,7 @@ public class CteTests
 
         Assert.Equal(38, command.Parameters.Count);
         Assert.Equal(
-            """
+            N("""
             WITH RECURSIVE cte0 AS (
                     SELECT s2."Sud" AS "Sud"
                     FROM (SELECT @p1 AS "Sud") AS s2
@@ -489,7 +489,7 @@ public class CteTests
             SELECT s0.S AS "S"
             FROM cte2 AS s0
             WHERE s0.Ind = @p40
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -642,7 +642,7 @@ public class CteTests
         Assert.Single(command.Parameters);
         Assert.Equal(10.0, command.Parameters[0].Value);
         Assert.Equal(
-            """
+            N("""
             WITH cte0 AS (
                 SELECT b1.BookId AS "Id",
                    b1.BookTitle AS "Title",
@@ -656,7 +656,7 @@ public class CteTests
             FROM cte0 AS b0
             CROSS JOIN cte0 AS b2
             WHERE b0.AuthorId = b2.AuthorId AND b0.Id <> b2.Id
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -679,7 +679,7 @@ public class CteTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal(
-            """
+            N("""
             WITH cte0 AS (
                 SELECT b1.BookId AS "Id",
                    b1.BookTitle AS "Title",
@@ -692,7 +692,7 @@ public class CteTests
             FROM cte0 AS b0
             JOIN cte0 AS b2 ON b0.AuthorId = b2.AuthorId
             WHERE b0.Id <> b2.Id
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     [Fact]
@@ -711,7 +711,7 @@ public class CteTests
         Assert.Single(command.Parameters);
         Assert.Equal(20.0, command.Parameters[0].Value);
         Assert.Equal(
-            """
+            N("""
             WITH cte0 AS (
                 SELECT b1.BookId AS "Id",
                    b1.BookTitle AS "Title",
@@ -730,7 +730,7 @@ public class CteTests
                 FROM cte0 AS b2
                 WHERE b2.AuthorId = b0.AuthorId
             )
-            """, N(command.CommandText));
+            """), N(command.CommandText));
     }
 
     private class Cnt

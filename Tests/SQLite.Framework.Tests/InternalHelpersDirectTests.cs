@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Internals.Visitors;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
@@ -826,8 +827,8 @@ public class InternalHelpersDirectTests
         MemberExpression titleMember = Expression.Property(pe, nameof(SQLite.Framework.Tests.Entities.ArticleSearch.Title));
         UnaryExpression convert = Expression.Convert(titleMember, typeof(string));
 
-        MethodInfo matchMethod = typeof(SQLiteFunctions).GetMethods()
-            .First(m => m.Name == nameof(SQLiteFunctions.Match)
+        MethodInfo matchMethod = typeof(SQLiteFTS5Functions).GetMethods()
+            .First(m => m.Name == nameof(SQLiteFTS5Functions.Match)
                 && m.GetParameters().Length == 2
                 && m.GetParameters()[0].ParameterType == typeof(string)
                 && m.GetParameters()[1].ParameterType == typeof(string));
@@ -1431,6 +1432,97 @@ public class InternalHelpersTestEntity
 public class SimpleHolder
 {
     public int Value { get; set; }
+}
+
+public class HandlerDispatchTests
+{
+    private static MethodVisitor GetMethodVisitor(TestDatabase db)
+    {
+        SQLVisitor sqlVisitor = new(
+            db,
+            new IndexWrapper(),
+            new IndexWrapper(),
+            new TableIndexWrapper(),
+            0);
+        return sqlVisitor.MethodVisitor;
+    }
+
+    private static MethodCallExpression UnknownNamedCall()
+    {
+        MethodInfo method = typeof(object).GetMethod(nameof(object.GetType))!;
+        return Expression.Call(Expression.Constant(new object()), method);
+    }
+
+    [Fact]
+    public void HandleSQLiteFTS5FunctionsMethod_UnknownName_Throws()
+    {
+        using TestDatabase db = new();
+        MethodVisitor mv = GetMethodVisitor(db);
+        MethodCallExpression mce = UnknownNamedCall();
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => mv.HandleSQLiteFTS5FunctionsMethod(mce));
+        Assert.Contains("SQLiteFTS5Functions.GetType", ex.Message);
+    }
+
+    [Fact]
+    public void HandleSQLiteJsonFunctionsMethod_UnknownName_Throws()
+    {
+        using TestDatabase db = new();
+        MethodVisitor mv = GetMethodVisitor(db);
+        MethodCallExpression mce = UnknownNamedCall();
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => mv.HandleSQLiteJsonFunctionsMethod(mce));
+        Assert.Contains("SQLiteJsonFunctions.GetType", ex.Message);
+    }
+
+    [Fact]
+    public void HandleWindowFunction_UnknownName_Throws()
+    {
+        using TestDatabase db = new();
+        MethodVisitor mv = GetMethodVisitor(db);
+        MethodCallExpression mce = UnknownNamedCall();
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => mv.HandleWindowFunctionMethod(mce));
+        Assert.Contains("SQLiteWindowFunctions.GetType", ex.Message);
+    }
+
+    [Fact]
+    public void HandleFrameBoundary_UnknownName_Throws()
+    {
+        using TestDatabase db = new();
+        MethodVisitor mv = GetMethodVisitor(db);
+        MethodCallExpression mce = UnknownNamedCall();
+        MethodInfo handleFrameBoundary = typeof(MethodVisitor).GetMethod("HandleFrameBoundary", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => handleFrameBoundary.Invoke(mv, [mce]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("SQLiteFrameBoundary.GetType", tie.InnerException!.Message);
+    }
+
+    [Fact]
+    public void HandleCustomMethod_InstanceMethod_PrependsObjectSqlExpression()
+    {
+        TestDatabase db = new(b =>
+        {
+            b.AddTypeConverter<System.Numerics.BigInteger>(new BigIntegerConverterTests.BigIntegerConverter());
+            MethodInfo compareTo = typeof(System.Numerics.BigInteger).GetMethod(
+                nameof(System.Numerics.BigInteger.CompareTo),
+                [typeof(System.Numerics.BigInteger)])!;
+            b.AddMethodTranslator(compareTo, (instance, args) => $"FAKE_CMP({instance}, {args[0]})");
+        });
+        try
+        {
+            db.Schema.CreateTable<BigIntegerConverterTests.BigEntity>();
+            System.Numerics.BigInteger value = System.Numerics.BigInteger.Parse("42");
+            db.Table<BigIntegerConverterTests.BigEntity>().Add(new BigIntegerConverterTests.BigEntity { Id = 1, Value = value });
+
+            SQLiteCommand command = db.Table<BigIntegerConverterTests.BigEntity>()
+                .Where(e => e.Value.CompareTo(value) > 0)
+                .ToSqlCommand();
+
+            Assert.Contains("FAKE_CMP(b0.Value, @", command.CommandText);
+        }
+        finally
+        {
+            db.Dispose();
+        }
+    }
 }
 
 internal sealed class CustomMemberBinding : MemberBinding

@@ -1,11 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Linq.Expressions;
-using System.Reflection;
-using SQLite.Framework.Internals.Helpers;
-using SQLite.Framework.Internals.Models;
-using SQLite.Framework.Internals.Visitors;
-
-namespace SQLite.Framework.JsonB;
+namespace SQLite.Framework.Internals.Visitors;
 
 internal class JsonCollectionVisitor
 {
@@ -36,10 +29,6 @@ internal class JsonCollectionVisitor
         nameof(Enumerable.Average),
         nameof(Enumerable.Distinct),
         nameof(Enumerable.Reverse),
-        nameof(Enumerable.Concat),
-        nameof(Enumerable.Union),
-        nameof(Enumerable.Intersect),
-        nameof(Enumerable.Except),
         nameof(Enumerable.ElementAt),
         nameof(Enumerable.Contains)
     ];
@@ -56,104 +45,14 @@ internal class JsonCollectionVisitor
     private string? offset;
     private bool distinct;
     private bool wrapInArray = true;
+    private bool singleSemantic;
     private string? existsWrapper;
     private string? crossJoin;
 
-    public JsonCollectionVisitor(SQLVisitor visitor, SQLiteOptions options)
+    private JsonCollectionVisitor(SQLVisitor visitor, SQLiteOptions options)
     {
         this.visitor = visitor;
         this.options = options;
-    }
-
-    public static Expression? TryHandle(MethodCallExpression node, ISQLExpressionVisitor expressionVisitor)
-    {
-        if (!IsChainedCollectionMethod(node))
-        {
-            return null;
-        }
-
-        SQLVisitor sqlVisitor = (SQLVisitor)expressionVisitor;
-
-        List<MethodCallExpression> chain = [];
-        Expression source = UnwindChain(node, chain);
-
-        ResolvedModel sourceModel = sqlVisitor.ResolveExpression(source);
-        if (sourceModel.SQLExpression == null)
-        {
-            return null;
-        }
-
-        if (!IsJsonCollection(sourceModel.SQLExpression.Type, sqlVisitor.Database.Options))
-        {
-            return null;
-        }
-
-        JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
-        if (sourceModel.SQLExpression.Parameters != null)
-        {
-            jcv.parameters.AddRange(sourceModel.SQLExpression.Parameters);
-        }
-
-        Type resultType = node.Type;
-        foreach (MethodCallExpression call in chain)
-        {
-            jcv.ProcessMethod(call, sourceModel.SQLExpression.Type);
-            resultType = call.Type;
-        }
-
-        string sql = jcv.BuildSql(sourceModel.SQLExpression.Sql);
-        Type coercedType = CoerceType(resultType, sourceModel.SQLExpression.Type, sqlVisitor.Database.Options);
-        return new SQLExpression(coercedType, sqlVisitor.IdentifierIndex.Index++, sql,
-            jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null);
-    }
-
-    private static bool IsChainedCollectionMethod(MethodCallExpression node)
-    {
-        if (node.Method.DeclaringType != typeof(Enumerable))
-        {
-            return false;
-        }
-
-        if (!CollectionMethods.Contains(node.Method.Name))
-        {
-            return false;
-        }
-
-        if (node.Arguments.Count > 0
-            && node.Arguments[0] is MethodCallExpression innerCall
-            && innerCall.Method.DeclaringType == typeof(Enumerable)
-            && CollectionMethods.Contains(innerCall.Method.Name))
-        {
-            return true;
-        }
-
-        if (node.Method.Name is nameof(Enumerable.ThenBy) or nameof(Enumerable.ThenByDescending)
-            or nameof(Enumerable.GroupBy) or nameof(Enumerable.SelectMany))
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static Expression UnwindChain(MethodCallExpression node, List<MethodCallExpression> chain)
-    {
-        Expression current = node;
-        while (current is MethodCallExpression call
-               && call.Method.DeclaringType == typeof(Enumerable)
-               && CollectionMethods.Contains(call.Method.Name))
-        {
-            chain.Insert(0, call);
-            current = call.Arguments[0];
-        }
-
-        return current;
-    }
-
-    private static bool IsJsonCollection(Type type, SQLiteOptions options)
-    {
-        return options.TypeConverters.ContainsKey(type)
-               && CommonHelpers.GetEnumerableElementType(type) != null;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
@@ -274,7 +173,7 @@ internal class JsonCollectionVisitor
                     wheres.Add(predSql);
                 }
 
-                limit = "1";
+                singleSemantic = true;
                 wrapInArray = false;
                 break;
             }
@@ -419,11 +318,6 @@ internal class JsonCollectionVisitor
                 wrapInArray = false;
                 break;
             }
-            case nameof(Enumerable.Concat):
-            case nameof(Enumerable.Union):
-            case nameof(Enumerable.Intersect):
-            case nameof(Enumerable.Except):
-                break;
         }
     }
 
@@ -472,6 +366,20 @@ internal class JsonCollectionVisitor
         if (existsWrapper != null)
         {
             return $"{existsWrapper} ({nl}{sp}{innerSelect}{nl}{sp})";
+        }
+
+        if (singleSemantic)
+        {
+            List<string> countClauses = [.. clauses];
+            countClauses[0] = "SELECT COUNT(*)";
+            countClauses.Add("LIMIT 2");
+            string countSelect = string.Join(nl + sp2, countClauses);
+
+            List<string> valueClauses = [.. clauses];
+            valueClauses.Add("LIMIT 1");
+            string valueSelect = string.Join(nl + sp2, valueClauses);
+
+            return $"(CASE WHEN ({nl}{sp2}{countSelect}{nl}{sp}) = 1 THEN ({nl}{sp2}{valueSelect}{nl}{sp}) ELSE NULL END)";
         }
 
         if (wrapInArray)
@@ -562,20 +470,8 @@ internal class JsonCollectionVisitor
 
             if (CommonHelpers.IsSimple(prop.PropertyType, options))
             {
-                string? sql = null;
-                foreach (SQLitePropertyTranslator translator in options.PropertyTranslators)
-                {
-                    sql = translator(dictKey, valueSql);
-                    if (sql != null)
-                    {
-                        break;
-                    }
-                }
-
-                if (sql != null)
-                {
-                    dict[dictKey] = new SQLExpression(prop.PropertyType, -1, sql, (SQLiteParameter[]?)null);
-                }
+                string sql = $"json_extract({valueSql}, '$.{dictKey}')";
+                dict[dictKey] = new SQLExpression(prop.PropertyType, -1, sql, (SQLiteParameter[]?)null);
             }
             else
             {
@@ -592,13 +488,86 @@ internal class JsonCollectionVisitor
         }
     }
 
-    private static Type CoerceType(Type declaredType, Type sourceType, SQLiteOptions options)
+    public static Expression? TryHandle(MethodCallExpression node, SQLVisitor sqlVisitor)
     {
-        if (!options.TypeConverters.ContainsKey(sourceType))
+        if (!IsChainedCollectionMethod(node))
         {
-            return declaredType;
+            return null;
         }
 
+        List<MethodCallExpression> chain = [];
+        Expression source = UnwindChain(node, chain);
+
+        ResolvedModel sourceModel = sqlVisitor.ResolveExpression(source);
+        if (sourceModel.SQLExpression == null)
+        {
+            return null;
+        }
+
+        if (!IsJsonCollection(sourceModel.SQLExpression.Type, sqlVisitor.Database.Options))
+        {
+            return null;
+        }
+
+        JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
+        jcv.parameters.AddRange(sourceModel.SQLExpression.Parameters ?? []);
+
+        Type resultType = node.Type;
+        foreach (MethodCallExpression call in chain)
+        {
+            jcv.ProcessMethod(call, sourceModel.SQLExpression.Type);
+            resultType = call.Type;
+        }
+
+        string sql = jcv.BuildSql(sourceModel.SQLExpression.Sql);
+        Type coercedType = CoerceType(resultType, sourceModel.SQLExpression.Type);
+        return new SQLExpression(coercedType, sqlVisitor.IdentifierIndex.Index++, sql,
+            jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null)
+        {
+            IsJsonSource = true,
+        };
+    }
+
+    private static bool IsChainedCollectionMethod(MethodCallExpression node)
+    {
+        if (node.Method.DeclaringType != typeof(Enumerable) || !CollectionMethods.Contains(node.Method.Name))
+        {
+            return false;
+        }
+
+        bool hasInnerChainCall = node.Arguments.Count > 0
+            && node.Arguments[0] is MethodCallExpression innerCall
+            && innerCall.Method.DeclaringType == typeof(Enumerable)
+            && CollectionMethods.Contains(innerCall.Method.Name);
+        bool takesPredicate = node.Arguments.Count >= 2;
+
+        return hasInnerChainCall || takesPredicate
+            || node.Method.Name is nameof(Enumerable.ThenBy) or nameof(Enumerable.ThenByDescending)
+            or nameof(Enumerable.GroupBy) or nameof(Enumerable.SelectMany);
+    }
+
+    private static Expression UnwindChain(MethodCallExpression node, List<MethodCallExpression> chain)
+    {
+        Expression current = node;
+        while (current is MethodCallExpression call
+               && call.Method.DeclaringType == typeof(Enumerable)
+               && CollectionMethods.Contains(call.Method.Name))
+        {
+            chain.Insert(0, call);
+            current = call.Arguments[0];
+        }
+
+        return current;
+    }
+
+    private static bool IsJsonCollection(Type type, SQLiteOptions options)
+    {
+        return options.TypeConverters.ContainsKey(type)
+               && CommonHelpers.GetEnumerableElementType(type) != null;
+    }
+
+    private static Type CoerceType(Type declaredType, Type sourceType)
+    {
         if (declaredType.IsAssignableFrom(sourceType))
         {
             return sourceType;

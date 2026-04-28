@@ -1,6 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
-
 namespace SQLite.Framework.Models;
 
 /// <summary>

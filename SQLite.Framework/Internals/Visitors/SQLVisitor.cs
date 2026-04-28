@@ -1,12 +1,3 @@
-using System.Collections;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq.Expressions;
-using System.Reflection;
-using SQLite.Framework.Enums;
-using SQLite.Framework.Internals.Helpers;
-using SQLite.Framework.Internals.Models;
-using SQLite.Framework.Models;
-
 namespace SQLite.Framework.Internals.Visitors;
 
 /// <summary>
@@ -19,7 +10,7 @@ namespace SQLite.Framework.Internals.Visitors;
 /// Not all Expressions are converted to SQL, some are left as is so that the select method can execute
 /// code both as SQL and C#.
 /// </remarks>
-internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
+internal class SQLVisitor : ExpressionVisitor
 {
     private readonly PropertyVisitor propertyVisitor;
 
@@ -47,8 +38,6 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
     public CteRegistry? CteRegistry { get; set; }
     public Dictionary<ParameterExpression, (string Alias, Dictionary<string, Expression> Columns)> CteParameters { get; set; } = [];
-
-    SQLiteOptions ISQLExpressionVisitor.Options => Database.Options;
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
     public void AssignValues(SQLExpression fromExpression, Dictionary<string, Expression> columns)
@@ -516,6 +505,27 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             return MethodVisitor.HandleSQLiteFunctionsMethod(node);
         }
 
+        if (node.Method.DeclaringType == typeof(SQLiteFTS5Functions))
+        {
+            return MethodVisitor.HandleSQLiteFTS5FunctionsMethod(node);
+        }
+
+        if (node.Method.DeclaringType == typeof(SQLiteJsonFunctions))
+        {
+            return MethodVisitor.HandleSQLiteJsonFunctionsMethod(node);
+        }
+
+        if (node.Method.DeclaringType == typeof(SQLiteWindowFunctions)
+            || node.Method.DeclaringType == typeof(SQLiteFrameBoundary))
+        {
+            return MethodVisitor.HandleWindowFunctionMethod(node);
+        }
+
+        if (JsonMethodTranslator.TryHandle(node, this) is { } jsonHandled)
+        {
+            return jsonHandled;
+        }
+
         if (node.Method.DeclaringType == typeof(string))
         {
             return MethodVisitor.HandleStringMethod(node);
@@ -556,14 +566,6 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             return MethodVisitor.HandleGuidMethod(node);
         }
 
-        foreach (Func<MethodCallExpression, ISQLExpressionVisitor, Expression?> interceptor in Database.Options.MethodCallInterceptors)
-        {
-            Expression? intercepted = interceptor(node, this);
-            if (intercepted != null)
-            {
-                return intercepted;
-            }
-        }
 
         if (node.Method.DeclaringType == typeof(Queryable))
         {
@@ -927,6 +929,15 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
             return new SQLExpression(node.Type, IdentifierIndex.Index++, translatedSql, sqlExpression.Parameters);
         }
 
+        if (HasJsonConverter(node.Expression?.Type) || sqlExpression.IsJsonSource)
+        {
+            string sql = $"json_extract({sqlExpression.Sql}, '$.{node.Member.Name}')";
+            return new SQLExpression(node.Type, IdentifierIndex.Index++, sql, sqlExpression.Parameters)
+            {
+                IsJsonSource = true,
+            };
+        }
+
         if (node.Expression != null && HasTextOrBlobConverter(node.Expression.Type))
         {
             return node.Update(sqlExpression);
@@ -940,6 +951,33 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
         Type stripped = Nullable.GetUnderlyingType(type) ?? type;
         return Database.Options.TypeConverters.TryGetValue(stripped, out ISQLiteTypeConverter? converter)
             && (converter.ColumnType == SQLiteColumnType.Text || converter.ColumnType == SQLiteColumnType.Blob);
+    }
+
+    private bool HasJsonConverter(Type? type)
+    {
+        if (type == null)
+        {
+            return false;
+        }
+
+        Type stripped = Nullable.GetUnderlyingType(type) ?? type;
+        if (!Database.Options.TypeConverters.TryGetValue(stripped, out ISQLiteTypeConverter? converter))
+        {
+            return false;
+        }
+
+        Type ct = converter.GetType();
+        if (!ct.IsGenericType)
+        {
+            return false;
+        }
+
+        Type def = ct.GetGenericTypeDefinition();
+#if SQLITECIPHER
+        return def == typeof(SQLiteJsonConverter<>);
+#else
+        return def == typeof(SQLiteJsonConverter<>) || def == typeof(SQLiteJsonbConverter<>);
+#endif
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Open generic type methods are looked up by name for custom translator registration.")]

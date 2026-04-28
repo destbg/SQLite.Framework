@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using SQLite.Framework.Extensions;
-using SQLite.Framework.JsonB;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -10,7 +9,7 @@ public class JsonFunctionsTests
 {
     private static TestDatabase CreateDb(string? methodName = null)
     {
-        TestDatabase db = new(b => b.AddJson(), methodName);
+        TestDatabase db = new(b => { }, methodName);
         db.Schema.CreateTable<JsonRow>();
         return db;
     }
@@ -200,7 +199,6 @@ public class JsonFunctionsTests
     {
         TestDatabase db = new(b =>
         {
-            b.AddJson();
             b.TypeConverters[typeof(List<string>)] =
                 new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
             configure?.Invoke(b);
@@ -772,7 +770,6 @@ public class JsonFunctionsTests
     {
         TestDatabase db = new(b =>
         {
-            b.AddJson();
             b.TypeConverters[typeof(List<int>)] =
                 new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32);
         }, methodName);
@@ -1054,6 +1051,79 @@ public class JsonFunctionsTests
         Assert.Equal(["b", "c"], result);
     }
 
+#if NET9_0_OR_GREATER
+    [Fact]
+    public void List_Slice_ReturnsSublist()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow
+        {
+            Id = 1,
+            Tags = ["a", "b", "c", "d"]
+        });
+
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => r.Tags.Slice(1, 2))
+            .ToSqlCommand();
+
+        Assert.Contains("LIMIT @", command.CommandText);
+        Assert.Contains("OFFSET @", command.CommandText);
+    }
+#endif
+
+    [Fact]
+    public void Enumerable_OneArgUnknownMethod_FallsThroughToDefault()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        List<List<string>> result = db.Table<ListRow>()
+            .Select(r => r.Tags.ToList())
+            .ToList();
+
+        Assert.Single(result);
+        Assert.Equal(["a", "b"], result[0]);
+    }
+
+    [Fact]
+    public void Array_TwoArgUnknownMethod_FallsThroughToDefault()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a"] });
+
+        SQLiteCommand command = db.Table<ArrayRow>()
+            .Select(r => Array.AsReadOnly(r.Tags).Count)
+            .ToSqlCommand();
+
+        Assert.NotNull(command.CommandText);
+    }
+
+    [Fact]
+    public void Enumerable_TwoArgUnknownMethod_FallsThroughToDefault()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a"] });
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<ListRow>()
+                .Where(r => r.Tags.SequenceEqual(new[] { "a" }))
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Enumerable_ChainedSourceWithNonJsonResultType_FallsThrough()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        List<string> other = ["c"];
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => Enumerable.Reverse(r.Tags).Concat(other))
+            .ToSqlCommand();
+
+        Assert.NotNull(command.CommandText);
+    }
+
     [Fact]
     public void List_Exists_Match()
     {
@@ -1241,11 +1311,88 @@ public class JsonFunctionsTests
         Assert.True(result);
     }
 
+    [Fact]
+    public void Array_LastIndexOf_ReturnsIndex()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b", "a"] });
+
+        int result = db.Table<ArrayRow>()
+            .Select(r => Array.LastIndexOf(r.Tags, "a"))
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public void Array_Find_ReturnsFirstMatch()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["apple", "banana"] });
+
+        string? result = db.Table<ArrayRow>()
+            .Select(r => Array.Find(r.Tags, x => x.StartsWith("b")))
+            .First();
+
+        Assert.Equal("banana", result);
+    }
+
+    [Fact]
+    public void Array_FindAll_ReturnsAllMatches()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "bb", "ccc"] });
+
+        string[] result = db.Table<ArrayRow>()
+            .Select(r => Array.FindAll(r.Tags, x => x.Length > 1))
+            .First();
+
+        Assert.Equal(["bb", "ccc"], result);
+    }
+
+    [Fact]
+    public void Array_FindLast_ReturnsLastMatch()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b", "a"] });
+
+        string? result = db.Table<ArrayRow>()
+            .Select(r => Array.FindLast(r.Tags, x => x == "a"))
+            .First();
+
+        Assert.Equal("a", result);
+    }
+
+    [Fact]
+    public void Array_FindLastIndex_ReturnsLastIndex()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b", "a"] });
+
+        int result = db.Table<ArrayRow>()
+            .Select(r => Array.FindLastIndex(r.Tags, x => x == "a"))
+            .First();
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public void Array_ConvertAll_ProjectsEachElement()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "bb"] });
+
+        SQLiteCommand command = db.Table<ArrayRow>()
+            .Select(r => Array.ConvertAll(r.Tags, x => x + "!"))
+            .ToSqlCommand();
+
+        Assert.Contains("json_group_array", command.CommandText);
+    }
+
     private static TestDatabase CreateArrayDb(string? methodName = null)
     {
         TestDatabase db = new(b =>
         {
-            b.AddJson();
             b.TypeConverters[typeof(string[])] =
                 new SQLiteJsonConverter<string[]>(TestJsonContext.Default.StringArray);
         }, methodName);
@@ -1479,7 +1626,6 @@ public class JsonFunctionsTests
     {
         using TestDatabase db = new(b =>
         {
-            b.AddJson();
             b.TypeConverters[typeof(List<PersonWithTags>)] =
                 new SQLiteJsonConverter<List<PersonWithTags>>(TestJsonContext.Default.ListPersonWithTags);
             b.TypeConverters[typeof(List<string>)] =
@@ -2003,12 +2149,225 @@ public class JsonFunctionsTests
     {
         TestDatabase db = new(b =>
         {
-            b.AddJson();
             b.TypeConverters[typeof(List<Address>)] =
                 new SQLiteJsonConverter<List<Address>>(TestJsonContext.Default.ListAddress);
         }, methodName);
         db.Schema.CreateTable<AddressListRow>();
         return db;
+    }
+
+    [Fact]
+    public void List_NonOneArgMethod_FallsThroughToDefault()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a"] });
+
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => r.Tags.AsReadOnly().Count)
+            .ToSqlCommand();
+
+        Assert.NotNull(command.CommandText);
+    }
+
+    [Fact]
+    public void List_OneArgNonLambda_FallsThroughToDefault()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => r.Tags.BinarySearch("a"))
+            .ToSqlCommand();
+
+        Assert.NotNull(command.CommandText);
+    }
+
+    [Fact]
+    public void Chain_SinglePredicate_ReturnsValue()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Single(x => x == "b"))
+            .First();
+
+        Assert.Equal("b", result);
+    }
+
+
+    [Fact]
+    public void Chain_NonJsonEnumerableSource_FallsThrough()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a"] });
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<ListRow>()
+                .Select(r => Enumerable.Range(0, 10).Where(x => x > 5).Any())
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Chain_WhereOnConcat_NonJsonResultType_FallsThrough()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+        List<string> other = ["x"];
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<ListRow>()
+                .Select(r => r.Tags.Concat(other).Where(x => x == "a"))
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Chain_OrderBy_StandaloneProjection_CoercesToSourceType()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["b", "a"] });
+
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => r.Tags.OrderBy(x => x))
+            .ToSqlCommand();
+
+        Assert.NotNull(command.CommandText);
+    }
+
+    [Fact]
+    public void Chain_SelectMany_ParameterBearingProjection()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["ab", "cd"] });
+        string suffix = "!";
+
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => r.Tags.SelectMany(t => new[] { t + suffix }))
+            .ToSqlCommand();
+
+        Assert.NotNull(command.CommandText);
+    }
+
+    [Fact]
+    public void Chain_Where_UntranslatablePredicate_Throws()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a"] });
+
+        Assert.ThrowsAny<NotSupportedException>(() =>
+            db.Table<ListRow>()
+                .Select(r => r.Tags.Where(x => x.GetHashCode() == r.Id).First())
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Chain_SelectMany_UntranslatableProjection_Throws()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a"] });
+
+        Assert.ThrowsAny<NotSupportedException>(() =>
+            db.Table<ListRow>()
+                .Select(r => r.Tags.SelectMany(t => new[] { t.GetHashCode().ToString() }).First())
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Chain_Where_Single_MultipleMatches_ReturnsNull()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "a", "b"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x == "a").Single())
+            .First();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void Chain_Where_Single_SingleMatch_ReturnsValue()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Where(x => x == "b").Single())
+            .First();
+
+        Assert.Equal("b", result);
+    }
+
+    [Fact]
+    public void List_Exists_NonLambdaPredicate_FallsThroughToDefault()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a"] });
+        Predicate<string> pred = x => x == "a";
+
+        SQLiteCommand command = db.Table<ListRow>()
+            .Select(r => r.Tags.Exists(pred))
+            .ToSqlCommand();
+
+        Assert.NotNull(command.CommandText);
+    }
+
+    [Fact]
+    public void List_RemoveAll_FallsThroughToDefault()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<ListRow>()
+                .Select(r => r.Tags.RemoveAll(x => x == "a"))
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void Array_BinarySearch_FallsThroughToDefault()
+    {
+        using TestDatabase db = CreateArrayDb();
+        db.Table<ArrayRow>().Add(new ArrayRow { Id = 1, Tags = ["a", "b"] });
+
+        SQLiteCommand command = db.Table<ArrayRow>()
+            .Select(r => Array.BinarySearch(r.Tags, "a"))
+            .ToSqlCommand();
+
+        Assert.NotNull(command.CommandText);
+    }
+
+    [Fact]
+    public void List_Find_UntranslatablePredicate_Throws()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a"] });
+
+        Assert.ThrowsAny<NotSupportedException>(() =>
+            db.Table<ListRow>()
+                .Select(r => r.Tags.Find(x => x.GetHashCode() == r.Id))
+                .ToSqlCommand());
+    }
+
+    [Fact]
+    public void List_FindAll_ComplexElement_BindsProperties()
+    {
+        using TestDatabase db = CreateAddressListDb();
+        db.Table<AddressListRow>().Add(new AddressListRow
+        {
+            Id = 1,
+            Addresses =
+            [
+                new Address { Street = "A", City = "X" },
+                new Address { Street = "B", City = "Y" },
+            ],
+        });
+
+        SQLiteCommand command = db.Table<AddressListRow>()
+            .Select(r => r.Addresses.FindAll(a => a.City == "Y"))
+            .ToSqlCommand();
+
+        Assert.Contains("json_extract(value, '$.City')", command.CommandText);
     }
 
     [Fact]
@@ -2284,7 +2643,6 @@ public class JsonFunctionsTests
     {
         using TestDatabase db = new(b =>
         {
-            b.AddJson();
             b.TypeConverters[typeof(List<Person>)] =
                 new SQLiteJsonConverter<List<Person>>(TestJsonContext.Default.ListPerson);
         });
@@ -2327,7 +2685,6 @@ public class JsonFunctionsTests
     {
         using TestDatabase db = new(b =>
         {
-            b.AddJson();
             b.TypeConverters[typeof(Address)] =
                 new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address);
         });

@@ -3,7 +3,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Exceptions;
-using SQLite.Framework.JsonB;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
@@ -306,7 +305,7 @@ public class CoverageGapTests
         db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand cmd = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFunctions.Match(a.Title, "native"))
+            .Where(a => SQLiteFTS5Functions.Match(a.Title, "native"))
             .ToSqlCommand();
 
         Assert.Contains("MATCH", cmd.CommandText);
@@ -322,7 +321,7 @@ public class CoverageGapTests
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<ArticleSearch>()
-                .Where(a => SQLiteFunctions.Match(a.Title.Substring(0), "native"))
+                .Where(a => SQLiteFTS5Functions.Match(a.Title.Substring(0), "native"))
                 .ToSqlCommand());
     }
 
@@ -334,7 +333,7 @@ public class CoverageGapTests
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
-                .Select(b => SQLiteFunctions.Snippet(b, b.Title, "<", ">", "...", 5))
+                .Select(b => SQLiteFTS5Functions.Snippet(b, b.Title, "<", ">", "...", 5))
                 .ToSqlCommand());
     }
 
@@ -347,7 +346,7 @@ public class CoverageGapTests
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<ArticleSearch>()
-                .Select(a => SQLiteFunctions.Snippet(a, a.Id.ToString(), "<", ">", "...", 5))
+                .Select(a => SQLiteFTS5Functions.Snippet(a, a.Id.ToString(), "<", ">", "...", 5))
                 .ToSqlCommand());
     }
 
@@ -496,8 +495,8 @@ public class CoverageGapTests
         string after = "}}";
         string ellipsis = "…";
         SQLiteCommand cmd = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFunctions.Match(a, "kryptonite"))
-            .Select(a => SQLiteFunctions.Snippet(a, a.Title, before, after, ellipsis, 5))
+            .Where(a => SQLiteFTS5Functions.Match(a, "kryptonite"))
+            .Select(a => SQLiteFTS5Functions.Snippet(a, a.Title, before, after, ellipsis, 5))
             .ToSqlCommand();
 
         Assert.Contains("snippet(", cmd.CommandText);
@@ -511,7 +510,7 @@ public class CoverageGapTests
         db.Schema.CreateTable<ArticleSearch>();
 
         SQLiteCommand cmd = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFunctions.Match(a, f => f.Term(a.Title) && f.Term("static")))
+            .Where(a => SQLiteFTS5Functions.Match(a, f => f.Term(a.Title) && f.Term("static")))
             .ToSqlCommand();
 
         Assert.Contains("printf", cmd.CommandText);
@@ -792,7 +791,7 @@ public class CoverageGapTests
 
         string suffix = "_tail";
         SQLiteCommand cmd = db.Table<ArticleSearch>()
-            .Where(a => SQLiteFunctions.Match(a, f => f.Term(a.Title + suffix)))
+            .Where(a => SQLiteFTS5Functions.Match(a, f => f.Term(a.Title + suffix)))
             .ToSqlCommand();
 
         Assert.Contains("printf", cmd.CommandText);
@@ -818,32 +817,6 @@ public class CoverageGapTests
         Assert.Contains("&", cmd.CommandText);
     }
 
-
-    [Fact]
-    public void MethodCallInterceptor_ReceivesVisitorAndCanReadOptions()
-    {
-        bool wasCalled = false;
-        SQLiteOptions? capturedOptions = null;
-
-        using TestDatabase db = new(b => b.AddMethodCallInterceptor((node, visitor) =>
-        {
-            if (node.Method.DeclaringType == typeof(InterceptorHelpers) && node.Method.Name == nameof(InterceptorHelpers.Double))
-            {
-                wasCalled = true;
-                capturedOptions = visitor.Options;
-            }
-            return null;
-        }));
-
-        db.Schema.CreateTable<Book>();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 5, Price = 1 });
-
-        Assert.ThrowsAny<Exception>(() =>
-            db.Table<Book>().Where(b => InterceptorHelpers.Double(b.AuthorId) > 0).ToList());
-
-        Assert.True(wasCalled);
-        Assert.Same(db.Options, capturedOptions);
-    }
 
     private sealed class SqlInspector : SQLiteTable<Book>
     {
@@ -2312,7 +2285,6 @@ public class CoverageGapTests
     {
         using TestDatabase db = new(b =>
         {
-            b.AddJson();
             b.TypeConverters[typeof(List<int>)] =
                 new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32);
         });

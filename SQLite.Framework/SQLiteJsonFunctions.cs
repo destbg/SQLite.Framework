@@ -1,12 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
-
-namespace SQLite.Framework.JsonB;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Marker methods for SQLite JSON functions. These methods throw at runtime and are only
 /// valid inside a LINQ query where they are translated to their SQL equivalents.
-/// Register translations by calling <see cref="SQLiteOptionsBuilderJsonExtensions.AddJson" />
-/// on your <see cref="SQLiteOptions" />.
+/// JSON function translators are registered automatically by the framework.
 /// </summary>
 [ExcludeFromCodeCoverage]
 public static class SQLiteJsonFunctions
@@ -104,6 +101,12 @@ public static class SQLiteJsonFunctions
     /// <summary>
     /// Converts a JSON text value to a JSONB binary blob. Translates to <c>jsonb(json)</c>.
     /// </summary>
+#if SQLITECIPHER
+    [Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support.", error: true)]
+#elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [SupportedOSPlatform("android36.0")]
+    [UnsupportedOSPlatform("ios")]
+#endif
     public static byte[] ToJsonb(string json)
     {
         throw new InvalidOperationException("JsonFunctions.ToJsonb can only be used inside a LINQ query.");
@@ -112,6 +115,12 @@ public static class SQLiteJsonFunctions
     /// <summary>
     /// Extracts a value from a JSONB binary document at the given path. Translates to <c>jsonb_extract(json, path)</c>.
     /// </summary>
+#if SQLITECIPHER
+    [Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support.", error: true)]
+#elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [SupportedOSPlatform("android36.0")]
+    [UnsupportedOSPlatform("ios")]
+#endif
     public static T ExtractJsonb<T>(byte[] json, string path)
     {
         throw new InvalidOperationException("JsonFunctions.ExtractJsonb can only be used inside a LINQ query.");

@@ -1,6 +1,4 @@
-﻿using SQLite.Framework.Enums;
-
-namespace SQLite.Framework.Exceptions;
+﻿namespace SQLite.Framework.Exceptions;
 
 /// <summary>
 /// Represents errors that occur during SQLite operations.

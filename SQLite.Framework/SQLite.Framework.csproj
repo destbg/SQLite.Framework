@@ -8,13 +8,15 @@
         <LangVersion>preview</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <DefineConstants>$(DefineConstants);SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE</DefineConstants>
+        <NoWarn>$(NoWarn);CA1416</NoWarn>
     </PropertyGroup>
 
     <PropertyGroup>
         <AssemblyName>SQLite.Framework</AssemblyName>
         <PackageId>SQLite.Framework</PackageId>
         <AssemblyTitle>SQLite package that supports IQueryable</AssemblyTitle>
-        <Description>SQLite.Framework is a library that provides an ORM solution for SQLite databases.</Description>
+        <Description>SQLite.Framework is a library that provides an ORM solution for SQLite databases. Includes JSON, JSONB and window function support.</Description>
         <Authors>Nikolay Kostadinov</Authors>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -22,7 +24,7 @@
         <PackageProjectUrl>https://github.com/destbg/SQLite.Framework</PackageProjectUrl>
         <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        <PackageTags>sqlite database orm</PackageTags>
+        <PackageTags>sqlite database orm json jsonb window</PackageTags>
         <PackageIcon>sqlite.png</PackageIcon>
         <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
@@ -43,8 +45,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <InternalsVisibleTo Include="SQLite.Framework.JsonB" />
-        <InternalsVisibleTo Include="SQLite.Framework.Window" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests.Base" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests.Bundled" />

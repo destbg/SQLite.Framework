@@ -1,14 +1,15 @@
-using System.Diagnostics.CodeAnalysis;
-
-namespace SQLite.Framework.Window;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Marker methods for SQLite window functions. These methods throw at runtime and are only
 /// valid inside a LINQ query where they are translated to their SQL equivalents.
-/// Register translations by calling <see cref="SQLiteOptionsBuilderWindowExtensions.AddWindow" />
-/// on your <see cref="SQLiteOptions" />.
+/// Window function translators are registered automatically by the framework.
 /// </summary>
 [ExcludeFromCodeCoverage]
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+[SupportedOSPlatform("android30.0")]
+[SupportedOSPlatform("ios13.0")]
+#endif
 public static class SQLiteWindowFunctions
 {
     /// <summary>
@@ -252,27 +253,27 @@ public static class SQLiteWindowFunctions
 
     /// <summary>
     /// Adds a ROWS frame clause to the window. Translates to <c>ROWS BETWEEN start AND end</c>.
-    /// Use <see cref="FrameBoundary" /> to specify the boundaries.
+    /// Use <see cref="SQLiteFrameBoundary" /> to specify the boundaries.
     /// </summary>
-    public static T Rows<T>(this T value, FrameBoundary start, FrameBoundary end)
+    public static T Rows<T>(this T value, SQLiteFrameBoundary start, SQLiteFrameBoundary end)
     {
         throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
     }
 
     /// <summary>
     /// Adds a RANGE frame clause to the window. Translates to <c>RANGE BETWEEN start AND end</c>.
-    /// Use <see cref="FrameBoundary" /> to specify the boundaries.
+    /// Use <see cref="SQLiteFrameBoundary" /> to specify the boundaries.
     /// </summary>
-    public static T Range<T>(this T value, FrameBoundary start, FrameBoundary end)
+    public static T Range<T>(this T value, SQLiteFrameBoundary start, SQLiteFrameBoundary end)
     {
         throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
     }
 
     /// <summary>
     /// Adds a GROUPS frame clause to the window. Translates to <c>GROUPS BETWEEN start AND end</c>.
-    /// Use <see cref="FrameBoundary" /> to specify the boundaries.
+    /// Use <see cref="SQLiteFrameBoundary" /> to specify the boundaries.
     /// </summary>
-    public static T Groups<T>(this T value, FrameBoundary start, FrameBoundary end)
+    public static T Groups<T>(this T value, SQLiteFrameBoundary start, SQLiteFrameBoundary end)
     {
         throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
     }

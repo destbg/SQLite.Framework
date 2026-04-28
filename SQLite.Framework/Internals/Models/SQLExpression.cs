@@ -1,7 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Linq.Expressions;
-using SQLite.Framework.Internals.Visitors;
-
 namespace SQLite.Framework.Internals.Models;
 
 /// <summary>
@@ -43,6 +39,7 @@ internal class SQLExpression : Expression
     public int Identifier { get; }
     public string Sql { get; }
     public bool RequiresBrackets { get; set; }
+    public bool IsJsonSource { get; set; }
     public SQLiteParameter[]? Parameters { get; }
 
     [field: AllowNull, MaybeNull]

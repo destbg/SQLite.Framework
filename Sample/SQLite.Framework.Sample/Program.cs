@@ -6,7 +6,6 @@ using System.Text.Json.Serialization;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
-using SQLite.Framework.JsonB;
 using SQLite.Framework.Sample.DTOs;
 using SQLite.Framework.Sample.Models;
 
@@ -1510,7 +1509,6 @@ public static partial class Program
     private static void JsonBListDemo()
     {
         SQLiteOptions options = new SQLiteOptionsBuilder(":memory:")
-            .AddJson()
             .AddTypeConverter<List<string>>(new SQLiteJsonConverter<List<string>>(SampleJsonContext.Default.ListString))
             .Build();
 

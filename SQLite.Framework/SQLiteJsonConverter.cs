@@ -1,8 +1,4 @@
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
-using SQLite.Framework.Enums;
-
-namespace SQLite.Framework.JsonB;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Stores a .NET object as a JSON text string in a TEXT column.

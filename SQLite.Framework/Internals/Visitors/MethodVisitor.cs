@@ -1,13 +1,5 @@
-using System.Collections;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Linq.Expressions;
-using System.Reflection;
 using System.Text;
-using SQLite.Framework.Enums;
-using SQLite.Framework.Internals.Helpers;
-using SQLite.Framework.Internals.Models;
-using SQLite.Framework.Models;
 
 namespace SQLite.Framework.Internals.Visitors;
 
@@ -647,10 +639,6 @@ internal class MethodVisitor
     {
         return node.Method.Name switch
         {
-            nameof(SQLiteFunctions.Match) => HandleFTS5Match(node),
-            nameof(SQLiteFunctions.Rank) => HandleFTS5Rank(node),
-            nameof(SQLiteFunctions.Snippet) => HandleFTS5Snippet(node),
-            nameof(SQLiteFunctions.Highlight) => HandleFTS5Highlight(node),
             nameof(SQLiteFunctions.Random) => new SQLExpression(typeof(double), visitor.IdentifierIndex.Index++, "RANDOM()", null),
             nameof(SQLiteFunctions.RandomBlob) => HandleFunctionsRandomBlob(node),
             nameof(SQLiteFunctions.Glob) => HandleFunctionsGlob(node),
@@ -674,6 +662,131 @@ internal class MethodVisitor
             nameof(SQLiteFunctions.TotalChanges) => new SQLExpression(typeof(long), visitor.IdentifierIndex.Index++, "total_changes()", null),
             _ => throw new NotSupportedException($"SQLiteFunctions.{node.Method.Name} is not translatable to SQL."),
         };
+    }
+
+    public Expression HandleSQLiteFTS5FunctionsMethod(MethodCallExpression node)
+    {
+        return node.Method.Name switch
+        {
+            nameof(SQLiteFTS5Functions.Match) => HandleFTS5Match(node),
+            nameof(SQLiteFTS5Functions.Rank) => HandleFTS5Rank(node),
+            nameof(SQLiteFTS5Functions.Snippet) => HandleFTS5Snippet(node),
+            nameof(SQLiteFTS5Functions.Highlight) => HandleFTS5Highlight(node),
+            _ => throw new NotSupportedException($"SQLiteFTS5Functions.{node.Method.Name} is not translatable to SQL."),
+        };
+    }
+
+    public Expression HandleSQLiteJsonFunctionsMethod(MethodCallExpression node)
+    {
+        List<ResolvedModel> arguments = node.Arguments.Select(visitor.ResolveExpression).ToList();
+        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(arguments
+            .Select(a => a.SQLExpression)
+            .Where(s => s != null)
+            .Cast<SQLExpression>()
+            .ToArray());
+
+        string sql = node.Method.Name switch
+        {
+            nameof(SQLiteJsonFunctions.Extract) => $"json_extract({arguments[0].Sql}, {arguments[1].Sql})",
+            nameof(SQLiteJsonFunctions.Set) => $"json_set({arguments[0].Sql}, {arguments[1].Sql}, {arguments[2].Sql})",
+            nameof(SQLiteJsonFunctions.Insert) => $"json_insert({arguments[0].Sql}, {arguments[1].Sql}, {arguments[2].Sql})",
+            nameof(SQLiteJsonFunctions.Replace) => $"json_replace({arguments[0].Sql}, {arguments[1].Sql}, {arguments[2].Sql})",
+            nameof(SQLiteJsonFunctions.Remove) => $"json_remove({arguments[0].Sql}, {arguments[1].Sql})",
+            nameof(SQLiteJsonFunctions.Type) => $"json_type({arguments[0].Sql}, {arguments[1].Sql})",
+            nameof(SQLiteJsonFunctions.Valid) => $"json_valid({arguments[0].Sql})",
+            nameof(SQLiteJsonFunctions.Patch) => $"json_patch({arguments[0].Sql}, {arguments[1].Sql})",
+            nameof(SQLiteJsonFunctions.ArrayLength) when arguments.Count == 1 => $"json_array_length({arguments[0].Sql})",
+            nameof(SQLiteJsonFunctions.ArrayLength) => $"json_array_length({arguments[0].Sql}, {arguments[1].Sql})",
+            nameof(SQLiteJsonFunctions.Minify) => $"json({arguments[0].Sql})",
+            nameof(SQLiteJsonFunctions.ToJsonb) => $"jsonb({arguments[0].Sql})",
+            nameof(SQLiteJsonFunctions.ExtractJsonb) => $"jsonb_extract({arguments[0].Sql}, {arguments[1].Sql})",
+            _ => throw new NotSupportedException($"SQLiteJsonFunctions.{node.Method.Name} is not translatable to SQL."),
+        };
+
+        return new SQLExpression(node.Type, visitor.IdentifierIndex.Index++, sql, parameters);
+    }
+
+    public Expression HandleWindowFunctionMethod(MethodCallExpression node)
+    {
+        if (node.Method.DeclaringType == typeof(SQLiteFrameBoundary))
+        {
+            return HandleFrameBoundary(node);
+        }
+
+        return HandleWindowFunction(node);
+    }
+
+    private SQLExpression HandleFrameBoundary(MethodCallExpression node)
+    {
+        switch (node.Method.Name)
+        {
+            case nameof(SQLiteFrameBoundary.UnboundedPreceding):
+                return new SQLExpression(node.Type, visitor.IdentifierIndex.Index++, "UNBOUNDED PRECEDING", null);
+            case nameof(SQLiteFrameBoundary.CurrentRow):
+                return new SQLExpression(node.Type, visitor.IdentifierIndex.Index++, "CURRENT ROW", null);
+            case nameof(SQLiteFrameBoundary.UnboundedFollowing):
+                return new SQLExpression(node.Type, visitor.IdentifierIndex.Index++, "UNBOUNDED FOLLOWING", null);
+            case nameof(SQLiteFrameBoundary.Preceding):
+            {
+                ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
+                return new SQLExpression(node.Type, visitor.IdentifierIndex.Index++, $"{arg.Sql} PRECEDING", arg.SQLExpression?.Parameters);
+            }
+            case nameof(SQLiteFrameBoundary.Following):
+            {
+                ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
+                return new SQLExpression(node.Type, visitor.IdentifierIndex.Index++, $"{arg.Sql} FOLLOWING", arg.SQLExpression?.Parameters);
+            }
+            default:
+                throw new NotSupportedException($"SQLiteFrameBoundary.{node.Method.Name} is not translatable to SQL.");
+        }
+    }
+
+    private SQLExpression HandleWindowFunction(MethodCallExpression node)
+    {
+        List<ResolvedModel> arguments = node.Arguments.Select(visitor.ResolveExpression).ToList();
+        SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(arguments
+            .Select(a => a.SQLExpression)
+            .Where(s => s != null)
+            .Cast<SQLExpression>()
+            .ToArray());
+
+        string sql = node.Method.Name switch
+        {
+            nameof(SQLiteWindowFunctions.Sum) => $"SUM({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.Avg) => $"AVG({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.Min) => $"MIN({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.Max) => $"MAX({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.Count) when arguments.Count == 0 => "COUNT(*)",
+            nameof(SQLiteWindowFunctions.Count) => $"COUNT({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.RowNumber) => "ROW_NUMBER()",
+            nameof(SQLiteWindowFunctions.Rank) => "RANK()",
+            nameof(SQLiteWindowFunctions.DenseRank) => "DENSE_RANK()",
+            nameof(SQLiteWindowFunctions.PercentRank) => "PERCENT_RANK()",
+            nameof(SQLiteWindowFunctions.CumeDist) => "CUME_DIST()",
+            nameof(SQLiteWindowFunctions.NTile) => $"NTILE({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.Lag) when arguments.Count == 1 => $"LAG({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.Lag) when arguments.Count == 2 => $"LAG({arguments[0].Sql}, {arguments[1].Sql})",
+            nameof(SQLiteWindowFunctions.Lag) => $"LAG({arguments[0].Sql}, {arguments[1].Sql}, {arguments[2].Sql})",
+            nameof(SQLiteWindowFunctions.Lead) when arguments.Count == 1 => $"LEAD({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.Lead) when arguments.Count == 2 => $"LEAD({arguments[0].Sql}, {arguments[1].Sql})",
+            nameof(SQLiteWindowFunctions.Lead) => $"LEAD({arguments[0].Sql}, {arguments[1].Sql}, {arguments[2].Sql})",
+            nameof(SQLiteWindowFunctions.FirstValue) => $"FIRST_VALUE({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.LastValue) => $"LAST_VALUE({arguments[0].Sql})",
+            nameof(SQLiteWindowFunctions.NthValue) => $"NTH_VALUE({arguments[0].Sql}, {arguments[1].Sql})",
+            nameof(SQLiteWindowFunctions.Over) => $"{arguments[0].Sql} OVER ()",
+            nameof(SQLiteWindowFunctions.PartitionBy) => $"{TrimClose(arguments[0].Sql!)} PARTITION BY {arguments[1].Sql})",
+            nameof(SQLiteWindowFunctions.ThenPartitionBy) => $"{TrimClose(arguments[0].Sql!)}, {arguments[1].Sql})",
+            nameof(SQLiteWindowFunctions.OrderBy) => $"{TrimClose(arguments[0].Sql!)} ORDER BY {arguments[1].Sql} ASC)",
+            nameof(SQLiteWindowFunctions.OrderByDescending) => $"{TrimClose(arguments[0].Sql!)} ORDER BY {arguments[1].Sql} DESC)",
+            nameof(SQLiteWindowFunctions.ThenOrderBy) => $"{TrimClose(arguments[0].Sql!)}, {arguments[1].Sql} ASC)",
+            nameof(SQLiteWindowFunctions.ThenOrderByDescending) => $"{TrimClose(arguments[0].Sql!)}, {arguments[1].Sql} DESC)",
+            nameof(SQLiteWindowFunctions.Rows) => $"{TrimClose(arguments[0].Sql!)} ROWS BETWEEN {arguments[1].Sql} AND {arguments[2].Sql})",
+            nameof(SQLiteWindowFunctions.Range) => $"{TrimClose(arguments[0].Sql!)} RANGE BETWEEN {arguments[1].Sql} AND {arguments[2].Sql})",
+            nameof(SQLiteWindowFunctions.Groups) => $"{TrimClose(arguments[0].Sql!)} GROUPS BETWEEN {arguments[1].Sql} AND {arguments[2].Sql})",
+            _ => throw new NotSupportedException($"SQLiteWindowFunctions.{node.Method.Name} is not translatable to SQL."),
+        };
+
+        return new SQLExpression(node.Type, visitor.IdentifierIndex.Index++, sql, parameters);
     }
 
     public Expression HandleGuidMethod(MethodCallExpression node)
@@ -1369,7 +1482,7 @@ internal class MethodVisitor
             }
             else
             {
-                throw new NotSupportedException("SQLiteFunctions.Match column reference must be a direct property access like a.Title.");
+                throw new NotSupportedException("SQLiteFTS5Functions.Match column reference must be a direct property access like a.Title.");
             }
         }
         else
@@ -1822,6 +1935,11 @@ internal class MethodVisitor
         SQLiteParameter[]? parameters = CommonHelpers.CombineParameters(allExpressions.ToArray());
 
         return new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex.Index++, sql, parameters);
+    }
+
+    private static string TrimClose(string sql)
+    {
+        return sql[..^1];
     }
 
     private static void AppendDynamicPart(StringBuilder operand, List<SQLiteParameter> parameters, SQLExpression sql)

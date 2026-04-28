@@ -1,6 +1,3 @@
-using SQLite.Framework.Attributes;
-using SQLite.Framework.Enums;
-
 namespace SQLite.Framework.Models;
 
 /// <summary>

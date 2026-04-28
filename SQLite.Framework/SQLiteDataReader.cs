@@ -1,9 +1,4 @@
-﻿using SQLite.Framework.Enums;
-using SQLite.Framework.Exceptions;
-using SQLite.Framework.Internals.Helpers;
-using SQLitePCL;
-
-namespace SQLite.Framework;
+﻿namespace SQLite.Framework;
 
 /// <summary>
 /// Represents a data reader for reading a forward-only stream of rows from a SQLite database.

@@ -37,8 +37,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\SQLite.Framework.Base\SQLite.Framework.Base.csproj"/>
-        <ProjectReference Include="..\..\SQLite.Framework.JsonB\SQLite.Framework.JsonB.csproj"/>
-        <ProjectReference Include="..\..\SQLite.Framework.Window\SQLite.Framework.Window.csproj"/>
     </ItemGroup>
 
 </Project>

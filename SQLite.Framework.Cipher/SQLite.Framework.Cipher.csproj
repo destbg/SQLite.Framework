@@ -12,6 +12,7 @@
 
     <PropertyGroup>
         <DefineConstants>$(DefineConstants);SQLITECIPHER</DefineConstants>
+        <NoWarn>$(NoWarn);CA1416</NoWarn>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -48,12 +49,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <InternalsVisibleTo Include="SQLite.Framework.JsonB" />
-        <InternalsVisibleTo Include="SQLite.Framework.Window" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests.Base" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests.Bundled" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests.Cipher" />
+        <InternalsVisibleTo Include="SQLite.Framework.Tests.SourceGenerator" />
     </ItemGroup>
 
 </Project>

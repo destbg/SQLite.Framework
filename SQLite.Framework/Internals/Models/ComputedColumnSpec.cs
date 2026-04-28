@@ -1,5 +1,3 @@
-using SQLite.Framework.Models;
-
 namespace SQLite.Framework.Internals.Models;
 
 internal sealed class ComputedColumnSpec

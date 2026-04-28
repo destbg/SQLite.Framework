@@ -1,8 +1,4 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
-using SQLite.Framework.Attributes;
-using SQLite.Framework.Internals.Helpers;
 
 namespace SQLite.Framework.Models;
 

@@ -3,6 +3,8 @@ using SQLite.Framework.Enums;
 
 namespace SQLite.Framework.Tests.Entities;
 
+#if !SQLITECIPHER
+
 [FullTextSearch(ContentMode = FtsContentMode.Internal)]
 [TrigramTokenizer(CaseSensitive = false)]
 public class ArticleSearchInternal
@@ -13,3 +15,4 @@ public class ArticleSearchInternal
     [FullTextIndexed]
     public required string Code { get; set; }
 }
+#endif

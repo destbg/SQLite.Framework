@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace SQLite.Framework.Models;
 
 /// <summary>
