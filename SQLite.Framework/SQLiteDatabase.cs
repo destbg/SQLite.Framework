@@ -20,8 +20,7 @@ namespace SQLite.Framework;
 public class SQLiteDatabase : IQueryProvider, IDisposable
 {
     private static readonly MethodInfo ExecuteGroupingQueryGeneric = typeof(SQLiteDatabase)
-        .GetMethod(nameof(ExecuteGroupingQuery), BindingFlags.Instance | BindingFlags.NonPublic)
-        ?? throw new InvalidOperationException($"Could not find {nameof(ExecuteGroupingQuery)} method.");
+        .GetMethod(nameof(ExecuteGroupingQuery), BindingFlags.Instance | BindingFlags.NonPublic)!;
 
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object connectionOpenLock = new();

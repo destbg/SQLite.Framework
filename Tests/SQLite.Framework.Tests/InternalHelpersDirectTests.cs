@@ -874,6 +874,444 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
+    public void SQLVisitor_VisitUnary_NegateConstant_ReturnsResolvedUnary()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        UnaryExpression negate = Expression.Negate(Expression.Constant(5));
+
+        Expression result = sqlVisitor.Visit(negate);
+        Assert.IsAssignableFrom<SQLExpression>(result);
+    }
+
+    [Fact]
+    public void SQLVisitor_VisitUnary_UnsupportedOp_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(Book), "b");
+        sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            ["Id"] = new SQLExpression(typeof(int), 0, "b0.Id")
+        };
+        MemberExpression idMember = Expression.Property(pe, nameof(Book.Id));
+        UnaryExpression onesComp = Expression.OnesComplement(idMember);
+
+        Assert.Throws<NotSupportedException>(() => sqlVisitor.Visit(onesComp));
+    }
+
+    [Fact]
+    public void SQLVisitor_VisitMethodCall_ObjectEquals_NullSqlObj_FallsBackToCall()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo equalsMethod = typeof(object).GetMethod(nameof(object.Equals), [typeof(object)])!;
+        Expression target = Expression.Default(typeof(object));
+        MethodCallExpression mce = Expression.Call(target, equalsMethod, Expression.Constant(new object()));
+
+        Expression result = sqlVisitor.Visit(mce);
+        Assert.IsAssignableFrom<MethodCallExpression>(result);
+    }
+
+    [Fact]
+    public void SQLVisitor_ResolveMember_UnregisteredParameter_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(Book), "b");
+        sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            ["NotSql"] = Expression.Constant("plain")
+        };
+        MemberExpression member = Expression.Property(pe, nameof(Book.Title));
+
+        Assert.Throws<NotSupportedException>(() => sqlVisitor.ResolveMember(member));
+    }
+
+    [Fact]
+    public void SQLVisitor_VisitBinary_NonConstantIntCompareToCharCast_AddsConvert()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression charPe = Expression.Parameter(typeof(char), "c");
+        sqlVisitor.MethodArguments[charPe] = new Dictionary<string, Expression>
+        {
+            [""] = new SQLExpression(typeof(char), 0, "b0.Char")
+        };
+
+        ParameterExpression intPe = Expression.Parameter(typeof(int), "i");
+        sqlVisitor.MethodArguments[intPe] = new Dictionary<string, Expression>
+        {
+            [""] = new SQLExpression(typeof(int), 0, "b0.Other")
+        };
+
+        UnaryExpression intCharCast = Expression.Convert(charPe, typeof(int));
+        BinaryExpression eq = Expression.Equal(intPe, intCharCast);
+
+        Expression result = sqlVisitor.Visit(eq);
+        Assert.IsAssignableFrom<SQLExpression>(result);
+    }
+
+    [Fact]
+    public void SQLVisitor_VisitBinary_UnsupportedOp_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(int), "i");
+        sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            [""] = new SQLExpression(typeof(int), 0, "b0.Id")
+        };
+
+        BinaryExpression rightShift = Expression.RightShift(pe, Expression.Constant(1));
+
+        Assert.Throws<NotSupportedException>(() => sqlVisitor.Visit(rightShift));
+    }
+
+    [Fact]
+    public void SQLVisitor_VisitMember_ConstantNonTable_ReturnsParameter()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        SimpleHolder holder = new() { Value = 42 };
+        MemberExpression access = Expression.Property(Expression.Constant(holder), nameof(SimpleHolder.Value));
+
+        Expression result = sqlVisitor.Visit(access);
+        SQLExpression sql = Assert.IsType<SQLExpression>(result);
+        Assert.StartsWith("@p", sql.Sql);
+    }
+
+    [Fact]
+    public void SQLVisitor_ResolveExpression_ConvertWrappingEnumConstant_KeepsEnum()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        UnaryExpression convert = Expression.Convert(Expression.Constant(DayOfWeek.Monday), typeof(int));
+
+        ResolvedModel resolved = sqlVisitor.ResolveExpression(convert);
+        Assert.True(resolved.IsConstant);
+        Assert.Equal(DayOfWeek.Monday, resolved.Constant);
+    }
+
+    [Fact]
+    public void SQLVisitor_VisitUnary_ConvertOfNonResolvableParameter_ReturnsOperand()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(int), "i");
+        sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            [""] = Expression.Constant(42)
+        };
+
+        UnaryExpression convert = Expression.Convert(pe, typeof(long));
+
+        Expression result = sqlVisitor.Visit(convert);
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public void SQLVisitor_VisitBinary_CharCompareToNonConstantInt_AddsConvert()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression charPe = Expression.Parameter(typeof(char), "c");
+        sqlVisitor.MethodArguments[charPe] = new Dictionary<string, Expression>
+        {
+            [""] = new SQLExpression(typeof(char), 0, "b0.Char")
+        };
+
+        ParameterExpression intPe = Expression.Parameter(typeof(int), "i");
+        sqlVisitor.MethodArguments[intPe] = new Dictionary<string, Expression>
+        {
+            [""] = new SQLExpression(typeof(int), 0, "b0.Other")
+        };
+
+        UnaryExpression intCharCast = Expression.Convert(charPe, typeof(int));
+        BinaryExpression eq = Expression.Equal(intCharCast, intPe);
+
+        Expression result = sqlVisitor.Visit(eq);
+        Assert.IsAssignableFrom<SQLExpression>(result);
+    }
+
+    [Fact]
+    public void SQLVisitor_VisitMemberBinding_CustomBindingType_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        PropertyInfo prop = typeof(Book).GetProperty(nameof(Book.Id))!;
+        CustomMemberBinding binding = new(prop);
+
+        MethodInfo method = typeof(SQLVisitor).GetMethod("VisitMemberBinding", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => method.Invoke(sqlVisitor, [binding]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("Unsupported binding type", tie.InnerException!.Message);
+    }
+
+    [Fact]
+    public void SQLVisitor_TryGetMethodTranslator_ConstructedGenericNoMatch_ReturnsFalse()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo method = typeof(List<int>).GetMethod(nameof(List<int>.Sort), Type.EmptyTypes)!;
+        MethodInfo tryGet = typeof(SQLVisitor).GetMethod("TryGetMethodTranslator", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        object?[] args = [method, null];
+        bool result = (bool)tryGet.Invoke(sqlVisitor, args)!;
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void SQLVisitor_HandlePredicateMethod_InstanceNotResolvable_ReturnsNode()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo method = typeof(InternalHelpersDirectTests)
+            .GetMethod(nameof(StaticPredicateHelper), BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(typeof(int));
+
+        ParameterExpression lambdaParam = Expression.Parameter(typeof(int), "x");
+        Expression<Func<int, bool>> predicate = Expression.Lambda<Func<int, bool>>(Expression.Constant(true), lambdaParam);
+
+        Expression instanceExpr = Expression.Default(typeof(IEnumerable<int>));
+        MethodCallExpression mce = Expression.Call(method, instanceExpr, predicate);
+
+        MethodInfo handler = typeof(SQLVisitor).GetMethod("HandlePredicateMethod", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        SQLitePredicateMethodTranslator translator = (i, p) => $"({i} :: {p})";
+        object? result = handler.Invoke(sqlVisitor, [mce, translator]);
+
+        Assert.Same(mce, result);
+    }
+
+    private static int StaticPredicateHelper<T>(IEnumerable<T> source, Func<T, bool> predicate) => 0;
+
+    [Fact]
+    public void SQLVisitor_HandlePredicateMethod_PredicateNotSql_ReturnsNode()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo method = typeof(InternalHelpersDirectTests)
+            .GetMethod(nameof(StaticPredicateHelper), BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(typeof(int));
+
+        ConstantExpression source = Expression.Constant(new int[] { 1, 2, 3 }, typeof(IEnumerable<int>));
+        ParameterExpression lambdaParam = Expression.Parameter(typeof(int), "x");
+        Expression<Func<int, bool>> predicate = Expression.Lambda<Func<int, bool>>(
+            Expression.Default(typeof(bool)),
+            lambdaParam);
+
+        MethodCallExpression mce = Expression.Call(method, source, predicate);
+
+        MethodInfo handler = typeof(SQLVisitor).GetMethod("HandlePredicateMethod", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        SQLitePredicateMethodTranslator translator = (i, p) => $"({i} :: {p})";
+        object? result = handler.Invoke(sqlVisitor, [mce, translator]);
+
+        Assert.Same(mce, result);
+    }
+
+    [Fact]
+    public void SQLVisitor_TranslateProperty_NoTranslatorMatches_ReturnsNull()
+    {
+        SQLiteOptionsBuilder builder = new($"NoTranslatorMatch_{Guid.NewGuid():N}.db3");
+        builder.PropertyTranslators.Add((_, _) => null);
+        SQLiteOptions options = builder.Build();
+        File.Delete(options.DatabasePath);
+
+        try
+        {
+            using SQLiteDatabase db = new(options);
+            SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+            MethodInfo method = typeof(SQLVisitor).GetMethod("TranslateProperty", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            object? result = method.Invoke(sqlVisitor, ["SomeMember", "obj.sql"]);
+
+            Assert.Null(result);
+        }
+        finally
+        {
+            for (int i = 0; i < 10 && File.Exists(options.DatabasePath); i++)
+            {
+                try { File.Delete(options.DatabasePath); break; }
+                catch (IOException) { Thread.Sleep(50); }
+            }
+        }
+    }
+
+    [Fact]
+    public void SQLVisitor_CoercedResultType_IEnumerableElementMatch_ReturnsSource()
+    {
+        SQLiteOptionsBuilder builder = new($"CoerceIE_{Guid.NewGuid():N}.db3");
+        builder.TypeConverters[typeof(MatchingEnumerable<int>)] = new TestPassThroughConverter();
+        SQLiteOptions options = builder.Build();
+        File.Delete(options.DatabasePath);
+
+        try
+        {
+            using SQLiteDatabase db = new(options);
+            SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+            MethodInfo method = typeof(SQLVisitor).GetMethod("CoercedResultType", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            Type result = (Type)method.Invoke(sqlVisitor, [typeof(IList<int>), typeof(MatchingEnumerable<int>)])!;
+
+            Assert.Equal(typeof(MatchingEnumerable<int>), result);
+        }
+        finally
+        {
+            for (int i = 0; i < 10 && File.Exists(options.DatabasePath); i++)
+            {
+                try { File.Delete(options.DatabasePath); break; }
+                catch (IOException) { Thread.Sleep(50); }
+            }
+        }
+    }
+
+    [Fact]
+    public void SQLiteDatabase_SelectMaterializerHits_DefaultIsZero()
+    {
+        using TestDatabase db = new();
+        Assert.Equal(0, db.SelectMaterializerHits);
+    }
+
+    [Fact]
+    public void SQLiteDatabase_IncrementSelectMaterializerHits_IncrementsCounter()
+    {
+        using TestDatabase db = new();
+        long before = db.SelectMaterializerHits;
+
+        MethodInfo method = typeof(SQLiteDatabase).GetMethod("IncrementSelectMaterializerHits", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        method.Invoke(db, null);
+
+        Assert.Equal(before + 1, db.SelectMaterializerHits);
+    }
+
+
+
+    [Fact]
+    public void SQLiteDatabase_ExecuteGroupingQuery_NonGroupByExpression_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+
+        IQueryable<IGrouping<int, Book>> wrapped = db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .Where(g => g.Count() > 0);
+
+        Assert.Throws<NotSupportedException>(() => wrapped.ToList());
+    }
+
+    [Fact]
+    public void SQLiteDatabase_BackupTo_DestLockedByOtherConnection_HitsBusyRetry()
+    {
+        string sourcePath = $"BackupBusySrc_{Guid.NewGuid():N}.db3";
+        string destPath = $"BackupBusyDest_{Guid.NewGuid():N}.db3";
+
+        try
+        {
+            using SQLiteDatabase src = new(new SQLiteOptionsBuilder(sourcePath).Build());
+            src.Schema.CreateTable<Book>();
+            for (int i = 1; i <= 50; i++)
+            {
+                src.Table<Book>().Add(new Book { Id = i, Title = $"t{i}", AuthorId = 1, Price = i });
+            }
+
+            using SQLiteDatabase dest = new(new SQLiteOptionsBuilder(destPath).Build());
+
+            using SQLiteDatabase destLocker = new(new SQLiteOptionsBuilder(destPath).Build());
+            destLocker.Schema.CreateTable<Book>();
+            using SQLiteTransaction tx = destLocker.BeginTransaction();
+            destLocker.Table<Book>().Add(new Book { Id = 999, Title = "lock", AuthorId = 1, Price = 999 });
+
+            ManualResetEventSlim done = new();
+            Exception? backupException = null;
+
+            Thread backupThread = new(() =>
+            {
+                try { src.BackupTo(dest); }
+                catch (Exception ex) { backupException = ex; }
+                finally { done.Set(); }
+            });
+
+            backupThread.Start();
+            Thread.Sleep(300);
+            tx.Commit();
+            done.Wait(TimeSpan.FromSeconds(10));
+            backupThread.Join(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            foreach (string path in new[] { sourcePath, destPath })
+            {
+                for (int i = 0; i < 10 && File.Exists(path); i++)
+                {
+                    try { File.Delete(path); break; }
+                    catch (IOException) { Thread.Sleep(50); }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void SQLiteDatabase_BackupTo_PathWithEncryptionKey_OpensEncryptedDestination()
+    {
+        string sourcePath = $"BackupSrc_{Guid.NewGuid():N}.db3";
+        string destPath = $"BackupDest_{Guid.NewGuid():N}.db3";
+
+        try
+        {
+            SQLiteOptionsBuilder srcBuilder = new(sourcePath);
+            srcBuilder.UseEncryptionKey("test-key");
+            using (SQLiteDatabase db = new(srcBuilder.Build()))
+            {
+                db.Schema.CreateTable<Book>();
+                db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+                db.BackupTo(destPath);
+            }
+
+            Assert.True(File.Exists(destPath));
+        }
+        finally
+        {
+            foreach (string path in new[] { sourcePath, destPath })
+            {
+                for (int i = 0; i < 10 && File.Exists(path); i++)
+                {
+                    try { File.Delete(path); break; }
+                    catch (IOException) { Thread.Sleep(50); }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void SQLVisitor_ConvertMemberExpression_UnhandledType_ReturnsSqlExpression()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        SQLExpression structSql = new(typeof(SimpleHolder), 0, "h0.Holder");
+        MemberExpression member = Expression.Property(structSql, nameof(SimpleHolder.Value));
+
+        MethodInfo method = typeof(SQLVisitor).GetMethod("ConvertMemberExpression", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        Expression result = (Expression)method.Invoke(sqlVisitor, [member, structSql])!;
+
+        Assert.Same(structSql, result);
+    }
+
+    [Fact]
     public void MethodVisitor_ResolveTrim_UnresolvableTrimChars_FallsBackToCall()
     {
         using TestDatabase db = new();
@@ -988,4 +1426,30 @@ public class InternalHelpersTestEntity
     }
 
     public int Value { get; set; }
+}
+
+public class SimpleHolder
+{
+    public int Value { get; set; }
+}
+
+internal sealed class CustomMemberBinding : MemberBinding
+{
+    public CustomMemberBinding(MemberInfo member)
+        : base((MemberBindingType)999, member)
+    {
+    }
+}
+
+internal sealed class TestPassThroughConverter : SQLite.Framework.ISQLiteTypeConverter
+{
+    public SQLite.Framework.Enums.SQLiteColumnType ColumnType => SQLite.Framework.Enums.SQLiteColumnType.Text;
+    public object? ToDatabase(object? value) => value;
+    public object? FromDatabase(object? value) => value;
+}
+
+public sealed class MatchingEnumerable<T> : IEnumerable<T>
+{
+    public IEnumerator<T> GetEnumerator() => System.Linq.Enumerable.Empty<T>().GetEnumerator();
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }

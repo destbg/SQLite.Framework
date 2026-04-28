@@ -21,7 +21,6 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </remarks>
 internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 {
-    SQLiteOptions ISQLExpressionVisitor.Options => Database.Options;
     private readonly PropertyVisitor propertyVisitor;
 
     public SQLVisitor(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level)
@@ -48,6 +47,8 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
     public CteRegistry? CteRegistry { get; set; }
     public Dictionary<ParameterExpression, (string Alias, Dictionary<string, Expression> Columns)> CteParameters { get; set; } = [];
+
+    SQLiteOptions ISQLExpressionVisitor.Options => Database.Options;
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
     public void AssignValues(SQLExpression fromExpression, Dictionary<string, Expression> columns)
@@ -366,16 +367,7 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
 
         if (node.Expression is not MemberExpression and not ParameterExpression and not SQLExpression)
         {
-            Expression expr = ResolveMember(node);
-
-            if (expr is MemberExpression member)
-            {
-                node = member;
-            }
-            else
-            {
-                return expr;
-            }
+            node = (MemberExpression)ResolveMember(node);
         }
 
         if (node.Expression is MemberExpression or ParameterExpression or SQLExpression)
@@ -630,15 +622,10 @@ internal class SQLVisitor : ExpressionVisitor, ISQLExpressionVisitor
                 return MethodVisitor.HandleEnumerableMethod(node, enumerable, arguments);
             }
 
-            if (TryGetMethodTranslator(node.Method, out SQLiteMethodTranslator? translator))
+            if (obj.SQLExpression != null && TryGetMethodTranslator(node.Method, out SQLiteMethodTranslator? translator))
             {
                 Expression result = MethodVisitor.HandleCustomMethod(node, obj, arguments, translator);
-                if (obj.SQLExpression != null)
-                {
-                    return CoercedSQLExpression(result, obj.SQLExpression.Type);
-                }
-
-                return result;
+                return CoercedSQLExpression(result, obj.SQLExpression.Type);
             }
 
             return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));

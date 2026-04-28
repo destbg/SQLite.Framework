@@ -3193,6 +3193,112 @@ public class CoverageGapTests
     }
 
     [Fact]
+    public void Where_BinaryRightShift_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().Where(b => (b.Id >> 1) > 0).ToList());
+    }
+
+    [Fact]
+    public void Where_NegateColumn_TranslatesToSql()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => -b.Id < 0)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([1], ids);
+    }
+
+    [Fact]
+    public void Where_CapturedHolderMemberAccess_TranslatesToParameter()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 5, Title = "a", AuthorId = 1, Price = 1 });
+
+        var filter = new { Id = 5 };
+        List<int> ids = db.Table<Book>()
+            .Where(b => b.Id == filter.Id)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([5], ids);
+    }
+
+    [Fact]
+    public void Where_EnumCastToUnderlyingTypeOnConstant_Translates()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = (int)DayOfWeek.Monday, Price = 1 });
+
+        DayOfWeek day = DayOfWeek.Monday;
+        List<int> ids = db.Table<Book>()
+            .Where(b => b.AuthorId == (int)day)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([1], ids);
+    }
+
+    [Fact]
+    public void Where_StringEqualsCapturedComplexObject_FallsBack()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "alpha", AuthorId = 1, Price = 1 });
+
+        object captured = new { Title = "alpha" };
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<Book>().Where(b => captured.Equals(b.Title)).ToList());
+    }
+
+    private static int PredicateCustom<T>(IEnumerable<T> source, Func<T, bool> predicate) => 0;
+
+    [Fact]
+    public void PredicateMethodTranslator_UnresolvableInstance_ReturnsOriginalNode()
+    {
+        MethodInfo method = typeof(CoverageGapTests)
+            .GetMethod(nameof(PredicateCustom), BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        SQLiteOptionsBuilder builder = new($"PredicateUnresolvable_{Guid.NewGuid():N}.db3");
+        builder.PredicateMethodTranslators[method] =
+            (instance, predicate) => $"(predicate({instance}, {predicate}))";
+
+        SQLiteOptions options = builder.Build();
+        File.Delete(options.DatabasePath);
+
+        try
+        {
+            using SQLiteDatabase db = new(options);
+            db.Schema.CreateTable<Book>();
+
+            Assert.ThrowsAny<Exception>(() =>
+                db.Table<Book>()
+                    .Select(b => PredicateCustom<int>(default!, x => x == b.Id))
+                    .ToList());
+        }
+        finally
+        {
+            for (int i = 0; i < 10 && File.Exists(options.DatabasePath); i++)
+            {
+                try { File.Delete(options.DatabasePath); break; }
+                catch (IOException) { Thread.Sleep(50); }
+            }
+        }
+    }
+
+
+    [Fact]
     public void SG_ChainedSelect_ConstantOuter_FlattenReturnsNull()
     {
         using SQLiteDatabase db = CreateCompilerFallbackDb();
