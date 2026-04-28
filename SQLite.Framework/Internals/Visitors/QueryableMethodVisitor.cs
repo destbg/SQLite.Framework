@@ -253,11 +253,6 @@ internal class QueryableMethodVisitor
         {
             NewExpression innerNewExpression = (NewExpression)innerKey.Body;
 
-            if (outerNewExpression.Arguments.Count != innerNewExpression.Arguments.Count)
-            {
-                throw new NotSupportedException($"The outer and inner key expressions must have the same number of arguments. Outer: {outerNewExpression.Arguments.Count}, Inner: {innerNewExpression.Arguments.Count}");
-            }
-
             List<SQLExpression> sqlExpressions = [];
 
             for (int i = 0; i < innerNewExpression.Arguments.Count; i++)
@@ -874,13 +869,9 @@ internal class QueryableMethodVisitor
             && outerParam1 == outer.Parameters[0]
             && inner.Body is MemberInitExpression innerMie)
         {
-            foreach (MemberBinding binding in innerMie.Bindings)
-            {
-                if (binding is MemberAssignment ma && ma.Member.Name == outerMa.Member.Name)
-                {
-                    return ma.Expression;
-                }
-            }
+            MemberAssignment match = innerMie.Bindings.OfType<MemberAssignment>()
+                .First(b => b.Member.Name == outerMa.Member.Name);
+            return match.Expression;
         }
 
         ParameterExpression outerParam = outer.Parameters[0];

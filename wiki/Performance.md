@@ -97,7 +97,7 @@ The connection is lazy and opens once. Creating a new `SQLiteDatabase` for every
 
 **Use the source generator on hot read paths**
 
-For `Select` projections and entity reads, the source generator emits typed reader code that skips the runtime expression-tree walk and the per-cell boxing the reflection path does. On a small list query (a `Where` plus `ToList` returning ~50 rows) it is up to **24% faster** and uses up to **37% less allocated memory** than the runtime path. See [Source Generator](Source%20Generator) for the full numbers and how to enable it.
+For `Select` projections and entity reads, the source generator emits typed reader code that skips the runtime expression-tree walk and the per-cell boxing the reflection path does. On a small list query (a `Where` plus `ToList` returning ~50 rows) it is up to **24% faster** end-to-end and uses up to **37% less allocated memory** than the runtime path. The materialization step alone is up to **63% faster**. See [Source Generator](Source%20Generator) for the full numbers and how to enable it.
 
 **Use WITHOUT ROWID for lookup tables**
 

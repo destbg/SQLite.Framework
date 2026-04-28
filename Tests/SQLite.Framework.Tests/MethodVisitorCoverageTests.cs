@@ -937,4 +937,58 @@ public class MethodVisitorCoverageTests
 
         public TimeSpan Duration { get; set; }
     }
+
+    [Fact]
+    public void Where_CorrelatedAverageWithSelector_TranslatesAndExecutes()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 9 });
+        db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 2, Price = 2 });
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => db.Table<Book>().Where(b2 => b2.AuthorId == b.AuthorId).Average(b2 => b2.Price) >= 5)
+            .Select(b => b.Id)
+            .OrderBy(id => id)
+            .ToList();
+
+        Assert.Equal([1, 2], ids);
+    }
+
+    [Fact]
+    public void Where_CorrelatedSumWithSelector_TranslatesAndExecutes()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 9 });
+        db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 2, Price = 2 });
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => db.Table<Book>().Where(b2 => b2.AuthorId == b.AuthorId).Sum(b2 => b2.Price) >= 5)
+            .Select(b => b.Id)
+            .OrderBy(id => id)
+            .ToList();
+
+        Assert.Equal([1, 2], ids);
+    }
+
+    [Fact]
+    public void Where_CorrelatedCountWithPredicate_TranslatesAndExecutes()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 9 });
+        db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 2, Price = 2 });
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => db.Table<Book>().Count(b2 => b2.AuthorId == b.AuthorId) > 1)
+            .Select(b => b.Id)
+            .OrderBy(id => id)
+            .ToList();
+
+        Assert.Equal([1, 2], ids);
+    }
 }

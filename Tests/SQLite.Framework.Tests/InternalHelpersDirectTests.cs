@@ -473,6 +473,438 @@ public class InternalHelpersDirectTests
 
         Assert.Same(source, result);
     }
+
+    [Fact]
+    public void QueryableMethodVisitor_VisitContains_ArgResolvesToNonConstantNonSql_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+        sqlVisitor.TableColumns["Id"] = new SQLExpression(typeof(int), 0, "b0.Id");
+
+        QueryableMethodVisitor qmv = new(db, sqlVisitor);
+
+        MethodInfo containsMethod = typeof(Queryable).GetMethods()
+            .First(m => m.Name == nameof(Queryable.Contains) && m.GetParameters().Length == 2)
+            .MakeGenericMethod(typeof(int));
+
+        ConstantExpression source = Expression.Constant(Array.Empty<int>().AsQueryable(), typeof(IQueryable<int>));
+        Expression weirdArg = Expression.Default(typeof(int));
+        MethodCallExpression contains = Expression.Call(containsMethod, source, weirdArg);
+
+        MethodInfo visitContains = typeof(QueryableMethodVisitor).GetMethod(
+            "VisitContains",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => visitContains.Invoke(qmv, [contains]));
+        Assert.NotNull(tie.InnerException);
+        Assert.Contains("Unsupported expression type", tie.InnerException!.Message);
+        Assert.Contains("in Contains", tie.InnerException.Message);
+    }
+
+    [Fact]
+    public void QueryableMethodVisitor_ResolveTable_UnsupportedBodyType_Throws()
+    {
+        using TestDatabase db = new();
+
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+        QueryableMethodVisitor qmv = new(db, sqlVisitor);
+
+        Expression unsupportedBody = Expression.Default(typeof(int));
+
+        MethodInfo resolveTable = typeof(QueryableMethodVisitor).GetMethod(
+            "ResolveTable",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => resolveTable.Invoke(qmv, [unsupportedBody]));
+        Assert.NotNull(tie.InnerException);
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("not supported in join", tie.InnerException!.Message);
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleSQLiteFunctionsMethod_UnknownName_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo unknownMethod = typeof(string).GetMethod(nameof(string.IsNullOrEmpty), [typeof(string)])!;
+        MethodCallExpression mce = Expression.Call(unknownMethod, Expression.Constant(""));
+
+        Assert.Throws<NotSupportedException>(() => sqlVisitor.MethodVisitor.HandleSQLiteFunctionsMethod(mce));
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleGroupingMethod_UnknownAggregate_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression groupingParam = Expression.Parameter(typeof(IGrouping<int, Book>), "g");
+        sqlVisitor.MethodArguments[groupingParam] = new Dictionary<string, Expression>
+        {
+            ["Key"] = new SQLExpression(typeof(int), 0, "b0.Id")
+        };
+
+        MethodInfo firstMethod = typeof(Enumerable).GetMethods()
+            .First(m => m.Name == nameof(Enumerable.First) && m.GetParameters().Length == 1)
+            .MakeGenericMethod(typeof(Book));
+        MethodCallExpression mce = Expression.Call(firstMethod, groupingParam);
+
+        Assert.Throws<NotSupportedException>(() => sqlVisitor.MethodVisitor.HandleGroupingMethod(mce));
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleGroupingMethod_KeyNotResolvable_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression groupingParam = Expression.Parameter(typeof(IGrouping<int, Book>), "g");
+
+        MethodInfo sumMethod = typeof(Enumerable).GetMethods()
+            .First(m => m.Name == nameof(Enumerable.Sum) && m.GetParameters().Length == 1 && m.ReturnType == typeof(int));
+        MethodCallExpression mce = Expression.Call(sumMethod, Expression.Convert(groupingParam, typeof(IEnumerable<int>)));
+
+        Assert.ThrowsAny<Exception>(() => sqlVisitor.MethodVisitor.HandleGroupingMethod(mce));
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleIntegerMethod_ParseWithUnresolvableArg_FallsBackToCall()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo parseMethod = typeof(int).GetMethod(nameof(int.Parse), [typeof(string)])!;
+        Expression unresolvable = Expression.Default(typeof(string));
+        MethodCallExpression mce = Expression.Call(parseMethod, unresolvable);
+
+        Expression result = sqlVisitor.MethodVisitor.HandleIntegerMethod(mce);
+        Assert.IsAssignableFrom<MethodCallExpression>(result);
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleFloatingPointMethod_ParseWithUnresolvableArg_FallsBackToCall()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo parseMethod = typeof(double).GetMethod(nameof(double.Parse), [typeof(string)])!;
+        Expression unresolvable = Expression.Default(typeof(string));
+        MethodCallExpression mce = Expression.Call(parseMethod, unresolvable);
+
+        Expression result = sqlVisitor.MethodVisitor.HandleFloatingPointMethod(mce);
+        Assert.IsAssignableFrom<MethodCallExpression>(result);
+    }
+
+    [Fact]
+    public void MethodVisitor_AggregateExpression_LambdaBodyNotSql_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression lambdaParam = Expression.Parameter(typeof(int), "x");
+        LambdaExpression lambda = Expression.Lambda(Expression.Default(typeof(int)), lambdaParam);
+
+        ParameterExpression source = Expression.Parameter(typeof(IEnumerable<int>), "g");
+        MethodInfo sumMethod = typeof(Enumerable).GetMethods()
+            .First(m => m.Name == nameof(Enumerable.Sum) && m.GetParameters().Length == 2 && m.GetParameters()[1].ParameterType.IsGenericType && m.GetParameters()[1].ParameterType.GetGenericTypeDefinition() == typeof(Func<,>) && m.ReturnType == typeof(int) && m.GetGenericArguments().Length == 1)
+            .MakeGenericMethod(typeof(int));
+        MethodCallExpression mce = Expression.Call(sumMethod, source, lambda);
+
+        MethodInfo aggregateMethod = typeof(MethodVisitor).GetMethod("AggregateExpression", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() =>
+            aggregateMethod.Invoke(sqlVisitor.MethodVisitor, [mce, "SUM", null]));
+
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("Sum could not resolve", tie.InnerException!.Message);
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleCustomMethod_UnresolvableArg_FallsBackToCall()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo dummy = typeof(string).GetMethod(nameof(string.IsNullOrEmpty), [typeof(string)])!;
+        MethodCallExpression mce = Expression.Call(dummy, Expression.Default(typeof(string)));
+
+        ResolvedModel unresolvedArg = new() { IsConstant = false, Constant = null, SQLExpression = null, Expression = Expression.Default(typeof(string)) };
+        SQLiteMethodTranslator translator = (instance, args) => "DUMMY";
+
+        Expression result = sqlVisitor.MethodVisitor.HandleCustomMethod(mce, null, [unresolvedArg], translator);
+        Assert.IsAssignableFrom<MethodCallExpression>(result);
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleCustomMethod_UnresolvableObj_FallsBackToCall()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo startsWith = typeof(string).GetMethod(nameof(string.StartsWith), [typeof(string)])!;
+        Expression target = Expression.Default(typeof(string));
+        MethodCallExpression mce = Expression.Call(target, startsWith, Expression.Constant("abc"));
+
+        ResolvedModel unresolvedObj = new() { IsConstant = false, Constant = null, SQLExpression = null, Expression = target };
+        ResolvedModel resolvedArg = new() { IsConstant = true, Constant = "abc", SQLExpression = new SQLExpression(typeof(string), 0, "@p0", "abc"), Expression = Expression.Constant("abc") };
+        SQLiteMethodTranslator translator = (instance, args) => "DUMMY";
+
+        Expression result = sqlVisitor.MethodVisitor.HandleCustomMethod(mce, unresolvedObj, [resolvedArg], translator);
+        Assert.IsAssignableFrom<MethodCallExpression>(result);
+    }
+
+    [Fact]
+    public void MethodVisitor_UnwrapPredicateBody_NonLambda_ReturnsExpressionUnchanged()
+    {
+        ConstantExpression literal = Expression.Constant("not a lambda", typeof(string));
+
+        MethodInfo method = typeof(MethodVisitor).GetMethod("UnwrapPredicateBody", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Expression result = (Expression)method.Invoke(null, [literal])!;
+
+        Assert.Same(literal, result);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveEntityAlias_UnsupportedExpression_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        Expression weird = Expression.Default(typeof(int));
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveEntityAlias", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => method.Invoke(sqlVisitor.MethodVisitor, [weird]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("direct entity reference", tie.InnerException!.Message);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveEntityAlias_ParameterWithNonSqlValues_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(Book), "b");
+        sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            ["NotSql"] = Expression.Constant("plain")
+        };
+
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveEntityAlias", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => method.Invoke(sqlVisitor.MethodVisitor, [pe]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveEntityAlias_ParameterWithDotlessSql_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(Book), "b");
+        sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            ["Id"] = new SQLExpression(typeof(int), 0, "noDots")
+        };
+
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveEntityAlias", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => method.Invoke(sqlVisitor.MethodVisitor, [pe]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveEntityAlias_MemberWithDotlessSql_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(Book), "b");
+        sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            ["Title"] = new SQLExpression(typeof(string), 0, "noDots")
+        };
+        MemberExpression member = Expression.Property(pe, nameof(Book.Title));
+
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveEntityAlias", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => method.Invoke(sqlVisitor.MethodVisitor, [member]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveFTS5ColumnIndex_NonMemberArg_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        Expression columnArg = Expression.Constant("Title");
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveFTS5ColumnIndex", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => method.Invoke(sqlVisitor.MethodVisitor, [typeof(SQLite.Framework.Tests.Entities.ArticleSearch), columnArg]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("direct property reference", tie.InnerException!.Message);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveFTS5ColumnIndex_UndeclaredColumn_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(Book), "b");
+        MemberExpression nonFtsColumn = Expression.Property(pe, nameof(Book.AuthorId));
+
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveFTS5ColumnIndex", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => method.Invoke(sqlVisitor.MethodVisitor, [typeof(SQLite.Framework.Tests.Entities.ArticleSearch), nonFtsColumn]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("not declared", tie.InnerException!.Message);
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleEnumMethod_InstanceMethodOtherThanHasFlagOrToString_FallsThrough()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ConstantExpression enumValue = Expression.Constant(DayOfWeek.Monday);
+        MethodInfo getTypeMethod = typeof(object).GetMethod(nameof(object.GetType))!;
+        MethodCallExpression mce = Expression.Call(enumValue, getTypeMethod);
+
+        Assert.Throws<NotSupportedException>(() => sqlVisitor.MethodVisitor.HandleEnumMethod(mce));
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleEnumMethod_NonGenericParseWithUnresolvableString_ReturnsNode()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo parseMethod = typeof(Enum).GetMethods()
+            .First(m => m.Name == nameof(Enum.Parse) && m.GetParameters().Length == 2 && !m.IsGenericMethod && m.GetParameters()[0].ParameterType == typeof(Type));
+
+        Expression typeArg = Expression.Constant(typeof(DayOfWeek), typeof(Type));
+        Expression unresolvable = Expression.Default(typeof(string));
+        MethodCallExpression mce = Expression.Call(parseMethod, typeArg, unresolvable);
+
+        Expression result = sqlVisitor.MethodVisitor.HandleEnumMethod(mce);
+        Assert.IsAssignableFrom<MethodCallExpression>(result);
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleEnumMethod_NonGenericParseWithoutTypeArg_ReturnsNode()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo parseMethod = typeof(Enum).GetMethods()
+            .First(m => m.Name == nameof(Enum.Parse) && m.GetParameters().Length == 2 && !m.IsGenericMethod && m.GetParameters()[0].ParameterType == typeof(Type));
+
+        Expression typeArg = Expression.Constant(null, typeof(Type));
+        MethodCallExpression mce = Expression.Call(parseMethod, typeArg, Expression.Constant("X"));
+
+        Expression result = sqlVisitor.MethodVisitor.HandleEnumMethod(mce);
+        Assert.IsAssignableFrom<MethodCallExpression>(result);
+    }
+
+    [Fact]
+    public void MethodVisitor_HandleFTS5Match_ColumnViaConvert_Works()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SQLite.Framework.Tests.Entities.Article>();
+        db.Schema.CreateTable<SQLite.Framework.Tests.Entities.ArticleSearch>();
+
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(SQLite.Framework.Tests.Entities.ArticleSearch), "a");
+        sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            ["Title"] = new SQLExpression(typeof(string), 0, "a0.Title")
+        };
+
+        MemberExpression titleMember = Expression.Property(pe, nameof(SQLite.Framework.Tests.Entities.ArticleSearch.Title));
+        UnaryExpression convert = Expression.Convert(titleMember, typeof(string));
+
+        MethodInfo matchMethod = typeof(SQLiteFunctions).GetMethods()
+            .First(m => m.Name == nameof(SQLiteFunctions.Match)
+                && m.GetParameters().Length == 2
+                && m.GetParameters()[0].ParameterType == typeof(string)
+                && m.GetParameters()[1].ParameterType == typeof(string));
+
+        MethodInfo handleMatch = typeof(MethodVisitor).GetMethod("HandleFTS5Match", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        MethodCallExpression mce = Expression.Call(matchMethod, convert, Expression.Constant("hello"));
+
+        Expression? result = (Expression?)handleMatch.Invoke(sqlVisitor.MethodVisitor, [mce]);
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveFTS5ColumnIndex_ConvertWrappedMember_Resolves()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<SQLite.Framework.Tests.Entities.Article>();
+        db.Schema.CreateTable<SQLite.Framework.Tests.Entities.ArticleSearch>();
+
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        ParameterExpression pe = Expression.Parameter(typeof(SQLite.Framework.Tests.Entities.ArticleSearch), "a");
+        MemberExpression member = Expression.Property(pe, nameof(SQLite.Framework.Tests.Entities.ArticleSearch.Title));
+        UnaryExpression convert = Expression.Convert(member, typeof(string));
+
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveFTS5ColumnIndex", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        int result = (int)method.Invoke(sqlVisitor.MethodVisitor, [typeof(SQLite.Framework.Tests.Entities.ArticleSearch), convert])!;
+
+        Assert.True(result >= 0);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveFTS5ColumnIndex_NeitherMemberNorConvertMember_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        BinaryExpression nonMember = Expression.Add(Expression.Constant(1), Expression.Constant(2));
+
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveFTS5ColumnIndex", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => method.Invoke(sqlVisitor.MethodVisitor, [typeof(SQLite.Framework.Tests.Entities.ArticleSearch), nonMember]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("direct property reference", tie.InnerException!.Message);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveTrim_UnresolvableTrimChars_FallsBackToCall()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        MethodInfo trim = typeof(string).GetMethod(nameof(string.Trim), [typeof(char[])])!;
+        NewArrayExpression arr = Expression.NewArrayInit(typeof(char), Expression.Default(typeof(char)));
+        MethodCallExpression mce = Expression.Call(Expression.Constant("hello"), trim, arr);
+
+        SQLExpression objSql = new(typeof(string), 0, "\"Title\"");
+        ResolvedModel arrArg = new() { IsConstant = false, Constant = null, SQLExpression = null, Expression = arr };
+
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveTrim", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        Expression result = (Expression)method.Invoke(sqlVisitor.MethodVisitor, [mce, objSql, new List<ResolvedModel> { arrArg }, "TRIM"])!;
+
+        Assert.IsAssignableFrom<MethodCallExpression>(result);
+    }
+
+    [Fact]
+    public void MethodVisitor_ResolveFTS5ColumnIndex_NonFtsEntity_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+
+        Expression columnArg = Expression.Constant("Title");
+        MethodInfo method = typeof(MethodVisitor).GetMethod("ResolveFTS5ColumnIndex", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => method.Invoke(sqlVisitor.MethodVisitor, [typeof(Book), columnArg]));
+        Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("FullTextSearch", tie.InnerException!.Message);
+    }
 }
 
 public class InternalHelpersOneArg

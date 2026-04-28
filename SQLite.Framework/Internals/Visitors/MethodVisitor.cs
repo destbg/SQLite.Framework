@@ -726,7 +726,7 @@ internal class MethodVisitor
             );
         }
 
-        if (node.Arguments.Count == 1)
+        if (node.Arguments.Count == 1 || node.Method.Name != nameof(Queryable.Contains))
         {
             return new SQLExpression(
                 node.Method.ReturnType,
@@ -752,23 +752,14 @@ internal class MethodVisitor
             .Select(visitor.ResolveExpression)
             .ToList();
 
-        if (arguments.Any(f => f.Sql == null))
-        {
-            return Expression.Call(node.Method, [innerSql, .. arguments.Select(f => f.Expression)]);
-        }
-
         SQLiteParameter[]? parameters = CommonHelpers.CombineParameters([innerSql, .. arguments.Select(f => f.SQLExpression!)]);
 
-        return node.Method.Name switch
-        {
-            nameof(Queryable.Contains) => new SQLExpression(
-                node.Method.ReturnType,
-                visitor.IdentifierIndex.Index++,
-                $"{arguments[0].Sql} IN ({Environment.NewLine}{query.Sql}{Environment.NewLine})",
-                parameters
-            ),
-            _ => throw new NotSupportedException($"Queryable.{node.Method.Name} is not translatable to SQL.")
-        };
+        return new SQLExpression(
+            node.Method.ReturnType,
+            visitor.IdentifierIndex.Index++,
+            $"{arguments[0].Sql} IN ({Environment.NewLine}{query.Sql}{Environment.NewLine})",
+            parameters
+        );
     }
 
     public Expression HandleEnumerableMethod(MethodCallExpression node, IEnumerable enumerable, List<ResolvedModel> arguments)
@@ -987,11 +978,6 @@ internal class MethodVisitor
                 }
             }
 
-            if (stringArg.SQLExpression == null)
-            {
-                return node;
-            }
-
             Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
             string[] enumNames = Enum.GetNames(enumType);
 
@@ -1140,11 +1126,6 @@ internal class MethodVisitor
 
         if (node.Method.Name == "Parse")
         {
-            if (arguments[0].SQLExpression == null)
-            {
-                return Expression.Call(node.Method, arguments.Select(f => f.Expression));
-            }
-
             return new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex.Index++,
@@ -1189,11 +1170,6 @@ internal class MethodVisitor
 
         if (node.Method.Name == "Parse")
         {
-            if (arguments[0].SQLExpression == null)
-            {
-                return Expression.Call(node.Method, arguments.Select(f => f.Expression));
-            }
-
             return new SQLExpression(
                 node.Method.ReturnType,
                 visitor.IdentifierIndex.Index++,
@@ -1548,15 +1524,7 @@ internal class MethodVisitor
 
     private SQLExpression ResolveAuxArg(Expression expr)
     {
-        ResolvedModel resolved = visitor.ResolveExpression(expr);
-        if (resolved.SQLExpression != null)
-        {
-            return resolved.SQLExpression;
-        }
-
-        object? value = CommonHelpers.GetConstantValue(expr);
-        string pName = $"@p{visitor.ParamIndex.Index++}";
-        return new SQLExpression(expr.Type, visitor.IdentifierIndex.Index++, pName, value);
+        return visitor.ResolveExpression(expr).SQLExpression!;
     }
 
     private string ResolveEntityAlias(Expression entity)
@@ -1822,11 +1790,6 @@ internal class MethodVisitor
         if (node.Method.ReturnType.IsAssignableTo(type) && arguments.All(f => f.IsConstant))
         {
             object? result = node.Method.Invoke(null, arguments.Select(f => f.Constant).ToArray());
-
-            if (result is not T)
-            {
-                throw new Exception($"Expected {type}, somehow got {result?.GetType()}");
-            }
 
             string pName = $"@p{visitor.ParamIndex.Index++}";
             expression = new SQLExpression(node.Method.ReturnType, visitor.IdentifierIndex.Index++, pName, result);

@@ -3161,4 +3161,83 @@ public class CoverageGapTests
     {
         public InnerHolder Inner { get; set; } = new();
     }
+
+    [Fact]
+    public void SG_ChainedSelect_DirectMember_FlattensThroughInnerMemberInit()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 7, Value = 99 });
+
+        List<int> ids = db.Table<CompilerEntity>()
+            .Select(x => new CompilerEntity { Id = x.Id, Value = x.Value })
+            .Select(x => x.Id)
+            .ToList();
+
+        Assert.Equal([7], ids);
+    }
+
+    [Fact]
+    public void SG_ChainedSelect_NonMemberOuter_FlattensViaParameterSubstitution()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 3, Value = 5 });
+
+        List<int> values = db.Table<CompilerEntity>()
+            .Select(x => new CompilerEntity { Id = x.Id, Value = x.Value })
+            .Select(x => x.Value + 1)
+            .ToList();
+
+        Assert.Equal([6], values);
+    }
+
+    [Fact]
+    public void SG_ChainedSelect_ConstantOuter_FlattenReturnsNull()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Schema.CreateTable<CompilerEntity>();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 42 });
+
+        List<int> values = db.Table<CompilerEntity>()
+            .Select(x => new CompilerEntity { Id = x.Id, Value = x.Value })
+            .Select(_ => 99)
+            .ToList();
+
+        Assert.Equal([99], values);
+    }
+
+    [Fact]
+    public void Contains_NonSimpleCapturedValue_OnSingleColumnObjectSource_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+
+        object complex = new ContainsTestComplex();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().Select(b => (object)b.Id).Contains(complex));
+    }
+
+    [Fact]
+    public void Join_WithUnsupportedInnerSourceType_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
+
+        int[] inner = [1, 2, 3];
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .Join(inner, b => b.Id, i => i, (b, i) => b)
+                .ToList());
+
+        Assert.Contains("not supported in join", ex.Message);
+    }
+
+    private sealed class ContainsTestComplex
+    {
+    }
 }
