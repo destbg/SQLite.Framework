@@ -1,8 +1,9 @@
 # SQLite.Framework
 
-LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight - and without the trimming and AOT pain that EF Core still has on Native AOT today. Built for .NET MAUI, Avalonia, and any other AOT-published .NET 8/9/10 app where you want to use full featured `IQueryable` instead of hand-written SQL.
+LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight - and without the trimming and AOT pain that EF Core still has on Native AOT today. Built for .NET MAUI, Avalonia, and any other AOT-published .NET 8/9/10 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
 
 [![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
+[![codecov](https://codecov.io/gh/destbg/SQLite.Framework/branch/main/graph/badge.svg)](https://codecov.io/gh/destbg/SQLite.Framework)
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
@@ -37,7 +38,7 @@ See the [Migrating from sqlite-net-pcl](https://github.com/destbg/SQLite.Framewo
 
 ## Performance
 
-Head-to-head against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 100 rows per operation, .NET 10, BenchmarkDotNet (8 iterations, 3 warmups). Lower is better.
+Head-to-head against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 100 rows per operation, .NET 10, BenchmarkDotNet. Lower is better.
 
 **Read 100 rows into a `List<Book>`:**
 
