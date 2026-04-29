@@ -131,20 +131,6 @@ To make this concrete, consider two tasks running on the same `db` instance:
 
 Because step 3 would execute inside `sp0`, it gets rolled back at step 4 without any error. The write lock prevents this by making Task B wait at step 3 until Task A commits or rolls back.
 
-### Working Around the Wait
-
-If you need writes from multiple threads to overlap, create a separate `SQLiteDatabase` instance for each thread and point them at the same database file. SQLite handles the coordination between connections at the file level.
-
-```csharp
-// Each background task creates its own connection
-await Task.WhenAll(
-    Task.Run(() => { using var db1 = new AppDatabase(); db1.Table<Book>().Add(book1); }),
-    Task.Run(() => { using var db2 = new AppDatabase(); db2.Table<Book>().Add(book2); })
-);
-```
-
-If separate connections are not practical, keep transactions as short as possible so other writers wait for less time.
-
 ## AddRange and UpdateRange
 
 `AddRangeAsync`, `UpdateRangeAsync`, and `RemoveRangeAsync` already wrap their operations in a transaction internally. If you are calling them as part of a larger transaction, pass `runInTransaction: false` to avoid nesting unnecessarily.
