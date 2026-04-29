@@ -8,6 +8,14 @@ namespace SQLite.Framework.Extensions;
 public static class AsyncSchemaExtensions
 {
     /// <summary>
+    /// Creates the table for <paramref name="type" /> if it does not exist.
+    /// </summary>
+    public static Task<int> CreateTableAsync(this SQLiteSchema schema, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(schema.CreateTable, type, ct);
+    }
+
+    /// <summary>
     /// Creates the table for <typeparamref name="T" /> if it does not exist. Runs on a background thread.
     /// </summary>
     public static Task<int> CreateTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
