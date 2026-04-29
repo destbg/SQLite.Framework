@@ -115,7 +115,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         if (Database.Options.OnActionHooks.Count == 0)
         {
             (TableColumn[] columns, string sql) = GetAddInfo();
-            return RunRange(Database.Options.AddHooks, collection, runInTransaction, separateConnection, item => AddOrRemoveItem(columns, sql, item));
+            return RunRange(Database.Options.AddHooks, collection, runInTransaction, separateConnection, item => InsertItem(columns, sql, item));
         }
 
         return RunRange(Database.Options.AddHooks, collection, runInTransaction, separateConnection,
@@ -207,7 +207,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         if (Database.Options.OnActionHooks.Count == 0)
         {
             (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
-            return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, separateConnection, item => AddOrRemoveItem(columns, sql, item));
+            return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, separateConnection, item => InsertItem(columns, sql, item));
         }
 
         return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, separateConnection, item =>
@@ -249,7 +249,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         if (Database.Options.OnActionHooks.Count == 0)
         {
             (TableColumn[] columns, string sql) = GetUpsertInfo(configure);
-            return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, separateConnection, item => AddOrRemoveItem(columns, sql, item));
+            return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, separateConnection, item => InsertItem(columns, sql, item));
         }
 
         return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, separateConnection, item =>
@@ -520,7 +520,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual int DefaultAdd(T item)
     {
         (TableColumn[] columns, string sql) = GetAddInfo();
-        return AddOrRemoveItem(columns, sql, item);
+        return InsertItem(columns, sql, item);
     }
 
     /// <summary>
@@ -553,7 +553,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual int DefaultAddOrUpdate(T item, SQLiteConflict conflict)
     {
         (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
-        return AddOrRemoveItem(columns, sql, item);
+        return InsertItem(columns, sql, item);
     }
 
     /// <summary>
@@ -564,7 +564,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual int DefaultUpsert(T item, Action<UpsertBuilder<T>> configure)
     {
         (TableColumn[] columns, string sql) = GetUpsertInfo(configure);
-        return AddOrRemoveItem(columns, sql, item);
+        return InsertItem(columns, sql, item);
     }
 
     /// <summary>
@@ -586,11 +586,48 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     }
 
     /// <summary>
+    /// Binds the values for <paramref name="item" /> and runs an INSERT. When the table has an
+    /// auto-increment primary key column, the assigned rowid is read on the same connection and
+    /// written back to <paramref name="item" /> so the caller sees the new key.
+    /// </summary>
+    protected virtual int InsertItem(TableColumn[] columns, string sql, T item)
+    {
+        List<SQLiteParameter> parameters = columns
+            .Select((c, i) => new SQLiteParameter
+            {
+                Name = $"@p{i}",
+                Value = c.PropertyInfo.GetValue(item)
+            })
+            .ToList();
+
+        TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        if (autoIncrement == null)
+        {
+            return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
+        }
+
+        (int changes, long rowId) = Database.CreateCommand(sql, parameters).ExecuteWithLastRowId();
+        if (changes > 0)
+        {
+            Type type = Nullable.GetUnderlyingType(autoIncrement.PropertyType) ?? autoIncrement.PropertyType;
+            object key = type == typeof(long) ? rowId
+                : type == typeof(int) ? (int)rowId
+                : type == typeof(short) ? (short)rowId
+                : type == typeof(byte) ? (byte)rowId
+                : type == typeof(sbyte) ? (sbyte)rowId
+                : type == typeof(uint) ? (uint)rowId
+                : type == typeof(ulong) ? (ulong)rowId
+                : Convert.ChangeType(rowId, type, CultureInfo.InvariantCulture)!;
+            autoIncrement.PropertyInfo.SetValue(item, key);
+        }
+
+        return changes;
+    }
+
+    /// <summary>
     /// Binds the values of <paramref name="columns" /> on <paramref name="item" /> and executes
-    /// <paramref name="sql" />. Used by <see cref="Add" />, <see cref="AddRange" />,
-    /// <see cref="Remove" />, <see cref="RemoveRange" />, <see cref="AddOrUpdate" />, and
-    /// <see cref="AddOrUpdateRange" />. Override to mutate the entity right before binding (for
-    /// example, to stamp <c>CreatedAt</c>) or to log every write.
+    /// <paramref name="sql" />. Used by <see cref="Remove" /> and <see cref="RemoveRange" />.
+    /// Override to mutate the entity right before binding or to log every write.
     /// </summary>
     protected virtual int AddOrRemoveItem(TableColumn[] columns, string sql, T item)
     {

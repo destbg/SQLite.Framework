@@ -79,6 +79,28 @@ public class SQLiteCommand
         return raw.sqlite3_changes(database.GetActiveHandle());
     }
 
+    /// <summary>
+    /// Executes the command and returns the number of rows affected together with the
+    /// connection's <c>last_insert_rowid</c> value. The rowid is read inside the same lock as
+    /// the INSERT, so a concurrent writer cannot replace it before the read.
+    /// </summary>
+    public (int Changes, long RowId) ExecuteWithLastRowId()
+    {
+        using IDisposable _ = database.Lock();
+
+        sqlite3_stmt statement = CreateStatement();
+        SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
+        raw.sqlite3_finalize(statement);
+
+        if (result != SQLiteResult.Done)
+        {
+            throw new SQLiteException(result, raw.sqlite3_errmsg(database.GetActiveHandle()).utf8_to_string(), CommandText);
+        }
+
+        sqlite3 handle = database.GetActiveHandle();
+        return (raw.sqlite3_changes(handle), raw.sqlite3_last_insert_rowid(handle));
+    }
+
     private sqlite3_stmt CreateStatement()
     {
         sqlite3 handle = database.GetActiveHandle();
