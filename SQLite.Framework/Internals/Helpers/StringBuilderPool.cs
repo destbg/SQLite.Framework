@@ -23,11 +23,16 @@ internal static class StringBuilderPool
     public static string ToStringAndReturn(StringBuilder sb)
     {
         string result = sb.ToString();
+        Return(sb);
+        return result;
+    }
+
+    public static void Return(StringBuilder sb)
+    {
         if (sb.Capacity <= MaxCapacityToKeep)
         {
             sb.Clear();
             cached = sb;
         }
-        return result;
     }
 }

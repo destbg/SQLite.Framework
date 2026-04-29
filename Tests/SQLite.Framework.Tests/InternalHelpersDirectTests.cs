@@ -1509,6 +1509,61 @@ public class HandlerDispatchTests
             db.Dispose();
         }
     }
+
+    [Fact]
+    public void InlineParameterBuffer8_OverflowPath_PreservesAllParameters()
+    {
+        SQLite.Framework.Internals.Helpers.InlineParameterBuffer8 buffer = default;
+
+        SQLiteParameter[] inputs = new SQLiteParameter[12];
+        for (int i = 0; i < inputs.Length; i++)
+        {
+            inputs[i] = new SQLiteParameter { Name = $"@p{i}", Value = i };
+        }
+
+        buffer.AddRange(inputs);
+
+        Assert.Equal(12, buffer.Count);
+        SQLiteParameter[] result = buffer.ToArray();
+        Assert.Equal(12, result.Length);
+        for (int i = 0; i < inputs.Length; i++)
+        {
+            Assert.Same(inputs[i], result[i]);
+        }
+    }
+
+    [Fact]
+    public void SQLVisitor_InternDecimalCast_SameSource_ReturnsSameInstance()
+    {
+        using TestDatabase db = new();
+        SQLVisitor visitor = new(db, new SQLite.Framework.Internals.SQLiteCounters(), level: 0);
+
+        SQLiteExpression source = new(typeof(decimal), -1, "t0.Price", (SQLiteParameter[]?)null);
+
+        SQLiteExpression first = visitor.InternDecimalCast(source);
+        SQLiteExpression second = visitor.InternDecimalCast(source);
+
+        Assert.Same(first, second);
+        Assert.Equal("CAST(t0.Price AS REAL)", first.Sql);
+    }
+
+    [Fact]
+    public void SQLVisitor_InternJsonExtract_SameSourceAndMember_ReturnsSameInstance()
+    {
+        using TestDatabase db = new();
+        SQLVisitor visitor = new(db, new SQLite.Framework.Internals.SQLiteCounters(), level: 0);
+
+        SQLiteExpression source = new(typeof(string), -1, "t0.Address", (SQLiteParameter[]?)null);
+
+        SQLiteExpression first = visitor.InternJsonExtract(source, "City", typeof(string));
+        SQLiteExpression second = visitor.InternJsonExtract(source, "City", typeof(string));
+        SQLiteExpression different = visitor.InternJsonExtract(source, "Street", typeof(string));
+
+        Assert.Same(first, second);
+        Assert.NotSame(first, different);
+        Assert.Equal("json_extract(t0.Address, '$.City')", first.Sql);
+        Assert.True(first.IsJsonSource);
+    }
 }
 
 internal sealed class CustomMemberBinding : MemberBinding

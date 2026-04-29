@@ -232,6 +232,12 @@ _pkginfo.txt
 # but keep track of directories ending in .cache
 !?*.[Cc]ache/
 
+# AI
+.github/context-mode
+AGENTS.md
+.claude/
+opencode.json
+
 # Others
 ClientBin/
 ~$*

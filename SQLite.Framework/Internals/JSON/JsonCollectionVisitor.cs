@@ -1,6 +1,6 @@
 namespace SQLite.Framework.Internals.JSON;
 
-internal class JsonCollectionVisitor
+internal partial class JsonCollectionVisitor
 {
     private static readonly HashSet<string> CollectionMethods =
     [
@@ -55,348 +55,44 @@ internal class JsonCollectionVisitor
         this.options = options;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
-    private void ProcessMethod(MethodCallExpression call, Type sourceType)
+    public static Expression? TryHandle(MethodCallExpression node, SQLVisitor sqlVisitor)
     {
-        Type elementType = TypeHelpers.GetEnumerableElementType(sourceType) ?? typeof(object);
-
-        switch (call.Method.Name)
+        if (!IsChainedCollectionMethod(node))
         {
-            case nameof(Enumerable.Where):
-            {
-                string predSql = VisitLambda(call.Arguments[1], elementType);
-                wheres.Add(predSql);
-                break;
-            }
-            case nameof(Enumerable.OrderBy):
-            {
-                orderBys.Clear();
-                string keySql = VisitLambda(call.Arguments[1], elementType);
-                orderBys.Add($"{keySql} ASC");
-                break;
-            }
-            case nameof(Enumerable.OrderByDescending):
-            {
-                orderBys.Clear();
-                string keySql = VisitLambda(call.Arguments[1], elementType);
-                orderBys.Add($"{keySql} DESC");
-                break;
-            }
-            case nameof(Enumerable.ThenBy):
-            {
-                string keySql = VisitLambda(call.Arguments[1], elementType);
-                orderBys.Add($"{keySql} ASC");
-                break;
-            }
-            case nameof(Enumerable.ThenByDescending):
-            {
-                string keySql = VisitLambda(call.Arguments[1], elementType);
-                orderBys.Add($"{keySql} DESC");
-                break;
-            }
-            case nameof(Enumerable.GroupBy):
-            {
-                string keySql = VisitLambda(call.Arguments[1], elementType);
-                groupBys.Add(keySql);
-                break;
-            }
-            case nameof(Enumerable.Select):
-            {
-                string projSql = VisitLambda(call.Arguments[1], elementType);
-                selectExpr = projSql;
-                break;
-            }
-            case nameof(Enumerable.SelectMany):
-            {
-                string selSql = VisitLambdaAliased(call.Arguments[1], elementType, "e");
-                crossJoin = $", json_each({selSql}) n";
-                selectExpr = "n.value";
-                break;
-            }
-            case nameof(Enumerable.Skip):
-            {
-                ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-                offset = arg.SQLiteExpression?.Sql ?? arg.Constant?.ToString() ?? "0";
-                AddParameters(arg);
-                break;
-            }
-            case nameof(Enumerable.Take):
-            {
-                ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-                limit = arg.SQLiteExpression?.Sql ?? arg.Constant?.ToString() ?? "0";
-                AddParameters(arg);
-                break;
-            }
-            case nameof(Enumerable.First) or nameof(Enumerable.FirstOrDefault):
-            {
-                if (call.Arguments.Count > 1)
-                {
-                    string predSql = VisitLambda(call.Arguments[1], elementType);
-                    wheres.Add(predSql);
-                }
-
-                limit = "1";
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Last) or nameof(Enumerable.LastOrDefault):
-            {
-                if (call.Arguments.Count > 1)
-                {
-                    string predSql = VisitLambda(call.Arguments[1], elementType);
-                    wheres.Add(predSql);
-                }
-
-                if (orderBys.Count == 0)
-                {
-                    orderBys.Add("key DESC");
-                }
-                else
-                {
-                    for (int i = 0; i < orderBys.Count; i++)
-                    {
-                        orderBys[i] = orderBys[i].EndsWith(" ASC")
-                            ? orderBys[i][..^4] + " DESC"
-                            : orderBys[i][..^5] + " ASC";
-                    }
-                }
-
-                limit = "1";
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Single) or nameof(Enumerable.SingleOrDefault):
-            {
-                if (call.Arguments.Count > 1)
-                {
-                    string predSql = VisitLambda(call.Arguments[1], elementType);
-                    wheres.Add(predSql);
-                }
-
-                singleSemantic = true;
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Count):
-            {
-                if (call.Arguments.Count > 1)
-                {
-                    string predSql = VisitLambda(call.Arguments[1], elementType);
-                    wheres.Add(predSql);
-                }
-
-                selectExpr = "COUNT(*)";
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Any):
-            {
-                if (call.Arguments.Count > 1)
-                {
-                    string predSql = VisitLambda(call.Arguments[1], elementType);
-                    wheres.Add(predSql);
-                }
-
-                existsWrapper = "EXISTS";
-                selectExpr = "1";
-                limit = "1";
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.All):
-            {
-                string predSql = VisitLambda(call.Arguments[1], elementType);
-                wheres.Add($"NOT ({predSql})");
-                existsWrapper = "NOT EXISTS";
-                selectExpr = "1";
-                limit = "1";
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Min):
-            {
-                if (call.Arguments.Count > 1)
-                {
-                    string selSql = VisitLambda(call.Arguments[1], elementType);
-                    selectExpr = $"MIN({selSql})";
-                }
-                else
-                {
-                    selectExpr = "MIN(value)";
-                }
-
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Max):
-            {
-                if (call.Arguments.Count > 1)
-                {
-                    string selSql = VisitLambda(call.Arguments[1], elementType);
-                    selectExpr = $"MAX({selSql})";
-                }
-                else
-                {
-                    selectExpr = "MAX(value)";
-                }
-
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Sum):
-            {
-                if (call.Arguments.Count > 1)
-                {
-                    string selSql = VisitLambda(call.Arguments[1], elementType);
-                    selectExpr = $"SUM({selSql})";
-                }
-                else
-                {
-                    selectExpr = "SUM(value)";
-                }
-
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Average):
-            {
-                if (call.Arguments.Count > 1)
-                {
-                    string selSql = VisitLambda(call.Arguments[1], elementType);
-                    selectExpr = $"AVG({selSql})";
-                }
-                else
-                {
-                    selectExpr = "AVG(value)";
-                }
-
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Distinct):
-            {
-                distinct = true;
-                break;
-            }
-            case nameof(Enumerable.Reverse):
-            {
-                if (orderBys.Count == 0)
-                {
-                    orderBys.Add("key DESC");
-                }
-                else
-                {
-                    for (int i = 0; i < orderBys.Count; i++)
-                    {
-                        orderBys[i] = orderBys[i].EndsWith(" ASC")
-                            ? orderBys[i][..^4] + " DESC"
-                            : orderBys[i][..^5] + " ASC";
-                    }
-                }
-
-                break;
-            }
-            case nameof(Enumerable.ElementAt):
-            {
-                ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-                string idxSql = arg.SQLiteExpression?.Sql ?? arg.Constant?.ToString() ?? "0";
-                AddParameters(arg);
-                limit = "1";
-                offset = idxSql;
-                wrapInArray = false;
-                break;
-            }
-            case nameof(Enumerable.Contains):
-            {
-                ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-                string valSql = arg.SQLiteExpression?.Sql ?? arg.Constant?.ToString() ?? "NULL";
-                AddParameters(arg);
-                wheres.Add($"value = {valSql}");
-                existsWrapper = "EXISTS";
-                selectExpr = "1";
-                limit = "1";
-                wrapInArray = false;
-                break;
-            }
-        }
-    }
-
-    private string BuildSql(string sourceSql)
-    {
-        string sp = new(' ', (visitor.Level + 1) * 4);
-        string sp2 = new(' ', (visitor.Level + 2) * 4);
-        string nl = Environment.NewLine;
-
-        string distinctKeyword = distinct ? "DISTINCT " : "";
-        string tableAlias = crossJoin != null ? " e" : "";
-        string joinClause = crossJoin ?? "";
-
-        List<string> clauses = [$"SELECT {distinctKeyword}{selectExpr}", $"FROM json_each({sourceSql}){tableAlias}{joinClause}"];
-
-        if (wheres.Count > 0)
-        {
-            clauses.Add("WHERE " + string.Join(" AND ", wheres));
+            return null;
         }
 
-        if (groupBys.Count > 0)
+        List<MethodCallExpression> chain = [];
+        Expression source = UnwindChain(node, chain);
+
+        ResolvedModel sourceModel = sqlVisitor.ResolveExpression(source);
+        if (sourceModel.SQLiteExpression == null)
         {
-            clauses.Add("GROUP BY " + string.Join(", ", groupBys));
+            return null;
         }
 
-        if (orderBys.Count > 0)
+        if (!IsJsonCollection(sourceModel.SQLiteExpression.Type, sqlVisitor.Database.Options))
         {
-            clauses.Add("ORDER BY " + string.Join(", ", orderBys));
+            return null;
         }
 
-        if (limit != null && offset != null)
+        JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
+        jcv.parameters.AddRange(sourceModel.SQLiteExpression.Parameters ?? []);
+
+        Type resultType = node.Type;
+        foreach (MethodCallExpression call in chain)
         {
-            clauses.Add($"LIMIT {limit} OFFSET {offset}");
-        }
-        else if (limit != null)
-        {
-            clauses.Add($"LIMIT {limit}");
-        }
-        else if (offset != null)
-        {
-            clauses.Add($"LIMIT -1 OFFSET {offset}");
+            jcv.ProcessMethod(call, sourceModel.SQLiteExpression.Type);
+            resultType = call.Type;
         }
 
-        string innerSelect = string.Join(nl + sp, clauses);
-
-        if (existsWrapper != null)
+        string sql = jcv.BuildSql(sourceModel.SQLiteExpression.Sql);
+        Type coercedType = CoerceType(resultType, sourceModel.SQLiteExpression.Type);
+        return new SQLiteExpression(coercedType, sqlVisitor.Counters.IdentifierIndex++, sql,
+            jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null)
         {
-            return $"{existsWrapper} ({nl}{sp}{innerSelect}{nl}{sp})";
-        }
-
-        if (singleSemantic)
-        {
-            List<string> countClauses = [.. clauses];
-            countClauses[0] = "SELECT COUNT(*)";
-            countClauses.Add("LIMIT 2");
-            string countSelect = string.Join(nl + sp2, countClauses);
-
-            List<string> valueClauses = [.. clauses];
-            valueClauses.Add("LIMIT 1");
-            string valueSelect = string.Join(nl + sp2, valueClauses);
-
-            return $"(CASE WHEN ({nl}{sp2}{countSelect}{nl}{sp}) = 1 THEN ({nl}{sp2}{valueSelect}{nl}{sp}) ELSE NULL END)";
-        }
-
-        if (wrapInArray)
-        {
-            bool needsSubquery = orderBys.Count > 0 || limit != null || offset != null;
-            if (needsSubquery)
-            {
-                string innerSelect2 = string.Join(nl + sp2, clauses);
-                return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}value){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
-            }
-
-            clauses[0] = $"SELECT json_group_array({distinctKeyword}{selectExpr})";
-            string simpleSelect = string.Join(nl + sp, clauses);
-            return $"({nl}{sp}{simpleSelect}{nl})";
-        }
-
-        return $"({nl}{sp}{innerSelect}{nl})";
+            IsJsonSource = true,
+        };
     }
 
     private string VisitLambda(Expression arg, Type elementType)
@@ -486,46 +182,6 @@ internal class JsonCollectionVisitor
         {
             parameters.AddRange(model.SQLiteExpression.Parameters);
         }
-    }
-
-    public static Expression? TryHandle(MethodCallExpression node, SQLVisitor sqlVisitor)
-    {
-        if (!IsChainedCollectionMethod(node))
-        {
-            return null;
-        }
-
-        List<MethodCallExpression> chain = [];
-        Expression source = UnwindChain(node, chain);
-
-        ResolvedModel sourceModel = sqlVisitor.ResolveExpression(source);
-        if (sourceModel.SQLiteExpression == null)
-        {
-            return null;
-        }
-
-        if (!IsJsonCollection(sourceModel.SQLiteExpression.Type, sqlVisitor.Database.Options))
-        {
-            return null;
-        }
-
-        JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
-        jcv.parameters.AddRange(sourceModel.SQLiteExpression.Parameters ?? []);
-
-        Type resultType = node.Type;
-        foreach (MethodCallExpression call in chain)
-        {
-            jcv.ProcessMethod(call, sourceModel.SQLiteExpression.Type);
-            resultType = call.Type;
-        }
-
-        string sql = jcv.BuildSql(sourceModel.SQLiteExpression.Sql);
-        Type coercedType = CoerceType(resultType, sourceModel.SQLiteExpression.Type);
-        return new SQLiteExpression(coercedType, sqlVisitor.Counters.IdentifierIndex++, sql,
-            jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null)
-        {
-            IsJsonSource = true,
-        };
     }
 
     private static bool IsChainedCollectionMethod(MethodCallExpression node)

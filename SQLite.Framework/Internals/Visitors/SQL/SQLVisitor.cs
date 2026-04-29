@@ -30,6 +30,40 @@ internal partial class SQLVisitor : ExpressionVisitor
     public CteRegistry? CteRegistry { get; set; }
     public Dictionary<ParameterExpression, (string Alias, Dictionary<string, Expression> Columns)> CteParameters { get; set; } = [];
 
+    private Dictionary<SQLiteExpression, SQLiteExpression>? decimalCastIntern;
+    private Dictionary<(SQLiteExpression Source, string Member), SQLiteExpression>? jsonExtractIntern;
+
+    internal SQLiteExpression InternDecimalCast(SQLiteExpression source)
+    {
+        decimalCastIntern ??= new();
+        if (decimalCastIntern.TryGetValue(source, out SQLiteExpression? cached))
+        {
+            return cached;
+        }
+
+        SQLiteExpression cast = new(source.Type, Counters.IdentifierIndex++, $"CAST({source.Sql} AS REAL)", source.Parameters);
+        decimalCastIntern[source] = cast;
+        return cast;
+    }
+
+    internal SQLiteExpression InternJsonExtract(SQLiteExpression source, string memberName, Type resultType)
+    {
+        jsonExtractIntern ??= new();
+        (SQLiteExpression Source, string Member) key = (source, memberName);
+        if (jsonExtractIntern.TryGetValue(key, out SQLiteExpression? cached))
+        {
+            return cached;
+        }
+
+        string sql = $"json_extract({source.Sql}, '$.{memberName}')";
+        SQLiteExpression extracted = new(resultType, Counters.IdentifierIndex++, sql, source.Parameters)
+        {
+            IsJsonSource = true,
+        };
+        jsonExtractIntern[key] = extracted;
+        return extracted;
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
     public void AssignValues(SQLiteExpression fromExpression, Dictionary<string, Expression> columns)
     {

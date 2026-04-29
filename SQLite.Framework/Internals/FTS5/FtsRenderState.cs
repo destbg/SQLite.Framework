@@ -10,7 +10,7 @@ namespace SQLite.Framework.Internals.FTS5;
 /// </summary>
 internal sealed class FtsRenderState
 {
-    private readonly StringBuilder buffer = new();
+    private StringBuilder buffer = StringBuilderPool.Rent();
 
     public FtsRenderState(SQLVisitor visitor)
     {
@@ -45,6 +45,12 @@ internal sealed class FtsRenderState
 
         Parts.Add(new FtsQueryPart(buffer.ToString(), null));
         buffer.Clear();
+    }
+
+    public void ReleaseBuffer()
+    {
+        StringBuilderPool.Return(buffer);
+        buffer = null!;
     }
 
     public void Write(Expression node, int parentPrecedence)

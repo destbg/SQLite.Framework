@@ -87,12 +87,12 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         }
 
         StringBuilder operand = StringBuilderPool.Rent();
-        List<SQLiteParameter> parameters = [];
+        InlineParameterBuffer8 parameters = default;
 
         if (columnName != null)
         {
             string prefixLiteral = "{" + columnName + "} : (";
-            AppendLiteralPart(visitor, operand, parameters, prefixLiteral);
+            AppendLiteralPart(visitor, operand, ref parameters, prefixLiteral);
         }
 
         for (int i = 0; i < parts.Count; i++)
@@ -100,24 +100,24 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             FtsQueryPart part = parts[i];
             if (part.LiteralText != null)
             {
-                AppendLiteralPart(visitor, operand, parameters, part.LiteralText);
+                AppendLiteralPart(visitor, operand, ref parameters, part.LiteralText);
             }
             else
             {
-                AppendDynamicPart(operand, parameters, part.DynamicSql!);
+                AppendDynamicPart(operand, ref parameters, part.DynamicSql!);
             }
         }
 
         if (columnName != null)
         {
-            AppendLiteralPart(visitor, operand, parameters, ")");
+            AppendLiteralPart(visitor, operand, ref parameters, ")");
         }
 
         string operandSql = StringBuilderPool.ToStringAndReturn(operand);
         return new SQLiteExpression(typeof(bool), visitor.Counters.IdentifierIndex++, $"\"{tableName}\" MATCH ({operandSql})", parameters.ToArray());
     }
 
-    private static void AppendLiteralPart(SQLVisitor visitor, StringBuilder operand, List<SQLiteParameter> parameters, string text)
+    private static void AppendLiteralPart(SQLVisitor visitor, StringBuilder operand, ref InlineParameterBuffer8 parameters, string text)
     {
         if (operand.Length > 0)
         {
@@ -265,7 +265,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         throw new NotSupportedException($"SQLiteFTS5 column '{columnName}' is not declared on FTS entity '{entityType.Name}'.");
     }
 
-    private static void AppendDynamicPart(StringBuilder operand, List<SQLiteParameter> parameters, SQLiteExpression sql)
+    private static void AppendDynamicPart(StringBuilder operand, ref InlineParameterBuffer8 parameters, SQLiteExpression sql)
     {
         if (operand.Length > 0)
         {

@@ -57,7 +57,7 @@ internal partial class SQLVisitor
                         Type colType = Nullable.GetUnderlyingType(colExpr.Type) ?? colExpr.Type;
                         if (colType == typeof(decimal) && Database.Options.DecimalStorage == DecimalStorageMode.Text)
                         {
-                            return new SQLiteExpression(colExpr.Type, Counters.IdentifierIndex++, $"CAST({colExpr.Sql} AS REAL)", colExpr.Parameters);
+                            return InternDecimalCast(colExpr);
                         }
                     }
 
@@ -150,11 +150,7 @@ internal partial class SQLVisitor
 
         if (Database.Options.HasJsonConverter(node.Expression.Type) || sqlExpression.IsJsonSource)
         {
-            string sql = $"json_extract({sqlExpression.Sql}, '$.{node.Member.Name}')";
-            return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, sql, sqlExpression.Parameters)
-            {
-                IsJsonSource = true,
-            };
+            return InternJsonExtract(sqlExpression, node.Member.Name, node.Type);
         }
 
         if (Database.Options.HasTextOrBlobConverter(node.Expression.Type))

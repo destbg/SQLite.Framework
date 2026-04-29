@@ -168,7 +168,7 @@ internal static class FtsMappingReader
 
     private static string Render(string name, params string[] arguments)
     {
-        StringBuilder sb = new();
+        StringBuilder sb = StringBuilderPool.Rent();
         sb.Append(name);
         foreach (string arg in arguments)
         {
@@ -185,7 +185,7 @@ internal static class FtsMappingReader
             }
         }
 
-        return sb.ToString();
+        return StringBuilderPool.ToStringAndReturn(sb);
     }
 
     private static bool NeedsQuoting(string arg)
