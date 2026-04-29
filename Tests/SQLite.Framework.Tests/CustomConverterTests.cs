@@ -303,8 +303,8 @@ public class CustomConverterTests
             b.TypeConverters[typeof(Points)] = new PointsConverter();
             configure?.Invoke(b);
         }, methodName);
-        db.Schema.CreateTable<ScoreEntity>();
-        db.Schema.CreateTable<NullableScoreEntity>();
+        db.Table<ScoreEntity>().Schema.CreateTable();
+        db.Table<NullableScoreEntity>().Schema.CreateTable();
         return db;
     }
 
@@ -320,7 +320,7 @@ public class CustomConverterTests
             ] = SimpleTranslator.AsSimple((_, args) => $"replace({args[0]}, {args[1]}, {args[2]})");
             configure?.Invoke(b);
         }, methodName);
-        db.Schema.CreateTable<TagEntity>();
+        db.Table<TagEntity>().Schema.CreateTable();
         return db;
     }
 

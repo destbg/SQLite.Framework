@@ -11,7 +11,7 @@ public class SQLiteTableCoverageTests
     public void CreateTable_WithoutRowId_AppendsWithoutRowidClause()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<WithoutRowIdEntity>();
+        db.Table<WithoutRowIdEntity>().Schema.CreateTable();
 
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'WithoutRowIdEntity'");
 
@@ -22,7 +22,7 @@ public class SQLiteTableCoverageTests
     public void CreateTable_WithoutRowId_RoundTripsRow()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<WithoutRowIdEntity>();
+        db.Table<WithoutRowIdEntity>().Schema.CreateTable();
 
         db.Table<WithoutRowIdEntity>().Add(new WithoutRowIdEntity { Code = "X", Name = "x-name" });
 
@@ -35,8 +35,8 @@ public class SQLiteTableCoverageTests
     public void DropTable_FtsWithTriggers_DropsTriggersBeforeTable()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         long triggersBefore = db.ExecuteScalar<long>("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'ArticleSearch_sync%'");
         Assert.Equal(3, triggersBefore);
@@ -53,7 +53,7 @@ public class SQLiteTableCoverageTests
     public void CreateTable_FtsWithUnindexedColumn_EmitsUnindexedKeyword()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article_Unindexed_Search>();
+        db.Table<Article_Unindexed_Search>().Schema.CreateTable();
 
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'Article_Unindexed_Search'");
 
@@ -64,7 +64,7 @@ public class SQLiteTableCoverageTests
     public void CreateTable_FtsContentless_EmitsContentEmpty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article_Contentless_Search>();
+        db.Table<Article_Contentless_Search>().Schema.CreateTable();
 
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'Article_Contentless_Search'");
 
@@ -75,7 +75,7 @@ public class SQLiteTableCoverageTests
     public void CreateTable_FtsWithPrefixAttribute_EmitsPrefixOption()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article_Prefix_Search>();
+        db.Table<Article_Prefix_Search>().Schema.CreateTable();
 
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'Article_Prefix_Search'");
 
@@ -86,8 +86,8 @@ public class SQLiteTableCoverageTests
     public void CreateTable_FtsWithExplicitContentRowIdColumn_UsesGivenColumn()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<Article_ExplicitRowIdColumn_Search>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<Article_ExplicitRowIdColumn_Search>().Schema.CreateTable();
 
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'Article_ExplicitRowIdColumn_Search'");
 
@@ -98,7 +98,7 @@ public class SQLiteTableCoverageTests
     public void Update_HookReturnsFalse_SkipsUpdateReturnsZero()
     {
         using TestDatabase db = new(b => b.OnUpdate<AuditedEntity>((_, _) => false));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "original" });
 
         AuditedEntity row = db.Table<AuditedEntity>().Single();
@@ -114,7 +114,7 @@ public class SQLiteTableCoverageTests
     public void AddOrUpdate_HookReturnsFalse_SkipsInsertReturnsZero()
     {
         using TestDatabase db = new(b => b.OnAddOrUpdate<AuditedEntity>((_, _) => false));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         int affected = db.Table<AuditedEntity>().AddOrUpdate(new AuditedEntity { Name = "x" });
 

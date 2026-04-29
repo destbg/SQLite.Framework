@@ -86,12 +86,17 @@ public class TableColumn
     /// <summary>
     /// Gets the SQL statement to create the column in the database.
     /// </summary>
-    public string GetCreateColumnSql()
+    /// <param name="emitInlinePrimaryKey">
+    /// When false, the inline <c>PRIMARY KEY</c> / <c>AUTOINCREMENT</c> clause is omitted so that
+    /// a composite key can be declared as a table-level <c>PRIMARY KEY (col1, col2)</c> constraint.
+    /// </param>
+    public string GetCreateColumnSql(bool emitInlinePrimaryKey = true)
     {
         string columnType = ColumnType.ToString().ToUpperInvariant();
-        string nullability = IsPrimaryKey ? string.Empty : IsNullable ? "NULL" : "NOT NULL";
-        string primaryKey = IsPrimaryKey ? "PRIMARY KEY" : string.Empty;
-        string autoIncrement = IsAutoIncrement ? "AUTOINCREMENT" : string.Empty;
+        bool inlinePk = emitInlinePrimaryKey && IsPrimaryKey;
+        string nullability = inlinePk ? string.Empty : IsNullable ? "NULL" : "NOT NULL";
+        string primaryKey = inlinePk ? "PRIMARY KEY" : string.Empty;
+        string autoIncrement = inlinePk && IsAutoIncrement ? "AUTOINCREMENT" : string.Empty;
 
         return string.Join(' ', new[]
         {

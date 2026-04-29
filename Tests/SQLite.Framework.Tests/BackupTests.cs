@@ -10,7 +10,7 @@ public class BackupTests
     public void BackupTo_Database_CopiesAllRows()
     {
         using TestDatabase source = new();
-        source.Schema.CreateTable<Book>();
+        source.Table<Book>().Schema.CreateTable();
         source.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 },
@@ -30,7 +30,7 @@ public class BackupTests
     public void BackupTo_Path_CreatesFileWithSameContent()
     {
         using TestDatabase source = new();
-        source.Schema.CreateTable<Book>();
+        source.Table<Book>().Schema.CreateTable();
         source.Table<Book>().Add(new Book { Id = 42, Title = "saved", AuthorId = 1, Price = 1 });
 
         string path = Path.Combine(Path.GetTempPath(), $"backup_{Guid.NewGuid():N}.db3");
@@ -62,11 +62,11 @@ public class BackupTests
     public void BackupTo_OverwritesExistingDestinationData()
     {
         using TestDatabase source = new();
-        source.Schema.CreateTable<Book>();
+        source.Table<Book>().Schema.CreateTable();
         source.Table<Book>().Add(new Book { Id = 1, Title = "from-source", AuthorId = 1, Price = 1 });
 
         using TestDatabase destination = new();
-        destination.Schema.CreateTable<Book>();
+        destination.Table<Book>().Schema.CreateTable();
         destination.Table<Book>().Add(new Book { Id = 99, Title = "stale", AuthorId = 1, Price = 1 });
 
         source.BackupTo(destination);
@@ -101,7 +101,7 @@ public class BackupTests
     public async Task BackupToAsync_Database_CopiesAllRows()
     {
         using TestDatabase source = new();
-        source.Schema.CreateTable<Book>();
+        source.Table<Book>().Schema.CreateTable();
         source.Table<Book>().Add(new Book { Id = 1, Title = "async-copy", AuthorId = 1, Price = 1 });
 
         using TestDatabase destination = new();
@@ -115,7 +115,7 @@ public class BackupTests
     public async Task BackupToAsync_Path_CreatesFile()
     {
         using TestDatabase source = new();
-        source.Schema.CreateTable<Book>();
+        source.Table<Book>().Schema.CreateTable();
         source.Table<Book>().Add(new Book { Id = 7, Title = "to-file", AuthorId = 1, Price = 1 });
 
         string path = Path.Combine(Path.GetTempPath(), $"backup_async_{Guid.NewGuid():N}.db3");

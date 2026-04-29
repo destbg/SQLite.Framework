@@ -26,7 +26,7 @@ public class MethodVisitorCoverageTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -47,7 +47,7 @@ public class MethodVisitorCoverageTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -68,7 +68,7 @@ public class MethodVisitorCoverageTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -91,7 +91,7 @@ public class MethodVisitorCoverageTests
         {
             b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
         });
-        db.Schema.CreateTable<DateTimeOffsetMethodEntity>();
+        db.Table<DateTimeOffsetMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<DateTimeOffsetMethodEntity>()
@@ -106,7 +106,7 @@ public class MethodVisitorCoverageTests
         {
             b.TimeSpanStorage = TimeSpanStorageMode.Text;
         });
-        db.Schema.CreateTable<TimeSpanMethodEntity>();
+        db.Table<TimeSpanMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TimeSpanMethodEntity>()
@@ -119,7 +119,7 @@ public class MethodVisitorCoverageTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 42,
@@ -165,7 +165,7 @@ public class MethodVisitorCoverageTests
     public void StringToString_OnColumn_FallsBackToClientEval()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Hello", AuthorId = 1, Price = 1 });
 
         string result = db.Table<Book>().Select(b => b.Title.ToString()).First();
@@ -177,7 +177,7 @@ public class MethodVisitorCoverageTests
     public void StringPadLeft_SingleIntArg_PadsWithSpace()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "ab", AuthorId = 1, Price = 1 });
 
         string result = db.Table<Book>().Select(b => b.Title.PadLeft(5)).First();
@@ -189,7 +189,7 @@ public class MethodVisitorCoverageTests
     public void StringPadRight_SingleIntArg_PadsWithSpace()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "ab", AuthorId = 1, Price = 1 });
 
         string result = db.Table<Book>().Select(b => b.Title.PadRight(5)).First();
@@ -201,7 +201,7 @@ public class MethodVisitorCoverageTests
     public void StringJoin_NonArrayArgument_FallsBackToClientEval()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         IEnumerable<string> values = new[] { "a", "b", "c" };
@@ -214,7 +214,7 @@ public class MethodVisitorCoverageTests
     public void MathAbs_ConstantArg_EvaluatedAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 10 });
 
         double result = db.Table<Book>().Select(b => Math.Abs(-3.5) + b.Price).First();
@@ -229,7 +229,7 @@ public class MethodVisitorCoverageTests
         {
             b.DateTimeStorage = DateTimeStorageMode.TextFormatted;
         });
-        db.Schema.CreateTable<Author>();
+        db.Table<Author>().Schema.CreateTable();
         db.Table<Author>().Add(new Author
         {
             Id = 1,
@@ -250,7 +250,7 @@ public class MethodVisitorCoverageTests
         {
             b.DateTimeOffsetStorage = DateTimeOffsetStorageMode.TextFormatted;
         });
-        db.Schema.CreateTable<DateTimeOffsetMethodEntity>();
+        db.Table<DateTimeOffsetMethodEntity>().Schema.CreateTable();
         db.Table<DateTimeOffsetMethodEntity>().Add(new DateTimeOffsetMethodEntity
         {
             Id = 1,
@@ -271,7 +271,7 @@ public class MethodVisitorCoverageTests
         {
             b.TimeSpanStorage = TimeSpanStorageMode.Text;
         });
-        db.Schema.CreateTable<TimeSpanMethodEntity>();
+        db.Table<TimeSpanMethodEntity>().Schema.CreateTable();
         db.Table<TimeSpanMethodEntity>().Add(new TimeSpanMethodEntity
         {
             Id = 1,
@@ -292,7 +292,7 @@ public class MethodVisitorCoverageTests
         {
             b.DateOnlyStorage = DateOnlyStorageMode.Text;
         });
-        db.Schema.CreateTable<DateOnlyMethodEntity>();
+        db.Table<DateOnlyMethodEntity>().Schema.CreateTable();
         db.Table<DateOnlyMethodEntity>().Add(new DateOnlyMethodEntity
         {
             Id = 1,
@@ -313,7 +313,7 @@ public class MethodVisitorCoverageTests
         {
             b.TimeOnlyStorage = TimeOnlyStorageMode.Text;
         });
-        db.Schema.CreateTable<TimeOnlyMethodEntity>();
+        db.Table<TimeOnlyMethodEntity>().Schema.CreateTable();
         db.Table<TimeOnlyMethodEntity>().Add(new TimeOnlyMethodEntity
         {
             Id = 1,
@@ -331,7 +331,7 @@ public class MethodVisitorCoverageTests
     public void DateTimeParse_AllConstants_EvaluatedAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Author>();
+        db.Table<Author>().Schema.CreateTable();
         db.Table<Author>().Add(new Author
         {
             Id = 1,
@@ -351,7 +351,7 @@ public class MethodVisitorCoverageTests
     public void DateTimeOffsetParse_AllConstants_EvaluatedAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateTimeOffsetMethodEntity>();
+        db.Table<DateTimeOffsetMethodEntity>().Schema.CreateTable();
         db.Table<DateTimeOffsetMethodEntity>().Add(new DateTimeOffsetMethodEntity
         {
             Id = 1,
@@ -369,7 +369,7 @@ public class MethodVisitorCoverageTests
     public void DateTime_UnknownInstanceMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Author>();
+        db.Table<Author>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Author>()
@@ -381,7 +381,7 @@ public class MethodVisitorCoverageTests
     public void DateTime_StaticUnknownMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Author>();
+        db.Table<Author>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Author>()
@@ -393,7 +393,7 @@ public class MethodVisitorCoverageTests
     public void DateTimeOffset_UnknownInstanceMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateTimeOffsetMethodEntity>();
+        db.Table<DateTimeOffsetMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<DateTimeOffsetMethodEntity>()
@@ -405,7 +405,7 @@ public class MethodVisitorCoverageTests
     public void DateTimeOffset_StaticUnknownMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateTimeOffsetMethodEntity>();
+        db.Table<DateTimeOffsetMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<DateTimeOffsetMethodEntity>()
@@ -417,7 +417,7 @@ public class MethodVisitorCoverageTests
     public void TimeSpan_UnknownInstanceMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TimeSpanMethodEntity>();
+        db.Table<TimeSpanMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TimeSpanMethodEntity>()
@@ -429,7 +429,7 @@ public class MethodVisitorCoverageTests
     public void TimeSpan_StaticUnknownMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TimeSpanMethodEntity>();
+        db.Table<TimeSpanMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TimeSpanMethodEntity>()
@@ -441,7 +441,7 @@ public class MethodVisitorCoverageTests
     public void DateOnly_UnknownInstanceMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateOnlyMethodEntity>();
+        db.Table<DateOnlyMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<DateOnlyMethodEntity>()
@@ -453,7 +453,7 @@ public class MethodVisitorCoverageTests
     public void DateOnly_StaticUnknownMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateOnlyMethodEntity>();
+        db.Table<DateOnlyMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<DateOnlyMethodEntity>()
@@ -465,7 +465,7 @@ public class MethodVisitorCoverageTests
     public void DateOnly_FromDateTime_AllConstants_EvaluatesAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateOnlyMethodEntity>();
+        db.Table<DateOnlyMethodEntity>().Schema.CreateTable();
         db.Table<DateOnlyMethodEntity>().Add(new DateOnlyMethodEntity { Id = 1, Date = new DateOnly(2024, 6, 15) });
 
         List<DateOnlyMethodEntity> rows = db.Table<DateOnlyMethodEntity>()
@@ -479,7 +479,7 @@ public class MethodVisitorCoverageTests
     public void TimeOnly_UnknownInstanceMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TimeOnlyMethodEntity>();
+        db.Table<TimeOnlyMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TimeOnlyMethodEntity>()
@@ -491,7 +491,7 @@ public class MethodVisitorCoverageTests
     public void TimeOnly_StaticUnknownMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TimeOnlyMethodEntity>();
+        db.Table<TimeOnlyMethodEntity>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<TimeOnlyMethodEntity>()
@@ -503,7 +503,7 @@ public class MethodVisitorCoverageTests
     public void TimeOnly_FromDateTime_AllConstants_EvaluatesAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TimeOnlyMethodEntity>();
+        db.Table<TimeOnlyMethodEntity>().Schema.CreateTable();
         db.Table<TimeOnlyMethodEntity>().Add(new TimeOnlyMethodEntity { Id = 1, Time = new TimeOnly(15, 0) });
 
         List<TimeOnlyMethodEntity> rows = db.Table<TimeOnlyMethodEntity>()
@@ -517,7 +517,7 @@ public class MethodVisitorCoverageTests
     public void TimeSpan_FromDays_OnConstantArg_EvaluatesAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TimeSpanMethodEntity>();
+        db.Table<TimeSpanMethodEntity>().Schema.CreateTable();
         db.Table<TimeSpanMethodEntity>().Add(new TimeSpanMethodEntity { Id = 1, Duration = TimeSpan.FromDays(5) });
 
         List<TimeSpanMethodEntity> rows = db.Table<TimeSpanMethodEntity>()
@@ -531,7 +531,7 @@ public class MethodVisitorCoverageTests
     public void Math_Truncate_OnColumn_DivisionPreservesRealSemantics()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 5.5 });
 
         double result = db.Table<Book>()
@@ -545,7 +545,7 @@ public class MethodVisitorCoverageTests
     public void Math_Truncate_OnColumn_RoundsTowardZero()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 7.9 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "y", AuthorId = 1, Price = -3.4 });
 
@@ -561,7 +561,7 @@ public class MethodVisitorCoverageTests
     public void Math_UnknownStaticMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
@@ -573,7 +573,7 @@ public class MethodVisitorCoverageTests
     public void Guid_NewGuid_InsideSelect_GeneratesParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         Guid result = db.Table<Book>()
@@ -587,7 +587,7 @@ public class MethodVisitorCoverageTests
     public void Guid_Parse_AllConstants_EvaluatesAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         Guid expected = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -602,7 +602,7 @@ public class MethodVisitorCoverageTests
     public void Char_UnknownStaticMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
@@ -614,7 +614,7 @@ public class MethodVisitorCoverageTests
     public void Guid_UnknownInstanceMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
@@ -626,7 +626,7 @@ public class MethodVisitorCoverageTests
     public void StringConcat_UnknownStaticMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
@@ -638,7 +638,7 @@ public class MethodVisitorCoverageTests
     public void EnumHasFlag_OnConstants_FoldsViaCheckConstantMethod()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         AttributeTargets target = AttributeTargets.Class | AttributeTargets.Method;
@@ -653,7 +653,7 @@ public class MethodVisitorCoverageTests
     public void TimeSpan_ToStringWithFormat_OnColumn_FallsBackToClientCall()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TimeSpanMethodEntity>();
+        db.Table<TimeSpanMethodEntity>().Schema.CreateTable();
         db.Table<TimeSpanMethodEntity>().Add(new TimeSpanMethodEntity { Id = 1, Duration = TimeSpan.FromHours(2) });
 
         string result = db.Table<TimeSpanMethodEntity>()
@@ -667,7 +667,7 @@ public class MethodVisitorCoverageTests
     public void DateTimeOffset_ToStringWithFormat_OnColumn_FallsBackToClientCall()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateTimeOffsetMethodEntity>();
+        db.Table<DateTimeOffsetMethodEntity>().Schema.CreateTable();
         db.Table<DateTimeOffsetMethodEntity>().Add(new DateTimeOffsetMethodEntity
         {
             Id = 1,
@@ -685,8 +685,8 @@ public class MethodVisitorCoverageTests
     public void Queryable_SingleArgSubquery_WithParameters_Inlines()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<Author>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Schema.CreateTable();
         db.Table<Author>().Add(new Author { Id = 1, Name = "n", Email = "e", BirthDate = default });
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
@@ -701,8 +701,8 @@ public class MethodVisitorCoverageTests
     public void Queryable_SingleArgSubquery_WithoutParameters_InlinesNullParams()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<Author>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Schema.CreateTable();
         db.Table<Author>().Add(new Author { Id = 1, Name = "n", Email = "e", BirthDate = default });
 
         List<Author> rows = db.Table<Author>()
@@ -716,7 +716,7 @@ public class MethodVisitorCoverageTests
     public void StringContains_CharArgument_BindsCharAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         SQLiteCommand cmd = db.Table<Book>()
             .Where(b => b.Title.Contains('b'))
@@ -729,7 +729,7 @@ public class MethodVisitorCoverageTests
     public void DateTime_AddDays_WithColumnArgument_BindsBothColumnSqlFragments()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Author>();
+        db.Table<Author>().Schema.CreateTable();
         db.Table<Author>().Add(new Author
         {
             Id = 5,
@@ -749,8 +749,8 @@ public class MethodVisitorCoverageTests
     public void FTS5_Rank_OnJoinedQuerySyntax_ResolvesAlias()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand cmd = (
             from book in db.Table<Article>()
@@ -767,8 +767,8 @@ public class MethodVisitorCoverageTests
     public void FTS5_Match_ColumnScopedBuilder_WithConstantTerm_BuildsSingleColumnScopedParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         string term = "native";
         SQLiteCommand cmd = db.Table<ArticleSearch>()
@@ -782,8 +782,8 @@ public class MethodVisitorCoverageTests
     public void FTS5_Match_ColumnScopedBuilder_WithDynamicTerm_WrapsWithColumnPrefixAndSuffix()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand cmd = db.Table<ArticleSearch>()
             .Where(a => SQLiteFTS5Functions.Match(a.Title, f => f.Term(a.Body)))
@@ -798,8 +798,8 @@ public class MethodVisitorCoverageTests
     public void FTS5_Rank_OnAnonymousProjectionMember_ResolvesAliasFromMemberAccess()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand cmd = db.Table<Article>()
             .Join(
@@ -818,7 +818,7 @@ public class MethodVisitorCoverageTests
     public void EnumParse_NonGenericConstantTypeArg_Translates()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Monday", AuthorId = 1, Price = 1 });
 
         List<Book> rows = db.Table<Book>()
@@ -832,7 +832,7 @@ public class MethodVisitorCoverageTests
     public void Char_Parse_AllConstants_EvaluatesAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
 
         List<Book> rows = db.Table<Book>()
@@ -846,7 +846,7 @@ public class MethodVisitorCoverageTests
     public void Int_Parse_OnColumn_CastsAsInteger()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "42", AuthorId = 1, Price = 1 });
 
         int result = db.Table<Book>()
@@ -861,7 +861,7 @@ public class MethodVisitorCoverageTests
     public void Int_UnknownInstanceMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
@@ -873,7 +873,7 @@ public class MethodVisitorCoverageTests
     public void Long_Parse_AllConstants_EvaluatesAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         List<Book> rows = db.Table<Book>()
@@ -887,7 +887,7 @@ public class MethodVisitorCoverageTests
     public void Float_UnknownInstanceMethod_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
@@ -899,7 +899,7 @@ public class MethodVisitorCoverageTests
     public void Double_Parse_AllConstants_EvaluatesAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 5 });
 
         List<Book> rows = db.Table<Book>()
@@ -913,7 +913,7 @@ public class MethodVisitorCoverageTests
     public void StringJoin_NonArrayWithNonConstantSeparator_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         IEnumerable<string> values = new List<string> { "a", "b" };
         Assert.Throws<NotSupportedException>(() =>
@@ -942,7 +942,7 @@ public class MethodVisitorCoverageTests
     public void Where_CorrelatedAverageWithSelector_TranslatesAndExecutes()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 9 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 2, Price = 2 });
@@ -960,7 +960,7 @@ public class MethodVisitorCoverageTests
     public void Where_CorrelatedSumWithSelector_TranslatesAndExecutes()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 9 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 2, Price = 2 });
@@ -978,7 +978,7 @@ public class MethodVisitorCoverageTests
     public void Where_CorrelatedCountWithPredicate_TranslatesAndExecutes()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 9 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 2, Price = 2 });

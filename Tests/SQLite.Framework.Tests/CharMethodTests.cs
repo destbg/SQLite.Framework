@@ -322,7 +322,7 @@ public class CharMethodTests
     {
         TestDatabase db = new(methodName);
 
-        db.Schema.CreateTable<NumericType>();
+        db.Table<NumericType>().Schema.CreateTable();
         db.Table<NumericType>().AddRange(new[]
         {
             new NumericType

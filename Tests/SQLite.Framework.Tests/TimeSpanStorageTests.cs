@@ -362,7 +362,7 @@ public class TimeSpanStorageTests
     private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(configure, methodName);
-        db.Schema.CreateTable<TestEntity>();
+        db.Table<TestEntity>().Schema.CreateTable();
         return db;
     }
 

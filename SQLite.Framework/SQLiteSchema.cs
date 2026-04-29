@@ -48,7 +48,16 @@ public class SQLiteSchema
             return CreateFullTextSearchTable(mapping);
         }
 
-        string columns = string.Join(", ", mapping.Columns.Select(c => c.GetCreateColumnSql()));
+        TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
+        bool hasCompositePrimaryKey = primaryKeyColumns.Length > 1;
+
+        string columns = string.Join(", ", mapping.Columns.Select(c => c.GetCreateColumnSql(!hasCompositePrimaryKey)));
+        if (hasCompositePrimaryKey)
+        {
+            string pkList = string.Join(", ", primaryKeyColumns.Select(c => $"\"{c.Name}\""));
+            columns += $", PRIMARY KEY ({pkList})";
+        }
+
         string sql = $"CREATE TABLE IF NOT EXISTS \"{mapping.TableName}\" ({columns})";
 
         if (mapping.WithoutRowId)
@@ -431,10 +440,15 @@ public class SQLiteSchema
 
         Type sourceType = fts.Attribute.ContentTable!;
         TableMapping sourceMapping = Database.TableMapping(sourceType);
-        TableColumn? pk = sourceMapping.Columns.FirstOrDefault(c => c.IsPrimaryKey);
-        if (pk != null)
+        TableColumn[] pks = sourceMapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
+        if (pks.Length == 1)
         {
-            return pk.Name;
+            return pks[0].Name;
+        }
+
+        if (pks.Length > 1)
+        {
+            throw new InvalidOperationException($"FTS5 entity '{mapping.Type.Name}' targets '{sourceType.Name}' which has a composite primary key. Set ContentRowIdColumn on [FullTextSearch] to pick the rowid column explicitly.");
         }
 
         throw new InvalidOperationException($"FTS5 entity '{mapping.Type.Name}' targets '{sourceType.Name}' but the source has no [Key] property. Mark the primary key with [Key] or set ContentRowIdColumn on [FullTextSearch].");

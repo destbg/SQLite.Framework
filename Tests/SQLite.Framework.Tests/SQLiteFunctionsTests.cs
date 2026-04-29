@@ -10,7 +10,7 @@ public class SQLiteFunctionsTests
     public void Random_InWhere_FiltersByRandomNumber()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         SQLiteCommand cmd = db.Table<Book>()
@@ -24,7 +24,7 @@ public class SQLiteFunctionsTests
     public void Random_InSelect_RoundTrips()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         long random = db.Table<Book>().Select(b => (long)SQLiteFunctions.Random()).First();
@@ -35,7 +35,7 @@ public class SQLiteFunctionsTests
     public void RandomBlob_InSelect_ReturnsRequestedLength()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         byte[] blob = db.Table<Book>().Select(b => SQLiteFunctions.RandomBlob(8)).First();
@@ -46,7 +46,7 @@ public class SQLiteFunctionsTests
     public void Glob_InWhere_MatchesGlobPattern()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "ABC", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "ZZZ", AuthorId = 1, Price = 2 });
 
@@ -62,7 +62,7 @@ public class SQLiteFunctionsTests
     public void UnixEpoch_InSelect_ReturnsCurrentEpoch()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         long epoch = db.Table<Book>().Select(b => SQLiteFunctions.UnixEpoch()).First();
@@ -73,7 +73,7 @@ public class SQLiteFunctionsTests
     public void UnixEpoch_WithDateString_InSelect_ReturnsParsedEpoch()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         long epoch = db.Table<Book>().Select(b => SQLiteFunctions.UnixEpoch("2024-01-01")).First();
@@ -84,7 +84,7 @@ public class SQLiteFunctionsTests
     public void Printf_InSelect_FormatsWithArgs()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 7, Title = "x", AuthorId = 1, Price = 1 });
 
         string result = db.Table<Book>()
@@ -98,7 +98,7 @@ public class SQLiteFunctionsTests
     public void Changes_InSelect_ReturnsZeroForReadQuery()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         long changes = db.Table<Book>().Select(b => SQLiteFunctions.Changes()).First();
@@ -109,7 +109,7 @@ public class SQLiteFunctionsTests
     public void TotalChanges_InSelect_ReturnsConnectionTotal()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
         long total = db.Table<Book>().Select(b => SQLiteFunctions.TotalChanges()).First();

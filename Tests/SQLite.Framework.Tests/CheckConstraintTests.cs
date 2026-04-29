@@ -11,7 +11,7 @@ public class CheckConstraintTests
         using TestDatabase db = new();
         db.Schema.Table<BookArchive>()
             .Check(b => b.Price > 0, name: "CK_Price_Positive")
-            .Create();
+            .CreateTable();
 
         db.Table<BookArchive>().Add(new BookArchive
         {
@@ -30,7 +30,7 @@ public class CheckConstraintTests
         using TestDatabase db = new();
         db.Schema.Table<BookArchive>()
             .Check(b => b.Price > 0, name: "CK_Price_Positive")
-            .Create();
+            .CreateTable();
 
         Assert.ThrowsAny<Exception>(() => db.Table<BookArchive>().Add(new BookArchive
         {
@@ -47,7 +47,7 @@ public class CheckConstraintTests
         using TestDatabase db = new();
         db.Schema.Table<BookArchive>()
             .Check(b => b.Price > 0)
-            .Create();
+            .CreateTable();
 
         Assert.ThrowsAny<Exception>(() => db.Table<BookArchive>().Add(new BookArchive
         {
@@ -65,7 +65,7 @@ public class CheckConstraintTests
         db.Schema.Table<BookArchive>()
             .Check(b => b.Price > 0, name: "CK_Price")
             .Check(b => b.AuthorId > 0, name: "CK_Author")
-            .Create();
+            .CreateTable();
 
         Assert.ThrowsAny<Exception>(() => db.Table<BookArchive>().Add(new BookArchive
         {

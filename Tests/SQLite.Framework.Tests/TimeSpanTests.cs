@@ -228,7 +228,7 @@ public class TimeSpanTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<TestEntity>();
+        db.Table<TestEntity>().Schema.CreateTable();
         db.Table<TestEntity>().Add(new TestEntity
         {
             Id = 1,
@@ -419,7 +419,7 @@ public class TimeSpanTests
     {
         TestDatabase db = new(methodName);
 
-        db.Schema.CreateTable<TestEntity>();
+        db.Table<TestEntity>().Schema.CreateTable();
 
         db.Table<TestEntity>().AddRange(new[]
         {

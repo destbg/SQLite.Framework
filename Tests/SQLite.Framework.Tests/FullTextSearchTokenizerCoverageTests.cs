@@ -16,7 +16,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Ascii_NoOptions_RendersBareTokenizerName()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Ascii_Default_Search>();
+        db.Table<Ascii_Default_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Ascii_Default_Search" USING fts5(Body, tokenize='ascii')""",
@@ -27,7 +27,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Ascii_SeparatorsOnly_RendersSeparatorsArg()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Ascii_Separators_Search>();
+        db.Table<Ascii_Separators_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Ascii_Separators_Search" USING fts5(Body, tokenize='ascii separators '';|''')""",
@@ -38,7 +38,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Ascii_TokenCharsOnly_RendersTokenCharsArg()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Ascii_TokenChars_Search>();
+        db.Table<Ascii_TokenChars_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Ascii_TokenChars_Search" USING fts5(Body, tokenize='ascii tokenchars ''-_''')""",
@@ -49,7 +49,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Ascii_BothOptions_RendersBothArgs()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Ascii_Both_Search>();
+        db.Table<Ascii_Both_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Ascii_Both_Search" USING fts5(Body, tokenize='ascii separators '';|'' tokenchars ''-_''')""",
@@ -60,7 +60,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Porter_DefaultBase_WrapsUnicode61WithRemoveDiacritics()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Porter_Default_Search>();
+        db.Table<Porter_Default_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Porter_Default_Search" USING fts5(Body, tokenize='porter unicode61 remove_diacritics 2')""",
@@ -71,7 +71,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Porter_AsciiBase_WrapsAsciiWithoutUnicodeOptions()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Porter_Ascii_Search>();
+        db.Table<Porter_Ascii_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Porter_Ascii_Search" USING fts5(Body, tokenize='porter ascii')""",
@@ -82,7 +82,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Porter_Categories_RendersCategoriesArg()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Porter_Categories_Search>();
+        db.Table<Porter_Categories_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Porter_Categories_Search" USING fts5(Body, tokenize='porter unicode61 remove_diacritics 2 categories ''L* N*''')""",
@@ -93,7 +93,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Porter_Separators_RendersSeparatorsArg()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Porter_Separators_Search>();
+        db.Table<Porter_Separators_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Porter_Separators_Search" USING fts5(Body, tokenize='porter unicode61 remove_diacritics 2 separators ''.,;''')""",
@@ -104,7 +104,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Porter_TokenChars_RendersTokenCharsArg()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Porter_TokenChars_Search>();
+        db.Table<Porter_TokenChars_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Porter_TokenChars_Search" USING fts5(Body, tokenize='porter unicode61 remove_diacritics 2 tokenchars ''-_''')""",
@@ -115,7 +115,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Porter_StemsEnglishWords_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Porter_Default_Search>();
+        db.Table<Porter_Default_Search>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO Porter_Default_Search(rowid, Body) VALUES (1, 'running')", []).ExecuteNonQuery();
 
         long hits = db.Table<Porter_Default_Search>()
@@ -128,7 +128,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Custom_NameOnly_RendersTokenizerNameAlone()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Custom_NoArgs_Search>();
+        db.Table<Custom_NoArgs_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Custom_NoArgs_Search" USING fts5(Body, tokenize='ascii')""",
@@ -139,7 +139,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Custom_PlainArgs_RendersBareArgs()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Custom_PlainArgs_Search>();
+        db.Table<Custom_PlainArgs_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Custom_PlainArgs_Search" USING fts5(Body, tokenize='unicode61 remove_diacritics 1')""",
@@ -150,7 +150,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Custom_ArgsWithSpecialChars_GetSingleQuoted()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Custom_QuotedArgs_Search>();
+        db.Table<Custom_QuotedArgs_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Custom_QuotedArgs_Search" USING fts5(Body, tokenize='unicode61 categories ''L* N*'' separators ''.,''')""",
@@ -161,7 +161,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Custom_EmptyArg_GetsQuotedAsEmptyString()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Custom_EmptyArg_Search>();
+        db.Table<Custom_EmptyArg_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Custom_EmptyArg_Search" USING fts5(Body, tokenize='ascii tokenchars ''''')""",
@@ -172,7 +172,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Custom_ArgWithSingleQuote_DoublesItInsideQuotedArg()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Custom_SingleQuoteArg_Search>();
+        db.Table<Custom_SingleQuoteArg_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Custom_SingleQuoteArg_Search" USING fts5(Body, tokenize='ascii tokenchars ''a''''b''')""",
@@ -183,7 +183,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Custom_ArgWithDoubleQuote_PassesThroughUnescaped()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Custom_DoubleQuoteArg_Search>();
+        db.Table<Custom_DoubleQuoteArg_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Custom_DoubleQuoteArg_Search" USING fts5(Body, tokenize='ascii tokenchars ''a"b''')""",
@@ -194,7 +194,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Custom_ArgWithBacktick_PassesThroughUnescaped()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Custom_BacktickArg_Search>();
+        db.Table<Custom_BacktickArg_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Custom_BacktickArg_Search" USING fts5(Body, tokenize='ascii tokenchars ''a`b''')""",
@@ -208,7 +208,7 @@ public class FullTextSearchTokenizerCoverageTests
         using TestDatabase db = new();
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.CreateTable<Bad_TwoTokenizers_Search>());
+            db.Table<Bad_TwoTokenizers_Search>().Schema.CreateTable());
 
         Assert.Contains("more than one tokenizer attribute", ex.Message);
     }
@@ -220,7 +220,7 @@ public class FullTextSearchTokenizerCoverageTests
         using TestDatabase db = new();
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.CreateTable<Bad_ExternalNoContentTable_Search>());
+            db.Table<Bad_ExternalNoContentTable_Search>().Schema.CreateTable());
 
         Assert.Contains("ContentMode.External but does not set ContentTable", ex.Message);
     }
@@ -231,7 +231,7 @@ public class FullTextSearchTokenizerCoverageTests
         using TestDatabase db = new();
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.CreateTable<Bad_TwoRowIds_Search>());
+            db.Table<Bad_TwoRowIds_Search>().Schema.CreateTable());
 
         Assert.Contains("more than one [FullTextRowId] property", ex.Message);
     }
@@ -242,7 +242,7 @@ public class FullTextSearchTokenizerCoverageTests
         using TestDatabase db = new();
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.CreateTable<Bad_StringRowId_Search>());
+            db.Table<Bad_StringRowId_Search>().Schema.CreateTable());
 
         Assert.Contains("not int or long", ex.Message);
     }
@@ -253,7 +253,7 @@ public class FullTextSearchTokenizerCoverageTests
         using TestDatabase db = new();
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.CreateTable<Bad_NoIndexedColumns_Search>());
+            db.Table<Bad_NoIndexedColumns_Search>().Schema.CreateTable());
 
         Assert.Contains("must have at least one property marked [FullTextIndexed]", ex.Message);
     }
@@ -262,7 +262,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void NotMapped_Property_IsSkippedFromFtsSchema()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<NotMapped_Search>();
+        db.Table<NotMapped_Search>().Schema.CreateTable();
 
         string sql = ReadSchema(db, "NotMapped_Search");
         Assert.Contains("Body", sql);
@@ -273,7 +273,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Column_Attribute_OverridesIndexedColumnName()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<ColumnAlias_Search>();
+        db.Table<ColumnAlias_Search>().Schema.CreateTable();
 
         string sql = ReadSchema(db, "ColumnAlias_Search");
         Assert.Contains("body_text", sql);
@@ -285,7 +285,7 @@ public class FullTextSearchTokenizerCoverageTests
     public void Trigram_CaseSensitiveAndNoRemoveDiacritics_RendersOpposingFlags()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Trigram_CaseSensitive_Search>();
+        db.Table<Trigram_CaseSensitive_Search>().Schema.CreateTable();
 
         Assert.Equal(
             """CREATE VIRTUAL TABLE "Trigram_CaseSensitive_Search" USING fts5(Code, tokenize='trigram case_sensitive 1 remove_diacritics 0')""",

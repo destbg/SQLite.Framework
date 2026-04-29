@@ -10,8 +10,8 @@ public class InsertFromQueryTests
     public void InsertFromQuery_SameShape_CopiesRowsAndReturnsCount()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -40,8 +40,8 @@ public class InsertFromQueryTests
     public void InsertFromQuery_WithWhere_FiltersBeforeInsert()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -71,7 +71,7 @@ public class InsertFromQueryTests
     public void InsertFromQuery_NullSource_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         Assert.Throws<ArgumentNullException>(() => db.Table<BookArchive>().InsertFromQuery(null!));
     }
@@ -82,8 +82,8 @@ public class InsertFromQueryTests
         int hookCalls = 0;
 
         using TestDatabase db = new(builder => builder.OnAdd<BookArchive>(_ => { hookCalls++; }));
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         db.Table<Book>().AddRange(new[]
         {
@@ -108,8 +108,8 @@ public class InsertFromQueryTests
     public async Task InsertFromQueryAsync_CopiesRowsAndReturnsCount()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         db.Table<Book>().AddRange(new[]
         {

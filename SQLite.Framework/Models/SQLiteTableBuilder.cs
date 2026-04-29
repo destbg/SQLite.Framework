@@ -82,11 +82,11 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     /// Emits the <c>CREATE TABLE IF NOT EXISTS</c> statement plus any indexes recorded on the
     /// builder. Returns the total number of statements run.
     /// </summary>
-    public int Create()
+    public int CreateTable()
     {
         if (mapping.IsFullTextSearch)
         {
-            throw new InvalidOperationException("FTS5 tables cannot be created through the fluent builder. Use Schema.CreateTable<T>() instead.");
+            throw new InvalidOperationException("FTS5 tables cannot be created through the fluent builder. Use.Table<T>().Schema.CreateTable() instead.");
         }
 
         StringBuilder sb = new();
@@ -142,7 +142,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
         foreach (TableColumn tableColumn in mapping.Columns)
         {
-            foreach (Attributes.IndexedAttribute index in tableColumn.Indices)
+            foreach (IndexedAttribute index in tableColumn.Indices)
             {
                 string indexName = index.Name ?? ("idx_" + tableColumn.Name + "_" + index.Order);
                 string uniqueClause = index.IsUnique ? "UNIQUE " : string.Empty;
@@ -175,7 +175,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             throw new ArgumentException("Expected a property access expression on the entity, like b => b.Title.", nameof(column));
         }
 
-        TableColumn? col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name)
+        TableColumn col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name)
             ?? throw new ArgumentException($"Property '{member.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
 
         return col;
@@ -187,7 +187,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
         Dictionary<string, Expression> columnExpressions = mapping.Columns.ToDictionary(
             c => c.PropertyInfo.Name,
-            c => (Expression)new SQLiteExpression(c.PropertyType, visitor.Counters.IdentifierIndex++, c.Name));
+            Expression (c) => new SQLiteExpression(c.PropertyType, visitor.Counters.IdentifierIndex++, c.Name));
 
         visitor.MethodArguments[lambda.Parameters[0]] = columnExpressions;
 

@@ -426,7 +426,7 @@ public class WindowFunctionTests
         {
             configure?.Invoke(b);
         }, methodName);
-        db.Schema.CreateTable<Order>();
+        db.Table<Order>().Schema.CreateTable();
         db.Table<Order>().AddRange([
             new Order
             {

@@ -12,8 +12,8 @@ public class FullTextSearchTests
     public void Match_BindsQueryStringAsParameter()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
             .Where(a => SQLiteFTS5Functions.Match(a, "native aot"))
@@ -35,8 +35,8 @@ public class FullTextSearchTests
     public void Match_ExpressionDsl_RendersFts5QueryString()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
             .Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("native") && f.Prefix("aot")))
@@ -58,8 +58,8 @@ public class FullTextSearchTests
     public void Match_ColumnScopedString_RendersColumnPrefixInQuery()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
             .Where(a => SQLiteFTS5Functions.Match(a.Title, "native"))
@@ -81,8 +81,8 @@ public class FullTextSearchTests
     public void OrderByRank_WithCustomWeights_EmitsBm25Function()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
             .Where(a => SQLiteFTS5Functions.Match(a, "native"))
@@ -105,7 +105,7 @@ public class FullTextSearchTests
     public void OrderByRank_WithDefaultWeights_EmitsRankColumn()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SimpleSearchEntity>();
+        db.Table<SimpleSearchEntity>().Schema.CreateTable();
 
         SQLiteCommand command = db.Table<SimpleSearchEntity>()
             .Where(a => SQLiteFTS5Functions.Match(a, "native"))
@@ -120,8 +120,8 @@ public class FullTextSearchTests
     public void Snippet_EmitsSnippetAuxiliaryFunction()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
             .Where(a => SQLiteFTS5Functions.Match(a, "native"))
@@ -142,8 +142,8 @@ public class FullTextSearchTests
     public void Highlight_EmitsHighlightAuxiliaryFunction()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand command = db.Table<ArticleSearch>()
             .Where(a => SQLiteFTS5Functions.Match(a, "native"))
@@ -164,8 +164,8 @@ public class FullTextSearchTests
     public void Match_TermThatLooksLikeKeyword_IsQuoted()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         db.Table<Article>().Add(new Article
         {
@@ -185,8 +185,8 @@ public class FullTextSearchTests
     public void Match_DynamicTermFromColumn_ResolvesPerRow()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         db.Table<Article>().Add(new Article
         {
@@ -209,8 +209,8 @@ public class FullTextSearchTests
     public void Match_DynamicTermFromColumn_EmitsPrintfSql()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         SQLiteCommand command = (
             from s in db.Table<ArticleSearch>()
@@ -232,7 +232,7 @@ public class FullTextSearchTests
     public void CreateTable_TokenizerWithSpecialChars_RoundTripsCorrectly()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<CategorisedSearch>();
+        db.Table<CategorisedSearch>().Schema.CreateTable();
 
         db.CreateCommand("INSERT INTO CategorisedSearch(rowid, Body) VALUES (1, 'hello-world example_token 42')", []).ExecuteNonQuery();
 
@@ -248,8 +248,8 @@ public class FullTextSearchTests
     public void CreateTable_ExternalContent_CreatesVirtualTable()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         long count = db.ExecuteScalar<long>("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ArticleSearch'");
         Assert.Equal(1, count);
@@ -260,7 +260,7 @@ public class FullTextSearchTests
     public void CreateTable_InternalContentTrigram_CreatesVirtualTable()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<ArticleSearchInternal>();
+        db.Table<ArticleSearchInternal>().Schema.CreateTable();
 
         long count = db.ExecuteScalar<long>("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ArticleSearchInternal'");
         Assert.Equal(1, count);
@@ -352,8 +352,8 @@ public class FullTextSearchTests
     public void OrderBy_Rank_AppliesColumnWeights()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         db.Table<Article>().AddRange(new[]
         {
@@ -451,7 +451,7 @@ public class FullTextSearchTests
     public void Trigram_SubstringSearch_FindsRow()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<ArticleSearchInternal>();
+        db.Table<ArticleSearchInternal>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO ArticleSearchInternal(rowid, Code) VALUES (1, 'ExecuteUpdate')", []).ExecuteNonQuery();
         db.CreateCommand("INSERT INTO ArticleSearchInternal(rowid, Code) VALUES (2, 'BatchInsert')", []).ExecuteNonQuery();
 
@@ -484,8 +484,8 @@ public class FullTextSearchTests
 
     private static void SeedArticles(TestDatabase db)
     {
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
 
         DateTime now = new(2026, 04, 01, 0, 0, 0, DateTimeKind.Utc);
         db.Table<Article>().AddRange(new[]

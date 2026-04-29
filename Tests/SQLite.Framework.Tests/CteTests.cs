@@ -77,11 +77,11 @@ public class CteTests
             select b);
 
         SQLiteCommand command = (from b in cte
-            select new
-            {
-                b.Id,
-                b.Title
-            }).ToSqlCommand();
+                                 select new
+                                 {
+                                     b.Id,
+                                     b.Title
+                                 }).ToSqlCommand();
 
         Assert.Single(command.Parameters);
         Assert.Equal(10.0, command.Parameters[0].Value);
@@ -204,15 +204,15 @@ public class CteTests
 
         SQLiteCte<Cnt> cte = db.WithRecursive<Cnt>(self =>
             db.Values(new Cnt
-                {
-                    X = 1
-                })
+            {
+                X = 1
+            })
                 .Concat(from c in self
-                    where c.X < 10
-                    select new Cnt
-                    {
-                        X = c.X + 1
-                    }));
+                        where c.X < 10
+                        select new Cnt
+                        {
+                            X = c.X + 1
+                        }));
 
         SQLiteCommand command = (from c in cte orderby c.X select c).ToSqlCommand();
 
@@ -243,17 +243,17 @@ public class CteTests
 
         SQLiteCte<Fib> cte = db.WithRecursive<Fib>(self =>
             db.Values(new Fib
-                {
-                    A = 0,
-                    B = 1
-                })
+            {
+                A = 0,
+                B = 1
+            })
                 .Concat(from f in self
-                    where f.B < 100
-                    select new Fib
-                    {
-                        A = f.B,
-                        B = f.A + f.B
-                    }));
+                        where f.B < 100
+                        select new Fib
+                        {
+                            A = f.B,
+                            B = f.A + f.B
+                        }));
 
         SQLiteCommand command = (from f in cte select f).ToSqlCommand();
 
@@ -286,17 +286,17 @@ public class CteTests
 
         SQLiteCte<Fib> cte = db.WithRecursive<Fib>(self =>
             db.Values(new Fib
-                {
-                    A = 0,
-                    B = 1
-                })
+            {
+                A = 0,
+                B = 1
+            })
                 .Concat(from f in self
-                    where f.B < 100
-                    select new Fib
-                    {
-                        A = f.B,
-                        B = f.A + f.B
-                    }));
+                        where f.B < 100
+                        select new Fib
+                        {
+                            A = f.B,
+                            B = f.A + f.B
+                        }));
 
         List<Fib> results = (from f in cte select f).ToList();
 
@@ -315,19 +315,19 @@ public class CteTests
         SQLiteCte<Org> org = db.With(() => db.Table<Org>());
         SQLiteCte<OrgLevel> cte = db.WithRecursive<OrgLevel>(self =>
             (from o in org
-                where o.Boss == null
-                select new OrgLevel
-                {
-                    Name = o.Name,
-                    Level = 1
-                })
+             where o.Boss == null
+             select new OrgLevel
+             {
+                 Name = o.Name,
+                 Level = 1
+             })
             .Concat(from o in org
-                join p in self on o.Boss equals p.Name
-                select new OrgLevel
-                {
-                    Name = o.Name,
-                    Level = p.Level + 1
-                }));
+                    join p in self on o.Boss equals p.Name
+                    select new OrgLevel
+                    {
+                        Name = o.Name,
+                        Level = p.Level + 1
+                    }));
 
         SQLiteCommand command = (from n in cte orderby n.Level, n.Name select n).ToSqlCommand();
 
@@ -367,17 +367,17 @@ public class CteTests
         SQLiteCte<Org> org = db.With(() => db.Table<Org>());
         SQLiteCte<WorksFor> cte = db.WithRecursive<WorksFor>(self =>
             (from o in org
-                where o.Name == "Alice"
-                select new WorksFor
-                {
-                    Name = o.Name
-                })
+             where o.Name == "Alice"
+             select new WorksFor
+             {
+                 Name = o.Name
+             })
             .Union(from o in org
-                join w in self on o.Boss equals w.Name
-                select new WorksFor
-                {
-                    Name = o.Name
-                }));
+                   join w in self on o.Boss equals w.Name
+                   select new WorksFor
+                   {
+                       Name = o.Name
+                   }));
 
         SQLiteCommand command = (from w in cte select w).ToSqlCommand();
 
@@ -417,34 +417,34 @@ public class CteTests
 
         SQLiteCte<SudDigit> digits = db.WithRecursive<SudDigit>(self =>
             db.Values(new SudDigit
-                {
-                    Z = "1",
-                    Lp = 1
-                })
+            {
+                Z = "1",
+                Lp = 1
+            })
                 .Concat(from d in self
-                    where d.Lp < 9
-                    select new SudDigit
-                    {
-                        Z = (d.Lp + 1).ToString(),
-                        Lp = d.Lp + 1
-                    }));
+                        where d.Lp < 9
+                        select new SudDigit
+                        {
+                            Z = (d.Lp + 1).ToString(),
+                            Lp = d.Lp + 1
+                        }));
 
         SQLiteCte<SudX> x = db.WithRecursive<SudX>(self =>
             (from i in input
-                select new SudX
-                {
-                    S = i.Sud,
-                    Ind = i.Sud.IndexOf('.') + 1
-                })
+             select new SudX
+             {
+                 S = i.Sud,
+                 Ind = i.Sud.IndexOf('.') + 1
+             })
             .Concat(
                 from xr in self
                 from z in digits
                 where xr.Ind > 0
                       && !(from lp in digits
-                          where z.Z == xr.S.Substring(((xr.Ind - 1) / 9) * 9 + lp.Lp - 1, 1)
-                                || z.Z == xr.S.Substring((xr.Ind - 1) % 9 + (lp.Lp - 1) * 9, 1)
-                                || z.Z == xr.S.Substring(((xr.Ind - 1) / 3) % 3 * 3 + ((xr.Ind - 1) / 27) * 27 + lp.Lp + ((lp.Lp - 1) / 3) * 6 - 1, 1)
-                          select lp).Any()
+                           where z.Z == xr.S.Substring(((xr.Ind - 1) / 9) * 9 + lp.Lp - 1, 1)
+                                 || z.Z == xr.S.Substring((xr.Ind - 1) % 9 + (lp.Lp - 1) * 9, 1)
+                                 || z.Z == xr.S.Substring(((xr.Ind - 1) / 3) % 3 * 3 + ((xr.Ind - 1) / 27) * 27 + lp.Lp + ((lp.Lp - 1) / 3) * 6 - 1, 1)
+                           select lp).Any()
                 select new SudX
                 {
                     S = xr.S.Substring(0, xr.Ind - 1) + z.Z + xr.S.Substring(xr.Ind),
@@ -506,34 +506,34 @@ public class CteTests
 
         SQLiteCte<SudDigit> digits = db.WithRecursive<SudDigit>(self =>
             db.Values(new SudDigit
-                {
-                    Z = "1",
-                    Lp = 1
-                })
+            {
+                Z = "1",
+                Lp = 1
+            })
                 .Concat(from d in self
-                    where d.Lp < 9
-                    select new SudDigit
-                    {
-                        Z = (d.Lp + 1).ToString(),
-                        Lp = d.Lp + 1
-                    }));
+                        where d.Lp < 9
+                        select new SudDigit
+                        {
+                            Z = (d.Lp + 1).ToString(),
+                            Lp = d.Lp + 1
+                        }));
 
         SQLiteCte<SudX> x = db.WithRecursive<SudX>(self =>
             (from i in input
-                select new SudX
-                {
-                    S = i.Sud,
-                    Ind = i.Sud.IndexOf('.') + 1
-                })
+             select new SudX
+             {
+                 S = i.Sud,
+                 Ind = i.Sud.IndexOf('.') + 1
+             })
             .Concat(
                 from xr in self
                 from z in digits
                 where xr.Ind > 0
                       && !(from lp in digits
-                          where z.Z == xr.S.Substring(((xr.Ind - 1) / 9) * 9 + lp.Lp - 1, 1)
-                                || z.Z == xr.S.Substring((xr.Ind - 1) % 9 + (lp.Lp - 1) * 9, 1)
-                                || z.Z == xr.S.Substring(((xr.Ind - 1) / 3) % 3 * 3 + ((xr.Ind - 1) / 27) * 27 + lp.Lp + ((lp.Lp - 1) / 3) * 6 - 1, 1)
-                          select lp).Any()
+                           where z.Z == xr.S.Substring(((xr.Ind - 1) / 9) * 9 + lp.Lp - 1, 1)
+                                 || z.Z == xr.S.Substring((xr.Ind - 1) % 9 + (lp.Lp - 1) * 9, 1)
+                                 || z.Z == xr.S.Substring(((xr.Ind - 1) / 3) % 3 * 3 + ((xr.Ind - 1) / 27) * 27 + lp.Lp + ((lp.Lp - 1) / 3) * 6 - 1, 1)
+                           select lp).Any()
                 select new SudX
                 {
                     S = xr.S.Substring(0, xr.Ind - 1) + z.Z + xr.S.Substring(xr.Ind),
@@ -556,13 +556,13 @@ public class CteTests
     public void WithRecursive_TreeTraversal_GeneratesRecursiveQuery()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TreeNode>();
+        db.Table<TreeNode>().Schema.CreateTable();
 
         SQLiteCte<TreeNode> cte = db.WithRecursive<TreeNode>(self =>
             db.Table<TreeNode>().Where(n => n.ParentId == null)
                 .Concat(from n in db.Table<TreeNode>()
-                    join p in self on n.ParentId equals p.Id
-                    select n));
+                        join p in self on n.ParentId equals p.Id
+                        select n));
 
         List<TreeNode> result = (from n in cte select n).ToList();
         Assert.NotNull(result);
@@ -572,7 +572,7 @@ public class CteTests
     public void With_ExecuteQuery_ReturnsResults()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange([
             new Book
             {
@@ -605,15 +605,15 @@ public class CteTests
 
         SQLiteCte<Cnt> cte = db.WithRecursive<Cnt>(self =>
             db.Values(new Cnt
-                {
-                    X = 1
-                })
+            {
+                X = 1
+            })
                 .Concat(from c in self
-                    where c.X < 5
-                    select new Cnt
-                    {
-                        X = c.X + 1
-                    }));
+                        where c.X < 5
+                        select new Cnt
+                        {
+                            X = c.X + 1
+                        }));
 
         List<Cnt> results = (from c in cte select c).ToList();
 

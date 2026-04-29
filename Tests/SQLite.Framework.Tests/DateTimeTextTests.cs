@@ -327,7 +327,7 @@ public class DateTimeTextTests
     private static TestDatabase SetupTextTicksDatabase([CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(methodName);
-        db.Schema.CreateTable<TestEntity>();
+        db.Table<TestEntity>().Schema.CreateTable();
         string ticks = new DateTime(2000, 2, 3, 4, 5, 6, 7, 8).Ticks.ToString();
         db.Execute("INSERT INTO TestEntity (Id, Date) VALUES (1, @date)",
             new SQLiteParameter
@@ -341,7 +341,7 @@ public class DateTimeTextTests
     private static TestDatabase SetupFormattedStringDatabase([CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(methodName);
-        db.Schema.CreateTable<TestEntity>();
+        db.Table<TestEntity>().Schema.CreateTable();
         db.Execute("INSERT INTO TestEntity (Id, Date) VALUES (1, @date)",
             new SQLiteParameter
             {

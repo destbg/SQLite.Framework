@@ -464,7 +464,7 @@ public class WhereTests
     public void Where_Between_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 1, Price = 3 });
@@ -499,7 +499,7 @@ public class WhereTests
     public void Where_NotBetween_ViaNegation_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 1, Price = 3 });
@@ -519,7 +519,7 @@ public class WhereTests
     public void Where_NotBetween_ViaEqualityFalse_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 1, Price = 3 });
@@ -536,7 +536,7 @@ public class WhereTests
     public void Where_Between_WithCapturedBounds_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 7, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 8, Title = "b", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 9, Title = "c", AuthorId = 1, Price = 3 });
@@ -562,7 +562,7 @@ public class WhereTests
     public void Where_In_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 1, Price = 3 });
@@ -593,7 +593,7 @@ public class WhereTests
     public void Where_NotIn_ViaNegation_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 1, Price = 3 });
@@ -616,7 +616,7 @@ public class WhereTests
     public void Where_In_WithCapturedArray_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 1, Price = 3 });
@@ -649,7 +649,7 @@ public class WhereTests
     public void Where_Coalesce_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
 
@@ -683,7 +683,7 @@ public class WhereTests
     public void Where_Nullif_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 1, Price = 3 });
@@ -718,7 +718,7 @@ public class WhereTests
     public void Select_Typeof_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1.5 });
 
         List<string> types = db.Table<Book>()
@@ -738,7 +738,7 @@ public class WhereTests
     public void Select_Hex_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
 
         byte[] data = [0xDE, 0xAD];
@@ -759,7 +759,7 @@ public class WhereTests
     public void Select_Quote_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
 
         string quoted = db.Table<Book>()
@@ -779,7 +779,7 @@ public class WhereTests
     public void Select_Zeroblob_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
 
         byte[] zeros = db.Table<Book>()
@@ -799,7 +799,7 @@ public class WhereTests
     public void Where_Instr_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "alpha", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "alphabet", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "beta", AuthorId = 1, Price = 3 });
@@ -823,7 +823,7 @@ public class WhereTests
     public void Select_LastInsertRowId_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 7, Title = "a", AuthorId = 1, Price = 1 });
 
         long rowId = db.Table<Book>()
@@ -843,7 +843,7 @@ public class WhereTests
     public void Select_SqliteVersion_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
 
         string version = db.Table<Book>()
@@ -864,7 +864,7 @@ public class WhereTests
     public void Where_ScalarMin_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 9, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 9, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 9, Price = 3 });
@@ -894,7 +894,7 @@ public class WhereTests
     public void Where_ScalarMax_RoundTrip()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 0, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 0, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 0, Price = 3 });

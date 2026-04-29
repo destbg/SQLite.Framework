@@ -15,7 +15,7 @@ public class SQLiteTableBuilderTests
             .Computed(p => p.Total, p => p.Price * p.Quantity, stored: true)
             .Check(p => p.Quantity >= 0, name: "CK_Qty")
             .Index(p => p.Price, name: "IX_Price")
-            .Create();
+            .CreateTable();
 
         Assert.True(db.Schema.TableExists<ProductLine>());
         Assert.True(db.Schema.IndexExists("IX_Price"));
@@ -61,7 +61,7 @@ public class SQLiteTableBuilderTests
         await db.Schema.Table<ProductLine>()
             .Computed(p => p.Total, p => p.Price * p.Quantity)
             .Index(p => p.Price, name: "IX_Price_Async")
-            .CreateAsync(TestContext.Current.CancellationToken);
+            .CreateTableAsync(TestContext.Current.CancellationToken);
 
         Assert.True(db.Schema.TableExists<ProductLine>());
         Assert.True(db.Schema.IndexExists("IX_Price_Async"));
@@ -71,10 +71,10 @@ public class SQLiteTableBuilderTests
     public void Builder_FtsTable_ThrowsInvalidOperation()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Article>();
+        db.Table<Article>().Schema.CreateTable();
 
         Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.Table<ArticleSearch>().Create());
+            db.Schema.Table<ArticleSearch>().CreateTable());
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class SQLiteTableBuilderTests
     {
         using TestDatabase db = new();
 
-        db.Schema.Table<WithoutRowIdEntity>().Create();
+        db.Schema.Table<WithoutRowIdEntity>().CreateTable();
 
         Assert.True(db.Schema.TableExists<WithoutRowIdEntity>());
 
@@ -98,7 +98,7 @@ public class SQLiteTableBuilderTests
     {
         using TestDatabase db = new();
 
-        db.Schema.Table<Book>().Create();
+        db.Schema.Table<Book>().CreateTable();
 
         IReadOnlyList<string> indexes = db.Schema.ListIndexes("Books");
         Assert.Contains("IX_Book_AuthorId", indexes);
@@ -116,7 +116,7 @@ public class SQLiteTableBuilderTests
 
         db.Schema.Table<BookArchive>()
             .Index(b => b.AuthorId, name: "IX_BookArchive_Author_Unique", unique: true)
-            .Create();
+            .CreateTable();
 
         db.Table<BookArchive>().Add(new BookArchive { Id = 1, Title = "a", AuthorId = 7, Price = 1 });
         Assert.ThrowsAny<Exception>(() =>
@@ -130,7 +130,7 @@ public class SQLiteTableBuilderTests
 
         db.Schema.Table<BookArchive>()
             .Index<object?>(b => b.Price, name: "IX_BoxedPrice")
-            .Create();
+            .CreateTable();
 
         Assert.True(db.Schema.IndexExists("IX_BoxedPrice"));
     }
@@ -142,7 +142,7 @@ public class SQLiteTableBuilderTests
 
         db.Schema.Table<BookArchive>()
             .Check(b => b.Title != "")
-            .Create();
+            .CreateTable();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BooksArchive'");
@@ -159,7 +159,7 @@ public class SQLiteTableBuilderTests
         db.Schema.Table<ProductLine>()
             .Check(p => p.Quantity > 0)
             .Check(p => p.Price > 0.5m)
-            .Create();
+            .CreateTable();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ProductLines'");
@@ -175,7 +175,7 @@ public class SQLiteTableBuilderTests
 
         db.Schema.Table<BookArchive>()
             .Check(b => b.Title != "O'Reilly")
-            .Create();
+            .CreateTable();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BooksArchive'");
@@ -192,7 +192,7 @@ public class SQLiteTableBuilderTests
         Assert.Throws<ArgumentException>(() =>
             db.Schema.Table<BookArchive>()
                 .Check(b => b.Title != id.ToString().Substring(0, 8) || b.AuthorId == 1)
-                .Create());
+                .CreateTable());
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public class SQLiteTableBuilderTests
         long limit = 1234567890123L;
         db.Schema.Table<ProductLine>()
             .Check(p => (long)p.Quantity < limit)
-            .Create();
+            .CreateTable();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ProductLines'");
@@ -219,7 +219,7 @@ public class SQLiteTableBuilderTests
         float threshold = 2.5f;
         db.Schema.Table<ProductLine>()
             .Check(p => (float)p.Price > threshold)
-            .Create();
+            .CreateTable();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ProductLines'");
@@ -234,7 +234,7 @@ public class SQLiteTableBuilderTests
 
         db.Schema.Table<ProductLine>()
             .Check(p => (p.Quantity > 0) == true)
-            .Create();
+            .CreateTable();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ProductLines'");
@@ -251,7 +251,7 @@ public class SQLiteTableBuilderTests
         Assert.Throws<NotSupportedException>(() =>
             db.Schema.Table<Article>()
                 .Check(a => a.PublishedAt > cutoff)
-                .Create());
+                .CreateTable());
     }
 
     [Fact]
@@ -261,7 +261,7 @@ public class SQLiteTableBuilderTests
 
         db.Schema.Table<BookArchive>()
             .Check(b => b.Price > 0, name: "CK_Builder_Price")
-            .Create();
+            .CreateTable();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BooksArchive'");

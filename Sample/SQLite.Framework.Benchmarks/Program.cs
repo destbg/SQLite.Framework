@@ -36,7 +36,7 @@ public class MaterializerBenchmarks
         }
 
         db = new SQLiteDatabase(builder.Build());
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         Warmup();
     }

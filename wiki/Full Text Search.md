@@ -52,8 +52,8 @@ public class ArticleSearch
 Create the table the normal way:
 
 ```csharp
-db.Schema.CreateTable<Article>();
-db.Schema.CreateTable<ArticleSearch>();
+db.Table<Article>().Schema.CreateTable();
+db.Table<ArticleSearch>().Schema.CreateTable();
 ```
 
 ## Content modes
@@ -70,7 +70,7 @@ For `External`, the framework reuses the source table's `[Key]` for `content_row
 
 ## Auto-sync triggers
 
-With `External`, every write to the source table needs a matching write to the FTS table. The framework can wire that up for you. Set `AutoSync = FtsAutoSync.Triggers` on the attribute and `Schema.CreateTable<T>()` will create the standard FTS5 sync triggers (insert, update, delete) on the source table.
+With `External`, every write to the source table needs a matching write to the FTS table. The framework can wire that up for you. Set `AutoSync = FtsAutoSync.Triggers` on the attribute and .Table<T>().Schema.CreateTable()` will create the standard FTS5 sync triggers (insert, update, delete) on the source table.
 
 The default is `FtsAutoSync.Manual`, where you write to the FTS table yourself.
 

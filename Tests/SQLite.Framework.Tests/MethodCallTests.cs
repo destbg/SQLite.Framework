@@ -133,7 +133,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "My test book", AuthorId = 1, Price = 10 },
@@ -170,7 +170,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "My test book", AuthorId = 1, Price = 10 },
@@ -228,7 +228,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "test book", AuthorId = 1, Price = 10 },
@@ -289,7 +289,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 10 },
@@ -325,7 +325,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "atestb", AuthorId = 1, Price = 10 },
@@ -362,7 +362,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "ae", AuthorId = 1, Price = 10 },
@@ -400,7 +400,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "  be  ", AuthorId = 1, Price = 10 },
@@ -437,7 +437,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = " be ", AuthorId = 1, Price = 10 },
@@ -475,7 +475,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = " abc be cba ", AuthorId = 1, Price = 10 },
@@ -516,7 +516,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "  be", AuthorId = 1, Price = 10 },
@@ -553,7 +553,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "be  ", AuthorId = 1, Price = 10 },
@@ -590,7 +590,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "abe", AuthorId = 1, Price = 10 },
@@ -628,7 +628,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "abef", AuthorId = 1, Price = 10 },
@@ -668,7 +668,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "be", AuthorId = 1, Price = 10 },
@@ -706,7 +706,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "BE", AuthorId = 1, Price = 10 },
@@ -744,7 +744,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "BE", AuthorId = 1, Price = 10 },
@@ -781,7 +781,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book1", AuthorId = 2, Price = 10 },
@@ -818,7 +818,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book1", AuthorId = 1, Price = 10 },
@@ -854,7 +854,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book1", AuthorId = 1, Price = 10 },
@@ -915,7 +915,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book1", AuthorId = 1, Price = 10.1 },
@@ -974,7 +974,7 @@ public class MethodCallTests
     public void StringLastIndexOf_WhenLastMatchNotAtEnd_ReturnsCorrectIndex()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -988,7 +988,7 @@ public class MethodCallTests
     public void StringLastIndexOf_SingleChar_ReturnsLastPosition()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1002,7 +1002,7 @@ public class MethodCallTests
     public void StringLastIndexOf_NoMatch_ReturnsMinusOne()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1016,7 +1016,7 @@ public class MethodCallTests
     public void StringLastIndexOf_EmptyNeedle_ReturnsLastIndex()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1030,7 +1030,7 @@ public class MethodCallTests
     public void StringLastIndexOf_EmptyNeedle_EmptyHaystack_ReturnsZero()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1044,7 +1044,7 @@ public class MethodCallTests
     public void StringLastIndexOf_FullMatch_ReturnsZero()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "hello", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1058,7 +1058,7 @@ public class MethodCallTests
     public void StringLastIndexOf_MatchAtStart_ReturnsZero()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "hello world", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1072,7 +1072,7 @@ public class MethodCallTests
     public void StringLastIndexOf_MatchAtEnd_ReturnsCorrectIndex()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "hello world", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1086,7 +1086,7 @@ public class MethodCallTests
     public void StringLastIndexOf_OverlappingMatches_ReturnsLastNonOverlapping()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "aaaa", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1100,7 +1100,7 @@ public class MethodCallTests
     public void StringLastIndexOf_WithSpecialCharacters_ReturnsCorrectIndex()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a_b_c_d", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1114,7 +1114,7 @@ public class MethodCallTests
     public void StringLastIndexOf_WithPercentCharacter_ReturnsCorrectIndex()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "50% off, 20% off", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1128,7 +1128,7 @@ public class MethodCallTests
     public void StringLastIndexOf_OldSentinelInData_ReturnsCorrectIndex()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a<<<>>>b<<<>>>a", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1142,7 +1142,7 @@ public class MethodCallTests
     public void StringLastIndexOf_InWhere_FiltersCorrectly()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1.0 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "apple", AuthorId = 1, Price = 2.0 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "grape", AuthorId = 1, Price = 3.0 });
@@ -1159,7 +1159,7 @@ public class MethodCallTests
     public void StringLastIndexOf_EmptyHaystack_ReturnsMinusOne()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1173,7 +1173,7 @@ public class MethodCallTests
     public void StringLastIndexOf_SingleMatch_ReturnsCorrectIndex()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "hello world", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1187,7 +1187,7 @@ public class MethodCallTests
     public void StringLastIndexOf_MatchIsSingleCharRepeated_ReturnsLastPosition()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "abcabcabc", AuthorId = 1, Price = 1.0 });
 
         int result = db.Table<Book>()
@@ -1202,7 +1202,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "test-test", AuthorId = 1, Price = 10.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "hello", AuthorId = 1, Price = 10.02 });
 
@@ -1230,7 +1230,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 11.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "Book", AuthorId = 1, Price = 11.02 });
 
@@ -1259,7 +1259,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Testing", AuthorId = 1, Price = 12.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "Book", AuthorId = 1, Price = 12.02 });
 
@@ -1287,7 +1287,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Testing", AuthorId = 1, Price = 13.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "Book", AuthorId = 1, Price = 13.02 });
 
@@ -1316,7 +1316,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 14.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "Sample", AuthorId = 1, Price = 14.02 });
 
@@ -1345,7 +1345,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Apple", AuthorId = 1, Price = 15.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "Test", AuthorId = 1, Price = 15.02 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "Zebra", AuthorId = 1, Price = 15.03 });
@@ -1375,7 +1375,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 16.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "VeryLongTitle", AuthorId = 1, Price = 16.02 });
 
@@ -1404,7 +1404,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 17.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "VeryLongTitle", AuthorId = 1, Price = 17.02 });
 
@@ -1433,7 +1433,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 18.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "book", AuthorId = 1, Price = 18.02 });
 
@@ -1460,7 +1460,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "TEST", AuthorId = 1, Price = 19.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "Book", AuthorId = 1, Price = 19.02 });
 
@@ -1487,7 +1487,7 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Test", AuthorId = 1, Price = 20.01 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "Book", AuthorId = 1, Price = 20.02 });
 
@@ -1517,8 +1517,8 @@ public class MethodCallTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<Author>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book1", AuthorId = 1, Price = 10 }

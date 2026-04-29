@@ -22,7 +22,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         db.Table<Book>().Add(new Book
         {
@@ -199,7 +199,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
 
         db.Table<Publisher>().Add(new Publisher
         {
@@ -234,7 +234,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
 
         using SQLiteTransaction transaction = db.BeginTransaction();
 
@@ -258,7 +258,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
 
         {
             using SQLiteTransaction transaction = db.BeginTransaction();
@@ -282,7 +282,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
 
         db.Table<Publisher>().Add(new Publisher
         {
@@ -304,7 +304,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<RequiredEntity>();
+        db.Table<RequiredEntity>().Schema.CreateTable();
 
         db.Table<RequiredEntity>().Add(new RequiredEntity
         {
@@ -322,7 +322,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
 
         Assert.Single(db.TableMappings);
     }
@@ -357,7 +357,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
 
         db.Table<Publisher>().Add(new Publisher
         {
@@ -382,7 +382,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<CastEntity>();
+        db.Table<CastEntity>().Schema.CreateTable();
 
         db.Table<CastEntity>().Add(new CastEntity
         {
@@ -402,7 +402,7 @@ public class OtherTests
     public void Where_InterfaceCastInsideLambda_FiltersByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -422,7 +422,7 @@ public class OtherTests
     public void Cast_ToInterface_WhereByInterfaceProperty_FiltersCorrectly()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -443,7 +443,7 @@ public class OtherTests
     public void Select_InterfaceCastInsideLambda_ProjectsInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -463,7 +463,7 @@ public class OtherTests
     public void Cast_ToInterface_SelectInterfaceProperty_Projects()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -485,7 +485,7 @@ public class OtherTests
     public void GenericConstrainedMethod_FiltersByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -503,7 +503,7 @@ public class OtherTests
     public void GenericConstrainedMethod_FirstByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -520,7 +520,7 @@ public class OtherTests
     public void GenericConstrainedMethod_SelectInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -557,7 +557,7 @@ public class OtherTests
     public void GenericConstrainedMethod_OrderByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -575,7 +575,7 @@ public class OtherTests
     public void GenericConstrainedMethod_CountByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -593,7 +593,7 @@ public class OtherTests
     public void GenericConstrainedMethod_AnyByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().Add(new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false });
 
@@ -608,7 +608,7 @@ public class OtherTests
     public void GenericConstrainedMethod_AllByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -627,7 +627,7 @@ public class OtherTests
     public void GenericConstrainedMethod_ExecuteDeleteByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -646,7 +646,7 @@ public class OtherTests
     public void GenericConstrainedMethod_GroupByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -704,7 +704,7 @@ public class OtherTests
     public void GenericConstrainedMethod_MultipleInterfaceConstraints_FiltersByBoth()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -723,7 +723,7 @@ public class OtherTests
     public void GenericConstrainedClass_RepositoryPattern_FiltersAndCounts()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -741,7 +741,7 @@ public class OtherTests
     public void GenericConstrainedMethod_TakeWithInterfacePredicate_LimitsResult()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -759,7 +759,7 @@ public class OtherTests
     public void GenericConstrainedMethod_DistinctByInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -779,7 +779,7 @@ public class OtherTests
     public void GenericConstrainedMethod_ExecuteUpdate_SetsInterfaceProperty()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -797,7 +797,7 @@ public class OtherTests
     public void GenericConstrainedMethod_AggregateMaxId()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -814,7 +814,7 @@ public class OtherTests
     public void GenericConstrainedMethod_ChainedFilterOrderTake()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -896,7 +896,7 @@ public class OtherTests
     public void GenericConstrainedMethod_SumOverIdInterface()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -915,7 +915,7 @@ public class OtherTests
     public async Task GenericConstrainedMethod_AsyncWhere_FiltersAsync()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         await db.Table<SoftDeletableBook>().AddRangeAsync(new[]
         {
@@ -933,7 +933,7 @@ public class OtherTests
     public void GenericConstrainedMethod_NestedGenericChain_WorksThroughLayers()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -950,7 +950,7 @@ public class OtherTests
     public void GenericConstrainedMethod_ExtensionMethod_FiltersAndCounts()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -967,7 +967,7 @@ public class OtherTests
     public void GenericConstrainedMethod_TwoTypeParameters_ProjectByInterfaceKey()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -985,7 +985,7 @@ public class OtherTests
     public void GenericConstrainedMethod_ExecuteDeleteByPredicateBuiltFromInterface()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -1003,7 +1003,7 @@ public class OtherTests
     public void GenericConstrainedMethod_AddItem_ConstrainedByInterface()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
 
         int added = AddNotDeleted(db.Table<SoftDeletableBook>(), new SoftDeletableBook { Id = 1, Title = "added", IsDeleted = false });
 
@@ -1149,7 +1149,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -1195,7 +1195,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -1251,7 +1251,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -1300,7 +1300,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<RequiredEntity>();
+        db.Table<RequiredEntity>().Schema.CreateTable();
         db.Table<RequiredEntity>().Add(new RequiredEntity
         {
             Id = 1,
@@ -1323,7 +1323,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 1,

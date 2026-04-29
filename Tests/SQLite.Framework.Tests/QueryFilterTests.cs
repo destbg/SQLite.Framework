@@ -12,7 +12,7 @@ public class QueryFilterTests
     public void TypedFilter_AppliesToWhereQuery()
     {
         using TestDatabase db = new(b => b.AddQueryFilter<SoftDeletableBook>(s => !s.IsDeleted));
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
             new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
@@ -29,7 +29,7 @@ public class QueryFilterTests
     public void TypedFilter_ComposesWithUserWhere()
     {
         using TestDatabase db = new(b => b.AddQueryFilter<SoftDeletableBook>(s => !s.IsDeleted));
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
             new SoftDeletableBook { Id = 1, Title = "live-a", IsDeleted = false },
@@ -49,8 +49,8 @@ public class QueryFilterTests
     public void InterfaceFilter_AppliesToEveryEntityImplementingInterface()
     {
         using TestDatabase db = new(b => b.AddQueryFilter<ISoftDelete>(e => !e.IsDeleted));
-        db.Schema.CreateTable<SoftDeletableBook>();
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
+        db.Table<AuditedEntity>().Schema.CreateTable();
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
             new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
@@ -72,7 +72,7 @@ public class QueryFilterTests
     public void IgnoreQueryFilters_DropsTheFilter()
     {
         using TestDatabase db = new(b => b.AddQueryFilter<SoftDeletableBook>(s => !s.IsDeleted));
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
             new SoftDeletableBook { Id = 1, Title = "live", IsDeleted = false },
@@ -88,7 +88,7 @@ public class QueryFilterTests
     public void NoFilter_NoInjection()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
             new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
@@ -104,7 +104,7 @@ public class QueryFilterTests
     public void Filter_AppliesToCount()
     {
         using TestDatabase db = new(b => b.AddQueryFilter<SoftDeletableBook>(s => !s.IsDeleted));
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
             new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
@@ -119,7 +119,7 @@ public class QueryFilterTests
     public void Filter_AppliesToExecuteDelete()
     {
         using TestDatabase db = new(b => b.AddQueryFilter<SoftDeletableBook>(s => !s.IsDeleted));
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
             new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
@@ -138,7 +138,7 @@ public class QueryFilterTests
     public void Filter_AppliesToExecuteUpdate()
     {
         using TestDatabase db = new(b => b.AddQueryFilter<SoftDeletableBook>(s => !s.IsDeleted));
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
             new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },
@@ -157,8 +157,8 @@ public class QueryFilterTests
     public void Filter_AppliesToJoinedTable()
     {
         using TestDatabase db = new(b => b.AddQueryFilter<SoftDeletableBook>(s => !s.IsDeleted));
-        db.Schema.CreateTable<SoftDeletableBook>();
-        db.Schema.CreateTable<Author>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
+        db.Table<Author>().Schema.CreateTable();
         db.Table<Author>().Add(new Author { Id = 1, Name = "n", Email = "e", BirthDate = default });
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
@@ -187,7 +187,7 @@ public class QueryFilterTests
         using TestDatabase db = new(b => b
             .AddQueryFilter<SoftDeletableBook>(s => !s.IsDeleted)
             .AddQueryFilter<SoftDeletableBook>(s => s.Title.Length > 1));
-        db.Schema.CreateTable<SoftDeletableBook>();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
         db.Table<SoftDeletableBook>().AddRange(new[]
         {
             new SoftDeletableBook { Id = 1, Title = "a", IsDeleted = false },

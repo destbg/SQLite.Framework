@@ -11,7 +11,7 @@ public class ReflectedBindingsCollectorCoverageTests
     public void Select_PrivateInstanceMethodOnCapturedReceiver_RoundTrips()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<RbcSimpleEntity>();
+        db.Table<RbcSimpleEntity>().Schema.CreateTable();
         db.Table<RbcSimpleEntity>().Add(new RbcSimpleEntity { Id = 1, Tag = "alpha" });
 
         PrivateInstanceUtil util = new();
@@ -27,7 +27,7 @@ public class ReflectedBindingsCollectorCoverageTests
     public void Select_InternalInstanceMethodOnCapturedPublicReceiver_RoundTrips()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<RbcSimpleEntity>();
+        db.Table<RbcSimpleEntity>().Schema.CreateTable();
         db.Table<RbcSimpleEntity>().Add(new RbcSimpleEntity { Id = 1, Tag = "alpha" });
 
         RbcStamper util = new();

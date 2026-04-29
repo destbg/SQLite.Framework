@@ -29,7 +29,7 @@ public class BuildQueryObjectTests
                 };
             };
         });
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "real", AuthorId = 1, Price = 1 });
 
         long before = db.EntityMaterializerHits;
@@ -59,7 +59,7 @@ public class BuildQueryObjectTests
     public void ExecuteQuery_OutOfRangeEnumInteger_LeavesPropertyAtDefault()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO Publisher (Id, Name, Type) VALUES (1, 'Pub', 999)", []).ExecuteNonQuery();
 
         Publisher result = db.CreateCommand("SELECT * FROM Publisher", []).ExecuteQuery<Publisher>().First();

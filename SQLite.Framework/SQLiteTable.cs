@@ -38,7 +38,7 @@ public class SQLiteTable : BaseSQLiteTable
     /// Creates the table in the database if it does not exist. Forwards to
     /// <see cref="SQLiteSchema.CreateTable(Type)" />.
     /// </summary>
-    [Obsolete("Use Database.Schema.CreateTable<T>() instead.")]
+    [Obsolete("Use Schema.CreateTable() instead.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Table.Type comes from a TableMapping that already preserves public properties.")]
     public virtual int CreateTable()
     {
@@ -80,6 +80,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         : base(database, table)
     {
     }
+
+    /// <summary>
+    /// Initializes a table builder for creating the table.
+    /// </summary>
+    public virtual SQLiteTableBuilder<T> Schema => Database.Schema.Table<T>();
 
     /// <summary>
     /// Wraps the provided SQL query and parameters into a queryable object.
@@ -484,6 +489,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         {
             action = hook(Database, item!, action);
         }
+
         return action;
     }
 

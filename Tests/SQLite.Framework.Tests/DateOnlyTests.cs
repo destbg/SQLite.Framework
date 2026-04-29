@@ -148,7 +148,7 @@ public class DateOnlyTests
     {
         TestDatabase db = new(methodName);
 
-        db.Schema.CreateTable<TestEntity>();
+        db.Table<TestEntity>().Schema.CreateTable();
 
         db.Table<TestEntity>().AddRange(new[]
         {

@@ -37,14 +37,14 @@ dotnet add package SQLite.Framework
    }
    ```
 
-2. **Initialize the context**:
+2. **Initialize the database**:
 
    ```csharp
    using SQLite.Framework;
 
    var options = new SQLiteOptionsBuilder("app.db").Build();
-   using var context = new SQLiteDatabase(options);
-   context.Schema.CreateTable<Person>();
+   using var database = new SQLiteDatabase(options);
+   database.Table<Person>().Schema.CreateTable();
    ```
 
     On the table class, you can use the following:

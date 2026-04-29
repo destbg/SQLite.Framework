@@ -162,8 +162,8 @@ public class BigIntegerConverterTests
             b.AddTypeConverter<BigInteger>(new BigIntegerConverter());
             configure?.Invoke(b);
         }, methodName);
-        db.Schema.CreateTable<BigEntity>();
-        db.Schema.CreateTable<NullableBigEntity>();
+        db.Table<BigEntity>().Schema.CreateTable();
+        db.Table<NullableBigEntity>().Schema.CreateTable();
         return db;
     }
 

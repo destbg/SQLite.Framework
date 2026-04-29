@@ -9,7 +9,7 @@ public class EnumTextTests
     private static TestDatabase SetupDatabase()
     {
         TestDatabase db = new();
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
         db.Execute("INSERT INTO Publisher (Id, Name, Type) VALUES (1, 'Publisher 1', @type)",
             new SQLiteParameter
             {
@@ -61,7 +61,7 @@ public class EnumTextTests
     public void Read_WhenStoredAsTextName_UnknownValue_ReturnsDefault()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
         db.Execute("INSERT INTO Publisher (Id, Name, Type) VALUES (1, 'Publisher 1', @type)",
             new SQLiteParameter
             {

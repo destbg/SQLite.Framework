@@ -14,7 +14,7 @@ dotnet add package SQLite.Framework.DependencyInjection
 Configure `SQLiteOptionsBuilder` in a callback. The options are built once when the database is first resolved.
 
 ```csharp
-services.AddSQLiteDatabase(b =>
+services.AddSQLiteDatabase<AppDatabase>(b =>
 {
     b.DatabasePath = "app.db";
     b.IsWalMode = true;
@@ -47,7 +47,7 @@ The default lifetime is `Singleton`. One database instance is created the first 
 If you want a different lifetime, pass it as the second argument:
 
 ```csharp
-services.AddSQLiteDatabase(b => b.DatabasePath = dbPath, ServiceLifetime.Scoped);
+services.AddSQLiteDatabase<AppDatabase>(b => b.DatabasePath = dbPath, ServiceLifetime.Scoped);
 ```
 
 `Transient` is almost never what you want. You would get a brand new connection for every resolve.
@@ -57,7 +57,7 @@ services.AddSQLiteDatabase(b => b.DatabasePath = dbPath, ServiceLifetime.Scoped)
 If the database path (or anything else) comes from another registered service, use the overload that also takes the `IServiceProvider`:
 
 ```csharp
-services.AddSQLiteDatabase((sp, b) =>
+services.AddSQLiteDatabase<AppDatabase>((sp, b) =>
 {
     IConfiguration config = sp.GetRequiredService<IConfiguration>();
     b.DatabasePath = config["Db:Path"]!;
@@ -70,18 +70,18 @@ services.AddSQLiteDatabase((sp, b) =>
 Register a subclass of `SQLiteDatabase` the same way. The subclass needs a public constructor that takes `SQLiteOptions`, plus any other services you want DI to hand it:
 
 ```csharp
-public class LibraryDatabase : SQLiteDatabase
+public class AppDatabase : SQLiteDatabase
 {
-    private readonly ILogger<LibraryDatabase> logger;
+    private readonly ILogger<AppDatabase> logger;
 
-    public LibraryDatabase(SQLiteOptions options, ILogger<LibraryDatabase> logger)
+    public AppDatabase(SQLiteOptions options, ILogger<AppDatabase> logger)
         : base(options)
     {
         this.logger = logger;
     }
 }
 
-services.AddSQLiteDatabase<LibraryDatabase>(b => b.DatabasePath = "library.db");
+services.AddSQLiteDatabase<AppDatabase>(b => b.DatabasePath = "library.db");
 ```
 
 `ActivatorUtilities` pulls the extra constructor arguments (`ILogger<T>` above) from the same service provider.

@@ -36,7 +36,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<NumericType>();
+        db.Table<NumericType>().Schema.CreateTable();
         db.Table<NumericType>().AddRange(new[]
         {
             new NumericType
@@ -90,7 +90,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<NumericType>();
+        db.Table<NumericType>().Schema.CreateTable();
         db.Table<NumericType>().AddRange(new[]
         {
             new NumericType
@@ -142,7 +142,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<NumericType>();
+        db.Table<NumericType>().Schema.CreateTable();
         db.Table<NumericType>().AddRange(new[]
         {
             new NumericType
@@ -194,7 +194,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<NumericType>();
+        db.Table<NumericType>().Schema.CreateTable();
         db.Table<NumericType>().AddRange(new[]
         {
             new NumericType
@@ -246,7 +246,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<NumericType>();
+        db.Table<NumericType>().Schema.CreateTable();
         db.Table<NumericType>().AddRange(new[]
         {
             new NumericType
@@ -301,7 +301,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<NumericType>();
+        db.Table<NumericType>().Schema.CreateTable();
         db.Table<NumericType>().AddRange(new[]
         {
             new NumericType
@@ -338,7 +338,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<NumericType>();
+        db.Table<NumericType>().Schema.CreateTable();
         db.Table<NumericType>().AddRange(new[]
         {
             new NumericType
@@ -391,7 +391,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "123", AuthorId = 1, Price = 10.0 },
@@ -415,7 +415,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "10.5", AuthorId = 1, Price = 10.0 },
@@ -438,7 +438,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<NullableNumericRow>();
+        db.Table<NullableNumericRow>().Schema.CreateTable();
         db.Table<NullableNumericRow>().Add(new NullableNumericRow
         {
             Id = 1,
@@ -472,7 +472,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<MixedNullableRow>();
+        db.Table<MixedNullableRow>().Schema.CreateTable();
         await db.Table<MixedNullableRow>().AddAsync(new MixedNullableRow { Id = 1, Value = 9 }, TestContext.Current.CancellationToken);
         await db.Table<MixedNullableRow>().AddAsync(new MixedNullableRow { Id = 2, Value = null }, TestContext.Current.CancellationToken);
 
@@ -488,7 +488,7 @@ public class NumericTypeTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10.5 },

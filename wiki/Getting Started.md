@@ -51,7 +51,7 @@ public static class MauiProgram
         builder.UseMauiApp<App>();
 
         string dbPath = Path.Combine(FileSystem.AppDataDirectory, "library.db");
-        builder.Services.AddSQLiteDatabase(
+        builder.Services.AddSQLiteDatabase<AppDatabase>(
             b => b.DatabasePath = dbPath,
             ServiceLifetime.Singleton);
 

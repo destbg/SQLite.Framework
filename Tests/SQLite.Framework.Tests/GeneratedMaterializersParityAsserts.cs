@@ -17,7 +17,7 @@ public class GeneratedMaterializersParityAsserts
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -80,7 +80,7 @@ public class GeneratedMaterializersParityAsserts
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 1,
@@ -117,7 +117,7 @@ public class GeneratedMaterializersParityAsserts
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 3,
@@ -141,7 +141,7 @@ public class GeneratedMaterializersParityAsserts
     public void SelectMaterializer_IsInvoked_ForPrivateMethodCall()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 7,
@@ -167,7 +167,7 @@ public class GeneratedMaterializersParityAsserts
     public void SelectMaterializer_IsInvoked_ForClosureCapturedLocal()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book
         {
             Id = 4,

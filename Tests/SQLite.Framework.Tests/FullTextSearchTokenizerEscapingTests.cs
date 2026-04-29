@@ -11,7 +11,7 @@ public class FullTextSearchTokenizerEscapingTests
     public void Tokenizer_BareIdentifierArg_NotQuotedInSql()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TokenChars_Underscore_Search>();
+        db.Table<TokenChars_Underscore_Search>().Schema.CreateTable();
 
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'TokenChars_Underscore_Search'");
 
@@ -24,7 +24,7 @@ public class FullTextSearchTokenizerEscapingTests
     public void Tokenizer_PunctuationArg_GetsSingleQuotedAndEscaped()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Separators_Punct_Search>();
+        db.Table<Separators_Punct_Search>().Schema.CreateTable();
 
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'Separators_Punct_Search'");
 
@@ -37,7 +37,7 @@ public class FullTextSearchTokenizerEscapingTests
     public void Tokenizer_ArgWithSpaces_GetsSingleQuoted()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Categories_Letters_Search>();
+        db.Table<Categories_Letters_Search>().Schema.CreateTable();
 
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'Categories_Letters_Search'");
 
@@ -50,7 +50,7 @@ public class FullTextSearchTokenizerEscapingTests
     public void Tokenizer_TokenCharsUnderscore_KeepsUnderscoreInTokens()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TokenChars_Underscore_Search>();
+        db.Table<TokenChars_Underscore_Search>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO TokenChars_Underscore_Search(rowid, Body) VALUES (1, 'hello_world standalone')", []).ExecuteNonQuery();
 
         long hits = db.Table<TokenChars_Underscore_Search>()
@@ -63,7 +63,7 @@ public class FullTextSearchTokenizerEscapingTests
     public void Tokenizer_SeparatorsPunct_TreatsPunctAsBoundary()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Separators_Punct_Search>();
+        db.Table<Separators_Punct_Search>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO Separators_Punct_Search(rowid, Body) VALUES (1, 'apple,banana;cherry')", []).ExecuteNonQuery();
 
         long hitsBanana = db.Table<Separators_Punct_Search>()

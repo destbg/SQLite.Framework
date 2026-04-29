@@ -14,7 +14,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\SQLite.Framework\SQLite.Framework.csproj" />
-      <ProjectReference Include="..\..\SQLite.Framework.JsonB\SQLite.Framework.JsonB.csproj" />
       <TrimmerRootDescriptor Include="TrimmerRootDescriptor.xml" />
     </ItemGroup>
 

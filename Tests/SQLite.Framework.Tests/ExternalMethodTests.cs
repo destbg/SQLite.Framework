@@ -530,8 +530,8 @@ public class ExternalMethodTests
     {
         TestDatabase db = new(methodName);
 
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<Author>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Schema.CreateTable();
 
         db.Table<Book>().AddRange(new[]
         {

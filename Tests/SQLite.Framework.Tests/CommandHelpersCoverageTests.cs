@@ -10,7 +10,7 @@ public class CommandHelpersCoverageTests
     public void Read_DateTimeColumn_WithRealValue_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateTimeRow>();
+        db.Table<DateTimeRow>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO DateTimeRow (Id, Stamp) VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<DateTimeRow>().First());
@@ -20,7 +20,7 @@ public class CommandHelpersCoverageTests
     public void Read_DateTimeOffsetColumn_WithRealValue_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateTimeOffsetRow>();
+        db.Table<DateTimeOffsetRow>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO DateTimeOffsetRow (Id, Stamp) VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<DateTimeOffsetRow>().First());
@@ -30,7 +30,7 @@ public class CommandHelpersCoverageTests
     public void Read_TimeSpanColumn_WithRealValue_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TimeSpanRow>();
+        db.Table<TimeSpanRow>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO TimeSpanRow (Id, Span) VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<TimeSpanRow>().First());
@@ -40,7 +40,7 @@ public class CommandHelpersCoverageTests
     public void Read_DateOnlyColumn_WithRealValue_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateOnlyRow>();
+        db.Table<DateOnlyRow>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO DateOnlyRow (Id, D) VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<DateOnlyRow>().First());
@@ -50,7 +50,7 @@ public class CommandHelpersCoverageTests
     public void Read_TimeOnlyColumn_WithRealValue_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<TimeOnlyRow>();
+        db.Table<TimeOnlyRow>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO TimeOnlyRow (Id, T) VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<TimeOnlyRow>().First());
@@ -60,7 +60,7 @@ public class CommandHelpersCoverageTests
     public void Read_GuidColumn_WithIntegerValue_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<GuidRow>();
+        db.Table<GuidRow>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO GuidRow (Id, Token) VALUES (1, 42)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<GuidRow>().First());
@@ -79,7 +79,7 @@ public class CommandHelpersCoverageTests
     public void BindParameter_UnsupportedType_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<DateTimeRow>();
+        db.Table<DateTimeRow>().Schema.CreateTable();
 
         SQLiteCommand cmd = db.CreateCommand(
             "INSERT INTO DateTimeRow (Id, Stamp) VALUES (1, @p0)",

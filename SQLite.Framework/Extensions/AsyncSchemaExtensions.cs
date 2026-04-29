@@ -141,8 +141,8 @@ public static class AsyncSchemaExtensions
     /// Issues the <c>CREATE TABLE IF NOT EXISTS</c> built up by the fluent builder, plus its
     /// indexes. Runs on a background thread.
     /// </summary>
-    public static Task<int> CreateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableBuilder<T> builder, CancellationToken ct = default)
+    public static Task<int> CreateTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableBuilder<T> builder, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(builder.Create, ct);
+        return AsyncRunner.Run(builder.CreateTable, ct);
     }
 }

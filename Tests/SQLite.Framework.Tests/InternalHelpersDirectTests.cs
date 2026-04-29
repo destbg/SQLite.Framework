@@ -480,7 +480,7 @@ public class InternalHelpersDirectTests
     public void QueryableMethodVisitor_VisitContains_ArgResolvesToNonConstantNonSql_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
         sqlVisitor.TableColumns["Id"] = new SQLiteExpression(typeof(int), 0, "b0.Id");
@@ -812,8 +812,8 @@ public class InternalHelpersDirectTests
     public void MethodVisitor_HandleFTS5Match_ColumnViaConvert_Works()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SQLite.Framework.Tests.Entities.Article>();
-        db.Schema.CreateTable<SQLite.Framework.Tests.Entities.ArticleSearch>();
+        db.Table<SQLite.Framework.Tests.Entities.Article>().Schema.CreateTable();
+        db.Table<SQLite.Framework.Tests.Entities.ArticleSearch>().Schema.CreateTable();
 
         SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
 
@@ -844,8 +844,8 @@ public class InternalHelpersDirectTests
     public void MethodVisitor_ResolveFTS5ColumnIndex_ConvertWrappedMember_Resolves()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<SQLite.Framework.Tests.Entities.Article>();
-        db.Schema.CreateTable<SQLite.Framework.Tests.Entities.ArticleSearch>();
+        db.Table<SQLite.Framework.Tests.Entities.Article>().Schema.CreateTable();
+        db.Table<SQLite.Framework.Tests.Entities.ArticleSearch>().Schema.CreateTable();
 
         SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
 
@@ -1196,7 +1196,7 @@ public class InternalHelpersDirectTests
     public void SQLiteDatabase_ExecuteGroupingQuery_NonGroupByExpression_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
 
         IQueryable<IGrouping<int, Book>> wrapped = db.Table<Book>()
@@ -1215,7 +1215,7 @@ public class InternalHelpersDirectTests
         try
         {
             using SQLiteDatabase src = new(new SQLiteOptionsBuilder(sourcePath).Build());
-            src.Schema.CreateTable<Book>();
+            src.Table<Book>().Schema.CreateTable();
             for (int i = 1; i <= 50; i++)
             {
                 src.Table<Book>().Add(new Book { Id = i, Title = $"t{i}", AuthorId = 1, Price = i });
@@ -1224,7 +1224,7 @@ public class InternalHelpersDirectTests
             using SQLiteDatabase dest = new(new SQLiteOptionsBuilder(destPath).Build());
 
             using SQLiteDatabase destLocker = new(new SQLiteOptionsBuilder(destPath).Build());
-            destLocker.Schema.CreateTable<Book>();
+            destLocker.Table<Book>().Schema.CreateTable();
             using SQLiteTransaction tx = destLocker.BeginTransaction();
             destLocker.Table<Book>().Add(new Book { Id = 999, Title = "lock", AuthorId = 1, Price = 999 });
 
@@ -1269,7 +1269,7 @@ public class InternalHelpersDirectTests
             srcBuilder.UseEncryptionKey("test-key");
             using (SQLiteDatabase db = new(srcBuilder.Build()))
             {
-                db.Schema.CreateTable<Book>();
+                db.Table<Book>().Schema.CreateTable();
                 db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 });
                 db.BackupTo(destPath);
             }
@@ -1494,7 +1494,7 @@ public class HandlerDispatchTests
         });
         try
         {
-            db.Schema.CreateTable<BigIntegerConverterTests.BigEntity>();
+            db.Table<BigIntegerConverterTests.BigEntity>().Schema.CreateTable();
             System.Numerics.BigInteger value = System.Numerics.BigInteger.Parse("42");
             db.Table<BigIntegerConverterTests.BigEntity>().Add(new BigIntegerConverterTests.BigEntity { Id = 1, Value = value });
 

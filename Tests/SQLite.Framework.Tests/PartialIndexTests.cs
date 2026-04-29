@@ -11,7 +11,7 @@ public class PartialIndexTests
         using TestDatabase db = new();
         db.Schema.Table<BookArchive>()
             .Index(b => b.Title, name: "IX_Title")
-            .Create();
+            .CreateTable();
 
         Assert.True(db.Schema.IndexExists("IX_Title"));
     }
@@ -22,7 +22,7 @@ public class PartialIndexTests
         using TestDatabase db = new();
         db.Schema.Table<BookArchive>()
             .Index(b => b.Title, name: "IX_Title_Unique", unique: true)
-            .Create();
+            .CreateTable();
 
         db.Table<BookArchive>().Add(new BookArchive { Id = 1, Title = "same", AuthorId = 1, Price = 1 });
 
@@ -36,7 +36,7 @@ public class PartialIndexTests
         using TestDatabase db = new();
         db.Schema.Table<BookArchive>()
             .Index(b => b.Title, name: "IX_Title_Active", filter: b => b.Price > 0)
-            .Create();
+            .CreateTable();
 
         Assert.True(db.Schema.IndexExists("IX_Title_Active"));
 
@@ -53,7 +53,7 @@ public class PartialIndexTests
         using TestDatabase db = new();
         db.Schema.Table<BookArchive>()
             .Index(b => b.Title)
-            .Create();
+            .CreateTable();
 
         Assert.Contains("idx_BooksArchive_BookTitle", db.Schema.ListIndexes("BooksArchive"));
     }
@@ -64,7 +64,7 @@ public class PartialIndexTests
         using TestDatabase db = new();
         db.Schema.Table<BookArchive>()
             .Index(b => b.Title, name: "IX_ActiveTitleUnique", unique: true, filter: b => b.AuthorId > 0)
-            .Create();
+            .CreateTable();
 
         // Both rows have AuthorId = 0 so neither falls under the partial unique index
         db.Table<BookArchive>().Add(new BookArchive { Id = 1, Title = "same", AuthorId = 0, Price = 1 });

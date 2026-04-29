@@ -26,8 +26,8 @@ public class FullTextSearchEscapingTests
     private static TestDatabase OpenDb(string method)
     {
         TestDatabase db = new(null, method);
-        db.Schema.CreateTable<Article>();
-        db.Schema.CreateTable<ArticleSearch>();
+        db.Table<Article>().Schema.CreateTable();
+        db.Table<ArticleSearch>().Schema.CreateTable();
         return db;
     }
 

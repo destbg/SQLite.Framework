@@ -11,7 +11,7 @@ public class SchemaTests
     public void CreateTable_Generic_CreatesTable()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         Assert.True(db.Schema.TableExists<Book>());
     }
@@ -29,8 +29,8 @@ public class SchemaTests
     public void CreateTable_IsIdempotent()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Schema.CreateTable();
 
         Assert.True(db.Schema.TableExists<Book>());
     }
@@ -39,7 +39,7 @@ public class SchemaTests
     public void CreateTable_EmitsDeclaredIndexes()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         IReadOnlyList<string> indexes = db.Schema.ListIndexes("Books");
         Assert.Contains("IX_Book_AuthorId", indexes);
@@ -49,7 +49,7 @@ public class SchemaTests
     public void DropTable_Generic_RemovesTable()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Schema.DropTable<Book>();
 
         Assert.False(db.Schema.TableExists<Book>());
@@ -59,7 +59,7 @@ public class SchemaTests
     public void DropTable_ByName_RemovesTable()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Schema.DropTable("Books");
 
         Assert.False(db.Schema.TableExists("Books"));
@@ -91,7 +91,7 @@ public class SchemaTests
     public void CreateIndex_OverColumn_EmitsIndex()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Schema.CreateIndex<Book>(b => b.Title, name: "IX_Book_Title");
 
         Assert.True(db.Schema.IndexExists("IX_Book_Title"));
@@ -101,7 +101,7 @@ public class SchemaTests
     public void CreateIndex_DefaultName_UsesIdxConvention()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Schema.CreateIndex<Book>(b => b.Title);
 
         Assert.Contains("idx_Books_BookTitle", db.Schema.ListIndexes("Books"));
@@ -111,7 +111,7 @@ public class SchemaTests
     public void CreateIndex_Unique_AddsUniqueConstraint()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<BookArchive>().Schema.CreateTable();
         db.Schema.CreateIndex<BookArchive>(b => b.Title, name: "IX_BookArchive_Title_Unique", unique: true);
 
         db.Table<BookArchive>().Add(new BookArchive { Id = 1, Title = "same", AuthorId = 1, Price = 1 });
@@ -124,7 +124,7 @@ public class SchemaTests
     public void CreateIndex_NullColumnExpression_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         Assert.Throws<ArgumentNullException>(() => db.Schema.CreateIndex<Book>(null!));
     }
 
@@ -132,7 +132,7 @@ public class SchemaTests
     public void DropIndex_RemovesIndex()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Schema.CreateIndex<Book>(b => b.Title, name: "IX_Drop_Me");
 
         db.Schema.DropIndex("IX_Drop_Me");
@@ -158,7 +158,7 @@ public class SchemaTests
     public void ColumnExists_Generic_ReturnsTrueForMappedColumn()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         Assert.True(db.Schema.ColumnExists<Book>("BookTitle"));
     }
 
@@ -166,7 +166,7 @@ public class SchemaTests
     public void ColumnExists_Generic_ReturnsFalseForMissingColumn()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         Assert.False(db.Schema.ColumnExists<Book>("NoSuchColumn"));
     }
 
@@ -174,8 +174,8 @@ public class SchemaTests
     public void ListTables_ReturnsCreatedTables()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         IReadOnlyList<string> tables = db.Schema.ListTables();
 
@@ -187,7 +187,7 @@ public class SchemaTests
     public void ListIndexes_NoFilter_ReturnsAllIndexes()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         IReadOnlyList<string> indexes = db.Schema.ListIndexes();
 
@@ -198,8 +198,8 @@ public class SchemaTests
     public void ListIndexes_TableFilter_ReturnsOnlyIndexesForThatTable()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookArchive>().Schema.CreateTable();
         db.Schema.CreateIndex<BookArchive>(b => b.Title, name: "IX_Archive_Title");
 
         IReadOnlyList<string> archiveIndexes = db.Schema.ListIndexes("BooksArchive");
@@ -212,7 +212,7 @@ public class SchemaTests
     public void ListColumns_Generic_ReturnsMappedColumns()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         IReadOnlyList<SchemaColumnInfo> columns = db.Schema.ListColumns<BookArchive>();
 
@@ -226,7 +226,7 @@ public class SchemaTests
     public void AddColumn_AddsTheColumnToTheTable()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<EvolvingTable>();
+        db.Table<EvolvingTable>().Schema.CreateTable();
 
         db.Schema.AddColumn<EvolvingTablePlusName>(nameof(EvolvingTablePlusName.Name));
 
@@ -238,7 +238,7 @@ public class SchemaTests
     public void AddColumn_UnknownProperty_Throws()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<InvalidOperationException>(() => db.Schema.AddColumn<Book>("NotAProperty"));
     }
@@ -247,7 +247,7 @@ public class SchemaTests
     public void RenameColumn_RenamesInDatabase()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         db.Schema.RenameColumn<BookArchive>("BookTitle", "Title2");
 
@@ -259,7 +259,7 @@ public class SchemaTests
     public void DropColumn_RemovesTheColumn()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         db.Schema.DropColumn<BookArchive>("BookPrice");
 
@@ -270,7 +270,7 @@ public class SchemaTests
     public void RenameTable_RenamesInDatabase()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<BookArchive>();
+        db.Table<BookArchive>().Schema.CreateTable();
 
         db.Schema.RenameTable<BookArchive>("RenamedArchive");
 
@@ -343,7 +343,7 @@ public class SchemaTests
     public void ObsoleteShim_DropTable_StillWorks()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
 #pragma warning disable CS0618
         db.Table<Book>().DropTable();
@@ -351,4 +351,63 @@ public class SchemaTests
 
         Assert.False(db.Schema.TableExists<Book>());
     }
+
+    [Fact]
+    public void CompositePrimaryKey_CreateTable_EmitsTableLevelConstraint()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<CompositeKeyEntity>();
+
+        IReadOnlyList<SchemaColumnInfo> columns = db.Schema.ListColumns("CompositeKeyEntity");
+        Assert.Equal(2, columns.Count(c => c.IsPrimaryKey));
+        Assert.Contains(columns, c => c.Name == "ProjectId" && c.IsPrimaryKey);
+        Assert.Contains(columns, c => c.Name == "TagId" && c.IsPrimaryKey);
+    }
+
+    [Fact]
+    public void CompositePrimaryKey_AddRemove_RoundTrips()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<CompositeKeyEntity>();
+
+        SQLiteTable<CompositeKeyEntity> table = db.Table<CompositeKeyEntity>();
+        table.Add(new CompositeKeyEntity { ProjectId = 1, TagId = 10, Note = "a" });
+        table.Add(new CompositeKeyEntity { ProjectId = 1, TagId = 20, Note = "b" });
+        table.Add(new CompositeKeyEntity { ProjectId = 2, TagId = 10, Note = "c" });
+
+        Assert.Equal(3, table.Count());
+
+        table.Remove(new CompositeKeyEntity { ProjectId = 1, TagId = 10, Note = "ignored" });
+
+        Assert.Equal(2, table.Count());
+        Assert.DoesNotContain(table.ToList(), e => e.ProjectId == 1 && e.TagId == 10);
+    }
+
+    [Fact]
+    public void CompositePrimaryKey_Update_TargetsBothColumns()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<CompositeKeyEntity>();
+
+        SQLiteTable<CompositeKeyEntity> table = db.Table<CompositeKeyEntity>();
+        table.Add(new CompositeKeyEntity { ProjectId = 1, TagId = 10, Note = "before-1-10" });
+        table.Add(new CompositeKeyEntity { ProjectId = 1, TagId = 20, Note = "before-1-20" });
+
+        table.Update(new CompositeKeyEntity { ProjectId = 1, TagId = 20, Note = "after-1-20" });
+
+        Assert.Equal("before-1-10", table.Single(e => e.TagId == 10).Note);
+        Assert.Equal("after-1-20", table.Single(e => e.TagId == 20).Note);
+    }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("CompositeKeyEntity")]
+file class CompositeKeyEntity
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    public int ProjectId { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Key]
+    public int TagId { get; set; }
+
+    public string Note { get; set; } = string.Empty;
 }

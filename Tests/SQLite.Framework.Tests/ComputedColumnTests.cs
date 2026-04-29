@@ -11,7 +11,7 @@ public class ComputedColumnTests
         using TestDatabase db = new();
         db.Schema.Table<ProductLine>()
             .Computed(p => p.Total, p => p.Price * p.Quantity)
-            .Create();
+            .CreateTable();
 
         db.Execute(
             "INSERT INTO ProductLines (Id, Price, Quantity) VALUES (1, 5.0, 3), (2, 2.5, 4)");
@@ -27,7 +27,7 @@ public class ComputedColumnTests
         using TestDatabase db = new();
         db.Schema.Table<ProductLine>()
             .Computed(p => p.Total, p => p.Price * p.Quantity, stored: true)
-            .Create();
+            .CreateTable();
 
         db.Execute(
             "INSERT INTO ProductLines (Id, Price, Quantity) VALUES (1, 5.0, 3)");
@@ -42,7 +42,7 @@ public class ComputedColumnTests
         using TestDatabase db = new();
         db.Schema.Table<ProductLine>()
             .Computed(p => p.Total, p => p.Price * p.Quantity)
-            .Create();
+            .CreateTable();
 
         Assert.ThrowsAny<Exception>(() =>
             db.Execute("INSERT INTO ProductLines (Id, Price, Quantity, Total) VALUES (1, 1, 1, 99)"));

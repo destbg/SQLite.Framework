@@ -158,7 +158,7 @@ public class MathOperationTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
@@ -193,7 +193,7 @@ public class MathOperationTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 5 },
@@ -355,7 +355,7 @@ public class MathOperationTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = -5 },
@@ -387,7 +387,7 @@ public class MathOperationTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 4 },
@@ -419,7 +419,7 @@ public class MathOperationTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 0 },
@@ -449,7 +449,7 @@ public class MathOperationTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 1 },
@@ -479,7 +479,7 @@ public class MathOperationTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 8 },
@@ -510,7 +510,7 @@ public class MathOperationTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]
         {
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },

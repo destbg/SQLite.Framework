@@ -8,6 +8,8 @@ In earlier versions, `CreateTable` and `DropTable` lived on `db.Table<T>()`. The
 
 ```csharp
 // New
+db.Table<Book>().Schema.CreateTable(); // Uses fluent builder
+// Or
 db.Schema.CreateTable<Book>();
 
 // Old (still works, gives an obsolete warning)
@@ -17,10 +19,13 @@ db.Table<Book>().CreateTable();
 ## Create and drop
 
 ```csharp
+db.Table<Book>().Schema.CreateTable();
+// Or
 db.Schema.CreateTable<Book>();
+
 db.Schema.DropTable<Book>();
 
-// By table name when you do not have an entity class handy
+// By table name when you do not have an entity class anymore
 db.Schema.DropTable("OldBooks");
 ```
 
@@ -38,10 +43,10 @@ The default index name is `idx_{TableName}_{ColumnName}`.
 
 ## Fluent table builder
 
-When you want to set up computed columns, CHECK constraints, or partial indexes alongside the table itself, use the fluent builder. Reach it with `db.Schema.Table<T>()`. It records each option you chain, then issues all of the DDL when you call `Create()`.
+When you want to set up computed columns, CHECK constraints, or partial indexes alongside the table itself, use the fluent builder. Reach it with `db.Table<T>().Schema`. It records each option you chain, then issues all of the DDL when you call `CreateTable()`.
 
 ```csharp
-db.Schema.Table<Book>()
+db.Table<Book>().Schema
     .Computed(b => b.Total, b => b.Price * b.Quantity)
     .Computed(b => b.PriceWithTax, b => b.Price * 1.21m, stored: true)
     .Check(b => b.Price > 0, name: "CK_Price_Positive")
@@ -49,7 +54,7 @@ db.Schema.Table<Book>()
     .Index(b => b.Title)
     .Index(b => b.AuthorId, unique: true)
     .Index(b => b.CategoryId, filter: b => !b.Deleted)
-    .Create();
+    .CreateTable();
 ```
 
 `Computed(target, sql, stored)` adds a generated column. The default is virtual (computed on every read); pass `stored: true` to store the value on disk.
@@ -85,7 +90,7 @@ foreach (SchemaColumnInfo col in columns)
 ## Altering tables
 
 ```csharp
-db.Schema.AddColumn<Book>(nameof(Book.Subtitle));     // adds the Subtitle column from the entity
+db.Schema.AddColumn<Book>("Subtitle");     // adds the Subtitle column from the entity
 db.Schema.RenameColumn<Book>("BookTitle", "Title");
 db.Schema.DropColumn<Book>("BookTitle");
 db.Schema.RenameTable<Book>("RenamedBooks");

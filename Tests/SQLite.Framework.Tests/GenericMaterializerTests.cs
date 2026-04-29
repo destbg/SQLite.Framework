@@ -11,8 +11,8 @@ public class GenericMaterializerTests
     public void ExecuteQuery_via_generic_class_repo_returns_entities()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<GenericRepoEntityA>();
-        db.Schema.CreateTable<GenericRepoEntityB>();
+        db.Table<GenericRepoEntityA>().Schema.CreateTable();
+        db.Table<GenericRepoEntityB>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO GenericRepoEntityA (Id, Name) VALUES (1, 'alpha')", []).ExecuteNonQuery();
         db.CreateCommand("INSERT INTO GenericRepoEntityB (Id, Description) VALUES (1, 'beta')", []).ExecuteNonQuery();
 
@@ -32,8 +32,8 @@ public class GenericMaterializerTests
     public void Generic_select_projection_materializes_per_concrete_dto()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<NomenclatureA>();
-        db.Schema.CreateTable<NomenclatureB>();
+        db.Table<NomenclatureA>().Schema.CreateTable();
+        db.Table<NomenclatureB>().Schema.CreateTable();
         db.Table<NomenclatureA>().Add(new NomenclatureA { Id = 1, Name = "alphaA" });
         db.Table<NomenclatureB>().Add(new NomenclatureB { Id = 2, Name = "alphaB" });
 
@@ -55,8 +55,8 @@ public class GenericMaterializerTests
     public void ExecuteQuery_via_generic_method_returns_entities()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<GenericMethodEntityA>();
-        db.Schema.CreateTable<GenericMethodEntityB>();
+        db.Table<GenericMethodEntityA>().Schema.CreateTable();
+        db.Table<GenericMethodEntityB>().Schema.CreateTable();
         db.CreateCommand("INSERT INTO GenericMethodEntityA (Id, Tag) VALUES (1, 'one')", []).ExecuteNonQuery();
         db.CreateCommand("INSERT INTO GenericMethodEntityB (Id, Code) VALUES (2, 'two')", []).ExecuteNonQuery();
 

@@ -98,12 +98,12 @@ public static partial class Program
     {
         Console.WriteLine("Creating database schema...");
 
-        db.Schema.CreateTable<Category>();
-        db.Schema.CreateTable<Product>();
-        db.Schema.CreateTable<Customer>();
-        db.Schema.CreateTable<Order>();
-        db.Schema.CreateTable<OrderItem>();
-        db.Schema.CreateTable<Review>();
+        db.Table<Category>().Schema.CreateTable();
+        db.Table<Product>().Schema.CreateTable();
+        db.Table<Customer>().Schema.CreateTable();
+        db.Table<Order>().Schema.CreateTable();
+        db.Table<OrderItem>().Schema.CreateTable();
+        db.Table<Review>().Schema.CreateTable();
 
         Console.WriteLine("Database schema created");
     }
@@ -568,7 +568,7 @@ public static partial class Program
         // Single with condition
         Category electronicsCategory = db.Table<Category>()
             .Single(c => c.Name == "Electronics");
-        Console.WriteLine($"Electronics category ID: {electronicsCategory.Id}");
+        Console.WriteLine($"Electronics category Id: {electronicsCategory.Id}");
     }
 
     private static void WhereClauseExamples(SQLiteDatabase db)
@@ -1440,7 +1440,7 @@ public static partial class Program
             .Build();
 
         using SQLiteDatabase pointsDb = new(options);
-        pointsDb.Schema.CreateTable<ScoreRecord>();
+        pointsDb.Table<ScoreRecord>().Schema.CreateTable();
 
         pointsDb.Table<ScoreRecord>().Add(new ScoreRecord
         {
@@ -1514,7 +1514,7 @@ public static partial class Program
 
         using SQLiteDatabase db = new(options);
 
-        db.Schema.CreateTable<TaggedProduct>();
+        db.Table<TaggedProduct>().Schema.CreateTable();
         db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 1, Name = "Laptop", Tags = ["electronics", "computers"] });
         db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 2, Name = "Novel", Tags = ["books", "fiction"] });
         db.Table<TaggedProduct>().Add(new TaggedProduct { Id = 3, Name = "Keyboard", Tags = ["electronics", "accessories"] });
@@ -1577,7 +1577,7 @@ public static partial class Program
             .First();
         Console.WriteLine($"Laptop non-electronics tags: {string.Join(", ", filtered)}");
 
-        string? sorted = db.Table<TaggedProduct>()
+        string sorted = db.Table<TaggedProduct>()
             .Where(p => p.Id == 1)
             .Select(p => p.Tags.OrderBy(t => t).First())
             .First();

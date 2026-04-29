@@ -12,7 +12,7 @@ public class SeparateConnectionTransactionTests
     public void Commit_PersistsChanges()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         using (SQLiteTransaction tx = db.BeginTransaction(separateConnection: true))
         {
@@ -33,7 +33,7 @@ public class SeparateConnectionTransactionTests
     public void Rollback_RevertsChanges()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         using (SQLiteTransaction tx = db.BeginTransaction(separateConnection: true))
         {
@@ -54,7 +54,7 @@ public class SeparateConnectionTransactionTests
     public void Dispose_WithoutCommit_AutoRollsBack()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         using (SQLiteTransaction _ = db.BeginTransaction(separateConnection: true))
         {
@@ -74,7 +74,7 @@ public class SeparateConnectionTransactionTests
     public void AfterRollback_NextTransactionCanProceed()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         using (SQLiteTransaction tx = db.BeginTransaction(separateConnection: true))
         {
@@ -109,7 +109,7 @@ public class SeparateConnectionTransactionTests
     public void ReadWithinTransaction_SeesUncommittedData()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         using SQLiteTransaction tx = db.BeginTransaction(separateConnection: true);
 
@@ -139,7 +139,7 @@ public class SeparateConnectionTransactionTests
     public async Task Async_ReadWithinTransaction_SeesUncommittedData()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken);
 
@@ -169,7 +169,7 @@ public class SeparateConnectionTransactionTests
     public async Task MainConnectionRead_NotBlockedWhileTransactionIsOpen()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         for (int i = 0; i < 5; i++)
         {
@@ -207,7 +207,7 @@ public class SeparateConnectionTransactionTests
     public async Task DoesNotBlockOtherSeparateConnectionTransactions()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         SemaphoreSlim release = new(0, 1);
         TaskCompletionSource tx1Started = new();
@@ -234,7 +234,7 @@ public class SeparateConnectionTransactionTests
     public async Task Sync_DoesNotBlockOtherSeparateConnectionTransactions()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         SemaphoreSlim release = new(0, 1);
         TaskCompletionSource tx1Started = new();
@@ -261,7 +261,7 @@ public class SeparateConnectionTransactionTests
     public async Task Async_Commit_PersistsChanges()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         await using (SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken))
         {
@@ -282,7 +282,7 @@ public class SeparateConnectionTransactionTests
     public async Task Async_Rollback_RevertsChanges()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         await using (SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken))
         {
@@ -303,7 +303,7 @@ public class SeparateConnectionTransactionTests
     public async Task Async_Dispose_WithoutCommit_AutoRollsBack()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         await using (SQLiteTransaction _ = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken))
         {
@@ -323,7 +323,7 @@ public class SeparateConnectionTransactionTests
     public void AddRange_WithSeparateConnection_CommitsAllRows()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         List<Book> books =
         [
@@ -359,7 +359,7 @@ public class SeparateConnectionTransactionTests
     public void UpdateRange_WithSeparateConnection_CommitsAllRows()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         List<Book> books =
         [
@@ -398,7 +398,7 @@ public class SeparateConnectionTransactionTests
     public void RemoveRange_WithSeparateConnection_RemovesAllRows()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         List<Book> books =
         [
@@ -428,7 +428,7 @@ public class SeparateConnectionTransactionTests
     public async Task AddRangeAsync_WithSeparateConnection_CommitsAllRows()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         List<Book> books =
         [
@@ -464,7 +464,7 @@ public class SeparateConnectionTransactionTests
     public async Task UpdateRangeAsync_WithSeparateConnection_CommitsAllRows()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         List<Book> books =
         [
@@ -503,7 +503,7 @@ public class SeparateConnectionTransactionTests
     public async Task RemoveRangeAsync_WithSeparateConnection_RemovesAllRows()
     {
         using TestDatabase db = new();
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
 
         List<Book> books =
         [

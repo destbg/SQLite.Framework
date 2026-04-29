@@ -10,7 +10,7 @@ public class EntityHookTests
     {
         DateTime stamp = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         using TestDatabase db = new(b => b.OnAdd<AuditedEntity>(e => e.CreatedAt = stamp));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         AuditedEntity row = new() { Name = "x" };
         int affected = db.Table<AuditedEntity>().Add(row);
@@ -24,7 +24,7 @@ public class EntityHookTests
     public void OnAdd_FuncHookReturnsFalse_SkipsInsertReturnsZero()
     {
         using TestDatabase db = new(b => b.OnAdd<AuditedEntity>((_, _) => false));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         int affected = db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "x" });
 
@@ -39,7 +39,7 @@ public class EntityHookTests
         using TestDatabase db = new(b => b
             .OnAdd<AuditedEntity>(e => order.Add($"first:{e.Name}"))
             .OnAdd<AuditedEntity>(e => order.Add($"second:{e.Name}")));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "a" });
 
@@ -61,7 +61,7 @@ public class EntityHookTests
                 order.Add("second");
                 return true;
             }));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         int affected = db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "a" });
 
@@ -75,7 +75,7 @@ public class EntityHookTests
     {
         DateTime stamp = new(2026, 2, 2, 0, 0, 0, DateTimeKind.Utc);
         using TestDatabase db = new(b => b.OnUpdate<AuditedEntity>(e => e.UpdatedAt = stamp));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "first" });
 
         AuditedEntity row = db.Table<AuditedEntity>().Single();
@@ -94,7 +94,7 @@ public class EntityHookTests
             database.Table<AuditedEntity>().Update(e);
             return false;
         }));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "still here" });
 
         AuditedEntity row = db.Table<AuditedEntity>().Single();
@@ -111,7 +111,7 @@ public class EntityHookTests
     {
         int hookCount = 0;
         using TestDatabase db = new(b => b.OnAdd<AuditedEntity>(_ => hookCount++));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         int affected = db.Table<AuditedEntity>().AddRange(new[]
         {
@@ -129,7 +129,7 @@ public class EntityHookTests
     public void OnAddRange_OneHookCancelsOneRow_OthersInsert()
     {
         using TestDatabase db = new(b => b.OnAdd<AuditedEntity>((_, e) => e.Name != "skip"));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         int affected = db.Table<AuditedEntity>().AddRange(new[]
         {
@@ -148,7 +148,7 @@ public class EntityHookTests
     {
         int hookCount = 0;
         using TestDatabase db = new(b => b.OnUpdate<AuditedEntity>(_ => hookCount++));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
         db.Table<AuditedEntity>().AddRange(new[]
         {
             new AuditedEntity { Name = "a" },
@@ -173,7 +173,7 @@ public class EntityHookTests
     public void OnUpdateRange_OneHookCancelsOneRow_OthersUpdate()
     {
         using TestDatabase db = new(b => b.OnUpdate<AuditedEntity>((_, e) => e.Name != "skip-update"));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
         db.Table<AuditedEntity>().AddRange(new[]
         {
             new AuditedEntity { Name = "a" },
@@ -200,7 +200,7 @@ public class EntityHookTests
     {
         int hookCount = 0;
         using TestDatabase db = new(b => b.OnRemove<AuditedEntity>(_ => hookCount++));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
         db.Table<AuditedEntity>().AddRange(new[]
         {
             new AuditedEntity { Name = "a" },
@@ -220,7 +220,7 @@ public class EntityHookTests
     public void OnRemoveRange_OneHookCancelsOneRow_OthersRemove()
     {
         using TestDatabase db = new(b => b.OnRemove<AuditedEntity>((_, e) => e.Name != "keep"));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
         db.Table<AuditedEntity>().AddRange(new[]
         {
             new AuditedEntity { Name = "a" },
@@ -241,7 +241,7 @@ public class EntityHookTests
     {
         int hookCount = 0;
         using TestDatabase db = new(b => b.OnAddOrUpdate<AuditedEntity>(_ => hookCount++));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         int affected = db.Table<AuditedEntity>().AddOrUpdateRange(new[]
         {
@@ -259,7 +259,7 @@ public class EntityHookTests
     public void OnAddOrUpdateRange_OneHookCancelsOneRow_OthersExecute()
     {
         using TestDatabase db = new(b => b.OnAddOrUpdate<AuditedEntity>((_, e) => e.Name != "skip"));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         int affected = db.Table<AuditedEntity>().AddOrUpdateRange(new[]
         {
@@ -278,7 +278,7 @@ public class EntityHookTests
     {
         int auditedHookCount = 0;
         using TestDatabase db = new(b => b.OnAdd<Author>(_ => auditedHookCount++));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "a" });
 
@@ -290,7 +290,7 @@ public class EntityHookTests
     {
         DateTime stamp = new(2026, 3, 3, 0, 0, 0, DateTimeKind.Utc);
         using TestDatabase db = new(b => b.OnAdd<AuditedEntity>(e => e.CreatedAt = stamp));
-        db.Schema.CreateTable<AuditedEntity>();
+        db.Table<AuditedEntity>().Schema.CreateTable();
 
         db.Table<AuditedEntity>().Add(new AuditedEntity { Name = "a" });
 

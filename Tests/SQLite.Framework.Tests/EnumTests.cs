@@ -12,7 +12,7 @@ public class EnumTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
         db.Table<Publisher>().AddRange(new[]
         {
             new Publisher { Id = 1, Name = "Publisher 1", Type = PublisherType.Book },
@@ -45,7 +45,7 @@ public class EnumTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
         db.Table<Publisher>().AddRange(new[]
         {
             new Publisher { Id = 1, Name = "Publisher 1", Type = PublisherType.Book },
@@ -67,7 +67,7 @@ public class EnumTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
         db.Table<Publisher>().AddRange(new[]
         {
             new Publisher { Id = 1, Name = "Book", Type = PublisherType.Book },
@@ -89,7 +89,7 @@ public class EnumTests
     {
         using TestDatabase db = new();
 
-        db.Schema.CreateTable<Publisher>();
+        db.Table<Publisher>().Schema.CreateTable();
         db.Table<Publisher>().AddRange(new[]
         {
             new Publisher { Id = 1, Name = "Book", Type = PublisherType.Book },

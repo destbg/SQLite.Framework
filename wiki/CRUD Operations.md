@@ -29,7 +29,7 @@ var book = new Book { Title = "Clean Code", AuthorId = 1, Price = 29.99m };
 await books.AddAsync(book);
 ```
 
-If the primary key has `[AutoIncrement]`, SQLite assigns the value and the property on your object is not updated. To get the new ID back you need a follow-up query.
+If the primary key has `[AutoIncrement]`, SQLite assigns the value and the property on your object is not updated. To get the new Id back you need a follow-up query.
 
 ## Add Many
 
@@ -124,7 +124,7 @@ books.UpdateRange(list);
 books.Remove(book);
 books.RemoveRange(toDelete);
 books.Clear();
-db.Schema.CreateTable<Book>();
+db.Table<Book>().Schema.CreateTable();
 db.Schema.DropTable<Book>();
 ```
 
@@ -267,7 +267,7 @@ public class MyDatabase : SQLiteDatabase
 Then use it as you would any other table:
 
 ```csharp
-db.Schema.CreateTable<Book>();
+db.Table<Book>().Schema.CreateTable();
 db.Books.Add(new Book { ... });
 ```
 

@@ -10,14 +10,14 @@ public class AttachDatabaseTests
     public void AttachDatabase_QueryAcrossFiles_ReturnsRowsFromAttached()
     {
         using TestDatabase main = new();
-        main.Schema.CreateTable<Book>();
+        main.Table<Book>().Schema.CreateTable();
 
         string auxPath = Path.Combine(Path.GetTempPath(), $"aux_{Guid.NewGuid():N}.db3");
         try
         {
             using (SQLiteDatabase auxDb = OpenAux(auxPath))
             {
-                auxDb.Schema.CreateTable<Book>();
+                auxDb.Table<Book>().Schema.CreateTable();
                 auxDb.Table<Book>().Add(new Book { Id = 1, Title = "from-aux", AuthorId = 1, Price = 1 });
             }
 
@@ -46,7 +46,7 @@ public class AttachDatabaseTests
         {
             using (SQLiteDatabase auxDb = OpenAux(auxPath))
             {
-                auxDb.Schema.CreateTable<Book>();
+                auxDb.Table<Book>().Schema.CreateTable();
             }
 
             main.AttachDatabase(auxPath, "aux", AuxEncryptionKey);
@@ -91,7 +91,7 @@ public class AttachDatabaseTests
         {
             using (SQLiteDatabase auxDb = OpenAux(auxPath))
             {
-                auxDb.Schema.CreateTable<Book>();
+                auxDb.Table<Book>().Schema.CreateTable();
             }
 
             main.AttachDatabase(auxPath, "aux", AuxEncryptionKey);
@@ -138,7 +138,7 @@ public class AttachDatabaseTests
         {
             using (SQLiteDatabase auxDb = OpenAux(auxPath))
             {
-                auxDb.Schema.CreateTable<Book>();
+                auxDb.Table<Book>().Schema.CreateTable();
             }
 
             await main.AttachDatabaseAsync(auxPath, "auxAsync", AuxEncryptionKey, TestContext.Current.CancellationToken);

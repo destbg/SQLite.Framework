@@ -19,7 +19,7 @@ public class QueryTests
     private static TestDatabase SetupDatabase()
     {
         TestDatabase db = new();
-        db.Schema.CreateTable<QueryItem>();
+        db.Table<QueryItem>().Schema.CreateTable();
         db.Table<QueryItem>().AddRange(new[]
         {
             new QueryItem { Id = 1, Name = "Alpha", Price = 10, AuthorId = 1 },

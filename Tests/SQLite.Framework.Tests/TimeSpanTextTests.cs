@@ -167,7 +167,7 @@ public class TimeSpanTextTests
             b.TimeSpanStorage = TimeSpanStorageMode.Text;
             configure?.Invoke(b);
         }, methodName);
-        db.Schema.CreateTable<TestEntity>();
+        db.Table<TestEntity>().Schema.CreateTable();
         db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (1, @time)",
             new SQLiteParameter
             {
@@ -180,7 +180,7 @@ public class TimeSpanTextTests
     private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(configure, methodName);
-        db.Schema.CreateTable<TestEntity>();
+        db.Table<TestEntity>().Schema.CreateTable();
         db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (1, @time)",
             new SQLiteParameter
             {

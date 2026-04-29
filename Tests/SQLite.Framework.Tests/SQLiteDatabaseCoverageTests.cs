@@ -63,7 +63,7 @@ public class SQLiteDatabaseCoverageTests
             };
         });
 
-        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 });
         db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 });
         db.Table<Book>().Add(new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 });
