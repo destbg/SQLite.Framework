@@ -157,9 +157,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         SQLTranslator translator = new(this);
         SQLQuery query = translator.Translate(expression);
 
-        if (typeof(TResult) == typeof(IEnumerable) && CommonHelpers.IsConstant(expression))
+        if (typeof(TResult) == typeof(IEnumerable) && ExpressionHelpers.IsConstant(expression))
         {
-            BaseSQLiteTable table = (BaseSQLiteTable)CommonHelpers.GetConstantValue(expression)!;
+            BaseSQLiteTable table = (BaseSQLiteTable)ExpressionHelpers.GetConstantValue(expression)!;
             SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
             return (TResult)command.ExecuteQueryUntypedInternal(query, table.ElementType);
         }
@@ -876,7 +876,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 
         Expression source = mce.Arguments[0];
-        LambdaExpression keyLambda = (LambdaExpression)CommonHelpers.StripQuotes(mce.Arguments[1]);
+        LambdaExpression keyLambda = (LambdaExpression)ExpressionHelpers.StripQuotes(mce.Arguments[1]);
 
         string keySignature = SelectSignature.Compute(keyLambda.Body);
         Func<SQLiteQueryContext, object?>? keyExtractor = null;
@@ -955,7 +955,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             current = mce.Arguments[0];
         }
-        if (CommonHelpers.IsConstant(current) && CommonHelpers.GetConstantValue(current) is BaseSQLiteTable table)
+        if (ExpressionHelpers.IsConstant(current) && ExpressionHelpers.GetConstantValue(current) is BaseSQLiteTable table)
         {
             return table.ElementType;
         }

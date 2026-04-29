@@ -1,21 +1,12 @@
 # JSON and JSONB
 
-The `SQLite.Framework.JsonB` add-in package adds two things: type converters that store .NET objects as JSON inside a SQLite column, and method translators that let you call SQLite's built-in JSON functions from LINQ queries.
-
-Install it alongside whichever core package you use:
-
-```
-dotnet add package SQLite.Framework
-dotnet add package SQLite.Framework.JsonB
-```
-
-The `SQLite.Framework.JsonB` package does not pull in a provider automatically. You must install one of the four core packages (`SQLite.Framework`, `SQLite.Framework.Bundled`, `SQLite.Framework.Cipher`, or `SQLite.Framework.Base`) separately. This lets you swap providers without any conflict.
+JSON support is built into every SQLite-provider package. You get two things: type converters that store .NET objects as JSON inside a SQLite column, and method translators that let you call SQLite's built-in JSON functions from LINQ queries. The translators are registered automatically when you build the options.
 
 ---
 
 ## Storing objects as JSON
 
-When you have a .NET type that does not map to a simple SQLite column, you can serialize it to JSON and store the result in the database. The package provides two converters for this.
+When you have a .NET type that does not map to a simple SQLite column, you can serialize it to JSON and store the result in the database. The framework provides two converters for this.
 
 ### SQLiteJsonConverter\<T\> - TEXT storage
 
@@ -28,6 +19,16 @@ When you have a .NET type that does not map to a simple SQLite column, you can s
 > **Platform compatibility.** JSONB support was added in [SQLite 3.45.0](https://sqlite.org/jsonb.html). As of Android 15 (API level 35) the bundled SQLite is 3.44.3, so JSONB requires Android 16 (API level 36) or later. iOS 16 and earlier ship with SQLite 3.39.5 or older, so no listed iOS version includes JSONB support out of the box.
 >
 > If you are targeting mobile devices and need JSONB, use `SQLite.Framework.Bundled` or `SQLite.Framework.Cipher` instead of the default `SQLite.Framework` package. Both ship their own SQLite binary and can be updated independently of the OS. With those packages you can use `SQLiteJsonbConverter<T>` on any supported OS version. If you must use the default package on older devices, use `SQLiteJsonConverter<T>` for plain TEXT storage instead.
+>
+> When you use `SQLite.Framework` (the OS-bundled flavor), the JSONB types carry `[SupportedOSPlatform("android36.0")]` so the .NET platform compatibility analyzer (CA1416) warns when you target a lower Android API level. In a MAUI or multi-targeted csproj, raise the minimum once your supported floor is high enough:
+>
+> ```xml
+> <PropertyGroup>
+>     <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'android'">36.0</SupportedOSPlatformVersion>
+> </PropertyGroup>
+> ```
+>
+> The `SQLite.Framework.Bundled` and `SQLite.Framework.Cipher` packages do not carry the attribute and never trigger the warning.
 
 Both converters take a `JsonTypeInfo<T>` from a source-generated `JsonSerializerContext`, which keeps them compatible with Native AOT and trimming.
 
@@ -94,21 +95,7 @@ Console.WriteLine(alice.HomeAddress.City); // Springfield
 
 ## JSON functions in queries
 
-SQLite has a set of built-in JSON functions such as `json_extract`, `json_set`, and `json_valid`. The package exposes these through the `SQLiteJsonFunctions` static class and registers translators for them when you call `AddJson()`.
-
-### Setup
-
-Call `AddJson()` on the `SQLiteOptionsBuilder` before building the options:
-
-```csharp
-SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
-    .AddJson()
-    .Build();
-
-using var db = new SQLiteDatabase(options);
-```
-
-`AddJson` registers translators for every method on `SQLiteJsonFunctions`. Call it once when setting up the builder.
+SQLite has a set of built-in JSON functions such as `json_extract`, `json_set`, and `json_valid`. The framework exposes these through the `SQLiteJsonFunctions` static class.
 
 ### Available functions
 
@@ -158,7 +145,7 @@ var valid = await db.Table<Log>()
 
 ## Collection methods
 
-When you store a `List<T>` or `T[]` as JSON, `AddJson()` also registers translators for many standard LINQ, `List<T>`, and `Array` methods. These are translated to SQL using `json_each()` and other SQLite JSON functions. Everything runs on the database, not in memory.
+When you store a `List<T>` or `T[]` as JSON, the framework also routes many standard LINQ, `List<T>`, and `Array` methods to SQL using `json_each()` and other SQLite JSON functions. Everything runs on the database, not in memory.
 
 ### Supported LINQ methods (Enumerable)
 
@@ -318,7 +305,7 @@ int distinctGroups = db.Table<Product>()
 
 ### Property access on JSON columns
 
-When you access a property on a JSON-stored object, `AddJson()` translates it to `json_extract`. This works in `Where`, `Select`, `OrderBy`, and anywhere else you use a property:
+When you access a property on a JSON-stored object, the framework translates it to `json_extract`. This works in `Where`, `Select`, `OrderBy`, and anywhere else you use a property:
 
 ```csharp
 // property access on a single JSON object
@@ -354,6 +341,6 @@ These patterns are not translated to SQL and will either fall back to client-sid
 
 ## Native AOT
 
-`SQLiteJsonConverter<T>` and `SQLiteJsonbConverter<T>` both use `JsonTypeInfo<T>` for serialization, so they are fully compatible with Native AOT and trimming. The `AddJson()` method carries a `[DynamicDependency]` attribute that tells the trimmer to keep all public methods on `SQLiteJsonFunctions` and `Enumerable`, so those methods are never removed from the output.
+`SQLiteJsonConverter<T>` and `SQLiteJsonbConverter<T>` both use `JsonTypeInfo<T>` for serialization, so they are fully compatible with Native AOT and trimming. The framework keeps all public methods on `SQLiteJsonFunctions` and `Enumerable` rooted for the trimmer, so those methods are never removed from the output.
 
 You do not need to do anything extra beyond providing a source-generated `JsonSerializerContext` as shown above.

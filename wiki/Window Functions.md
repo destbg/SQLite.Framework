@@ -1,31 +1,21 @@
 # Window Functions
 
-The `SQLite.Framework.Window` add-in package lets you use SQLite window functions inside LINQ queries. Window functions compute a value for each row based on a set of rows related to it, called a window. Unlike aggregate functions in a GROUP BY, window functions do not collapse rows so you still get one output row per input row.
-
-Install it alongside whichever core package you use:
-
-```
-dotnet add package SQLite.Framework
-dotnet add package SQLite.Framework.Window
-```
+Window functions compute a value for each row based on a set of rows related to it, called a window. Unlike aggregate functions in a GROUP BY, window functions do not collapse rows so you still get one output row per input row. Support is built into every SQLite-provider package.
 
 > **Platform compatibility.** Basic window functions were added in SQLite 3.25.0, but full support including the GROUPS frame type and expression-based PRECEDING/FOLLOWING boundaries requires [SQLite 3.28.0](https://www.sqlite.org/windowfunctions.html) (2019-04-16). Android API level 30 (Android 11) ships with SQLite 3.28.0. iOS 13 ships with SQLite 3.28.0 as well. Older Android and iOS versions do not include window function support.
 >
 > If you need to support Android API 29 or earlier, or iOS 12 or earlier, use `SQLite.Framework.Bundled` or `SQLite.Framework.Cipher` instead of the default `SQLite.Framework` package. Both ship their own SQLite binary and work on any supported OS version.
-
-## Setup
-
-Call `AddWindow()` on the `SQLiteOptionsBuilder` before calling `Build()`:
-
-```csharp
-SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
-    .AddWindow()
-    .Build();
-
-using var db = new SQLiteDatabase(options);
-```
-
-This registers translators for every method on `SQLiteWindowFunctions` and `FrameBoundary`. After that you can use them inside any LINQ `Select`.
+>
+> When you use `SQLite.Framework` (the OS-bundled flavor), `SQLiteWindowFunctions` and `FrameBoundary` carry `[SupportedOSPlatform("android30.0")]` and `[SupportedOSPlatform("ios13.0")]` so the .NET platform compatibility analyzer (CA1416) warns when you target a lower minimum. In a MAUI or multi-targeted csproj, raise the minimum once your supported floor is high enough:
+>
+> ```xml
+> <PropertyGroup>
+>     <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'android'">30.0</SupportedOSPlatformVersion>
+>     <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'ios'">13.0</SupportedOSPlatformVersion>
+> </PropertyGroup>
+> ```
+>
+> The `SQLite.Framework.Bundled` and `SQLite.Framework.Cipher` packages do not carry the attributes and never trigger the warning.
 
 ## Building a window
 
@@ -190,4 +180,4 @@ var results = await db.Table<Order>()
 
 ## Native AOT
 
-`AddWindow()` carries `[DynamicDependency]` attributes that tell the trimmer to keep all public methods on `SQLiteWindowFunctions` and `FrameBoundary`, so those marker methods are never removed from the output. No extra setup is needed.
+The framework keeps all public methods on `SQLiteWindowFunctions` and `FrameBoundary` rooted for the trimmer, so those marker methods are never removed from the output. No extra setup is needed.

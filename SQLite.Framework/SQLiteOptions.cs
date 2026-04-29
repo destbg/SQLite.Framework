@@ -114,14 +114,9 @@ public sealed class SQLiteOptions
     public required IReadOnlyDictionary<Type, ISQLiteTypeConverter> TypeConverters { get; init; }
 
     /// <summary>
-    /// Custom method translators that convert specific .NET method calls into SQL fragments.
+    /// Custom member translators that convert specific .NET member calls into SQL fragments.
     /// </summary>
-    public required IReadOnlyDictionary<MethodInfo, SQLiteMethodTranslator> MethodTranslators { get; init; }
-
-    /// <summary>
-    /// Custom method translators for methods that take a predicate lambda as an argument.
-    /// </summary>
-    public required IReadOnlyDictionary<MethodInfo, SQLitePredicateMethodTranslator> PredicateMethodTranslators { get; init; }
+    public required IReadOnlyDictionary<MemberInfo, SQLiteMemberTranslator> MemberTranslators { get; init; }
 
     /// <summary>
     /// Translates property access on custom types into SQL fragments.
@@ -222,14 +217,14 @@ public sealed class SQLiteOptions
             return cached;
         }
 
-        Type? targetElem = CommonHelpers.GetEnumerableElementType(interfaceType);
+        Type? targetElem = TypeHelpers.GetEnumerableElementType(interfaceType);
         Type? result = null;
 
         if (targetElem != null)
         {
             foreach (KeyValuePair<Type, ISQLiteTypeConverter> kvp in TypeConverters)
             {
-                if (CommonHelpers.GetEnumerableElementType(kvp.Key) == targetElem)
+                if (TypeHelpers.GetEnumerableElementType(kvp.Key) == targetElem)
                 {
                     result = kvp.Key;
                     break;

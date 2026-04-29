@@ -2617,8 +2617,8 @@ public class JsonFunctionsTests
             .GetMethod(nameof(CustomPredicate), BindingFlags.NonPublic | BindingFlags.Static)!;
         using TestDatabase db = CreateListDb(b =>
         {
-            b.PredicateMethodTranslators[method] =
-                (instance, predicate) => $"(SELECT COUNT(*) FROM json_each({instance}) WHERE {predicate})";
+            b.MemberTranslators[method] = SimpleTranslator.AsPredicate(
+                (instance, predicate) => $"(SELECT COUNT(*) FROM json_each({instance}) WHERE {predicate})");
         });
         db.Table<ListRow>().Add(new ListRow
         {

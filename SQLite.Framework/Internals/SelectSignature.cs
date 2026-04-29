@@ -19,13 +19,13 @@ internal static class SelectSignature
 
     private static void AppendSignature(StringBuilder sb, Expression expression)
     {
-        if (expression is MemberExpression capturedMe && CommonHelpers.IsConstant(capturedMe))
+        if (expression is MemberExpression capturedMe && ExpressionHelpers.IsConstant(capturedMe))
         {
             sb.Append("(CapturedValue ").Append(FormatType(expression.Type)).Append(')');
             return;
         }
 
-        if (expression is ListInitExpression capturedLie && CommonHelpers.IsConstant(capturedLie))
+        if (expression is ListInitExpression capturedLie && ExpressionHelpers.IsConstant(capturedLie))
         {
             sb.Append("(CapturedValue ").Append(FormatType(expression.Type)).Append(')');
             return;

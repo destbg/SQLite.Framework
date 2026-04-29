@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.JSON;
 
 internal class JsonCollectionVisitor
 {
@@ -58,7 +58,7 @@ internal class JsonCollectionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
     private void ProcessMethod(MethodCallExpression call, Type sourceType)
     {
-        Type elementType = CommonHelpers.GetEnumerableElementType(sourceType) ?? typeof(object);
+        Type elementType = TypeHelpers.GetEnumerableElementType(sourceType) ?? typeof(object);
 
         switch (call.Method.Name)
         {
@@ -116,14 +116,14 @@ internal class JsonCollectionVisitor
             case nameof(Enumerable.Skip):
             {
                 ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-                offset = arg.SQLExpression?.Sql ?? arg.Constant?.ToString() ?? "0";
+                offset = arg.SQLiteExpression?.Sql ?? arg.Constant?.ToString() ?? "0";
                 AddParameters(arg);
                 break;
             }
             case nameof(Enumerable.Take):
             {
                 ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-                limit = arg.SQLExpression?.Sql ?? arg.Constant?.ToString() ?? "0";
+                limit = arg.SQLiteExpression?.Sql ?? arg.Constant?.ToString() ?? "0";
                 AddParameters(arg);
                 break;
             }
@@ -299,7 +299,7 @@ internal class JsonCollectionVisitor
             case nameof(Enumerable.ElementAt):
             {
                 ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-                string idxSql = arg.SQLExpression?.Sql ?? arg.Constant?.ToString() ?? "0";
+                string idxSql = arg.SQLiteExpression?.Sql ?? arg.Constant?.ToString() ?? "0";
                 AddParameters(arg);
                 limit = "1";
                 offset = idxSql;
@@ -309,7 +309,7 @@ internal class JsonCollectionVisitor
             case nameof(Enumerable.Contains):
             {
                 ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-                string valSql = arg.SQLExpression?.Sql ?? arg.Constant?.ToString() ?? "NULL";
+                string valSql = arg.SQLiteExpression?.Sql ?? arg.Constant?.ToString() ?? "NULL";
                 AddParameters(arg);
                 wheres.Add($"value = {valSql}");
                 existsWrapper = "EXISTS";
@@ -401,7 +401,7 @@ internal class JsonCollectionVisitor
 
     private string VisitLambda(Expression arg, Type elementType)
     {
-        LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(arg);
+        LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
         ParameterExpression param = lambda.Parameters[0];
 
         BindParameter(param, elementType, "value");
@@ -409,7 +409,7 @@ internal class JsonCollectionVisitor
         Expression result = visitor.Visit(lambda.Body);
         visitor.MethodArguments.Remove(param);
 
-        if (result is SQLExpression sqlExpr)
+        if (result is SQLiteExpression sqlExpr)
         {
             if (sqlExpr.Parameters != null)
             {
@@ -424,7 +424,7 @@ internal class JsonCollectionVisitor
 
     private string VisitLambdaAliased(Expression arg, Type elementType, string alias)
     {
-        LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(arg);
+        LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
         ParameterExpression param = lambda.Parameters[0];
 
         BindParameter(param, elementType, $"{alias}.value");
@@ -432,7 +432,7 @@ internal class JsonCollectionVisitor
         Expression result = visitor.Visit(lambda.Body);
         visitor.MethodArguments.Remove(param);
 
-        if (result is SQLExpression sqlExpr)
+        if (result is SQLiteExpression sqlExpr)
         {
             if (sqlExpr.Parameters != null)
             {
@@ -448,9 +448,9 @@ internal class JsonCollectionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
     private void BindParameter(ParameterExpression param, Type elementType, string valueSql)
     {
-        if (CommonHelpers.IsSimple(elementType, options))
+        if (TypeHelpers.IsSimple(elementType, options))
         {
-            SQLExpression valueExpr = new(elementType, -1, valueSql, (SQLiteParameter[]?)null);
+            SQLiteExpression valueExpr = new(elementType, -1, valueSql, (SQLiteParameter[]?)null);
             visitor.MethodArguments[param] = new Dictionary<string, Expression> { [""] = valueExpr };
         }
         else
@@ -468,10 +468,10 @@ internal class JsonCollectionVisitor
         {
             string dictKey = string.IsNullOrEmpty(prefix) ? prop.Name : $"{prefix}.{prop.Name}";
 
-            if (CommonHelpers.IsSimple(prop.PropertyType, options))
+            if (TypeHelpers.IsSimple(prop.PropertyType, options))
             {
                 string sql = $"json_extract({valueSql}, '$.{dictKey}')";
-                dict[dictKey] = new SQLExpression(prop.PropertyType, -1, sql, (SQLiteParameter[]?)null);
+                dict[dictKey] = new SQLiteExpression(prop.PropertyType, -1, sql, (SQLiteParameter[]?)null);
             }
             else
             {
@@ -482,9 +482,9 @@ internal class JsonCollectionVisitor
 
     private void AddParameters(ResolvedModel model)
     {
-        if (model.SQLExpression?.Parameters != null)
+        if (model.SQLiteExpression?.Parameters != null)
         {
-            parameters.AddRange(model.SQLExpression.Parameters);
+            parameters.AddRange(model.SQLiteExpression.Parameters);
         }
     }
 
@@ -499,29 +499,29 @@ internal class JsonCollectionVisitor
         Expression source = UnwindChain(node, chain);
 
         ResolvedModel sourceModel = sqlVisitor.ResolveExpression(source);
-        if (sourceModel.SQLExpression == null)
+        if (sourceModel.SQLiteExpression == null)
         {
             return null;
         }
 
-        if (!IsJsonCollection(sourceModel.SQLExpression.Type, sqlVisitor.Database.Options))
+        if (!IsJsonCollection(sourceModel.SQLiteExpression.Type, sqlVisitor.Database.Options))
         {
             return null;
         }
 
         JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
-        jcv.parameters.AddRange(sourceModel.SQLExpression.Parameters ?? []);
+        jcv.parameters.AddRange(sourceModel.SQLiteExpression.Parameters ?? []);
 
         Type resultType = node.Type;
         foreach (MethodCallExpression call in chain)
         {
-            jcv.ProcessMethod(call, sourceModel.SQLExpression.Type);
+            jcv.ProcessMethod(call, sourceModel.SQLiteExpression.Type);
             resultType = call.Type;
         }
 
-        string sql = jcv.BuildSql(sourceModel.SQLExpression.Sql);
-        Type coercedType = CoerceType(resultType, sourceModel.SQLExpression.Type);
-        return new SQLExpression(coercedType, sqlVisitor.IdentifierIndex.Index++, sql,
+        string sql = jcv.BuildSql(sourceModel.SQLiteExpression.Sql);
+        Type coercedType = CoerceType(resultType, sourceModel.SQLiteExpression.Type);
+        return new SQLiteExpression(coercedType, sqlVisitor.Counters.IdentifierIndex++, sql,
             jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null)
         {
             IsJsonSource = true,
@@ -563,7 +563,7 @@ internal class JsonCollectionVisitor
     private static bool IsJsonCollection(Type type, SQLiteOptions options)
     {
         return options.TypeConverters.ContainsKey(type)
-               && CommonHelpers.GetEnumerableElementType(type) != null;
+               && TypeHelpers.GetEnumerableElementType(type) != null;
     }
 
     private static Type CoerceType(Type declaredType, Type sourceType)
@@ -573,8 +573,8 @@ internal class JsonCollectionVisitor
             return sourceType;
         }
 
-        if (CommonHelpers.GetEnumerableElementType(declaredType) is Type declaredElem
-            && CommonHelpers.GetEnumerableElementType(sourceType) is Type sourceElem
+        if (TypeHelpers.GetEnumerableElementType(declaredType) is Type declaredElem
+            && TypeHelpers.GetEnumerableElementType(sourceType) is Type sourceElem
             && declaredElem == sourceElem)
         {
             return sourceType;

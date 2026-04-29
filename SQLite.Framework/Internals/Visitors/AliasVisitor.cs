@@ -80,7 +80,7 @@ internal class AliasVisitor
                 else
                 {
                     string alias = CheckPrefix(prefix, parameter.Name ?? "value");
-                    SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.IdentifierIndex, visitor.TableIndex, visitor.Level + 1)
+                    SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
                     {
                         MethodArguments = visitor.MethodArguments
                     };
@@ -120,7 +120,7 @@ internal class AliasVisitor
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
                 Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[parameterExpression];
 
-                if (CommonHelpers.IsSimple(parameterExpression.Type, database.Options))
+                if (TypeHelpers.IsSimple(parameterExpression.Type, database.Options))
                 {
                     result.Add(alias, parameterTableColumns.Values.First());
                 }
@@ -135,7 +135,7 @@ internal class AliasVisitor
             else if (memberAssignment.Expression is MemberExpression)
             {
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
-                (string path, ParameterExpression? pe) = CommonHelpers.ResolveNullableParameterPath(memberAssignment.Expression);
+                (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(memberAssignment.Expression);
 
                 if (pe == null)
                 {
@@ -145,7 +145,7 @@ internal class AliasVisitor
 
                 Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[pe];
 
-                if (CommonHelpers.IsSimple(memberAssignment.Expression.Type, database.Options))
+                if (TypeHelpers.IsSimple(memberAssignment.Expression.Type, database.Options))
                 {
                     result.Add(alias, parameterTableColumns[path]);
                 }
@@ -163,7 +163,7 @@ internal class AliasVisitor
             else
             {
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
-                SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.IdentifierIndex, visitor.TableIndex, visitor.Level + 1)
+                SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
                 {
                     MethodArguments = visitor.MethodArguments
                 };
@@ -175,14 +175,14 @@ internal class AliasVisitor
 
     private void VisitMemberExpression(MemberExpression memberExpression, string? prefix)
     {
-        if (CommonHelpers.IsSimple(memberExpression.Type, database.Options))
+        if (TypeHelpers.IsSimple(memberExpression.Type, database.Options))
         {
             Expression columnMapping = visitor.Visit(memberExpression);
             result.Add(CheckPrefix(prefix, memberExpression.Member.Name), columnMapping);
         }
         else
         {
-            (string path, ParameterExpression _) = CommonHelpers.ResolveParameterPath(memberExpression);
+            (string path, ParameterExpression _) = ExpressionHelpers.ResolveParameterPath(memberExpression);
 
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
@@ -213,7 +213,7 @@ internal class AliasVisitor
 
     private void VisitInnerExpression(Expression body, string? prefix)
     {
-        SQLVisitor innerVisitor = new(database, visitor.ParamIndex, visitor.IdentifierIndex, visitor.TableIndex, visitor.Level + 1)
+        SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
         {
             MethodArguments = visitor.MethodArguments
         };

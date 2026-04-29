@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 using System.Text;
 
-namespace SQLite.Framework.Internals.Helpers;
+namespace SQLite.Framework.Internals.FTS5;
 
 /// <summary>
 /// Reads <see cref="FullTextSearchAttribute" /> and the related tokenizer/column attributes off a

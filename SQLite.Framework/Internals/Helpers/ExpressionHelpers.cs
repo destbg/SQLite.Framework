@@ -2,33 +2,8 @@ using System.Text;
 
 namespace SQLite.Framework.Internals.Helpers;
 
-/// <summary>
-/// Common helper methods for SQLite operations.
-/// </summary>
-internal static class CommonHelpers
+internal static class ExpressionHelpers
 {
-    public static bool IsSimple(Type type, SQLiteOptions options)
-    {
-        type = Nullable.GetUnderlyingType(type) ?? type;
-
-        if (options.TypeConverters.ContainsKey(type))
-        {
-            return true;
-        }
-
-        return type.IsPrimitive
-               || type.IsEnum
-               || type == typeof(byte[])
-               || type == typeof(string)
-               || type == typeof(decimal)
-               || type == typeof(DateTime)
-               || type == typeof(DateTimeOffset)
-               || type == typeof(TimeSpan)
-               || type == typeof(Guid)
-               || type == typeof(DateOnly)
-               || type == typeof(TimeOnly);
-    }
-
     public static (string Path, ParameterExpression Parameter) ResolveParameterPath(Expression node)
     {
         List<string> paths = [];
@@ -36,11 +11,11 @@ internal static class CommonHelpers
 
         while (innerExpression is MemberExpression me2)
         {
-            paths.Add($"{me2.Member.Name}");
+            paths.Add(me2.Member.Name);
             innerExpression = me2.Expression;
         }
 
-        StringBuilder pathBuilder = new();
+        StringBuilder pathBuilder = StringBuilderPool.Rent();
 
         for (int i = paths.Count - 1; i >= 0; i--)
         {
@@ -51,7 +26,7 @@ internal static class CommonHelpers
             }
         }
 
-        string path = pathBuilder.ToString();
+        string path = StringBuilderPool.ToStringAndReturn(pathBuilder);
 
         if (innerExpression is ParameterExpression pe)
         {
@@ -68,11 +43,11 @@ internal static class CommonHelpers
 
         while (innerExpression is MemberExpression me2)
         {
-            paths.Add($"{me2.Member.Name}");
+            paths.Add(me2.Member.Name);
             innerExpression = me2.Expression;
         }
 
-        StringBuilder pathBuilder = new();
+        StringBuilder pathBuilder = StringBuilderPool.Rent();
 
         for (int i = paths.Count - 1; i >= 0; i--)
         {
@@ -83,7 +58,7 @@ internal static class CommonHelpers
             }
         }
 
-        string path = pathBuilder.ToString();
+        string path = StringBuilderPool.ToStringAndReturn(pathBuilder);
 
         if (innerExpression is ParameterExpression pe)
         {
@@ -91,25 +66,6 @@ internal static class CommonHelpers
         }
 
         return (string.Empty, null);
-    }
-
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Interface lookup is only used for known collection types with registered converters.")]
-    public static Type? GetEnumerableElementType(Type type)
-    {
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-        {
-            return type.GetGenericArguments()[0];
-        }
-
-        foreach (Type iface in type.GetInterfaces())
-        {
-            if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-            {
-                return iface.GetGenericArguments()[0];
-            }
-        }
-
-        return null;
     }
 
     public static bool IsConstant(Expression node)
@@ -168,98 +124,11 @@ internal static class CommonHelpers
         return node;
     }
 
-    public static SQLExpression BracketIfNeeded(SQLExpression node)
+    public static SQLiteExpression BracketIfNeeded(SQLiteExpression node)
     {
         return node.RequiresBrackets
-            ? new SQLExpression(node.Type, node.Identifier, $"({node.Sql})", node.Parameters)
+            ? new SQLiteExpression(node.Type, node.Identifier, $"({node.Sql})", node.Parameters)
             : node;
-    }
-
-    public static SQLiteParameter[]? CombineParameters(SQLExpression expression1, SQLExpression expression2)
-    {
-        if (expression1.Parameters == null && expression2.Parameters == null)
-        {
-            return null;
-        }
-
-        return [.. expression1.Parameters ?? [], .. expression2.Parameters ?? []];
-    }
-
-    public static SQLiteParameter[]? CombineParameters(SQLExpression expression1, SQLExpression expression2, SQLExpression expression3)
-    {
-        if (expression1.Parameters == null && expression2.Parameters == null && expression3.Parameters == null)
-        {
-            return null;
-        }
-
-        return [.. expression1.Parameters ?? [], .. expression2.Parameters ?? [], .. expression3.Parameters ?? []];
-    }
-
-    public static SQLiteParameter[]? CombineParameters(params SQLExpression[] expressions)
-    {
-        if (expressions.All(f => f.Parameters == null))
-        {
-            return null;
-        }
-
-        List<SQLiteParameter> parameters = new();
-        foreach (SQLExpression expression in expressions)
-        {
-            if (expression.Parameters != null)
-            {
-                parameters.AddRange(expression.Parameters);
-            }
-        }
-
-        return parameters.ToArray();
-    }
-
-    public static SQLiteColumnType TypeToSQLiteType(Type type, SQLiteOptions options)
-    {
-        type = Nullable.GetUnderlyingType(type) ?? type;
-
-        if (options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter))
-        {
-            return converter.ColumnType;
-        }
-
-        return type switch
-        {
-            _ when type == typeof(string) => SQLiteColumnType.Text,
-            _ when type == typeof(byte[]) => SQLiteColumnType.Blob,
-            _ when type == typeof(bool) => SQLiteColumnType.Integer,
-            _ when type == typeof(char) => SQLiteColumnType.Text,
-            _ when type == typeof(DateTime) => SQLiteColumnType.Integer,
-            _ when type == typeof(DateTimeOffset) => SQLiteColumnType.Integer,
-            _ when type == typeof(DateOnly) && options.DateOnlyStorage == DateOnlyStorageMode.Text => SQLiteColumnType.Text,
-            _ when type == typeof(DateOnly) => SQLiteColumnType.Integer,
-            _ when type == typeof(TimeOnly) && options.TimeOnlyStorage == TimeOnlyStorageMode.Text => SQLiteColumnType.Text,
-            _ when type == typeof(TimeOnly) => SQLiteColumnType.Integer,
-            _ when type == typeof(Guid) => SQLiteColumnType.Text,
-            _ when type == typeof(TimeSpan) => SQLiteColumnType.Integer,
-            _ when type == typeof(decimal) && options.DecimalStorage == DecimalStorageMode.Text => SQLiteColumnType.Text,
-            _ when type == typeof(decimal) => SQLiteColumnType.Real,
-            _ when type == typeof(double) => SQLiteColumnType.Real,
-            _ when type == typeof(float) => SQLiteColumnType.Real,
-            _ when type == typeof(byte) => SQLiteColumnType.Integer,
-            _ when type == typeof(int) => SQLiteColumnType.Integer,
-            _ when type == typeof(long) => SQLiteColumnType.Integer,
-            _ when type == typeof(sbyte) => SQLiteColumnType.Integer,
-            _ when type == typeof(short) => SQLiteColumnType.Integer,
-            _ when type == typeof(uint) => SQLiteColumnType.Integer,
-            _ when type == typeof(ulong) => SQLiteColumnType.Integer,
-            _ when type == typeof(ushort) => SQLiteColumnType.Integer,
-            _ when type.IsEnum => SQLiteColumnType.Integer,
-            _ => throw new NotSupportedException($"The type {type} is not supported.")
-        };
-    }
-
-    public static List<FtsQueryPart> RenderFTSMatch(Expression predicate, SQLVisitor visitor)
-    {
-        FtsRenderState state = new(visitor);
-        state.Write(predicate, parentPrecedence: 0);
-        state.FlushLiteral();
-        return state.Parts;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of user assembly")]

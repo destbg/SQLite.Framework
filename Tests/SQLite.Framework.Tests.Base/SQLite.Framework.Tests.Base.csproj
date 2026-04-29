@@ -21,7 +21,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
         <PackageReference Include="xunit.v3.aot.mtp-v2" Version="4.0.0-pre.81"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0-pre.4"/>
         <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11"/>

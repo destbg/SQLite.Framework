@@ -13,21 +13,6 @@ internal sealed class RowParameterExpander : ExpressionVisitor
         this.rowParameters = rowParameters;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The returned LambdaExpression is consumed as an expression tree by the translator, never compiled into a delegate.")]
-    public static LambdaExpression ExpandRowsInMethodCalls(LambdaExpression lambda, IEnumerable<ParameterExpression> rowParameters)
-    {
-        HashSet<ParameterExpression> set = [.. rowParameters];
-
-        if (set.Count == 0)
-        {
-            return lambda;
-        }
-
-        RowParameterExpander expander = new(set);
-        Expression body = expander.Visit(lambda.Body) ?? lambda.Body;
-        return body == lambda.Body ? lambda : Expression.Lambda(body, lambda.Parameters);
-    }
-
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         Expression? newObject = node.Object != null ? Visit(node.Object) : null;
@@ -64,6 +49,21 @@ internal sealed class RowParameterExpander : ExpressionVisitor
         }
 
         return false;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The returned LambdaExpression is consumed as an expression tree by the translator, never compiled into a delegate.")]
+    public static LambdaExpression ExpandRowsInMethodCalls(LambdaExpression lambda, IEnumerable<ParameterExpression> rowParameters)
+    {
+        HashSet<ParameterExpression> set = [.. rowParameters];
+
+        if (set.Count == 0)
+        {
+            return lambda;
+        }
+
+        RowParameterExpander expander = new(set);
+        Expression body = expander.Visit(lambda.Body) ?? lambda.Body;
+        return body == lambda.Body ? lambda : Expression.Lambda(body, lambda.Parameters);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Row types are preserved via DynamicallyAccessedMembers on the Queryable<T> type parameter.")]

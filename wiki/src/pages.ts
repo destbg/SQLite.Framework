@@ -40,6 +40,8 @@ export const sections: Section[] = [
             { slug: 'Raw SQL', title: 'Raw SQL' },
             { slug: 'Common Table Expressions', title: 'Common Table Expressions' },
             { slug: 'Full Text Search', title: 'Full Text Search' },
+            { slug: 'JSON and JSONB', title: 'JSON and JSONB' },
+            { slug: 'Window Functions', title: 'Window Functions' },
             { slug: 'SQLite Functions', title: 'SQLite Functions' },
             { slug: 'Pragmas', title: 'Pragmas' },
             { slug: 'Backup', title: 'Backup' },
@@ -58,8 +60,6 @@ export const sections: Section[] = [
     {
         title: 'Extra Packages',
         pages: [
-            { slug: 'JSON and JSONB', title: 'JSON and JSONB' },
-            { slug: 'Window Functions', title: 'Window Functions' },
             { slug: 'Dependency Injection', title: 'Dependency Injection' },
         ],
     },

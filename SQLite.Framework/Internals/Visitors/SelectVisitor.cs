@@ -5,14 +5,14 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </summary>
 internal class SelectVisitor : ExpressionVisitor
 {
-    public SelectVisitor(List<SQLExpression> selects)
+    public SelectVisitor(List<SQLiteExpression> selects)
     {
         Selects = selects;
     }
 
-    public List<SQLExpression> Selects { get; }
+    public List<SQLiteExpression> Selects { get; }
 
-    public Expression VisitSQLExpression(SQLExpression node)
+    public Expression VisitSQLExpression(SQLiteExpression node)
     {
         Selects.Add(node);
         return node;

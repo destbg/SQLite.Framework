@@ -1,5 +1,6 @@
 namespace SQLite.Framework.Internals.Models;
 
+[ExcludeFromCodeCoverage]
 internal sealed class ComputedColumnSpec
 {
     public ComputedColumnSpec(TableColumn column, string expressionSql, bool stored)

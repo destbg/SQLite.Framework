@@ -4,15 +4,15 @@ namespace SQLite.Framework.Internals.Models;
 /// Represents a resolved expression by <see cref="SQLVisitor.ResolveExpression"/>
 /// </summary>
 [ExcludeFromCodeCoverage]
-internal class ResolvedModel
+internal readonly struct ResolvedModel
 {
     public required bool IsConstant { get; init; }
     public required object? Constant { get; init; }
-    public required SQLExpression? SQLExpression { get; init; }
+    public required SQLiteExpression? SQLiteExpression { get; init; }
     public required Expression Expression { get; init; }
 
-    [NotNullIfNotNull(nameof(SQLExpression))]
-    public string? Sql => SQLExpression?.Sql;
+    [NotNullIfNotNull(nameof(SQLiteExpression))]
+    public string? Sql => SQLiteExpression?.Sql;
 
-    public SQLiteParameter[]? Parameters => SQLExpression?.Parameters;
+    public SQLiteParameter[]? Parameters => SQLiteExpression?.Parameters;
 }

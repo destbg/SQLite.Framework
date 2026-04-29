@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Models;
+namespace SQLite.Framework.Internals.FTS5;
 
 /// <summary>
 /// One piece of a rendered FTS5 MATCH query. Either a literal text fragment of FTS5 syntax
@@ -8,12 +8,12 @@ namespace SQLite.Framework.Internals.Models;
 [ExcludeFromCodeCoverage]
 internal sealed class FtsQueryPart
 {
-    public FtsQueryPart(string? literalText, SQLExpression? dynamicSql)
+    public FtsQueryPart(string? literalText, SQLiteExpression? dynamicSql)
     {
         LiteralText = literalText;
         DynamicSql = dynamicSql;
     }
 
     public string? LiteralText { get; }
-    public SQLExpression? DynamicSql { get; }
+    public SQLiteExpression? DynamicSql { get; }
 }

@@ -14,6 +14,7 @@ public sealed class SQLiteOptionsBuilder
     public SQLiteOptionsBuilder(string databasePath)
     {
         DatabasePath = databasePath;
+        RegisterDefaultMethodHandlers();
     }
 
     /// <summary>
@@ -107,14 +108,14 @@ public sealed class SQLiteOptionsBuilder
     public Dictionary<Type, ISQLiteTypeConverter> TypeConverters { get; } = [];
 
     /// <summary>
-    /// Custom method translators that convert specific .NET method calls into SQL fragments.
+    /// Custom member translators that convert specific .NET member calls into SQL fragments.
+    /// Keyed by <see cref="MemberInfo" />: a <see cref="MethodInfo" /> registers per-method,
+    /// a <see cref="Type" /> registers a fallback for every method/property declared on that
+    /// type. The default constructor pre-registers the built-in handlers for <c>string</c>,
+    /// <c>Math</c>, the date/time types, the SQLite helper classes, and so on; user code can
+    /// replace any of those entries to override the framework's translation.
     /// </summary>
-    public Dictionary<MethodInfo, SQLiteMethodTranslator> MethodTranslators { get; } = [];
-
-    /// <summary>
-    /// Custom method translators for methods that take a predicate lambda as an argument.
-    /// </summary>
-    public Dictionary<MethodInfo, SQLitePredicateMethodTranslator> PredicateMethodTranslators { get; } = [];
+    public Dictionary<MemberInfo, SQLiteMemberTranslator> MemberTranslators { get; } = [];
 
     /// <summary>
     /// Translates property access on custom types into SQL fragments.
@@ -212,6 +213,7 @@ public sealed class SQLiteOptionsBuilder
             list = [];
             QueryFilters[typeof(T)] = list;
         }
+
         list.Add(predicate);
         return this;
     }
@@ -370,18 +372,9 @@ public sealed class SQLiteOptionsBuilder
     /// <summary>
     /// Registers a SQL translator for a specific method.
     /// </summary>
-    public SQLiteOptionsBuilder AddMethodTranslator(MethodInfo method, SQLiteMethodTranslator translator)
+    public SQLiteOptionsBuilder AddMethodTranslator(MethodInfo method, SQLiteMemberTranslator translator)
     {
-        MethodTranslators[method] = translator;
-        return this;
-    }
-
-    /// <summary>
-    /// Registers a SQL translator for a method that takes a predicate lambda as an argument.
-    /// </summary>
-    public SQLiteOptionsBuilder AddPredicateMethodTranslator(MethodInfo method, SQLitePredicateMethodTranslator translator)
-    {
-        PredicateMethodTranslators[method] = translator;
+        MemberTranslators[method] = translator;
         return this;
     }
 
@@ -544,8 +537,7 @@ public sealed class SQLiteOptionsBuilder
             DecimalFormat = DecimalFormat,
             EnumStorage = EnumStorage,
             TypeConverters = new Dictionary<Type, ISQLiteTypeConverter>(TypeConverters),
-            MethodTranslators = new Dictionary<MethodInfo, SQLiteMethodTranslator>(MethodTranslators),
-            PredicateMethodTranslators = new Dictionary<MethodInfo, SQLitePredicateMethodTranslator>(PredicateMethodTranslators),
+            MemberTranslators = new Dictionary<MemberInfo, SQLiteMemberTranslator>(MemberTranslators),
             PropertyTranslators = [.. PropertyTranslators],
             EntityMaterializers = new Dictionary<Type, Func<SQLiteQueryContext, object?>>(EntityMaterializers),
             SelectMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(SelectMaterializers),
@@ -562,6 +554,41 @@ public sealed class SQLiteOptionsBuilder
         };
     }
 
+    private void RegisterDefaultMethodHandlers()
+    {
+        MemberTranslators[typeof(SQLiteFunctions)] = SQLiteFunctionsMemberVisitor.HandleSQLiteFunctionsMethod;
+        MemberTranslators[typeof(SQLiteFTS5Functions)] = SQLiteFTS5FunctionsMemberVisitor.HandleSQLiteFTS5FunctionsMethod;
+        MemberTranslators[typeof(SQLiteJsonFunctions)] = SQLiteJsonFunctionsMemberVisitor.HandleSQLiteJsonFunctionsMethod;
+        MemberTranslators[typeof(SQLiteWindowFunctions)] = WindowFunctionsMemberVisitor.HandleWindowFunctionMethod;
+        MemberTranslators[typeof(SQLiteFrameBoundary)] = WindowFunctionsMemberVisitor.HandleWindowFunctionMethod;
+        MemberTranslators[typeof(string)] = StringMemberVisitor.HandleStringMethod;
+        MemberTranslators[typeof(Math)] = MathMemberVisitor.HandleMathMethod;
+        MemberTranslators[typeof(DateTime)] = DateTimeMemberVisitor.HandleDateTimeMethod;
+        MemberTranslators[typeof(DateTimeOffset)] = DateTimeMemberVisitor.HandleDateTimeOffsetMethod;
+        MemberTranslators[typeof(TimeSpan)] = DateTimeMemberVisitor.HandleTimeSpanMethod;
+        MemberTranslators[typeof(DateOnly)] = DateTimeMemberVisitor.HandleDateOnlyMethod;
+        MemberTranslators[typeof(TimeOnly)] = DateTimeMemberVisitor.HandleTimeOnlyMethod;
+        MemberTranslators[typeof(Guid)] = GuidMemberVisitor.HandleGuidMethod;
+        MemberTranslators[typeof(Queryable)] = QueryableMemberVisitor.HandleQueryableMethod;
+        MemberTranslators[typeof(Enum)] = EnumMemberVisitor.HandleEnumMethod;
+        MemberTranslators[typeof(char)] = CharMemberVisitor.HandleCharMethod;
+
+        SQLiteMemberTranslator integerHandler = NumericMemberVisitor.HandleIntegerMethod;
+        MemberTranslators[typeof(int)] = integerHandler;
+        MemberTranslators[typeof(long)] = integerHandler;
+        MemberTranslators[typeof(short)] = integerHandler;
+        MemberTranslators[typeof(byte)] = integerHandler;
+        MemberTranslators[typeof(sbyte)] = integerHandler;
+        MemberTranslators[typeof(uint)] = integerHandler;
+        MemberTranslators[typeof(ulong)] = integerHandler;
+        MemberTranslators[typeof(ushort)] = integerHandler;
+
+        SQLiteMemberTranslator floatHandler = NumericMemberVisitor.HandleFloatingPointMethod;
+        MemberTranslators[typeof(double)] = floatHandler;
+        MemberTranslators[typeof(float)] = floatHandler;
+        MemberTranslators[typeof(decimal)] = floatHandler;
+    }
+
     private static Dictionary<Type, IReadOnlyList<LambdaExpression>> SnapshotQueryFilters(Dictionary<Type, List<LambdaExpression>> source)
     {
         Dictionary<Type, IReadOnlyList<LambdaExpression>> snapshot = new(source.Count);
@@ -569,6 +596,7 @@ public sealed class SQLiteOptionsBuilder
         {
             snapshot[kvp.Key] = [.. kvp.Value];
         }
+
         return snapshot;
     }
 
@@ -579,6 +607,7 @@ public sealed class SQLiteOptionsBuilder
             list = [];
             store[entityType] = list;
         }
+
         list.Add(hook);
     }
 
@@ -589,6 +618,7 @@ public sealed class SQLiteOptionsBuilder
         {
             snapshot[kvp.Key] = [.. kvp.Value];
         }
+
         return snapshot;
     }
 }

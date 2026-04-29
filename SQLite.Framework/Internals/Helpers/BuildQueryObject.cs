@@ -24,7 +24,7 @@ internal static class BuildQueryObject
         }
 
         SQLiteOptions options = reader.Options;
-        if (CommonHelpers.IsSimple(elementType, options))
+        if (TypeHelpers.IsSimple(elementType, options))
         {
             SQLiteColumnType columnType = reader.GetColumnType(0);
             return reader.GetValue(0, columnType, elementType);
@@ -68,7 +68,7 @@ internal static class BuildQueryObject
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All types should be part of the client assembly.")]
     private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, Dictionary<string, int> columns, SQLiteOptions options)
     {
-        if (CommonHelpers.IsSimple(type, options))
+        if (TypeHelpers.IsSimple(type, options))
         {
             string columnName = prefix.TrimEnd('.');
             if (columns.TryGetValue(columnName, out int columnIndex))
@@ -108,7 +108,7 @@ internal static class BuildQueryObject
             Type propType = prop.PropertyType;
             string columnName = prefix + prop.Name;
 
-            if (CommonHelpers.IsSimple(propType, options))
+            if (TypeHelpers.IsSimple(propType, options))
             {
                 if (columns.TryGetValue(columnName, out int columnIndex))
                 {

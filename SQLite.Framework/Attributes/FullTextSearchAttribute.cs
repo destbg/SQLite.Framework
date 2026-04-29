@@ -6,7 +6,9 @@ namespace SQLite.Framework.Attributes;
 /// <c>Snippet</c>, and <c>Highlight</c>.
 /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+[UnsupportedOSPlatform("android")]
 [SupportedOSPlatform("android24.0")]
+[UnsupportedOSPlatform("ios")]
 [SupportedOSPlatform("ios10.0")]
 #endif
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]

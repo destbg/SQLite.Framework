@@ -1,5 +1,6 @@
 namespace SQLite.Framework.Internals.Models;
 
+[ExcludeFromCodeCoverage]
 internal sealed class CheckConstraintSpec
 {
     public CheckConstraintSpec(string sql, string? name)

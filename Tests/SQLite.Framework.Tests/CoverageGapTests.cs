@@ -764,7 +764,7 @@ public class CoverageGapTests
         {
             System.Reflection.MethodInfo doubleMethod = typeof(InterceptorHelpers)
                 .GetMethod(nameof(InterceptorHelpers.Double))!;
-            b.MethodTranslators[doubleMethod] = (_, args) => $"({args[0]} * 2)";
+            b.MemberTranslators[doubleMethod] = SimpleTranslator.AsSimple((_, args) => $"({args[0]} * 2)");
         });
 
         db.Schema.CreateTable<Book>();
@@ -1316,8 +1316,8 @@ public class CoverageGapTests
     {
         using TestDatabase db = new(b =>
         {
-            b.MethodTranslators[typeof(SqlTranslatorPrivateWrap).GetMethod(nameof(SqlTranslatorPrivateWrap.Identity))!] =
-                (_, args) => $"{args[0]}";
+            b.MemberTranslators[typeof(SqlTranslatorPrivateWrap).GetMethod(nameof(SqlTranslatorPrivateWrap.Identity))!] =
+                SimpleTranslator.AsSimple((_, args) => $"{args[0]}");
         });
         db.Schema.CreateTable<Book>();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 7, Price = 1 });
@@ -3243,8 +3243,8 @@ public class CoverageGapTests
             .GetMethod(nameof(PredicateCustom), BindingFlags.NonPublic | BindingFlags.Static)!;
 
         SQLiteOptionsBuilder builder = new($"PredicateUnresolvable_{Guid.NewGuid():N}.db3");
-        builder.PredicateMethodTranslators[method] =
-            (instance, predicate) => $"(predicate({instance}, {predicate}))";
+        builder.MemberTranslators[method] = SimpleTranslator.AsPredicate(
+            (instance, predicate) => $"(predicate({instance}, {predicate}))");
 
         SQLiteOptions options = builder.Build();
         File.Delete(options.DatabasePath);

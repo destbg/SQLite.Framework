@@ -122,6 +122,23 @@ public class CustomConverterTests
     }
 
     [Fact]
+    public void PropertyTranslator_CustomTypeMember_RewritesSqlAndRoundTrips()
+    {
+        using TestDatabase db = SetupDatabase(b =>
+            b.PropertyTranslators.Add((memberName, instanceSql) =>
+                memberName == nameof(Points.Value) ? instanceSql : null));
+        db.Table<ScoreEntity>().Add(new ScoreEntity { Id = 1, Score = new Points(10) });
+        db.Table<ScoreEntity>().Add(new ScoreEntity { Id = 2, Score = new Points(20) });
+
+        List<ScoreEntity> results = db.Table<ScoreEntity>()
+            .Where(e => e.Score.Value > 15)
+            .ToList();
+
+        Assert.Single(results);
+        Assert.Equal(2, results[0].Id);
+    }
+
+    [Fact]
     public void TypeConverter_OrderBy()
     {
         using TestDatabase db = SetupDatabase();
@@ -295,12 +312,12 @@ public class CustomConverterTests
     {
         TestDatabase db = new(b =>
         {
-            b.MethodTranslators[
+            b.MemberTranslators[
                 typeof(SqlFunctions).GetMethod(nameof(SqlFunctions.Upper))!
-            ] = (_, args) => $"upper({args[0]})";
-            b.MethodTranslators[
+            ] = SimpleTranslator.AsSimple((_, args) => $"upper({args[0]})");
+            b.MemberTranslators[
                 typeof(SqlFunctions).GetMethod(nameof(SqlFunctions.Replace))!
-            ] = (_, args) => $"replace({args[0]}, {args[1]}, {args[2]})";
+            ] = SimpleTranslator.AsSimple((_, args) => $"replace({args[0]}, {args[1]}, {args[2]})");
             configure?.Invoke(b);
         }, methodName);
         db.Schema.CreateTable<TagEntity>();

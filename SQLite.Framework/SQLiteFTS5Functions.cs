@@ -7,7 +7,9 @@ namespace SQLite.Framework;
 /// </summary>
 [ExcludeFromCodeCoverage]
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+[UnsupportedOSPlatform("android")]
 [SupportedOSPlatform("android24.0")]
+[UnsupportedOSPlatform("ios")]
 [SupportedOSPlatform("ios10.0")]
 #endif
 public static class SQLiteFTS5Functions

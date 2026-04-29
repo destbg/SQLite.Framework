@@ -1,10 +1,10 @@
 using System.Globalization;
 using System.Text;
 
-namespace SQLite.Framework.Internals.Helpers;
+namespace SQLite.Framework.Internals.FTS5;
 
 /// <summary>
-/// Mutable state used by <see cref="CommonHelpers.RenderFTSMatch" /> while walking an FTS5 builder expression.
+/// Mutable state used by <see cref="FtsHelpers.RenderFTSMatch" /> while walking an FTS5 builder expression.
 /// Accumulates literal FTS5 query text and dynamic SQL expressions into a list of
 /// <see cref="FtsQueryPart" /> entries.
 /// </summary>
@@ -30,7 +30,7 @@ internal sealed class FtsRenderState
         buffer.Append(ch);
     }
 
-    public void AppendDynamic(SQLExpression sql)
+    public void AppendDynamic(SQLiteExpression sql)
     {
         FlushLiteral();
         Parts.Add(new FtsQueryPart(null, sql));
@@ -151,9 +151,9 @@ internal sealed class FtsRenderState
 
     private void WriteFts5Term(Expression arg)
     {
-        if (CommonHelpers.IsConstant(arg))
+        if (ExpressionHelpers.IsConstant(arg))
         {
-            string term = (string)CommonHelpers.GetConstantValue(arg)!;
+            string term = (string)ExpressionHelpers.GetConstantValue(arg)!;
             AppendLiteral(EscapeTerm(term));
         }
         else
@@ -164,9 +164,9 @@ internal sealed class FtsRenderState
 
     private void WriteFts5Phrase(Expression arg)
     {
-        if (CommonHelpers.IsConstant(arg))
+        if (ExpressionHelpers.IsConstant(arg))
         {
-            string phrase = (string)CommonHelpers.GetConstantValue(arg)!;
+            string phrase = (string)ExpressionHelpers.GetConstantValue(arg)!;
             AppendLiteral('"');
             AppendLiteral(phrase.Replace("\"", "\"\""));
             AppendLiteral('"');
@@ -179,9 +179,9 @@ internal sealed class FtsRenderState
 
     private void WriteFts5Prefix(Expression arg)
     {
-        if (CommonHelpers.IsConstant(arg))
+        if (ExpressionHelpers.IsConstant(arg))
         {
-            string prefix = (string)CommonHelpers.GetConstantValue(arg)!;
+            string prefix = (string)ExpressionHelpers.GetConstantValue(arg)!;
             AppendLiteral(EscapeTerm(prefix));
             AppendLiteral('*');
         }
@@ -194,7 +194,7 @@ internal sealed class FtsRenderState
 
     private void WriteFts5Near(Expression distanceArg, Expression termsArg)
     {
-        int distance = (int)CommonHelpers.GetConstantValue(distanceArg)!;
+        int distance = (int)ExpressionHelpers.GetConstantValue(distanceArg)!;
 
         AppendLiteral("NEAR(");
         if (termsArg is NewArrayExpression nae)
@@ -207,9 +207,9 @@ internal sealed class FtsRenderState
                 }
 
                 Expression element = nae.Expressions[i];
-                if (CommonHelpers.IsConstant(element))
+                if (ExpressionHelpers.IsConstant(element))
                 {
-                    AppendLiteral(EscapeTerm((string)CommonHelpers.GetConstantValue(element)!));
+                    AppendLiteral(EscapeTerm((string)ExpressionHelpers.GetConstantValue(element)!));
                 }
                 else
                 {
@@ -219,7 +219,7 @@ internal sealed class FtsRenderState
         }
         else
         {
-            string[] terms = (string[])CommonHelpers.GetConstantValue(termsArg)!;
+            string[] terms = (string[])ExpressionHelpers.GetConstantValue(termsArg)!;
             for (int i = 0; i < terms.Length; i++)
             {
                 if (i > 0)
@@ -245,15 +245,15 @@ internal sealed class FtsRenderState
         Write(bodyArg, 4);
     }
 
-    private SQLExpression ResolveSqlExpression(Expression expr)
+    private SQLiteExpression ResolveSqlExpression(Expression expr)
     {
         ResolvedModel resolved = Visitor.ResolveExpression(expr);
-        if (resolved.SQLExpression == null)
+        if (resolved.SQLiteExpression == null)
         {
             throw new NotSupportedException($"SQLiteFTS5 builder argument '{expr}' could not be translated to SQL.");
         }
 
-        return resolved.SQLExpression;
+        return resolved.SQLiteExpression;
     }
 
     private static string ResolveColumnName(Expression expr)

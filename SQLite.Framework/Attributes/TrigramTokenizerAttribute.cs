@@ -8,7 +8,9 @@ namespace SQLite.Framework.Attributes;
 #if SQLITECIPHER
 [Obsolete("The trigram tokenizer is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need trigram tokenization.", error: true)]
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+[UnsupportedOSPlatform("android")]
 [SupportedOSPlatform("android33.0")]
+[UnsupportedOSPlatform("ios")]
 [SupportedOSPlatform("ios15.0")]
 #endif
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]

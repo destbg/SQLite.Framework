@@ -6,8 +6,17 @@ SQLite has a built-in full-text search engine called [FTS5](https://www.sqlite.o
 
 FTS5 needs **SQLite 3.9.0 or newer**. On mobile that means:
 
-- **iOS 10 or newer.** In a MAUI csproj, set `<SupportedOSPlatformVersion>10.0</SupportedOSPlatformVersion>` for `net*-ios`.
-- **Android 7 Nougat or newer (API level 24).** In a MAUI csproj, set `<SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>` for `net*-android`.
+- **iOS 10 or newer.**
+- **Android 7 Nougat or newer (API level 24).**
+
+In a MAUI or multi-targeted csproj, set the minimum platform version per target so the .NET platform compatibility analyzer (CA1416) stops warning:
+
+```xml
+<PropertyGroup>
+    <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'android'">24.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'ios'">10.0</SupportedOSPlatformVersion>
+</PropertyGroup>
+```
 
 If you target older platforms, install [`SQLite.Framework.Bundled`](Home) instead. It ships its own recent SQLite and skips the OS version check entirely.
 

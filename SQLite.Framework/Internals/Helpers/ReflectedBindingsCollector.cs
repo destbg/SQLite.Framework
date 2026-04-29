@@ -17,8 +17,8 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
         if (IsNonPublic(node.Method))
         {
             Methods.Add(node.Method);
-            Instances.Add(node.Object != null && CommonHelpers.IsConstant(node.Object)
-                ? CommonHelpers.GetConstantValue(node.Object)
+            Instances.Add(node.Object != null && ExpressionHelpers.IsConstant(node.Object)
+                ? ExpressionHelpers.GetConstantValue(node.Object)
                 : null);
         }
 
@@ -27,9 +27,9 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
 
     protected override Expression VisitMember(MemberExpression node)
     {
-        if (CommonHelpers.IsConstant(node))
+        if (ExpressionHelpers.IsConstant(node))
         {
-            CapturedValues.Add(CommonHelpers.GetConstantValue(node));
+            CapturedValues.Add(ExpressionHelpers.GetConstantValue(node));
             return node;
         }
 
@@ -38,9 +38,9 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
 
     protected override Expression VisitListInit(ListInitExpression node)
     {
-        if (CommonHelpers.IsConstant(node))
+        if (ExpressionHelpers.IsConstant(node))
         {
-            CapturedValues.Add(CommonHelpers.GetConstantValue(node));
+            CapturedValues.Add(ExpressionHelpers.GetConstantValue(node));
             return node;
         }
 

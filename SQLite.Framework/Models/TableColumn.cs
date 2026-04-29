@@ -35,7 +35,7 @@ public class TableColumn
             IsNullable = false;
         }
 
-        ColumnType = CommonHelpers.TypeToSQLiteType(type, options);
+        ColumnType = TypeHelpers.TypeToSQLiteType(type, options);
     }
 
     /// <summary>

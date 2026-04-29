@@ -38,7 +38,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         this.inputParameters = inputParameters;
     }
 
-    public Expression VisitSQLExpression(SQLExpression node)
+    public Expression VisitSQLExpression(SQLiteExpression node)
     {
         return new CompiledExpression(node.Type, ctx =>
         {
@@ -154,9 +154,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Field should be preserved")]
     protected override Expression VisitMember(MemberExpression node)
     {
-        if (CommonHelpers.IsConstant(node))
+        if (ExpressionHelpers.IsConstant(node))
         {
-            object? value = CommonHelpers.GetConstantValue(node);
+            object? value = ExpressionHelpers.GetConstantValue(node);
             return new CompiledExpression(node.Type, _ => value);
         }
 

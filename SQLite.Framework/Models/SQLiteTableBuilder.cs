@@ -183,16 +183,16 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
     private string TranslateBareSql(LambdaExpression lambda)
     {
-        SQLVisitor visitor = new(database, new IndexWrapper(), new IndexWrapper(), new TableIndexWrapper(), 0);
+        SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
 
         Dictionary<string, Expression> columnExpressions = mapping.Columns.ToDictionary(
             c => c.PropertyInfo.Name,
-            c => (Expression)new SQLExpression(c.PropertyType, visitor.IdentifierIndex.Index++, c.Name));
+            c => (Expression)new SQLiteExpression(c.PropertyType, visitor.Counters.IdentifierIndex++, c.Name));
 
         visitor.MethodArguments[lambda.Parameters[0]] = columnExpressions;
 
         Expression result = visitor.Visit(lambda.Body);
-        if (result is not SQLExpression sqlExpr)
+        if (result is not SQLiteExpression sqlExpr)
         {
             throw new ArgumentException($"Expression '{lambda}' could not be translated to SQL.", nameof(lambda));
         }

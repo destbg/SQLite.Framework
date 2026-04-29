@@ -14,7 +14,7 @@ public class SQLitePropertyCalls<T>
         this.tableMapping = tableMapping;
     }
 
-    internal List<(string, SQLExpression)> SetProperties { get; } = [];
+    internal List<(string, SQLiteExpression)> SetProperties { get; } = [];
 
     /// <summary>
     /// Sets the value of a specified property for update operations.
@@ -27,7 +27,7 @@ public class SQLitePropertyCalls<T>
     {
         string propertyName = GetPropertyName(propertyGetter);
         MemberExpression member = (MemberExpression)propertyGetter.Body;
-        SQLExpression expression = new(member.Type, visitor.IdentifierIndex.Index++, $"@p{visitor.ParamIndex.Index++}", value);
+        SQLiteExpression expression = new(member.Type, visitor.Counters.IdentifierIndex++, $"@p{visitor.Counters.ParamIndex++}", value);
 
         SetProperties.Add((propertyName, expression));
 
@@ -47,7 +47,7 @@ public class SQLitePropertyCalls<T>
         visitor.MethodArguments[setter.Parameters[0]] = visitor.TableColumns;
         Expression expression = visitor.Visit(setter.Body);
 
-        if (expression is not SQLExpression expr)
+        if (expression is not SQLiteExpression expr)
         {
             throw new ArgumentException($"Expression '{setter}' must evaluate to a SQL expression.", nameof(setter));
         }

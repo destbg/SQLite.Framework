@@ -12,27 +12,25 @@ internal class SQLTranslator
     private readonly int level;
     private readonly bool isInnerQuery;
     private readonly List<SQLiteParameter> parameters = [];
-    private readonly QueryableMethodVisitor queryableMethodVisitor;
+    private readonly QueryableVisitor queryableMethodVisitor;
     private Expression? selectMethodExpression;
 
     public SQLTranslator(SQLiteDatabase database)
     {
         this.database = database;
-        IndexWrapper paramIndex = new();
-        IndexWrapper identifierIndex = new();
-        TableIndexWrapper tableIndex = new();
+        SQLiteCounters counters = new();
 
-        Visitor = new SQLVisitor(database, paramIndex, identifierIndex, tableIndex, level);
-        queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor);
+        Visitor = new SQLVisitor(database, counters, level);
+        queryableMethodVisitor = new QueryableVisitor(database, Visitor);
     }
 
-    public SQLTranslator(SQLiteDatabase database, IndexWrapper paramIndex, IndexWrapper identifierIndex, TableIndexWrapper tableIndex, int level, bool isInnerQuery)
+    public SQLTranslator(SQLiteDatabase database, SQLiteCounters counters, int level, bool isInnerQuery)
     {
         this.database = database;
         this.level = level;
         this.isInnerQuery = isInnerQuery;
-        Visitor = new SQLVisitor(database, paramIndex, identifierIndex, tableIndex, level);
-        queryableMethodVisitor = new QueryableMethodVisitor(database, Visitor)
+        Visitor = new SQLVisitor(database, counters, level);
+        queryableMethodVisitor = new QueryableVisitor(database, Visitor)
         {
             IsInnerQuery = isInnerQuery
         };
@@ -57,7 +55,7 @@ internal class SQLTranslator
 
     public QueryType QueryType { get; init; }
 
-    public List<(string Name, SQLExpression Expression)>? SetProperties { get; set; }
+    public List<(string Name, SQLiteExpression Expression)>? SetProperties { get; set; }
 
     public void Visit(Expression node)
     {
@@ -111,7 +109,7 @@ internal class SQLTranslator
 
             if (!useExists)
             {
-                foreach (SQLExpression expression in queryableMethodVisitor.Selects)
+                foreach (SQLiteExpression expression in queryableMethodVisitor.Selects)
                 {
                     VisitSQLExpression(expression);
                 }
@@ -141,7 +139,7 @@ internal class SQLTranslator
 
         if (QueryType == QueryType.Update && SetProperties != null)
         {
-            foreach ((string _, SQLExpression sqlExpression) in SetProperties)
+            foreach ((string _, SQLiteExpression sqlExpression) in SetProperties)
             {
                 VisitSQLExpression(sqlExpression);
             }
@@ -154,7 +152,7 @@ internal class SQLTranslator
                 : string.Join(" AND ", queryableMethodVisitor.Wheres))
             : string.Empty;
 
-        foreach (SQLExpression sqlExpression in queryableMethodVisitor.Wheres)
+        foreach (SQLiteExpression sqlExpression in queryableMethodVisitor.Wheres)
         {
             VisitSQLExpression(sqlExpression);
         }
@@ -183,7 +181,7 @@ internal class SQLTranslator
             ? "GROUP BY " + string.Join(", ", queryableMethodVisitor.GroupBys)
             : string.Empty;
 
-        foreach (SQLExpression sqlExpression in queryableMethodVisitor.GroupBys)
+        foreach (SQLiteExpression sqlExpression in queryableMethodVisitor.GroupBys)
         {
             VisitSQLExpression(sqlExpression);
         }
@@ -193,7 +191,7 @@ internal class SQLTranslator
             ? "HAVING " + string.Join(" AND ", queryableMethodVisitor.Havings)
             : string.Empty;
 
-        foreach (SQLExpression sqlExpression in queryableMethodVisitor.Havings)
+        foreach (SQLiteExpression sqlExpression in queryableMethodVisitor.Havings)
         {
             VisitSQLExpression(sqlExpression);
         }
@@ -203,7 +201,7 @@ internal class SQLTranslator
             ? "ORDER BY " + string.Join(", ", queryableMethodVisitor.OrderBys)
             : string.Empty;
 
-        foreach (SQLExpression sqlExpression in queryableMethodVisitor.OrderBys)
+        foreach (SQLiteExpression sqlExpression in queryableMethodVisitor.OrderBys)
         {
             VisitSQLExpression(sqlExpression);
         }
@@ -237,7 +235,7 @@ internal class SQLTranslator
         // UNION, UNION ALL, INTERSECT, EXCEPT
         if (queryableMethodVisitor.SetOperations.Count > 0)
         {
-            foreach ((SQLExpression sqlExpression, string _) in queryableMethodVisitor.SetOperations)
+            foreach ((SQLiteExpression sqlExpression, string _) in queryableMethodVisitor.SetOperations)
             {
                 VisitSQLExpression(sqlExpression);
             }
@@ -333,7 +331,7 @@ internal class SQLTranslator
         }
         else if (selectMethodExpression is null
             or ParameterExpression
-            or MemberExpression { Expression: not SQLExpression }
+            or MemberExpression { Expression: not SQLiteExpression }
             || (selectMethodExpression is MethodCallExpression mce
                 && (mce.Method.DeclaringType == typeof(Queryable)
                     || mce.Method.DeclaringType == typeof(Enumerable))))
@@ -417,7 +415,7 @@ internal class SQLTranslator
         };
     }
 
-    private void VisitSQLExpression(SQLExpression node)
+    private void VisitSQLExpression(SQLiteExpression node)
     {
         if (node.Parameters != null)
         {
@@ -461,7 +459,7 @@ internal class SQLTranslator
             if (callExpression.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
             {
                 object? obj = callExpression.Object != null
-                    ? CommonHelpers.GetConstantValue(callExpression.Object)
+                    ? ExpressionHelpers.GetConstantValue(callExpression.Object)
                     : null;
                 BaseSQLiteTable resultTable = (BaseSQLiteTable)callExpression.Method.Invoke(obj, null)!;
 
@@ -530,9 +528,9 @@ internal class SQLTranslator
     {
         Type genericType;
 
-        if (expression.Type.IsAssignableTo(typeof(BaseSQLiteTable)) && CommonHelpers.IsConstant(expression))
+        if (expression.Type.IsAssignableTo(typeof(BaseSQLiteTable)) && ExpressionHelpers.IsConstant(expression))
         {
-            BaseSQLiteTable table = (BaseSQLiteTable)CommonHelpers.GetConstantValue(expression)!;
+            BaseSQLiteTable table = (BaseSQLiteTable)ExpressionHelpers.GetConstantValue(expression)!;
             genericType = table.ElementType;
         }
         else
@@ -556,7 +554,7 @@ internal class SQLTranslator
 
         queryableMethodVisitor.Visit(selectMethod);
 
-        LambdaExpression lambda = (LambdaExpression)CommonHelpers.StripQuotes(selectMethod.Arguments[1]);
+        LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(selectMethod.Arguments[1]);
         return lambda.Body;
     }
 

@@ -30,6 +30,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.SourceGene
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Tests.SourceGenerator", "Tests\SQLite.Framework.Tests.SourceGenerator\SQLite.Framework.Tests.SourceGenerator.csproj", "{D6C96B5C-FA84-49CD-A68E-9B58FF452F8E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Tests.NoOp", "Tests\SQLite.Framework.Tests.NoOp\SQLite.Framework.Tests.NoOp.csproj", "{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -196,6 +198,18 @@ Global
 		{D6C96B5C-FA84-49CD-A68E-9B58FF452F8E}.Release|x64.Build.0 = Release|Any CPU
 		{D6C96B5C-FA84-49CD-A68E-9B58FF452F8E}.Release|x86.ActiveCfg = Release|Any CPU
 		{D6C96B5C-FA84-49CD-A68E-9B58FF452F8E}.Release|x86.Build.0 = Release|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Debug|x64.Build.0 = Debug|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Debug|x86.Build.0 = Debug|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Release|x64.ActiveCfg = Release|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Release|x64.Build.0 = Release|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Release|x86.ActiveCfg = Release|Any CPU
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -208,5 +222,6 @@ Global
 		{2F3A2A7F-421A-4453-AFB3-568E17D0D268} = {CA33A775-A4D5-40E6-91D5-0275F759E818}
 		{A5B45A93-ACDF-4E28-B605-EE1BF2241E1D} = {CA33A775-A4D5-40E6-91D5-0275F759E818}
 		{D6C96B5C-FA84-49CD-A68E-9B58FF452F8E} = {CA33A775-A4D5-40E6-91D5-0275F759E818}
+		{8FE52DC5-2BB9-44C7-9379-42E6DC2D8000} = {CA33A775-A4D5-40E6-91D5-0275F759E818}
 	EndGlobalSection
 EndGlobal
