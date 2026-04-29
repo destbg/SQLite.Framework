@@ -30,6 +30,23 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     name: Coverage
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: SQLite.Framework.Tests
+            flag: main
+          - project: SQLite.Framework.Tests.Bundled
+            flag: bundled
+          - project: SQLite.Framework.Tests.Cipher
+            flag: cipher
+          - project: SQLite.Framework.Tests.Base
+            flag: base
+          - project: SQLite.Framework.Tests.NoOp
+            flag: noop
+          - project: SQLite.Framework.Tests.SourceGenerator
+            flag: sourcegen
+    name: Coverage (${{ matrix.flag }})
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET
@@ -39,12 +56,12 @@ jobs:
       - name: Install coverlet
         run: dotnet tool install --global coverlet.console
       - name: Build tests
-        run: dotnet build Tests/SQLite.Framework.Tests/SQLite.Framework.Tests.csproj -c Release
+        run: dotnet build Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release
       - name: Collect coverage
         run: |
-          coverlet Tests/SQLite.Framework.Tests/bin/Release/net10.0/SQLite.Framework.Tests.dll \
+          coverlet Tests/${{ matrix.project }}/bin/Release/net10.0/${{ matrix.project }}.dll \
             --target dotnet \
-            --targetargs "exec Tests/SQLite.Framework.Tests/bin/Release/net10.0/SQLite.Framework.Tests.dll" \
+            --targetargs "exec Tests/${{ matrix.project }}/bin/Release/net10.0/${{ matrix.project }}.dll" \
             --include "[SQLite.Framework]*" \
             --format cobertura \
             --output coverage.cobertura.xml
@@ -52,4 +69,5 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           files: coverage.cobertura.xml
+          flags: ${{ matrix.flag }}
           fail_ci_if_error: true
