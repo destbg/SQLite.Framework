@@ -10,13 +10,19 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        project:
-          - SQLite.Framework.Tests
-          - SQLite.Framework.Tests.Bundled
-          - SQLite.Framework.Tests.Cipher
-          - SQLite.Framework.Tests.Base
-          - SQLite.Framework.Tests.SourceGenerator
+        include:
+          - project: SQLite.Framework.Tests
+            flag: main
+          - project: SQLite.Framework.Tests.Bundled
+            flag: bundled
+          - project: SQLite.Framework.Tests.Cipher
+            flag: cipher
+          - project: SQLite.Framework.Tests.Base
+            flag: base
+          - project: SQLite.Framework.Tests.SourceGenerator
+            flag: sourcegen
     name: ${{ matrix.project }}
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +31,16 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Run tests
-        run: dotnet run --project Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release
+        run: |
+          dotnet run --project Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release \
+            -- --report-trx --results-directory TestResults
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          files: TestResults/*.trx
+          flags: ${{ matrix.flag }}
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   coverage:
     runs-on: ubuntu-latest
@@ -69,4 +84,5 @@ jobs:
         with:
           files: coverage.cobertura.xml
           flags: ${{ matrix.flag }}
+          token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
