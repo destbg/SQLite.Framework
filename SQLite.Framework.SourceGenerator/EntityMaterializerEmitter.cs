@@ -223,14 +223,9 @@ internal static class EntityMaterializerEmitter
         bool canNameEntity = IsReachableFromGeneratedCode(entity);
         bool anyPropNeedsReflection = false;
 
-        foreach (ISymbol member in entity.GetMembers())
+        foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
         {
-            if (member is not IPropertySymbol prop)
-            {
-                continue;
-            }
-
-            if (prop.IsStatic || prop.IsIndexer || prop.SetMethod == null)
+            if (prop.SetMethod == null)
             {
                 continue;
             }
@@ -394,12 +389,9 @@ internal static class EntityMaterializerEmitter
     private static void EmitEntityProperties(StringBuilder sb, INamedTypeSymbol entity, string columnPrefix, string indent, ref int counter, out string resultLocalName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
         List<IPropertySymbol> writableProps = new();
-        foreach (ISymbol member in entity.GetMembers())
+        foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
         {
-            if (member is IPropertySymbol prop
-                && !prop.IsStatic
-                && !prop.IsIndexer
-                && prop.SetMethod != null
+            if (prop.SetMethod != null
                 && prop.DeclaredAccessibility == Accessibility.Public)
             {
                 writableProps.Add(prop);
@@ -514,12 +506,9 @@ internal static class EntityMaterializerEmitter
             .AppendLine(", throwOnError: true)!;");
 
         List<IPropertySymbol> writableProps = new();
-        foreach (ISymbol member in entity.GetMembers())
+        foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
         {
-            if (member is IPropertySymbol prop
-                && !prop.IsStatic
-                && !prop.IsIndexer
-                && prop.SetMethod != null)
+            if (prop.SetMethod != null)
             {
                 writableProps.Add(prop);
             }
@@ -689,6 +678,28 @@ internal static class EntityMaterializerEmitter
         sb.AppendLine(" };");
         sb.AppendLine("        }");
         sb.AppendLine();
+    }
+
+    private static IEnumerable<IPropertySymbol> EnumerateInstanceProperties(INamedTypeSymbol entity)
+    {
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        for (INamedTypeSymbol? current = entity; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+        {
+            foreach (ISymbol member in current.GetMembers())
+            {
+                if (member is not IPropertySymbol prop || prop.IsStatic || prop.IsIndexer)
+                {
+                    continue;
+                }
+
+                if (!seen.Add(prop.Name))
+                {
+                    continue;
+                }
+
+                yield return prop;
+            }
+        }
     }
 
     private static ITypeSymbol StripNullableSymbol(ITypeSymbol type)
