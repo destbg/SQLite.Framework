@@ -214,7 +214,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Creates a new table for the specified type.
     /// </summary>
-    public TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    public virtual TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
     {
         lock (tableMappingsLock)
         {
@@ -231,7 +231,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Creates a new table mapping for the specified type.
     /// </summary>
-    public TableMapping TableMapping<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    public virtual TableMapping TableMapping<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
     {
         lock (tableMappingsLock)
         {
@@ -298,7 +298,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Creates a command with the specified SQL and parameters.
     /// </summary>
-    public SQLiteCommand CreateCommand(string sql, List<SQLiteParameter> parameters)
+    public virtual SQLiteCommand CreateCommand(string sql, List<SQLiteParameter> parameters)
     {
         OpenConnection();
 
@@ -312,7 +312,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Opens the connection to the SQLite database.
     /// </summary>
-    public void OpenConnection()
+    public virtual void OpenConnection()
     {
         if (IsConnecting)
         {
