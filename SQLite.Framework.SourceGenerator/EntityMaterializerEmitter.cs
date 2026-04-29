@@ -21,6 +21,7 @@ internal static class EntityMaterializerEmitter
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using System.Reflection;");
+        sb.AppendLine("using SQLitePCL;");
         sb.AppendLine("using SQLite.Framework;");
         sb.AppendLine("using SQLite.Framework.Enums;");
         sb.AppendLine("using SQLite.Framework.Internals.Models;");
@@ -50,6 +51,7 @@ internal static class EntityMaterializerEmitter
             {
                 case EmitStrategy.Direct:
                     sb.Append("            builder.EntityMaterializers[typeof(").Append(entity.ToDisplayString()).Append(")] = ").Append(methodName).AppendLine(";");
+                    EntityColumnWriterEmitter.EmitRegistration(sb, entity, methodName);
                     break;
                 case EmitStrategy.Reflection:
                     {
@@ -128,6 +130,7 @@ internal static class EntityMaterializerEmitter
             {
                 case EmitStrategy.Direct:
                     EmitMaterializer(sb, entity, methodName, entitySet, nestedInitSet);
+                    EntityColumnWriterEmitter.EmitWriters(sb, entity, methodName);
                     break;
                 case EmitStrategy.Reflection:
                     EmitReflectionMaterializer(sb, entity, methodName, entitySet, nestedInitSet);

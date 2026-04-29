@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text;
 
 namespace SQLite.Framework.Internals.FTS5;
 

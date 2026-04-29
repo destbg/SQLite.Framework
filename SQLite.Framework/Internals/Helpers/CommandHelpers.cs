@@ -132,7 +132,11 @@ internal static class CommandHelpers
     public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteOptions options)
     {
         int index = BindParameterIndex(statement, name);
+        return BindParameterByIndex(statement, index, value, options);
+    }
 
+    public static int BindParameterByIndex(sqlite3_stmt statement, int index, object? value, SQLiteOptions options)
+    {
         if (value != null && options.TypeConverters.TryGetValue(value.GetType(), out ISQLiteTypeConverter? converter))
         {
             value = converter.ToDatabase(value);

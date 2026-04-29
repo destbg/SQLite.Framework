@@ -144,6 +144,16 @@ public sealed class SQLiteOptionsBuilder
     public Dictionary<string, Func<SQLiteQueryContext, object?>> GroupByKeyMaterializers { get; } = [];
 
     /// <summary>
+    /// Generated entity column writers, keyed by the entity's CLR type. The inner dictionary maps a
+    /// property name to a delegate that binds that column on a prepared statement, removing the
+    /// reflection cost of <c>PropertyInfo.GetValue</c> on <c>AddRange</c> / <c>UpdateRange</c> /
+    /// <c>RemoveRange</c>. Populated by the <c>UseGeneratedMaterializers</c> extension emitted by
+    /// <c>SQLite.Framework.SourceGenerator</c>; user code should go through that extension rather
+    /// than mutating this map directly.
+    /// </summary>
+    public Dictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>> EntityWriters { get; } = [];
+
+    /// <summary>
     /// When <see langword="true" />, any entity or <c>Select</c> projection that would fall back
     /// to the runtime reflection path throws an <see cref="InvalidOperationException" /> instead.
     /// Defaults to <see langword="false" />.
@@ -542,6 +552,7 @@ public sealed class SQLiteOptionsBuilder
             EntityMaterializers = new Dictionary<Type, Func<SQLiteQueryContext, object?>>(EntityMaterializers),
             SelectMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(SelectMaterializers),
             GroupByKeyMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(GroupByKeyMaterializers),
+            EntityWriters = new Dictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>>(EntityWriters),
             ReflectionFallbackDisabled = ReflectionFallbackDisabled,
             AddHooks = SnapshotHooks(AddHooks),
             UpdateHooks = SnapshotHooks(UpdateHooks),

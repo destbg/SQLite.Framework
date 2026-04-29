@@ -14,17 +14,18 @@ public static class SQLiteCommandExtensions
     {
         using SQLiteDataReader reader = command.ExecuteReader();
 
-        Dictionary<string, int> columns = [];
-
-        while (reader.Read())
+        if (!reader.Read())
         {
-            if (columns.Count == 0)
-            {
-                columns = CommandHelpers.GetColumnNames(reader.Statement);
-            }
-
-            yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns, (SQLQuery?)null)!;
+            yield break;
         }
+
+        Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+        SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query: null);
+
+        do
+        {
+            yield return (T)BuildQueryObject.CreateInstance(context, typeof(T), query: null)!;
+        } while (reader.Read());
     }
 
     [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(SQLiteCommandExtensions))]
@@ -37,17 +38,18 @@ public static class SQLiteCommandExtensions
         {
             using SQLiteDataReader reader = command.ExecuteReader();
 
-            Dictionary<string, int> columns = [];
-
-            while (reader.Read())
+            if (!reader.Read())
             {
-                if (columns.Count == 0)
-                {
-                    columns = CommandHelpers.GetColumnNames(reader.Statement);
-                }
-
-                yield return (T)BuildQueryObject.CreateInstance(reader, typeof(T), columns, query)!;
+                yield break;
             }
+
+            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+            SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
+
+            do
+            {
+                yield return (T)BuildQueryObject.CreateInstance(context, typeof(T), query)!;
+            } while (reader.Read());
         }
     }
 
@@ -60,17 +62,18 @@ public static class SQLiteCommandExtensions
         {
             using SQLiteDataReader reader = command.ExecuteReader();
 
-            Dictionary<string, int> columns = [];
-
-            while (reader.Read())
+            if (!reader.Read())
             {
-                if (columns.Count == 0)
-                {
-                    columns = CommandHelpers.GetColumnNames(reader.Statement);
-                }
-
-                yield return BuildQueryObject.CreateInstance(reader, elementType, columns, query);
+                yield break;
             }
+
+            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+            SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
+
+            do
+            {
+                yield return BuildQueryObject.CreateInstance(context, elementType, query);
+            } while (reader.Read());
         }
     }
 }

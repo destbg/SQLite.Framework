@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace SQLite.Framework.Internals.Helpers;
 
 internal static class ExpressionHelpers

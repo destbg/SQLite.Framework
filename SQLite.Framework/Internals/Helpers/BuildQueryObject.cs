@@ -5,21 +5,27 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class BuildQueryObject
 {
-    public static object? CreateInstance(SQLiteDataReader reader, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, Dictionary<string, int> columns, SQLQuery? query)
+    public static SQLiteQueryContext BuildContext(SQLiteDataReader reader, Dictionary<string, int> columns, SQLQuery? query)
     {
+        return new()
+        {
+            Reader = reader,
+            Columns = columns,
+            ReflectedMethods = query?.ReflectedMethods,
+            ReflectedMethodInstances = query?.ReflectedMethodInstances,
+            CapturedValues = query?.CapturedValues,
+            ReflectedTypes = query?.ReflectedTypes,
+            ReflectedMembers = query?.ReflectedMembers,
+            ReflectedConstructors = query?.ReflectedConstructors,
+        };
+    }
+
+    public static object? CreateInstance(SQLiteQueryContext context, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, SQLQuery? query)
+    {
+        SQLiteDataReader reader = context.Reader!;
+
         if (query?.CreateObject != null)
         {
-            SQLiteQueryContext context = new()
-            {
-                Reader = reader,
-                Columns = columns,
-                ReflectedMethods = query.ReflectedMethods,
-                ReflectedMethodInstances = query.ReflectedMethodInstances,
-                CapturedValues = query.CapturedValues,
-                ReflectedTypes = query.ReflectedTypes,
-                ReflectedMembers = query.ReflectedMembers,
-                ReflectedConstructors = query.ReflectedConstructors,
-            };
             return query.CreateObject(context);
         }
 
@@ -45,11 +51,6 @@ internal static class BuildQueryObject
 #if SQLITE_FRAMEWORK_TESTING
             reader.Database.IncrementEntityMaterializerHits();
 #endif
-            SQLiteQueryContext context = new()
-            {
-                Reader = reader,
-                Columns = columns
-            };
             return generated(context);
         }
 
@@ -61,7 +62,7 @@ internal static class BuildQueryObject
                 "or remove the DisableReflectionFallback call.");
         }
 
-        return BuildInternal(elementType, reader, string.Empty, columns, options);
+        return BuildInternal(elementType, reader, string.Empty, context.Columns!, options);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]

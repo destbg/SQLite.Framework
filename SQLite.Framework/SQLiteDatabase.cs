@@ -169,14 +169,13 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         using SQLiteDataReader reader = cmd.ExecuteReader();
 
-        Dictionary<string, int> columns;
-
         if (query.ThrowOnMoreThanOne)
         {
             if (reader.Read())
             {
-                columns = CommandHelpers.GetColumnNames(reader.Statement);
-                TResult result = (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns, query)!;
+                Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+                SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
+                TResult result = (TResult)BuildQueryObject.CreateInstance(context, elementType, query)!;
 
                 if (reader.Read())
                 {
@@ -188,8 +187,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
         else if (reader.Read())
         {
-            columns = CommandHelpers.GetColumnNames(reader.Statement);
-            return (TResult)BuildQueryObject.CreateInstance(reader, elementType, columns, query)!;
+            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+            SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
+            return (TResult)BuildQueryObject.CreateInstance(context, elementType, query)!;
         }
 
         if (query.ThrowOnEmpty)

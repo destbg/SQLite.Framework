@@ -145,6 +145,15 @@ public sealed class SQLiteOptions
     public required IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> GroupByKeyMaterializers { get; init; }
 
     /// <summary>
+    /// Generated entity column writers, keyed by the entity's CLR type. The inner dictionary maps a
+    /// property name to a delegate that binds that column on a prepared statement, replacing the
+    /// reflection-based <see cref="PropertyInfo.GetValue(object?)" /> path used by <c>AddRange</c>,
+    /// <c>UpdateRange</c>, <c>RemoveRange</c>, <c>AddOrUpdateRange</c>, and <c>UpsertRange</c>.
+    /// Populated by the <c>UseGeneratedMaterializers</c> extension emitted by <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public required IReadOnlyDictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>> EntityWriters { get; init; }
+
+    /// <summary>
     /// When <see langword="true" />, any entity or <c>Select</c> projection that would fall back
     /// to the runtime reflection path throws an <see cref="InvalidOperationException" /> instead.
     /// Use this together with <c>UseGeneratedMaterializers</c> to guarantee that every query in
@@ -209,6 +218,18 @@ public sealed class SQLiteOptions
     /// <see cref="SQLiteOptionsBuilder.UseSchema" />.
     /// </summary>
     public required Func<SQLiteDatabase, SQLiteSchema> SchemaFactory { get; init; }
+
+    /// <summary>
+    /// Binds <paramref name="value" /> to <paramref name="parameterIndex" /> on
+    /// <paramref name="statement" />, applying the storage modes and registered
+    /// <see cref="ISQLiteTypeConverter" />s on these options. Public so generated
+    /// <see cref="EntityWriters" /> code can fall back to the runtime path for column types
+    /// it cannot bind directly.
+    /// </summary>
+    public void BindParameter(sqlite3_stmt statement, int parameterIndex, object? value)
+    {
+        CommandHelpers.BindParameterByIndex(statement, parameterIndex, value, this);
+    }
 
     internal Type? GetConverterTypeForInterface(Type interfaceType)
     {
