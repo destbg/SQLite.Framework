@@ -165,12 +165,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return new CompiledExpression(node.Type, context =>
         {
             object? instance = innerExpression.Call(context);
-            return node.Member switch
-            {
-                FieldInfo field => field.GetValue(instance),
-                PropertyInfo property => property.GetValue(instance),
-                _ => throw new NotSupportedException($"The member '{node.Member}' is not supported.")
-            };
+            return node.Member is FieldInfo field
+                ? field.GetValue(instance)
+                : ((PropertyInfo)node.Member).GetValue(instance);
         });
     }
 
@@ -343,14 +340,11 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                     object? value = expression.Call(ctx);
                     fieldInfo.SetValue(instance, value);
                 }
-                else if (binding.Member is PropertyInfo propertyInfo)
-                {
-                    object? value = expression.Call(ctx);
-                    propertyInfo.SetValue(instance, value);
-                }
                 else
                 {
-                    throw new NotSupportedException($"The member binding '{binding}' is not supported.");
+                    PropertyInfo propertyInfo = (PropertyInfo)binding.Member;
+                    object? value = expression.Call(ctx);
+                    propertyInfo.SetValue(instance, value);
                 }
             }
 
@@ -392,11 +386,6 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
         return new CompiledExpression(node.Type, ctx =>
         {
-            if (!node.Type.IsArray)
-            {
-                return null;
-            }
-
             object?[] args = expressions.Select(arg => arg.Call(ctx)).ToArray();
 
             Array arr = Array.CreateInstance(node.Type.GetElementType()!, args.Length);

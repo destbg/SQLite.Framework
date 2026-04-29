@@ -71,11 +71,7 @@ internal static class ExpressionHelpers
         return node switch
         {
             ConstantExpression => true,
-            MemberExpression me => me.Member switch
-            {
-                FieldInfo or PropertyInfo => me.Expression == null || IsConstant(me.Expression),
-                _ => false
-            },
+            MemberExpression me => me.Expression == null || IsConstant(me.Expression),
             UnaryExpression ue => IsConstant(ue.Operand),
             NewArrayExpression na => na.Expressions.Select(IsConstant).All(f => f),
             MemberInitExpression mie => mie.Bindings.All(b => b is MemberAssignment ma && IsConstant(ma.Expression)),
@@ -91,16 +87,9 @@ internal static class ExpressionHelpers
         return node switch
         {
             ConstantExpression ce => ce.Value,
-            MemberExpression me => me.Member switch
-            {
-                FieldInfo fi => me.Expression != null
-                    ? fi.GetValue(GetConstantValue(me.Expression))
-                    : fi.GetValue(null),
-                PropertyInfo pi => me.Expression != null
-                    ? pi.GetValue(GetConstantValue(me.Expression))
-                    : pi.GetValue(null),
-                _ => throw new NotSupportedException($"Unsupported member type: {me.Member.GetType()}")
-            },
+            MemberExpression me => me.Member is FieldInfo fi
+                ? (me.Expression != null ? fi.GetValue(GetConstantValue(me.Expression)) : fi.GetValue(null))
+                : ((PropertyInfo)me.Member).GetValue(me.Expression != null ? GetConstantValue(me.Expression) : null),
             UnaryExpression { NodeType: ExpressionType.Convert } ue =>
                 Convert.ChangeType(GetConstantValue(ue.Operand), Nullable.GetUnderlyingType(ue.Type) ?? ue.Type),
             NewArrayExpression na =>

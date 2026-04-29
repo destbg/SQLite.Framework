@@ -251,6 +251,47 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
+    public void AliasVisitor_VisitNewExpression_ZeroArgsWithNonNullMembers_FallsThroughToMethodEnd()
+    {
+        using TestDatabase db = new();
+        SQLite.Framework.Internals.Visitors.SQLVisitor sqlVisitor = new(
+            db,
+            new SQLite.Framework.Internals.SQLiteCounters(),
+            level: 0);
+
+        Type aliasVisitorType = typeof(SQLite.Framework.Internals.Visitors.QueryFilterRebinder).Assembly
+            .GetType("SQLite.Framework.Internals.Visitors.AliasVisitor")!;
+        object aliasVisitor = Activator.CreateInstance(aliasVisitorType, db, sqlVisitor)!;
+
+        ConstructorInfo ctor = typeof(NoArgWithMembersHolder).GetConstructor(Type.EmptyTypes)!;
+        NewExpression node = Expression.New(
+            ctor,
+            Array.Empty<Expression>(),
+            Array.Empty<MemberInfo>());
+
+        MethodInfo method = aliasVisitorType.GetMethod(
+            "VisitNewExpression",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        method.Invoke(aliasVisitor, new object?[] { node, null });
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitMemberBindingExpression_InvalidBindingType_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        FieldInfo fld = typeof(CompilerVisitorFieldHolder).GetField(nameof(CompilerVisitorFieldHolder.FieldX))!;
+        InvalidMemberBinding binding = new(fld);
+
+        MethodInfo method = typeof(QueryCompilerVisitor).GetMethod(
+            "VisitMemberBindingExpression",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(
+            () => method.Invoke(visitor, new object?[] { binding }));
+        Assert.IsType<Exception>(ex.InnerException);
+    }
+
+    [Fact]
     public void QueryCompilerVisitor_VisitMember_FieldInfo_ReturnsFieldValue()
     {
         ParameterExpression tupleParam = Expression.Parameter(typeof(ValueTuple<int>), "t");
@@ -1586,3 +1627,18 @@ public sealed class MatchingEnumerable<T> : IEnumerable<T>
     public IEnumerator<T> GetEnumerator() => System.Linq.Enumerable.Empty<T>().GetEnumerator();
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }
+
+public sealed class NoArgWithMembersHolder
+{
+    public int Value { get; set; }
+}
+
+#pragma warning disable CS0618
+public sealed class InvalidMemberBinding : MemberBinding
+{
+    public InvalidMemberBinding(MemberInfo member)
+        : base((MemberBindingType)999, member)
+    {
+    }
+}
+#pragma warning restore CS0618
