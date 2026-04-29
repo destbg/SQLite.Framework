@@ -398,6 +398,162 @@ public class SchemaTests
         Assert.Equal("before-1-10", table.Single(e => e.TagId == 10).Note);
         Assert.Equal("after-1-20", table.Single(e => e.TagId == 20).Note);
     }
+
+    [Fact]
+    public void CreateTable_WithoutRowId_AppendsClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<WithoutRowIdEntity>();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'WithoutRowIdEntity'");
+        Assert.Contains("WITHOUT ROWID", sql);
+    }
+
+    [Fact]
+    public void CreateIndex_OverIntColumn_UnwrapsConvert()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        db.Schema.CreateIndex<Book>(b => b.AuthorId, name: "IX_Boxed_Author");
+
+        Assert.True(db.Schema.IndexExists("IX_Boxed_Author"));
+    }
+
+    [Fact]
+    public void CreateIndex_NotMemberAccess_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.CreateIndex<Book>(b => b.AuthorId + 1));
+    }
+
+    [Fact]
+    public void CreateIndex_UnknownProperty_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.CreateIndex<Book>(b => b.Title.Length));
+    }
+
+    [Fact]
+    public void DropTable_FtsTableWithTriggers_DropsTriggersThenTable()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ArticleSearch>();
+
+        Assert.True(db.Schema.TableExists<ArticleSearch>());
+        Assert.Contains("ArticleSearch_sync_ai", db.Query<string>(
+            "SELECT name FROM sqlite_master WHERE type = 'trigger'"));
+
+        db.Schema.DropTable<ArticleSearch>();
+
+        Assert.False(db.Schema.TableExists<ArticleSearch>());
+        Assert.DoesNotContain("ArticleSearch_sync_ai", db.Query<string>(
+            "SELECT name FROM sqlite_master WHERE type = 'trigger'"));
+    }
+
+    [Fact]
+    public void CreateTable_FtsContentless_EmitsContentClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<ContentlessSearch>();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ContentlessSearch'");
+        Assert.Contains("content=''", sql);
+    }
+
+    [Fact]
+    public void CreateTable_FtsWithPrefix_EmitsPrefixClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<PrefixSearch>();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'PrefixSearch'");
+        Assert.Contains("prefix='2 3'", sql);
+    }
+
+    [Fact]
+    public void CreateTable_FtsWithExplicitRowIdColumn_UsesIt()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+        db.Schema.CreateTable<ExplicitRowIdSearch>();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ExplicitRowIdSearch'");
+        Assert.Contains("content_rowid='Id'", sql);
+    }
+
+    [Fact]
+    public void CreateTable_FtsWithCompositePkSource_Throws()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<CompositeKeyEntity>();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.CreateTable<CompositePkFtsSearch>());
+        Assert.Contains("more than one primary key", ex.Message);
+    }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("ContentlessSearch")]
+[SQLite.Framework.Attributes.FullTextSearch(ContentMode = SQLite.Framework.Enums.FtsContentMode.Contentless)]
+file class ContentlessSearch
+{
+    [SQLite.Framework.Attributes.FullTextRowId]
+    public int Id { get; set; }
+
+    [SQLite.Framework.Attributes.FullTextIndexed]
+    public required string Body { get; set; }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("PrefixSearch")]
+[SQLite.Framework.Attributes.FullTextSearch(ContentMode = SQLite.Framework.Enums.FtsContentMode.Internal, Prefix = "2 3")]
+file class PrefixSearch
+{
+    [SQLite.Framework.Attributes.FullTextRowId]
+    public int Id { get; set; }
+
+    [SQLite.Framework.Attributes.FullTextIndexed]
+    public required string Body { get; set; }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("ExplicitRowIdSearch")]
+[SQLite.Framework.Attributes.FullTextSearch(
+    ContentMode = SQLite.Framework.Enums.FtsContentMode.External,
+    ContentTable = typeof(SQLite.Framework.Tests.Entities.Article),
+    ContentRowIdColumn = "Id",
+    AutoSync = SQLite.Framework.Enums.FtsAutoSync.Manual)]
+file class ExplicitRowIdSearch
+{
+    [SQLite.Framework.Attributes.FullTextRowId]
+    public int Id { get; set; }
+
+    [SQLite.Framework.Attributes.FullTextIndexed]
+    public required string Title { get; set; }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("CompositePkFtsSearch")]
+[SQLite.Framework.Attributes.FullTextSearch(
+    ContentMode = SQLite.Framework.Enums.FtsContentMode.External,
+    ContentTable = typeof(CompositeKeyEntity),
+    AutoSync = SQLite.Framework.Enums.FtsAutoSync.Manual)]
+file class CompositePkFtsSearch
+{
+    [SQLite.Framework.Attributes.FullTextRowId]
+    public int Id { get; set; }
+
+    [SQLite.Framework.Attributes.FullTextIndexed]
+    public required string Note { get; set; }
 }
 
 [System.ComponentModel.DataAnnotations.Schema.Table("CompositeKeyEntity")]

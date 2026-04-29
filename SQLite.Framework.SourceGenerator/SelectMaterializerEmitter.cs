@@ -296,6 +296,11 @@ internal static class SelectMaterializerEmitter
                     return false;
                 }
 
+                if (IsSqlOnlyCallable(method))
+                {
+                    return false;
+                }
+
                 bool expand = !IsFrameworkTranslatedMethod(method);
                 if (expand)
                 {
@@ -422,6 +427,16 @@ internal static class SelectMaterializerEmitter
         string? ns = method.ContainingType?.ContainingNamespace?.ToDisplayString();
         return declType is "System.Linq.Queryable" or "System.Linq.Enumerable"
             || ns == "SQLite.Framework.Extensions";
+    }
+
+    internal static bool IsSqlOnlyCallable(IMethodSymbol method)
+    {
+        string? declType = method.ContainingType?.ToDisplayString();
+        return declType is "SQLite.Framework.SQLiteFunctions"
+            or "SQLite.Framework.SQLiteFTS5Functions"
+            or "SQLite.Framework.SQLiteJsonFunctions"
+            or "SQLite.Framework.SQLiteWindowFunctions"
+            or "SQLite.Framework.SQLiteFrameBoundary";
     }
 
     private static string? RewriteBody(ExpressionSyntax expression, EmitContext ctx)

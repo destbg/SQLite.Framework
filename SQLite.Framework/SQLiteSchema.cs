@@ -448,7 +448,7 @@ public class SQLiteSchema
 
         if (pks.Length > 1)
         {
-            throw new InvalidOperationException($"FTS5 entity '{mapping.Type.Name}' targets '{sourceType.Name}' which has a composite primary key. Set ContentRowIdColumn on [FullTextSearch] to pick the rowid column explicitly.");
+            throw new InvalidOperationException($"FTS5 entity '{mapping.Type.Name}' targets '{sourceType.Name}' which has more than one primary key column. Set ContentRowIdColumn on [FullTextSearch] to choose the rowid column.");
         }
 
         throw new InvalidOperationException($"FTS5 entity '{mapping.Type.Name}' targets '{sourceType.Name}' but the source has no [Key] property. Mark the primary key with [Key] or set ContentRowIdColumn on [FullTextSearch].");

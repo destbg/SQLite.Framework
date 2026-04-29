@@ -86,8 +86,16 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     {
         if (mapping.IsFullTextSearch)
         {
-            throw new InvalidOperationException("FTS5 tables cannot be created through the fluent builder. Use.Table<T>().Schema.CreateTable() instead.");
+            if (computed.Count > 0 || checks.Count > 0 || indexes.Count > 0)
+            {
+                throw new InvalidOperationException($"FTS5 entity '{typeof(T).Name}' does not support Computed, Check, or Index from the fluent builder. Remove those calls.");
+            }
+
+            return database.Schema.CreateTable<T>();
         }
+
+        TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
+        bool hasCompositePrimaryKey = primaryKeyColumns.Length > 1;
 
         StringBuilder sb = new();
         sb.Append("CREATE TABLE IF NOT EXISTS \"");
@@ -113,8 +121,21 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             }
             else
             {
-                sb.Append(col.GetCreateColumnSql());
+                sb.Append(col.GetCreateColumnSql(!hasCompositePrimaryKey));
             }
+        }
+
+        if (hasCompositePrimaryKey)
+        {
+            sb.Append(", PRIMARY KEY (");
+            for (int i = 0; i < primaryKeyColumns.Length; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append('"');
+                sb.Append(primaryKeyColumns[i].Name);
+                sb.Append('"');
+            }
+            sb.Append(')');
         }
 
         foreach (CheckConstraintSpec check in checks)

@@ -22,7 +22,7 @@ public class AppDatabase : SQLiteDatabase
     public SQLiteTable<ProjectsTags> ProjectsTags => Table<ProjectsTags>();
 
     /// <summary>
-    /// Creates every table referenced by the app. Idempotent — call from app startup.
+    /// Creates every table the app uses. Safe to call again, it does nothing on existing tables.
     /// </summary>
     public void EnsureSchema()
     {

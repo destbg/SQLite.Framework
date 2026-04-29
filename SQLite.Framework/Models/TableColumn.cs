@@ -87,8 +87,8 @@ public class TableColumn
     /// Gets the SQL statement to create the column in the database.
     /// </summary>
     /// <param name="emitInlinePrimaryKey">
-    /// When false, the inline <c>PRIMARY KEY</c> / <c>AUTOINCREMENT</c> clause is omitted so that
-    /// a composite key can be declared as a table-level <c>PRIMARY KEY (col1, col2)</c> constraint.
+    /// When false, do not emit inline <c>PRIMARY KEY</c> or <c>AUTOINCREMENT</c>. The caller is
+    /// expected to add a table-level <c>PRIMARY KEY (col1, col2)</c> for a composite key.
     /// </param>
     public string GetCreateColumnSql(bool emitInlinePrimaryKey = true)
     {

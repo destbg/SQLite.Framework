@@ -1,4 +1,6 @@
+using System.Reflection;
 using SQLite.Framework.Extensions;
+using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
@@ -68,13 +70,14 @@ public class SQLiteTableBuilderTests
     }
 
     [Fact]
-    public void Builder_FtsTable_ThrowsInvalidOperation()
+    public void Builder_FtsTable_DelegatesToSchema()
     {
         using TestDatabase db = new();
         db.Table<Article>().Schema.CreateTable();
 
-        Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.Table<ArticleSearch>().CreateTable());
+        db.Schema.Table<ArticleSearch>().CreateTable();
+
+        Assert.True(db.Schema.TableExists<ArticleSearch>());
     }
 
     [Fact]
@@ -269,4 +272,180 @@ public class SQLiteTableBuilderTests
         Assert.Contains("CONSTRAINT", sql);
         Assert.Contains("CK_Builder_Price", sql);
     }
+
+    [Fact]
+    public void Builder_FtsTable_WithComputedExtras_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Article>().Schema.CreateTable();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.Table<ArticleSearch>()
+                .Computed(a => a.Title, a => a.Title)
+                .CreateTable());
+        Assert.Contains("ArticleSearch", ex.Message);
+    }
+
+    [Fact]
+    public void Builder_FtsTable_WithCheckExtras_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Article>().Schema.CreateTable();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.Table<ArticleSearch>()
+                .Check(a => a.Title != "")
+                .CreateTable());
+    }
+
+    [Fact]
+    public void Builder_FtsTable_WithIndexExtras_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Article>().Schema.CreateTable();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.Table<ArticleSearch>()
+                .Index(a => a.Title)
+                .CreateTable());
+    }
+
+    [Fact]
+    public void Builder_Index_NotMemberAccess_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<BookArchive>().Index<int>(b => b.Id + 1));
+    }
+
+    [Fact]
+    public void Builder_Index_UnknownProperty_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<BookArchive>().Index(b => b.Title.Length));
+    }
+
+    [Fact]
+    public void Builder_Computed_NotMemberAccess_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<ProductLine>().Computed(p => p.Total + p.Price, p => p.Total));
+    }
+
+    [Fact]
+    public void Builder_Index_DefaultName_UsesIdxConvention()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.AuthorId)
+            .CreateTable();
+
+        Assert.Contains("idx_BooksArchive_BookAuthorId", db.Schema.ListIndexes("BooksArchive"));
+    }
+
+    [Fact]
+    public void Builder_Index_PartialFilter_EmitsWhereClause()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.Title, name: "IX_Partial", filter: b => b.Price > 0)
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Partial'");
+        Assert.Contains("WHERE", indexSql);
+        Assert.Contains("BookPrice", indexSql);
+    }
+
+    [Fact]
+    public void Builder_Computed_DefaultStored_IsVirtual()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<ProductLine>()
+            .Computed(p => p.Total, p => p.Price * p.Quantity)
+            .CreateTable();
+
+        string tableSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ProductLines'");
+        Assert.Contains("VIRTUAL", tableSql);
+        Assert.DoesNotContain("STORED", tableSql);
+    }
+
+    [Fact]
+    public void Builder_Check_NullCompare_NoParameters_RoundTrips()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Check(b => b.Title != null)
+            .CreateTable();
+
+        Assert.True(db.Schema.TableExists<BookArchive>());
+    }
+
+    [Fact]
+    public void FormatLiteral_AllSupportedTypes_RenderExpected()
+    {
+        Assert.Equal("NULL", InvokeFormatLiteral(null));
+        Assert.Equal("1", InvokeFormatLiteral(true));
+        Assert.Equal("0", InvokeFormatLiteral(false));
+        Assert.Equal("'a''b'", InvokeFormatLiteral("a'b"));
+        Assert.Equal("5", InvokeFormatLiteral((byte)5));
+        Assert.Equal("-5", InvokeFormatLiteral((sbyte)-5));
+        Assert.Equal("100", InvokeFormatLiteral((short)100));
+        Assert.Equal("100", InvokeFormatLiteral((ushort)100));
+        Assert.Equal("123", InvokeFormatLiteral(123));
+        Assert.Equal("123", InvokeFormatLiteral(123u));
+        Assert.Equal("123", InvokeFormatLiteral(123L));
+        Assert.Equal("123", InvokeFormatLiteral(123UL));
+        Assert.Equal("1.5", InvokeFormatLiteral(1.5f));
+        Assert.Equal("1.5", InvokeFormatLiteral(1.5));
+        Assert.Equal("1.5", InvokeFormatLiteral(1.5m));
+    }
+
+    [Fact]
+    public void FormatLiteral_UnsupportedType_ThrowsNotSupported()
+    {
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            InvokeFormatLiteral(Guid.NewGuid()));
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void Builder_CompositePrimaryKey_EmitsTableLevelConstraint()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BuilderCompositeKeyEntity>()
+            .Check(e => e.ProjectId > 0)
+            .CreateTable();
+
+        IReadOnlyList<SQLite.Framework.Models.SchemaColumnInfo> columns =
+            db.Schema.ListColumns("BuilderCompositeKeyEntity");
+        Assert.Equal(2, columns.Count(c => c.IsPrimaryKey));
+        Assert.Contains(columns, c => c.Name == "ProjectId" && c.IsPrimaryKey);
+        Assert.Contains(columns, c => c.Name == "TagId" && c.IsPrimaryKey);
+    }
+
+    private static string InvokeFormatLiteral(object? value)
+    {
+        MethodInfo method = typeof(SQLiteTableBuilder<BookArchive>)
+            .GetMethod("FormatLiteral", BindingFlags.Static | BindingFlags.NonPublic)!;
+        return (string)method.Invoke(null, new[] { value })!;
+    }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("BuilderCompositeKeyEntity")]
+file class BuilderCompositeKeyEntity
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    public int ProjectId { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Key]
+    public int TagId { get; set; }
 }
