@@ -72,7 +72,7 @@ Head-to-head against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQ
 | **SQLite.Framework + SourceGenerator** | **75.2 μs** | **36.7 KB** | **0.66** |
 | EF Core 10 | 95.3 μs | 61.9 KB | 0.84 |
 | SQLite.Framework (reflection path) | 115.1 μs | 55.8 KB | 1.00 |
-| sqlite-net-pcl[^1] | 404.1 μs | 155.4 KB | 3.54 |
+| sqlite-net-pcl | 404.1 μs | 155.4 KB | 3.54 |
 
 sqlite-net-pcl's `TableQuery<T>` is `IEnumerable<T>`, not `IQueryable<T>`, so the LINQ join binds to `Enumerable.Join`. The whole `Books` and `Authors` tables load into memory before the filter and join run client-side.
 
