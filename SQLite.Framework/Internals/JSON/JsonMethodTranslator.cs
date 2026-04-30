@@ -8,6 +8,18 @@ namespace SQLite.Framework.Internals.JSON;
 /// </summary>
 internal static class JsonMethodTranslator
 {
+    private static readonly HashSet<string> ArrayLambdaMethodNames =
+    [
+        nameof(Array.Exists),
+        nameof(Array.Find),
+        nameof(Array.FindAll),
+        nameof(Array.FindIndex),
+        nameof(Array.FindLast),
+        nameof(Array.FindLastIndex),
+        nameof(Array.TrueForAll),
+        nameof(Array.ConvertAll),
+    ];
+
     public static Expression? TryHandle(MethodCallExpression node, SQLVisitor visitor)
     {
         Type declaring = node.Method.DeclaringType!;
@@ -76,10 +88,10 @@ internal static class JsonMethodTranslator
         if (node.Arguments.Count == 2)
         {
             ResolvedModel arg = visitor.ResolveExpression(node.Arguments[1]);
-            string argSql = arg.Sql ?? string.Empty;
+            string argSql = arg.Sql!;
             SQLiteParameter[]? combined = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
-                arg.SQLiteExpression ?? source.SQLiteExpression);
+                arg.SQLiteExpression!);
 
             string? sql = node.Method.Name switch
             {
@@ -109,7 +121,7 @@ internal static class JsonMethodTranslator
             ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
-                arg.SQLiteExpression ?? source.SQLiteExpression);
+                arg.SQLiteExpression!);
             return new SQLiteExpression(typeof(bool), visitor.Counters.IdentifierIndex++,
                 $"EXISTS (SELECT 1 FROM json_each({src}) WHERE value = {arg.Sql})",
                 parameters)
@@ -121,7 +133,7 @@ internal static class JsonMethodTranslator
             ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
-                arg.SQLiteExpression ?? source.SQLiteExpression);
+                arg.SQLiteExpression!);
             return new SQLiteExpression(typeof(int), visitor.Counters.IdentifierIndex++,
                 $"COALESCE((SELECT key FROM json_each({src}) WHERE value = {arg.Sql} LIMIT 1), -1)",
                 parameters)
@@ -133,7 +145,7 @@ internal static class JsonMethodTranslator
             ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
-                arg.SQLiteExpression ?? source.SQLiteExpression);
+                arg.SQLiteExpression!);
             return new SQLiteExpression(typeof(int), visitor.Counters.IdentifierIndex++,
                 $"COALESCE((SELECT key FROM json_each({src}) WHERE value = {arg.Sql} ORDER BY key DESC LIMIT 1), -1)",
                 parameters)
@@ -227,16 +239,7 @@ internal static class JsonMethodTranslator
         if (node.Arguments.Count == 2 && node.Arguments[1] is Expression secondArg)
         {
             Expression stripped = ExpressionHelpers.StripQuotes(secondArg);
-            if (stripped is LambdaExpression lambda
-                && node.Method.Name is
-                    nameof(Array.Exists)
-                    or nameof(Array.Find)
-                    or nameof(Array.FindAll)
-                    or nameof(Array.FindIndex)
-                    or nameof(Array.FindLast)
-                    or nameof(Array.FindLastIndex)
-                    or nameof(Array.TrueForAll)
-                    or nameof(Array.ConvertAll))
+            if (stripped is LambdaExpression lambda && ArrayLambdaMethodNames.Contains(node.Method.Name))
             {
                 (string predSql, SQLiteParameter[]? predParams) = VisitElementLambda(visitor, lambda);
                 SQLiteParameter[]? combined = CombineAll(source.SQLiteExpression, predParams == null ? null : new SQLiteExpression(typeof(object), -1, "", predParams) { IsJsonSource = true });
@@ -270,10 +273,10 @@ internal static class JsonMethodTranslator
             }
 
             ResolvedModel arg = visitor.ResolveExpression(secondArg);
-            string argSql = arg.Sql ?? string.Empty;
+            string argSql = arg.Sql!;
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
-                arg.SQLiteExpression ?? source.SQLiteExpression);
+                arg.SQLiteExpression!);
 
             return node.Method.Name switch
             {
@@ -304,7 +307,7 @@ internal static class JsonMethodTranslator
         else
         {
             bindings = new Dictionary<string, Expression>();
-            RegisterProperties(elementType, string.Empty, "value", bindings);
+            RegisterProperties(elementType, "value", bindings);
         }
 
         visitor.MethodArguments[param] = bindings;
@@ -325,13 +328,12 @@ internal static class JsonMethodTranslator
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
-    private static void RegisterProperties(Type type, string prefix, string valueSql, Dictionary<string, Expression> dict)
+    private static void RegisterProperties(Type type, string valueSql, Dictionary<string, Expression> dict)
     {
         foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            string dictKey = string.IsNullOrEmpty(prefix) ? prop.Name : $"{prefix}.{prop.Name}";
-            string sql = $"json_extract({valueSql}, '$.{dictKey}')";
-            dict[dictKey] = new SQLiteExpression(prop.PropertyType, -1, sql, (SQLiteParameter[]?)null) { IsJsonSource = true };
+            string sql = $"json_extract({valueSql}, '$.{prop.Name}')";
+            dict[prop.Name] = new SQLiteExpression(prop.PropertyType, -1, sql, (SQLiteParameter[]?)null) { IsJsonSource = true };
         }
     }
 

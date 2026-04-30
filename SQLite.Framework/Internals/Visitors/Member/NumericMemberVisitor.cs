@@ -46,7 +46,7 @@ internal static class NumericMemberVisitor
             );
         }
 
-        throw new NotSupportedException($"{node.Method.DeclaringType?.Name}.{node.Method.Name} is not translatable to SQL.");
+        throw new NotSupportedException($"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");
     }
 
     public static Expression HandleFloatingPointMethod(SQLiteCallerContext ctx)
@@ -93,6 +93,6 @@ internal static class NumericMemberVisitor
             );
         }
 
-        throw new NotSupportedException($"{node.Method.DeclaringType?.Name}.{node.Method.Name} is not translatable to SQL.");
+        throw new NotSupportedException($"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");
     }
 }

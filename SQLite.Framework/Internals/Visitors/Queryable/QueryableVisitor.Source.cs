@@ -64,9 +64,7 @@ internal partial class QueryableVisitor
 
         string selectList = string.Join(", ", paramPlaceholders.Select((p, i) => $"{p} AS \"{columnNames[i]}\""));
         string valuesSql = $"(SELECT {selectList}) AS {alias}";
-        SQLiteParameter[]? parameters = sqlParams.Count == 0 ? null : [.. sqlParams];
-
-        SQLiteExpression fromExpression = new(genericType, -1, valuesSql, parameters);
+        SQLiteExpression fromExpression = new(genericType, -1, valuesSql, sqlParams.ToArray());
         Dictionary<string, Expression> columns = columnNames
             .ToDictionary(
                 col => col == "column__1" ? string.Empty : col, Expression (col) => new SQLiteExpression(

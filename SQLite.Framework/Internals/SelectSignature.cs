@@ -132,23 +132,24 @@ internal static class SelectSignature
     private static void AppendBinding(StringBuilder sb, MemberBinding binding)
     {
         sb.Append(' ').Append(binding.BindingType).Append(':').Append(binding.Member.Name);
-        switch (binding)
+        if (binding is MemberAssignment ma)
         {
-            case MemberAssignment ma:
-                sb.Append('=');
-                AppendSignature(sb, ma.Expression);
-                break;
-            case MemberListBinding mlb:
-                AppendInitializers(sb, mlb.Initializers);
-                break;
-            case MemberMemberBinding mmb:
-                sb.Append("={");
-                foreach (MemberBinding sub in mmb.Bindings)
-                {
-                    AppendBinding(sb, sub);
-                }
-                sb.Append('}');
-                break;
+            sb.Append('=');
+            AppendSignature(sb, ma.Expression);
+        }
+        else if (binding is MemberListBinding mlb)
+        {
+            AppendInitializers(sb, mlb.Initializers);
+        }
+        else
+        {
+            MemberMemberBinding mmb = (MemberMemberBinding)binding;
+            sb.Append("={");
+            foreach (MemberBinding sub in mmb.Bindings)
+            {
+                AppendBinding(sb, sub);
+            }
+            sb.Append('}');
         }
     }
 

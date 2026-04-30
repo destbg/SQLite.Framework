@@ -25,7 +25,7 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
         }
 
         QueryFilterInjector injector = new(options);
-        return injector.Visit(source) ?? source;
+        return injector.Visit(source);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The element type comes from a SQLiteTable<T> instance whose type was preserved via DynamicallyAccessedMembers.")]
@@ -70,7 +70,7 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
             ignoreFilters = true;
             try
             {
-                return Visit(node.Arguments[0]) ?? node.Arguments[0];
+                return Visit(node.Arguments[0]);
             }
             finally
             {

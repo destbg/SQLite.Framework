@@ -54,7 +54,7 @@ internal class AliasVisitor
     {
         if (newExpression.Arguments.Count > 0)
         {
-            ConstructorInfo ctor = newExpression.Constructor ?? throw new NotSupportedException("Cannot translate new expression without constructor");
+            ConstructorInfo ctor = newExpression.Constructor!;
             ParameterInfo[] parameters = ctor.GetParameters();
 
             if (parameters.Length != newExpression.Arguments.Count)
@@ -69,7 +69,7 @@ internal class AliasVisitor
 
                 if (argument is ParameterExpression parameterExpression)
                 {
-                    string alias = CheckPrefix(prefix, parameter.Name ?? parameterExpression.Name!);
+                    string alias = CheckPrefix(prefix, parameter.Name!);
                     Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[parameterExpression];
 
                     foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
@@ -79,7 +79,7 @@ internal class AliasVisitor
                 }
                 else
                 {
-                    string alias = CheckPrefix(prefix, parameter.Name ?? "value");
+                    string alias = CheckPrefix(prefix, parameter.Name!);
                     SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
                     {
                         MethodArguments = visitor.MethodArguments

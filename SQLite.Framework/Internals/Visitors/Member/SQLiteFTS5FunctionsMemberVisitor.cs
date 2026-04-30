@@ -53,8 +53,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
 
         if (second.Type == typeof(string))
         {
-            object? value = ExpressionHelpers.GetConstantValue(second);
-            string queryString = (string)(value ?? string.Empty);
+            string queryString = (string)ExpressionHelpers.GetConstantValue(second)!;
             if (columnName != null)
             {
                 queryString = "{" + columnName + "} : " + queryString;

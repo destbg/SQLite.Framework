@@ -155,7 +155,7 @@ internal partial class QueryableVisitor
                         string finalName = $"cte{visitor.CteRegistry.Ctes.Count}";
                         string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
 
-                        cteName = visitor.CteRegistry.Register(fixedSql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: true, key: cte);
+                        cteName = visitor.CteRegistry.Register(fixedSql, bodyQuery.Parameters.ToArray(), isRecursive: true, key: cte);
 
                         visitor.CteParameters.Remove(selfParam);
                         visitor.MethodArguments.Remove(selfParam);
@@ -165,7 +165,7 @@ internal partial class QueryableVisitor
                         SQLTranslator bodyTranslator = visitor.CloneDeeper(visitor.Level + 1);
                         SQLQuery bodyQuery = bodyTranslator.Translate(lambda.Body);
 
-                        cteName = visitor.CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: false, key: cte);
+                        cteName = visitor.CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.ToArray(), isRecursive: false, key: cte);
                     }
                 }
 
@@ -187,7 +187,7 @@ internal partial class QueryableVisitor
             }
             else
             {
-                throw new NotSupportedException($"The type {innerValue?.GetType().Name} is not supported in join.");
+                throw new NotSupportedException($"The type {innerValue!.GetType().Name} is not supported in join.");
             }
         }
         else if (body is ParameterExpression paramBody && visitor.CteParameters.TryGetValue(paramBody, out (string Alias, Dictionary<string, Expression> Columns) cteParamRef))

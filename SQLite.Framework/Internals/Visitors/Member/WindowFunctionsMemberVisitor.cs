@@ -28,12 +28,12 @@ internal static class WindowFunctionsMemberVisitor
             case nameof(SQLiteFrameBoundary.Preceding):
             {
                 ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
-                return new SQLiteExpression(node.Type, visitor.Counters.IdentifierIndex++, $"{arg.Sql} PRECEDING", arg.SQLiteExpression?.Parameters);
+                return new SQLiteExpression(node.Type, visitor.Counters.IdentifierIndex++, $"{arg.Sql} PRECEDING", arg.SQLiteExpression!.Parameters);
             }
             case nameof(SQLiteFrameBoundary.Following):
             {
                 ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
-                return new SQLiteExpression(node.Type, visitor.Counters.IdentifierIndex++, $"{arg.Sql} FOLLOWING", arg.SQLiteExpression?.Parameters);
+                return new SQLiteExpression(node.Type, visitor.Counters.IdentifierIndex++, $"{arg.Sql} FOLLOWING", arg.SQLiteExpression!.Parameters);
             }
             default:
                 throw new NotSupportedException($"SQLiteFrameBoundary.{node.Method.Name} is not translatable to SQL.");

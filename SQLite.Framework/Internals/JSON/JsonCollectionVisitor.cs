@@ -2,6 +2,14 @@ namespace SQLite.Framework.Internals.JSON;
 
 internal partial class JsonCollectionVisitor
 {
+    private static readonly HashSet<string> ImplicitlyChainedNames =
+    [
+        nameof(Enumerable.ThenBy),
+        nameof(Enumerable.ThenByDescending),
+        nameof(Enumerable.GroupBy),
+        nameof(Enumerable.SelectMany),
+    ];
+
     private static readonly HashSet<string> CollectionMethods =
     [
         nameof(Enumerable.Where),
@@ -178,7 +186,7 @@ internal partial class JsonCollectionVisitor
 
     private void AddParameters(ResolvedModel model)
     {
-        if (model.SQLiteExpression?.Parameters != null)
+        if (model.SQLiteExpression!.Parameters != null)
         {
             parameters.AddRange(model.SQLiteExpression.Parameters);
         }
@@ -197,9 +205,7 @@ internal partial class JsonCollectionVisitor
             && CollectionMethods.Contains(innerCall.Method.Name);
         bool takesPredicate = node.Arguments.Count >= 2;
 
-        return hasInnerChainCall || takesPredicate
-            || node.Method.Name is nameof(Enumerable.ThenBy) or nameof(Enumerable.ThenByDescending)
-            or nameof(Enumerable.GroupBy) or nameof(Enumerable.SelectMany);
+        return hasInnerChainCall || takesPredicate || ImplicitlyChainedNames.Contains(node.Method.Name);
     }
 
     private static Expression UnwindChain(MethodCallExpression node, List<MethodCallExpression> chain)

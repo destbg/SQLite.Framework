@@ -36,7 +36,7 @@ public class SQLitePragmas
     /// </summary>
     public virtual string JournalMode
     {
-        get => Database.ExecuteScalar<string>("PRAGMA journal_mode") ?? "delete";
+        get => Database.ExecuteScalar<string>("PRAGMA journal_mode")!;
         set => Database.ExecuteScalar<string>($"PRAGMA journal_mode = {value}");
     }
 

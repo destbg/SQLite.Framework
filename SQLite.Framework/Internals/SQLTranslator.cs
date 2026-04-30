@@ -291,7 +291,7 @@ internal class SQLTranslator
         Func<SQLiteQueryContext, object?>? generatedAnon = null;
         bool hasReflectedArg = queryableMethodVisitor.LastSelectLambdaBody is NewExpression ne
             && ne.Type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
-            && ne.Arguments.Any(a => !a.Type.IsVisible || (a.Type.DeclaringType != null && !a.Type.DeclaringType.IsVisible));
+            && ne.Arguments.Any(a => !a.Type.IsVisible);
 
         if (hasReflectedArg
             && rawSignature2 != null

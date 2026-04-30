@@ -820,13 +820,20 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         SQLiteResult beginResult = (SQLiteResult)raw.sqlite3_step(stmt);
         raw.sqlite3_finalize(stmt);
 
-        if (beginResult != SQLiteResult.Done)
+        ThrowIfBeginFailed(handle, beginResult);
+        return handle;
+    }
+
+    [ExcludeFromCodeCoverage]
+    private static void ThrowIfBeginFailed(sqlite3 handle, SQLiteResult beginResult)
+    {
+        if (beginResult == SQLiteResult.Done)
         {
-            raw.sqlite3_close(handle);
-            throw new SQLiteException(beginResult, "Failed to begin transaction", null);
+            return;
         }
 
-        return handle;
+        raw.sqlite3_close(handle);
+        throw new SQLiteException(beginResult, "Failed to begin transaction", null);
     }
 
     internal void CommitOwnedConnection(sqlite3 handle)

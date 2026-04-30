@@ -156,7 +156,7 @@ internal static class BuildQueryObject
     private static bool IsAnonymousType(Type type)
     {
         bool hasAttr = type.GetCustomAttributes(typeof(CompilerGeneratedAttribute), false).Length != 0;
-        bool nameOk = type.FullName?.Contains("AnonymousType") ?? false;
+        bool nameOk = type.FullName!.Contains("AnonymousType");
         return hasAttr && nameOk;
     }
 }

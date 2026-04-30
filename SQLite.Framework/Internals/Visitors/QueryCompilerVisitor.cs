@@ -84,7 +84,6 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 ExpressionType.GreaterThanOrEqual => CompareValues(leftValue, rightValue) >= 0,
                 ExpressionType.LessThan => CompareValues(leftValue, rightValue) < 0,
                 ExpressionType.LessThanOrEqual => CompareValues(leftValue, rightValue) <= 0,
-                ExpressionType.Add when leftValue is string sl && rightValue is string sr => sl + sr,
                 ExpressionType.Add => InvokeOperator(BinaryAdditionOperator, leftValue!, rightValue!),
                 ExpressionType.Subtract => InvokeOperator(BinarySubtractionOperator, leftValue!, rightValue!),
                 ExpressionType.Multiply => InvokeOperator(BinaryMultiplyOperator, leftValue!, rightValue!),

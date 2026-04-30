@@ -28,7 +28,7 @@ internal sealed class RowParameterExpander : ExpressionVisitor
             }
             else
             {
-                newArgs[i] = Visit(arg) ?? arg;
+                newArgs[i] = Visit(arg);
             }
         }
 
@@ -62,7 +62,7 @@ internal sealed class RowParameterExpander : ExpressionVisitor
         }
 
         RowParameterExpander expander = new(set);
-        Expression body = expander.Visit(lambda.Body) ?? lambda.Body;
+        Expression body = expander.Visit(lambda.Body);
         return body == lambda.Body ? lambda : Expression.Lambda(body, lambda.Parameters);
     }
 
