@@ -185,7 +185,7 @@ var options = new SQLiteOptionsBuilder("app.db")
 
 The generator writes the row-to-object code at build time, so the trimmer keeps every type used in a `Select` and there's no per-query reflection. The `UseGeneratedMaterializers` extension is generated `internal` per project, so each project that builds queries needs its own reference.
 
-Without the generator, the library still runs under AOT but uses reflection for queries. Make sure the model classes are reachable from the entry assembly so the trimmer keeps them. Full setup on the [Source Generator](https://github.com/destbg/SQLite.Framework/wiki/Source-Generator) and [Native AOT](https://github.com/destbg/SQLite.Framework/wiki/Native-AOT) pages.
+Without the generator, the library still runs under AOT but uses reflection for queries. Make sure the model classes are reachable from the entry assembly so the trimmer keeps them. Full setup on the [Source Generator](https://destbg.github.io/SQLite.Framework/#/Source%20Generator) and [Native AOT](https://destbg.github.io/SQLite.Framework/#/Native%20AOT) pages.
 
 ## Contributing
 
