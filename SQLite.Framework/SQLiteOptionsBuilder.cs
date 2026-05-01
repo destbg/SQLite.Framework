@@ -161,6 +161,14 @@ public sealed class SQLiteOptionsBuilder
     public bool ReflectionFallbackDisabled { get; set; }
 
     /// <summary>
+    /// When <see langword="true" />, the <c>Add</c> family of methods uses the value already set on
+    /// an <c>[AutoIncrement]</c> primary key when that value is not the type default. Defaults to
+    /// <see langword="false" />. Set this to <see langword="true" /> to match Entity Framework
+    /// Core's <c>Add</c> behavior.
+    /// </summary>
+    public bool ExplicitAutoIncrementKeysPreserved { get; set; }
+
+    /// <summary>
     /// Per-entity hooks that fire before <c>Add</c>. Mutate the entity here for things like an
     /// audit timestamp.
     /// </summary>
@@ -501,6 +509,17 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Makes the <c>Add</c> family of methods use a non-default value already set on an
+    /// <c>[AutoIncrement]</c> primary key, matching Entity Framework Core's <c>Add</c> behavior.
+    /// When the value on the entity is the type default, SQLite still assigns a new key.
+    /// </summary>
+    public SQLiteOptionsBuilder PreserveExplicitAutoIncrementKeys(bool preserved = true)
+    {
+        ExplicitAutoIncrementKeysPreserved = preserved;
+        return this;
+    }
+
+    /// <summary>
     /// Sets a custom factory for <see cref="SQLiteDatabase.Pragmas" />. Use this to add more pragmas
     /// by passing a class that inherits from <see cref="SQLitePragmas" />.
     /// </summary>
@@ -554,6 +573,7 @@ public sealed class SQLiteOptionsBuilder
             GroupByKeyMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(GroupByKeyMaterializers),
             EntityWriters = new Dictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>>(EntityWriters),
             ReflectionFallbackDisabled = ReflectionFallbackDisabled,
+            ExplicitAutoIncrementKeysPreserved = ExplicitAutoIncrementKeysPreserved,
             AddHooks = SnapshotHooks(AddHooks),
             UpdateHooks = SnapshotHooks(UpdateHooks),
             RemoveHooks = SnapshotHooks(RemoveHooks),

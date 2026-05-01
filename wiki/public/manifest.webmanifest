@@ -1,0 +1,24 @@
+{
+    "name": "SQLite.Framework Docs",
+    "short_name": "SQLite.Framework",
+    "description": "Documentation for SQLite.Framework, a lightweight ORM for SQLite in .NET",
+    "start_url": "/SQLite.Framework/",
+    "scope": "/SQLite.Framework/",
+    "display": "standalone",
+    "background_color": "#0d1117",
+    "theme_color": "#0d1117",
+    "icons": [
+        {
+            "src": "sqlite.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "sqlite.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}

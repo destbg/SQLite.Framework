@@ -146,3 +146,28 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 | `Text` | TEXT | `"Active"` |
 
 `Text` stores the name of the enum value. This is more readable but takes more space than `Integer`.
+
+---
+
+## Auto-Increment Primary Keys
+
+| Property | Type | Default |
+|---|---|---|
+| `ExplicitAutoIncrementKeysPreserved` | `bool` | `false` |
+
+Controls how the `Add` family of methods (`Add`, `AddAsync`, `AddRange`, `AddRangeAsync`) handles the value already set on an `[AutoIncrement]` primary key.
+
+| Value | Behavior |
+|---|---|
+| `false` (default) | The value on the entity is always overwritten. SQLite assigns a new id and writes it back to the property. |
+| `true` | A non-default value (for example, `Id == 5`) is used directly. The row is inserted at that id, and a uniqueness error is thrown if it is already taken. A type-default value (`Id == 0`) still triggers SQLite to assign one. |
+
+Set this to `true` to match Entity Framework Core's `Add` behavior:
+
+```csharp
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .PreserveExplicitAutoIncrementKeys()
+    .Build();
+```
+
+This option only changes the `Add` family. `AddOrUpdate` already uses a non-default primary key when you set one, with or without the option. See [CRUD Operations](CRUD%20Operations) for the full breakdown and the [EF Core migration guide](Migrating%20from%20EF%20Core) for context on why you might want this.

@@ -18,42 +18,11 @@ var summaries = await db.Table<Book>()
     .ToListAsync();
 ```
 
-## Raw SQL as a Projection Workaround
-
-Because `sqlite-net-pcl` cannot project in SQL, a common pattern there is to write a raw SQL query that only selects the columns you need and map the result into a smaller class:
-
-```csharp
-// sqlite-net-pcl workaround
-var summaries = db.Query<BookSummary>("SELECT BookTitle AS Title, BookPrice AS Price FROM Books");
-```
-
-In `SQLite.Framework` you do not need this workaround. Use `Select` directly on the table:
-
-```csharp
-public class BookSummary
-{
-    public string Title { get; set; } = "";
-    public decimal Price { get; set; }
-}
-
-var summaries = await db.Table<Book>()
-    .Select(b => new BookSummary { Title = b.Title, Price = b.Price })
-    .ToListAsync();
-```
-
-Or use `FromSql` with a narrower type if you still prefer raw SQL:
-
-```csharp
-var summaries = await db.FromSql<BookSummary>(
-    "SELECT BookTitle AS Title, BookPrice AS Price FROM Books"
-).ToListAsync();
-```
-
 ## Migrating Existing Raw SQL Queries
 
 If you have raw SQL queries from `sqlite-net-pcl` that return fewer columns than the full model, `FromSql` will throw by default because it generates an outer `SELECT` that references every mapped column. You have two options:
 
-**Option 1** -> project into a smaller type that only declares the columns you select (recommended):
+**Option 1** -> project into a smaller type that only declares the columns you select:
 
 ```csharp
 public class BookSummary

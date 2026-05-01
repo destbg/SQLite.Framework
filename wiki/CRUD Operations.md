@@ -18,6 +18,8 @@ Uses `CREATE TABLE IF NOT EXISTS`, so it is safe to call on every startup. If yo
 
 ```csharp
 await db.Schema.DropTableAsync<Book>();
+// Or drop by name if you don't have the model class
+await db.Schema.DropTableAsync("Books");
 ```
 
 Uses `DROP TABLE IF EXISTS`.
@@ -26,10 +28,12 @@ Uses `DROP TABLE IF EXISTS`.
 
 ```csharp
 var book = new Book { Title = "Clean Code", AuthorId = 1, Price = 29.99m };
-await books.AddAsync(book);
+await db.Table<Book>().AddAsync(book);
 ```
 
-If the primary key has `[AutoIncrement]`, SQLite assigns the value and the property on your object is not updated. To get the new Id back you need a follow-up query.
+If the primary key has `[AutoIncrement]`, SQLite assigns the value and writes it back to the property on your object after the insert, so you can read the new id straight off `book.Id`. The same is true for `AddRangeAsync`, which sets the id on each entity in the list.
+
+`AddAsync` and `AddRangeAsync` always let SQLite assign the id when the primary key is `[AutoIncrement]`, even if you have already set a value on the property. The value you set is ignored and gets overwritten with the generated id. If you want to insert a row at a specific id, use `AddOrUpdateAsync` and set the id on the entity before calling it.
 
 ## Add Many
 
@@ -41,23 +45,25 @@ var newBooks = new List<Book>
     new() { Title = "Refactoring", AuthorId = 1, Price = 40.00m },
 };
 
-await books.AddRangeAsync(newBooks);
+await db.Table<Book>().AddRangeAsync(newBooks);
 ```
 
-`AddRangeAsync` wraps all inserts in a transaction by default for better performance. Pass `runInTransaction: false` if you want to add them one by one.
+`AddRangeAsync` wraps all inserts in a transaction by default for better performance. Pass `runInTransaction: false` if you want to add them one by one (which is much slower).
 
 ## Add or Update
 
 ```csharp
-await books.AddOrUpdateAsync(book);
+await db.Table<Book>().AddOrUpdateAsync(book);
 ```
 
 Uses `INSERT OR REPLACE`. If a row with the same primary key already exists it is replaced, otherwise a new row is inserted. This is useful when you want to sync data without checking whether a record already exists.
 
+When the primary key is `[AutoIncrement]`, the value you set on the object decides what happens. Leave it at its default (`0` for an `int` Id) and SQLite assigns a new id, which is then written back to the property. Set it to a non-default value and that id is used directly: an existing row with that id is replaced, or a new row is inserted at that id if none exists. The same applies to `AddOrUpdateRangeAsync`, which decides per entity in the list.
+
 ## Add or Update Many
 
 ```csharp
-await books.AddOrUpdateRangeAsync(newBooks);
+await db.Table<Book>().AddOrUpdateRangeAsync(newBooks);
 ```
 
 Same as `AddOrUpdateAsync` but for a collection. Runs in a transaction by default.
@@ -65,10 +71,10 @@ Same as `AddOrUpdateAsync` but for a collection. Runs in a transaction by defaul
 ## Update
 
 ```csharp
-var book = await books.FirstAsync(b => b.Id == 1);
+var book = await db.Table<Book>().FirstAsync(b => b.Id == 1);
 book.Price = 24.99m;
 
-await books.UpdateAsync(book);
+await db.Table<Book>().UpdateAsync(book);
 ```
 
 Update matches the row by primary key. Every other column is updated.
@@ -76,21 +82,33 @@ Update matches the row by primary key. Every other column is updated.
 ## Update Many
 
 ```csharp
-var list = await books.Where(b => b.AuthorId == 1).ToListAsync();
+var list = await db.Table<Book>().Where(b => b.AuthorId == 1).ToListAsync();
 
 foreach (var book in list)
     book.Price *= 0.9m;
 
-await books.UpdateRangeAsync(list);
+await db.Table<Book>().UpdateRangeAsync(list);
 ```
 
 Like `AddRangeAsync`, this runs in a transaction by default.
 
+## Execute Update with a predicate
+
+```csharp
+await db.Table<Book>()
+    .Where(b => b.Genre == "Fiction")
+    .ExecuteUpdateAsync(s => s
+        .Set(b => b.InStock, false)
+    );
+```
+
+Uses SQLite's `UPDATE ... SET ... WHERE ...` syntax to update rows matching the predicate without loading them into memory. The lambda specifies how to update each row, with access to the current values.
+
 ## Remove
 
 ```csharp
-var book = await books.FirstAsync(b => b.Id == 1);
-await books.RemoveAsync(book);
+var book = await db.Table<Book>().FirstAsync(b => b.Id == 1);
+await db.Table<Book>().RemoveAsync(book);
 ```
 
 The model must have a `[Key]` property, Remove matches the row by that key. To remove rows in tables without a `[Key]` property, see [Bulk Operations](Bulk%20Operations).
@@ -98,14 +116,24 @@ The model must have a `[Key]` property, Remove matches the row by that key. To r
 ## Remove Many
 
 ```csharp
-var toDelete = await books.Where(b => b.InStock == false).ToListAsync();
-await books.RemoveRangeAsync(toDelete);
+var toDelete = await db.Table<Book>().Where(b => b.InStock == false).ToListAsync();
+await db.Table<Book>().RemoveRangeAsync(toDelete);
 ```
+
+Like `AddRangeAsync`, this runs in a transaction by default.
+
+## Execute Remove with a predicate
+
+```csharp
+await db.Table<Book>().Where(b => b.InStock == false).ExecuteRemoveAsync();
+```
+
+Uses SQLite's `DELETE FROM ... WHERE ...` syntax to delete rows matching the predicate without loading them into memory.
 
 ## Clear All Rows
 
 ```csharp
-await books.ClearAsync();
+await db.Table<Book>().ClearAsync();
 ```
 
 Deletes every row in the table. The table itself does not get deleted, for that use `db.Schema.DropTableAsync<T>()`.
@@ -115,15 +143,15 @@ Deletes every row in the table. The table itself does not get deleted, for that 
 Every method above has a synchronous version without the `Async` suffix:
 
 ```csharp
-books.Add(book);
-books.AddRange(newBooks);
-books.AddOrUpdate(book);
-books.AddOrUpdateRange(newBooks);
-books.Update(book);
-books.UpdateRange(list);
-books.Remove(book);
-books.RemoveRange(toDelete);
-books.Clear();
+db.Table<Book>().Add(book);
+db.Table<Book>().AddRange(newBooks);
+db.Table<Book>().AddOrUpdate(book);
+db.Table<Book>().AddOrUpdateRange(newBooks);
+db.Table<Book>().Update(book);
+db.Table<Book>().UpdateRange(list);
+db.Table<Book>().Remove(book);
+db.Table<Book>().RemoveRange(toDelete);
+db.Table<Book>().Clear();
 db.Table<Book>().Schema.CreateTable();
 db.Schema.DropTable<Book>();
 ```
@@ -134,10 +162,10 @@ db.Schema.DropTable<Book>();
 
 ```csharp
 // Add the book, but if a row with the same primary key already exists, keep the old one.
-books.AddOrUpdate(book, SQLiteConflict.Ignore);
+db.Table<Book>().AddOrUpdate(book, SQLiteConflict.Ignore);
 
 // Add the book, fail loudly on conflict.
-books.AddOrUpdate(book, SQLiteConflict.Abort);
+db.Table<Book>().AddOrUpdate(book, SQLiteConflict.Abort);
 ```
 
 The values map directly to SQLite's clauses: `Replace` (default), `Ignore`, `Abort`, `Fail`, `Rollback`. `AddOrUpdateRange` takes the same parameter.
@@ -148,16 +176,16 @@ Use `Upsert` for SQLite's richer `ON CONFLICT (...) DO UPDATE` upsert syntax. Pi
 
 ```csharp
 // Do nothing if a row with the same Id is already there.
-books.Upsert(book, c => c.OnConflict(b => b.Id).DoNothing());
+db.Table<Book>().Upsert(book, c => c.OnConflict(b => b.Id).DoNothing());
 
 // On conflict, copy every non-key column from the new row to the existing one.
-books.Upsert(book, c => c.OnConflict(b => b.Id).DoUpdateAll());
+db.Table<Book>().Upsert(book, c => c.OnConflict(b => b.Id).DoUpdateAll());
 
 // On conflict, only update Title and Price.
-books.Upsert(book, c => c.OnConflict(b => b.Id).DoUpdate(b => b.Title, b => b.Price));
+db.Table<Book>().Upsert(book, c => c.OnConflict(b => b.Id).DoUpdate(b => b.Title, b => b.Price));
 
 // Composite conflict target.
-books.Upsert(book, c => c.OnConflict(b => new { b.AuthorId, b.Title }).DoUpdate(b => b.Price));
+db.Table<Book>().Upsert(book, c => c.OnConflict(b => new { b.AuthorId, b.Title }).DoUpdate(b => b.Price));
 ```
 
 `UpsertRange` is the range version. There is also `UpsertAsync` and `UpsertRangeAsync`.

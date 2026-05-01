@@ -12,7 +12,7 @@ public static class AsyncSchemaExtensions
     /// </summary>
     public static Task<int> CreateTableAsync(this SQLiteSchema schema, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.CreateTable, type, ct);
+        return AsyncRunner.Run(() => schema.CreateTable(type), ct);
     }
 
     /// <summary>

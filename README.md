@@ -32,9 +32,9 @@ That whole expression is one SQL query. No client-side fallback, no reflection a
 |---|---|---|
 | **EF Core** | Same `IQueryable` shape, smaller dependency, AOT works with minimal setup, no migrations or change tracker overhead. | EF's full mapping model (owned types, value converters via fluent API, complex inheritance). |
 | **sqlite-net-pcl** | Real LINQ - joins, group-by, subqueries, projections, FTS5, JSON, window functions all translate to SQL. AOT-friendly with the source generator. | Nothing meaningful; the API is similar where it overlaps and the migration is small. |
-| **Dapper** | No more raw SQL strings (although you can still call Query and Execute just the same); type-safe queries; same async story. | Multi-database support; Dapper isn't SQLite-specific. |
+| **Dapper** | No more raw SQL strings (although you can still call Query and Execute just the same) and type-safe queries. | Multi-database support; Dapper isn't SQLite-specific. |
 
-See the [Migrating from sqlite-net-pcl](https://github.com/destbg/SQLite.Framework/wiki/Migrating-from-sqlite-net-pcl) page if that's your starting point.
+See the [Migrating from sqlite-net-pcl](https://destbg.github.io/SQLite.Framework/#/Migrating%20from%20sqlite-net-pcl) page if that's your starting point.
 
 ## Performance
 

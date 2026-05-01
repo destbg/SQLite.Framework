@@ -162,6 +162,17 @@ public sealed class SQLiteOptions
     public bool ReflectionFallbackDisabled { get; init; }
 
     /// <summary>
+    /// When <see langword="true" />, the <c>Add</c> family of methods uses the value already set on
+    /// an <c>[AutoIncrement]</c> primary key when that value is not the type default. The row is
+    /// inserted at that key, which fails with a uniqueness error if the key is already taken.
+    /// When the value is the type default, SQLite assigns a new key and writes it back to the
+    /// entity, the same as before. Defaults to <see langword="false" />, in which case any value
+    /// you set on an <c>[AutoIncrement]</c> primary key is overwritten by the generated key.
+    /// Set this to <see langword="true" /> to match Entity Framework Core's <c>Add</c> behavior.
+    /// </summary>
+    public bool ExplicitAutoIncrementKeysPreserved { get; init; }
+
+    /// <summary>
     /// Per-entity hooks that fire before <c>Add</c>. Each delegate is a
     /// <c>Func&lt;SQLiteDatabase, T, bool&gt;</c>. Returning <see langword="false" /> skips the
     /// default INSERT and any later hooks. Populated through

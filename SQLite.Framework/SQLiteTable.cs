@@ -117,7 +117,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             (TableColumn[] columns, string sql) = GetAddInfo();
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
             SQLiteOptions options = Database.Options;
-            Action<sqlite3_stmt, T> bindRow = ResolveBindRow(columns, 0, options);
+            Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
             return RunPreparedRange(sql, collection, Database.Options.AddHooks, runInTransaction, separateConnection, bindRow, autoIncrement);
         }
 
@@ -222,7 +222,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
             SQLiteOptions options = Database.Options;
-            Action<sqlite3_stmt, T> bindRow = ResolveBindRow(columns, 0, options);
+            Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
             return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, separateConnection, bindRow, autoIncrement);
         }
 
@@ -398,14 +398,17 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Returns the columns to bind and the <c>INSERT INTO</c> SQL used by <see cref="Add" /> and
     /// <see cref="AddRange" />. Auto-increment primary keys are excluded from the binding set so
-    /// that SQLite can populate them. Override to change the SQL shape (for example, to use
-    /// <c>INSERT OR IGNORE</c>) or to filter the column list.
+    /// that SQLite can populate them, unless
+    /// <see cref="SQLiteOptions.ExplicitAutoIncrementKeysPreserved" /> is <see langword="true" />,
+    /// in which case the column is included and a non-default value on the entity is used directly.
+    /// Override to change the SQL shape (for example, to use <c>INSERT OR IGNORE</c>) or to filter
+    /// the column list.
     /// </summary>
     protected virtual (TableColumn[] Columns, string Sql) GetAddInfo()
     {
-        TableColumn[] columns = Table.Columns
-            .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
-            .ToArray();
+        TableColumn[] columns = Database.Options.ExplicitAutoIncrementKeysPreserved
+            ? Table.Columns.ToArray()
+            : Table.Columns.Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement).ToArray();
 
         string columnsString = string.Join(", ", columns.Select(c => c.Name));
         string parametersString = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
@@ -467,14 +470,15 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     /// <summary>
     /// Returns the columns to bind and the <c>INSERT OR REPLACE INTO</c> SQL used by
-    /// <see cref="AddOrUpdate" /> and <see cref="AddOrUpdateRange" />. Override to change the
-    /// upsert SQL, for example to use SQLite's <c>ON CONFLICT</c> syntax instead.
+    /// <see cref="AddOrUpdate" /> and <see cref="AddOrUpdateRange" />. The auto-increment primary
+    /// key (when present) is included in the column list so the caller can either supply an
+    /// explicit value (replacing the matching row, or inserting at that key) or leave it at the
+    /// type default to let SQLite assign one. Override to change the upsert SQL, for example to
+    /// use SQLite's <c>ON CONFLICT</c> syntax instead.
     /// </summary>
     protected virtual (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
     {
-        TableColumn[] columns = Table.Columns
-            .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
-            .ToArray();
+        TableColumn[] columns = Table.Columns.ToArray();
 
         string columnsString = string.Join(", ", columns.Select(c => c.Name));
         string parametersString = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
@@ -679,19 +683,27 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Binds the values for <paramref name="item" /> and runs an INSERT. When the table has an
     /// auto-increment primary key column, the assigned rowid is read on the same connection and
-    /// written back to <paramref name="item" /> so the caller sees the new key.
+    /// written back to <paramref name="item" /> so the caller sees the new key. If the
+    /// auto-increment primary key column is part of <paramref name="columns" /> and the entity's
+    /// value for it is the type default (e.g. <c>0</c>), it is bound as <c>NULL</c> so SQLite
+    /// generates a fresh key.
     /// </summary>
     protected virtual int InsertItem(TableColumn[] columns, string sql, T item)
     {
+        TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+
         List<SQLiteParameter> parameters = columns
-            .Select((c, i) => new SQLiteParameter
+            .Select((c, i) =>
             {
-                Name = $"@p{i}",
-                Value = c.PropertyInfo.GetValue(item)
+                object? value = c.PropertyInfo.GetValue(item);
+                if (c == autoIncrement && IsAutoIncrementUnset(value))
+                {
+                    value = null;
+                }
+                return new SQLiteParameter { Name = $"@p{i}", Value = value };
             })
             .ToList();
 
-        TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
         if (autoIncrement == null)
         {
             return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
@@ -799,6 +811,33 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 CommandHelpers.BindParameterByIndex(stmt, firstParameterIndex + i + 1, columns[i].PropertyInfo.GetValue(item), options);
             }
         };
+    }
+
+    private static Action<sqlite3_stmt, T> ResolveInsertBindRow(TableColumn[] columns, TableColumn? autoIncrement, SQLiteOptions options)
+    {
+        if (autoIncrement == null || Array.IndexOf(columns, autoIncrement) < 0)
+        {
+            return ResolveBindRow(columns, 0, options);
+        }
+
+        return (stmt, item) =>
+        {
+            for (int i = 0; i < columns.Length; i++)
+            {
+                TableColumn column = columns[i];
+                object? value = column.PropertyInfo.GetValue(item);
+                if (column == autoIncrement && IsAutoIncrementUnset(value))
+                {
+                    value = null;
+                }
+                CommandHelpers.BindParameterByIndex(stmt, i + 1, value, options);
+            }
+        };
+    }
+
+    private static bool IsAutoIncrementUnset(object? value)
+    {
+        return Convert.ToInt64(value, CultureInfo.InvariantCulture) == 0L;
     }
 
     private static object ConvertRowIdToType(long rowId, Type propertyType)

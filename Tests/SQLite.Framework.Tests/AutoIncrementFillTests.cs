@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
+using SQLite.Framework.Exceptions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
@@ -173,6 +174,141 @@ public class AutoIncrementFillTests
 
         Assert.NotEqual(42, a.Id);
         Assert.True(a.Id > 0);
+    }
+
+    [Fact]
+    public void AddOrUpdate_AutoIncrement_PreSetIdMatchingExisting_ReplacesRow()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+
+        Article original = new() { Title = "old", Body = "b", PublishedAt = DateTime.UtcNow };
+        db.Table<Article>().Add(original);
+
+        Article edit = new() { Id = original.Id, Title = "new", Body = "b2", PublishedAt = original.PublishedAt };
+        db.Table<Article>().AddOrUpdate(edit);
+
+        List<Article> rows = db.Table<Article>().ToList();
+        Article single = Assert.Single(rows);
+        Assert.Equal(original.Id, single.Id);
+        Assert.Equal("new", single.Title);
+        Assert.Equal("b2", single.Body);
+        Assert.Equal(original.Id, edit.Id);
+    }
+
+    [Fact]
+    public void AddOrUpdate_AutoIncrement_PreSetIdNotMatching_InsertsAtThatId()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+
+        Article a = new() { Id = 99, Title = "t", Body = "b", PublishedAt = DateTime.UtcNow };
+        db.Table<Article>().AddOrUpdate(a);
+
+        Assert.Equal(99, a.Id);
+        Article fetched = db.Table<Article>().First(x => x.Id == 99);
+        Assert.Equal("t", fetched.Title);
+    }
+
+    [Fact]
+    public void AddOrUpdate_AutoIncrement_DefaultId_StillAutoAssigns()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+
+        Article seed = new() { Title = "seed", Body = "b", PublishedAt = DateTime.UtcNow };
+        db.Table<Article>().Add(seed);
+
+        Article fresh = new() { Title = "fresh", Body = "b", PublishedAt = DateTime.UtcNow };
+        db.Table<Article>().AddOrUpdate(fresh);
+
+        Assert.True(fresh.Id > 0);
+        Assert.NotEqual(seed.Id, fresh.Id);
+        Assert.Equal(2, db.Table<Article>().Count());
+    }
+
+    [Fact]
+    public void Add_AutoIncrement_PreserveOption_PreSetId_UsedDirectly()
+    {
+        using TestDatabase db = new(b => b.PreserveExplicitAutoIncrementKeys());
+        db.Schema.CreateTable<Article>();
+
+        Article a = new() { Id = 42, Title = "t", Body = "b", PublishedAt = DateTime.UtcNow };
+        db.Table<Article>().Add(a);
+
+        Assert.Equal(42, a.Id);
+        Article fetched = db.Table<Article>().First(x => x.Id == 42);
+        Assert.Equal("t", fetched.Title);
+    }
+
+    [Fact]
+    public void Add_AutoIncrement_PreserveOption_DefaultId_StillAutoAssigns()
+    {
+        using TestDatabase db = new(b => b.PreserveExplicitAutoIncrementKeys());
+        db.Schema.CreateTable<Article>();
+
+        Article a = new() { Title = "t", Body = "b", PublishedAt = DateTime.UtcNow };
+        db.Table<Article>().Add(a);
+
+        Assert.True(a.Id > 0);
+    }
+
+    [Fact]
+    public void Add_AutoIncrement_PreserveOption_PreSetIdMatchingExisting_Throws()
+    {
+        using TestDatabase db = new(b => b.PreserveExplicitAutoIncrementKeys());
+        db.Schema.CreateTable<Article>();
+
+        Article first = new() { Id = 7, Title = "first", Body = "b", PublishedAt = DateTime.UtcNow };
+        db.Table<Article>().Add(first);
+
+        Article duplicate = new() { Id = 7, Title = "duplicate", Body = "b", PublishedAt = DateTime.UtcNow };
+        Assert.Throws<SQLiteException>(() => db.Table<Article>().Add(duplicate));
+    }
+
+    [Fact]
+    public void AddRange_AutoIncrement_PreserveOption_MixedIds()
+    {
+        using TestDatabase db = new(b => b.PreserveExplicitAutoIncrementKeys());
+        db.Schema.CreateTable<Article>();
+
+        Article explicitId = new() { Id = 100, Title = "explicit", Body = "b", PublishedAt = DateTime.UtcNow };
+        Article auto = new() { Title = "auto", Body = "b", PublishedAt = DateTime.UtcNow };
+        Article anotherExplicit = new() { Id = 200, Title = "another", Body = "b", PublishedAt = DateTime.UtcNow };
+
+        db.Table<Article>().AddRange(new[] { explicitId, auto, anotherExplicit });
+
+        Assert.Equal(100, explicitId.Id);
+        Assert.Equal(200, anotherExplicit.Id);
+        Assert.True(auto.Id > 0 && auto.Id != 100 && auto.Id != 200);
+        Assert.Equal(3, db.Table<Article>().Count());
+    }
+
+    [Fact]
+    public void AddOrUpdateRange_AutoIncrement_MixedIds()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Article>();
+
+        Article seeded = new() { Title = "seed", Body = "b", PublishedAt = DateTime.UtcNow };
+        db.Table<Article>().Add(seeded);
+        int seededId = seeded.Id;
+
+        Article replace = new() { Id = seededId, Title = "replaced", Body = "b2", PublishedAt = DateTime.UtcNow };
+        Article insertAtId = new() { Id = 500, Title = "explicit", Body = "b3", PublishedAt = DateTime.UtcNow };
+        Article auto = new() { Title = "auto", Body = "b4", PublishedAt = DateTime.UtcNow };
+
+        db.Table<Article>().AddOrUpdateRange(new[] { replace, insertAtId, auto });
+
+        Assert.Equal(seededId, replace.Id);
+        Assert.Equal(500, insertAtId.Id);
+        Assert.True(auto.Id > 0 && auto.Id != seededId && auto.Id != 500);
+
+        List<Article> rows = db.Table<Article>().OrderBy(a => a.Id).ToList();
+        Assert.Equal(3, rows.Count);
+        Assert.Equal("replaced", rows.First(r => r.Id == seededId).Title);
+        Assert.Equal("explicit", rows.First(r => r.Id == 500).Title);
+        Assert.Equal("auto", rows.First(r => r.Id == auto.Id).Title);
     }
 }
 

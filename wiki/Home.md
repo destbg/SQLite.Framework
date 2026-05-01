@@ -71,3 +71,4 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - [Source Generator](Source%20Generator)
 - [Dependency Injection](Dependency%20Injection)
 - [Migrating from sqlite-net-pcl](Migrating%20from%20sqlite-net-pcl)
+- [Migrating from EF Core](Migrating%20from%20EF%20Core)
