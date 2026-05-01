@@ -189,7 +189,7 @@ Without the generator, the library still runs under AOT but uses reflection for 
 
 ## Contributing
 
-Bug reports, missing-feature requests, and PRs are welcome.
+Bug reports and missing-feature requests are welcome.
 
 ## License
 
