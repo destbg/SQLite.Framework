@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
@@ -172,7 +172,8 @@ internal partial class SQLVisitor
         string sql = node.NodeType switch
         {
             ExpressionType.Negate => $"-{resolved.SQLiteExpression.Sql}",
-            ExpressionType.Not => $"NOT {resolved.SQLiteExpression.Sql}",
+            ExpressionType.Not when node.Type == typeof(bool) => $"NOT {resolved.SQLiteExpression.Sql}",
+            ExpressionType.Not => $"~{resolved.SQLiteExpression.Sql}",
             _ => throw new NotSupportedException($"Unsupported unary op {node.NodeType}")
         };
 

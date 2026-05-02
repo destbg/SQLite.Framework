@@ -2973,7 +2973,7 @@ public class CoverageGapTests
     }
 
     [Fact]
-    public void PropertyVisitor_DateTimeUnsupportedProperty_FallsThroughToColumn()
+    public void PropertyVisitor_DateTimeDate_TruncatesTime()
     {
         using TestDatabase db = new();
         db.Table<PropertyVisitorEntity>().Schema.CreateTable();
@@ -2981,7 +2981,7 @@ public class CoverageGapTests
         db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity { Id = 1, DateTimeValue = stamp });
 
         List<PropertyVisitorEntity> results = db.Table<PropertyVisitorEntity>()
-            .Where(e => e.DateTimeValue.Date == stamp)
+            .Where(e => e.DateTimeValue.Date == stamp.Date)
             .ToList();
 
         Assert.Single(results);
@@ -2989,7 +2989,7 @@ public class CoverageGapTests
     }
 
     [Fact]
-    public void PropertyVisitor_DateTimeOffsetUnsupportedProperty_FallsThroughToColumn()
+    public void PropertyVisitor_DateTimeOffsetDate_TruncatesTime()
     {
         using TestDatabase db = new();
         db.Table<PropertyVisitorEntity>().Schema.CreateTable();
@@ -2997,11 +2997,121 @@ public class CoverageGapTests
         db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity { Id = 1, DateTimeOffsetValue = stamp });
 
         List<PropertyVisitorEntity> results = db.Table<PropertyVisitorEntity>()
-            .Where(e => e.DateTimeOffsetValue.Date == stamp.DateTime)
+            .Where(e => e.DateTimeOffsetValue.Date == stamp.Date)
             .ToList();
 
         Assert.Single(results);
         Assert.Equal(1, results[0].Id);
+    }
+
+    [Fact]
+    public void PropertyVisitor_DateTimeProperties_AllSupported()
+    {
+        using TestDatabase db = new();
+        db.Table<PropertyVisitorEntity>().Schema.CreateTable();
+        DateTime stamp = new(2024, 5, 1, 12, 30, 45, 678, DateTimeKind.Utc);
+        db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity { Id = 1, DateTimeValue = stamp });
+
+        var row = db.Table<PropertyVisitorEntity>()
+            .Select(e => new
+            {
+                e.DateTimeValue.Year,
+                e.DateTimeValue.Month,
+                e.DateTimeValue.Day,
+                e.DateTimeValue.Hour,
+                e.DateTimeValue.Minute,
+                e.DateTimeValue.Second,
+                e.DateTimeValue.Millisecond,
+                e.DateTimeValue.Ticks,
+                e.DateTimeValue.DayOfWeek,
+                e.DateTimeValue.DayOfYear,
+                e.DateTimeValue.TimeOfDay,
+            })
+            .First();
+
+        Assert.Equal(2024, row.Year);
+        Assert.Equal(5, row.Month);
+        Assert.Equal(1, row.Day);
+        Assert.Equal(12, row.Hour);
+        Assert.Equal(30, row.Minute);
+        Assert.Equal(45, row.Second);
+        Assert.Equal(678, row.Millisecond);
+        Assert.Equal(stamp.Ticks, row.Ticks);
+        Assert.Equal(DayOfWeek.Wednesday, row.DayOfWeek);
+        Assert.Equal(122, row.DayOfYear);
+        Assert.Equal(stamp.TimeOfDay, row.TimeOfDay);
+    }
+
+    [Fact]
+    public void PropertyVisitor_DateTimeOffsetProperties_AllSupported()
+    {
+        using TestDatabase db = new();
+        db.Table<PropertyVisitorEntity>().Schema.CreateTable();
+        DateTimeOffset stamp = new(2024, 5, 1, 12, 30, 45, 678, TimeSpan.Zero);
+        db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity { Id = 1, DateTimeOffsetValue = stamp });
+
+        var row = db.Table<PropertyVisitorEntity>()
+            .Select(e => new
+            {
+                e.DateTimeOffsetValue.Year,
+                e.DateTimeOffsetValue.Month,
+                e.DateTimeOffsetValue.Day,
+                e.DateTimeOffsetValue.Hour,
+                e.DateTimeOffsetValue.Minute,
+                e.DateTimeOffsetValue.Second,
+                e.DateTimeOffsetValue.Millisecond,
+                e.DateTimeOffsetValue.Ticks,
+                e.DateTimeOffsetValue.DayOfWeek,
+                e.DateTimeOffsetValue.DayOfYear,
+                e.DateTimeOffsetValue.TimeOfDay,
+            })
+            .First();
+
+        Assert.Equal(2024, row.Year);
+        Assert.Equal(5, row.Month);
+        Assert.Equal(1, row.Day);
+        Assert.Equal(12, row.Hour);
+        Assert.Equal(30, row.Minute);
+        Assert.Equal(45, row.Second);
+        Assert.Equal(678, row.Millisecond);
+        Assert.Equal(stamp.Ticks, row.Ticks);
+        Assert.Equal(DayOfWeek.Wednesday, row.DayOfWeek);
+        Assert.Equal(122, row.DayOfYear);
+        Assert.Equal(stamp.TimeOfDay, row.TimeOfDay);
+    }
+
+    [Fact]
+    public void PropertyVisitor_DateTimeKind_IsNotSupported()
+    {
+        using TestDatabase db = new();
+        db.Table<PropertyVisitorEntity>().Schema.CreateTable();
+        db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity
+        {
+            Id = 1,
+            DateTimeValue = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+        });
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<PropertyVisitorEntity>()
+                .Select(e => e.DateTimeValue.Kind)
+                .ToList());
+    }
+
+    [Fact]
+    public void PropertyVisitor_DateTimeOffsetOffset_IsNotSupported()
+    {
+        using TestDatabase db = new();
+        db.Table<PropertyVisitorEntity>().Schema.CreateTable();
+        db.Table<PropertyVisitorEntity>().Add(new PropertyVisitorEntity
+        {
+            Id = 1,
+            DateTimeOffsetValue = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+        });
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<PropertyVisitorEntity>()
+                .Select(e => e.DateTimeOffsetValue.Offset)
+                .ToList());
     }
 
     [Fact]
@@ -3165,13 +3275,22 @@ public class CoverageGapTests
     }
 
     [Fact]
-    public void Where_BinaryRightShift_Throws()
+    public void Where_BinaryRightShift_TranslatesToSql()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange([
+            new Book { Id = 2, Title = "a", AuthorId = 1, Price = 1 },
+            new Book { Id = 4, Title = "b", AuthorId = 1, Price = 2 },
+        ]);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Where(b => (b.Id >> 1) > 0).ToList());
+        List<int> ids = db.Table<Book>()
+            .Where(b => (b.Id >> 1) > 0)
+            .OrderBy(b => b.Id)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([2, 4], ids);
     }
 
     [Fact]

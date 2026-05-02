@@ -73,7 +73,7 @@ internal sealed class RowParameterExpander : ExpressionVisitor
         {
             return false;
         }
-        else if (type.IsArray || typeof(System.Collections.IEnumerable).IsAssignableFrom(type))
+        else if (type.IsArray || typeof(IEnumerable).IsAssignableFrom(type))
         {
             return false;
         }
@@ -89,7 +89,7 @@ internal sealed class RowParameterExpander : ExpressionVisitor
             return false;
         }
 
-        return declaringType == typeof(Queryable)
+        return declaringType == typeof(System.Linq.Queryable)
             || declaringType == typeof(Enumerable)
             || declaringType.Namespace == "SQLite.Framework.Extensions";
     }

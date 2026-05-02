@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
@@ -53,6 +53,12 @@ internal partial class SQLVisitor
                 return EnumMemberVisitor.HandleEnumMethod(ctx);
             }
 
+            if (Nullable.GetUnderlyingType(node.Object.Type) is { } underlying
+                && node.Method.Name == nameof(Nullable<int>.GetValueOrDefault))
+            {
+                return NullableMemberVisitor.HandleGetValueOrDefault(this, node, underlying);
+            }
+
             ResolvedModel obj = ResolveExpression(node.Object);
 
             List<ResolvedModel> arguments = node.Arguments
@@ -79,14 +85,40 @@ internal partial class SQLVisitor
                 .Select(ResolveExpression)
                 .ToList();
 
-            if (arguments[0].IsConstant && arguments[0].Constant is IEnumerable enumerable)
+            IEnumerable? sourceEnumerable = null;
+            if (arguments[0].IsConstant && arguments[0].Constant is IEnumerable directEnumerable)
             {
-                return QueryableMemberVisitor.HandleEnumerableMethod(this, node, enumerable, arguments);
+                sourceEnumerable = directEnumerable;
+            }
+            else if (TryGetImplicitlyConvertedConstantCollection(node.Arguments[0]) is { } unwrapped)
+            {
+                sourceEnumerable = unwrapped;
+            }
+
+            if (sourceEnumerable != null)
+            {
+                return QueryableMemberVisitor.HandleEnumerableMethod(this, node, sourceEnumerable, arguments);
             }
 
             return Expression.Call(node.Method, arguments.Select(f => f.Expression));
         }
 
         return node;
+    }
+
+    private static IEnumerable? TryGetImplicitlyConvertedConstantCollection(Expression expr)
+    {
+        if (expr is MethodCallExpression mce
+            && mce.Method.IsSpecialName
+            && mce.Method.Name == "op_Implicit"
+            && mce.Object == null
+            && mce.Arguments.Count == 1
+            && ExpressionHelpers.IsConstant(mce.Arguments[0])
+            && ExpressionHelpers.GetConstantValue(mce.Arguments[0]) is IEnumerable enumerable)
+        {
+            return enumerable;
+        }
+
+        return null;
     }
 }

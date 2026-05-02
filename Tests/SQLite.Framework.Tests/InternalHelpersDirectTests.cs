@@ -5,6 +5,7 @@ using SQLite.Framework.Enums;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Internals.Visitors;
+using SQLite.Framework.Internals.Visitors.SQL;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
@@ -39,7 +40,7 @@ public class InternalHelpersDirectTests
     public void FtsRenderState_WriteFts5Call_UnknownMethodName_Throws()
     {
         using TestDatabase db = new();
-        SQLite.Framework.Internals.Visitors.SQLVisitor visitor = new(
+        SQLite.Framework.Internals.Visitors.SQL.SQLVisitor visitor = new(
             db,
             new SQLite.Framework.Internals.SQLiteCounters(),
             level: 0);
@@ -254,7 +255,7 @@ public class InternalHelpersDirectTests
     public void AliasVisitor_VisitNewExpression_ZeroArgsWithNonNullMembers_FallsThroughToMethodEnd()
     {
         using TestDatabase db = new();
-        SQLite.Framework.Internals.Visitors.SQLVisitor sqlVisitor = new(
+        SQLite.Framework.Internals.Visitors.SQL.SQLVisitor sqlVisitor = new(
             db,
             new SQLite.Framework.Internals.SQLiteCounters(),
             level: 0);
@@ -938,9 +939,9 @@ public class InternalHelpersDirectTests
             ["Id"] = new SQLiteExpression(typeof(int), 0, "b0.Id")
         };
         MemberExpression idMember = Expression.Property(pe, nameof(Book.Id));
-        UnaryExpression onesComp = Expression.OnesComplement(idMember);
+        UnaryExpression increment = Expression.Increment(idMember);
 
-        Assert.Throws<NotSupportedException>(() => sqlVisitor.Visit(onesComp));
+        Assert.Throws<NotSupportedException>(() => sqlVisitor.Visit(increment));
     }
 
     [Fact]
@@ -1004,15 +1005,15 @@ public class InternalHelpersDirectTests
         using TestDatabase db = new();
         SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
 
-        ParameterExpression pe = Expression.Parameter(typeof(int), "i");
+        ParameterExpression pe = Expression.Parameter(typeof(double), "x");
         sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
         {
-            [""] = new SQLiteExpression(typeof(int), 0, "b0.Id")
+            [""] = new SQLiteExpression(typeof(double), 0, "b0.Price")
         };
 
-        BinaryExpression rightShift = Expression.RightShift(pe, Expression.Constant(1));
+        BinaryExpression power = Expression.Power(pe, Expression.Constant(2.0));
 
-        Assert.Throws<NotSupportedException>(() => sqlVisitor.Visit(rightShift));
+        Assert.Throws<NotSupportedException>(() => sqlVisitor.Visit(power));
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Queryable;
 
 internal partial class QueryableVisitor
 {
@@ -9,6 +9,11 @@ internal partial class QueryableVisitor
         LambdaExpression outerKey = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[2]);
         LambdaExpression innerKey = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[3]);
         LambdaExpression resultSelector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[4]);
+
+        if (node.Method.Name == nameof(System.Linq.Queryable.GroupJoin))
+        {
+            EnsureGroupJoinResultSelectorIsPassthrough(resultSelector);
+        }
 
         visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
         visitor.MethodArguments[resultSelector.Parameters[1]] = newTableColumns;
@@ -47,7 +52,7 @@ internal partial class QueryableVisitor
                 JoinType = joinType,
                 Sql = sql,
                 OnClause = new SQLiteExpression(typeof(bool), -1, onClause, sqlParameters),
-                IsGroupJoin = node.Method.Name == nameof(Queryable.GroupJoin)
+                IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
             });
         }
         else
@@ -63,10 +68,28 @@ internal partial class QueryableVisitor
                 JoinType = joinType,
                 Sql = sql,
                 OnClause = new SQLiteExpression(typeof(bool), -1, $"{outerAlias.Sql} = {innerAlias.Sql}", parameters),
-                IsGroupJoin = node.Method.Name == nameof(Queryable.GroupJoin)
+                IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
             });
         }
 
         return sql;
+    }
+
+    private static void EnsureGroupJoinResultSelectorIsPassthrough(LambdaExpression resultSelector)
+    {
+        ParameterExpression group = resultSelector.Parameters[1];
+        GroupSequenceUsageWalker walker = new(group);
+        walker.Visit(resultSelector.Body);
+
+        if (walker.UsesGroupAsSequence)
+        {
+            throw new NotSupportedException(
+                "GroupJoin (the LINQ 'into <name>' syntax) is only supported when followed by " +
+                "'from x in <name>.DefaultIfEmpty()' to flatten the group into a LEFT JOIN. " +
+                "Calling sequence methods on the group directly (for example 'bg.Count()' or " +
+                "'bg.Sum(...)' inside the projection) is not supported. Rewrite the projection " +
+                "as a correlated subquery, for example: " +
+                "'select new { a.Id, Count = db.Table<Book>().Count(b => b.AuthorId == a.Id) }'.");
+        }
     }
 }

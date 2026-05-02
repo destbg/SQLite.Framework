@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Member;
 
 internal static class QueryableMemberVisitor
 {
@@ -10,7 +10,7 @@ internal static class QueryableMemberVisitor
         SQLTranslator translator = visitor.CloneDeeper(visitor.Level + 1);
         SQLQuery query = translator.Translate(node);
 
-        if (node.Method.Name is nameof(Queryable.Any) or nameof(Queryable.All))
+        if (node.Method.Name is nameof(System.Linq.Queryable.Any) or nameof(System.Linq.Queryable.All))
         {
             return new SQLiteExpression(
                 node.Method.ReturnType,
@@ -22,7 +22,7 @@ internal static class QueryableMemberVisitor
             );
         }
 
-        if (node.Arguments.Count == 1 || node.Method.Name != nameof(Queryable.Contains))
+        if (node.Arguments.Count == 1 || node.Method.Name != nameof(System.Linq.Queryable.Contains))
         {
             return new SQLiteExpression(
                 node.Method.ReturnType,
@@ -60,14 +60,16 @@ internal static class QueryableMemberVisitor
 
     public static Expression HandleEnumerableMethod(SQLVisitor visitor, MethodCallExpression node, IEnumerable enumerable, List<ResolvedModel> arguments)
     {
-        if (arguments.Any(f => f.Sql == null))
+        int firstItemArgIndex = node.Object == null ? 1 : 0;
+
+        if (arguments.Skip(firstItemArgIndex).Any(f => f.Sql == null))
         {
             return Expression.Call(node.Object, node.Method, arguments.Select(f => f.Expression));
         }
 
         if (node.Object == null
             && TypeHelpers.IsSimple(node.Method.ReturnType, visitor.Database.Options)
-            && arguments.All(f => f.IsConstant))
+            && arguments.Skip(firstItemArgIndex).All(f => f.IsConstant))
         {
             object? result = node.Method.Invoke(null, [
                 enumerable,
@@ -91,6 +93,9 @@ internal static class QueryableMemberVisitor
                     })
                     .ToArray();
 
+                int itemIndex = node.Object == null ? 1 : 0;
+                ResolvedModel item = arguments[itemIndex];
+
                 if (parameters.Length == 0)
                 {
                     // For an empty list, `IN ()` is invalid SQL and should always return false.
@@ -99,15 +104,15 @@ internal static class QueryableMemberVisitor
                         node.Method.ReturnType,
                         visitor.Counters.IdentifierIndex++,
                         "0 = 1",
-                        arguments[0].Parameters
+                        item.Parameters
                     );
                 }
 
                 return new SQLiteExpression(
                     node.Method.ReturnType,
                     visitor.Counters.IdentifierIndex++,
-                    $"{arguments[0].Sql} IN ({string.Join(", ", parameters.Select(f => f.Name))})",
-                    [.. arguments[0].Parameters ?? [], .. parameters]
+                    $"{item.Sql} IN ({string.Join(", ", parameters.Select(f => f.Name))})",
+                    [.. item.Parameters ?? [], .. parameters]
                 );
             }
         }

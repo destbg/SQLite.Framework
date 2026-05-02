@@ -218,22 +218,16 @@ internal class SQLTranslator
             ? $"OFFSET {queryableMethodVisitor.Skip}"
             : string.Empty;
 
-        string sql = spacing + string.Join(Environment.NewLine + spacing, new[]
-        {
-            select,
-            from,
-            joinSql,
-            set,
-            whereSql,
-            groupBySql,
-            havingSql,
-            orderBy,
-            limit,
-            offset
-        }.Where(f => !string.IsNullOrEmpty(f)));
+        bool hasSetOperations = queryableMethodVisitor.SetOperations.Count > 0;
+
+        string[] mainParts = hasSetOperations
+            ? [select, from, joinSql, set, whereSql, groupBySql, havingSql]
+            : [select, from, joinSql, set, whereSql, groupBySql, havingSql, orderBy, limit, offset];
+
+        string sql = spacing + string.Join(Environment.NewLine + spacing, mainParts.Where(f => !string.IsNullOrEmpty(f)));
 
         // UNION, UNION ALL, INTERSECT, EXCEPT
-        if (queryableMethodVisitor.SetOperations.Count > 0)
+        if (hasSetOperations)
         {
             foreach ((SQLiteExpression sqlExpression, string _) in queryableMethodVisitor.SetOperations)
             {
@@ -246,6 +240,13 @@ internal class SQLTranslator
             string setOperations = string.Join(Environment.NewLine + spacing, list);
 
             sql = $"{sql}{Environment.NewLine}{setOperations}";
+
+            string[] tailParts = [orderBy, limit, offset];
+            string tail = string.Join(Environment.NewLine + spacing, tailParts.Where(f => !string.IsNullOrEmpty(f)));
+            if (!string.IsNullOrEmpty(tail))
+            {
+                sql = $"{sql}{Environment.NewLine}{spacing}{tail}";
+            }
         }
 
         if (!isInnerQuery)

@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Queryable;
 
 internal partial class QueryableVisitor
 {
@@ -68,7 +68,7 @@ internal partial class QueryableVisitor
     {
         CheckWhereArgument(node);
 
-        if (node.Method.Name is nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault))
+        if (node.Method.Name is nameof(System.Linq.Queryable.Single) or nameof(System.Linq.Queryable.SingleOrDefault))
         {
             Take = 2;
             ThrowOnMoreThanOne = true;
@@ -78,7 +78,7 @@ internal partial class QueryableVisitor
             Take = 1;
         }
 
-        if (node.Method.Name is nameof(Queryable.First) or nameof(Queryable.Single))
+        if (node.Method.Name is nameof(System.Linq.Queryable.First) or nameof(System.Linq.Queryable.Single))
         {
             ThrowOnEmpty = true;
         }
@@ -89,8 +89,8 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitBoolean(MethodCallExpression node)
     {
         CheckWhereArgument(node);
-        IsAny = node.Method.Name == nameof(Queryable.Any);
-        IsAll = node.Method.Name == nameof(Queryable.All);
+        IsAny = node.Method.Name == nameof(System.Linq.Queryable.Any);
+        IsAll = node.Method.Name == nameof(System.Linq.Queryable.All);
 
         return node;
     }

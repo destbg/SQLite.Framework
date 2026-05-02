@@ -78,7 +78,7 @@ sqlite-net-pcl's `TableQuery<T>` is `IEnumerable<T>`, not `IQueryable<T>`, so th
 
 ## Status
 
-The library is exercised by ~10000 test cases across all suites at 100% code coverage. The main test project alone runs 1900+ tests. The library targets .NET 8, 9, and 10. SemVer is followed for breaking changes.
+The library is exercised by 10000+ test cases across all suites at 100% code coverage. The main test project alone runs 2000+ tests. The library targets .NET 8, 9, and 10. SemVer is followed for breaking changes.
 
 ## Documentation
 

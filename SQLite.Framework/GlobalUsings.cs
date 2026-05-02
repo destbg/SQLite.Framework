@@ -10,10 +10,11 @@ global using SQLite.Framework.Internals.Helpers;
 global using SQLite.Framework.Internals.JSON;
 global using SQLite.Framework.Internals.Models;
 global using SQLite.Framework.Internals.Visitors;
+global using SQLite.Framework.Internals.Visitors.Member;
+global using SQLite.Framework.Internals.Visitors.Queryable;
+global using SQLite.Framework.Internals.Visitors.SQL;
 global using SQLite.Framework.Models;
-
 global using SQLitePCL;
-
 global using System.Diagnostics.CodeAnalysis;
 global using System.Runtime.CompilerServices;
 global using System.Collections;

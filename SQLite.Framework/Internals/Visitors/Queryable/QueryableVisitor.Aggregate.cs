@@ -1,9 +1,12 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Queryable;
 
 internal partial class QueryableVisitor
 {
     private SQLiteExpression VisitGroupFunction(MethodCallExpression node, string function)
     {
+        bool applyDistinct = IsDistinct && function != "MAX" && function != "MIN";
+        string distinctPrefix = applyDistinct ? "DISTINCT " : string.Empty;
+
         SQLiteExpression select;
         if (node.Arguments.Count == 2)
         {
@@ -17,21 +20,38 @@ internal partial class QueryableVisitor
 
             if (function == "COUNT")
             {
-                Wheres.Add(sqlExpression);
-                select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, $"{function}(*)");
+                if (applyDistinct)
+                {
+                    ThrowOnMultiColumnDistinct(node);
+                    select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, $"COUNT(DISTINCT {Selects[0].Sql})", Selects[0].Parameters);
+                    Wheres.Add(sqlExpression);
+                }
+                else
+                {
+                    Wheres.Add(sqlExpression);
+                    select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, "COUNT(*)");
+                }
             }
             else
             {
-                select = new SQLiteExpression(node.Arguments[1].Type, visitor.Counters.IdentifierIndex++, $"{function}({sqlExpression.Sql})", sqlExpression.Parameters);
+                select = new SQLiteExpression(node.Arguments[1].Type, visitor.Counters.IdentifierIndex++, $"{function}({distinctPrefix}{sqlExpression.Sql})", sqlExpression.Parameters);
             }
         }
         else if (function == "COUNT")
         {
-            select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, $"{function}(*)");
+            if (applyDistinct)
+            {
+                ThrowOnMultiColumnDistinct(node);
+                select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, $"COUNT(DISTINCT {Selects[0].Sql})", Selects[0].Parameters);
+            }
+            else
+            {
+                select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, "COUNT(*)");
+            }
         }
         else if (Selects.Count == 1)
         {
-            select = new SQLiteExpression(Selects[0].Type, visitor.Counters.IdentifierIndex++, $"{function}({Selects[0].Sql})", Selects[0].Parameters);
+            select = new SQLiteExpression(Selects[0].Type, visitor.Counters.IdentifierIndex++, $"{function}({distinctPrefix}{Selects[0].Sql})", Selects[0].Parameters);
         }
         else
         {
@@ -44,7 +64,21 @@ internal partial class QueryableVisitor
         Selects.Clear();
         Selects.Add(select);
 
+        IsDistinct = false;
+
         return select;
+    }
+
+    private void ThrowOnMultiColumnDistinct(MethodCallExpression node)
+    {
+        if (Selects.Count != 1)
+        {
+            string methodName = node.Method.Name;
+            throw new NotSupportedException(
+                $"{methodName} after Distinct requires a single-column projection. " +
+                $"Project first (e.g., '.Select(x => x.Column).Distinct().{methodName}()') " +
+                $"or materialize with '.ToList()' and call '.Distinct().{methodName}()' in memory.");
+        }
     }
 
     private MethodCallExpression VisitGroupBy(MethodCallExpression node)

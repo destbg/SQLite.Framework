@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Member;
 
 internal static class SQLiteFTS5FunctionsMemberVisitor
 {

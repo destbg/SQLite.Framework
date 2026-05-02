@@ -29,17 +29,35 @@ Supported operators: `+`, `-`, `*`, `/`, `%`.
 | `Math.Abs(x)` | `ABS(x)` |
 | `Math.Round(x)` | `ROUND(x)` |
 | `Math.Round(x, digits)` | `ROUND(x, digits)` |
+| `Math.Round(x, digits, MidpointRounding.AwayFromZero)` | `ROUND(x, digits)` |
 | `Math.Floor(x)` | `FLOOR(x)` |
 | `Math.Ceiling(x)` | `CEIL(x)` |
+| `Math.Truncate(x)` | `TRUNC(x)` |
 | `Math.Pow(x, y)` | `POWER(CAST(x AS REAL), y)` |
 | `Math.Sqrt(x)` | `SQRT(x)` |
+| `Math.Cbrt(x)` | `CASE WHEN x >= 0 THEN POWER(x, 1.0/3.0) ELSE -POWER(-x, 1.0/3.0) END` |
 | `Math.Exp(x)` | `EXP(x)` |
 | `Math.Log(x)` | `LOG(x)` |
 | `Math.Log(x, base)` | `LOG(x) / LOG(base)` |
 | `Math.Log10(x)` | `LOG10(x)` |
+| `Math.Log2(x)` | `LOG2(x)` |
 | `Math.Sign(x)` | `CASE WHEN x > 0 THEN 1 WHEN x < 0 THEN -1 ELSE 0 END` |
 | `Math.Max(x, y)` | `CASE WHEN x > y THEN x ELSE y END` |
 | `Math.Min(x, y)` | `CASE WHEN x < y THEN x ELSE y END` |
+| `Math.Clamp(x, min, max)` | `CASE WHEN x < min THEN min WHEN x > max THEN max ELSE x END` |
+| `Math.Sin(x)` | `SIN(x)` |
+| `Math.Cos(x)` | `COS(x)` |
+| `Math.Tan(x)` | `TAN(x)` |
+| `Math.Asin(x)` | `ASIN(x)` |
+| `Math.Acos(x)` | `ACOS(x)` |
+| `Math.Atan(x)` | `ATAN(x)` |
+| `Math.Atan2(y, x)` | `ATAN2(y, x)` |
+| `Math.Sinh(x)` | `SINH(x)` |
+| `Math.Cosh(x)` | `COSH(x)` |
+| `Math.Tanh(x)` | `TANH(x)` |
+| `Math.Asinh(x)` | `ASINH(x)` |
+| `Math.Acosh(x)` | `ACOSH(x)` |
+| `Math.Atanh(x)` | `ATANH(x)` |
 
 ```csharp
 var results = await db.Table<Book>()
@@ -67,6 +85,7 @@ var rounded = await db.Table<Book>()
 | `s.Equals(value)` | `s = value` |
 | `s.Replace(old, new)` | `REPLACE(s, old, new)` |
 | `s.Substring(start, length)` | `SUBSTR(s, start + 1, length)` |
+| `s[index]` | `SUBSTR(s, index + 1, 1)` |
 | `s.IndexOf(value)` | `INSTR(s, value) - 1` |
 | `s.LastIndexOf(value)` | `CASE WHEN LENGTH(value) = 0 THEN LENGTH(s) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, s UNION ALL SELECT pos + INSTR(rem, value), SUBSTR(rem, INSTR(rem, value) + 1) FROM find_pos WHERE INSTR(rem, value) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END` |
 | `s.Insert(index, value)` | `SUBSTR(s, 1, index) \|\| value \|\| SUBSTR(s, index + 1)` |
@@ -80,6 +99,7 @@ var rounded = await db.Table<Book>()
 | `string.Concat(a, b, ...)` | `a \|\| b \|\| ...` |
 | `string.Join(sep, values)` | `val1 \|\| sep \|\| val2 \|\| ...` |
 | `string.Compare(a, b)` | `CASE WHEN a = b THEN 0 WHEN a < b THEN -1 ELSE 1 END` |
+| `s.CompareTo(other)` | `CASE WHEN s = other THEN 0 WHEN s < other THEN -1 ELSE 1 END` |
 | `string.IsNullOrEmpty(s)` | `(s IS NULL OR s = '')` |
 | `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, ' ') = '')` |
 
@@ -126,7 +146,7 @@ var years = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Supported properties: `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Millisecond`, `Ticks`, `DayOfWeek`, `DayOfYear`.
+Supported properties: `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Millisecond`, `Ticks`, `DayOfWeek`, `DayOfYear`, `Date`, `TimeOfDay`.
 
 ## DateTime Methods
 
@@ -162,7 +182,7 @@ Supported methods: `AddYears`, `AddMonths`, `AddDays`.
 
 ## DateTimeOffset Properties
 
-Supported properties: `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Millisecond`, `Ticks`, `DayOfWeek`, `DayOfYear`.
+Supported properties: `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Millisecond`, `Ticks`, `DayOfWeek`, `DayOfYear`, `Date`, `TimeOfDay`.
 
 ## DateTimeOffset Methods
 

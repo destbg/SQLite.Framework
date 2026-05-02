@@ -51,8 +51,8 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
             {
                 LambdaExpression rebound = QueryFilterRebinder.Rebind(filter, entityType);
                 result = Expression.Call(
-                    typeof(Queryable),
-                    nameof(Queryable.Where),
+                    typeof(System.Linq.Queryable),
+                    nameof(System.Linq.Queryable.Where),
                     [entityType],
                     result,
                     Expression.Quote(rebound));

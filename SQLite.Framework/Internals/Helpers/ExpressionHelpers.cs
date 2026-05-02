@@ -90,8 +90,7 @@ internal static class ExpressionHelpers
             MemberExpression me => me.Member is FieldInfo fi
                 ? (me.Expression != null ? fi.GetValue(GetConstantValue(me.Expression)) : fi.GetValue(null))
                 : ((PropertyInfo)me.Member).GetValue(me.Expression != null ? GetConstantValue(me.Expression) : null),
-            UnaryExpression { NodeType: ExpressionType.Convert } ue =>
-                Convert.ChangeType(GetConstantValue(ue.Operand), Nullable.GetUnderlyingType(ue.Type) ?? ue.Type),
+            UnaryExpression { NodeType: ExpressionType.Convert } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type),
             NewArrayExpression na =>
                 na.Expressions.Select(GetConstantValue),
             MemberInitExpression mie => CreateMember(mie),
@@ -99,6 +98,17 @@ internal static class ExpressionHelpers
             ListInitExpression lie => CreateListInit(lie),
             _ => throw new NotSupportedException($"Cannot evaluate expression of type {node.NodeType}")
         };
+    }
+
+    private static object? ConvertConstant(object? value, Type targetType)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        Type underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        return value.GetType() == underlying ? value : Convert.ChangeType(value, underlying);
     }
 
     public static Expression StripQuotes(Expression node)

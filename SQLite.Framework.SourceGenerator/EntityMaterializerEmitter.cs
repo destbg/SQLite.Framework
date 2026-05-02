@@ -391,11 +391,17 @@ internal static class EntityMaterializerEmitter
 
     private static void EmitEntityProperties(StringBuilder sb, INamedTypeSymbol entity, string columnPrefix, string indent, ref int counter, out string resultLocalName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
+        bool isAnonymous = entity.IsAnonymousType;
+
         List<IPropertySymbol> writableProps = new();
         foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
         {
-            if (prop.SetMethod != null
-                && prop.DeclaredAccessibility == Accessibility.Public)
+            if (prop.DeclaredAccessibility != Accessibility.Public)
+            {
+                continue;
+            }
+
+            if (isAnonymous || prop.SetMethod != null)
             {
                 writableProps.Add(prop);
             }
@@ -429,11 +435,24 @@ internal static class EntityMaterializerEmitter
             propValueLocals.Add(valueLocal);
         }
 
-        string typeName = entity.ToDisplayString();
         string resultSuffix = counter.ToString();
         counter++;
         resultLocalName = "__entity_" + resultSuffix;
 
+        if (isAnonymous)
+        {
+            sb.Append(indent).Append("var ").Append(resultLocalName).AppendLine(" = new");
+            sb.Append(indent).AppendLine("{");
+            for (int i = 0; i < writableProps.Count; i++)
+            {
+                sb.Append(indent).Append("    ").Append(writableProps[i].Name).Append(" = ").Append(propValueLocals[i]);
+                sb.AppendLine(i == writableProps.Count - 1 ? "" : ",");
+            }
+            sb.Append(indent).AppendLine("};");
+            return;
+        }
+
+        string typeName = entity.ToDisplayString();
         List<IPropertySymbol> requiredNotMapped = GetRequiredNotMappedProperties(entity);
         int totalEntries = writableProps.Count + requiredNotMapped.Count;
 

@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Member;
 
 internal static class StringMemberVisitor
 {
@@ -108,6 +108,26 @@ internal static class StringMemberVisitor
                 case nameof(string.TrimEnd):
                 {
                     return ResolveTrim(visitor, node, obj.SQLiteExpression, arguments, "RTRIM");
+                }
+                case "get_Chars":
+                {
+                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
+                    return new SQLiteExpression(
+                        node.Method.ReturnType,
+                        visitor.Counters.IdentifierIndex++,
+                        $"SUBSTR({obj.Sql}, {arguments[0].Sql} + 1, 1)",
+                        parameters
+                    );
+                }
+                case nameof(string.CompareTo):
+                {
+                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
+                    return new SQLiteExpression(
+                        node.Method.ReturnType,
+                        visitor.Counters.IdentifierIndex++,
+                        $"(CASE WHEN {obj.Sql} = {arguments[0].Sql} THEN 0 WHEN {obj.Sql} < {arguments[0].Sql} THEN -1 ELSE 1 END)",
+                        parameters
+                    );
                 }
                 case nameof(string.Substring):
                 {

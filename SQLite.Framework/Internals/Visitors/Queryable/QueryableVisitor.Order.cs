@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Queryable;
 
 internal partial class QueryableVisitor
 {
@@ -24,12 +24,12 @@ internal partial class QueryableVisitor
             throw new NotSupportedException($"Unsupported ORDER BY expression {lambda.Body}");
         }
 
-        if (node.Method.Name is nameof(Queryable.OrderBy) or nameof(Queryable.OrderDescending))
+        if (node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.OrderDescending))
         {
             OrderBys.Clear();
         }
 
-        string order = node.Method.Name is nameof(Queryable.OrderBy) or nameof(Queryable.ThenBy)
+        string order = node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.ThenBy)
             ? "ASC"
             : "DESC";
 

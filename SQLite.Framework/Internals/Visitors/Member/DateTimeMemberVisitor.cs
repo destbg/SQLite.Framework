@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Member;
 
 internal static class DateTimeMemberVisitor
 {
@@ -353,7 +353,19 @@ internal static class DateTimeMemberVisitor
             nameof(DateTime.Ticks) => node,
             nameof(DateTime.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME"),
             nameof(DateTime.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
-            _ => node
+            nameof(DateTime.Date) => new SQLiteExpression(
+                type,
+                visitor.Counters.IdentifierIndex++,
+                $"(({node.Sql} / {TimeSpan.TicksPerDay}) * {TimeSpan.TicksPerDay})",
+                node.Parameters
+            ),
+            nameof(DateTime.TimeOfDay) => new SQLiteExpression(
+                type,
+                visitor.Counters.IdentifierIndex++,
+                $"({node.Sql} % {TimeSpan.TicksPerDay})",
+                node.Parameters
+            ),
+            _ => throw new NotSupportedException($"DateTime.{propertyName} is not translatable to SQL.")
         };
     }
 
@@ -383,7 +395,19 @@ internal static class DateTimeMemberVisitor
             nameof(DateTimeOffset.Ticks) => node,
             nameof(DateTimeOffset.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME"),
             nameof(DateTimeOffset.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
-            _ => node
+            nameof(DateTimeOffset.Date) => new SQLiteExpression(
+                type,
+                visitor.Counters.IdentifierIndex++,
+                $"(({node.Sql} / {TimeSpan.TicksPerDay}) * {TimeSpan.TicksPerDay})",
+                node.Parameters
+            ),
+            nameof(DateTimeOffset.TimeOfDay) => new SQLiteExpression(
+                type,
+                visitor.Counters.IdentifierIndex++,
+                $"({node.Sql} % {TimeSpan.TicksPerDay})",
+                node.Parameters
+            ),
+            _ => throw new NotSupportedException($"DateTimeOffset.{propertyName} is not translatable to SQL.")
         };
     }
 

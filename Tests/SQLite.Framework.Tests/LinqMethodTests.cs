@@ -424,7 +424,7 @@ public class LinqMethodTests
             new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 20 }
         });
 
-        Assert.Throws<ArgumentException>(() => (
+        Assert.Throws<NotSupportedException>(() => (
             from author in db.Table<Author>()
             join book in db.Table<Book>() on author.Id equals book.AuthorId into books
             select new

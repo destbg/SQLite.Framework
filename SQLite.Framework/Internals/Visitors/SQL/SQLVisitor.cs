@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.SQL;
 
 /// <summary>
 /// Handles the conversion of LINQ expressions to SQL expressions.

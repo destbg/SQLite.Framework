@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
@@ -87,10 +87,21 @@ internal partial class SQLVisitor
 
         SQLiteParameter[]? bothParameters = ParameterHelpers.CombineParameters(left, right);
 
-        if (node.NodeType is ExpressionType.AndAlso or ExpressionType.OrElse)
+        if (node.NodeType is ExpressionType.AndAlso or ExpressionType.OrElse
+            || (node.Type == typeof(bool) && node.NodeType is ExpressionType.And or ExpressionType.Or))
         {
-            string op = node.NodeType == ExpressionType.AndAlso ? "AND" : "OR";
+            string op = node.NodeType is ExpressionType.AndAlso or ExpressionType.And ? "AND" : "OR";
             return new SQLiteExpression(typeof(bool), Counters.IdentifierIndex++, $"{left.Sql} {op} {right.Sql}", bothParameters);
+        }
+
+        if (node.NodeType is ExpressionType.ExclusiveOr)
+        {
+            if (node.Type == typeof(bool))
+            {
+                return new SQLiteExpression(typeof(bool), Counters.IdentifierIndex++, $"{left.Sql} <> {right.Sql}", bothParameters);
+            }
+
+            return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, $"(({left.Sql} | {right.Sql}) - ({left.Sql} & {right.Sql}))", bothParameters);
         }
 
         if (node.NodeType is ExpressionType.Coalesce)
@@ -136,6 +147,10 @@ internal partial class SQLVisitor
             ExpressionType.Multiply => ("*", true),
             ExpressionType.Divide => ("/", true),
             ExpressionType.Modulo => ("%", true),
+            ExpressionType.And => ("&", true),
+            ExpressionType.Or => ("|", true),
+            ExpressionType.LeftShift => ("<<", true),
+            ExpressionType.RightShift => (">>", true),
             _ => throw new NotSupportedException($"Unsupported binary op {node.NodeType}")
         };
 

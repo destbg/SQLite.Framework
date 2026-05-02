@@ -565,7 +565,7 @@ public class MethodVisitorCoverageTests
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
-                .Where(b => Math.Acos(b.Price) > 0)
+                .Where(b => Math.IEEERemainder(b.Price, 2) > 0)
                 .ToList());
     }
 
