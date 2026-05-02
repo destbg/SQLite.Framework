@@ -11,7 +11,7 @@ public class ProjectTask
     [Key]
     [AutoIncrement]
     public int Id { get; set; }
-    public string Title { get; set; } = string.Empty;
+    public required string Title { get; set; }
     public bool IsCompleted { get; set; }
 
     [JsonIgnore]

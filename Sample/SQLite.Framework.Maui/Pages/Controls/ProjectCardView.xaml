@@ -10,7 +10,7 @@
         SemanticProperties.Description="{Binding AccessibilityDescription}"
         Style="{StaticResource CardStyle}"
         MinimumHeightRequest="250"
-        x:DataType="models:Project">
+        x:DataType="models:ProjectListItem">
     <shimmer:SfShimmer
         BackgroundColor="Transparent"
         IsActive="{Binding IsBusy, Source={RelativeSource AncestorType={x:Type pageModels:MainPageModel}}, x:DataType=pageModels:IProjectTaskPageModel}">
@@ -39,15 +39,15 @@
             <VerticalStackLayout Spacing="15">
                 <Image HorizontalOptions="Start" Aspect="Center">
                     <Image.Source>
-                        <FontImageSource 
-                    Glyph="{Binding Icon}" 
-                    FontFamily="{x:Static fonts:FluentUI.FontFamily}" 
+                        <FontImageSource
+                    Glyph="{Binding Project.Icon}"
+                    FontFamily="{x:Static fonts:FluentUI.FontFamily}"
                     Color="{AppThemeBinding Light={StaticResource DarkOnLightBackground}, Dark={StaticResource LightOnDarkBackground}}"
                     Size="{StaticResource IconSize}"/>
                     </Image.Source>
                 </Image>
-                <Label Text="{Binding Name}" TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}" FontSize="14" TextTransform="Uppercase"/>
-                <Label Text="{Binding Description}" LineBreakMode="WordWrap"/>
+                <Label Text="{Binding Project.Name}" TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}" FontSize="14" TextTransform="Uppercase"/>
+                <Label Text="{Binding Project.Description}" LineBreakMode="WordWrap"/>
                 <FlexLayout Wrap="Wrap" Direction="Row" AlignItems="Start" JustifyContent="Start" BindableLayout.ItemsSource="{Binding Tags}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="models:Tag">

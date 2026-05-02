@@ -9,6 +9,6 @@ public class ChipDataTemplateSelector : DataTemplateSelector
 
 	protected override DataTemplate OnSelectTemplate(object item, BindableObject container)
 	{
-		return ((item as Tag)?.IsSelected ?? false ? SelectedTagTemplate : NormalTagTemplate) ?? throw new InvalidOperationException("DataTemplates SelectedTagTemplate and NormalTagTemplate must be set to a non-null value.");
+		return ((item as TagSelection)?.IsSelected ?? false ? SelectedTagTemplate : NormalTagTemplate) ?? throw new InvalidOperationException("DataTemplates SelectedTagTemplate and NormalTagTemplate must be set to a non-null value.");
 	}
 }

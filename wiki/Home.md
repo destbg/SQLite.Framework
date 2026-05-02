@@ -42,6 +42,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 
 ## Pages
 
+- [Overview](Overview)
 - [Getting Started](Getting%20Started)
 - [Defining Models](Defining%20Models)
 - [CRUD Operations](CRUD%20Operations)
@@ -72,3 +73,4 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - [Dependency Injection](Dependency%20Injection)
 - [Migrating from sqlite-net-pcl](Migrating%20from%20sqlite-net-pcl)
 - [Migrating from EF Core](Migrating%20from%20EF%20Core)
+- [AI Assistance](AI%20Assistance)

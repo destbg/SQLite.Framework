@@ -215,6 +215,11 @@ internal static class EntityColumnWriterEmitter
                     continue;
                 }
 
+                if (HasNotMappedAttribute(prop))
+                {
+                    continue;
+                }
+
                 if (!seen.Add(prop.Name))
                 {
                     continue;
@@ -223,6 +228,19 @@ internal static class EntityColumnWriterEmitter
                 yield return prop;
             }
         }
+    }
+
+    private static bool HasNotMappedAttribute(IPropertySymbol prop)
+    {
+        foreach (AttributeData attr in prop.GetAttributes())
+        {
+            if (attr.AttributeClass is { Name: "NotMappedAttribute" } cls
+                && cls.ContainingNamespace?.ToDisplayString() == "System.ComponentModel.DataAnnotations.Schema")
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static ITypeSymbol StripNullableSymbol(ITypeSymbol type)

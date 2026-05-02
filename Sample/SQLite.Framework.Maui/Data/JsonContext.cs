@@ -3,9 +3,9 @@ using SQLite.Framework.Maui.Models;
 
 namespace SQLite.Framework.Maui.Data;
 
-[JsonSerializable(typeof(Project))]
+[JsonSerializable(typeof(SeedDataDto))]
+[JsonSerializable(typeof(ProjectSeedDto))]
 [JsonSerializable(typeof(ProjectTask))]
-[JsonSerializable(typeof(ProjectsJson))]
 [JsonSerializable(typeof(Category))]
 [JsonSerializable(typeof(Tag))]
 public partial class JsonContext : JsonSerializerContext;

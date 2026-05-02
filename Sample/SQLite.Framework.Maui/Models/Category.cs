@@ -11,8 +11,8 @@ public class Category
     [Key]
     [AutoIncrement]
     public int Id { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string Color { get; set; } = "#FF0000";
+    public required string Title { get; set; }
+    public required string Color { get; set; }
 
     [NotMapped]
     [JsonIgnore]

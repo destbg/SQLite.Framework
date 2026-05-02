@@ -1,14 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SQLite.Framework.Maui.Models;
-using System.Collections.ObjectModel;
-using System.Windows.Input;
 
 namespace SQLite.Framework.Maui.PageModels;
 
 public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributable, IProjectTaskPageModel
 {
-    private Project? _project;
+    private ProjectDetail? _project;
     private readonly ProjectRepository _projectRepository;
     private readonly TaskRepository _taskRepository;
     private readonly CategoryRepository _categoryRepository;
@@ -34,7 +32,7 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
     private int _categoryIndex = -1;
 
     [ObservableProperty]
-    private List<Tag> _allTags = [];
+    private List<TagSelection> _allTags = [];
 
     public IList<object> SelectedTags { get; set; } = new List<object>();
 
@@ -96,9 +94,17 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
         else
         {
             Task.WhenAll(LoadCategories(), LoadTags()).FireAndForgetSafeAsync(_errorHandler);
-            _project = new();
-            _project.Tags = [];
-            _project.Tasks = [];
+            _project = new()
+            {
+                Project = new()
+                {
+                    Name = string.Empty,
+                    Description = string.Empty,
+                    Icon = string.Empty,
+                },
+                Tasks = [],
+                Tags = [],
+            };
             Tasks = _project.Tasks;
         }
     }
@@ -106,8 +112,11 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
     private async Task LoadCategories() =>
         Categories = await _categoryRepository.ListAsync();
 
-    private async Task LoadTags() =>
-        AllTags = await _tagRepository.ListAsync();
+    private async Task LoadTags()
+    {
+        var tags = await _tagRepository.ListAsync();
+        AllTags = tags.Select(t => new TagSelection { Tag = t }).ToList();
+    }
 
     private async Task RefreshData()
     {
@@ -119,7 +128,7 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
             return;
         }
 
-        Tasks = await _taskRepository.ListAsync(_project.Id);
+        Tasks = await _taskRepository.ListAsync(_project.Project.Id);
         _project.Tasks = Tasks;
     }
 
@@ -137,13 +146,13 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
                 return;
             }
 
-            Name = _project.Name;
-            Description = _project.Description;
+            Name = _project.Project.Name;
+            Description = _project.Project.Description;
             Tasks = _project.Tasks;
 
             foreach (var icon in Icons)
             {
-                if (icon.Icon == _project.Icon)
+                if (icon.Icon == _project.Project.Icon)
                 {
                     Icon = icon;
                     break;
@@ -151,19 +160,22 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
             }
 
             Categories = await _categoryRepository.ListAsync();
-            Category = Categories?.FirstOrDefault(c => c.Id == _project.CategoryId);
-            CategoryIndex = Categories?.FindIndex(c => c.Id == _project.CategoryId) ?? -1;
+            Category = Categories?.FirstOrDefault(c => c.Id == _project.Project.CategoryId);
+            CategoryIndex = Categories?.FindIndex(c => c.Id == _project.Project.CategoryId) ?? -1;
 
-            var allTags = await _tagRepository.ListAsync();
-            foreach (var tag in allTags)
+            var tags = await _tagRepository.ListAsync();
+            var selections = new List<TagSelection>(tags.Count);
+            foreach (var tag in tags)
             {
-                tag.IsSelected = _project.Tags.Any(t => t.Id == tag.Id);
-                if (tag.IsSelected)
+                bool isSelected = _project.Tags.Any(t => t.Id == tag.Id);
+                var selection = new TagSelection { Tag = tag, IsSelected = isSelected };
+                selections.Add(selection);
+                if (isSelected)
                 {
-                    SelectedTags.Add(tag);
+                    SelectedTags.Add(selection);
                 }
             }
-            AllTags = new(allTags);
+            AllTags = selections;
         }
         catch (Exception e)
         {
@@ -195,17 +207,17 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
             return;
         }
 
-        _project.Name = Name;
-        _project.Description = Description;
-        _project.CategoryId = Category?.Id ?? 0;
-        _project.Icon = Icon.Icon ?? FluentUI.ribbon_24_regular;
-        await _projectRepository.SaveItemAsync(_project);
+        _project.Project.Name = Name;
+        _project.Project.Description = Description;
+        _project.Project.CategoryId = Category?.Id ?? 0;
+        _project.Project.Icon = Icon.Icon ?? FluentUI.ribbon_24_regular;
+        await _projectRepository.SaveItemAsync(_project.Project);
 
-        foreach (var tag in AllTags)
+        foreach (var selection in AllTags)
         {
-            if (tag.IsSelected)
+            if (selection.IsSelected)
             {
-                await _tagRepository.SaveItemAsync(tag, _project.Id);
+                await _tagRepository.SaveItemAsync(selection.Tag, _project.Project.Id);
             }
         }
 
@@ -213,7 +225,7 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
         {
             if (task.Id == 0)
             {
-                task.ProjectId = _project.Id;
+                task.ProjectId = _project.Project.Id;
                 await _taskRepository.SaveItemAsync(task);
             }
         }
@@ -250,7 +262,7 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
             return;
         }
 
-        await _projectRepository.DeleteItemAsync(_project);
+        await _projectRepository.DeleteItemAsync(_project.Project);
         await Shell.Current.GoToAsync("..");
         await AppShell.DisplayToastAsync("Project deleted");
     }
@@ -260,24 +272,24 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
         Shell.Current.GoToAsync($"task?id={task.Id}");
 
     [RelayCommand]
-    internal async Task ToggleTag(Tag tag)
+    internal async Task ToggleTag(TagSelection selection)
     {
-        tag.IsSelected = !tag.IsSelected;
+        selection.IsSelected = !selection.IsSelected;
 
         if (!_project.IsNullOrNew())
         {
-            if (tag.IsSelected)
+            if (selection.IsSelected)
             {
-                await _tagRepository.SaveItemAsync(tag, _project.Id);
+                await _tagRepository.SaveItemAsync(selection.Tag, _project.Project.Id);
             }
             else
             {
-                await _tagRepository.DeleteItemAsync(tag, _project.Id);
+                await _tagRepository.DeleteItemAsync(selection.Tag, _project.Project.Id);
             }
         }
 
         AllTags = new(AllTags);
-        SemanticScreenReader.Announce($"{tag.Title} {(tag.IsSelected ? "selected" : "unselected")}");
+        SemanticScreenReader.Announce($"{selection.Tag.Title} {(selection.IsSelected ? "selected" : "unselected")}");
     }
 
     [RelayCommand]
@@ -306,26 +318,26 @@ public partial class ProjectDetailPageModel : ObservableObject, IQueryAttributab
     {
         if (parameter is IEnumerable<object> enumerableParameter)
         {
-            var currentSelection = enumerableParameter.OfType<Tag>().ToList();
-            var previousSelection = AllTags.Where(t => t.IsSelected).ToList();
+            var currentSelection = enumerableParameter.OfType<TagSelection>().ToList();
+            var previousSelection = AllTags.Where(s => s.IsSelected).ToList();
 
             // Handle newly selected tags
-            foreach (var tag in currentSelection.Except(previousSelection))
+            foreach (var selection in currentSelection.Except(previousSelection))
             {
-                tag.IsSelected = true;
+                selection.IsSelected = true;
                 if (!_project.IsNullOrNew())
                 {
-                    await _tagRepository.SaveItemAsync(tag, _project.Id);
+                    await _tagRepository.SaveItemAsync(selection.Tag, _project.Project.Id);
                 }
             }
 
             // Handle deselected tags
-            foreach (var tag in previousSelection.Except(currentSelection))
+            foreach (var selection in previousSelection.Except(currentSelection))
             {
-                tag.IsSelected = false;
+                selection.IsSelected = false;
                 if (!_project.IsNullOrNew())
                 {
-                    await _tagRepository.DeleteItemAsync(tag, _project.Id);
+                    await _tagRepository.DeleteItemAsync(selection.Tag, _project.Project.Id);
                 }
             }
         }

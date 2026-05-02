@@ -1,0 +1,83 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+        <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+
+        <OutputType>Exe</OutputType>
+        <RootNamespace>SQLite.Framework.Avalonia</RootNamespace>
+        <AssemblyName>SQLite.Framework.Avalonia</AssemblyName>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>preview</LangVersion>
+
+        <AvaloniaVersion>12.0.2</AvaloniaVersion>
+
+        <ApplicationTitle>SQLite.Framework Avalonia Sample</ApplicationTitle>
+        <ApplicationId>com.sqliteframework.avalonia</ApplicationId>
+        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <ApplicationVersion>1</ApplicationVersion>
+
+        <PublishTrimmed>true</PublishTrimmed>
+        <TrimMode>partial</TrimMode>
+        <PublishAot Condition="'$(TargetFramework)' == 'net10.0'">true</PublishAot>
+
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)"/>
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)"/>
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+        <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="$(TargetFramework.EndsWith('-android'))">
+        <PackageReference Include="Avalonia.Android" Version="$(AvaloniaVersion)"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="$(TargetFramework.EndsWith('-ios')) Or $(TargetFramework.EndsWith('-maccatalyst'))">
+        <PackageReference Include="Avalonia.iOS" Version="$(AvaloniaVersion)"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Remove="Platforms/**/*.cs"/>
+        <None Include="Platforms/**/*"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+        <Compile Include="Platforms/Desktop/**/*.cs"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="$(TargetFramework.EndsWith('-android'))">
+        <Compile Include="Platforms/Android/**/*.cs"/>
+        <None Remove="Platforms/Android/Resources/**/*"/>
+        <AndroidResource Include="Platforms/Android/Resources/**/*"/>
+        <AndroidManifest Include="Platforms/Android/AndroidManifest.xml"/>
+        <None Remove="Platforms/Android/AndroidManifest.xml"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="$(TargetFramework.EndsWith('-ios')) Or $(TargetFramework.EndsWith('-maccatalyst'))">
+        <Compile Include="Platforms/iOS/**/*.cs"/>
+        <BundleResource Include="Platforms/iOS/Assets.xcassets/**/*"/>
+        <None Remove="Platforms/iOS/Assets.xcassets/**/*"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AvaloniaResource Include="Resources/SeedData.json"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\SQLite.Framework\SQLite.Framework.csproj"/>
+        <ProjectReference Include="..\..\SQLite.Framework.DependencyInjection\SQLite.Framework.DependencyInjection.csproj"/>
+        <ProjectReference Include="..\..\SQLite.Framework.SourceGenerator\SQLite.Framework.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+    </ItemGroup>
+
+</Project>

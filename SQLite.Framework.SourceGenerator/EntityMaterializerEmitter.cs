@@ -54,17 +54,17 @@ internal static class EntityMaterializerEmitter
                     EntityColumnWriterEmitter.EmitRegistration(sb, entity, methodName);
                     break;
                 case EmitStrategy.Reflection:
-                    {
-                        string typeField = $"s_type_{methodName}";
-                        sb.Append("            builder.EntityMaterializers[").Append(typeField).Append("] = ").Append(methodName).AppendLine(";");
-                        break;
-                    }
+                {
+                    string typeField = $"s_type_{methodName}";
+                    sb.Append("            builder.EntityMaterializers[").Append(typeField).Append("] = ").Append(methodName).AppendLine(";");
+                    break;
+                }
                 case EmitStrategy.Anonymous:
-                    {
-                        string typeField = $"s_type_{methodName}";
-                        sb.Append("            builder.EntityMaterializers[").Append(typeField).Append("] = ").Append(methodName).AppendLine(";");
-                        break;
-                    }
+                {
+                    string typeField = $"s_type_{methodName}";
+                    sb.Append("            builder.EntityMaterializers[").Append(typeField).Append("] = ").Append(methodName).AppendLine(";");
+                    break;
+                }
             }
         }
 
@@ -136,7 +136,7 @@ internal static class EntityMaterializerEmitter
                     EmitReflectionMaterializer(sb, entity, methodName, entitySet, nestedInitSet);
                     break;
                 case EmitStrategy.Anonymous:
-                    EmitAnonymousMaterializer(sb, entity, methodName);
+                    EmitAnonymousMaterializer(sb, entity, methodName, entitySet, nestedInitSet);
                     break;
             }
         }
@@ -434,14 +434,62 @@ internal static class EntityMaterializerEmitter
         counter++;
         resultLocalName = "__entity_" + resultSuffix;
 
+        List<IPropertySymbol> requiredNotMapped = GetRequiredNotMappedProperties(entity);
+        int totalEntries = writableProps.Count + requiredNotMapped.Count;
+
         sb.Append(indent).Append(typeName).Append(" ").Append(resultLocalName).AppendLine(" = new()");
         sb.Append(indent).AppendLine("{");
+
+        int written = 0;
         for (int i = 0; i < writableProps.Count; i++)
         {
             sb.Append(indent).Append("    ").Append(writableProps[i].Name).Append(" = ").Append(propValueLocals[i]);
-            sb.AppendLine(i == writableProps.Count - 1 ? "" : ",");
+            written++;
+            sb.AppendLine(written == totalEntries ? "" : ",");
         }
+
+        foreach (IPropertySymbol prop in requiredNotMapped)
+        {
+            sb.Append(indent).Append("    ").Append(prop.Name).Append(" = default!");
+            written++;
+            sb.AppendLine(written == totalEntries ? "" : ",");
+        }
+
         sb.Append(indent).AppendLine("};");
+    }
+
+    private static List<IPropertySymbol> GetRequiredNotMappedProperties(INamedTypeSymbol entity)
+    {
+        List<IPropertySymbol> result = new();
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        for (INamedTypeSymbol? current = entity; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+        {
+            foreach (ISymbol member in current.GetMembers())
+            {
+                if (member is not IPropertySymbol prop || prop.IsStatic || prop.IsIndexer)
+                {
+                    continue;
+                }
+
+                if (!prop.IsRequired || !HasNotMappedAttribute(prop))
+                {
+                    continue;
+                }
+
+                if (prop.SetMethod == null || prop.DeclaredAccessibility != Accessibility.Public)
+                {
+                    continue;
+                }
+
+                if (!seen.Add(prop.Name))
+                {
+                    continue;
+                }
+
+                result.Add(prop);
+            }
+        }
+        return result;
     }
 
     private static void EmitSimpleColumnReadLocal(StringBuilder sb, ITypeSymbol propType, string columnName, string valueLocal, string localSuffix, string indent)
@@ -587,13 +635,13 @@ internal static class EntityMaterializerEmitter
         sb.AppendLine();
     }
 
-    private static void EmitAnonymousMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName)
+    private static void EmitAnonymousMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
         List<IPropertySymbol> props = entity.GetMembers().OfType<IPropertySymbol>().ToList();
-        EmitAnonymousMaterializerDirect(sb, entity, methodName, props);
+        EmitAnonymousMaterializerDirect(sb, entity, methodName, props, entitySet, nestedInitSet);
     }
 
-    private static void EmitAnonymousMaterializerDirect(StringBuilder sb, INamedTypeSymbol entity, string methodName, List<IPropertySymbol> props)
+    private static void EmitAnonymousMaterializerDirect(StringBuilder sb, INamedTypeSymbol entity, string methodName, List<IPropertySymbol> props, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
         string typeField = $"s_type_{methodName}";
 
@@ -601,17 +649,11 @@ internal static class EntityMaterializerEmitter
         sample.Append("new { ");
         for (int i = 0; i < props.Count; i++)
         {
-            IPropertySymbol prop = props[i];
-            string typeDisplay = prop.Type.ToDisplayString();
             if (i > 0)
             {
                 sample.Append(", ");
             }
-            sample.Append(prop.Name).Append(" = default(").Append(typeDisplay).Append(")");
-            if (prop.Type.IsReferenceType && prop.Type.NullableAnnotation != NullableAnnotation.Annotated)
-            {
-                sample.Append("!");
-            }
+            sample.Append(props[i].Name).Append(" = ").Append(BuildSampleExpression(props[i].Type));
         }
         sample.Append(" }");
 
@@ -624,12 +666,32 @@ internal static class EntityMaterializerEmitter
         sb.AppendLine("            var reader = ctx.Reader!;");
         sb.AppendLine("            var columns = ctx.Columns!;");
 
+        int nestedCounter = 0;
+        Dictionary<string, string> nestedResultLocals = new();
+
         foreach (IPropertySymbol prop in props)
         {
             string propName = prop.Name;
             string propTypeDisplay = prop.Type.ToDisplayString();
-            string strippedDisplay = StripNullableSymbol(prop.Type).ToDisplayString();
 
+            if (StripNullableSymbol(prop.Type) is INamedTypeSymbol strippedNamed
+                && strippedNamed.TypeKind == TypeKind.Class
+                && entitySet.Contains(strippedNamed)
+                && IsCompositeUserType(strippedNamed))
+            {
+                EmitEntityProperties(sb, strippedNamed, propName + ".", "            ", ref nestedCounter, out string nestedResult, entitySet, nestedInitSet);
+                nestedResultLocals[propName] = nestedResult;
+                continue;
+            }
+
+            if (StripNullableSymbol(prop.Type) is INamedTypeSymbol strippedAnon && strippedAnon.IsAnonymousType)
+            {
+                EmitAnonymousProperties(sb, strippedAnon, propName + ".", "            ", ref nestedCounter, out string nestedResult);
+                nestedResultLocals[propName] = nestedResult;
+                continue;
+            }
+
+            string strippedDisplay = StripNullableSymbol(prop.Type).ToDisplayString();
             sb.Append("            ").Append(propTypeDisplay).Append(" value_").Append(propName).Append(" = default");
             bool isAnnotatedOrRef = prop.Type.NullableAnnotation == NullableAnnotation.Annotated || prop.Type.IsReferenceType;
             if (isAnnotatedOrRef)
@@ -676,11 +738,81 @@ internal static class EntityMaterializerEmitter
             {
                 sb.Append(", ");
             }
-            sb.Append(props[i].Name).Append(" = value_").Append(props[i].Name);
+            string propName = props[i].Name;
+            string source = nestedResultLocals.TryGetValue(propName, out string? nestedLocal)
+                ? nestedLocal
+                : "value_" + propName;
+            sb.Append(propName).Append(" = ").Append(source);
         }
         sb.AppendLine(" };");
         sb.AppendLine("        }");
         sb.AppendLine();
+    }
+
+    private static void EmitAnonymousProperties(StringBuilder sb, INamedTypeSymbol anonType, string columnPrefix, string indent, ref int counter, out string resultLocalName)
+    {
+        List<IPropertySymbol> props = anonType.GetMembers().OfType<IPropertySymbol>().ToList();
+        List<string> propValueLocals = new();
+
+        foreach (IPropertySymbol prop in props)
+        {
+            string propColumn = columnPrefix + prop.Name;
+            string localSuffix = counter.ToString();
+            counter++;
+            string valueLocal = "__val_" + localSuffix;
+
+            if (StripNullableSymbol(prop.Type) is INamedTypeSymbol nestedAnon && nestedAnon.IsAnonymousType)
+            {
+                EmitAnonymousProperties(sb, nestedAnon, propColumn + ".", indent, ref counter, out string nestedResult);
+                sb.Append(indent).Append("var ").Append(valueLocal).Append(" = ").Append(nestedResult).AppendLine(";");
+            }
+            else
+            {
+                EmitSimpleColumnReadLocal(sb, prop.Type, propColumn, valueLocal, localSuffix, indent);
+            }
+            propValueLocals.Add(valueLocal);
+        }
+
+        string resultSuffix = counter.ToString();
+        counter++;
+        resultLocalName = "__anon_" + resultSuffix;
+
+        sb.Append(indent).Append("var ").Append(resultLocalName).AppendLine(" = new");
+        sb.Append(indent).AppendLine("{");
+        for (int i = 0; i < props.Count; i++)
+        {
+            sb.Append(indent).Append("    ").Append(props[i].Name).Append(" = ").Append(propValueLocals[i]);
+            sb.AppendLine(i == props.Count - 1 ? "" : ",");
+        }
+        sb.Append(indent).AppendLine("};");
+    }
+
+    private static string BuildSampleExpression(ITypeSymbol type)
+    {
+        if (StripNullableSymbol(type) is INamedTypeSymbol nested && nested.IsAnonymousType)
+        {
+            StringBuilder b = new();
+            b.Append("new { ");
+            List<IPropertySymbol> nestedProps = nested.GetMembers().OfType<IPropertySymbol>().ToList();
+            for (int i = 0; i < nestedProps.Count; i++)
+            {
+                if (i > 0)
+                {
+                    b.Append(", ");
+                }
+                b.Append(nestedProps[i].Name).Append(" = ").Append(BuildSampleExpression(nestedProps[i].Type));
+            }
+            b.Append(" }");
+            return b.ToString();
+        }
+
+        string display = type.ToDisplayString();
+        string defaultExpr = "default(" + display + ")";
+        if (type.IsReferenceType && type.NullableAnnotation != NullableAnnotation.Annotated)
+        {
+            defaultExpr += "!";
+        }
+        return defaultExpr;
     }
 
     private static IEnumerable<IPropertySymbol> EnumerateInstanceProperties(INamedTypeSymbol entity)
@@ -695,6 +827,11 @@ internal static class EntityMaterializerEmitter
                     continue;
                 }
 
+                if (HasNotMappedAttribute(prop))
+                {
+                    continue;
+                }
+
                 if (!seen.Add(prop.Name))
                 {
                     continue;
@@ -703,6 +840,19 @@ internal static class EntityMaterializerEmitter
                 yield return prop;
             }
         }
+    }
+
+    private static bool HasNotMappedAttribute(IPropertySymbol prop)
+    {
+        foreach (AttributeData attr in prop.GetAttributes())
+        {
+            if (attr.AttributeClass is { Name: "NotMappedAttribute" } cls
+                && cls.ContainingNamespace?.ToDisplayString() == "System.ComponentModel.DataAnnotations.Schema")
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static ITypeSymbol StripNullableSymbol(ITypeSymbol type)

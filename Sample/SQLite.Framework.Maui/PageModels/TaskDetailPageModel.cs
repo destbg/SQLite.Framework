@@ -22,10 +22,10 @@ public partial class TaskDetailPageModel : ObservableObject, IQueryAttributable
     private bool _isCompleted;
 
     [ObservableProperty]
-    private List<Project> _projects = [];
+    private List<ProjectListItem> _projects = [];
 
     [ObservableProperty]
-    private Project? _project;
+    private ProjectDetail? _project;
 
     [ObservableProperty]
     private int _selectedProjectIndex = -1;
@@ -49,7 +49,7 @@ public partial class TaskDetailPageModel : ObservableObject, IQueryAttributable
     private async Task LoadTaskAsync(IDictionary<string, object> query)
     {
         if (query.TryGetValue(ProjectQueryKey, out var project))
-            Project = (Project)project;
+            Project = (ProjectDetail)project;
 
         int taskId = 0;
 
@@ -68,11 +68,11 @@ public partial class TaskDetailPageModel : ObservableObject, IQueryAttributable
         }
         else
         {
-            _task = new ProjectTask();
+            _task = new ProjectTask { Title = string.Empty };
         }
 
         // If the project is new, we don't need to load the project dropdown
-        if (Project?.Id == 0)
+        if (Project?.Project.Id == 0)
         {
             IsExistingProject = false;
         }
@@ -83,9 +83,9 @@ public partial class TaskDetailPageModel : ObservableObject, IQueryAttributable
         }
 
         if (Project is not null)
-            SelectedProjectIndex = Projects.FindIndex(p => p.Id == Project.Id);
+            SelectedProjectIndex = Projects.FindIndex(p => p.Project.Id == Project.Project.Id);
         else if (_task?.ProjectId > 0)
-            SelectedProjectIndex = Projects.FindIndex(p => p.Id == _task.ProjectId);
+            SelectedProjectIndex = Projects.FindIndex(p => p.Project.Id == _task.ProjectId);
 
         if (taskId > 0)
         {
@@ -101,9 +101,10 @@ public partial class TaskDetailPageModel : ObservableObject, IQueryAttributable
         }
         else
         {
-            _task = new ProjectTask()
+            _task = new ProjectTask
             {
-                ProjectId = Project?.Id ?? 0
+                Title = string.Empty,
+                ProjectId = Project?.Project.Id ?? 0
             };
         }
     }
@@ -131,14 +132,14 @@ public partial class TaskDetailPageModel : ObservableObject, IQueryAttributable
 
         _task.Title = Title;
 
-        int projectId = Project?.Id ?? 0;
+        int projectId = Project?.Project.Id ?? 0;
 
         if (Projects.Count > SelectedProjectIndex && SelectedProjectIndex >= 0)
-            _task.ProjectId = projectId = Projects[SelectedProjectIndex].Id;
+            _task.ProjectId = projectId = Projects[SelectedProjectIndex].Project.Id;
 
         _task.IsCompleted = IsCompleted;
 
-        if (Project?.Id == projectId && !Project.Tasks.Contains(_task))
+        if (Project?.Project.Id == projectId && !Project.Tasks.Contains(_task))
             Project.Tasks.Add(_task);
 
         if (_task.ProjectId > 0)

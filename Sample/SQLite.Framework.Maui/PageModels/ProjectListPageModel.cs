@@ -11,10 +11,10 @@ public partial class ProjectListPageModel : ObservableObject
     private readonly ProjectRepository _projectRepository;
 
     [ObservableProperty]
-    private List<Project> _projects = [];
+    private List<ProjectListItem> _projects = [];
 
     [ObservableProperty]
-    private Project? selectedProject;
+    private ProjectListItem? selectedProject;
 
     public ProjectListPageModel(ProjectRepository projectRepository)
     {
@@ -28,8 +28,8 @@ public partial class ProjectListPageModel : ObservableObject
     }
 
     [RelayCommand]
-    Task? NavigateToProject(Project project)
-        => project is null ? Task.CompletedTask : Shell.Current.GoToAsync($"project?id={project.Id}");
+    Task? NavigateToProject(ProjectListItem item)
+        => item is null ? Task.CompletedTask : Shell.Current.GoToAsync($"project?id={item.Project.Id}");
 
     [RelayCommand]
     async Task AddProject()

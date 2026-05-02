@@ -12,8 +12,8 @@ public class Tag
     [Key]
     [AutoIncrement]
     public int Id { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string Color { get; set; } = "#FF0000";
+    public required string Title { get; set; }
+    public required string Color { get; set; }
 
     [NotMapped]
     [JsonIgnore]
@@ -54,8 +54,4 @@ public class Tag
             return DisplayColor.WithBlackKey(0.2);
         }
     }
-
-    [NotMapped]
-    [JsonIgnore]
-    public bool IsSelected { get; set; }
 }

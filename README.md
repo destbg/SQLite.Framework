@@ -31,8 +31,8 @@ That whole expression is one SQL query. No client-side fallback, no reflection a
 | You're using | What you'll like here | What you'll lose |
 |---|---|---|
 | **EF Core** | Same `IQueryable` shape, smaller dependency, AOT works with minimal setup, no migrations or change tracker overhead. | EF's full mapping model (owned types, value converters via fluent API, complex inheritance). |
-| **sqlite-net-pcl** | Real LINQ - joins, group-by, subqueries, projections, FTS5, JSON, window functions all translate to SQL. AOT-friendly with the source generator. | Nothing meaningful; the API is similar where it overlaps and the migration is small. |
-| **Dapper** | No more raw SQL strings (although you can still call Query and Execute just the same) and type-safe queries. | Multi-database support; Dapper isn't SQLite-specific. |
+| **sqlite-net-pcl** | Real LINQ - joins, group-by, subqueries, projections, FTS5, JSON, window functions all translate to SQL. AOT-friendly with the source generator. | Nothing meaningful, the API is similar where it overlaps and the migration is small. |
+| **Dapper** | No more raw SQL strings (although you can still call Query and Execute just the same) and type-safe queries. | Multi-database support, Dapper isn't SQLite-specific. |
 
 See the [Migrating from sqlite-net-pcl](https://destbg.github.io/SQLite.Framework/#/Migrating%20from%20sqlite-net-pcl) page if that's your starting point.
 
@@ -78,7 +78,7 @@ sqlite-net-pcl's `TableQuery<T>` is `IEnumerable<T>`, not `IQueryable<T>`, so th
 
 ## Status
 
-The library is exercised by 9000+ test cases across all suites at 100% line coverage; the main test project alone runs 1800+ tests. The library targets .NET 8, 9, and 10. SemVer is followed for breaking changes.
+The library is exercised by ~10000 test cases across all suites at 100% code coverage. The main test project alone runs 1900+ tests. The library targets .NET 8, 9, and 10. SemVer is followed for breaking changes.
 
 ## Documentation
 
@@ -116,7 +116,7 @@ public class Person
 }
 ```
 
-   Per-class attributes: `[Table]`, `[WithoutRowId]`. Per-property: `[Column]`, `[NotMapped]`, `[Key]`, `[Index]`, `[AutoIncrement]`, `[Required]`. Columns are NOT NULL by default; use `?` to mark them as nullable.
+   Per-class attributes: `[Table]`, `[WithoutRowId]`. Per-property: `[Column]`, `[NotMapped]`, `[Key]`, `[Index]`, `[AutoIncrement]`, `[Required]`. Columns are NOT NULL by default, use `?` to mark them as nullable.
 
 2. **Open a database.**
 

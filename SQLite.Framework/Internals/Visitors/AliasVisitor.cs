@@ -77,6 +77,23 @@ internal class AliasVisitor
                         result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
                     }
                 }
+                else if (argument is MemberExpression memberExpression
+                    && !TypeHelpers.IsSimple(memberExpression.Type, database.Options))
+                {
+                    string alias = CheckPrefix(prefix, parameter.Name!);
+                    (string path, ParameterExpression rangeParameter) = ExpressionHelpers.ResolveParameterPath(memberExpression);
+                    Dictionary<string, Expression> sourceColumns = visitor.MethodArguments[rangeParameter];
+                    string prefixToMatch = path + ".";
+
+                    foreach (KeyValuePair<string, Expression> tableColumn in sourceColumns)
+                    {
+                        if (tableColumn.Key.StartsWith(prefixToMatch, StringComparison.Ordinal))
+                        {
+                            string suffix = tableColumn.Key[prefixToMatch.Length..];
+                            result.Add($"{alias}.{suffix}", tableColumn.Value);
+                        }
+                    }
+                }
                 else
                 {
                     string alias = CheckPrefix(prefix, parameter.Name!);

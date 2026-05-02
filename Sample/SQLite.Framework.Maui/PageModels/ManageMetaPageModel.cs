@@ -62,7 +62,7 @@ public partial class ManageMetaPageModel : ObservableObject
 	[RelayCommand]
 	private async Task AddCategory()
 	{
-		var category = new Category();
+		var category = new Category { Title = string.Empty, Color = "#FF0000" };
 		Categories.Add(category);
 		await _categoryRepository.SaveItemAsync(category);
 		await AppShell.DisplayToastAsync("Category added");
@@ -93,7 +93,7 @@ public partial class ManageMetaPageModel : ObservableObject
 	[RelayCommand]
 	private async Task AddTag()
 	{
-		var tag = new Tag();
+		var tag = new Tag { Title = string.Empty, Color = "#FF0000" };
 		Tags.Add(tag);
 		await _tagRepository.SaveItemAsync(tag);
 		await AppShell.DisplayToastAsync("Tag added");

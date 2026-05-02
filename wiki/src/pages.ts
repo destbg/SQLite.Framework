@@ -14,6 +14,7 @@ export const sections: Section[] = [
   {
     title: "Getting Started",
     pages: [
+      { slug: "Overview", title: "Full Overview" },
       { slug: "Getting Started", title: "Getting Started" },
       { slug: "Defining Models", title: "Defining Models" },
     ],
@@ -76,6 +77,10 @@ export const sections: Section[] = [
       },
       { slug: "Migrating from EF Core", title: "Migrating from EF Core" },
     ],
+  },
+  {
+    title: "Tooling",
+    pages: [{ slug: "AI Assistance", title: "AI Assistance" }],
   },
 ];
 

@@ -1,0 +1,55 @@
+{
+    "Projects": [
+        {
+            "Name": "Balance",
+            "Description": "Improve work-life balance.",
+            "Category": { "Title": "work", "Color": "#3068DF" },
+            "Tags": [
+                { "Title": "work", "Color": "#3068DF" }
+            ],
+            "Tasks": [
+                { "Title": "Survey Employees", "IsCompleted": false },
+                { "Title": "Analyze Survey Results", "IsCompleted": false },
+                { "Title": "Develop Action Plan", "IsCompleted": false }
+            ]
+        },
+        {
+            "Name": "Personal",
+            "Description": "Learn to speak another language.",
+            "Category": { "Title": "education", "Color": "#8800FF" },
+            "Tags": [
+                { "Title": "personal", "Color": "#FF4500" }
+            ],
+            "Tasks": [
+                { "Title": "Read a Book", "IsCompleted": false },
+                { "Title": "Attend a Workshop", "IsCompleted": false },
+                { "Title": "Practice a Hobby", "IsCompleted": false }
+            ]
+        },
+        {
+            "Name": "Fitness",
+            "Description": "Promote health and fitness activities.",
+            "Category": { "Title": "self", "Color": "#FF3300" },
+            "Tags": [
+                { "Title": "health", "Color": "#32CD32" }
+            ],
+            "Tasks": [
+                { "Title": "Morning Yoga", "IsCompleted": false },
+                { "Title": "Evening Run", "IsCompleted": false },
+                { "Title": "Healthy Cooking Class", "IsCompleted": false }
+            ]
+        },
+        {
+            "Name": "Family and Friends",
+            "Description": "Strengthen relationships with family and friends.",
+            "Category": { "Title": "relationships", "Color": "#FF9900" },
+            "Tags": [
+                { "Title": "family", "Color": "#1E90FF" }
+            ],
+            "Tasks": [
+                { "Title": "Plan a Game Night", "IsCompleted": false },
+                { "Title": "Schedule Lunch", "IsCompleted": false }
+            ]
+        }
+    ]
+}

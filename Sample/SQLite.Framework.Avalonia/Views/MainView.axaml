@@ -1,0 +1,187 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:SQLite.Framework.Avalonia.ViewModels"
+             xmlns:m="using:SQLite.Framework.Avalonia.Models"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="SQLite.Framework.Avalonia.Views.MainView"
+             x:DataType="vm:MainViewModel"
+             x:CompileBindings="True">
+
+    <TabControl SelectedIndex="{Binding SelectedTabIndex}" Padding="12">
+
+        <!-- Projects -->
+        <TabItem Header="Projects">
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,*" Margin="6">
+                <!-- Add bar -->
+                <DockPanel Grid.Row="0" Grid.Column="0" LastChildFill="True" Margin="0,0,6,8">
+                    <Button DockPanel.Dock="Right"
+                            Content="Add"
+                            Command="{Binding Projects.AddProjectCommand}"
+                            Margin="6,0,0,0"/>
+                    <TextBox PlaceholderText="New project name"
+                             Text="{Binding Projects.NewProjectName}"/>
+                </DockPanel>
+
+                <!-- Project list -->
+                <Border Grid.Row="1" Grid.Column="0" Margin="0,0,6,0"
+                        BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                        BorderThickness="1" CornerRadius="4">
+                    <ListBox ItemsSource="{Binding Projects.Items}"
+                             SelectedItem="{Binding Projects.Selected}"
+                             SelectionMode="Single">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="m:ProjectListItem">
+                                <StackPanel Spacing="2" Margin="4">
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right"
+                                                Content="X"
+                                                Padding="6,0"
+                                                Command="{Binding $parent[ListBox].((vm:MainViewModel)DataContext).Projects.RemoveProjectCommand}"
+                                                CommandParameter="{Binding}"/>
+                                        <TextBlock Text="{Binding Project.Name}" FontWeight="SemiBold"/>
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding Category.Title, FallbackValue='no category'}"
+                                               FontSize="11" Opacity="0.6"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
+                <!-- Tasks for the selected project -->
+                <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Margin="6,0,0,0"
+                        BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                        BorderThickness="1" CornerRadius="4" Padding="8">
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Row="0"
+                                   Text="{Binding Projects.Selected.Project.Name, FallbackValue='Select a project'}"
+                                   FontSize="16" FontWeight="SemiBold"/>
+
+                        <DockPanel Grid.Row="1" Margin="0,8" LastChildFill="True"
+                                   IsVisible="{Binding Projects.Selected, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Button DockPanel.Dock="Right"
+                                    Content="Add Task"
+                                    Command="{Binding Projects.AddTaskCommand}"
+                                    Margin="6,0,0,0"/>
+                            <TextBox PlaceholderText="New task title"
+                                     Text="{Binding Projects.NewTaskTitle}"/>
+                        </DockPanel>
+
+                        <ItemsControl Grid.Row="2" ItemsSource="{Binding Projects.SelectedTasks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="m:ProjectTask">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
+                                        <CheckBox Grid.Column="0"
+                                                  IsChecked="{Binding IsCompleted, Mode=OneWay}"
+                                                  Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).Projects.ToggleTaskCommand}"
+                                                  CommandParameter="{Binding}"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Title}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="6,0"/>
+                                        <Button Grid.Column="2"
+                                                Content="X"
+                                                Padding="6,0"
+                                                Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).Projects.RemoveTaskCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <!-- Categories -->
+        <TabItem Header="Categories">
+            <Grid RowDefinitions="Auto,*" Margin="6">
+                <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,8">
+                    <Button DockPanel.Dock="Right"
+                            Content="Add"
+                            Command="{Binding Categories.AddCommand}"
+                            Margin="6,0,0,0"/>
+                    <TextBox DockPanel.Dock="Right"
+                             Text="{Binding Categories.NewColor}"
+                             Width="100"
+                             Margin="6,0,0,0"
+                             PlaceholderText="#RRGGBB"/>
+                    <TextBox PlaceholderText="New category title"
+                             Text="{Binding Categories.NewTitle}"/>
+                </DockPanel>
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding Categories.Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="m:Category">
+                            <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                                    BorderThickness="0,0,0,1" Padding="6,4">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Border Grid.Column="0"
+                                            Width="14" Height="14"
+                                            Background="{Binding Color}"
+                                            CornerRadius="2"
+                                            VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Title}"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0"/>
+                                    <Button Grid.Column="2"
+                                            Content="X"
+                                            Padding="6,0"
+                                            Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).Categories.RemoveCommand}"
+                                            CommandParameter="{Binding}"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </TabItem>
+
+        <!-- Tags -->
+        <TabItem Header="Tags">
+            <Grid RowDefinitions="Auto,*" Margin="6">
+                <DockPanel Grid.Row="0" LastChildFill="True" Margin="0,0,0,8">
+                    <Button DockPanel.Dock="Right"
+                            Content="Add"
+                            Command="{Binding Tags.AddCommand}"
+                            Margin="6,0,0,0"/>
+                    <TextBox DockPanel.Dock="Right"
+                             Text="{Binding Tags.NewColor}"
+                             Width="100"
+                             Margin="6,0,0,0"
+                             PlaceholderText="#RRGGBB"/>
+                    <TextBox PlaceholderText="New tag title"
+                             Text="{Binding Tags.NewTitle}"/>
+                </DockPanel>
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding Tags.Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="m:Tag">
+                            <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                                    BorderThickness="0,0,0,1" Padding="6,4">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Border Grid.Column="0"
+                                            Width="14" Height="14"
+                                            Background="{Binding Color}"
+                                            CornerRadius="2"
+                                            VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Title}"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0"/>
+                                    <Button Grid.Column="2"
+                                            Content="X"
+                                            Padding="6,0"
+                                            Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).Tags.RemoveCommand}"
+                                            CommandParameter="{Binding}"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </TabItem>
+    </TabControl>
+
+</UserControl>

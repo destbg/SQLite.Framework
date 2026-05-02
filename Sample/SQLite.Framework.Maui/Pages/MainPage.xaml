@@ -63,7 +63,7 @@
                                 <LinearItemsLayout Orientation="Horizontal" ItemSpacing="7.5"/>
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:Project">
+                                <DataTemplate x:DataType="models:ProjectListItem">
                                     <controls:ProjectCardView WidthRequest="200" />
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>

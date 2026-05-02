@@ -31,10 +31,10 @@ public class SeedDataService
 
         await using Stream templateStream = await FileSystem.OpenAppPackageFileAsync(_seedDataFilePath);
 
-        ProjectsJson? payload = null;
+        SeedDataDto? payload = null;
         try
         {
-            payload = JsonSerializer.Deserialize(templateStream, JsonContext.Default.ProjectsJson);
+            payload = JsonSerializer.Deserialize(templateStream, JsonContext.Default.SeedDataDto);
         }
         catch (Exception e)
         {
@@ -50,36 +50,33 @@ public class SeedDataService
         {
             await using SQLiteTransaction tx = await _db.BeginTransactionAsync();
 
-            foreach (Project project in payload.Projects)
+            foreach (ProjectSeedDto seed in payload.Projects)
             {
-                if (project is null)
+                int categoryId = 0;
+                if (seed.Category is not null)
                 {
-                    continue;
+                    await _categoryRepository.SaveItemAsync(seed.Category);
+                    categoryId = seed.Category.Id;
                 }
 
-                if (project.Category is not null)
+                Project project = new()
                 {
-                    await _categoryRepository.SaveItemAsync(project.Category);
-                    project.CategoryId = project.Category.Id;
-                }
-
+                    Name = seed.Name,
+                    Description = seed.Description,
+                    Icon = seed.Icon,
+                    CategoryId = categoryId,
+                };
                 await _projectRepository.SaveItemAsync(project);
 
-                if (project.Tasks is not null)
+                foreach (ProjectTask task in seed.Tasks)
                 {
-                    foreach (ProjectTask task in project.Tasks)
-                    {
-                        task.ProjectId = project.Id;
-                        await _taskRepository.SaveItemAsync(task);
-                    }
+                    task.ProjectId = project.Id;
+                    await _taskRepository.SaveItemAsync(task);
                 }
 
-                if (project.Tags is not null)
+                foreach (Tag tag in seed.Tags)
                 {
-                    foreach (Tag tag in project.Tags)
-                    {
-                        await _tagRepository.SaveItemAsync(tag, project.Id);
-                    }
+                    await _tagRepository.SaveItemAsync(tag, project.Id);
                 }
             }
 

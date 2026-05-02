@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Maui.Models;
 
 namespace SQLite.Framework.Maui.PageModels;
@@ -11,6 +12,7 @@ public partial class MainPageModel : ObservableObject, IProjectTaskPageModel
     private readonly ProjectRepository _projectRepository;
     private readonly TaskRepository _taskRepository;
     private readonly CategoryRepository _categoryRepository;
+    private readonly AppDatabase _db;
     private readonly ModalErrorHandler _errorHandler;
     private readonly SeedDataService _seedDataService;
 
@@ -24,7 +26,7 @@ public partial class MainPageModel : ObservableObject, IProjectTaskPageModel
     private List<ProjectTask> _tasks = [];
 
     [ObservableProperty]
-    private List<Project> _projects = [];
+    private List<ProjectListItem> _projects = [];
 
     [ObservableProperty]
     bool _isBusy;
@@ -36,17 +38,18 @@ public partial class MainPageModel : ObservableObject, IProjectTaskPageModel
     private string _today = DateTime.Now.ToString("dddd, MMM d");
 
     [ObservableProperty]
-    private Project? selectedProject;
+    private ProjectListItem? selectedProject;
 
     public bool HasCompletedTasks
         => Tasks?.Any(t => t.IsCompleted) ?? false;
 
     public MainPageModel(SeedDataService seedDataService, ProjectRepository projectRepository,
-        TaskRepository taskRepository, CategoryRepository categoryRepository, ModalErrorHandler errorHandler)
+        TaskRepository taskRepository, CategoryRepository categoryRepository, AppDatabase db, ModalErrorHandler errorHandler)
     {
         _projectRepository = projectRepository;
         _taskRepository = taskRepository;
         _categoryRepository = categoryRepository;
+        _db = db;
         _errorHandler = errorHandler;
         _seedDataService = seedDataService;
     }
@@ -59,6 +62,13 @@ public partial class MainPageModel : ObservableObject, IProjectTaskPageModel
 
             Projects = await _projectRepository.ListAsync();
 
+            var taskCountsByCategory = await (
+                from t in _db.Tasks
+                join p in _db.Projects on t.ProjectId equals p.Id
+                group t by p.CategoryId into g
+                select new { CategoryId = g.Key, Count = g.Count() }
+            ).ToListAsync();
+
             var chartData = new List<CategoryChartData>();
             var chartColors = new List<Brush>();
 
@@ -67,8 +77,8 @@ public partial class MainPageModel : ObservableObject, IProjectTaskPageModel
             {
                 chartColors.Add(category.ColorBrush);
 
-                var ps = Projects.Where(p => p.CategoryId == category.Id).ToList();
-                int tasksCount = ps.SelectMany(p => p.Tasks).Count();
+                int tasksCount = taskCountsByCategory
+                    .FirstOrDefault(x => x.CategoryId == category.Id)?.Count ?? 0;
 
                 chartData.Add(new(category.Title, tasksCount));
             }
@@ -152,8 +162,8 @@ public partial class MainPageModel : ObservableObject, IProjectTaskPageModel
         => Shell.Current.GoToAsync($"task");
 
     [RelayCommand]
-    private Task? NavigateToProject(Project project)
-        => project is null ? null : Shell.Current.GoToAsync($"project?id={project.Id}");
+    private Task? NavigateToProject(ProjectListItem item)
+        => item is null ? null : Shell.Current.GoToAsync($"project?id={item.Project.Id}");
 
     [RelayCommand]
     private Task NavigateToTask(ProjectTask task)

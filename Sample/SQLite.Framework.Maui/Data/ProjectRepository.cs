@@ -12,38 +12,60 @@ public class ProjectRepository
     private readonly AppDatabase _db;
     private readonly TaskRepository _taskRepository;
     private readonly TagRepository _tagRepository;
+    private readonly CategoryRepository _categoryRepository;
 
-    public ProjectRepository(AppDatabase db, TaskRepository taskRepository, TagRepository tagRepository)
+    public ProjectRepository(AppDatabase db, TaskRepository taskRepository, TagRepository tagRepository, CategoryRepository categoryRepository)
     {
         _db = db;
         _taskRepository = taskRepository;
         _tagRepository = tagRepository;
+        _categoryRepository = categoryRepository;
     }
 
-    public async Task<List<Project>> ListAsync()
+    public async Task<List<ProjectListItem>> ListAsync()
     {
-        List<Project> projects = await _db.Projects.ToListAsync();
+        var rows = await (
+            from p in _db.Projects
+            join c in _db.Categories on p.CategoryId equals c.Id into cs
+            from c in cs.DefaultIfEmpty()
+            select new { Project = p, Category = c }
+        ).ToListAsync();
 
-        foreach (Project project in projects)
+        List<ProjectListItem> result = new(rows.Count);
+        foreach (var row in rows)
         {
-            project.Tags = await _tagRepository.ListAsync(project.Id);
-            project.Tasks = await _taskRepository.ListAsync(project.Id);
+            List<Tag> tags = await _tagRepository.ListAsync(row.Project.Id);
+            result.Add(new ProjectListItem
+            {
+                Project = row.Project,
+                Category = row.Category,
+                Tags = tags,
+            });
         }
-
-        return projects;
+        return result;
     }
 
-    public async Task<Project?> GetAsync(int id)
+    public async Task<ProjectDetail?> GetAsync(int id)
     {
         Project? project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == id);
-        if (project == null)
+        if (project is null)
         {
             return null;
         }
 
-        project.Tags = await _tagRepository.ListAsync(project.Id);
-        project.Tasks = await _taskRepository.ListAsync(project.Id);
-        return project;
+        Category? category = project.CategoryId == 0
+            ? null
+            : await _categoryRepository.GetAsync(project.CategoryId);
+        List<ProjectTask> tasks = await _taskRepository.ListAsync(project.Id);
+        List<Tag> tags = await _tagRepository.ListAsync(project.Id);
+
+        return new ProjectDetail
+        {
+            Project = project,
+            Category = category,
+            Tasks = tasks,
+            Tags = tags,
+        };
     }
 
     public async Task<int> SaveItemAsync(Project item)

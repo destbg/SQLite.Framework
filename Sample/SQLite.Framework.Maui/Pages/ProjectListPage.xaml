@@ -30,13 +30,13 @@
                 <LinearItemsLayout Orientation="Vertical" ItemSpacing="7.5"/>
             </CollectionView.ItemsLayout>
             <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="models:Project">
-                    <Border 
+                <DataTemplate x:DataType="models:ProjectListItem">
+                    <Border
                         Background="{AppThemeBinding Light={StaticResource LightSecondaryBackground},Dark={StaticResource DarkSecondaryBackground}}"
-                        SemanticProperties.Description="{Binding Name, StringFormat='{0}'}">
+                        SemanticProperties.Description="{Binding Project.Name, StringFormat='{0}'}">
                         <VerticalStackLayout Padding="10">
-                            <Label Text="{Binding Name}" FontSize="24" />
-                            <Label Text="{Binding Description}" />
+                            <Label Text="{Binding Project.Name}" FontSize="24" />
+                            <Label Text="{Binding Project.Description}" />
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>

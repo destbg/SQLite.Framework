@@ -96,7 +96,15 @@ internal partial class QueryableVisitor
 
         Dictionary<string, Expression> newTableColumns = [];
 
-        if (!isMember)
+        if (groupByExpression is NewExpression keyNew && keyNew.Members != null)
+        {
+            for (int i = 0; i < keyNew.Members.Count; i++)
+            {
+                string keyName = nameof(IGrouping<,>.Key) + "." + keyNew.Members[i].Name;
+                newTableColumns[keyName] = keyNew.Arguments[i];
+            }
+        }
+        else if (!isMember)
         {
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
@@ -105,13 +113,13 @@ internal partial class QueryableVisitor
 
                 newTableColumns[key] = tableColumn.Value;
             }
+            newTableColumns[nameof(IGrouping<,>.Key)] = GroupBys[0];
         }
         else
         {
             newTableColumns[string.Empty] = visitor.TableColumns.Single().Value;
+            newTableColumns[nameof(IGrouping<,>.Key)] = GroupBys[0];
         }
-
-        newTableColumns[nameof(IGrouping<,>.Key)] = GroupBys[0];
 
         visitor.TableColumns = newTableColumns;
 
