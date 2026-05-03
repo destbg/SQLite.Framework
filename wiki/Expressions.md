@@ -1,6 +1,6 @@
 # Expressions
 
-LINQ expressions inside `Where`, `Select`, and other methods are translated directly to SQL. This page covers what is supported beyond basic comparisons.
+LINQ expressions inside `Where`, `Select`, and other methods are translated directly to SQL. The framework stays close to the shape of the LINQ query and does not wrap the result in an extra subquery just to make a method work. When a method does not have a clean SQL equivalent, you get a clear `NotSupportedException` rather than a hidden rewrite. When SQLite has no built-in for a method but the same shape can be expressed inline (often as a `CASE WHEN ...` block), the framework uses that. This page covers what is supported beyond basic comparisons.
 
 ## Arithmetic
 

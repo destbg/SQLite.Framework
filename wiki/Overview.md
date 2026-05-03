@@ -8,6 +8,8 @@ A small ORM that lets you use LINQ on a SQLite database. If you have used Entity
 
 `db.Table<T>()` returns a `SQLiteTable<T>`. That class implements `IQueryable<T>`, so any LINQ method works on it. Every method has an async version. Drop the `Async` suffix when you want the sync version.
 
+The framework keeps the generated SQL close to the shape of the LINQ query you wrote. It does not wrap the query in an extra subquery or rewrite it behind your back just to make a LINQ method work. If a method cannot be mapped to SQL cleanly, you get a clear `NotSupportedException` instead of a silently wrong result or a surprising query plan.
+
 ## Packages
 
 | Package | When to use |

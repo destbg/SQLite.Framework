@@ -103,7 +103,7 @@ internal static class BuildQueryObject
             return ctor.Invoke(args);
         }
 
-        object? instance = Activator.CreateInstance(type);
+        object? instance = Activator.CreateInstance(type, nonPublic: true);
         foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite))
         {
             Type propType = prop.PropertyType;

@@ -5355,6 +5355,943 @@ public class QueryPatternGapTests
     }
 
     [Fact]
+    public void GroupBy_OverEmptySource_ReturnsNoGroups()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        var rows = db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .Select(g => new { Id = g.Key, Count = g.Count() })
+            .ToList();
+
+        Assert.Empty(rows);
+    }
+
+    [Fact]
+    public void Where_MethodOnCoalescedString_TranslatesAfterCoalesce()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableStringEntity>().Schema.CreateTable();
+
+        db.Table<NullableStringEntity>().AddRange([
+            new NullableStringEntity { Id = 1, Name = "Apple" },
+            new NullableStringEntity { Id = 2, Name = null },
+            new NullableStringEntity { Id = 3, Name = "Avocado" },
+        ]);
+
+        List<int> ids = db.Table<NullableStringEntity>()
+            .Where(e => (e.Name ?? "").StartsWith("A"))
+            .OrderBy(e => e.Id)
+            .Select(e => e.Id)
+            .ToList();
+
+        Assert.Equal([1, 3], ids);
+    }
+
+    [Fact]
+    public void Select_MathRoundOnColumn_RoundsToInt()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.6 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2.4 },
+        ]);
+
+        List<double> rounded = db.Table<Book>()
+            .OrderBy(b => b.Id)
+            .Select(b => Math.Round(b.Price))
+            .ToList();
+
+        Assert.Equal([2.0, 2.0], rounded);
+    }
+
+    [Fact]
+    public void Where_DivisionWithRemainder()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 3, Price = 3 },
+            new Book { Id = 4, Title = "D", AuthorId = 4, Price = 4 },
+        ]);
+
+        List<int> evenIds = db.Table<Book>()
+            .Where(b => b.Id % 2 == 0)
+            .OrderBy(b => b.Id)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([2, 4], evenIds);
+    }
+
+    [Fact]
+    public void Select_StringInterpolatedExpressionFallsBack_OnUnsupportedConcat()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "Hello", AuthorId = 5, Price = 1 },
+        ]);
+
+        List<string> formatted = db.Table<Book>()
+            .Select(b => string.Concat(b.Title, "-", b.AuthorId.ToString()))
+            .ToList();
+
+        Assert.Single(formatted);
+        Assert.Contains("Hello", formatted[0]);
+    }
+
+    [Fact]
+    public void Where_ChainedStringMethods_TranslateSequentially()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "  Hello World  ", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "Hi", AuthorId = 1, Price = 2 },
+        ]);
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => b.Title.Trim().ToLower().StartsWith("hello"))
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([1], ids);
+    }
+
+    [Fact]
+    public void Select_StringReplaceInProjection_TranslatesToReplace()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "Hello", AuthorId = 1, Price = 1 },
+        ]);
+
+        string result = db.Table<Book>().Select(b => b.Title.Replace("l", "L")).Single();
+
+        Assert.Equal("HeLLo", result);
+    }
+
+    [Fact]
+    public void OrderBy_ConditionalKey_TranslatesAsCase()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "C", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "A", AuthorId = 2, Price = 2 },
+            new Book { Id = 3, Title = "B", AuthorId = 1, Price = 3 },
+        ]);
+
+        List<int> ids = db.Table<Book>()
+            .OrderBy(b => b.AuthorId == 1 ? 0 : 1)
+            .ThenBy(b => b.Title)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([3, 1, 2], ids);
+    }
+
+    [Fact]
+    public void Where_NegatedStringContains_FiltersByAbsence()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "Apple", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "Hi", AuthorId = 1, Price = 2 },
+        ]);
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => !b.Title.Contains("a"))
+            .OrderBy(b => b.Id)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([2], ids);
+    }
+
+    [Fact]
+    public void Distinct_AfterDistinct_StaysDistinct()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "A", AuthorId = 1, Price = 2 },
+        ]);
+
+        List<int> ids = db.Table<Book>()
+            .Select(b => b.AuthorId)
+            .Distinct()
+            .Distinct()
+            .ToList();
+
+        Assert.Equal([1], ids);
+    }
+
+    [Fact]
+    public void Reverse_AfterOrderBy_FlipsOrder()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 3 },
+        ]);
+
+        List<int> ids = db.Table<Book>()
+            .OrderBy(b => b.Id)
+            .Reverse()
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([3, 2, 1], ids);
+    }
+
+    [Fact]
+    public void Where_ContainsOnSubquerySelect_TranslatesToInSubquery()
+    {
+        using TestDatabase db = new();
+        db.Table<Author>().Schema.CreateTable();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Author>().AddRange([
+            new Author { Id = 1, Name = "Match", Email = "m@x", BirthDate = new DateTime(2000, 1, 1) },
+        ]);
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "T1", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "T2", AuthorId = 99, Price = 2 },
+        ]);
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => db.Table<Author>().Select(a => a.Id).Contains(b.AuthorId))
+            .OrderBy(b => b.Id)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([1], ids);
+    }
+
+    [Fact]
+    public void Select_NullableArithmetic_BothNullable_AddsNonNull()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+
+        db.Table<NullableEntity>().AddRange([
+            new NullableEntity { Id = 1, Value = 10 },
+        ]);
+
+        int? sum = db.Table<NullableEntity>().Select(e => e.Value + e.Value).First();
+
+        Assert.Equal(20, sum);
+    }
+
+    [Fact]
+    public void OrderBy_DateTimeYear_OrdersByExtractedPart()
+    {
+        using TestDatabase db = new();
+        db.Table<Author>().Schema.CreateTable();
+
+        db.Table<Author>().AddRange([
+            new Author { Id = 1, Name = "A", Email = "a@x", BirthDate = new DateTime(1990, 1, 1) },
+            new Author { Id = 2, Name = "B", Email = "b@x", BirthDate = new DateTime(1985, 6, 15) },
+            new Author { Id = 3, Name = "C", Email = "c@x", BirthDate = new DateTime(2000, 3, 10) },
+        ]);
+
+        List<int> ids = db.Table<Author>()
+            .OrderBy(a => a.BirthDate.Year)
+            .Select(a => a.Id)
+            .ToList();
+
+        Assert.Equal([2, 1, 3], ids);
+    }
+
+    [Fact]
+    public void Where_NullableHasValue_FiltersNonNull()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+
+        db.Table<NullableEntity>().AddRange([
+            new NullableEntity { Id = 1, Value = 10 },
+            new NullableEntity { Id = 2, Value = null },
+            new NullableEntity { Id = 3, Value = 20 },
+        ]);
+
+        List<int> ids = db.Table<NullableEntity>()
+            .Where(e => e.Value.HasValue)
+            .OrderBy(e => e.Id)
+            .Select(e => e.Id)
+            .ToList();
+
+        Assert.Equal([1, 3], ids);
+    }
+
+    [Fact]
+    public void Select_MathAbsOnNullable_HandlesNull()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+
+        db.Table<NullableEntity>().AddRange([
+            new NullableEntity { Id = 1, Value = -10 },
+            new NullableEntity { Id = 2, Value = null },
+        ]);
+
+        List<int?> abs = db.Table<NullableEntity>()
+            .OrderBy(e => e.Id)
+            .Select(e => Math.Abs(e.Value ?? 0))
+            .Cast<int?>()
+            .ToList();
+
+        Assert.Equal([10, 0], abs);
+    }
+
+    [Fact]
+    public void GroupBy_DistinctSelectInsideGroup_ThrowsNotSupported()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+        ]);
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .GroupBy(b => b.AuthorId)
+                .Select(g => new { Id = g.Key, Distinct = g.Select(b => b.Title).Distinct().Count() })
+                .ToList());
+    }
+
+    [Fact]
+    public void OrderBy_NullableCoalesced_PutsNullsLast()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+
+        db.Table<NullableEntity>().AddRange([
+            new NullableEntity { Id = 1, Value = 10 },
+            new NullableEntity { Id = 2, Value = null },
+            new NullableEntity { Id = 3, Value = 5 },
+        ]);
+
+        List<int> ids = db.Table<NullableEntity>()
+            .OrderBy(e => e.Value ?? int.MaxValue)
+            .Select(e => e.Id)
+            .ToList();
+
+        Assert.Equal([3, 1, 2], ids);
+    }
+
+    [Fact]
+    public void Concat_ThenIntersect_ChainsAsSetOperations()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+        ]);
+
+        IQueryable<int> a = db.Table<Book>().Where(b => b.Id == 1).Select(b => b.Id);
+        IQueryable<int> b = db.Table<Book>().Where(b => b.Id == 2).Select(b => b.Id);
+        IQueryable<int> c = db.Table<Book>().Select(b => b.Id);
+
+        List<int> result = a.Concat(b).Intersect(c).OrderBy(x => x).ToList();
+
+        Assert.Equal([1, 2], result);
+    }
+
+    [Fact]
+    public void Where_RangeCheck_TranslatesAsAnd()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 5 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 15 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 25 },
+        ]);
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => b.Price >= 10 && b.Price <= 20)
+            .OrderBy(b => b.Id)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([2], ids);
+    }
+
+    [Fact]
+    public void Select_FirstThenMember_OnEntity_ThrowsClearError()
+    {
+        using TestDatabase db = new();
+        db.Table<Author>().Schema.CreateTable();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Author>().AddRange([
+            new Author { Id = 1, Name = "Match", Email = "m@x", BirthDate = new DateTime(2000, 1, 1) },
+        ]);
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "T1", AuthorId = 1, Price = 1 },
+        ]);
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .Select(b => db.Table<Author>().First(a => a.Id == b.AuthorId).Name)
+                .ToList());
+
+        Assert.Contains("entity-typed scalar subquery", ex.Message);
+        Assert.Contains("Select(x => x.Name)", ex.Message);
+    }
+
+    [Fact]
+    public void Where_FirstThenMember_OnEntity_ThrowsClearError()
+    {
+        using TestDatabase db = new();
+        db.Table<Author>().Schema.CreateTable();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Author>().AddRange([
+            new Author { Id = 1, Name = "Match", Email = "m@x", BirthDate = new DateTime(2000, 1, 1) },
+        ]);
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "T1", AuthorId = 1, Price = 1 },
+        ]);
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .Where(b => db.Table<Author>().First(a => a.Id == b.AuthorId).Name.StartsWith("M"))
+                .ToList());
+    }
+
+    [Fact]
+    public void Where_StringEqualsWithIgnoreCase_TranslatesAsCollateNoCase()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "Apple", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "BANANA", AuthorId = 1, Price = 2 },
+        ]);
+
+        int matchedApple = db.Table<Book>().Count(b => b.Title.Equals("apple", StringComparison.OrdinalIgnoreCase));
+        int matchedBanana = db.Table<Book>().Count(b => b.Title.Equals("banana", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Equal(1, matchedApple);
+        Assert.Equal(1, matchedBanana);
+    }
+
+    [Fact]
+    public void Where_StringEqualsWithOrdinal_StaysCaseSensitive()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "Apple", AuthorId = 1, Price = 1 },
+        ]);
+
+        int caseSensitiveMatch = db.Table<Book>().Count(b => b.Title.Equals("apple", StringComparison.Ordinal));
+
+        Assert.Equal(0, caseSensitiveMatch);
+    }
+
+    [Fact]
+    public void Where_StringEquals_NoComparison_StillMatchesCaseSensitively()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "Apple", AuthorId = 1, Price = 1 },
+        ]);
+
+        int match = db.Table<Book>().Count(b => b.Title.Equals("Apple"));
+
+        Assert.Equal(1, match);
+    }
+
+    [Fact]
+    public void Where_EmptyStringVsNull_ArePreservedSeparately()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableStringEntity>().Schema.CreateTable();
+
+        db.Table<NullableStringEntity>().AddRange([
+            new NullableStringEntity { Id = 1, Name = "" },
+            new NullableStringEntity { Id = 2, Name = null },
+            new NullableStringEntity { Id = 3, Name = "x" },
+        ]);
+
+        int emptyCount = db.Table<NullableStringEntity>().Count(e => e.Name == "");
+        int nullCount = db.Table<NullableStringEntity>().Count(e => e.Name == null);
+        int isNullOrEmptyCount = db.Table<NullableStringEntity>().Count(e => string.IsNullOrEmpty(e.Name));
+
+        Assert.Equal(1, emptyCount);
+        Assert.Equal(1, nullCount);
+        Assert.Equal(2, isNullOrEmptyCount);
+    }
+
+    [Fact]
+    public void Where_IntEqualsWithBoxedObject_TranslatesAsEquality()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 5, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 7, Price = 2 },
+        ]);
+
+        object target = 5;
+
+        int count = db.Table<Book>().Count(b => b.AuthorId.Equals(target));
+
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public void Where_NullableBoolColumn_FollowsSqlNullSemantics()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableBoolEntity>().Schema.CreateTable();
+
+        db.Table<NullableBoolEntity>().AddRange([
+            new NullableBoolEntity { Id = 1, Flag = true },
+            new NullableBoolEntity { Id = 2, Flag = false },
+            new NullableBoolEntity { Id = 3, Flag = null },
+        ]);
+
+        int countTrue = db.Table<NullableBoolEntity>().Count(e => e.Flag == true);
+        int countCoalesced = db.Table<NullableBoolEntity>().Count(e => e.Flag ?? false);
+
+        Assert.Equal(1, countTrue);
+        Assert.Equal(1, countCoalesced);
+    }
+
+    [Fact]
+    public void Where_DateTimeSubtraction_ReturnsTimeSpan()
+    {
+        using TestDatabase db = new();
+        db.Table<Author>().Schema.CreateTable();
+
+        db.Table<Author>().AddRange([
+            new Author { Id = 1, Name = "A", Email = "a@x", BirthDate = new DateTime(2000, 1, 1) },
+        ]);
+
+        DateTime now = new(2010, 1, 1);
+
+        List<int> ids = db.Table<Author>()
+            .Where(a => (now - a.BirthDate).TotalDays > 365)
+            .Select(a => a.Id)
+            .ToList();
+
+        Assert.Equal([1], ids);
+    }
+
+    [Fact]
+    public void Max_OnDateTimeColumn_ReturnsLatest()
+    {
+        using TestDatabase db = new();
+        db.Table<Author>().Schema.CreateTable();
+
+        db.Table<Author>().AddRange([
+            new Author { Id = 1, Name = "A", Email = "a@x", BirthDate = new DateTime(2000, 1, 1) },
+            new Author { Id = 2, Name = "B", Email = "b@x", BirthDate = new DateTime(1990, 6, 15) },
+            new Author { Id = 3, Name = "C", Email = "c@x", BirthDate = new DateTime(2010, 3, 10) },
+        ]);
+
+        DateTime maxBirth = db.Table<Author>().Max(a => a.BirthDate);
+
+        Assert.Equal(new DateTime(2010, 3, 10), maxBirth);
+    }
+
+    [Fact]
+    public void GroupBy_DateTimeYear_GroupsByExtractedYear()
+    {
+        using TestDatabase db = new();
+        db.Table<Author>().Schema.CreateTable();
+
+        db.Table<Author>().AddRange([
+            new Author { Id = 1, Name = "A", Email = "a@x", BirthDate = new DateTime(2000, 1, 1) },
+            new Author { Id = 2, Name = "B", Email = "b@x", BirthDate = new DateTime(2000, 6, 15) },
+            new Author { Id = 3, Name = "C", Email = "c@x", BirthDate = new DateTime(2010, 3, 10) },
+        ]);
+
+        var rows = db.Table<Author>()
+            .GroupBy(a => a.BirthDate.Year)
+            .OrderBy(g => g.Key)
+            .Select(g => new { Year = g.Key, Count = g.Count() })
+            .ToList();
+
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(2000, rows[0].Year);
+        Assert.Equal(2, rows[0].Count);
+        Assert.Equal(2010, rows[1].Year);
+        Assert.Equal(1, rows[1].Count);
+    }
+
+    [Fact]
+    public void ExecuteUpdate_ColumnReferencingItselfTwice()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10 },
+        ]);
+
+        db.Table<Book>().ExecuteUpdate(s => s.Set(b => b.Price, b => b.Price + b.Price * 0.1));
+
+        double price = db.Table<Book>().Select(b => b.Price).First();
+
+        Assert.Equal(11.0, price);
+    }
+
+    [Fact]
+    public void Where_RepeatsComputedExpressionInBoundsCheck()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 50 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 100 },
+        ]);
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => b.Price * 2 > 50 && b.Price * 2 < 150)
+            .OrderBy(b => b.Id)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([2], ids);
+    }
+
+    [Fact]
+    public void Where_BoolColumnDirectly_TruthyFilter()
+    {
+        using TestDatabase db = new();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
+
+        db.Table<SoftDeletableBook>().AddRange([
+            new SoftDeletableBook { Id = 1, Title = "A", IsDeleted = true },
+            new SoftDeletableBook { Id = 2, Title = "B", IsDeleted = false },
+            new SoftDeletableBook { Id = 3, Title = "C", IsDeleted = true },
+        ]);
+
+        List<int> ids = db.Table<SoftDeletableBook>()
+            .Where(b => b.IsDeleted)
+            .OrderBy(b => b.Id)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([1, 3], ids);
+    }
+
+    [Fact]
+    public void Where_NegatedBoolColumn_FalsyFilter()
+    {
+        using TestDatabase db = new();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
+
+        db.Table<SoftDeletableBook>().AddRange([
+            new SoftDeletableBook { Id = 1, Title = "A", IsDeleted = true },
+            new SoftDeletableBook { Id = 2, Title = "B", IsDeleted = false },
+        ]);
+
+        List<int> ids = db.Table<SoftDeletableBook>()
+            .Where(b => !b.IsDeleted)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([2], ids);
+    }
+
+    [Fact]
+    public void Select_BoolColumnInTernary_TranslatesAsCase()
+    {
+        using TestDatabase db = new();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
+
+        db.Table<SoftDeletableBook>().AddRange([
+            new SoftDeletableBook { Id = 1, Title = "A", IsDeleted = true },
+            new SoftDeletableBook { Id = 2, Title = "B", IsDeleted = false },
+        ]);
+
+        List<string> labels = db.Table<SoftDeletableBook>()
+            .OrderBy(b => b.Id)
+            .Select(b => b.IsDeleted ? "deleted" : "active")
+            .ToList();
+
+        Assert.Equal(["deleted", "active"], labels);
+    }
+
+    [Fact]
+    public void Where_ChainedBoolMethodAndComparison()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "Apple", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "Banana", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "Hi", AuthorId = 1, Price = 3 },
+        ]);
+
+        int count = db.Table<Book>().Count(b => b.Title.Contains("a") && b.Title.Length > 4);
+
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
+    public void Min_OnNullableColumn_SkipsNulls()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+
+        db.Table<NullableEntity>().AddRange([
+            new NullableEntity { Id = 1, Value = 10 },
+            new NullableEntity { Id = 2, Value = null },
+            new NullableEntity { Id = 3, Value = 5 },
+        ]);
+
+        int? minVal = db.Table<NullableEntity>().Min(e => e.Value);
+
+        Assert.Equal(5, minVal);
+    }
+
+    [Fact]
+    public void Where_NullableLocalVarWithValue_FiltersByValue()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 },
+        ]);
+
+        int? wantedAuthorId = 2;
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => b.AuthorId == wantedAuthorId)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([2], ids);
+    }
+
+    [Fact]
+    public void Where_NullableLocalVarSetToNull_TranslatesToIsNull()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+
+        db.Table<NullableEntity>().AddRange([
+            new NullableEntity { Id = 1, Value = 10 },
+            new NullableEntity { Id = 2, Value = null },
+        ]);
+
+        int? wanted = null;
+
+        List<int> ids = db.Table<NullableEntity>()
+            .Where(e => e.Value == wanted)
+            .OrderBy(e => e.Id)
+            .Select(e => e.Id)
+            .ToList();
+
+        Assert.Equal([2], ids);
+    }
+
+    [Fact]
+    public void Select_ConvertToInt32_OnDoubleColumn()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 5.7 },
+        ]);
+
+        int result = db.Table<Book>().Select(b => Convert.ToInt32(b.Price)).First();
+
+        Assert.Equal(6, result);
+    }
+
+    [Fact]
+    public void Select_ConvertToStringOnIntColumn_StringifiesNumber()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 7, Title = "A", AuthorId = 1, Price = 1 },
+        ]);
+
+        string result = db.Table<Book>().Select(b => Convert.ToString(b.Id)).First();
+
+        Assert.Equal("7", result);
+    }
+
+    [Fact]
+    public void Where_IntParseOnStringColumn_TranslatesAsCast()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "5", AuthorId = 1, Price = 1 },
+        ]);
+
+        int count = db.Table<Book>().Count(b => int.Parse(b.Title) > 3);
+
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public void AddRange_OneThousandRows_AllInserted()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+
+        List<NullableEntity> rows = Enumerable.Range(1, 1000)
+            .Select(i => new NullableEntity { Id = i, Value = i * 2 })
+            .ToList();
+
+        db.Table<NullableEntity>().AddRange(rows);
+
+        int count = db.Table<NullableEntity>().Count();
+        int sum = db.Table<NullableEntity>().Sum(e => e.Value ?? 0);
+
+        Assert.Equal(1000, count);
+        Assert.Equal(1001000, sum);
+    }
+
+    [Fact]
+    public void UpdateRange_OneHundredRows_AllUpdated()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+
+        db.Table<NullableEntity>().AddRange(
+            Enumerable.Range(1, 100).Select(i => new NullableEntity { Id = i, Value = i }).ToList()
+        );
+
+        List<NullableEntity> updated = db.Table<NullableEntity>()
+            .Select(e => new NullableEntity { Id = e.Id, Value = (e.Value ?? 0) + 1000 })
+            .ToList();
+
+        db.Table<NullableEntity>().UpdateRange(updated);
+
+        int updatedSum = db.Table<NullableEntity>().Sum(e => e.Value ?? 0);
+
+        Assert.Equal(105050, updatedSum);
+    }
+
+    [Fact]
+    public void ExecuteDelete_WithWhere_RemovesMatchingRows()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+
+        db.Table<NullableEntity>().AddRange([
+            new NullableEntity { Id = 1, Value = 10 },
+            new NullableEntity { Id = 2, Value = 20 },
+            new NullableEntity { Id = 3, Value = 30 },
+        ]);
+
+        int deleted = db.Table<NullableEntity>().Where(e => e.Id != 2).ExecuteDelete();
+        int remaining = db.Table<NullableEntity>().Count();
+
+        Assert.Equal(2, deleted);
+        Assert.Equal(1, remaining);
+    }
+
+    [Fact]
+    public void Decimal_NinePlaces_RoundTripsExactly()
+    {
+        using TestDatabase db = new();
+        db.Table<NumericType>().Schema.CreateTable();
+
+        db.Table<NumericType>().AddRange([
+            new NumericType
+            {
+                Id = 1,
+                DecimalValue = 10.123456789m,
+                ByteValue = 0,
+                SByteValue = 0,
+                ShortValue = 0,
+                UShortValue = 0,
+                IntValue = 0,
+                UIntValue = 0,
+                LongValue = 0,
+                ULongValue = 0,
+                FloatValue = 0,
+                DoubleValue = 0,
+                CharValue = 'a',
+            },
+        ]);
+
+        decimal val = db.Table<NumericType>().Select(n => n.DecimalValue).First();
+
+        Assert.Equal(10.123456789m, val);
+    }
+
+    [Fact]
+    public void NumericType_LongMaxValue_RoundTrips()
+    {
+        using TestDatabase db = new();
+        db.Table<NumericType>().Schema.CreateTable();
+
+        db.Table<NumericType>().AddRange([
+            new NumericType
+            {
+                Id = 1,
+                LongValue = long.MaxValue,
+                IntValue = 0,
+                ShortValue = 0,
+                ByteValue = 0,
+                SByteValue = 0,
+                UIntValue = 0,
+                ULongValue = 0,
+                UShortValue = 0,
+                DoubleValue = 0,
+                FloatValue = 0,
+                DecimalValue = 0,
+                CharValue = 'a',
+            },
+        ]);
+
+        long result = db.Table<NumericType>().Select(n => n.LongValue).First();
+
+        Assert.Equal(long.MaxValue, result);
+    }
+
+    [Fact]
     public void Schema_TableExists_ReturnsTrueAfterCreate()
     {
         using TestDatabase db = new();

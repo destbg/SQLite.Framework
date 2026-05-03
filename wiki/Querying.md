@@ -2,6 +2,8 @@
 
 `db.Table<T>()` returns an `IQueryable<T>`. You can chain standard LINQ methods on it and call one of the terminal methods to run the query.
 
+The framework keeps the SQL close to the shape of the LINQ query you wrote. It does not silently wrap the query in an extra subquery, reorder operations, or rewrite the chain into something different just to make a method work. When a LINQ method does not have a clean one-to-one mapping to SQL, the framework throws a clear `NotSupportedException` instead. This keeps the generated SQL predictable and easy to reason about.
+
 ## Get All Records
 
 ```csharp

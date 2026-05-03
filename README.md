@@ -24,7 +24,7 @@ var authors = await (
 ).Skip(10).Take(20).ToListAsync();
 ```
 
-That whole expression is one SQL query. No client-side fallback, no reflection at runtime when you opt into the source generator.
+That whole expression is one SQL query. The framework keeps the generated SQL close to the shape of the LINQ chain you wrote and does not wrap it in extra subqueries or rewrite it behind your back to make a method work. When a LINQ method does not map cleanly to SQL, you get a clear `NotSupportedException` instead of a silently rewritten query. No client-side fallback that pulls rows into memory, and no reflection at runtime when you opt into the source generator.
 
 ## Why this and not...
 

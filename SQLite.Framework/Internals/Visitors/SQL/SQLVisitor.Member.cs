@@ -167,6 +167,16 @@ internal partial class SQLVisitor
             return node.Update(sqlExpression);
         }
 
+        if (!TypeHelpers.IsSimple(node.Expression.Type, Database.Options)
+            && Database.TableMappings.Any(m => m.Type == node.Expression.Type))
+        {
+            throw new NotSupportedException(
+                $"Cannot read '{node.Member.Name}' from an entity-typed scalar subquery. " +
+                $"Project the column inside the subquery first, e.g. " +
+                $"'.Where(x => ...).Select(x => x.{node.Member.Name}).First()' " +
+                $"instead of '.First(x => ...).{node.Member.Name}'.");
+        }
+
         return sqlExpression;
     }
 }

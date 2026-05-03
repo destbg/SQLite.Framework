@@ -5,7 +5,7 @@ internal partial class SQLVisitor
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types have public properties.")]
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        if (node.Method.Name == nameof(object.Equals) && node.Object != null)
+        if (node.Method.Name == nameof(object.Equals) && node.Object != null && node.Arguments.Count == 1)
         {
             ResolvedModel obj = ResolveExpression(node.Object);
             ResolvedModel argument = ResolveExpression(node.Arguments[0]);

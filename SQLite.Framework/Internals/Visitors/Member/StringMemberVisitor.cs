@@ -129,6 +129,28 @@ internal static class StringMemberVisitor
                         parameters
                     );
                 }
+                case nameof(string.Equals):
+                {
+                    string collation = string.Empty;
+                    if (arguments.Count == 2 && arguments[1].Constant is StringComparison comparison)
+                    {
+                        collation = comparison switch
+                        {
+                            StringComparison.OrdinalIgnoreCase or
+                                StringComparison.CurrentCultureIgnoreCase or
+                                StringComparison.InvariantCultureIgnoreCase => " COLLATE NOCASE",
+                            _ => ""
+                        };
+                    }
+
+                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
+                    return new SQLiteExpression(
+                        node.Method.ReturnType,
+                        visitor.Counters.IdentifierIndex++,
+                        $"({obj.Sql} = {arguments[0].Sql}{collation})",
+                        parameters
+                    );
+                }
                 case nameof(string.Substring):
                 {
                     if (node.Arguments.Count == 2)
