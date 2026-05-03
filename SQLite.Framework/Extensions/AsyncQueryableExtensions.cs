@@ -168,9 +168,7 @@ public static class AsyncQueryableExtensions
     [Obsolete("Use Database.Schema.CreateTableAsync<T>() instead.")]
     public static Task<int> CreateTableAsync(this SQLiteTable source, CancellationToken ct = default)
     {
-#pragma warning disable CS0618
         return AsyncRunner.Run(source.CreateTable, ct);
-#pragma warning restore CS0618
     }
 
     /// <summary>
@@ -179,9 +177,7 @@ public static class AsyncQueryableExtensions
     [Obsolete("Use Database.Schema.DropTableAsync<T>() instead.")]
     public static Task<int> DropTableAsync(this SQLiteTable source, CancellationToken ct = default)
     {
-#pragma warning disable CS0618
         return AsyncRunner.Run(source.DropTable, ct);
-#pragma warning restore CS0618
     }
 
     /// <summary>
@@ -191,6 +187,15 @@ public static class AsyncQueryableExtensions
         where TKey : notnull
     {
         return AsyncRunner.Run(source.ToDictionary, keySelector, elementSelector, ct);
+    }
+
+    /// <summary>
+    /// Converts the <see cref="IQueryable{T}" /> to a <see cref="Dictionary{TKey, TValue}" />.
+    /// </summary>
+    public static Task<Dictionary<TKey, TSource>> ToDictionaryAsync<TSource, TKey>(this IQueryable<TSource> source, Func<TSource, TKey> keySelector, CancellationToken ct = default)
+        where TKey : notnull
+    {
+        return AsyncRunner.Run(source.ToDictionary, keySelector, ct);
     }
 
     /// <summary>
