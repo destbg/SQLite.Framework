@@ -32,4 +32,9 @@ internal static class AsyncRunner
     {
         return Task.Factory.StartNew(() => func(parameter1, parameter2, parameter3), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
     }
+
+    public static Task<T> Run<T, TP1, TP2, TP3, TP4>(Func<TP1, TP2, TP3, TP4, T> func, TP1 parameter1, TP2 parameter2, TP3 parameter3, TP4 parameter4, CancellationToken ct)
+    {
+        return Task.Factory.StartNew(() => func(parameter1, parameter2, parameter3, parameter4), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+    }
 }

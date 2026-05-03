@@ -107,7 +107,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddOrUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(() => source.AddOrUpdate(item, SQLiteConflict.Replace), ct);
+        return AsyncRunner.Run(source.AddOrUpdate, item, SQLiteConflict.Replace, ct);
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddOrUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, SQLiteConflict conflict, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(() => source.AddOrUpdate(item, conflict), ct);
+        return AsyncRunner.Run(source.AddOrUpdate, item, conflict, ct);
     }
 
     /// <summary>
@@ -123,7 +123,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(() => source.AddOrUpdateRange(collection, runInTransaction, separateConnection, SQLiteConflict.Replace), ct);
+        return AsyncRunner.Run(source.AddOrUpdateRange, collection, runInTransaction, separateConnection, SQLiteConflict.Replace, ct);
     }
 
     /// <summary>
@@ -131,7 +131,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, SQLiteConflict conflict, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(() => source.AddOrUpdateRange(collection, runInTransaction, separateConnection, conflict), ct);
+        return AsyncRunner.Run(source.AddOrUpdateRange, collection, runInTransaction, separateConnection, conflict, ct);
     }
 
     /// <summary>
@@ -140,7 +140,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> UpsertAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, Action<UpsertBuilder<T>> configure, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(() => source.Upsert(item, configure), ct);
+        return AsyncRunner.Run(source.Upsert, item, configure, ct);
     }
 
     /// <summary>
@@ -148,7 +148,7 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(() => source.UpsertRange(collection, configure, runInTransaction, separateConnection), ct);
+        return AsyncRunner.Run(source.UpsertRange, collection, configure, runInTransaction, separateConnection, ct);
     }
 
     /// <summary>
