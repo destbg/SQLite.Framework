@@ -4,13 +4,19 @@ internal partial class QueryableVisitor
 {
     private MethodCallExpression VisitTake(MethodCallExpression node)
     {
-        Take = (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+        int n = (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+        Take = Take.HasValue ? Math.Min(Take.Value, n) : n;
         return node;
     }
 
     private MethodCallExpression VisitSkip(MethodCallExpression node)
     {
-        Skip = (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+        int n = (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+        Skip = (Skip ?? 0) + n;
+        if (Take.HasValue)
+        {
+            Take = Math.Max(0, Take.Value - n);
+        }
         return node;
     }
 
@@ -24,7 +30,7 @@ internal partial class QueryableVisitor
             throw new NotSupportedException($"Unsupported ORDER BY expression {lambda.Body}");
         }
 
-        if (node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.OrderDescending))
+        if (node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.OrderByDescending))
         {
             OrderBys.Clear();
         }
@@ -39,12 +45,16 @@ internal partial class QueryableVisitor
 
     private MethodCallExpression VisitDistinct(MethodCallExpression node)
     {
+        ThrowIfSetOperations(node.Method.Name);
+
         IsDistinct = true;
         return node;
     }
 
     private MethodCallExpression VisitReverse(MethodCallExpression node)
     {
+        ThrowIfSetOperations(node.Method.Name);
+
         Reverse = !Reverse;
         return node;
     }

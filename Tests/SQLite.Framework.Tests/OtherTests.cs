@@ -105,7 +105,7 @@ public class OtherTests
     {
         using TestDatabase db = new();
 
-        SQLiteCommand command = db.Table<Book>().Take(1).Skip(2).ToSqlCommand();
+        SQLiteCommand command = db.Table<Book>().Skip(2).Take(1).ToSqlCommand();
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""

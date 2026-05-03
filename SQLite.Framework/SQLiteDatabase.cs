@@ -189,7 +189,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
             SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
-            return (TResult)BuildQueryObject.CreateInstance(context, elementType, query)!;
+            object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
+
+            if (raw == null
+                && typeof(TResult).IsValueType
+                && Nullable.GetUnderlyingType(typeof(TResult)) == null)
+            {
+                throw new InvalidOperationException("Sequence contains no elements");
+            }
+
+            return (TResult)raw!;
         }
 
         if (query.ThrowOnEmpty)

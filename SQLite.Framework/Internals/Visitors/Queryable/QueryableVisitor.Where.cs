@@ -4,6 +4,8 @@ internal partial class QueryableVisitor
 {
     private Expression VisitWhere(MethodCallExpression node)
     {
+        ThrowIfSetOperations(node.Method.Name);
+
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
         Expression result = visitor.Visit(lambda.Body);
 
@@ -26,6 +28,8 @@ internal partial class QueryableVisitor
 
     private MethodCallExpression VisitContains(MethodCallExpression node)
     {
+        ThrowIfSetOperations(node.Method.Name);
+
         if (visitor.TableColumns.Count != 1)
         {
             throw new NotSupportedException("Contains is only supported for a single column.");
@@ -99,6 +103,8 @@ internal partial class QueryableVisitor
     {
         if (node.Arguments.Count == 2)
         {
+            ThrowIfSetOperations(node.Method.Name);
+
             LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
             Expression result = visitor.Visit(lambda.Body);
 

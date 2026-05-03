@@ -100,7 +100,9 @@ public class EdgeCaseTests
 
         db.Table<Book>().Schema.CreateTable();
 
-        Assert.Throws<NullReferenceException>(() => db.Table<Book>().Sum(b => b.Price));
+        double sum = db.Table<Book>().Sum(b => b.Price);
+
+        Assert.Equal(0.0, sum);
     }
 
     [Fact]

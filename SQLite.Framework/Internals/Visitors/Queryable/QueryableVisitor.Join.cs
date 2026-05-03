@@ -4,6 +4,8 @@ internal partial class QueryableVisitor
 {
     private SQLiteExpression VisitJoin(MethodCallExpression node, string joinType)
     {
+        ThrowIfSetOperations(node.Method.Name);
+
         (Dictionary<string, Expression> newTableColumns, Type entityType, SQLiteExpression sql) = ResolveTable(node.Arguments[1]);
 
         LambdaExpression outerKey = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[2]);

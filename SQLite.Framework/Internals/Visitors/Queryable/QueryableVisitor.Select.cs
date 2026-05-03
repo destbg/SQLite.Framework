@@ -8,6 +8,12 @@ internal partial class QueryableVisitor
     private Expression VisitSelect(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+
+        if (lambda.Body is not ParameterExpression)
+        {
+            ThrowIfSetOperations(node.Method.Name);
+        }
+
         lambda = RowParameterExpander.ExpandRowsInMethodCalls(lambda, visitor.MethodArguments.Keys);
 
         if (PreviousSelectLambda is { Body: MemberInitExpression prevMie }
@@ -120,6 +126,8 @@ internal partial class QueryableVisitor
 
     private MethodCallExpression VisitSelectMany(MethodCallExpression node)
     {
+        ThrowIfSetOperations(node.Method.Name);
+
         LambdaExpression selector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
         LambdaExpression resultSelector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[2]);
 

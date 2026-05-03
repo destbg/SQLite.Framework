@@ -88,6 +88,16 @@ internal partial class QueryableVisitor
         };
     }
 
+    private void ThrowIfSetOperations(string methodName)
+    {
+        if (SetOperations.Count > 0)
+        {
+            throw new NotSupportedException(
+                $"{methodName} after Concat/Union/Intersect/Except is not supported because it would require wrapping the union in a subquery. " +
+                "Apply the operation to each side before combining (e.g. `a.Where(p).Concat(b.Where(p))`).");
+        }
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "The type is an entity.")]

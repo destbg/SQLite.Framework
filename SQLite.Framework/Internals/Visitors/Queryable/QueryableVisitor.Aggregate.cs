@@ -4,6 +4,14 @@ internal partial class QueryableVisitor
 {
     private SQLiteExpression VisitGroupFunction(MethodCallExpression node, string function)
     {
+        if (Take != null || Skip != null)
+        {
+            throw new NotSupportedException(
+                $"{node.Method.Name} after Take or Skip is not supported because it would require wrapping the query in a subquery.");
+        }
+
+        ThrowIfSetOperations(node.Method.Name);
+
         bool applyDistinct = IsDistinct && function != "MAX" && function != "MIN";
         string distinctPrefix = applyDistinct ? "DISTINCT " : string.Empty;
 
@@ -34,7 +42,13 @@ internal partial class QueryableVisitor
             }
             else
             {
-                select = new SQLiteExpression(node.Arguments[1].Type, visitor.Counters.IdentifierIndex++, $"{function}({distinctPrefix}{sqlExpression.Sql})", sqlExpression.Parameters);
+                string innerSql = $"{function}({distinctPrefix}{sqlExpression.Sql})";
+                Type resultType = node.Method.ReturnType;
+                if (function == "SUM" && Nullable.GetUnderlyingType(resultType) == null)
+                {
+                    innerSql = $"COALESCE({innerSql}, 0)";
+                }
+                select = new SQLiteExpression(resultType, visitor.Counters.IdentifierIndex++, innerSql, sqlExpression.Parameters);
             }
         }
         else if (function == "COUNT")
@@ -51,7 +65,13 @@ internal partial class QueryableVisitor
         }
         else if (Selects.Count == 1)
         {
-            select = new SQLiteExpression(Selects[0].Type, visitor.Counters.IdentifierIndex++, $"{function}({distinctPrefix}{Selects[0].Sql})", Selects[0].Parameters);
+            string innerSql = $"{function}({distinctPrefix}{Selects[0].Sql})";
+            Type resultType = node.Method.ReturnType;
+            if (function == "SUM" && Nullable.GetUnderlyingType(resultType) == null)
+            {
+                innerSql = $"COALESCE({innerSql}, 0)";
+            }
+            select = new SQLiteExpression(resultType, visitor.Counters.IdentifierIndex++, innerSql, Selects[0].Parameters);
         }
         else
         {
@@ -83,6 +103,8 @@ internal partial class QueryableVisitor
 
     private MethodCallExpression VisitGroupBy(MethodCallExpression node)
     {
+        ThrowIfSetOperations(node.Method.Name);
+
         if (GroupBys.Count != 0)
         {
             throw new NotSupportedException(

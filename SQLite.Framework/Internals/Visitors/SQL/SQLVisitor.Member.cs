@@ -74,6 +74,15 @@ internal partial class SQLVisitor
                 {
                     return ConvertMemberExpression(node, sqlExpression);
                 }
+
+                if (path.Length == 0
+                    && node.Expression is ParameterExpression
+                    && expressions.Count == 1
+                    && expressions.Values.Single() is SQLiteExpression singleExpression
+                    && TypeHelpers.IsSimple(node.Expression.Type, Database.Options))
+                {
+                    return ConvertMemberExpression(node, singleExpression);
+                }
             }
         }
 

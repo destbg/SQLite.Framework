@@ -746,8 +746,8 @@ public class ResultTests
         SeparateClass books = new(db.Table<Book>());
         SeparateClass books2 = new(books.Books.Where(f => f.Id != 1));
         SeparateClass books3 = new(books2.Books.OrderBy(f => f.Id));
-        SeparateClass books4 = new(books3.Books.Take(1));
-        SeparateClass books5 = new(books4.Books.Skip(1));
+        SeparateClass books4 = new(books3.Books.Skip(1));
+        SeparateClass books5 = new(books4.Books.Take(1));
         List<Book> books6 = books5.Books.ToList();
 
         Assert.Single(books6);
