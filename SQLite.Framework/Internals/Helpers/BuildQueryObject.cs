@@ -54,6 +54,16 @@ internal static class BuildQueryObject
             return generated(context);
         }
 
+        if (!IsAnonymousType(elementType)
+            && !HasParameterlessConstructor(elementType)
+            && FindPositionalConstructor(elementType) == null)
+        {
+            throw new InvalidOperationException(
+                $"Entity type '{elementType.FullName}' has no parameterless constructor and no usable positional constructor. " +
+                "The framework needs either a parameterless constructor (init-only properties are fine) " +
+                $"or a single public constructor whose parameter names match the entity's property names (as positional records have).");
+        }
+
         if (options.ReflectionFallbackDisabled)
         {
             throw new InvalidOperationException(
@@ -63,6 +73,44 @@ internal static class BuildQueryObject
         }
 
         return BuildInternal(elementType, reader, string.Empty, context.Columns!, options);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface; users keep their entities reachable.")]
+    private static bool HasParameterlessConstructor(Type type)
+    {
+        return type.GetConstructor(
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+            binder: null,
+            types: Type.EmptyTypes,
+            modifiers: null) != null;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface; users keep their entities reachable.")]
+    private static ConstructorInfo? FindPositionalConstructor(Type type)
+    {
+        ConstructorInfo[] ctors = type.GetConstructors();
+        if (ctors.Length != 1)
+        {
+            return null;
+        }
+
+        ConstructorInfo ctor = ctors[0];
+        ParameterInfo[] parameters = ctor.GetParameters();
+
+        HashSet<string> propertyNames = type
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Select(p => p.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (ParameterInfo parameter in parameters)
+        {
+            if (parameter.Name == null || !propertyNames.Contains(parameter.Name))
+            {
+                return null;
+            }
+        }
+
+        return ctor;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]
@@ -101,6 +149,42 @@ internal static class BuildQueryObject
             }
 
             return ctor.Invoke(args);
+        }
+
+        if (!HasParameterlessConstructor(type))
+        {
+            ConstructorInfo? positional = FindPositionalConstructor(type);
+            if (positional != null)
+            {
+                ParameterInfo[] parameters = positional.GetParameters();
+                object?[] args = new object[parameters.Length];
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    ParameterInfo p = parameters[i];
+                    string columnName = prefix + p.Name;
+                    if (columns.TryGetValue(columnName, out int columnIndex))
+                    {
+                        object? value = reader.GetValue(columnIndex, reader.GetColumnType(columnIndex), p.ParameterType);
+                        if (value != null)
+                        {
+                            Type targetType = Nullable.GetUnderlyingType(p.ParameterType) ?? p.ParameterType;
+                            if (targetType.IsEnum)
+                            {
+                                object underlyingType = Convert.ChangeType(value, Enum.GetUnderlyingType(targetType));
+                                args[i] = Enum.IsDefined(targetType, underlyingType)
+                                    ? Enum.ToObject(targetType, underlyingType)
+                                    : null;
+                            }
+                            else
+                            {
+                                args[i] = Convert.ChangeType(value, targetType);
+                            }
+                        }
+                    }
+                }
+
+                return positional.Invoke(args);
+            }
         }
 
         object? instance = Activator.CreateInstance(type, nonPublic: true);

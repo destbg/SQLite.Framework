@@ -65,6 +65,11 @@ internal static class EntityMaterializerEmitter
                     sb.Append("            builder.EntityMaterializers[").Append(typeField).Append("] = ").Append(methodName).AppendLine(";");
                     break;
                 }
+                case EmitStrategy.Positional:
+                {
+                    sb.Append("            builder.EntityMaterializers[typeof(").Append(entity.ToDisplayString()).Append(")] = ").Append(methodName).AppendLine(";");
+                    break;
+                }
             }
         }
 
@@ -138,6 +143,9 @@ internal static class EntityMaterializerEmitter
                 case EmitStrategy.Anonymous:
                     EmitAnonymousMaterializer(sb, entity, methodName, entitySet, nestedInitSet);
                     break;
+                case EmitStrategy.Positional:
+                    EmitPositionalMaterializer(sb, entity, methodName);
+                    break;
             }
         }
 
@@ -174,6 +182,7 @@ internal static class EntityMaterializerEmitter
         Direct,
         Reflection,
         Anonymous,
+        Positional,
     }
 
     private static bool TryGetEmitStrategy(INamedTypeSymbol entity, out EmitStrategy strategy)
@@ -220,6 +229,26 @@ internal static class EntityMaterializerEmitter
 
         if (!hasAnyParameterlessCtor)
         {
+            IMethodSymbol? positional = TryFindPositionalConstructor(entity);
+            if (positional != null && IsReachableFromGeneratedCode(entity))
+            {
+                foreach (IParameterSymbol parameter in positional.Parameters)
+                {
+                    if (!IsEmittablePropertyType(parameter.Type))
+                    {
+                        return false;
+                    }
+
+                    if (!IsReachableFromGeneratedCode(parameter.Type))
+                    {
+                        return false;
+                    }
+                }
+
+                strategy = EmitStrategy.Positional;
+                return true;
+            }
+
             return false;
         }
 
@@ -249,6 +278,38 @@ internal static class EntityMaterializerEmitter
             ? EmitStrategy.Reflection
             : EmitStrategy.Direct;
         return true;
+    }
+
+    private static IMethodSymbol? TryFindPositionalConstructor(INamedTypeSymbol entity)
+    {
+        IMethodSymbol[] publicCtors = entity.InstanceConstructors
+            .Where(c => c.DeclaredAccessibility == Accessibility.Public && c.Parameters.Length > 0)
+            .ToArray();
+
+        if (publicCtors.Length != 1)
+        {
+            return null;
+        }
+
+        IMethodSymbol ctor = publicCtors[0];
+        HashSet<string> propertyNames = new(StringComparer.Ordinal);
+        foreach (IPropertySymbol p in entity.GetMembers().OfType<IPropertySymbol>())
+        {
+            if (p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic && !p.IsIndexer)
+            {
+                propertyNames.Add(p.Name);
+            }
+        }
+
+        foreach (IParameterSymbol parameter in ctor.Parameters)
+        {
+            if (!propertyNames.Contains(parameter.Name))
+            {
+                return null;
+            }
+        }
+
+        return ctor;
     }
 
     private static bool IsReachableFromGeneratedCode(ITypeSymbol type)
@@ -562,6 +623,38 @@ internal static class EntityMaterializerEmitter
         sb.Append(indent).Append("        ").Append(valueLocal).Append(" = (").Append(propTypeDisplay).Append(")__raw_").Append(localSuffix).AppendLine("!;");
         sb.Append(indent).AppendLine("    }");
         sb.Append(indent).AppendLine("}");
+    }
+
+    private static void EmitPositionalMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName)
+    {
+        IMethodSymbol ctor = TryFindPositionalConstructor(entity)!;
+        string typeName = entity.ToDisplayString();
+
+        sb.Append("        private static object ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var reader = ctx.Reader!;");
+        sb.AppendLine("            var columns = ctx.Columns!;");
+
+        int counter = 0;
+        List<string> argLocals = new();
+        foreach (IParameterSymbol parameter in ctor.Parameters)
+        {
+            string suffix = counter.ToString();
+            counter++;
+            string argLocal = "__arg_" + suffix;
+            argLocals.Add(argLocal);
+            EmitSimpleColumnReadLocal(sb, parameter.Type, parameter.Name, argLocal, suffix, "            ");
+        }
+
+        sb.Append("            return new ").Append(typeName).Append("(");
+        for (int i = 0; i < argLocals.Count; i++)
+        {
+            if (i > 0) sb.Append(", ");
+            sb.Append(argLocals[i]);
+        }
+        sb.AppendLine(");");
+        sb.AppendLine("        }");
+        sb.AppendLine();
     }
 
     private static void EmitReflectionMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)

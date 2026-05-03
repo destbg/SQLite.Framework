@@ -367,20 +367,113 @@ public class RequestedProbeTests
     }
 
     [Fact]
-    public void PositionalRecord_NoParameterlessCtor_ThrowsAtRead()
+    public void PositionalRecord_RoundTripsViaConstructor()
     {
         using TestDatabase db = new();
 
         db.Table<PositionalRecord>().Schema.CreateTable();
         db.Table<PositionalRecord>().AddRange([
             new PositionalRecord(1, "alpha"),
+            new PositionalRecord(2, "beta"),
         ]);
 
-        Assert.Throws<MissingMethodException>(() =>
-            db.Table<PositionalRecord>().ToList());
+        List<PositionalRecord> rows = db.Table<PositionalRecord>().OrderBy(r => r.Id).ToList();
+
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(new PositionalRecord(1, "alpha"), rows[0]);
+        Assert.Equal(new PositionalRecord(2, "beta"), rows[1]);
     }
 
     public record PositionalRecord([property: Key] int Id, string Name);
+
+    [Fact]
+    public void PositionalRecord_WithEnumParameter_RoundTrips()
+    {
+        using TestDatabase db = new();
+        db.Table<RecordWithEnum>().Schema.CreateTable();
+        db.Table<RecordWithEnum>().AddRange([
+            new RecordWithEnum(1, RecordStatus.Active),
+            new RecordWithEnum(2, RecordStatus.Archived),
+        ]);
+
+        List<RecordWithEnum> rows = db.Table<RecordWithEnum>().OrderBy(r => r.Id).ToList();
+
+        Assert.Equal(RecordStatus.Active, rows[0].Status);
+        Assert.Equal(RecordStatus.Archived, rows[1].Status);
+    }
+
+    public enum RecordStatus
+    {
+        Active,
+        Archived,
+    }
+
+    public record RecordWithEnum([property: Key] int Id, RecordStatus Status);
+
+    [Fact]
+    public void PositionalRecord_WithUndefinedEnumValue_ReturnsDefault()
+    {
+        using TestDatabase db = new();
+        db.Table<RecordWithEnum>().Schema.CreateTable();
+        db.Execute("INSERT INTO RecordWithEnum (Id, Status) VALUES (1, 999)");
+
+        RecordWithEnum row = db.Table<RecordWithEnum>().First();
+
+        Assert.Equal(1, row.Id);
+        Assert.Equal(default(RecordStatus), row.Status);
+    }
+
+    [Fact]
+    public void NonRecordClass_WithMismatchedCtor_FallsBackToReflection()
+    {
+        using TestDatabase db = new();
+        db.Table<MismatchedCtorEntity>().Schema.CreateTable();
+        db.Table<MismatchedCtorEntity>().AddRange([
+            new MismatchedCtorEntity { Id = 1, Name = "alpha" },
+        ]);
+
+        MismatchedCtorEntity row = db.Table<MismatchedCtorEntity>().First();
+
+        Assert.Equal(1, row.Id);
+        Assert.Equal("alpha", row.Name);
+    }
+
+    public class MismatchedCtorEntity
+    {
+        public MismatchedCtorEntity() { }
+
+        public MismatchedCtorEntity(int unrelated) { Id = unrelated; }
+
+        [Key]
+        public int Id { get; set; }
+
+        public required string Name { get; set; }
+    }
+
+    [Fact]
+    public void NoParameterlessCtorAndMismatchedParameters_ThrowsClearError()
+    {
+        using TestDatabase db = new();
+        db.Table<NoMatchingParametersEntity>().Schema.CreateTable();
+        db.Execute("INSERT INTO NoMatchingParametersEntity (Id, Name) VALUES (1, 'x')");
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Table<NoMatchingParametersEntity>().ToList());
+        Assert.Contains("has no parameterless constructor", ex.Message);
+    }
+
+    public class NoMatchingParametersEntity
+    {
+        public NoMatchingParametersEntity(int notAColumn)
+        {
+            Id = notAColumn;
+        }
+
+        [Key]
+        public int Id { get; set; }
+
+        public required string Name { get; set; }
+    }
 
 
     [Fact]
