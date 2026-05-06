@@ -21,6 +21,20 @@ Window functions compute a value for each row based on a set of rows related to 
 
 Every window expression starts with a function call followed by `.Over()`. The `.Over()` call produces an empty window that covers the entire result set. You then chain further methods to narrow it down.
 
+When you project into a typed DTO, the value unwraps to `T` automatically through an implicit conversion:
+
+```csharp
+db.Table<Order>().Select(o => new OrderWithRowNum
+{
+    Id = o.Id,
+    RowNum = SQLiteWindowFunctions.RowNumber()
+        .Over()
+        .OrderBy(o.Id),
+})
+```
+
+When you project into an anonymous type or a `var`, call `.AsValue()` at the end of the chain so the field type is `T` and not `SQLiteWindow<T>`:
+
 ```csharp
 db.Table<Order>().Select(o => new
 {
@@ -28,6 +42,7 @@ db.Table<Order>().Select(o => new
     RowNum = SQLiteWindowFunctions.RowNumber()
         .Over()
         .OrderBy(o.Id)
+        .AsValue(),
 })
 ```
 
@@ -110,6 +125,7 @@ var results = await db.Table<Order>()
             .Over()
             .PartitionBy(o.CustomerId)
             .OrderBy(o.Date)
+            .AsValue(),
     })
     .ToListAsync();
 ```
@@ -141,6 +157,7 @@ var results = await db.Table<Order>()
             .Over()
             .PartitionBy(o.CustomerId)
             .OrderByDescending(o.Amount)
+            .AsValue(),
     })
     .ToListAsync();
 ```
@@ -174,6 +191,7 @@ var results = await db.Table<Order>()
         PreviousAmount = SQLiteWindowFunctions.Lag(o.Amount, 1L, 0.0)
             .Over()
             .OrderBy(o.Date)
+            .AsValue(),
     })
     .ToListAsync();
 ```

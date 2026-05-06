@@ -54,7 +54,7 @@ Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
 await Task.WhenAll(tasks);
 ```
 
-Async operations work the same way. They run the sync operation on a background thread, and the lock is acquired inside the command just like in the sync case:
+Async operations run the sync operation on a thread-pool worker. The wait for the connection lock is asynchronous, so the worker thread is not blocked while the lock is held by another caller. Once the lock is acquired, the worker runs the SQL synchronously inside it, just like the sync version.
 
 ```csharp
 Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
