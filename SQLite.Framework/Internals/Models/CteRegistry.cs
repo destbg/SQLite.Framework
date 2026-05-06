@@ -1,6 +1,5 @@
 namespace SQLite.Framework.Internals.Models;
 
-[ExcludeFromCodeCoverage]
 internal class CteRegistry
 {
     private readonly List<CteInfo> ctes = [];

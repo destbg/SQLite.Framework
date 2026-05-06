@@ -1,6 +1,5 @@
 namespace SQLite.Framework.Internals.Models;
 
-[ExcludeFromCodeCoverage]
 internal class CteInfo
 {
     public required string Name { get; init; }

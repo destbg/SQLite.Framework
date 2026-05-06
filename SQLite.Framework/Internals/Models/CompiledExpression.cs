@@ -4,7 +4,6 @@ namespace SQLite.Framework.Internals.Models;
 /// Compiled expressions are used to support select methods
 /// using both SQL and LINQ expressions.
 /// </summary>
-[ExcludeFromCodeCoverage]
 internal class CompiledExpression : Expression
 {
     public CompiledExpression(Type type, Func<SQLiteQueryContext, object?> call)

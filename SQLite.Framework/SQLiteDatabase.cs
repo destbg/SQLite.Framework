@@ -142,7 +142,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return new Queryable<TElement>(this, expression);
     }
 
-    [ExcludeFromCodeCoverage]
     IQueryable IQueryProvider.CreateQuery(Expression expression)
     {
         throw new NotSupportedException("Only generic queries are supported.");
@@ -206,10 +205,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             throw new InvalidOperationException("Query returned no rows");
         }
 
+        if (query.HasDefaultValue)
+        {
+            return (TResult)query.DefaultValue!;
+        }
+
         return default!;
     }
 
-    [ExcludeFromCodeCoverage]
     object IQueryProvider.Execute(Expression expression)
     {
         throw new NotSupportedException("Only generic queries are supported.");
@@ -503,6 +506,21 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Async version of <see cref="Lock" />.
+    /// Waits for the connection lock without blocking a thread.
+    /// Dispose the returned <see cref="IDisposable" /> to release the lock.
+    /// </summary>
+    public virtual SQLiteLockAwaitable LockAsync(CancellationToken cancellationToken = default)
+    {
+        return new SQLiteLockAwaitable(this, cancellationToken);
+    }
+
+    internal Task WaitConnectionSemaphoreAsync(CancellationToken cancellationToken)
+    {
+        return connectionSemaphore.WaitAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Returns a disposable that represents a read operation against the database.
     /// </summary>
     /// <remarks>
@@ -514,6 +532,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public virtual IDisposable ReadLock()
     {
         return NoOpLockObject.Instance;
+    }
+
+    /// <summary>
+    /// Async version of <see cref="ReadLock" />.
+    /// Defaults to calling <see cref="ReadLock" />.
+    /// Override this method when you need async read locking.
+    /// </summary>
+    public virtual Task<IDisposable> ReadLockAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(ReadLock());
     }
 
     /// <summary>
@@ -771,6 +800,31 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         walWriterGate.Release();
     }
 
+    internal async Task AcquireWalWriteAsync(CancellationToken cancellationToken)
+    {
+        await walWriterGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            walWriterCount++;
+            if (walWriterCount == 1)
+            {
+                try
+                {
+                    await connectionSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    walWriterCount--;
+                    throw;
+                }
+            }
+        }
+        finally
+        {
+            walWriterGate.Release();
+        }
+    }
+
     internal void ReleaseWalWrite()
     {
         walWriterGate.Wait();
@@ -833,7 +887,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return handle;
     }
 
-    [ExcludeFromCodeCoverage]
     private static void ThrowIfBeginFailed(sqlite3 handle, SQLiteResult beginResult)
     {
         if (beginResult == SQLiteResult.Done)

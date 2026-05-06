@@ -31,6 +31,11 @@ internal partial class SQLVisitor
             return Database.Options.MemberTranslators[declaringType](ctx);
         }
 
+        if (declaringType is { IsGenericType: true } && declaringType.GetGenericTypeDefinition() == typeof(SQLiteWindow<>))
+        {
+            return Database.Options.MemberTranslators[typeof(SQLiteWindowFunctions)](ctx);
+        }
+
         if (JsonMethodTranslator.TryHandle(node, this) is { } jsonHandled)
         {
             return jsonHandled;
@@ -54,7 +59,7 @@ internal partial class SQLVisitor
             }
 
             if (Nullable.GetUnderlyingType(node.Object.Type) is { } underlying
-                && node.Method.Name == nameof(Nullable<int>.GetValueOrDefault))
+                && node.Method.Name == nameof(Nullable<>.GetValueOrDefault))
             {
                 return NullableMemberVisitor.HandleGetValueOrDefault(this, node, underlying);
             }

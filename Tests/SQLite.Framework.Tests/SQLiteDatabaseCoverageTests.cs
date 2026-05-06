@@ -83,4 +83,24 @@ public class SQLiteDatabaseCoverageTests
         MemberExpression body = Expression.Property(param, nameof(Book.AuthorId));
         return SelectSignature.Compute(body);
     }
+
+    [Fact]
+    public void IQueryProvider_NonGenericCreateQuery_Throws()
+    {
+        using TestDatabase db = new();
+        IQueryProvider provider = db;
+
+        Assert.Throws<NotSupportedException>(() =>
+            provider.CreateQuery(Expression.Constant(1)));
+    }
+
+    [Fact]
+    public void IQueryProvider_NonGenericExecute_Throws()
+    {
+        using TestDatabase db = new();
+        IQueryProvider provider = db;
+
+        Assert.Throws<NotSupportedException>(() =>
+            provider.Execute(Expression.Constant(1)));
+    }
 }

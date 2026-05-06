@@ -35,6 +35,8 @@ internal partial class QueryableVisitor
     public bool IsDistinct { get; private set; }
     public bool ThrowOnEmpty { get; private set; }
     public bool ThrowOnMoreThanOne { get; private set; }
+    public object? DefaultValue { get; private set; }
+    public bool HasDefaultValue { get; private set; }
 
     public bool IsInnerQuery { get; set; }
 
@@ -66,6 +68,8 @@ internal partial class QueryableVisitor
             nameof(System.Linq.Queryable.FirstOrDefault) => VisitScalar(node),
             nameof(System.Linq.Queryable.Single) => VisitScalar(node),
             nameof(System.Linq.Queryable.SingleOrDefault) => VisitScalar(node),
+            nameof(System.Linq.Queryable.ElementAt) => VisitElementAt(node, throwOnEmpty: true),
+            nameof(System.Linq.Queryable.ElementAtOrDefault) => VisitElementAt(node, throwOnEmpty: false),
             nameof(System.Linq.Queryable.Any) => VisitBoolean(node),
             nameof(System.Linq.Queryable.All) => VisitBoolean(node),
             nameof(System.Linq.Queryable.Count) or nameof(System.Linq.Queryable.LongCount) => VisitGroupFunction(node, "COUNT"),

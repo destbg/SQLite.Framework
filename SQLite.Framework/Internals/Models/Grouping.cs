@@ -1,6 +1,5 @@
 namespace SQLite.Framework.Internals.Models;
 
-[ExcludeFromCodeCoverage]
 internal sealed class Grouping<TKey, TElement> : IGrouping<TKey, TElement>
 {
     private readonly IReadOnlyList<TElement> elements;

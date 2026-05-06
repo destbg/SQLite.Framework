@@ -3,7 +3,6 @@ namespace SQLite.Framework.Internals.Models;
 /// <summary>
 /// Support class only for the LINQ provider.
 /// </summary>
-[ExcludeFromCodeCoverage]
 internal class Queryable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T> : BaseSQLiteTable, IOrderedQueryable<T>
 {
     public Queryable(SQLiteDatabase database, Expression expression)

@@ -278,11 +278,8 @@ public class SQLiteSchema
         ArgumentException.ThrowIfNullOrEmpty(propertyName);
 
         TableMapping mapping = Database.TableMapping<T>();
-        TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName);
-        if (column == null)
-        {
-            throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
-        }
+        TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
+            ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
 
         string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {column.GetCreateColumnSql()}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();

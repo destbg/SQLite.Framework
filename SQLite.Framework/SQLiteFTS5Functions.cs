@@ -5,7 +5,6 @@ namespace SQLite.Framework;
 /// valid inside a LINQ query where they are translated to FTS5 SQL. Use them on tables mapped
 /// to FTS5 via <see cref="Attributes.FullTextSearchAttribute" />.
 /// </summary>
-[ExcludeFromCodeCoverage]
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
 [UnsupportedOSPlatform("android")]
 [SupportedOSPlatform("android24.0")]

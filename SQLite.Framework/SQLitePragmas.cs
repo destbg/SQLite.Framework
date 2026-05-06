@@ -18,7 +18,7 @@ public class SQLitePragmas
     /// <summary>
     /// The database this accessor reads from and writes to.
     /// </summary>
-    protected SQLiteDatabase Database { get; }
+    public SQLiteDatabase Database { get; }
 
     /// <summary>
     /// <c>PRAGMA foreign_keys</c>. Turns enforcement of foreign key constraints on or off for the

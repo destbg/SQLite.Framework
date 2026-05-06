@@ -138,6 +138,67 @@ public class PragmaTests
         Assert.True(on);
     }
 
+    [Fact]
+    public async Task AsyncExtensions_RoundtripCacheSize()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetCacheSizeAsync(-2000, TestContext.Current.CancellationToken);
+        int size = await db.Pragmas.GetCacheSizeAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(-2000, size);
+    }
+
+    [Fact]
+    public async Task AsyncExtensions_RoundtripSynchronousMode()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetSynchronousModeAsync(SQLiteSynchronousMode.Normal, TestContext.Current.CancellationToken);
+        SQLiteSynchronousMode mode = await db.Pragmas.GetSynchronousModeAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(SQLiteSynchronousMode.Normal, mode);
+    }
+
+    [Fact]
+    public async Task AsyncExtensions_PageSize_IsReadable()
+    {
+        using TestDatabase db = new();
+        long size = await db.Pragmas.GetPageSizeAsync(TestContext.Current.CancellationToken);
+        Assert.True(size > 0);
+    }
+
+    [Fact]
+    public async Task AsyncExtensions_FreelistCount_IsReadable()
+    {
+        using TestDatabase db = new();
+        long count = await db.Pragmas.GetFreelistCountAsync(TestContext.Current.CancellationToken);
+        Assert.True(count >= 0);
+    }
+
+    [Fact]
+    public async Task AsyncExtensions_RoundtripRecursiveTriggers()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetRecursiveTriggersAsync(true, TestContext.Current.CancellationToken);
+        bool on = await db.Pragmas.GetRecursiveTriggersAsync(TestContext.Current.CancellationToken);
+        Assert.True(on);
+    }
+
+    [Fact]
+    public async Task AsyncExtensions_RoundtripTempStore()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetTempStoreAsync(2, TestContext.Current.CancellationToken);
+        int store = await db.Pragmas.GetTempStoreAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(2, store);
+    }
+
+    [Fact]
+    public async Task AsyncExtensions_RoundtripSecureDelete()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetSecureDeleteAsync(true, TestContext.Current.CancellationToken);
+        bool on = await db.Pragmas.GetSecureDeleteAsync(TestContext.Current.CancellationToken);
+        Assert.True(on);
+    }
+
     private sealed class CustomPragmas : SQLitePragmas
     {
         public CustomPragmas(SQLiteDatabase database) : base(database) { }

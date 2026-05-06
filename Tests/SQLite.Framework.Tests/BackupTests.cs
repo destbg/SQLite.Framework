@@ -97,6 +97,7 @@ public class BackupTests
         Assert.Throws<ArgumentException>(() => source.BackupTo(""));
     }
 
+
     [Fact]
     public async Task BackupToAsync_Database_CopiesAllRows()
     {

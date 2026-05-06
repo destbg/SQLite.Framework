@@ -5,7 +5,6 @@ namespace SQLite.Framework.Internals.FTS5;
 /// (<see cref="LiteralText" /> set, <see cref="DynamicSql" /> null) or a runtime SQL expression
 /// whose value is wrapped as <c>printf('"%w"', ...)</c> to produce a quoted FTS5 token.
 /// </summary>
-[ExcludeFromCodeCoverage]
 internal sealed class FtsQueryPart
 {
     public FtsQueryPart(string? literalText, SQLiteExpression? dynamicSql)

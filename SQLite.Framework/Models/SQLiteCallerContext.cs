@@ -3,7 +3,6 @@ namespace SQLite.Framework.Models;
 /// <summary>
 /// Represents the context of a caller invoking SQLite operations, providing necessary information for query translation and execution.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public sealed class SQLiteCallerContext
 {
     internal SQLiteCallerContext(SQLVisitor visitor, Expression node)

@@ -5,7 +5,6 @@ namespace SQLite.Framework;
 /// Mutate the properties or call the fluent <c>Use*</c>/<c>Add*</c> helpers, then call <see cref="Build" />
 /// to produce a read-only options instance suitable for <see cref="SQLiteDatabase" />.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public sealed class SQLiteOptionsBuilder
 {
     /// <summary>

@@ -4,7 +4,6 @@ namespace SQLite.Framework.Models;
 /// Data passed to every materializer. Has the reader, the column map and optional extra lists
 /// used by generated code when it cannot call a member by name.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public class SQLiteQueryContext
 {
     /// <summary>

@@ -150,7 +150,7 @@ public class LinqMethodTests
     }
 
     [Fact]
-    public void ElementAtNotSupported()
+    public void ElementAt_ReturnsRowAtIndex()
     {
         using TestDatabase db = new();
 
@@ -162,11 +162,29 @@ public class LinqMethodTests
             new Book { Id = 3, Title = "Book 3", AuthorId = 1, Price = 30 }
         });
 
-        Assert.Throws<NotSupportedException>(() => db.Table<Book>().ElementAt(1));
+        Book row = db.Table<Book>().OrderBy(b => b.Id).ElementAt(1);
+        Assert.Equal(2, row.Id);
     }
 
     [Fact]
-    public void ElementAtOrDefaultNotSupported()
+    public void ElementAt_IndexFromStart_ReturnsRowAtIndex()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 20 },
+            new Book { Id = 3, Title = "Book 3", AuthorId = 1, Price = 30 }
+        });
+
+        Book row = db.Table<Book>().OrderBy(b => b.Id).ElementAt(new Index(2));
+        Assert.Equal(3, row.Id);
+    }
+
+    [Fact]
+    public void ElementAt_IndexFromEnd_Throws()
     {
         using TestDatabase db = new();
 
@@ -177,11 +195,42 @@ public class LinqMethodTests
             new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 20 }
         });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>()
-                .OrderBy(b => b.Id)
-                .ElementAtOrDefault(5)
-        );
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().OrderBy(b => b.Id).ElementAt(^1));
+        Assert.Contains("Index from the end", ex.Message);
+    }
+
+    [Fact]
+    public void ElementAtOrDefault_IndexFromEnd_Throws()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 20 }
+        });
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().OrderBy(b => b.Id).ElementAtOrDefault(^1));
+        Assert.Contains("Index from the end", ex.Message);
+    }
+
+    [Fact]
+    public void ElementAtOrDefault_ReturnsDefaultWhenOutOfRange()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 20 }
+        });
+
+        Book? row = db.Table<Book>().OrderBy(b => b.Id).ElementAtOrDefault(5);
+        Assert.Null(row);
     }
 
     [Fact]

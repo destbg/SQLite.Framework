@@ -3,7 +3,6 @@ namespace SQLite.Framework.Internals.Models;
 /// <summary>
 /// Represents a resolved expression by <see cref="SQLVisitor.ResolveExpression"/>
 /// </summary>
-[ExcludeFromCodeCoverage]
 internal readonly struct ResolvedModel
 {
     public required bool IsConstant { get; init; }
@@ -14,5 +13,5 @@ internal readonly struct ResolvedModel
     [NotNullIfNotNull(nameof(SQLiteExpression))]
     public string? Sql => SQLiteExpression?.Sql;
 
-    public SQLiteParameter[]? Parameters => SQLiteExpression?.Parameters;
+    public SQLiteParameter[]? Parameters => SQLiteExpression!.Parameters;
 }

@@ -4,37 +4,19 @@ namespace SQLite.Framework.Internals.Helpers;
 /// Wraps the <see cref="Task.Factory" /> calls used by the async extension methods so the same
 /// background-thread shape (<see cref="TaskCreationOptions.DenyChildAttach" /> on
 /// <see cref="TaskScheduler.Default" />) does not have to be repeated in every file.
+/// The overloads accept a <see cref="Func{Task}" /> so the caller can take the connection
+/// lock asynchronously inside the worker thread, keeping the lock and the sync work on the
+/// same execution context.
 /// </summary>
-[ExcludeFromCodeCoverage]
 internal static class AsyncRunner
 {
-    public static Task Run(Action action, CancellationToken ct)
+    public static Task Run(Func<Task> func, CancellationToken ct)
     {
-        return Task.Factory.StartNew(action, ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return Task.Factory.StartNew(func, ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
     }
 
-    public static Task<T> Run<T>(Func<T> func, CancellationToken ct)
+    public static Task<T> Run<T>(Func<Task<T>> func, CancellationToken ct)
     {
-        return Task.Factory.StartNew(func, ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-    }
-
-    public static Task<T> Run<T, TP>(Func<TP, T> func, TP parameter, CancellationToken ct)
-    {
-        return Task.Factory.StartNew(() => func(parameter), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-    }
-
-    public static Task<T> Run<T, TP1, TP2>(Func<TP1, TP2, T> func, TP1 parameter1, TP2 parameter2, CancellationToken ct)
-    {
-        return Task.Factory.StartNew(() => func(parameter1, parameter2), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-    }
-
-    public static Task<T> Run<T, TP1, TP2, TP3>(Func<TP1, TP2, TP3, T> func, TP1 parameter1, TP2 parameter2, TP3 parameter3, CancellationToken ct)
-    {
-        return Task.Factory.StartNew(() => func(parameter1, parameter2, parameter3), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-    }
-
-    public static Task<T> Run<T, TP1, TP2, TP3, TP4>(Func<TP1, TP2, TP3, TP4, T> func, TP1 parameter1, TP2 parameter2, TP3 parameter3, TP4 parameter4, CancellationToken ct)
-    {
-        return Task.Factory.StartNew(() => func(parameter1, parameter2, parameter3, parameter4), ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        return Task.Factory.StartNew(func, ct, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
     }
 }

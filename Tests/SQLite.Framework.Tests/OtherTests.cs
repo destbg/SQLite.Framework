@@ -482,6 +482,31 @@ public class OtherTests
     }
 
     [Fact]
+    public void Cast_ToInterface_WithReverse_ReversesAfterMaterialize()
+    {
+        using TestDatabase db = new();
+        db.Table<SoftDeletableBook>().Schema.CreateTable();
+
+        db.Table<SoftDeletableBook>().AddRange(new[]
+        {
+            new SoftDeletableBook { Id = 1, Title = "first", IsDeleted = false },
+            new SoftDeletableBook { Id = 2, Title = "second", IsDeleted = false },
+            new SoftDeletableBook { Id = 3, Title = "third", IsDeleted = false },
+        });
+
+        List<ISoftDelete> rows = db.Table<SoftDeletableBook>()
+            .OrderBy(b => b.Id)
+            .Cast<ISoftDelete>()
+            .Reverse()
+            .ToList();
+
+        Assert.Equal(3, rows.Count);
+        Assert.Equal("third", ((SoftDeletableBook)rows[0]).Title);
+        Assert.Equal("second", ((SoftDeletableBook)rows[1]).Title);
+        Assert.Equal("first", ((SoftDeletableBook)rows[2]).Title);
+    }
+
+    [Fact]
     public void GenericConstrainedMethod_FiltersByInterfaceProperty()
     {
         using TestDatabase db = new();

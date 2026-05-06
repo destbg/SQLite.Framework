@@ -37,6 +37,74 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
+    public void SQLiteDatabase_ThrowIfBeginFailed_NonDoneResult_ClosesHandleAndThrows()
+    {
+        SQLitePCL.Batteries_V2.Init();
+        SQLitePCL.raw.sqlite3_open(":memory:", out SQLitePCL.sqlite3 handle);
+
+        MethodInfo method = typeof(SQLiteDatabase).GetMethod(
+            "ThrowIfBeginFailed",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(
+            () => method.Invoke(null, new object?[] { handle, SQLiteResult.Error }));
+        SQLite.Framework.Exceptions.SQLiteException sqlEx = Assert.IsType<SQLite.Framework.Exceptions.SQLiteException>(ex.InnerException);
+        Assert.Equal(SQLiteResult.Error, sqlEx.Result);
+        Assert.Contains("Failed to begin transaction", sqlEx.Message);
+    }
+
+    [Fact]
+    public void SQLiteDatabase_ThrowIfBeginFailed_DoneResult_DoesNothing()
+    {
+        SQLitePCL.Batteries_V2.Init();
+        SQLitePCL.raw.sqlite3_open(":memory:", out SQLitePCL.sqlite3 handle);
+        try
+        {
+            MethodInfo method = typeof(SQLiteDatabase).GetMethod(
+                "ThrowIfBeginFailed",
+                BindingFlags.Static | BindingFlags.NonPublic)!;
+
+            method.Invoke(null, new object?[] { handle, SQLiteResult.Done });
+        }
+        finally
+        {
+            SQLitePCL.raw.sqlite3_close(handle);
+        }
+    }
+
+    [Fact]
+    public void WindowFunctionsMemberVisitor_HandleWindowFunctionMethod_UnknownMethodName_Throws()
+    {
+        using TestDatabase db = new();
+        SQLite.Framework.Internals.Visitors.SQL.SQLVisitor visitor = new(
+            db,
+            new SQLite.Framework.Internals.SQLiteCounters(),
+            level: 0);
+
+        MethodCallExpression unknownCall = Expression.Call(
+            typeof(string).GetMethod(nameof(string.IsNullOrEmpty), new[] { typeof(string) })!,
+            Expression.Constant(""));
+
+        SQLiteCallerContext ctx = (SQLiteCallerContext)Activator.CreateInstance(
+            typeof(SQLiteCallerContext),
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            args: new object[] { visitor, unknownCall },
+            culture: null)!;
+
+        Type visitorType = typeof(SQLiteDatabase).Assembly
+            .GetType("SQLite.Framework.Internals.Visitors.Member.WindowFunctionsMemberVisitor")!;
+        MethodInfo handler = visitorType.GetMethod(
+            "HandleWindowFunctionMethod",
+            BindingFlags.Public | BindingFlags.Static)!;
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(
+            () => handler.Invoke(null, new object?[] { ctx }));
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+        Assert.Contains("not translatable to SQL", ex.InnerException!.Message);
+    }
+
+    [Fact]
     public void FtsRenderState_WriteFts5Call_UnknownMethodName_Throws()
     {
         using TestDatabase db = new();
@@ -1508,7 +1576,7 @@ public class HandlerDispatchTests
         SQLVisitor v = GetVisitor(db);
         MethodCallExpression mce = UnknownNamedCall();
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() => WindowFunctionsMemberVisitor.HandleWindowFunctionMethod(new SQLiteCallerContext(v, mce)));
-        Assert.Contains("SQLiteWindowFunctions.GetType", ex.Message);
+        Assert.Contains("Object.GetType", ex.Message);
     }
 
     [Fact]
@@ -1587,6 +1655,45 @@ public class HandlerDispatchTests
 
         Assert.Same(first, second);
         Assert.Equal("CAST(t0.Price AS REAL)", first.Sql);
+    }
+
+    [Fact]
+    public void Grouping_NonGenericGetEnumerator_ReturnsSameSequence()
+    {
+        SQLite.Framework.Internals.Models.Grouping<int, string> grouping = new(1, ["a", "b"]);
+        System.Collections.IEnumerable seq = grouping;
+
+        List<object?> items = [];
+        foreach (object? item in seq)
+        {
+            items.Add(item);
+        }
+
+        Assert.Equal(["a", "b"], items);
+    }
+
+    [Fact]
+    public void CompiledExpression_NodeType_IsCall()
+    {
+        SQLite.Framework.Internals.Models.CompiledExpression expr = new(typeof(int), _ => 5);
+
+        Assert.Equal(ExpressionType.Call, expr.NodeType);
+        Assert.Equal(typeof(int), expr.Type);
+    }
+
+    [Fact]
+    public void SQLiteCallerContext_ExposesVisitorState()
+    {
+        using TestDatabase db = new();
+        SQLVisitor visitor = new(db, new SQLite.Framework.Internals.SQLiteCounters(), level: 3);
+        ConstantExpression node = Expression.Constant(0);
+
+        SQLiteCallerContext ctx = new(visitor, node);
+
+        Assert.Equal(3, ctx.Level);
+        Assert.Equal(visitor.IsInSelectProjection, ctx.IsInSelectProjection);
+        Assert.Same(visitor.From, ctx.From);
+        Assert.Same(visitor.TableColumns, ctx.TableColumns);
     }
 
     [Fact]

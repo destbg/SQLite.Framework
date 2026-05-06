@@ -323,11 +323,11 @@ public class WindowFunctionTests
             .Select(o => new
             {
                 o.Id,
-                Avg = SQLiteWindowFunctions.Avg(o.Amount).Over().PartitionBy(o.CustomerId),
-                Min = SQLiteWindowFunctions.Min(o.Amount).Over().PartitionBy(o.CustomerId),
-                Max = SQLiteWindowFunctions.Max(o.Amount).Over().PartitionBy(o.CustomerId),
-                CntAll = SQLiteWindowFunctions.Count().Over(),
-                CntCol = SQLiteWindowFunctions.Count(o.Amount).Over(),
+                Avg = SQLiteWindowFunctions.Avg(o.Amount).PartitionBy(o.CustomerId),
+                Min = SQLiteWindowFunctions.Min(o.Amount).PartitionBy(o.CustomerId),
+                Max = SQLiteWindowFunctions.Max(o.Amount).PartitionBy(o.CustomerId),
+                CntAll = SQLiteWindowFunctions.Count(),
+                CntCol = SQLiteWindowFunctions.Count(o.Amount),
             })
             .ToSqlCommand();
 
@@ -347,10 +347,10 @@ public class WindowFunctionTests
             .Select(o => new
             {
                 o.Id,
-                Pr = SQLiteWindowFunctions.PercentRank().Over().OrderBy(o.Amount),
-                Cd = SQLiteWindowFunctions.CumeDist().Over().OrderBy(o.Amount),
-                Nt = SQLiteWindowFunctions.NTile(4).Over().OrderBy(o.Amount),
-                Dr = SQLiteWindowFunctions.DenseRank().Over().OrderBy(o.Amount),
+                Pr = SQLiteWindowFunctions.PercentRank().OrderBy(o.Amount),
+                Cd = SQLiteWindowFunctions.CumeDist().OrderBy(o.Amount),
+                Nt = SQLiteWindowFunctions.NTile(4).OrderBy(o.Amount),
+                Dr = SQLiteWindowFunctions.DenseRank().OrderBy(o.Amount),
             })
             .ToSqlCommand();
 
@@ -369,12 +369,12 @@ public class WindowFunctionTests
             .Select(o => new
             {
                 o.Id,
-                Lead1 = SQLiteWindowFunctions.Lead(o.Amount).Over().OrderBy(o.Id),
-                Lead2 = SQLiteWindowFunctions.Lead(o.Amount, 1L).Over().OrderBy(o.Id),
-                Lead3 = SQLiteWindowFunctions.Lead(o.Amount, 1L, 0.0).Over().OrderBy(o.Id),
-                Fv = SQLiteWindowFunctions.FirstValue(o.Amount).Over().OrderBy(o.Id),
-                Lv = SQLiteWindowFunctions.LastValue(o.Amount).Over().OrderBy(o.Id),
-                Nv = SQLiteWindowFunctions.NthValue(o.Amount, 2L).Over().OrderBy(o.Id),
+                Lead1 = SQLiteWindowFunctions.Lead(o.Amount).OrderBy(o.Id),
+                Lead2 = SQLiteWindowFunctions.Lead(o.Amount, 1L).OrderBy(o.Id),
+                Lead3 = SQLiteWindowFunctions.Lead(o.Amount, 1L, 0.0).OrderBy(o.Id),
+                Fv = SQLiteWindowFunctions.FirstValue(o.Amount).OrderBy(o.Id),
+                Lv = SQLiteWindowFunctions.LastValue(o.Amount).OrderBy(o.Id),
+                Nv = SQLiteWindowFunctions.NthValue(o.Amount, 2L).OrderBy(o.Id),
             })
             .ToSqlCommand();
 
@@ -394,17 +394,17 @@ public class WindowFunctionTests
             .Select(o => new
             {
                 o.Id,
-                R = SQLiteWindowFunctions.Sum(o.Amount).Over()
+                R = SQLiteWindowFunctions.Sum(o.Amount)
                     .PartitionBy(o.CustomerId)
                     .ThenPartitionBy(o.Date)
                     .OrderBy(o.Id)
                     .ThenOrderBy(o.Date)
                     .ThenOrderByDescending(o.Amount)
                     .Range(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow()),
-                G = SQLiteWindowFunctions.Sum(o.Amount).Over()
+                G = SQLiteWindowFunctions.Sum(o.Amount)
                     .OrderBy(o.Id)
                     .Groups(SQLiteFrameBoundary.Preceding(2), SQLiteFrameBoundary.Following(1)),
-                Rw = SQLiteWindowFunctions.Sum(o.Amount).Over()
+                Rw = SQLiteWindowFunctions.Sum(o.Amount)
                     .OrderByDescending(o.Id)
                     .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.UnboundedFollowing()),
             })
@@ -460,6 +460,27 @@ public class WindowFunctionTests
             },
         ]);
         return db;
+    }
+
+    [Fact]
+    public void Over_LegacyShim_StillProducesCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new OrderWithRowNum
+            {
+                Id = o.Id,
+                RowNum = SQLiteWindowFunctions.RowNumber().Over().OrderBy(o.Id),
+            })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            ROW_NUMBER() OVER ( ORDER BY w0.Id ASC) AS "RowNum"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 }
 

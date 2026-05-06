@@ -71,6 +71,7 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitScalar(MethodCallExpression node)
     {
         CheckWhereArgument(node);
+        ThrowIfReverse(node.Method.Name);
 
         if (node.Method.Name is nameof(System.Linq.Queryable.Single) or nameof(System.Linq.Queryable.SingleOrDefault))
         {
@@ -101,19 +102,43 @@ internal partial class QueryableVisitor
 
     private void CheckWhereArgument(MethodCallExpression node)
     {
-        if (node.Arguments.Count == 2)
+        if (node.Arguments.Count >= 2)
         {
             ThrowIfSetOperations(node.Method.Name);
 
-            LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
-            Expression result = visitor.Visit(lambda.Body);
-
-            if (result is not SQLiteExpression sqlExpression)
+            Expression stripped = ExpressionHelpers.StripQuotes(node.Arguments[1]);
+            if (stripped is LambdaExpression lambda)
             {
-                throw new NotSupportedException($"Unsupported WHERE expression {lambda.Body}");
-            }
+                Expression result = visitor.Visit(lambda.Body);
 
-            Wheres.Add(sqlExpression);
+                if (result is not SQLiteExpression sqlExpression)
+                {
+                    throw new NotSupportedException($"Unsupported WHERE expression {lambda.Body}");
+                }
+
+                Wheres.Add(sqlExpression);
+            }
+            else
+            {
+                CaptureDefaultValue(node.Arguments[1]);
+            }
         }
+
+        if (node.Arguments.Count == 3)
+        {
+            CaptureDefaultValue(node.Arguments[2]);
+        }
+    }
+
+    private void CaptureDefaultValue(Expression expression)
+    {
+        ResolvedModel resolved = visitor.ResolveExpression(expression);
+        if (!resolved.IsConstant)
+        {
+            throw new NotSupportedException("FirstOrDefault/SingleOrDefault default value must be a constant.");
+        }
+
+        DefaultValue = resolved.Constant;
+        HasDefaultValue = true;
     }
 }

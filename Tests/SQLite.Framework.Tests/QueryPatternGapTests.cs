@@ -311,15 +311,15 @@ public class QueryPatternGapTests
     }
 
     [Fact]
-    public void ElementAt_IsNotSupported()
+    public void ElementAt_ReturnsRow()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().OrderBy(b => b.Id).ElementAt(0));
+        Book row = db.Table<Book>().OrderBy(b => b.Id).ElementAt(0);
+        Assert.Equal(1, row.Id);
     }
 
     [Fact]

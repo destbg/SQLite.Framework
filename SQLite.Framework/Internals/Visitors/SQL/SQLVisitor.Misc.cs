@@ -146,6 +146,12 @@ internal partial class SQLVisitor
             {
                 return resolved.SQLiteExpression;
             }
+            else if (resolved.SQLiteExpression.Type.IsGenericType
+                && resolved.SQLiteExpression.Type.GetGenericTypeDefinition() == typeof(SQLiteWindow<>)
+                && resolved.SQLiteExpression.Type.GetGenericArguments()[0] == node.Type)
+            {
+                return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, resolved.SQLiteExpression.Sql, resolved.SQLiteExpression.Parameters);
+            }
             else if (node.Type == typeof(char) && resolved.SQLiteExpression.Type == typeof(int))
             {
                 return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, $"CHAR({resolved.SQLiteExpression.Sql})", resolved.SQLiteExpression.Parameters);

@@ -1,6 +1,5 @@
 namespace SQLite.Framework.Internals.Models;
 
-[ExcludeFromCodeCoverage]
 internal sealed class IndexSpec
 {
     public IndexSpec(string column, string name, bool unique, string? filterSql)

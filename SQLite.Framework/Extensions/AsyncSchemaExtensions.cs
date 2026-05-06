@@ -1,10 +1,9 @@
 namespace SQLite.Framework.Extensions;
 
 /// <summary>
-/// Async wrappers for <see cref="SQLiteSchema" /> and <see cref="SQLiteTableBuilder{T}" />. All
-/// methods run the underlying sync work on a background thread.
+/// Async wrappers for <see cref="SQLiteSchema" /> and <see cref="SQLiteTableBuilder{T}" />.
+/// Each method takes the connection lock and runs the sync version inside it.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public static class AsyncSchemaExtensions
 {
     /// <summary>
@@ -12,145 +11,214 @@ public static class AsyncSchemaExtensions
     /// </summary>
     public static Task<int> CreateTableAsync(this SQLiteSchema schema, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(() => schema.CreateTable(type), ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.CreateTable(type);
+        }, ct);
     }
 
     /// <summary>
-    /// Creates the table for <typeparamref name="T" /> if it does not exist. Runs on a background thread.
+    /// Creates the table for <typeparamref name="T" /> if it does not exist.
     /// </summary>
     public static Task<int> CreateTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.CreateTable<T>, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.CreateTable<T>();
+        }, ct);
     }
 
     /// <summary>
-    /// Drops the table for <typeparamref name="T" /> if it exists. Runs on a background thread.
+    /// Drops the table for <typeparamref name="T" /> if it exists.
     /// </summary>
     public static Task<int> DropTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.DropTable<T>, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.DropTable<T>();
+        }, ct);
     }
 
     /// <summary>
-    /// Drops the table whose SQLite name matches <paramref name="tableName" />. Runs on a background thread.
+    /// Drops the table whose SQLite name matches <paramref name="tableName" />.
     /// </summary>
     public static Task<int> DropTableAsync(this SQLiteSchema schema, string tableName, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.DropTable, tableName, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.DropTable(tableName);
+        }, ct);
     }
 
     /// <summary>
-    /// Creates an index over a single column. Runs on a background thread.
+    /// Creates an index over a single column.
     /// </summary>
     public static Task<int> CreateIndexAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, Expression<Func<T, object?>> column, string? name = null, bool unique = false, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(() => schema.CreateIndex(column, name, unique), ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.CreateIndex(column, name, unique);
+        }, ct);
     }
 
     /// <summary>
-    /// Drops an index by name if it exists. Runs on a background thread.
+    /// Drops an index by name if it exists.
     /// </summary>
     public static Task<int> DropIndexAsync(this SQLiteSchema schema, string indexName, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.DropIndex, indexName, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.DropIndex(indexName);
+        }, ct);
     }
 
     /// <summary>
-    /// Returns whether the table for <typeparamref name="T" /> exists. Runs on a background thread.
+    /// Returns whether the table for <typeparamref name="T" /> exists.
     /// </summary>
     public static Task<bool> TableExistsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.TableExists<T>, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.TableExists<T>();
+        }, ct);
     }
 
     /// <summary>
-    /// Returns whether a table with the given SQLite name exists. Runs on a background thread.
+    /// Returns whether a table with the given SQLite name exists.
     /// </summary>
     public static Task<bool> TableExistsAsync(this SQLiteSchema schema, string tableName, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.TableExists, tableName, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.TableExists(tableName);
+        }, ct);
     }
 
     /// <summary>
-    /// Returns whether an index with the given name exists. Runs on a background thread.
+    /// Returns whether an index with the given name exists.
     /// </summary>
     public static Task<bool> IndexExistsAsync(this SQLiteSchema schema, string indexName, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.IndexExists, indexName, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.IndexExists(indexName);
+        }, ct);
     }
 
     /// <summary>
-    /// Returns whether a column with the given SQLite name exists on the table for
-    /// <typeparamref name="T" />. Runs on a background thread.
+    /// Returns whether a column with the given SQLite name exists on the table for <typeparamref name="T" />.
     /// </summary>
     public static Task<bool> ColumnExistsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string columnName, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.ColumnExists<T>, columnName, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.ColumnExists<T>(columnName);
+        }, ct);
     }
 
     /// <summary>
-    /// Lists every user table in the database. Runs on a background thread.
+    /// Lists every user table in the database.
     /// </summary>
     public static Task<IReadOnlyList<string>> ListTablesAsync(this SQLiteSchema schema, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.ListTables, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.ListTables();
+        }, ct);
     }
 
     /// <summary>
-    /// Lists every index in the database. Runs on a background thread.
+    /// Lists every index in the database.
     /// </summary>
     public static Task<IReadOnlyList<string>> ListIndexesAsync(this SQLiteSchema schema, string? tableName = null, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(() => schema.ListIndexes(tableName), ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.ListIndexes(tableName);
+        }, ct);
     }
 
     /// <summary>
-    /// Lists every column on the table for <typeparamref name="T" />. Runs on a background thread.
+    /// Lists every column on the table for <typeparamref name="T" />.
     /// </summary>
     public static Task<IReadOnlyList<SchemaColumnInfo>> ListColumnsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.ListColumns<T>, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.ListColumns<T>();
+        }, ct);
     }
 
     /// <summary>
-    /// Adds the column for the property named <paramref name="propertyName" /> on
-    /// <typeparamref name="T" />. Runs on a background thread.
+    /// Adds the column for the property named <paramref name="propertyName" /> on <typeparamref name="T" />.
     /// </summary>
     public static Task<int> AddColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string propertyName, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.AddColumn<T>, propertyName, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.AddColumn<T>(propertyName);
+        }, ct);
     }
 
     /// <summary>
-    /// Renames a column on the table for <typeparamref name="T" />. Runs on a background thread.
+    /// Renames a column on the table for <typeparamref name="T" />.
     /// </summary>
     public static Task<int> RenameColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string fromColumn, string toColumn, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.RenameColumn<T>, fromColumn, toColumn, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.RenameColumn<T>(fromColumn, toColumn);
+        }, ct);
     }
 
     /// <summary>
-    /// Drops a column on the table for <typeparamref name="T" />. Runs on a background thread.
+    /// Drops a column on the table for <typeparamref name="T" />.
     /// </summary>
     public static Task<int> DropColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string columnName, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.DropColumn<T>, columnName, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.DropColumn<T>(columnName);
+        }, ct);
     }
 
     /// <summary>
-    /// Renames the table for <typeparamref name="T" /> in the database. Runs on a background thread.
+    /// Renames the table for <typeparamref name="T" /> in the database.
     /// </summary>
     public static Task<int> RenameTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string newTableName, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(schema.RenameTable<T>, newTableName, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.RenameTable<T>(newTableName);
+        }, ct);
     }
 
     /// <summary>
-    /// Issues the <c>CREATE TABLE IF NOT EXISTS</c> built up by the fluent builder, plus its
-    /// indexes. Runs on a background thread.
+    /// Issues the <c>CREATE TABLE IF NOT EXISTS</c> built up by the fluent builder, plus its indexes.
     /// </summary>
     public static Task<int> CreateTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableBuilder<T> builder, CancellationToken ct = default)
     {
-        return AsyncRunner.Run(builder.CreateTable, ct);
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await builder.Database.LockAsync(ct);
+            return builder.CreateTable();
+        }, ct);
     }
 }

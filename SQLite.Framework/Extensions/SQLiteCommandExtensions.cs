@@ -3,7 +3,6 @@ namespace SQLite.Framework.Extensions;
 /// <summary>
 /// <see cref="SQLiteCommand" /> Extensions for SQLite.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public static class SQLiteCommandExtensions
 {
     /// <summary>

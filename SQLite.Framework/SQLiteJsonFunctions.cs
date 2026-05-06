@@ -5,7 +5,6 @@ namespace SQLite.Framework;
 /// valid inside a LINQ query where they are translated to their SQL equivalents.
 /// JSON function translators are registered automatically by the framework.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public static class SQLiteJsonFunctions
 {
     /// <summary>

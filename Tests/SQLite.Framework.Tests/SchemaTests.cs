@@ -305,6 +305,118 @@ public class SchemaTests
     }
 
     [Fact]
+    public async Task CreateTableAsync_NonGeneric_RoundTrips()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync(typeof(Book), TestContext.Current.CancellationToken);
+        Assert.True(await db.Schema.TableExistsAsync<Book>(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task DropTableAsync_ByName_RoundTrips()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<Book>(TestContext.Current.CancellationToken);
+        await db.Schema.DropTableAsync("Books", TestContext.Current.CancellationToken);
+        Assert.False(await db.Schema.TableExistsAsync("Books", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task CreateIndexAsync_OverColumn_RoundTrips()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<Book>(TestContext.Current.CancellationToken);
+        await db.Schema.CreateIndexAsync<Book>(b => b.Title, "IX_Book_Title", false, TestContext.Current.CancellationToken);
+        Assert.True(await db.Schema.IndexExistsAsync("IX_Book_Title", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task DropIndexAsync_RemovesIndex()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<Book>(TestContext.Current.CancellationToken);
+        await db.Schema.CreateIndexAsync<Book>(b => b.Title, "IX_Book_Title2", false, TestContext.Current.CancellationToken);
+        await db.Schema.DropIndexAsync("IX_Book_Title2", TestContext.Current.CancellationToken);
+        Assert.False(await db.Schema.IndexExistsAsync("IX_Book_Title2", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ColumnExistsAsync_RoundTrips()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<Book>(TestContext.Current.CancellationToken);
+        Assert.True(await db.Schema.ColumnExistsAsync<Book>("BookTitle", TestContext.Current.CancellationToken));
+        Assert.False(await db.Schema.ColumnExistsAsync<Book>("Missing", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ListTablesAsync_ReturnsCreatedTables()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<Book>(TestContext.Current.CancellationToken);
+        IReadOnlyList<string> tables = await db.Schema.ListTablesAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("Books", tables);
+    }
+
+    [Fact]
+    public async Task ListIndexesAsync_RoundTrips()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<Book>(TestContext.Current.CancellationToken);
+        await db.Schema.CreateIndexAsync<Book>(b => b.Title, "IX_Book_TitleAsync", false, TestContext.Current.CancellationToken);
+        IReadOnlyList<string> all = await db.Schema.ListIndexesAsync(null, TestContext.Current.CancellationToken);
+        Assert.Contains("IX_Book_TitleAsync", all);
+        IReadOnlyList<string> forBook = await db.Schema.ListIndexesAsync("Books", TestContext.Current.CancellationToken);
+        Assert.Contains("IX_Book_TitleAsync", forBook);
+    }
+
+    [Fact]
+    public async Task AddColumnAsync_AddsTheColumn()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<BookArchive>(TestContext.Current.CancellationToken);
+        await db.Schema.DropColumnAsync<BookArchive>("BookPrice", TestContext.Current.CancellationToken);
+        await db.Schema.AddColumnAsync<BookArchive>(nameof(BookArchive.Price), TestContext.Current.CancellationToken);
+        Assert.True(await db.Schema.ColumnExistsAsync<BookArchive>("BookPrice", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task RenameColumnAsync_RenamesInDatabase()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<BookArchive>(TestContext.Current.CancellationToken);
+        await db.Schema.RenameColumnAsync<BookArchive>("BookTitle", "Title2", TestContext.Current.CancellationToken);
+        Assert.True(await db.Schema.ColumnExistsAsync<BookArchive>("Title2", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task DropColumnAsync_RemovesTheColumn()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<BookArchive>(TestContext.Current.CancellationToken);
+        await db.Schema.DropColumnAsync<BookArchive>("BookPrice", TestContext.Current.CancellationToken);
+        Assert.False(await db.Schema.ColumnExistsAsync<BookArchive>("BookPrice", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task RenameTableAsync_RenamesInDatabase()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<Book>(TestContext.Current.CancellationToken);
+        await db.Schema.RenameTableAsync<Book>("Books_Renamed", TestContext.Current.CancellationToken);
+        Assert.True(await db.Schema.TableExistsAsync("Books_Renamed", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task TableBuilder_CreateTableAsync_RoundTrips()
+    {
+        using TestDatabase db = new();
+        SQLiteTableBuilder<Book> builder = db.Schema.Table<Book>();
+        await builder.CreateTableAsync(TestContext.Current.CancellationToken);
+        Assert.True(await db.Schema.TableExistsAsync<Book>(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public void UseSchema_RegistersCustomFactory()
     {
         bool factoryCalled = false;

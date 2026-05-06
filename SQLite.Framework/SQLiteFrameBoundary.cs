@@ -5,7 +5,6 @@ namespace SQLite.Framework;
 /// These methods throw at runtime and are only valid inside a LINQ query where they are translated
 /// to their SQL equivalents.
 /// </summary>
-[ExcludeFromCodeCoverage]
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
 [UnsupportedOSPlatform("android")]
 [SupportedOSPlatform("android30.0")]

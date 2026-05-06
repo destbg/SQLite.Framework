@@ -6,7 +6,6 @@ namespace SQLite.Framework;
 /// SQL. Examples are <c>RANDOM()</c>, <c>GLOB</c>, and <c>REGEXP</c>. FTS5 helpers live on
 /// <see cref="SQLiteFTS5Functions" /> and window functions on <see cref="SQLiteWindowFunctions" />.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public static class SQLiteFunctions
 {
     private const string OutsideQuery = "SQLiteFunctions methods can only be used inside a LINQ query.";

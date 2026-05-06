@@ -289,15 +289,14 @@ internal class SQLTranslator
         IReadOnlyList<ConstructorInfo>? reflectedConstructors = null;
         IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> selectMaterializers2 = database.Options.SelectMaterializers;
         string? rawSignature2 = queryableMethodVisitor.RawSelectSignature;
-        Func<SQLiteQueryContext, object?>? generatedAnon = null;
         bool hasReflectedArg = queryableMethodVisitor.LastSelectLambdaBody is NewExpression ne
-            && ne.Type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
-            && ne.Arguments.Any(a => !a.Type.IsVisible);
+           && ne.Type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
+           && ne.Arguments.Any(a => !a.Type.IsVisible);
 
         if (hasReflectedArg
             && rawSignature2 != null
             && selectMaterializers2.Count > 0
-            && selectMaterializers2.TryGetValue(rawSignature2, out generatedAnon))
+            && selectMaterializers2.TryGetValue(rawSignature2, out Func<SQLiteQueryContext, object?>? generatedAnon))
         {
 #if SQLITE_FRAMEWORK_TESTING
             database.IncrementSelectMaterializerHits();
@@ -407,6 +406,8 @@ internal class SQLTranslator
             Reverse = queryableMethodVisitor.Reverse,
             ThrowOnEmpty = queryableMethodVisitor.ThrowOnEmpty,
             ThrowOnMoreThanOne = queryableMethodVisitor.ThrowOnMoreThanOne,
+            DefaultValue = queryableMethodVisitor.DefaultValue,
+            HasDefaultValue = queryableMethodVisitor.HasDefaultValue,
             ReflectedMethods = reflectedMethods,
             ReflectedMethodInstances = reflectedInstances,
             CapturedValues = capturedValues,

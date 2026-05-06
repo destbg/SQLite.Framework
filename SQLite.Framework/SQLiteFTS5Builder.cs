@@ -6,7 +6,6 @@ namespace SQLite.Framework;
 /// <c>f =&gt; f.Term("a") || f.Term("b")</c> without repeating the <c>SQLiteFTS5Functions.</c> prefix.
 /// All methods on this type throw at runtime. They are only valid inside the LINQ expression tree.
 /// </summary>
-[ExcludeFromCodeCoverage]
 public sealed class SQLiteFTS5Builder
 {
     private const string OutsideQuery = "SQLiteFTS5Builder methods can only be used inside an SQLiteFTS5Functions.Match lambda.";

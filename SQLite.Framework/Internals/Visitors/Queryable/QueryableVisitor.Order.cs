@@ -4,6 +4,8 @@ internal partial class QueryableVisitor
 {
     private MethodCallExpression VisitTake(MethodCallExpression node)
     {
+        ThrowIfReverse(node.Method.Name);
+
         int n = (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
         Take = Take.HasValue ? Math.Min(Take.Value, n) : n;
         return node;
@@ -11,6 +13,8 @@ internal partial class QueryableVisitor
 
     private MethodCallExpression VisitSkip(MethodCallExpression node)
     {
+        ThrowIfReverse(node.Method.Name);
+
         int n = (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
         Skip = (Skip ?? 0) + n;
         if (Take.HasValue)
@@ -57,5 +61,39 @@ internal partial class QueryableVisitor
 
         Reverse = !Reverse;
         return node;
+    }
+
+    private MethodCallExpression VisitElementAt(MethodCallExpression node, bool throwOnEmpty)
+    {
+        ThrowIfReverse(node.Method.Name);
+
+        object indexValue = ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+        int n = indexValue switch
+        {
+            int i => i,
+            Index idx when !idx.IsFromEnd => idx.Value,
+            _ => throw new NotSupportedException(
+                $"{node.Method.Name} with an Index from the end is not supported. " +
+                "Use OrderByDescending instead so you can index from the start.")
+        };
+
+        Skip = (Skip ?? 0) + n;
+        Take = 1;
+        if (throwOnEmpty)
+        {
+            ThrowOnEmpty = true;
+        }
+
+        return node;
+    }
+
+    private void ThrowIfReverse(string methodName)
+    {
+        if (Reverse)
+        {
+            throw new NotSupportedException(
+                $"{methodName} after Reverse is not supported because Reverse is applied in memory after the SQL query runs, " +
+                "which would pick the wrong rows. Use OrderByDescending instead, or call ToList()/ToArray() first.");
+        }
     }
 }

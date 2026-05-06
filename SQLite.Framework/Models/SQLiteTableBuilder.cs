@@ -19,6 +19,8 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         mapping = database.TableMapping<T>();
     }
 
+    internal SQLiteDatabase Database => database;
+
     /// <summary>
     /// Adds a generated (computed) column. The column is computed from <paramref name="sql" /> on
     /// every read when <paramref name="stored" /> is <see langword="false" /> (the default), or

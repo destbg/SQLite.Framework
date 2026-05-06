@@ -1,18 +1,16 @@
-﻿namespace SQLite.Framework;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Represents a command to be executed against the SQLite database.
 /// </summary>
 public class SQLiteCommand
 {
-    private readonly SQLiteDatabase database;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteCommand" /> class.
     /// </summary>
     public SQLiteCommand(SQLiteDatabase database)
     {
-        this.database = database;
+        Database = database;
         CommandText = string.Empty;
         Parameters = [];
     }
@@ -22,10 +20,15 @@ public class SQLiteCommand
     /// </summary>
     public SQLiteCommand(SQLiteDatabase database, string commandText, List<SQLiteParameter> parameters)
     {
-        this.database = database;
+        Database = database;
         CommandText = commandText;
         Parameters = parameters;
     }
+
+    /// <summary>
+    /// The database the command runs against.
+    /// </summary>
+    public SQLiteDatabase Database { get; }
 
     /// <summary>
     /// The SQL command to be executed.
@@ -46,12 +49,12 @@ public class SQLiteCommand
     /// </remarks>
     public SQLiteDataReader ExecuteReader()
     {
-        IDisposable connectionLock = database.ReadLock();
+        IDisposable connectionLock = Database.ReadLock();
 
         try
         {
             sqlite3_stmt statement = CreateStatement();
-            return new SQLiteDataReader(database.GetActiveHandle(), statement, connectionLock, database);
+            return new SQLiteDataReader(Database.GetActiveHandle(), statement, connectionLock, Database);
         }
         catch
         {
@@ -65,7 +68,7 @@ public class SQLiteCommand
     /// </summary>
     public int ExecuteNonQuery()
     {
-        using IDisposable _ = database.Lock();
+        using IDisposable _ = Database.Lock();
 
         sqlite3_stmt statement = CreateStatement();
         SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
@@ -73,10 +76,10 @@ public class SQLiteCommand
 
         if (result != SQLiteResult.Done)
         {
-            throw new SQLiteException(result, raw.sqlite3_errmsg(database.GetActiveHandle()).utf8_to_string(), CommandText);
+            throw new SQLiteException(result, raw.sqlite3_errmsg(Database.GetActiveHandle()).utf8_to_string(), CommandText);
         }
 
-        return raw.sqlite3_changes(database.GetActiveHandle());
+        return raw.sqlite3_changes(Database.GetActiveHandle());
     }
 
     /// <summary>
@@ -86,7 +89,7 @@ public class SQLiteCommand
     /// </summary>
     public (int Changes, long RowId) ExecuteWithLastRowId()
     {
-        using IDisposable _ = database.Lock();
+        using IDisposable _ = Database.Lock();
 
         sqlite3_stmt statement = CreateStatement();
         SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
@@ -94,16 +97,16 @@ public class SQLiteCommand
 
         if (result != SQLiteResult.Done)
         {
-            throw new SQLiteException(result, raw.sqlite3_errmsg(database.GetActiveHandle()).utf8_to_string(), CommandText);
+            throw new SQLiteException(result, raw.sqlite3_errmsg(Database.GetActiveHandle()).utf8_to_string(), CommandText);
         }
 
-        sqlite3 handle = database.GetActiveHandle();
+        sqlite3 handle = Database.GetActiveHandle();
         return (raw.sqlite3_changes(handle), raw.sqlite3_last_insert_rowid(handle));
     }
 
-    private sqlite3_stmt CreateStatement()
+    internal sqlite3_stmt CreateStatement()
     {
-        sqlite3 handle = database.GetActiveHandle();
+        sqlite3 handle = Database.GetActiveHandle();
 
         SQLiteResult result = (SQLiteResult)raw.sqlite3_prepare_v2(
             handle,
@@ -123,7 +126,7 @@ public class SQLiteCommand
 
     private void BindParameters(sqlite3_stmt statement)
     {
-        SQLiteOptions options = database.Options;
+        SQLiteOptions options = Database.Options;
         foreach (SQLiteParameter parameter in Parameters)
         {
             CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);

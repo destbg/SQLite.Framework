@@ -149,12 +149,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindData = ResolveBindRow(columns, 0, options);
             Action<sqlite3_stmt, T> bindPk = ResolveBindRow(primaryKeyColumns, columns.Length, options);
-            Action<sqlite3_stmt, T> bindRow = (stmt, item) =>
+            return RunPreparedRange(sql, collection, Database.Options.UpdateHooks, runInTransaction, separateConnection, BindRow);
+
+            void BindRow(sqlite3_stmt stmt, T item)
             {
                 bindData(stmt, item);
                 bindPk(stmt, item);
-            };
-            return RunPreparedRange(sql, collection, Database.Options.UpdateHooks, runInTransaction, separateConnection, bindRow);
+            }
         }
 
         return RunRange(Database.Options.UpdateHooks, collection, runInTransaction, separateConnection,
@@ -850,6 +851,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             : type == typeof(sbyte) ? (sbyte)rowId
             : type == typeof(uint) ? (uint)rowId
             : type == typeof(ulong) ? (ulong)rowId
-            : Convert.ChangeType(rowId, type, CultureInfo.InvariantCulture)!;
+            : Convert.ChangeType(rowId, type, CultureInfo.InvariantCulture);
     }
 }

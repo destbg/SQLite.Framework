@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Linq.Expressions;
 using System.Reflection;
 using SQLite.Framework.Internals.Visitors;
 using SQLite.Framework.Tests.Entities;
@@ -113,5 +114,212 @@ public class QueryCompilerVisitorCoverageTests
 
         Assert.IsType<NotSupportedException>(ex.InnerException);
         Assert.Contains("Cannot compare values of type", ex.InnerException!.Message);
+    }
+
+    [Fact]
+    public void Visit_UnsupportedExpressionTypes_AllThrowNotSupported()
+    {
+        QueryCompilerVisitor visitor = new();
+        LabelTarget target = Expression.Label();
+
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Block(Expression.Constant(1))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Default(typeof(int))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Goto(target)));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Invoke(Expression.Lambda<Func<int>>(Expression.Constant(1)))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Label(target, Expression.Constant(0))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Lambda<Func<int>>(Expression.Constant(1))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Loop(Expression.Constant(1))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Switch(Expression.Constant(1), Expression.Constant(2), Expression.SwitchCase(Expression.Constant(3), Expression.Constant(1)))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.TryCatch(Expression.Constant(1), Expression.Catch(typeof(Exception), Expression.Constant(0)))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.RuntimeVariables(Expression.Parameter(typeof(int), "p"))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.TypeIs(Expression.Constant(1), typeof(int))));
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(new UnsupportedExtensionExpression()));
+    }
+
+    [Fact]
+    public void VisitDynamic_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        DynamicExpression dyn = Expression.Dynamic(new TestCallSiteBinder(), typeof(object), Expression.Constant(0));
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitDynamic", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [dyn]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitMemberAssignment_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        MemberInfo member = typeof(Coverage_BindTarget).GetProperty(nameof(Coverage_BindTarget.Value))!;
+        MemberAssignment binding = Expression.Bind(member, Expression.Constant(1));
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitMemberAssignment", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [binding]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitElementInit_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        MethodInfo addMethod = typeof(List<int>).GetMethod(nameof(List<int>.Add))!;
+        ElementInit init = Expression.ElementInit(addMethod, Expression.Constant(1));
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitElementInit", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [init]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitMemberBinding_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        PropertyInfo prop = typeof(Coverage_BindTarget).GetProperty(nameof(Coverage_BindTarget.Value))!;
+        MemberAssignment binding = Expression.Bind(prop, Expression.Constant(1));
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitMemberBinding", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [binding]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitMemberListBinding_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        PropertyInfo prop = typeof(Coverage_BindTarget).GetProperty(nameof(Coverage_BindTarget.List))!;
+        MethodInfo addMethod = typeof(List<int>).GetMethod(nameof(List<int>.Add))!;
+        MemberListBinding binding = Expression.ListBind(prop, Expression.ElementInit(addMethod, Expression.Constant(1)));
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitMemberListBinding", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [binding]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitMemberMemberBinding_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        PropertyInfo nested = typeof(Coverage_BindTarget).GetProperty(nameof(Coverage_BindTarget.Nested))!;
+        PropertyInfo nestedValue = typeof(Coverage_BindTargetNested).GetProperty(nameof(Coverage_BindTargetNested.Value))!;
+        MemberMemberBinding binding = Expression.MemberBind(nested, Expression.Bind(nestedValue, Expression.Constant(1)));
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitMemberMemberBinding", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [binding]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitCatchBlock_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        CatchBlock block = Expression.Catch(typeof(Exception), Expression.Constant(0));
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitCatchBlock", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [block]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitDebugInfo_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        SymbolDocumentInfo doc = Expression.SymbolDocument("x");
+        DebugInfoExpression debug = Expression.DebugInfo(doc, 1, 1, 1, 1);
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitDebugInfo", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [debug]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitSwitchCase_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        SwitchCase switchCase = Expression.SwitchCase(Expression.Constant(1), Expression.Constant(0));
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitSwitchCase", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [switchCase]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitLabelTarget_Null_ReturnsNull()
+    {
+        QueryCompilerVisitor visitor = new();
+
+        object? result = VisitorType.GetMethod("VisitLabelTarget", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(visitor, [null]);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void VisitLabelTarget_NonNull_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        LabelTarget target = Expression.Label();
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
+            VisitorType.GetMethod("VisitLabelTarget", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(visitor, [target]));
+
+        Assert.IsType<NotSupportedException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void VisitIndex_Throws()
+    {
+        QueryCompilerVisitor visitor = new();
+        ConstantExpression list = Expression.Constant(new List<int> { 1, 2, 3 });
+        PropertyInfo indexer = typeof(List<int>).GetProperty("Item")!;
+        IndexExpression idx = Expression.MakeIndex(list, indexer, [Expression.Constant(0)]);
+
+        Assert.Throws<NotSupportedException>(() => visitor.Visit(idx));
+    }
+}
+
+public sealed class Coverage_BindTarget
+{
+    public int Value { get; set; }
+    public Coverage_BindTargetNested Nested { get; set; } = new();
+    public List<int> List { get; set; } = [];
+}
+
+public sealed class Coverage_BindTargetNested
+{
+    public int Value { get; set; }
+}
+
+public sealed class UnsupportedExtensionExpression : Expression
+{
+    public override ExpressionType NodeType => ExpressionType.Extension;
+    public override Type Type => typeof(int);
+    public override bool CanReduce => false;
+}
+
+public sealed class TestCallSiteBinder : System.Runtime.CompilerServices.CallSiteBinder
+{
+    public override Expression Bind(object[] args, System.Collections.ObjectModel.ReadOnlyCollection<ParameterExpression> parameters, LabelTarget returnLabel)
+    {
+        throw new NotImplementedException();
     }
 }

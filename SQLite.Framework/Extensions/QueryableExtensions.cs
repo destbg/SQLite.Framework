@@ -86,7 +86,6 @@ public static class QueryableExtensions
     /// <summary>
     /// Converts the <see cref="IQueryable{T}"/> to a <see cref="SQLiteCommand"/>.
     /// </summary>
-    [ExcludeFromCodeCoverage]
     public static SQLiteCommand ToSqlCommand<T>(this IQueryable<T> queryable)
     {
         BaseSQLiteTable table = (BaseSQLiteTable)queryable;
@@ -99,7 +98,6 @@ public static class QueryableExtensions
     /// <summary>
     /// Converts the <see cref="IQueryable{T}"/> to a SQL string.
     /// </summary>
-    [ExcludeFromCodeCoverage]
     public static string ToSql<T>(this IQueryable<T> queryable)
     {
         BaseSQLiteTable table = (BaseSQLiteTable)queryable;

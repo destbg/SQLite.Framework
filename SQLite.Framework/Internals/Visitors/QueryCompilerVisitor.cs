@@ -112,37 +112,31 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return new CompiledExpression(node.Type, _ => node.Value);
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitBlock(BlockExpression node)
     {
         throw new NotSupportedException($"The block expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitDefault(DefaultExpression node)
     {
         throw new NotSupportedException($"The default expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitDynamic(DynamicExpression node)
     {
         throw new NotSupportedException($"The dynamic expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitExtension(Expression node)
     {
         throw new NotSupportedException($"The extension method '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitGoto(GotoExpression node)
     {
         throw new NotSupportedException($"The goto expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitIndex(IndexExpression node)
     {
         // Array[Index] = value
@@ -170,25 +164,21 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         });
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitInvocation(InvocationExpression node)
     {
         throw new NotSupportedException($"The invocation expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitLabel(LabelExpression node)
     {
         throw new NotSupportedException($"The label expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitLambda<T>(Expression<T> node)
     {
         throw new NotSupportedException($"The lambda expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitLoop(LoopExpression node)
     {
         throw new NotSupportedException($"The loop expression '{node}' is not supported.");
@@ -222,13 +212,11 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         throw new NotSupportedException($"The parameter expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitSwitch(SwitchExpression node)
     {
         throw new NotSupportedException($"The switch expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitTry(TryExpression node)
     {
         throw new NotSupportedException($"The try expression '{node}' is not supported.");
@@ -255,19 +243,16 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         });
     }
 
-    [ExcludeFromCodeCoverage]
     protected override CatchBlock VisitCatchBlock(CatchBlock node)
     {
         throw new NotSupportedException($"The catch block '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitDebugInfo(DebugInfoExpression node)
     {
         throw new NotSupportedException($"The debug info expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     [return: NotNullIfNotNull(nameof(node))]
     protected override LabelTarget? VisitLabelTarget(LabelTarget? node)
     {
@@ -300,7 +285,6 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         });
     }
 
-    [ExcludeFromCodeCoverage]
     protected override MemberAssignment VisitMemberAssignment(MemberAssignment node)
     {
         throw new NotSupportedException($"The member assignment '{node}' is not supported.");
@@ -397,43 +381,36 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         });
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitRuntimeVariables(RuntimeVariablesExpression node)
     {
         throw new NotSupportedException($"The runtime variables expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override SwitchCase VisitSwitchCase(SwitchCase node)
     {
         throw new NotSupportedException($"The switch case '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override Expression VisitTypeBinary(TypeBinaryExpression node)
     {
         throw new NotSupportedException($"The type binary expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override ElementInit VisitElementInit(ElementInit node)
     {
         throw new NotSupportedException($"The element init expression '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override MemberBinding VisitMemberBinding(MemberBinding node)
     {
         throw new NotSupportedException($"The member binding '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override MemberListBinding VisitMemberListBinding(MemberListBinding node)
     {
         throw new NotSupportedException($"The member list binding '{node}' is not supported.");
     }
 
-    [ExcludeFromCodeCoverage]
     protected override MemberMemberBinding VisitMemberMemberBinding(MemberMemberBinding node)
     {
         throw new NotSupportedException($"The member member binding '{node}' is not supported.");
@@ -449,7 +426,6 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             _ => throw new Exception("Invalid member binding type.")
         };
     }
-
 
     private CompiledExpression VisitMemberAssignmentExpression(MemberAssignment node)
     {
@@ -476,7 +452,6 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         });
     }
 
-    [ExcludeFromCodeCoverage]
     private CompiledExpression VisitMemberListBindingExpression(MemberListBinding node)
     {
         throw new NotSupportedException($"List binding '{node.Member.Name}' is not supported inside a nested member binding.");
