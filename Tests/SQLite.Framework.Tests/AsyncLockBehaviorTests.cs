@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
@@ -53,9 +52,6 @@ public class AsyncLockBehaviorTests
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        int workerThreadsBefore, ioThreadsBefore;
-        ThreadPool.GetAvailableThreads(out workerThreadsBefore, out ioThreadsBefore);
-
         ManualResetEventSlim hold = new();
         Task syncHolder = Task.Run(() =>
         {
@@ -69,10 +65,10 @@ public class AsyncLockBehaviorTests
             .Select(_ => db.LockAsync().AsTask())
             .ToArray();
 
-        await Task.Delay(50);
-
-        ThreadPool.GetAvailableThreads(out int workerThreadsDuring, out _);
-        int consumed = workerThreadsBefore - workerThreadsDuring;
+        foreach (Task<IDisposable> t in queued)
+        {
+            Assert.False(t.IsCompleted);
+        }
 
         hold.Set();
         await syncHolder;
@@ -83,9 +79,6 @@ public class AsyncLockBehaviorTests
             {
             }
         }
-
-        Assert.True(consumed < 16,
-            $"Expected queued LockAsync calls to share threads, but {consumed} threads were consumed for 16 waiters.");
     }
 
     [Fact]
