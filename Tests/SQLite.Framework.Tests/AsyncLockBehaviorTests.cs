@@ -26,14 +26,16 @@ public class AsyncLockBehaviorTests
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
+        TaskCompletionSource acquired = new(TaskCreationOptions.RunContinuationsAsynchronously);
         ManualResetEventSlim release = new();
         Task syncHolder = Task.Run(() =>
         {
             using IDisposable l = db.Lock();
+            acquired.SetResult();
             release.Wait();
         });
 
-        await Task.Delay(50);
+        await acquired.Task;
 
         Task<IDisposable> acquireTask = db.LockAsync().AsTask();
         Assert.False(acquireTask.IsCompleted);
@@ -52,14 +54,16 @@ public class AsyncLockBehaviorTests
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
+        TaskCompletionSource acquired = new(TaskCreationOptions.RunContinuationsAsynchronously);
         ManualResetEventSlim hold = new();
         Task syncHolder = Task.Run(() =>
         {
             using IDisposable l = db.Lock();
+            acquired.SetResult();
             hold.Wait();
         });
 
-        await Task.Delay(50);
+        await acquired.Task;
 
         Task<IDisposable>[] queued = Enumerable.Range(0, 16)
             .Select(_ => db.LockAsync().AsTask())
@@ -388,19 +392,20 @@ public class AsyncLockBehaviorTests
         using WalTrackingDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
+        TaskCompletionSource acquired = new(TaskCreationOptions.RunContinuationsAsynchronously);
         ManualResetEventSlim release = new();
         Task syncHolder = Task.Run(() =>
         {
             using SQLiteTransaction tx = db.BeginTransaction(separateConnection: false);
+            acquired.SetResult();
             release.Wait();
             tx.Commit();
         });
 
-        await Task.Delay(100);
+        await acquired.Task;
 
         using CancellationTokenSource cts = new();
         Task<IDisposable> queued = db.LockAsync(cts.Token).AsTask();
-        await Task.Delay(100);
         Assert.False(queued.IsCompleted);
 
         await cts.CancelAsync();
@@ -418,14 +423,16 @@ public class AsyncLockBehaviorTests
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
+        TaskCompletionSource acquired = new(TaskCreationOptions.RunContinuationsAsynchronously);
         ManualResetEventSlim release = new();
         Task syncHolder = Task.Run(() =>
         {
             using IDisposable l = db.Lock();
+            acquired.SetResult();
             release.Wait();
         });
 
-        await Task.Delay(50);
+        await acquired.Task;
 
         SQLiteLockAwaiter awaiter = db.LockAsync().GetAwaiter();
         Assert.False(awaiter.IsCompleted);
