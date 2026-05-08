@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class GuidTests
@@ -89,3 +90,4 @@ public class GuidTests
         return db;
     }
 }
+#endif

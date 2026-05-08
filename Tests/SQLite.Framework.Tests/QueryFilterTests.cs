@@ -4,6 +4,7 @@ using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 using SQLite.Framework.Tests.Interfaces;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class QueryFilterTests
@@ -201,3 +202,4 @@ public class QueryFilterTests
         Assert.Equal(2, rows[0].Id);
     }
 }
+#endif

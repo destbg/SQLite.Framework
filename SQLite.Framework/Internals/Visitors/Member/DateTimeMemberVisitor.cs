@@ -140,24 +140,9 @@ internal static class DateTimeMemberVisitor
             return node.Method.Name switch
             {
                 nameof(TimeSpan.Add) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
-                nameof(TimeSpan.Subtract) => new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"{obj.Sql} - {arguments[0].Sql}",
-                    ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!)
-                ),
-                nameof(TimeSpan.Negate) => new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"(-{obj.Sql})",
-                    obj.Parameters
-                ),
-                nameof(TimeSpan.Duration) => new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"ABS({obj.Sql})",
-                    obj.Parameters
-                ),
+                nameof(TimeSpan.Subtract) => SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", obj.SQLiteExpression!, " - ", arguments[0].SQLiteExpression!, "", ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!)),
+                nameof(TimeSpan.Negate) => SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(-", obj.SQLiteExpression!, ")", obj.Parameters),
+                nameof(TimeSpan.Duration) => SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ABS(", obj.SQLiteExpression!, ")", obj.Parameters),
                 _ => throw new NotSupportedException($"TimeSpan.{node.Method.Name} is not translatable to SQL.")
             };
         }
@@ -252,81 +237,6 @@ internal static class DateTimeMemberVisitor
         throw new NotSupportedException($"TimeOnly.{node.Method.Name} is not translatable to SQL.");
     }
 
-    private static SQLiteExpression ResolveDateAdd(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, long multiplyBy)
-    {
-        SQLiteParameter parameter = new()
-        {
-            Name = $"@p{visitor.Counters.ParamIndex++}",
-            Value = multiplyBy
-        };
-
-        return new SQLiteExpression(
-            method.ReturnType,
-            visitor.Counters.IdentifierIndex++,
-            $"CAST({obj.Sql} + ({arguments[0].Sql} * {parameter.Name}) AS 'INTEGER')",
-            [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter]
-        );
-    }
-
-    private static SQLiteExpression ResolveParse(SQLVisitor visitor, MethodInfo method, List<ResolvedModel> arguments, long multiplyBy)
-    {
-        return new SQLiteExpression(
-            method.ReturnType,
-            visitor.Counters.IdentifierIndex++,
-            $"CAST({multiplyBy} * {arguments[0].Sql} AS INTEGER)",
-            arguments[0].Parameters
-        );
-    }
-
-    private static SQLiteExpression ResolveRelativeDate(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, string addType)
-    {
-        (SQLiteParameter tickParameter, SQLiteParameter tickToSecondParameter) = CreateHelperDateParameters(visitor);
-
-        if (arguments[0].IsConstant)
-        {
-            SQLiteParameter parameter = new()
-            {
-                Name = $"@p{visitor.Counters.ParamIndex++}",
-                Value = $"+{arguments[0].Constant} {addType}"
-            };
-
-            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter, parameter];
-
-            string sql = $"CAST(STRFTIME('%s',DATETIME(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', {parameter.Name})) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}";
-
-            return new SQLiteExpression(method.ReturnType, visitor.Counters.IdentifierIndex++, sql, parameters);
-        }
-        else
-        {
-            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], tickParameter, tickToSecondParameter];
-
-            string sql = $"CAST(STRFTIME('%s',DATETIME(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', '+'||{arguments[0].Sql}||' {addType}')) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}";
-
-            return new SQLiteExpression(
-                method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                sql,
-                parameters
-            );
-        }
-    }
-
-    private static (SQLiteParameter TickParameter, SQLiteParameter TickToSecondParameter) CreateHelperDateParameters(SQLVisitor visitor)
-    {
-        SQLiteParameter tickParameter = new()
-        {
-            Name = $"@p{visitor.Counters.ParamIndex++}",
-            Value = 621355968000000000 // new DateTime(1970, 1, 1).Ticks
-        };
-        SQLiteParameter tickToSecondParameter = new()
-        {
-            Name = $"@p{visitor.Counters.ParamIndex++}",
-            Value = TimeSpan.TicksPerSecond
-        };
-
-        return (tickParameter, tickToSecondParameter);
-    }
-
     public static Expression HandleDateTimeProperty(SQLVisitor visitor, string propertyName, Type type, SQLiteExpression node)
     {
         if (visitor.Database.Options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
@@ -344,27 +254,12 @@ internal static class DateTimeMemberVisitor
             nameof(DateTime.Hour) => ResolveDateFormat(visitor, type, node, "H", "DATETIME"),
             nameof(DateTime.Minute) => ResolveDateFormat(visitor, type, node, "M", "DATETIME"),
             nameof(DateTime.Second) => ResolveDateFormat(visitor, type, node, "S", "DATETIME"),
-            nameof(DateTime.Millisecond) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
-                node.Parameters
-            ),
+            nameof(DateTime.Millisecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMillisecond, 1000),
             nameof(DateTime.Ticks) => node,
             nameof(DateTime.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME"),
             nameof(DateTime.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
-            nameof(DateTime.Date) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"(({node.Sql} / {TimeSpan.TicksPerDay}) * {TimeSpan.TicksPerDay})",
-                node.Parameters
-            ),
-            nameof(DateTime.TimeOfDay) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"({node.Sql} % {TimeSpan.TicksPerDay})",
-                node.Parameters
-            ),
+            nameof(DateTime.Date) => DateTruncExpression(visitor, type, node),
+            nameof(DateTime.TimeOfDay) => ModExpression(visitor, type, node, TimeSpan.TicksPerDay),
             _ => throw new NotSupportedException($"DateTime.{propertyName} is not translatable to SQL.")
         };
     }
@@ -386,27 +281,12 @@ internal static class DateTimeMemberVisitor
             nameof(DateTimeOffset.Hour) => ResolveDateFormat(visitor, type, node, "H", "DATETIME"),
             nameof(DateTimeOffset.Minute) => ResolveDateFormat(visitor, type, node, "M", "DATETIME"),
             nameof(DateTimeOffset.Second) => ResolveDateFormat(visitor, type, node, "S", "DATETIME"),
-            nameof(DateTimeOffset.Millisecond) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
-                node.Parameters
-            ),
+            nameof(DateTimeOffset.Millisecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMillisecond, 1000),
             nameof(DateTimeOffset.Ticks) => node,
             nameof(DateTimeOffset.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME"),
             nameof(DateTimeOffset.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
-            nameof(DateTimeOffset.Date) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"(({node.Sql} / {TimeSpan.TicksPerDay}) * {TimeSpan.TicksPerDay})",
-                node.Parameters
-            ),
-            nameof(DateTimeOffset.TimeOfDay) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"({node.Sql} % {TimeSpan.TicksPerDay})",
-                node.Parameters
-            ),
+            nameof(DateTimeOffset.Date) => DateTruncExpression(visitor, type, node),
+            nameof(DateTimeOffset.TimeOfDay) => ModExpression(visitor, type, node, TimeSpan.TicksPerDay),
             _ => throw new NotSupportedException($"DateTimeOffset.{propertyName} is not translatable to SQL.")
         };
     }
@@ -422,66 +302,16 @@ internal static class DateTimeMemberVisitor
 
         return propertyName switch
         {
-            nameof(TimeSpan.Days) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"CAST({node.Sql} / {TimeSpan.TicksPerDay} AS INTEGER)",
-                node.Parameters
-            ),
-            nameof(TimeSpan.TotalDays) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerDay})",
-                node.Parameters
-            ),
-            nameof(TimeSpan.Hours) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"({node.Sql} / {TimeSpan.TicksPerHour}) % 24",
-                node.Parameters
-            ),
-            nameof(TimeSpan.TotalHours) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerHour})",
-                node.Parameters
-            ),
-            nameof(TimeSpan.Minutes) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"({node.Sql} / {TimeSpan.TicksPerMinute}) % 60",
-                node.Parameters
-            ),
-            nameof(TimeSpan.TotalMinutes) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerMinute})",
-                node.Parameters
-            ),
-            nameof(TimeSpan.Seconds) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"({node.Sql} / {TimeSpan.TicksPerSecond}) % 60",
-                node.Parameters
-            ),
-            nameof(TimeSpan.TotalSeconds) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerSecond})",
-                node.Parameters
-            ),
-            nameof(TimeSpan.Milliseconds) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"({node.Sql} / {TimeSpan.TicksPerMillisecond}) % 1000",
-                node.Parameters
-            ),
-            nameof(TimeSpan.TotalMilliseconds) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"(CAST({node.Sql} AS REAL) / {TimeSpan.TicksPerMillisecond})",
-                node.Parameters
-            ),
+            nameof(TimeSpan.Days) => DivExpression(visitor, type, node, TimeSpan.TicksPerDay),
+            nameof(TimeSpan.TotalDays) => DivAsRealExpression(visitor, type, node, TimeSpan.TicksPerDay),
+            nameof(TimeSpan.Hours) => DivModExpression(visitor, type, node, TimeSpan.TicksPerHour, 24),
+            nameof(TimeSpan.TotalHours) => DivAsRealExpression(visitor, type, node, TimeSpan.TicksPerHour),
+            nameof(TimeSpan.Minutes) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMinute, 60),
+            nameof(TimeSpan.TotalMinutes) => DivAsRealExpression(visitor, type, node, TimeSpan.TicksPerMinute),
+            nameof(TimeSpan.Seconds) => DivModExpression(visitor, type, node, TimeSpan.TicksPerSecond, 60),
+            nameof(TimeSpan.TotalSeconds) => DivAsRealExpression(visitor, type, node, TimeSpan.TicksPerSecond),
+            nameof(TimeSpan.Milliseconds) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMillisecond, 1000),
+            nameof(TimeSpan.TotalMilliseconds) => DivAsRealExpression(visitor, type, node, TimeSpan.TicksPerMillisecond),
             _ => node
         };
     }
@@ -524,14 +354,122 @@ internal static class DateTimeMemberVisitor
         };
     }
 
+    private static SQLiteExpression ResolveDateAdd(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, long multiplyBy)
+    {
+        SQLiteParameter parameter = new()
+        {
+            Name = visitor.Counters.NextParamName(),
+            Value = multiplyBy
+        };
+
+        return SQLiteExpression.Binary(
+            method.ReturnType,
+            visitor.Counters.NextIdentifier(),
+            "CAST(", obj, " + (", arguments[0].SQLiteExpression!, $" * {parameter.Name}) AS 'INTEGER')",
+            [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter]
+        );
+    }
+
+    private static SQLiteExpression ResolveParse(SQLVisitor visitor, MethodInfo method, List<ResolvedModel> arguments, long multiplyBy)
+    {
+        return SQLiteExpression.Wrap(
+            method.ReturnType,
+            visitor.Counters.NextIdentifier(),
+            $"CAST({multiplyBy} * ", arguments[0].SQLiteExpression!, " AS INTEGER)",
+            arguments[0].Parameters
+        );
+    }
+
+    private static SQLiteExpression ResolveRelativeDate(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, string addType)
+    {
+        (SQLiteParameter tickParameter, SQLiteParameter tickToSecondParameter) = CreateHelperDateParameters(visitor);
+
+        if (arguments[0].IsConstant)
+        {
+            SQLiteParameter parameter = new()
+            {
+                Name = visitor.Counters.NextParamName(),
+                Value = $"+{arguments[0].Constant} {addType}"
+            };
+
+            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter, parameter];
+
+            return SQLiteExpression.Wrap(
+                method.ReturnType,
+                visitor.Counters.NextIdentifier(),
+                "CAST(STRFTIME('%s',DATETIME((",
+                obj,
+                $" - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', {parameter.Name})) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}",
+                parameters);
+        }
+        else
+        {
+            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], tickParameter, tickToSecondParameter];
+
+            return SQLiteExpression.Binary(
+                method.ReturnType,
+                visitor.Counters.NextIdentifier(),
+                "CAST(STRFTIME('%s',DATETIME((",
+                obj,
+                $" - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', '+'||",
+                arguments[0].SQLiteExpression!,
+                $"||' {addType}')) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}",
+                parameters
+            );
+        }
+    }
+
+    private static (SQLiteParameter TickParameter, SQLiteParameter TickToSecondParameter) CreateHelperDateParameters(SQLVisitor visitor)
+    {
+        SQLiteParameter tickParameter = new()
+        {
+            Name = visitor.Counters.NextParamName(),
+            Value = 621355968000000000 // new DateTime(1970, 1, 1).Ticks
+        };
+        SQLiteParameter tickToSecondParameter = new()
+        {
+            Name = visitor.Counters.NextParamName(),
+            Value = TimeSpan.TicksPerSecond
+        };
+
+        return (tickParameter, tickToSecondParameter);
+    }
+
+    private static SQLiteExpression DivModExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long div, long mod)
+    {
+        return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "(", node, $" / {div}) % {mod}", node.Parameters);
+    }
+
+    private static SQLiteExpression DivExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long div)
+    {
+        return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "CAST(", node, $" / {div} AS INTEGER)", node.Parameters);
+    }
+
+    private static SQLiteExpression DivAsRealExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long div)
+    {
+        return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "(CAST(", node, $" AS REAL) / {div})", node.Parameters);
+    }
+
+    private static SQLiteExpression ModExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long mod)
+    {
+        return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "(", node, $" % {mod})", node.Parameters);
+    }
+
+    private static SQLiteExpression DateTruncExpression(SQLVisitor visitor, Type type, SQLiteExpression node)
+    {
+        return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "((", node, $" / {TimeSpan.TicksPerDay}) * {TimeSpan.TicksPerDay})", node.Parameters);
+    }
+
     private static SQLiteExpression ResolveDateFormat(SQLVisitor visitor, Type type, SQLiteExpression obj, string format, string function)
     {
         (SQLiteParameter tickParameter, SQLiteParameter tickToSecondParameter) = CreateHelperDateParameters(visitor);
 
-        return new SQLiteExpression(
+        return SQLiteExpression.Wrap(
             type,
-            visitor.Counters.IdentifierIndex++,
-            $"CAST(STRFTIME('%{format}',{function}(({obj.Sql} - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
+            visitor.Counters.NextIdentifier(),
+            $"CAST(STRFTIME('%{format}',{function}((",
+            obj,
+            $" - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
             [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter]
         );
     }
@@ -540,15 +478,16 @@ internal static class DateTimeMemberVisitor
     {
         SQLiteParameter tickToSecondParameter = new()
         {
-            Name = $"@p{visitor.Counters.ParamIndex++}",
+            Name = visitor.Counters.NextParamName(),
             Value = TimeSpan.TicksPerSecond
         };
-        return new SQLiteExpression(
+        return SQLiteExpression.Wrap(
             type,
-            visitor.Counters.IdentifierIndex++,
-            $"CAST(STRFTIME('%{format}',TIME({obj.Sql} / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
+            visitor.Counters.NextIdentifier(),
+            $"CAST(STRFTIME('%{format}',TIME(",
+            obj,
+            $" / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
             [.. obj.Parameters ?? [], tickToSecondParameter]
         );
     }
-
 }

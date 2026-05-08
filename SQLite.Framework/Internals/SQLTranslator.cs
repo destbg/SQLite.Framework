@@ -96,46 +96,16 @@ internal class SQLTranslator
 
         bool useExists = queryableMethodVisitor.IsAny || queryableMethodVisitor.IsAll;
 
-        // SELECT
-        string select;
-
-        if (QueryType == QueryType.Select)
+        // Visit all expressions to collect parameters before composing SQL.
+        if (QueryType == QueryType.Select && !useExists)
         {
-            string distinct = queryableMethodVisitor.IsDistinct ? " DISTINCT" : string.Empty;
-
-            string selectSql = queryableMethodVisitor.Selects.Count > 0 && !useExists
-                ? string.Join($",{Environment.NewLine}       ", queryableMethodVisitor.Selects.Select(f => $"{f.Sql} AS \"{f.IdentifierText}\""))
-                : "*";
-
-            if (!useExists)
+            foreach (SQLiteExpression expression in queryableMethodVisitor.Selects)
             {
-                foreach (SQLiteExpression expression in queryableMethodVisitor.Selects)
-                {
-                    VisitSQLExpression(expression);
-                }
+                VisitSQLExpression(expression);
             }
-
-            select = $"SELECT{distinct} {(useExists ? "1" : selectSql)}";
         }
-        else
-        {
-            select = string.Empty;
-        }
-
-        // FROM
-        string from = QueryType switch
-        {
-            QueryType.Delete => $"DELETE FROM {Visitor.From.Sql}",
-            QueryType.Update => $"UPDATE {Visitor.From.Sql}",
-            _ => $"FROM {Visitor.From.Sql}"
-        };
 
         VisitSQLExpression(Visitor.From);
-
-        // SET
-        string set = QueryType == QueryType.Update && SetProperties != null
-            ? $"SET {string.Join(", ", SetProperties.Select(f => $"{f.Name} = {f.Expression.Sql}"))}"
-            : string.Empty;
 
         if (QueryType == QueryType.Update && SetProperties != null)
         {
@@ -145,26 +115,10 @@ internal class SQLTranslator
             }
         }
 
-        // WHERE
-        string whereSql = queryableMethodVisitor.Wheres.Count > 0
-            ? "WHERE " + (queryableMethodVisitor.IsAll
-                ? $"NOT ({string.Join(" AND ", queryableMethodVisitor.Wheres)})"
-                : string.Join(" AND ", queryableMethodVisitor.Wheres))
-            : string.Empty;
-
         foreach (SQLiteExpression sqlExpression in queryableMethodVisitor.Wheres)
         {
             VisitSQLExpression(sqlExpression);
         }
-
-        // JOINs
-        string joinSql = string.Join(Environment.NewLine + spacing,
-            queryableMethodVisitor.Joins.Select(j =>
-                j.OnClause != null
-                    ? $"{j.JoinType} {j.Sql} ON {j.OnClause}"
-                    : $"{j.JoinType} {j.Sql}"
-            )
-        );
 
         foreach (JoinInfo join in queryableMethodVisitor.Joins)
         {
@@ -176,78 +130,35 @@ internal class SQLTranslator
             }
         }
 
-        // GROUP BY
-        string groupBySql = queryableMethodVisitor.GroupBys.Count > 0
-            ? "GROUP BY " + string.Join(", ", queryableMethodVisitor.GroupBys)
-            : string.Empty;
-
         foreach (SQLiteExpression sqlExpression in queryableMethodVisitor.GroupBys)
         {
             VisitSQLExpression(sqlExpression);
         }
-
-        // HAVING
-        string havingSql = queryableMethodVisitor.Havings.Count > 0
-            ? "HAVING " + string.Join(" AND ", queryableMethodVisitor.Havings)
-            : string.Empty;
 
         foreach (SQLiteExpression sqlExpression in queryableMethodVisitor.Havings)
         {
             VisitSQLExpression(sqlExpression);
         }
 
-        // ORDER BY
-        string orderBy = queryableMethodVisitor.OrderBys.Count > 0 && !useExists
-            ? "ORDER BY " + string.Join(", ", queryableMethodVisitor.OrderBys)
-            : string.Empty;
-
         foreach (SQLiteExpression sqlExpression in queryableMethodVisitor.OrderBys)
         {
             VisitSQLExpression(sqlExpression);
         }
 
-        // LIMIT
-        string limit = queryableMethodVisitor.Take != null
-            ? $"LIMIT {queryableMethodVisitor.Take}"
-            : queryableMethodVisitor.Skip != null
-                ? "LIMIT -1"
-                : string.Empty;
-
-        // OFFSET
-        string offset = queryableMethodVisitor.Skip != null
-            ? $"OFFSET {queryableMethodVisitor.Skip}"
-            : string.Empty;
-
         bool hasSetOperations = queryableMethodVisitor.SetOperations.Count > 0;
 
-        string[] mainParts = hasSetOperations
-            ? [select, from, joinSql, set, whereSql, groupBySql, havingSql]
-            : [select, from, joinSql, set, whereSql, groupBySql, havingSql, orderBy, limit, offset];
-
-        string sql = spacing + string.Join(Environment.NewLine + spacing, mainParts.Where(f => !string.IsNullOrEmpty(f)));
-
-        // UNION, UNION ALL, INTERSECT, EXCEPT
         if (hasSetOperations)
         {
             foreach ((SQLiteExpression sqlExpression, string _) in queryableMethodVisitor.SetOperations)
             {
                 VisitSQLExpression(sqlExpression);
             }
-
-            IEnumerable<string> list = queryableMethodVisitor.SetOperations.Select(f =>
-                $"{spacing}{f.Type}{Environment.NewLine}{spacing}{f.Sql}");
-
-            string setOperations = string.Join(Environment.NewLine + spacing, list);
-
-            sql = $"{sql}{Environment.NewLine}{setOperations}";
-
-            string[] tailParts = [orderBy, limit, offset];
-            string tail = string.Join(Environment.NewLine + spacing, tailParts.Where(f => !string.IsNullOrEmpty(f)));
-            if (!string.IsNullOrEmpty(tail))
-            {
-                sql = $"{sql}{Environment.NewLine}{spacing}{tail}";
-            }
         }
+
+        StringBuilder sb = StringBuilderPool.Rent();
+        WriteQuerySql(sb, queryableMethodVisitor, spacing, useExists, hasSetOperations);
+
+        string sql = StringBuilderPool.ToStringAndReturn(sb);
 
         if (!isInnerQuery)
         {
@@ -266,10 +177,27 @@ internal class SQLTranslator
             bool anyRecursive = cteRegistry.Ctes.Any(c => c.IsRecursive);
             string withKeyword = anyRecursive ? "WITH RECURSIVE" : "WITH";
 
-            string cteSql = string.Join($",{Environment.NewLine}", cteRegistry.Ctes.Select(c =>
-                $"{c.Name} AS ({Environment.NewLine}{c.Sql}{Environment.NewLine})"));
-
-            sql = $"{withKeyword} {cteSql}{Environment.NewLine}{sql}";
+            StringBuilder cteSb = StringBuilderPool.Rent();
+            cteSb.Append(withKeyword);
+            cteSb.Append(' ');
+            for (int i = 0; i < cteRegistry.Ctes.Count; i++)
+            {
+                if (i > 0)
+                {
+                    cteSb.Append(',');
+                    cteSb.Append(Environment.NewLine);
+                }
+                CteInfo cte = cteRegistry.Ctes[i];
+                cteSb.Append(cte.Name);
+                cteSb.Append(" AS (");
+                cteSb.Append(Environment.NewLine);
+                cteSb.Append(cte.Sql);
+                cteSb.Append(Environment.NewLine);
+                cteSb.Append(')');
+            }
+            cteSb.Append(Environment.NewLine);
+            cteSb.Append(sql);
+            sql = StringBuilderPool.ToStringAndReturn(cteSb);
 
             foreach (CteInfo cte in cteRegistry.Ctes)
             {
@@ -392,7 +320,7 @@ internal class SQLTranslator
                     database.IncrementSelectCompilerFallbacks();
                 }
 #endif
-                QueryCompilerVisitor compilerVisitor = new();
+                QueryCompilerVisitor compilerVisitor = new(database.Options);
                 CompiledExpression compiledExpression = (CompiledExpression)compilerVisitor.Visit(selectMethodExpression);
                 createObject = compiledExpression.Call;
             }
@@ -422,6 +350,200 @@ internal class SQLTranslator
         if (node.Parameters != null)
         {
             parameters.AddRange(node.Parameters);
+        }
+    }
+
+    private void WriteQuerySql(StringBuilder sb, Visitors.Queryable.QueryableVisitor q, string spacing, bool useExists, bool hasSetOperations)
+    {
+        bool first = true;
+
+        // SELECT
+        if (QueryType == QueryType.Select)
+        {
+            sb.Append(spacing);
+            sb.Append("SELECT");
+            if (q.IsDistinct) sb.Append(" DISTINCT");
+            sb.Append(' ');
+            if (useExists)
+            {
+                sb.Append('1');
+            }
+            else if (q.Selects.Count > 0)
+            {
+                for (int i = 0; i < q.Selects.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        sb.Append(',');
+                        sb.Append(Environment.NewLine);
+                        sb.Append("       ");
+                    }
+                    q.Selects[i].WriteSqlTo(sb);
+                    sb.Append(" AS \"");
+                    sb.Append(q.Selects[i].IdentifierText);
+                    sb.Append('"');
+                }
+            }
+            else
+            {
+                sb.Append('*');
+            }
+            first = false;
+        }
+
+        // FROM (or DELETE FROM, UPDATE)
+        AppendSpacingNewline(sb, spacing, ref first);
+        switch (QueryType)
+        {
+            case QueryType.Delete:
+                sb.Append("DELETE FROM ");
+                break;
+            case QueryType.Update:
+                sb.Append("UPDATE ");
+                break;
+            default:
+                sb.Append("FROM ");
+                break;
+        }
+        Visitor.From!.WriteSqlTo(sb);
+
+        // JOINs
+        for (int i = 0; i < q.Joins.Count; i++)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            JoinInfo j = q.Joins[i];
+            sb.Append(j.JoinType);
+            sb.Append(' ');
+            j.Sql.WriteSqlTo(sb);
+            if (j.OnClause != null)
+            {
+                sb.Append(" ON ");
+                j.OnClause.WriteSqlTo(sb);
+            }
+        }
+
+        // SET
+        if (QueryType == QueryType.Update && SetProperties != null)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("SET ");
+            for (int i = 0; i < SetProperties.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append(SetProperties[i].Name);
+                sb.Append(" = ");
+                SetProperties[i].Expression.WriteSqlTo(sb);
+            }
+        }
+
+        // WHERE
+        if (q.Wheres.Count > 0)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("WHERE ");
+            if (q.IsAll)
+            {
+                sb.Append("NOT (");
+                for (int i = 0; i < q.Wheres.Count; i++)
+                {
+                    if (i > 0) sb.Append(" AND ");
+                    q.Wheres[i].WriteSqlTo(sb);
+                }
+                sb.Append(')');
+            }
+            else
+            {
+                for (int i = 0; i < q.Wheres.Count; i++)
+                {
+                    if (i > 0) sb.Append(" AND ");
+                    q.Wheres[i].WriteSqlTo(sb);
+                }
+            }
+        }
+
+        // GROUP BY
+        if (q.GroupBys.Count > 0)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("GROUP BY ");
+            for (int i = 0; i < q.GroupBys.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                q.GroupBys[i].WriteSqlTo(sb);
+            }
+        }
+
+        // HAVING
+        if (q.Havings.Count > 0)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("HAVING ");
+            for (int i = 0; i < q.Havings.Count; i++)
+            {
+                if (i > 0) sb.Append(" AND ");
+                q.Havings[i].WriteSqlTo(sb);
+            }
+        }
+
+        // Set operations come after the main body but before ORDER BY/LIMIT/OFFSET
+        if (hasSetOperations)
+        {
+            for (int i = 0; i < q.SetOperations.Count; i++)
+            {
+                sb.Append(Environment.NewLine);
+                sb.Append(spacing);
+                sb.Append(q.SetOperations[i].Type);
+                sb.Append(Environment.NewLine);
+                sb.Append(spacing);
+                q.SetOperations[i].Sql.WriteSqlTo(sb);
+            }
+        }
+
+        // ORDER BY
+        if (q.OrderBys.Count > 0 && !useExists)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("ORDER BY ");
+            for (int i = 0; i < q.OrderBys.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                q.OrderBys[i].WriteSqlTo(sb);
+            }
+        }
+
+        // LIMIT
+        if (q.Take != null)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("LIMIT ");
+            sb.Append(q.Take);
+        }
+        else if (q.Skip != null)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("LIMIT -1");
+        }
+
+        // OFFSET
+        if (q.Skip != null)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("OFFSET ");
+            sb.Append(q.Skip);
+        }
+    }
+
+    private static void AppendSpacingNewline(StringBuilder sb, string spacing, ref bool first)
+    {
+        if (first)
+        {
+            sb.Append(spacing);
+            first = false;
+        }
+        else
+        {
+            sb.Append(Environment.NewLine);
+            sb.Append(spacing);
         }
     }
 
@@ -561,8 +683,15 @@ internal class SQLTranslator
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "We are checking the Queryable class")]
-    private static MethodCallExpression CreateIdentitySelectExpression(Type genericType)
+    private MethodCallExpression CreateIdentitySelectExpression(Type genericType)
     {
+        if (!RuntimeFeature.IsDynamicCodeSupported && database.Options.EntityMaterializers.Count == 0)
+        {
+            throw new NotSupportedException(
+                $"Building an identity Select for '{genericType.FullName}' uses MakeGenericType, " +
+                "which requires runtime code generation. This path is unavailable when the assembly is built with PublishAot=true. " +
+                "Use the SQLite.Framework source generator with UseGeneratedMaterializers, or remove PublishAot.");
+        }
         Type genericQueryableType = typeof(IQueryable<>).MakeGenericType(genericType);
 
         ParameterExpression sourceParameter = Expression.Parameter(genericQueryableType, "source");

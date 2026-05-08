@@ -1293,90 +1293,126 @@ public static class AsyncQueryableExtensions
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(LastUnsupported, error: true)]
     public static Task<TSource> LastAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
-        => throw new NotSupportedException(LastUnsupported);
+    {
+        throw new NotSupportedException(LastUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(LastUnsupported, error: true)]
     public static Task<TSource> LastAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
-        => throw new NotSupportedException(LastUnsupported);
+    {
+        throw new NotSupportedException(LastUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(LastUnsupported, error: true)]
     public static Task<TSource?> LastOrDefaultAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
-        => throw new NotSupportedException(LastUnsupported);
+    {
+        throw new NotSupportedException(LastUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(LastUnsupported, error: true)]
     public static Task<TSource> LastOrDefaultAsync<TSource>(this IQueryable<TSource> source, TSource defaultValue, CancellationToken ct = default)
-        => throw new NotSupportedException(LastUnsupported);
+    {
+        throw new NotSupportedException(LastUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(LastUnsupported, error: true)]
     public static Task<TSource?> LastOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
-        => throw new NotSupportedException(LastUnsupported);
+    {
+        throw new NotSupportedException(LastUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(LastUnsupported, error: true)]
     public static Task<TSource> LastOrDefaultAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, TSource defaultValue, CancellationToken ct = default)
-        => throw new NotSupportedException(LastUnsupported);
+    {
+        throw new NotSupportedException(LastUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(ContainsComparerUnsupported, error: true)]
     public static Task<bool> ContainsAsync<TSource>(this IQueryable<TSource> source, TSource item, IEqualityComparer<TSource>? comparer, CancellationToken ct = default)
-        => throw new NotSupportedException(ContainsComparerUnsupported);
+    {
+        throw new NotSupportedException(ContainsComparerUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(SequenceEqualUnsupported, error: true)]
     public static Task<bool> SequenceEqualAsync<TSource>(this IQueryable<TSource> source1, IEnumerable<TSource> source2, CancellationToken ct = default)
-        => throw new NotSupportedException(SequenceEqualUnsupported);
+    {
+        throw new NotSupportedException(SequenceEqualUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(SequenceEqualUnsupported, error: true)]
     public static Task<bool> SequenceEqualAsync<TSource>(this IQueryable<TSource> source1, IEnumerable<TSource> source2, IEqualityComparer<TSource>? comparer, CancellationToken ct = default)
-        => throw new NotSupportedException(SequenceEqualUnsupported);
+    {
+        throw new NotSupportedException(SequenceEqualUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(MinMaxComparerUnsupported, error: true)]
     public static Task<TSource?> MinAsync<TSource>(this IQueryable<TSource> source, IComparer<TSource>? comparer, CancellationToken ct = default)
-        => throw new NotSupportedException(MinMaxComparerUnsupported);
+    {
+        throw new NotSupportedException(MinMaxComparerUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(MinMaxComparerUnsupported, error: true)]
     public static Task<TSource?> MaxAsync<TSource>(this IQueryable<TSource> source, IComparer<TSource>? comparer, CancellationToken ct = default)
-        => throw new NotSupportedException(MinMaxComparerUnsupported);
+    {
+        throw new NotSupportedException(MinMaxComparerUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(MinMaxByUnsupported, error: true)]
     public static Task<TSource?> MinByAsync<TSource, TKey>(this IQueryable<TSource> source, Expression<Func<TSource, TKey>> keySelector, CancellationToken ct = default)
-        => throw new NotSupportedException(MinMaxByUnsupported);
+    {
+        throw new NotSupportedException(MinMaxByUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(MinMaxByUnsupported, error: true)]
     public static Task<TSource?> MinByAsync<TSource, TKey>(this IQueryable<TSource> source, Expression<Func<TSource, TKey>> keySelector, IComparer<TKey>? comparer, CancellationToken ct = default)
-        => throw new NotSupportedException(MinMaxByUnsupported);
+    {
+        throw new NotSupportedException(MinMaxByUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(MinMaxByUnsupported, error: true)]
     public static Task<TSource?> MaxByAsync<TSource, TKey>(this IQueryable<TSource> source, Expression<Func<TSource, TKey>> keySelector, CancellationToken ct = default)
-        => throw new NotSupportedException(MinMaxByUnsupported);
+    {
+        throw new NotSupportedException(MinMaxByUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(MinMaxByUnsupported, error: true)]
     public static Task<TSource?> MaxByAsync<TSource, TKey>(this IQueryable<TSource> source, Expression<Func<TSource, TKey>> keySelector, IComparer<TKey>? comparer, CancellationToken ct = default)
-        => throw new NotSupportedException(MinMaxByUnsupported);
+    {
+        throw new NotSupportedException(MinMaxByUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(AggregateUnsupported, error: true)]
     public static Task<TSource> AggregateAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, TSource, TSource>> func, CancellationToken ct = default)
-        => throw new NotSupportedException(AggregateUnsupported);
+    {
+        throw new NotSupportedException(AggregateUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(AggregateUnsupported, error: true)]
     public static Task<TAccumulate> AggregateAsync<TSource, TAccumulate>(this IQueryable<TSource> source, TAccumulate seed, Expression<Func<TAccumulate, TSource, TAccumulate>> func, CancellationToken ct = default)
-        => throw new NotSupportedException(AggregateUnsupported);
+    {
+        throw new NotSupportedException(AggregateUnsupported);
+    }
 
     /// <summary>Not supported on a SQLite-backed queryable.</summary>
     [Obsolete(AggregateUnsupported, error: true)]
     public static Task<TResult> AggregateAsync<TSource, TAccumulate, TResult>(this IQueryable<TSource> source, TAccumulate seed, Expression<Func<TAccumulate, TSource, TAccumulate>> func, Expression<Func<TAccumulate, TResult>> selector, CancellationToken ct = default)
-        => throw new NotSupportedException(AggregateUnsupported);
+    {
+        throw new NotSupportedException(AggregateUnsupported);
+    }
 }

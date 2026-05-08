@@ -94,13 +94,11 @@ internal partial class JsonCollectionVisitor
             resultType = call.Type;
         }
 
-        string sql = jcv.BuildSql(sourceModel.SQLiteExpression.Sql);
+        string sql = jcv.BuildSql(sourceModel.SQLiteExpression.ToString());
         Type coercedType = CoerceType(resultType, sourceModel.SQLiteExpression.Type);
-        return new SQLiteExpression(coercedType, sqlVisitor.Counters.IdentifierIndex++, sql,
+        return SQLiteExpression.Leaf(coercedType, sqlVisitor.Counters.NextIdentifier(), sql,
             jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null)
-        {
-            IsJsonSource = true,
-        };
+            .WithJsonSource();
     }
 
     private string VisitLambda(Expression arg, Type elementType)
@@ -120,7 +118,7 @@ internal partial class JsonCollectionVisitor
                 parameters.AddRange(sqlExpr.Parameters);
             }
 
-            return sqlExpr.Sql;
+            return sqlExpr.ToString();
         }
 
         throw new NotSupportedException($"Cannot translate lambda body: {lambda.Body}");
@@ -143,7 +141,7 @@ internal partial class JsonCollectionVisitor
                 parameters.AddRange(sqlExpr.Parameters);
             }
 
-            return sqlExpr.Sql;
+            return sqlExpr.ToString();
         }
 
         throw new NotSupportedException($"Cannot translate lambda body: {lambda.Body}");
@@ -154,7 +152,7 @@ internal partial class JsonCollectionVisitor
     {
         if (TypeHelpers.IsSimple(elementType, options))
         {
-            SQLiteExpression valueExpr = new(elementType, -1, valueSql, (SQLiteParameter[]?)null);
+            SQLiteExpression valueExpr = SQLiteExpression.Leaf(elementType, -1, valueSql, null);
             visitor.MethodArguments[param] = new Dictionary<string, Expression> { [""] = valueExpr };
         }
         else
@@ -175,7 +173,7 @@ internal partial class JsonCollectionVisitor
             if (TypeHelpers.IsSimple(prop.PropertyType, options))
             {
                 string sql = $"json_extract({valueSql}, '$.{dictKey}')";
-                dict[dictKey] = new SQLiteExpression(prop.PropertyType, -1, sql, (SQLiteParameter[]?)null);
+                dict[dictKey] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null);
             }
             else
             {

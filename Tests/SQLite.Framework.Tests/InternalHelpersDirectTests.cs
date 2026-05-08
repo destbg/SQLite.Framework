@@ -20,10 +20,13 @@ using ParameterHelpers = SQLite.Framework.Internals.Helpers.ParameterHelpers;
 using FtsRenderState = SQLite.Framework.Internals.FTS5.FtsRenderState;
 using UpsertSqlBuilder = SQLite.Framework.Internals.Helpers.UpsertSqlBuilder;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class InternalHelpersDirectTests
 {
+    private static readonly SQLiteOptions CompilerOptions = new SQLiteOptionsBuilder("compiler-internal-direct.db3").Build();
+
     [Fact]
     public void CommandHelpers_ReadColumnValue_UnknownColumnType_Throws()
     {
@@ -253,15 +256,18 @@ public class InternalHelpersDirectTests
         Assert.Contains("2 arguments were provided", ex.Message);
     }
 
+#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void QueryFilterRebinder_ConcreteMemberNotFound_FallsThroughToBaseUpdate()
     {
+        SQLiteOptions options = new SQLiteOptionsBuilder("rebinder-direct.db3").Build();
         Expression<Func<IRebindFoo, bool>> lambda = x => x.Tag == "x";
-        LambdaExpression rebound = QueryFilterRebinder.Rebind(lambda, typeof(RebindEntityWithExplicitImpl));
+        LambdaExpression rebound = QueryFilterRebinder.Rebind(lambda, typeof(RebindEntityWithExplicitImpl), options);
 
         Assert.NotSame(lambda, rebound);
         Assert.Equal(typeof(RebindEntityWithExplicitImpl), rebound.Parameters[0].Type);
     }
+#endif
 
     [Fact]
     public void RowParameterExpander_EmptyRowParameters_ReturnsLambdaUnchanged()
@@ -275,7 +281,7 @@ public class InternalHelpersDirectTests
     public void QueryCompilerVisitor_VisitParameter_InInputParameters_ReturnsContextInput()
     {
         ParameterExpression param = Expression.Parameter(typeof(int), "x");
-        QueryCompilerVisitor visitor = new([param]);
+        QueryCompilerVisitor visitor = new(CompilerOptions, [param]);
 
         Expression result = visitor.Visit(param);
 
@@ -291,7 +297,7 @@ public class InternalHelpersDirectTests
             Expression.Constant(null, typeof(int[])),
             Expression.Constant(0));
 
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(CompilerOptions);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new();
@@ -302,7 +308,7 @@ public class InternalHelpersDirectTests
     public void QueryCompilerVisitor_VisitBinary_DefaultArm_Throws()
     {
         BinaryExpression node = Expression.LeftShift(Expression.Constant(1), Expression.Constant(2));
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(CompilerOptions);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new();
@@ -315,7 +321,7 @@ public class InternalHelpersDirectTests
         NewExpression node = Expression.New(typeof(int));
         Assert.Null(node.Constructor);
 
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(CompilerOptions);
         Assert.Throws<NotSupportedException>(() => visitor.Visit(node));
     }
 
@@ -347,7 +353,7 @@ public class InternalHelpersDirectTests
     [Fact]
     public void QueryCompilerVisitor_VisitMemberBindingExpression_InvalidBindingType_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(CompilerOptions);
         FieldInfo fld = typeof(CompilerVisitorFieldHolder).GetField(nameof(CompilerVisitorFieldHolder.FieldX))!;
         InvalidMemberBinding binding = new(fld);
 
@@ -366,7 +372,7 @@ public class InternalHelpersDirectTests
         ParameterExpression tupleParam = Expression.Parameter(typeof(ValueTuple<int>), "t");
         MemberExpression node = Expression.Field(tupleParam, "Item1");
 
-        QueryCompilerVisitor visitor = new([tupleParam]);
+        QueryCompilerVisitor visitor = new(CompilerOptions, [tupleParam]);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new() { Input = new ValueTuple<int>(42) };
@@ -380,7 +386,7 @@ public class InternalHelpersDirectTests
         UnaryExpression node = Expression.Negate(p);
         Assert.NotNull(node.Method);
 
-        QueryCompilerVisitor visitor = new([p]);
+        QueryCompilerVisitor visitor = new(CompilerOptions, [p]);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new() { Input = new CompilerVisitorNegatable(5) };
@@ -392,7 +398,7 @@ public class InternalHelpersDirectTests
     public void QueryCompilerVisitor_VisitUnary_DefaultArm_Throws()
     {
         UnaryExpression node = Expression.ArrayLength(Expression.Constant(new[] { 1, 2, 3 }));
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(CompilerOptions);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new();
@@ -407,7 +413,7 @@ public class InternalHelpersDirectTests
         MemberAssignment assign = Expression.Bind(fld, Expression.Constant(42));
         MemberInitExpression node = Expression.MemberInit(newExpr, assign);
 
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(CompilerOptions);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new();
@@ -426,7 +432,7 @@ public class InternalHelpersDirectTests
             Expression.ElementInit(addMethod, Expression.Constant(2)));
         MemberInitExpression node = Expression.MemberInit(newExpr, listBinding);
 
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(CompilerOptions);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new();
@@ -447,7 +453,7 @@ public class InternalHelpersDirectTests
 
         MemberInitExpression node = Expression.MemberInit(newOuter, innerBinding);
 
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(CompilerOptions);
         Assert.Throws<NotSupportedException>(() => visitor.Visit(node));
     }
 
@@ -463,7 +469,7 @@ public class InternalHelpersDirectTests
 
         MemberInitExpression node = Expression.MemberInit(newOuter, innerBinding);
 
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(CompilerOptions);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new();
@@ -474,6 +480,7 @@ public class InternalHelpersDirectTests
     [Fact]
     public void QueryCompilerVisitor_InvokeOperator_AllNumericTypes_Direct()
     {
+        SQLiteOptions options = new SQLiteOptionsBuilder("compiler-direct.db3").Build();
         Type t = typeof(QueryCompilerVisitor);
         MethodInfo invokeOp = t.GetMethod("InvokeOperator", BindingFlags.Static | BindingFlags.NonPublic)!;
 
@@ -487,54 +494,57 @@ public class InternalHelpersDirectTests
 
         foreach (MethodInfo op in new[] { addM, subM, mulM, divM, modM })
         {
-            Assert.NotNull(invokeOp.Invoke(null, [op, 5, 2]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, 5L, 2L]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, 5.0, 2.0]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, 5f, 2f]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, 5m, 2m]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, (short)5, (short)2]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, (ushort)5, (ushort)2]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, (byte)5, (byte)2]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, (sbyte)5, (sbyte)2]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, 5u, 2u]));
-            Assert.NotNull(invokeOp.Invoke(null, [op, 5ul, 2ul]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 5, 2, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 5L, 2L, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 5.0, 2.0, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 5f, 2f, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 5m, 2m, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, (short)5, (short)2, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, (ushort)5, (ushort)2, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, (byte)5, (byte)2, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, (sbyte)5, (sbyte)2, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 5u, 2u, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 5ul, 2ul, options]));
         }
     }
 
     [Fact]
     public void QueryCompilerVisitor_InvokeUnaryOperator_AllNumericTypes_Direct()
     {
+        SQLiteOptions options = new SQLiteOptionsBuilder("compiler-direct-unary.db3").Build();
         Type t = typeof(QueryCompilerVisitor);
         MethodInfo invokeUnary = t.GetMethod("InvokeUnaryOperator", BindingFlags.Static | BindingFlags.NonPublic)!;
         MethodInfo negM = (MethodInfo)t.GetField("BinaryNegationOperator", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 
-        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5]));
-        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5L]));
-        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5.0]));
-        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5f]));
-        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5m]));
-        Assert.NotNull(invokeUnary.Invoke(null, [negM, (short)5]));
-        Assert.NotNull(invokeUnary.Invoke(null, [negM, (sbyte)5]));
+        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5, options]));
+        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5L, options]));
+        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5.0, options]));
+        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5f, options]));
+        Assert.NotNull(invokeUnary.Invoke(null, [negM, 5m, options]));
+        Assert.NotNull(invokeUnary.Invoke(null, [negM, (short)5, options]));
+        Assert.NotNull(invokeUnary.Invoke(null, [negM, (sbyte)5, options]));
     }
 
     [Fact]
     public void QueryCompilerVisitor_InvokeOperator_UnknownOperator_FallsThroughToGeneric()
     {
+        SQLiteOptions options = new SQLiteOptionsBuilder("compiler-direct-unknown-bin.db3").Build();
         Type t = typeof(QueryCompilerVisitor);
         MethodInfo invokeOp = t.GetMethod("InvokeOperator", BindingFlags.Static | BindingFlags.NonPublic)!;
         MethodInfo negation = (MethodInfo)t.GetField("BinaryNegationOperator", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 
-        Assert.Throws<TargetInvocationException>(() => invokeOp.Invoke(null, [negation, 5, 2]));
+        Assert.Throws<TargetInvocationException>(() => invokeOp.Invoke(null, [negation, 5, 2, options]));
     }
 
     [Fact]
     public void QueryCompilerVisitor_InvokeUnaryOperator_UnknownOperator_FallsThroughToGeneric()
     {
+        SQLiteOptions options = new SQLiteOptionsBuilder("compiler-direct-unknown-un.db3").Build();
         Type t = typeof(QueryCompilerVisitor);
         MethodInfo invokeUnary = t.GetMethod("InvokeUnaryOperator", BindingFlags.Static | BindingFlags.NonPublic)!;
         MethodInfo addition = (MethodInfo)t.GetField("BinaryAdditionOperator", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 
-        Assert.Throws<TargetInvocationException>(() => invokeUnary.Invoke(null, [addition, 5]));
+        Assert.Throws<TargetInvocationException>(() => invokeUnary.Invoke(null, [addition, 5, options]));
     }
 
     [Fact]
@@ -543,7 +553,7 @@ public class InternalHelpersDirectTests
         ParameterExpression pp = Expression.Parameter(typeof(long), "v");
         UnaryExpression node = Expression.ConvertChecked(pp, typeof(int));
 
-        QueryCompilerVisitor visitor = new([pp]);
+        QueryCompilerVisitor visitor = new(CompilerOptions, [pp]);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new() { Input = 42L };
@@ -580,7 +590,7 @@ public class InternalHelpersDirectTests
 
         SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
 
-        SQLiteExpression source = new(typeof(string), 0, "\"Title\"", null);
+        SQLiteExpression source = SQLiteExpression.Leaf(typeof(string), 0, "\"Title\"", null);
         Expression result = StringMemberVisitor.HandleStringProperty(sqlVisitor, "NotARealProperty", typeof(string), source);
 
         Assert.Same(source, result);
@@ -593,7 +603,7 @@ public class InternalHelpersDirectTests
         db.Table<Book>().Schema.CreateTable();
 
         SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
-        sqlVisitor.TableColumns["Id"] = new SQLiteExpression(typeof(int), 0, "b0.Id");
+        sqlVisitor.TableColumns["Id"] = SQLiteExpression.Leaf(typeof(int), 0, "b0.Id");
 
         QueryableVisitor qmv = new(db, sqlVisitor);
 
@@ -656,7 +666,7 @@ public class InternalHelpersDirectTests
         ParameterExpression groupingParam = Expression.Parameter(typeof(IGrouping<int, Book>), "g");
         sqlVisitor.MethodArguments[groupingParam] = new Dictionary<string, Expression>
         {
-            ["Key"] = new SQLiteExpression(typeof(int), 0, "b0.Id")
+            ["Key"] = SQLiteExpression.Leaf(typeof(int), 0, "b0.Id")
         };
 
         MethodInfo firstMethod = typeof(Enumerable).GetMethods()
@@ -817,7 +827,7 @@ public class InternalHelpersDirectTests
         ParameterExpression pe = Expression.Parameter(typeof(Book), "b");
         sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
         {
-            ["Id"] = new SQLiteExpression(typeof(int), 0, "noDots")
+            ["Id"] = SQLiteExpression.Leaf(typeof(int), 0, "noDots")
         };
 
         MethodInfo method = typeof(SQLiteFTS5FunctionsMemberVisitor).GetMethod("ResolveEntityAlias", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -834,7 +844,7 @@ public class InternalHelpersDirectTests
         ParameterExpression pe = Expression.Parameter(typeof(Book), "b");
         sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
         {
-            ["Title"] = new SQLiteExpression(typeof(string), 0, "noDots")
+            ["Title"] = SQLiteExpression.Leaf(typeof(string), 0, "noDots")
         };
         MemberExpression member = Expression.Property(pe, nameof(Book.Title));
 
@@ -930,7 +940,7 @@ public class InternalHelpersDirectTests
         ParameterExpression pe = Expression.Parameter(typeof(SQLite.Framework.Tests.Entities.ArticleSearch), "a");
         sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
         {
-            ["Title"] = new SQLiteExpression(typeof(string), 0, "a0.Title")
+            ["Title"] = SQLiteExpression.Leaf(typeof(string), 0, "a0.Title")
         };
 
         MemberExpression titleMember = Expression.Property(pe, nameof(SQLite.Framework.Tests.Entities.ArticleSearch.Title));
@@ -1004,7 +1014,7 @@ public class InternalHelpersDirectTests
         ParameterExpression pe = Expression.Parameter(typeof(Book), "b");
         sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
         {
-            ["Id"] = new SQLiteExpression(typeof(int), 0, "b0.Id")
+            ["Id"] = SQLiteExpression.Leaf(typeof(int), 0, "b0.Id")
         };
         MemberExpression idMember = Expression.Property(pe, nameof(Book.Id));
         UnaryExpression increment = Expression.Increment(idMember);
@@ -1051,13 +1061,13 @@ public class InternalHelpersDirectTests
         ParameterExpression charPe = Expression.Parameter(typeof(char), "c");
         sqlVisitor.MethodArguments[charPe] = new Dictionary<string, Expression>
         {
-            [""] = new SQLiteExpression(typeof(char), 0, "b0.Char")
+            [""] = SQLiteExpression.Leaf(typeof(char), 0, "b0.Char")
         };
 
         ParameterExpression intPe = Expression.Parameter(typeof(int), "i");
         sqlVisitor.MethodArguments[intPe] = new Dictionary<string, Expression>
         {
-            [""] = new SQLiteExpression(typeof(int), 0, "b0.Other")
+            [""] = SQLiteExpression.Leaf(typeof(int), 0, "b0.Other")
         };
 
         UnaryExpression intCharCast = Expression.Convert(charPe, typeof(int));
@@ -1076,7 +1086,7 @@ public class InternalHelpersDirectTests
         ParameterExpression pe = Expression.Parameter(typeof(double), "x");
         sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
         {
-            [""] = new SQLiteExpression(typeof(double), 0, "b0.Price")
+            [""] = SQLiteExpression.Leaf(typeof(double), 0, "b0.Price")
         };
 
         BinaryExpression power = Expression.Power(pe, Expression.Constant(2.0));
@@ -1094,8 +1104,8 @@ public class InternalHelpersDirectTests
         MemberExpression access = Expression.Property(Expression.Constant(holder), nameof(SimpleHolder.Value));
 
         Expression result = sqlVisitor.Visit(access);
-        SQLiteExpression sql = Assert.IsType<SQLiteExpression>(result);
-        Assert.StartsWith("@p", sql.Sql);
+        SQLiteExpression sql = Assert.IsAssignableFrom<SQLiteExpression>(result);
+        Assert.StartsWith("@p", sql.ToString());
     }
 
     [Fact]
@@ -1138,13 +1148,13 @@ public class InternalHelpersDirectTests
         ParameterExpression charPe = Expression.Parameter(typeof(char), "c");
         sqlVisitor.MethodArguments[charPe] = new Dictionary<string, Expression>
         {
-            [""] = new SQLiteExpression(typeof(char), 0, "b0.Char")
+            [""] = SQLiteExpression.Leaf(typeof(char), 0, "b0.Char")
         };
 
         ParameterExpression intPe = Expression.Parameter(typeof(int), "i");
         sqlVisitor.MethodArguments[intPe] = new Dictionary<string, Expression>
         {
-            [""] = new SQLiteExpression(typeof(int), 0, "b0.Other")
+            [""] = SQLiteExpression.Leaf(typeof(int), 0, "b0.Other")
         };
 
         UnaryExpression intCharCast = Expression.Convert(charPe, typeof(int));
@@ -1405,7 +1415,7 @@ public class InternalHelpersDirectTests
         using TestDatabase db = new();
         SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
 
-        SQLiteExpression structSql = new(typeof(SimpleHolder), 0, "h0.Holder");
+        SQLiteExpression structSql = SQLiteExpression.Leaf(typeof(SimpleHolder), 0, "h0.Holder");
         MemberExpression member = Expression.Property(structSql, nameof(SimpleHolder.Value));
 
         MethodInfo method = typeof(SQLVisitor).GetMethod("ConvertMemberExpression", BindingFlags.NonPublic | BindingFlags.Instance)!;
@@ -1424,7 +1434,7 @@ public class InternalHelpersDirectTests
         NewArrayExpression arr = Expression.NewArrayInit(typeof(char), Expression.Default(typeof(char)));
         MethodCallExpression mce = Expression.Call(Expression.Constant("hello"), trim, arr);
 
-        SQLiteExpression objSql = new(typeof(string), 0, "\"Title\"");
+        SQLiteExpression objSql = SQLiteExpression.Leaf(typeof(string), 0, "\"Title\"");
         ResolvedModel arrArg = new() { IsConstant = false, Constant = null, SQLiteExpression = null, Expression = arr };
 
         MethodInfo method = typeof(StringMemberVisitor).GetMethod("ResolveTrim", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1648,13 +1658,13 @@ public class HandlerDispatchTests
         using TestDatabase db = new();
         SQLVisitor visitor = new(db, new SQLite.Framework.Internals.SQLiteCounters(), level: 0);
 
-        SQLiteExpression source = new(typeof(decimal), -1, "t0.Price", (SQLiteParameter[]?)null);
+        SQLiteExpression source = SQLiteExpression.Leaf(typeof(decimal), -1, "t0.Price", (SQLiteParameter[]?)null);
 
         SQLiteExpression first = visitor.InternDecimalCast(source);
         SQLiteExpression second = visitor.InternDecimalCast(source);
 
         Assert.Same(first, second);
-        Assert.Equal("CAST(t0.Price AS REAL)", first.Sql);
+        Assert.Equal("CAST(t0.Price AS REAL)", first.ToString());
     }
 
     [Fact]
@@ -1702,7 +1712,7 @@ public class HandlerDispatchTests
         using TestDatabase db = new();
         SQLVisitor visitor = new(db, new SQLite.Framework.Internals.SQLiteCounters(), level: 0);
 
-        SQLiteExpression source = new(typeof(string), -1, "t0.Address", (SQLiteParameter[]?)null);
+        SQLiteExpression source = SQLiteExpression.Leaf(typeof(string), -1, "t0.Address", (SQLiteParameter[]?)null);
 
         SQLiteExpression first = visitor.InternJsonExtract(source, "City", typeof(string));
         SQLiteExpression second = visitor.InternJsonExtract(source, "City", typeof(string));
@@ -1710,7 +1720,7 @@ public class HandlerDispatchTests
 
         Assert.Same(first, second);
         Assert.NotSame(first, different);
-        Assert.Equal("json_extract(t0.Address, '$.City')", first.Sql);
+        Assert.Equal("json_extract(t0.Address, '$.City')", first.ToString());
         Assert.True(first.IsJsonSource);
     }
 }
@@ -1750,3 +1760,4 @@ public sealed class InvalidMemberBinding : MemberBinding
     }
 }
 #pragma warning restore CS0618
+#endif

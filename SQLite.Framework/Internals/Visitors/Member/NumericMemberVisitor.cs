@@ -22,12 +22,7 @@ internal static class NumericMemberVisitor
 
             if (node.Method.Name == nameof(int.ToString))
             {
-                return new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"CAST({obj.Sql} AS TEXT)",
-                    obj.Parameters
-                );
+                return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", obj.SQLiteExpression!, " AS TEXT)", obj.Parameters);
             }
         }
 
@@ -38,12 +33,7 @@ internal static class NumericMemberVisitor
 
         if (node.Method.Name == "Parse")
         {
-            return new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"CAST({arguments[0].Sql} AS INTEGER)",
-                arguments[0].Parameters
-            );
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", arguments[0].SQLiteExpression!, " AS INTEGER)", arguments[0].Parameters);
         }
 
         throw new NotSupportedException($"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");
@@ -69,12 +59,7 @@ internal static class NumericMemberVisitor
 
             if (node.Method.Name == nameof(double.ToString))
             {
-                return new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"CAST({obj.Sql} AS TEXT)",
-                    obj.Parameters
-                );
+                return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", obj.SQLiteExpression!, " AS TEXT)", obj.Parameters);
             }
         }
 
@@ -85,12 +70,7 @@ internal static class NumericMemberVisitor
 
         if (node.Method.Name == "Parse")
         {
-            return new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"CAST({arguments[0].Sql} AS REAL)",
-                arguments[0].Parameters
-            );
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", arguments[0].SQLiteExpression!, " AS REAL)", arguments[0].Parameters);
         }
 
         throw new NotSupportedException($"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");

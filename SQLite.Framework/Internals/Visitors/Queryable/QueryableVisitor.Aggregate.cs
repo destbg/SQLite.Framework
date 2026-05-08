@@ -31,24 +31,26 @@ internal partial class QueryableVisitor
                 if (applyDistinct)
                 {
                     ThrowOnMultiColumnDistinct(node);
-                    select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, $"COUNT(DISTINCT {Selects[0].Sql})", Selects[0].Parameters);
+                    SQLiteExpression firstSelect = Selects[0];
+                    select = SQLiteExpression.Wrap(node.Arguments[0].Type, visitor.Counters.NextIdentifier(),
+                        "COUNT(DISTINCT ", firstSelect, ")",
+                        Selects[0].Parameters);
                     Wheres.Add(sqlExpression);
                 }
                 else
                 {
                     Wheres.Add(sqlExpression);
-                    select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, "COUNT(*)");
+                    select = SQLiteExpression.Leaf(node.Arguments[0].Type, visitor.Counters.NextIdentifier(), "COUNT(*)");
                 }
             }
             else
             {
-                string innerSql = $"{function}({distinctPrefix}{sqlExpression.Sql})";
                 Type resultType = node.Method.ReturnType;
-                if (function == "SUM" && Nullable.GetUnderlyingType(resultType) == null)
-                {
-                    innerSql = $"COALESCE({innerSql}, 0)";
-                }
-                select = new SQLiteExpression(resultType, visitor.Counters.IdentifierIndex++, innerSql, sqlExpression.Parameters);
+                bool wrapWithCoalesce = function == "SUM" && Nullable.GetUnderlyingType(resultType) == null;
+                SQLiteExpression innerExpr = sqlExpression;
+                select = wrapWithCoalesce
+                    ? SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"COALESCE({function}({distinctPrefix}", innerExpr, "), 0)", sqlExpression.Parameters)
+                    : SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"{function}({distinctPrefix}", innerExpr, ")", sqlExpression.Parameters);
             }
         }
         else if (function == "COUNT")
@@ -56,22 +58,24 @@ internal partial class QueryableVisitor
             if (applyDistinct)
             {
                 ThrowOnMultiColumnDistinct(node);
-                select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, $"COUNT(DISTINCT {Selects[0].Sql})", Selects[0].Parameters);
+                SQLiteExpression firstSelect = Selects[0];
+                select = SQLiteExpression.Wrap(node.Arguments[0].Type, visitor.Counters.NextIdentifier(),
+                    "COUNT(DISTINCT ", firstSelect, ")",
+                    Selects[0].Parameters);
             }
             else
             {
-                select = new SQLiteExpression(node.Arguments[0].Type, visitor.Counters.IdentifierIndex++, "COUNT(*)");
+                select = SQLiteExpression.Leaf(node.Arguments[0].Type, visitor.Counters.NextIdentifier(), "COUNT(*)");
             }
         }
         else if (Selects.Count == 1)
         {
-            string innerSql = $"{function}({distinctPrefix}{Selects[0].Sql})";
             Type resultType = node.Method.ReturnType;
-            if (function == "SUM" && Nullable.GetUnderlyingType(resultType) == null)
-            {
-                innerSql = $"COALESCE({innerSql}, 0)";
-            }
-            select = new SQLiteExpression(resultType, visitor.Counters.IdentifierIndex++, innerSql, Selects[0].Parameters);
+            bool wrapWithCoalesce = function == "SUM" && Nullable.GetUnderlyingType(resultType) == null;
+            SQLiteExpression innerExpr = Selects[0];
+            select = wrapWithCoalesce
+                ? SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"COALESCE({function}({distinctPrefix}", innerExpr, "), 0)", Selects[0].Parameters)
+                : SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"{function}({distinctPrefix}", innerExpr, ")", Selects[0].Parameters);
         }
         else
         {

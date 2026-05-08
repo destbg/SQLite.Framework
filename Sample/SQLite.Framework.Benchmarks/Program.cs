@@ -1,22 +1,40 @@
 using System.ComponentModel.DataAnnotations;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Environments;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Toolchains.NativeAot;
 using Microsoft.EntityFrameworkCore;
 using SqliteNet = SQLite;
 using SQLite.Framework;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Generated;
 
 SQLitePCL.Batteries_V2.Init();
 
-BenchmarkRunner.Run(new[]
+IConfig config = DefaultConfig.Instance
+    .AddJob(Job.Default
+        .WithWarmupCount(5)
+        .WithIterationCount(30)
+        .WithId("JIT"))
+    .AddJob(Job.Default
+        .WithWarmupCount(5)
+        .WithIterationCount(30)
+        .WithToolchain(NativeAotToolchain.CreateBuilder()
+            .UseNuGet("10.0.0", "https://api.nuget.org/v3/index.json")
+            .TargetFrameworkMoniker("net10.0")
+            .ToToolchain())
+        .WithId("AOT"));
+
+BenchmarkSwitcher.FromTypes(new[]
 {
+    typeof(TranslationBenchmarks),
     typeof(ReadBenchmarks),
     typeof(InsertBenchmarks),
     typeof(UpdateBenchmarks),
     typeof(JoinBenchmarks),
-}, DefaultConfig.Instance.AddJob(Job.Default.WithWarmupCount(3).WithIterationCount(8)));
+}).Run(args, config);
 
 internal static class BenchHelpers
 {
@@ -84,6 +102,106 @@ internal static class BenchHelpers
         }
         return books;
     }
+}
+
+[MemoryDiagnoser]
+[GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
+[CategoriesColumn]
+public class TranslationBenchmarks
+{
+    private SQLiteDatabase db = null!;
+    private string a = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        a = BenchHelpers.NewDb("xlate-fw");
+        db = new SQLiteDatabase(new SQLiteOptionsBuilder(a).Build());
+        db.Schema.CreateTable<Author>();
+        db.Schema.CreateTable<Book>();
+    }
+
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        db.Dispose();
+        BenchHelpers.TryDelete(a);
+    }
+
+    [Benchmark, BenchmarkCategory("Simple")]
+    public string Translate_SimpleWhere() =>
+        db.Table<Book>().Where(b => b.AuthorId == 5).ToSql();
+
+    [Benchmark, BenchmarkCategory("Simple")]
+    public string Translate_SimpleSelect() =>
+        db.Table<Book>().Select(b => new { b.Id, b.Title }).ToSql();
+
+    [Benchmark, BenchmarkCategory("Complex")]
+    public string Translate_ManyConditions() =>
+        db.Table<Book>()
+            .Where(b => b.AuthorId == 5
+                && b.PublisherId > 0
+                && b.PublisherId < 10
+                && b.Price > 1.0
+                && b.Price < 100.0
+                && b.Title != null
+                && b.Title != ""
+                && b.Id > 0
+                && b.Id < 1000)
+            .ToSql();
+
+    [Benchmark, BenchmarkCategory("Complex")]
+    public string Translate_ArithmeticChain() =>
+        db.Table<Book>()
+            .Select(b => new
+            {
+                b.Id,
+                Total = b.Price + b.AuthorId * 2.0 - b.PublisherId / 3.0
+                    + b.Id * 0.5 - b.PublisherId * b.AuthorId
+                    + (b.Price * b.Price) / (b.Price + 1.0),
+            })
+            .ToSql();
+
+    [Benchmark, BenchmarkCategory("Complex")]
+    public string Translate_Join() =>
+        (from book in db.Table<Book>()
+         join author in db.Table<Author>() on book.AuthorId equals author.Id
+         where book.Price > 50
+         orderby book.Price descending
+         select new BookSummary { Title = book.Title, Author = author.Name, Price = book.Price })
+            .ToSql();
+
+    [Benchmark, BenchmarkCategory("Complex")]
+    public string Translate_GroupBy() =>
+        db.Table<Book>()
+            .GroupBy(b => b.AuthorId)
+            .Select(g => new
+            {
+                AuthorId = g.Key,
+                Count = g.Count(),
+                Total = g.Sum(b => b.Price),
+                Average = g.Average(b => b.Price),
+                Max = g.Max(b => b.Price),
+                Min = g.Min(b => b.Price),
+            })
+            .ToSql();
+
+    [Benchmark, BenchmarkCategory("Complex")]
+    public string Translate_Subquery() =>
+        db.Table<Book>()
+            .Where(b => db.Table<Book>().Where(x => x.AuthorId == b.AuthorId).Count() > 1)
+            .OrderBy(b => b.Id)
+            .ToSql();
+
+    [Benchmark, BenchmarkCategory("Complex")]
+    public string Translate_StringMethods() =>
+        db.Table<Book>()
+            .Where(b => b.Title.StartsWith("A")
+                && b.Title.Contains("foo")
+                && b.Title.Length > 3
+                && b.Title.ToUpper() != "BAR"
+                && b.Title.Replace("x", "y").Trim().ToLower() != "")
+            .ToSql();
 }
 
 [MemoryDiagnoser]

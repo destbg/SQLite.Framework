@@ -49,7 +49,7 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
 
             foreach (LambdaExpression filter in kvp.Value)
             {
-                LambdaExpression rebound = QueryFilterRebinder.Rebind(filter, entityType);
+                LambdaExpression rebound = QueryFilterRebinder.Rebind(filter, entityType, options);
                 result = Expression.Call(
                     typeof(System.Linq.Queryable),
                     nameof(System.Linq.Queryable.Where),

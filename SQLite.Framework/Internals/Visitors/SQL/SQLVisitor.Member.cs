@@ -12,15 +12,15 @@ internal partial class SQLVisitor
             if (value is SQLiteCte cte)
             {
                 AssignCte(cte);
-                return new SQLiteExpression(node.Type, -1, From!.Sql, From!.Parameters);
+                return SQLiteExpression.Alias(node.Type, -1, From!, From!.Parameters);
             }
             else if (value is BaseSQLiteTable table)
             {
                 AssignTable(table.ElementType);
-                return new SQLiteExpression(node.Type, -1, From!.Sql, From!.Parameters);
+                return SQLiteExpression.Alias(node.Type, -1, From!, From!.Parameters);
             }
 
-            return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, $"@p{Counters.ParamIndex++}", value);
+            return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), value);
         }
 
         if (node.Expression is UnaryExpression { NodeType: ExpressionType.Convert } cast
@@ -151,10 +151,10 @@ internal partial class SQLVisitor
             return DateTimeMemberVisitor.HandleTimeOnlyProperty(this, node.Member.Name, node.Type, sqlExpression);
         }
 
-        string? translatedSql = Database.Options.TranslateProperty(node.Member.Name, sqlExpression.Sql);
+        string? translatedSql = Database.Options.TranslateProperty(node.Member.Name, sqlExpression.ToString());
         if (translatedSql != null)
         {
-            return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, translatedSql, sqlExpression.Parameters);
+            return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), translatedSql, sqlExpression.Parameters);
         }
 
         if (Database.Options.HasJsonConverter(node.Expression.Type) || sqlExpression.IsJsonSource)

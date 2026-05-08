@@ -3,6 +3,7 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class FromSqlTests
@@ -447,3 +448,4 @@ public class FromSqlTests
         public string? Author { get; set; }
     }
 }
+#endif

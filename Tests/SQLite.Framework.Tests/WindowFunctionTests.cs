@@ -5,6 +5,7 @@ using SQLite.Framework.Attributes;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class WindowFunctionTests
@@ -507,3 +508,4 @@ file class OrderWithTotal
     public int Id { get; set; }
     public double RunningTotal { get; set; }
 }
+#endif

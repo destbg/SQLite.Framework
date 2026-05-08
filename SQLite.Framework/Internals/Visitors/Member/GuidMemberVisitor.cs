@@ -23,9 +23,9 @@ internal static class GuidMemberVisitor
                 case nameof(Guid.NewGuid):
                 {
                     Guid guid = Guid.NewGuid();
-                    string pName = $"@p{visitor.Counters.ParamIndex++}";
+                    string pName = visitor.Counters.NextParamName();
 
-                    return new SQLiteExpression(node.Method.ReturnType, visitor.Counters.IdentifierIndex++, pName, guid);
+                    return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), pName, guid);
                 }
             }
         }

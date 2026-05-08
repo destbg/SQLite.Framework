@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class DateTimeOffsetStorageTests
@@ -339,3 +340,4 @@ public class DateTimeOffsetStorageTests
         public required DateTimeOffset Date { get; set; }
     }
 }
+#endif

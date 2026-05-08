@@ -2,6 +2,7 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class AliasVisitorCoverageTests
@@ -52,3 +53,4 @@ public class AliasVisitorCoverageTests
         Assert.Equal(1, rows[1].Count);
     }
 }
+#endif

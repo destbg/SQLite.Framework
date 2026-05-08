@@ -3,6 +3,7 @@ using System.Reflection;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class JsonFunctionsTests
@@ -2730,3 +2731,4 @@ public class JsonFunctionsTests
         public List<Address> Addresses { get; set; } = [];
     }
 }
+#endif

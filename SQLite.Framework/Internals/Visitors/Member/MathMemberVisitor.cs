@@ -18,177 +18,43 @@ internal static class MathMemberVisitor
 
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParametersFromModels(arguments);
 
+        Type returnType = node.Method.ReturnType;
+        SQLiteExpression a0 = arguments[0].SQLiteExpression!;
+        SQLiteExpression a1 = arguments.Count > 1 ? arguments[1].SQLiteExpression! : null!;
+        SQLiteExpression a2 = arguments.Count > 2 ? arguments[2].SQLiteExpression! : null!;
+
         return node.Method.Name switch
         {
-            nameof(Math.Min) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"(CASE WHEN {arguments[0].Sql} < {arguments[1].Sql} THEN {arguments[0].Sql} ELSE {arguments[1].Sql} END)",
-                parameters
-            ),
-            nameof(Math.Max) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"(CASE WHEN {arguments[0].Sql} > {arguments[1].Sql} THEN {arguments[0].Sql} ELSE {arguments[1].Sql} END)",
-                parameters
-            ),
-            nameof(Math.Abs) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"ABS({arguments[0].Sql})",
-                parameters
-            ),
+            nameof(Math.Min) => SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(), ["(CASE WHEN ", " < ", " THEN ", " ELSE ", " END)"], [a0, a1, a0, a1], parameters),
+            nameof(Math.Max) => SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(), ["(CASE WHEN ", " > ", " THEN ", " ELSE ", " END)"], [a0, a1, a0, a1], parameters),
+            nameof(Math.Abs) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ABS(", a0, ")", parameters),
             nameof(Math.Round) => HandleRound(visitor, node, arguments, parameters),
-            nameof(Math.Ceiling) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"CEIL({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Floor) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"FLOOR({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Truncate) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"TRUNC({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Pow) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"POWER({arguments[0].Sql}, {arguments[1].Sql})",
-                parameters
-            ),
-            nameof(Math.Sign) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"(CASE WHEN {arguments[0].Sql} > 0 THEN 1 WHEN {arguments[0].Sql} < 0 THEN -1 ELSE 0 END)",
-                parameters
-            ),
-            nameof(Math.Sqrt) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"SQRT({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Exp) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"EXP({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Log) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                arguments.Count == 2 ? $"(LOG({arguments[0].Sql}) / LOG({arguments[1].Sql}))" : $"LOG({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Log10) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"LOG10({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Sin) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"SIN({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Cos) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"COS({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Tan) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"TAN({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Asin) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"ASIN({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Acos) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"ACOS({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Atan) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"ATAN({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Atan2) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"ATAN2({arguments[0].Sql}, {arguments[1].Sql})",
-                parameters
-            ),
-            nameof(Math.Sinh) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"SINH({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Cosh) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"COSH({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Tanh) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"TANH({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Cbrt) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"(CASE WHEN {arguments[0].Sql} >= 0 THEN POWER({arguments[0].Sql}, 1.0/3.0) ELSE -POWER(-{arguments[0].Sql}, 1.0/3.0) END)",
-                parameters
-            ),
-            nameof(Math.Log2) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"LOG2({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Asinh) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"ASINH({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Acosh) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"ACOSH({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Atanh) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"ATANH({arguments[0].Sql})",
-                parameters
-            ),
-            nameof(Math.Clamp) => new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"(CASE WHEN {arguments[0].Sql} < {arguments[1].Sql} THEN {arguments[1].Sql} WHEN {arguments[0].Sql} > {arguments[2].Sql} THEN {arguments[2].Sql} ELSE {arguments[0].Sql} END)",
-                parameters
-            ),
+            nameof(Math.Ceiling) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "CEIL(", a0, ")", parameters),
+            nameof(Math.Floor) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "FLOOR(", a0, ")", parameters),
+            nameof(Math.Truncate) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TRUNC(", a0, ")", parameters),
+            nameof(Math.Pow) => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "POWER(", a0, ", ", a1, ")", parameters),
+            nameof(Math.Sign) => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(CASE WHEN ", a0, " > 0 THEN 1 WHEN ", a0, " < 0 THEN -1 ELSE 0 END)", parameters),
+            nameof(Math.Sqrt) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "SQRT(", a0, ")", parameters),
+            nameof(Math.Exp) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "EXP(", a0, ")", parameters),
+            nameof(Math.Log) when arguments.Count == 2 => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(LOG(", a0, ") / LOG(", a1, "))", parameters),
+            nameof(Math.Log) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOG(", a0, ")", parameters),
+            nameof(Math.Log10) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOG10(", a0, ")", parameters),
+            nameof(Math.Sin) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "SIN(", a0, ")", parameters),
+            nameof(Math.Cos) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "COS(", a0, ")", parameters),
+            nameof(Math.Tan) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TAN(", a0, ")", parameters),
+            nameof(Math.Asin) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ASIN(", a0, ")", parameters),
+            nameof(Math.Acos) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ACOS(", a0, ")", parameters),
+            nameof(Math.Atan) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ATAN(", a0, ")", parameters),
+            nameof(Math.Atan2) => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "ATAN2(", a0, ", ", a1, ")", parameters),
+            nameof(Math.Sinh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "SINH(", a0, ")", parameters),
+            nameof(Math.Cosh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "COSH(", a0, ")", parameters),
+            nameof(Math.Tanh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TANH(", a0, ")", parameters),
+            nameof(Math.Cbrt) => SQLiteExpression.Trinary(returnType, visitor.Counters.NextIdentifier(), "(CASE WHEN ", a0, " >= 0 THEN POWER(", a0, ", 1.0/3.0) ELSE -POWER(-", a0, ", 1.0/3.0) END)", parameters),
+            nameof(Math.Log2) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOG2(", a0, ")", parameters),
+            nameof(Math.Asinh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ASINH(", a0, ")", parameters),
+            nameof(Math.Acosh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ACOSH(", a0, ")", parameters),
+            nameof(Math.Atanh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ATANH(", a0, ")", parameters),
+            nameof(Math.Clamp) => SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(), ["(CASE WHEN ", " < ", " THEN ", " WHEN ", " > ", " THEN ", " ELSE ", " END)"], [a0, a1, a1, a0, a2, a2, a0], parameters),
             _ => throw new NotSupportedException($"Math.{node.Method.Name} is not translatable to SQL.")
         };
     }
@@ -197,7 +63,7 @@ internal static class MathMemberVisitor
     {
         if (arguments.Count == 1)
         {
-            return new SQLiteExpression(node.Method.ReturnType, visitor.Counters.IdentifierIndex++, $"ROUND({arguments[0].Sql})", parameters);
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ROUND(", arguments[0].SQLiteExpression!, ")", parameters);
         }
 
         if (arguments.Count == 3)
@@ -210,7 +76,7 @@ internal static class MathMemberVisitor
             return BuildRound(visitor, node, arguments[0], digits: null, mode2);
         }
 
-        return new SQLiteExpression(node.Method.ReturnType, visitor.Counters.IdentifierIndex++, $"ROUND({arguments[0].Sql}, {arguments[1].Sql})", parameters);
+        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ROUND(", arguments[0].SQLiteExpression!, ", ", arguments[1].SQLiteExpression!, ")", parameters);
     }
 
     private static SQLiteExpression BuildRound(SQLVisitor visitor, MethodCallExpression node, ResolvedModel value, ResolvedModel? digits, MidpointRounding mode)
@@ -226,10 +92,11 @@ internal static class MathMemberVisitor
             ? value.SQLiteExpression!.Parameters
             : ParameterHelpers.CombineParameters(value.SQLiteExpression!, digits.Value.SQLiteExpression!);
 
-        string sql = digits is null
-            ? $"ROUND({value.Sql})"
-            : $"ROUND({value.Sql}, {digits.Value.Sql})";
+        SQLiteExpression valueExpr = value.SQLiteExpression!;
+        SQLiteExpression? digitsExpr = digits?.SQLiteExpression;
 
-        return new SQLiteExpression(node.Method.ReturnType, visitor.Counters.IdentifierIndex++, sql, parameters);
+        return digitsExpr is null
+            ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ROUND(", valueExpr, ")", parameters)
+            : SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ROUND(", valueExpr, ", ", digitsExpr, ")", parameters);
     }
 }

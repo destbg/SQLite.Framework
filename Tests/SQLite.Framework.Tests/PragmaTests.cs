@@ -2,6 +2,7 @@ using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class PragmaTests
@@ -19,7 +20,7 @@ public class PragmaTests
     [Fact]
     public void JournalMode_Roundtrip()
     {
-        using TestDatabase db = new();
+        using TestDatabase db = new(useFile: true);
         db.Pragmas.JournalMode = "WAL";
         Assert.Equal("wal", db.Pragmas.JournalMode);
         db.Pragmas.JournalMode = "DELETE";
@@ -123,7 +124,7 @@ public class PragmaTests
     [Fact]
     public async Task AsyncExtensions_RoundtripJournalMode()
     {
-        using TestDatabase db = new();
+        using TestDatabase db = new(useFile: true);
         await db.Pragmas.SetJournalModeAsync("WAL", TestContext.Current.CancellationToken);
         string mode = await db.Pragmas.GetJournalModeAsync(TestContext.Current.CancellationToken);
         Assert.Equal("wal", mode);
@@ -205,3 +206,4 @@ public class PragmaTests
         public string CustomLabel => "custom";
     }
 }
+#endif

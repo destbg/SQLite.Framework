@@ -207,7 +207,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
         Dictionary<string, Expression> columnExpressions = mapping.Columns.ToDictionary(
             c => c.PropertyInfo.Name,
-            Expression (c) => new SQLiteExpression(c.PropertyType, visitor.Counters.IdentifierIndex++, c.Name));
+            Expression (c) => SQLiteExpression.Leaf(c.PropertyType, visitor.Counters.NextIdentifier(), c.Name));
 
         visitor.MethodArguments[lambda.Parameters[0]] = columnExpressions;
 
@@ -217,7 +217,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             throw new ArgumentException($"Expression '{lambda}' could not be translated to SQL.", nameof(lambda));
         }
 
-        return InlineParameters(sqlExpr.Sql, sqlExpr.Parameters);
+        return InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters);
     }
 
     private static string InlineParameters(string sql, SQLiteParameter[]? parameters)

@@ -5,6 +5,7 @@ using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SQLiteDatabaseCoverageTests
@@ -104,3 +105,4 @@ public class SQLiteDatabaseCoverageTests
             provider.Execute(Expression.Constant(1)));
     }
 }
+#endif

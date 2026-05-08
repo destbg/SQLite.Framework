@@ -10,59 +10,39 @@ internal static class QueryableMemberVisitor
         SQLTranslator translator = visitor.CloneDeeper(visitor.Level + 1);
         SQLQuery query = translator.Translate(node);
 
+        string querySql = query.Sql;
+        SQLiteParameter[]? queryParams = query.Parameters.Count != 0
+            ? query.Parameters.ToArray()
+            : null;
+
         if (node.Method.Name is nameof(System.Linq.Queryable.Any) or nameof(System.Linq.Queryable.All))
         {
-            return new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"EXISTS ({Environment.NewLine}{query.Sql}{Environment.NewLine})",
-                query.Parameters.Count != 0
-                    ? query.Parameters.ToArray()
-                    : null
-            );
+            return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"EXISTS ({Environment.NewLine}{querySql}{Environment.NewLine})", queryParams);
         }
 
         if (node.Arguments.Count == 1 || node.Method.Name != nameof(System.Linq.Queryable.Contains))
         {
-            return new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"({Environment.NewLine}{query.Sql}{Environment.NewLine})",
-                query.Parameters.Count != 0
-                    ? query.Parameters.ToArray()
-                    : null
-            );
+            return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"({Environment.NewLine}{querySql}{Environment.NewLine})", queryParams);
         }
-
-        SQLiteExpression innerSql = new(
-            node.Method.ReturnType,
-            visitor.Counters.IdentifierIndex++,
-            $"({Environment.NewLine}{query.Sql}{Environment.NewLine})",
-            query.Parameters.Count != 0
-                ? query.Parameters.ToArray()
-                : null
-        );
 
         List<ResolvedModel> arguments = node.Arguments
             .Skip(1)
             .Select(visitor.ResolveExpression)
             .ToList();
 
-        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters([innerSql, .. arguments.Select(f => f.SQLiteExpression!)]);
-
-        return new SQLiteExpression(
-            node.Method.ReturnType,
-            visitor.Counters.IdentifierIndex++,
-            $"{arguments[0].Sql} IN ({Environment.NewLine}{query.Sql}{Environment.NewLine})",
-            parameters
-        );
+        SQLiteExpression firstArg = arguments[0].SQLiteExpression!;
+        SQLiteParameter[]? argParams = ParameterHelpers.CombineParameters([firstArg, .. arguments.Skip(1).Select(f => f.SQLiteExpression!)]);
+        SQLiteParameter[]? parameters = queryParams == null
+            ? argParams
+            : argParams == null ? queryParams : [.. queryParams, .. argParams];
+        return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", firstArg, $" IN ({Environment.NewLine}{querySql}{Environment.NewLine})", parameters);
     }
 
     public static Expression HandleEnumerableMethod(SQLVisitor visitor, MethodCallExpression node, IEnumerable enumerable, List<ResolvedModel> arguments)
     {
         int firstItemArgIndex = node.Object == null ? 1 : 0;
 
-        if (arguments.Skip(firstItemArgIndex).Any(f => f.Sql == null))
+        if (arguments.Skip(firstItemArgIndex).Any(f => f.SQLiteExpression == null))
         {
             return Expression.Call(node.Object, node.Method, arguments.Select(f => f.Expression));
         }
@@ -75,9 +55,9 @@ internal static class QueryableMemberVisitor
                 enumerable,
                 ..node.Arguments.Skip(1).Select(ExpressionHelpers.GetConstantValue)
             ]);
-            string pName = $"@p{visitor.Counters.ParamIndex++}";
+            string pName = visitor.Counters.NextParamName();
 
-            return new SQLiteExpression(node.Method.ReturnType, visitor.Counters.IdentifierIndex++, pName, result);
+            return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), pName, result);
         }
 
         switch (node.Method.Name)
@@ -88,7 +68,7 @@ internal static class QueryableMemberVisitor
                     .Cast<object>()
                     .Select(f => new SQLiteParameter
                     {
-                        Name = $"@p{visitor.Counters.ParamIndex++}",
+                        Name = visitor.Counters.NextParamName(),
                         Value = f
                     })
                     .ToArray();
@@ -100,18 +80,26 @@ internal static class QueryableMemberVisitor
                 {
                     // For an empty list, `IN ()` is invalid SQL and should always return false.
                     // We use `0 = 1` to ensure the condition is never true.
-                    return new SQLiteExpression(
+                    return SQLiteExpression.Leaf(
                         node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
+                        visitor.Counters.NextIdentifier(),
                         "0 = 1",
                         item.Parameters
                     );
                 }
 
-                return new SQLiteExpression(
+                SQLiteExpression itemExpr = item.SQLiteExpression!;
+                StringBuilder paramSb = new(" IN (");
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    if (i > 0) paramSb.Append(", ");
+                    paramSb.Append(parameters[i].Name);
+                }
+                paramSb.Append(')');
+                return SQLiteExpression.Wrap(
                     node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"{item.Sql} IN ({string.Join(", ", parameters.Select(f => f.Name))})",
+                    visitor.Counters.NextIdentifier(),
+                    "", itemExpr, paramSb.ToString(),
                     [.. item.Parameters ?? [], .. parameters]
                 );
             }
@@ -126,9 +114,9 @@ internal static class QueryableMemberVisitor
         {
             case nameof(Enumerable.LongCount):
             case nameof(Enumerable.Count):
-                return new SQLiteExpression(
+                return SQLiteExpression.Leaf(
                     node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
+                    visitor.Counters.NextIdentifier(),
                     "COUNT(*)",
                     []
                 );
@@ -188,12 +176,8 @@ internal static class QueryableMemberVisitor
     {
         if (node.Arguments.Count == 1)
         {
-            return new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"{aggregateFunction}({sqlExpression!.Sql})",
-                sqlExpression.Parameters
-            );
+            SQLiteExpression target = sqlExpression!;
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{aggregateFunction}(", target, ")", target.Parameters);
         }
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
@@ -203,17 +187,12 @@ internal static class QueryableMemberVisitor
             throw new NotSupportedException("Sum could not resolve the expression.");
         }
 
-        return new SQLiteExpression(
-            node.Method.ReturnType,
-            visitor.Counters.IdentifierIndex++,
-            $"{aggregateFunction}({sql.Sql})",
-            sql.Parameters
-        );
+        return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{aggregateFunction}(", sql, ")", sql.Parameters);
     }
 
     internal static bool CheckConstantMethod<T>(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, [MaybeNullWhen(false)] out Expression expression)
     {
-        if (arguments.Any(f => f.Sql == null))
+        if (arguments.Any(f => f.SQLiteExpression == null))
         {
             expression = Expression.Call(node.Method, arguments.Select(f => f.Expression));
             return true;
@@ -225,8 +204,8 @@ internal static class QueryableMemberVisitor
         {
             object? result = node.Method.Invoke(null, arguments.Select(f => f.Constant).ToArray());
 
-            string pName = $"@p{visitor.Counters.ParamIndex++}";
-            expression = new SQLiteExpression(node.Method.ReturnType, visitor.Counters.IdentifierIndex++, pName, result);
+            string pName = visitor.Counters.NextParamName();
+            expression = SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), pName, result);
             return true;
         }
 

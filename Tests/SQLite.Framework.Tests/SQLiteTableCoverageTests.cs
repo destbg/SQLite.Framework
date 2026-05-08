@@ -5,6 +5,7 @@ using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 using SQLitePCL;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SQLiteTableCoverageTests
@@ -352,3 +353,4 @@ public class SQLiteTableCoverageTests
         }
     }
 }
+#endif

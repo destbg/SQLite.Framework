@@ -7,6 +7,7 @@ using ExpressionHelpers = SQLite.Framework.Internals.Helpers.ExpressionHelpers;
 using TypeHelpers = SQLite.Framework.Internals.Helpers.TypeHelpers;
 using ParameterHelpers = SQLite.Framework.Internals.Helpers.ParameterHelpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class CommonHelpersCoverageTests
@@ -132,15 +133,16 @@ public class CommonHelpersCoverageTests
     [Fact]
     public void BracketIfNeeded_RequiresBrackets_True_Wraps()
     {
-        SQLiteExpression input = new(typeof(int), 0, "1+2", null) { RequiresBrackets = true };
+        SQLiteExpression input = SQLiteExpression.Leaf(typeof(int), 0, "1+2", null);
+        input.RequiresBrackets = true;
         SQLiteExpression result = ExpressionHelpers.BracketIfNeeded(input);
-        Assert.Equal("(1+2)", result.Sql);
+        Assert.Equal("(1+2)", result.ToString());
     }
 
     [Fact]
     public void BracketIfNeeded_RequiresBrackets_False_PassesThrough()
     {
-        SQLiteExpression input = new(typeof(int), 0, "X.Y", null);
+        SQLiteExpression input = SQLiteExpression.Leaf(typeof(int), 0, "X.Y", null);
         SQLiteExpression result = ExpressionHelpers.BracketIfNeeded(input);
         Assert.Same(input, result);
     }
@@ -148,8 +150,8 @@ public class CommonHelpersCoverageTests
     [Fact]
     public void CombineParameters_Two_AllNull_ReturnsNull()
     {
-        SQLiteExpression a = new(typeof(int), 0, "1", null);
-        SQLiteExpression b = new(typeof(int), 1, "2", null);
+        SQLiteExpression a = SQLiteExpression.Leaf(typeof(int), 0, "1", null);
+        SQLiteExpression b = SQLiteExpression.Leaf(typeof(int), 1, "2", null);
         Assert.Null(ParameterHelpers.CombineParameters(a, b));
     }
 
@@ -157,8 +159,8 @@ public class CommonHelpersCoverageTests
     public void CombineParameters_Two_OneSide_Combines()
     {
         SQLiteParameter p = new() { Name = "@p0", Value = 1 };
-        SQLiteExpression a = new(typeof(int), 0, "@p0", new[] { p });
-        SQLiteExpression b = new(typeof(int), 1, "2", null);
+        SQLiteExpression a = SQLiteExpression.Leaf(typeof(int), 0, "@p0", new[] { p });
+        SQLiteExpression b = SQLiteExpression.Leaf(typeof(int), 1, "2", null);
         SQLiteParameter[]? combined = ParameterHelpers.CombineParameters(a, b);
         Assert.NotNull(combined);
         Assert.Single(combined);
@@ -167,9 +169,9 @@ public class CommonHelpersCoverageTests
     [Fact]
     public void CombineParameters_Three_AllNull_ReturnsNull()
     {
-        SQLiteExpression a = new(typeof(int), 0, "1", null);
-        SQLiteExpression b = new(typeof(int), 1, "2", null);
-        SQLiteExpression c = new(typeof(int), 2, "3", null);
+        SQLiteExpression a = SQLiteExpression.Leaf(typeof(int), 0, "1", null);
+        SQLiteExpression b = SQLiteExpression.Leaf(typeof(int), 1, "2", null);
+        SQLiteExpression c = SQLiteExpression.Leaf(typeof(int), 2, "3", null);
         Assert.Null(ParameterHelpers.CombineParameters(a, b, c));
     }
 
@@ -178,9 +180,9 @@ public class CommonHelpersCoverageTests
     {
         SQLiteParameter p1 = new() { Name = "@p0", Value = 1 };
         SQLiteParameter p2 = new() { Name = "@p1", Value = 2 };
-        SQLiteExpression a = new(typeof(int), 0, "@p0", new[] { p1 });
-        SQLiteExpression b = new(typeof(int), 1, "2", null);
-        SQLiteExpression c = new(typeof(int), 2, "@p1", new[] { p2 });
+        SQLiteExpression a = SQLiteExpression.Leaf(typeof(int), 0, "@p0", new[] { p1 });
+        SQLiteExpression b = SQLiteExpression.Leaf(typeof(int), 1, "2", null);
+        SQLiteExpression c = SQLiteExpression.Leaf(typeof(int), 2, "@p1", new[] { p2 });
         SQLiteParameter[]? combined = ParameterHelpers.CombineParameters(a, b, c);
         Assert.NotNull(combined);
         Assert.Equal(2, combined.Length);
@@ -273,9 +275,9 @@ public class CommonHelpersCoverageTests
         SQLiteParameter p1 = new() { Name = "@p0", Value = 1 };
         SQLiteParameter p2 = new() { Name = "@p1", Value = 2 };
         SQLiteParameter p3 = new() { Name = "@p2", Value = 3 };
-        SQLiteExpression a = new(typeof(int), 0, "@p0", new[] { p1 });
-        SQLiteExpression b = new(typeof(int), 1, "@p1", new[] { p2 });
-        SQLiteExpression c = new(typeof(int), 2, "@p2", new[] { p3 });
+        SQLiteExpression a = SQLiteExpression.Leaf(typeof(int), 0, "@p0", new[] { p1 });
+        SQLiteExpression b = SQLiteExpression.Leaf(typeof(int), 1, "@p1", new[] { p2 });
+        SQLiteExpression c = SQLiteExpression.Leaf(typeof(int), 2, "@p2", new[] { p3 });
         SQLiteParameter[]? combined = ParameterHelpers.CombineParameters(a, b, c);
         Assert.NotNull(combined);
         Assert.Equal(3, combined.Length);
@@ -286,8 +288,8 @@ public class CommonHelpersCoverageTests
     {
         SQLiteParameter p1 = new() { Name = "@p0", Value = 1 };
         SQLiteParameter p2 = new() { Name = "@p1", Value = 2 };
-        SQLiteExpression a = new(typeof(int), 0, "@p0", new[] { p1 });
-        SQLiteExpression b = new(typeof(int), 1, "@p1", new[] { p2 });
+        SQLiteExpression a = SQLiteExpression.Leaf(typeof(int), 0, "@p0", new[] { p1 });
+        SQLiteExpression b = SQLiteExpression.Leaf(typeof(int), 1, "@p1", new[] { p2 });
         SQLiteParameter[]? combined = ParameterHelpers.CombineParameters(a, b);
         Assert.NotNull(combined);
         Assert.Equal(2, combined.Length);
@@ -297,9 +299,9 @@ public class CommonHelpersCoverageTests
     public void CombineParameters_Three_OnlyMiddleHasParameters_Combines()
     {
         SQLiteParameter p = new() { Name = "@p0", Value = 1 };
-        SQLiteExpression a = new(typeof(int), 0, "1", null);
-        SQLiteExpression b = new(typeof(int), 1, "@p0", new[] { p });
-        SQLiteExpression c = new(typeof(int), 2, "3", null);
+        SQLiteExpression a = SQLiteExpression.Leaf(typeof(int), 0, "1", null);
+        SQLiteExpression b = SQLiteExpression.Leaf(typeof(int), 1, "@p0", new[] { p });
+        SQLiteExpression c = SQLiteExpression.Leaf(typeof(int), 2, "3", null);
         SQLiteParameter[]? combined = ParameterHelpers.CombineParameters(a, b, c);
         Assert.NotNull(combined);
         Assert.Single(combined);
@@ -309,9 +311,9 @@ public class CommonHelpersCoverageTests
     public void CombineParameters_Three_OnlyLastHasParameters_Combines()
     {
         SQLiteParameter p = new() { Name = "@p0", Value = 1 };
-        SQLiteExpression a = new(typeof(int), 0, "1", null);
-        SQLiteExpression b = new(typeof(int), 1, "2", null);
-        SQLiteExpression c = new(typeof(int), 2, "@p0", new[] { p });
+        SQLiteExpression a = SQLiteExpression.Leaf(typeof(int), 0, "1", null);
+        SQLiteExpression b = SQLiteExpression.Leaf(typeof(int), 1, "2", null);
+        SQLiteExpression c = SQLiteExpression.Leaf(typeof(int), 2, "@p0", new[] { p });
         SQLiteParameter[]? combined = ParameterHelpers.CombineParameters(a, b, c);
         Assert.NotNull(combined);
         Assert.Single(combined);
@@ -374,3 +376,4 @@ public class CommonHelpersOuterTarget
 {
     public CommonHelpersTestTarget Inner { get; } = new();
 }
+#endif

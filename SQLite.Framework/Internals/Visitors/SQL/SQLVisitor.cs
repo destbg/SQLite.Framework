@@ -41,7 +41,7 @@ internal partial class SQLVisitor : ExpressionVisitor
             return cached;
         }
 
-        SQLiteExpression cast = new(source.Type, Counters.IdentifierIndex++, $"CAST({source.Sql} AS REAL)", source.Parameters);
+        SQLiteExpression cast = SQLiteExpression.Wrap(source.Type, Counters.NextIdentifier(), "CAST(", source, " AS REAL)", source.Parameters);
         decimalCastIntern[source] = cast;
         return cast;
     }
@@ -55,11 +55,10 @@ internal partial class SQLVisitor : ExpressionVisitor
             return cached;
         }
 
-        string sql = $"json_extract({source.Sql}, '$.{memberName}')";
-        SQLiteExpression extracted = new(resultType, Counters.IdentifierIndex++, sql, source.Parameters)
-        {
-            IsJsonSource = true,
-        };
+        SQLiteExpression extracted = SQLiteExpression.Wrap(resultType, Counters.NextIdentifier(),
+            "json_extract(", source, $", '$.{memberName}')",
+            source.Parameters)
+        .WithJsonSource();
         jsonExtractIntern[key] = extracted;
         return extracted;
     }
@@ -78,12 +77,10 @@ internal partial class SQLVisitor : ExpressionVisitor
         string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
 
         TableMapping tableMapping = Database.TableMapping(entityType);
-        From = new SQLiteExpression(
-            entityType,
-            -1,
-            $"{(sql != null ? $"({sql.Sql})" : $"\"{tableMapping.TableName}\"")} AS {alias}",
-            sql?.Parameters
-        );
+        string tableName = tableMapping.TableName;
+        From = sql != null
+            ? SQLiteExpression.Wrap(entityType, -1, "(", sql, $") AS {alias}", sql.Parameters)
+            : SQLiteExpression.Leaf(entityType, -1, $"\"{tableName}\" AS {alias}");
 
         TableColumns = tableMapping.Columns
             .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
@@ -94,7 +91,7 @@ internal partial class SQLVisitor : ExpressionVisitor
                 {
                     colSql = string.Format(colExpr, colSql);
                 }
-                return new SQLiteExpression(f.PropertyType, Counters.IdentifierIndex++, colSql);
+                return SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), colSql);
             });
     }
 
@@ -165,7 +162,7 @@ internal partial class SQLVisitor : ExpressionVisitor
                 }
             }
 
-            sqlExpression = new SQLiteExpression(node.Type, Counters.IdentifierIndex++, $"@p{Counters.ParamIndex++}", constantValue);
+            sqlExpression = SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), constantValue);
             resolvedExpression = node;
         }
         else

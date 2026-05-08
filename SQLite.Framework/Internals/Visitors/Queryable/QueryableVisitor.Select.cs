@@ -58,10 +58,10 @@ internal partial class QueryableVisitor
             {
                 SQLiteExpression sqlExpression = (SQLiteExpression)tableColumn.Value;
 
-                SQLiteExpression newSqlExpression = new(
+                SQLiteExpression newSqlExpression = SQLiteExpression.Alias(
                     node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    sqlExpression.Sql,
+                    visitor.Counters.NextIdentifier(),
+                    sqlExpression,
                     sqlExpression.Parameters
                 );
 
@@ -203,10 +203,8 @@ internal partial class QueryableVisitor
                 else if (visitor.TableColumns.TryGetValue(key, out Expression? colExpr) && colExpr is SQLiteExpression sqlExpr)
                 {
                     Type memberType = ma.Member is PropertyInfo pi ? pi.PropertyType : ((FieldInfo)ma.Member).FieldType;
-                    SQLiteExpression compilerExpr = new(memberType, 0, sqlExpr.Sql)
-                    {
-                        IdentifierText = key
-                    };
+                    SQLiteExpression compilerExpr = SQLiteExpression.Alias(memberType, 0, sqlExpr, null);
+                    compilerExpr.IdentifierText = key;
                     rebuilt.Add(Expression.Bind(ma.Member, compilerExpr));
                 }
             }

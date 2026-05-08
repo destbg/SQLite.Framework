@@ -4,6 +4,7 @@ using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class TranslatorRegistryTests
@@ -16,7 +17,7 @@ public class TranslatorRegistryTests
     }
 
     private static SQLiteMemberTranslator Identity =>
-        ctx => new SQLiteExpression(typeof(int), 0, "x", null);
+        ctx => SQLiteExpression.Leaf(typeof(int), 0, "x", null);
 
     [Fact]
     public void TryGetMethodTranslator_ExactMatch_ReturnsTrue()
@@ -126,3 +127,4 @@ public class TranslatorRegistryTests
         public T Take(T value) => value;
     }
 }
+#endif

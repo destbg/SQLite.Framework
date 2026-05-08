@@ -56,4 +56,10 @@ public class SQLiteQueryContext
     /// The generator reads them by index and invokes them with positional arguments.
     /// </summary>
     public IReadOnlyList<ConstructorInfo>? ReflectedConstructors { get; init; }
+
+    /// <summary>
+    /// Cache of resolved column indices used by the runtime materializer to avoid rebuilding
+    /// column-name lookups per row. Lazily populated by the first row in a result set.
+    /// </summary>
+    public Dictionary<(Type Type, string Prefix), int[]>? SlotIndexCache { get; set; }
 }

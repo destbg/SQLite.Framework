@@ -4,6 +4,7 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 [CollectionDefinition("AsyncContention", DisableParallelization = true)]
@@ -264,3 +265,4 @@ public class AsyncContentionTests
         db => db.Table<Book>().AddRangeAsync(
             new[] { new Book { Id = 701, Title = "ART2", AuthorId = 1, Price = 701 } }));
 }
+#endif

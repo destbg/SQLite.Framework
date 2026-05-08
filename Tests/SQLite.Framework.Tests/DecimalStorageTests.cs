@@ -4,6 +4,7 @@ using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class DecimalStorageTests
@@ -289,7 +290,7 @@ public class DecimalStorageTests
                      SELECT t0.Price IN (
                          SELECT t1.Price AS "Price"
                          FROM "TestEntity" AS t1
-                     ) AS "8"
+                     ) AS "7"
                      FROM "TestEntity" AS t0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -326,3 +327,4 @@ public class DecimalStorageTests
         public required decimal Price { get; set; }
     }
 }
+#endif

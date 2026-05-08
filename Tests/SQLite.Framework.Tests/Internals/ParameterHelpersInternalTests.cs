@@ -33,8 +33,8 @@ public class ParameterHelpersInternalTests
     [Fact]
     public void CombineParameters_AllExpressionsNull_ReturnsNull()
     {
-        SQLiteExpression a = new(typeof(int), 0, "1");
-        SQLiteExpression b = new(typeof(int), 1, "2");
+        SQLiteExpression a = SQLiteExpression.Leaf(typeof(int), 0, "1");
+        SQLiteExpression b = SQLiteExpression.Leaf(typeof(int), 1, "2");
 
         SQLiteParameter[]? result = ParameterHelpers.CombineParameters(a, b, a);
 
@@ -54,7 +54,7 @@ public class ParameterHelpersInternalTests
 
     private static ResolvedModel MakeModelWithParameter(string paramName, object value)
     {
-        SQLiteExpression expr = new(typeof(int), 0, paramName, value);
+        SQLiteExpression expr = SQLiteExpression.Leaf(typeof(int), 0, paramName, value);
         return new ResolvedModel
         {
             IsConstant = true,

@@ -5,6 +5,9 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class BuildQueryObject
 {
+    private const int NotPresentSentinel = -1;
+    private const int NestedSentinel = -2;
+
     public static SQLiteQueryContext BuildContext(SQLiteDataReader reader, Dictionary<string, int> columns, SQLQuery? query)
     {
         return new()
@@ -72,7 +75,7 @@ internal static class BuildQueryObject
                 "or remove the DisableReflectionFallback call.");
         }
 
-        return BuildInternal(elementType, reader, string.Empty, context.Columns!, options);
+        return BuildInternal(elementType, reader, string.Empty, context, options);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface; users keep their entities reachable.")]
@@ -115,8 +118,10 @@ internal static class BuildQueryObject
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All types should be part of the client assembly.")]
-    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, Dictionary<string, int> columns, SQLiteOptions options)
+    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, SQLiteQueryContext context, SQLiteOptions options)
     {
+        Dictionary<string, int> columns = context.Columns!;
+
         if (TypeHelpers.IsSimple(type, options))
         {
             string columnName = prefix.TrimEnd('.');
@@ -145,7 +150,7 @@ internal static class BuildQueryObject
             {
                 ParameterInfo p = parameters[i];
                 string paramPrefix = $"{prefix}{p.Name}.";
-                args[i] = BuildInternal(p.ParameterType, reader, paramPrefix, columns, options);
+                args[i] = BuildInternal(p.ParameterType, reader, paramPrefix, context, options);
             }
 
             return ctor.Invoke(args);
@@ -187,54 +192,99 @@ internal static class BuildQueryObject
             }
         }
 
-        object? instance = Activator.CreateInstance(type, nonPublic: true);
-        foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite))
+        MaterializerPlan plan = ReflectionMaterializerCache.GetPlan(type, options);
+        PropertySlot[] slots = plan.Slots;
+        object? instance = plan.Factory != null
+            ? plan.Factory.Create()
+            : Activator.CreateInstance(type, nonPublic: true);
+        int[] indices = GetOrBuildIndices(type, prefix, slots, context, reader);
+
+        for (int s = 0; s < slots.Length; s++)
         {
-            Type propType = prop.PropertyType;
-            string columnName = prefix + prop.Name;
+            PropertySlot slot = slots[s];
+            int columnIndex = indices[s];
 
-            if (TypeHelpers.IsSimple(propType, options))
+            if (slot.IsSimple)
             {
-                if (columns.TryGetValue(columnName, out int columnIndex))
+                if (columnIndex >= 0)
                 {
-                    object? val = reader.GetValue(columnIndex, reader.GetColumnType(columnIndex), propType);
-                    if (val != null)
+                    if (slot.Assigner != null)
                     {
-                        Type targetType = Nullable.GetUnderlyingType(propType) ?? propType;
-                        object? convertedValue;
-
-                        if (targetType.IsEnum)
+                        slot.Assigner(reader.Statement, columnIndex, instance!);
+                    }
+                    else
+                    {
+                        object? val = reader.GetValue(columnIndex, reader.GetColumnType(columnIndex), slot.PropertyType);
+                        if (val != null)
                         {
-                            object underlyingType = Convert.ChangeType(val, Enum.GetUnderlyingType(targetType));
-                            convertedValue = Enum.IsDefined(targetType, underlyingType)
-                                ? Enum.ToObject(targetType, underlyingType)
-                                : null;
-                        }
-                        else
-                        {
-                            convertedValue = Convert.ChangeType(val, targetType);
-                        }
+                            object? convertedValue;
 
-                        prop.SetValue(instance, convertedValue);
+                            if (slot.IsEnum)
+                            {
+                                object underlyingType = Convert.ChangeType(val, slot.EnumUnderlyingType!);
+                                convertedValue = Enum.IsDefined(slot.TargetType, underlyingType)
+                                    ? Enum.ToObject(slot.TargetType, underlyingType)
+                                    : null;
+                            }
+                            else
+                            {
+                                convertedValue = Convert.ChangeType(val, slot.TargetType);
+                            }
+
+                            slot.Setter(instance!, convertedValue);
+                        }
                     }
                 }
             }
-            else
+            else if (columnIndex == NestedSentinel)
             {
-                string nestedPrefix = columnName + ".";
-                bool hasNested = Enumerable.Range(0, reader.FieldCount)
-                    .Select(reader.GetName)
-                    .Any(n => n.StartsWith(nestedPrefix, StringComparison.Ordinal));
-
-                if (hasNested)
-                {
-                    object? nestedObj = BuildInternal(propType, reader, nestedPrefix, columns, options);
-                    prop.SetValue(instance, nestedObj);
-                }
+                string nestedPrefix = (prefix.Length == 0 ? slot.Name : prefix + slot.Name) + ".";
+                object? nestedObj = BuildInternal(slot.PropertyType, reader, nestedPrefix, context, options);
+                slot.Setter(instance!, nestedObj);
             }
         }
 
         return instance;
+    }
+
+    private static int[] GetOrBuildIndices(Type type, string prefix, PropertySlot[] slots, SQLiteQueryContext context, SQLiteDataReader reader)
+    {
+        Dictionary<(Type Type, string Prefix), int[]> cache = context.SlotIndexCache ??= new Dictionary<(Type, string), int[]>();
+        if (cache.TryGetValue((type, prefix), out int[]? cached))
+        {
+            return cached;
+        }
+
+        Dictionary<string, int> columns = context.Columns!;
+        int[] indices = new int[slots.Length];
+        for (int i = 0; i < slots.Length; i++)
+        {
+            PropertySlot slot = slots[i];
+            string columnName = prefix.Length == 0 ? slot.Name : prefix + slot.Name;
+
+            if (slot.IsSimple)
+            {
+                indices[i] = columns.TryGetValue(columnName, out int idx) ? idx : NotPresentSentinel;
+            }
+            else
+            {
+                string nestedPrefix = columnName + ".";
+                bool hasNested = false;
+                int fieldCount = reader.FieldCount;
+                for (int j = 0; j < fieldCount; j++)
+                {
+                    if (reader.GetName(j).StartsWith(nestedPrefix, StringComparison.Ordinal))
+                    {
+                        hasNested = true;
+                        break;
+                    }
+                }
+                indices[i] = hasNested ? NestedSentinel : NotPresentSentinel;
+            }
+        }
+
+        cache[(type, prefix)] = indices;
+        return indices;
     }
 
     private static bool IsAnonymousType(Type type)

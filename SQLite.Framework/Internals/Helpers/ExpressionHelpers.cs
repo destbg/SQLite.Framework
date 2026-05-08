@@ -124,7 +124,7 @@ internal static class ExpressionHelpers
     public static SQLiteExpression BracketIfNeeded(SQLiteExpression node)
     {
         return node.RequiresBrackets
-            ? new SQLiteExpression(node.Type, node.Identifier, $"({node.Sql})", node.Parameters)
+            ? SQLiteExpression.Wrap(node.Type, node.Identifier, "(", node, ")", node.Parameters)
             : node;
     }
 

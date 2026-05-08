@@ -4,6 +4,7 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class TransactionAsyncProbe
@@ -140,7 +141,7 @@ public class TransactionAsyncProbe
 
     private static TestDatabase NewDb([System.Runtime.CompilerServices.CallerMemberName] string? methodName = null)
     {
-        TestDatabase db = new(methodName);
+        TestDatabase db = new(useFile: true, methodName: methodName);
         db.Schema.CreateTable<Book>();
         db.Schema.CreateTable<Author>();
         return db;
@@ -154,3 +155,4 @@ public class TransactionAsyncProbe
         Price = id
     };
 }
+#endif

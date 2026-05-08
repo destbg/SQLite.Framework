@@ -4,10 +4,13 @@ using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Enums;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class CoverageBranchTests
 {
+    private static readonly SQLiteOptions CompilerOptions = new SQLiteOptionsBuilder("compiler-coverage-branch.db3").Build();
+
     [Fact]
     public void Contains_StringComparisonOrdinal_DoesNotAddCollation()
     {
@@ -222,7 +225,7 @@ public class CoverageBranchTests
             System.Linq.Expressions.Expression.Constant(left),
             System.Linq.Expressions.Expression.Constant(right));
 
-        SQLite.Framework.Internals.Visitors.QueryCompilerVisitor visitor = new();
+        SQLite.Framework.Internals.Visitors.QueryCompilerVisitor visitor = new(CompilerOptions);
         SQLite.Framework.Internals.Models.CompiledExpression compiled =
             (SQLite.Framework.Internals.Models.CompiledExpression)visitor.Visit(node);
 
@@ -363,7 +366,7 @@ public class CoverageBranchTests
             innerField,
             System.Linq.Expressions.Expression.Bind(xProp, System.Linq.Expressions.Expression.Constant(0)));
 
-        SQLite.Framework.Internals.Visitors.QueryCompilerVisitor visitor = new();
+        SQLite.Framework.Internals.Visitors.QueryCompilerVisitor visitor = new(CompilerOptions);
         MethodInfo method = typeof(SQLite.Framework.Internals.Visitors.QueryCompilerVisitor)
             .GetMethod("VisitMemberMemberBindingExpression", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
@@ -429,4 +432,4 @@ internal class ArrayRowB
 [System.Text.Json.Serialization.JsonSerializable(typeof(List<string>))]
 [System.Text.Json.Serialization.JsonSerializable(typeof(string[]))]
 internal partial class CoverageJsonContext : System.Text.Json.Serialization.JsonSerializerContext;
-
+#endif

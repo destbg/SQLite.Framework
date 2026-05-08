@@ -30,7 +30,7 @@ internal static class SimpleTranslator
             }
 
             ParameterExpression parameter = lambda.Parameters[0];
-            SQLiteExpression valueExpr = new(parameter.Type, -1, "value", (SQLiteParameter[]?)null);
+            SQLiteExpression valueExpr = SQLiteExpression.Leaf(parameter.Type, -1, "value", (SQLiteParameter[]?)null);
             ctx.MethodArguments[parameter] = new Dictionary<string, Expression> { [""] = valueExpr };
 
             Expression predicateResult;
@@ -48,10 +48,10 @@ internal static class SimpleTranslator
                 return node;
             }
 
-            string sql = build(instanceSql.Sql, predicateSql.Sql);
+            string sql = build(instanceSql.ToString(), predicateSql.ToString());
             SQLiteParameter[] parameters =
                 [.. instanceSql.Parameters ?? [], .. predicateSql.Parameters ?? []];
-            return new SQLiteExpression(node.Method.ReturnType, ctx.Counters.IdentifierIndex++, sql, parameters);
+            return SQLiteExpression.Leaf(node.Method.ReturnType, ctx.Counters.NextIdentifier(), sql, parameters);
         };
     }
 
@@ -78,7 +78,7 @@ internal static class SimpleTranslator
                     : Expression.Call(node.Method, argModels.Select(a => a.Expression));
             }
 
-            string sql = build(objModel?.Sql, argModels.Select(a => a.Sql!).ToArray());
+            string sql = build(objModel?.SQLiteExpression?.ToString(), argModels.Select(a => a.SQLiteExpression!.ToString()).ToArray());
 
             List<SQLiteExpression> all = argModels.Select(a => a.SQLiteExpression!).ToList();
             if (objModel is { SQLiteExpression: { } objSql })
@@ -88,9 +88,9 @@ internal static class SimpleTranslator
 
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(all);
 
-            return new SQLiteExpression(
+            return SQLiteExpression.Leaf(
                 node.Method.ReturnType,
-                ctx.Counters.IdentifierIndex++,
+                ctx.Counters.NextIdentifier(),
                 sql,
                 parameters);
         };

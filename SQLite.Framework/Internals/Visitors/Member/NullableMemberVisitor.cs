@@ -6,12 +6,7 @@ internal static class NullableMemberVisitor
     {
         return propertyName switch
         {
-            nameof(Nullable<>.HasValue) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"({node.Sql} IS NOT NULL)",
-                node.Parameters
-            ),
+            nameof(Nullable<>.HasValue) => SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "(", node, " IS NOT NULL)", node.Parameters),
             _ => node
         };
     }
@@ -27,11 +22,6 @@ internal static class NullableMemberVisitor
 
         ResolvedModel arg = visitor.ResolveExpression(defaultArg);
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression!, arg.SQLiteExpression!);
-        return new SQLiteExpression(
-            underlying,
-            visitor.Counters.IdentifierIndex++,
-            $"COALESCE({obj.Sql}, {arg.Sql})",
-            parameters
-        );
+        return SQLiteExpression.Binary(underlying, visitor.Counters.NextIdentifier(), "COALESCE(", obj.SQLiteExpression!, ", ", arg.SQLiteExpression!, ")", parameters);
     }
 }

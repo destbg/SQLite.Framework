@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class CommandHelpersCoverageTests
@@ -136,3 +137,4 @@ public class GuidRow
 
     public Guid Token { get; set; }
 }
+#endif

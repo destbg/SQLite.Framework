@@ -75,14 +75,14 @@ internal partial class JsonCollectionVisitor
     private void HandleSkip(MethodCallExpression call)
     {
         ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-        offset = arg.Sql!;
+        offset = arg.SQLiteExpression!.ToString();
         AddParameters(arg);
     }
 
     private void HandleTake(MethodCallExpression call)
     {
         ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-        limit = arg.Sql!;
+        limit = arg.SQLiteExpression!.ToString();
         AddParameters(arg);
     }
 
@@ -180,7 +180,7 @@ internal partial class JsonCollectionVisitor
     private void HandleElementAt(MethodCallExpression call)
     {
         ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-        offset = arg.Sql!;
+        offset = arg.SQLiteExpression!.ToString();
         AddParameters(arg);
         limit = "1";
         wrapInArray = false;
@@ -190,7 +190,7 @@ internal partial class JsonCollectionVisitor
     {
         ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
         AddParameters(arg);
-        wheres.Add($"value = {arg.Sql}");
+        wheres.Add($"value = {arg.SQLiteExpression}");
         existsWrapper = "EXISTS";
         selectExpr = "1";
         limit = "1";

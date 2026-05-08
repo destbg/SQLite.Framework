@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class TimeOnlyTests
@@ -148,3 +149,4 @@ public class TimeOnlyTests
         return db;
     }
 }
+#endif

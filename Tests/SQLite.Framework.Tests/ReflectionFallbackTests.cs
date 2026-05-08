@@ -3,6 +3,7 @@ using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Generated;
 #endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class ReflectionFallbackTests : IDisposable
@@ -39,6 +40,7 @@ public class ReflectionFallbackTests : IDisposable
         Assert.Contains("ReflectionFallbackDisabled", ex.Message);
     }
 
+#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void ThrowsWhenEntityWouldFallBackToReflection()
     {
@@ -65,6 +67,7 @@ public class ReflectionFallbackTests : IDisposable
 
         Assert.Single(books);
     }
+#endif
 
     [Fact]
     public void OptionsBuilderDefaultsToFallbackEnabled()
@@ -82,6 +85,7 @@ public class ReflectionFallbackTests : IDisposable
         Assert.True(options.ReflectionFallbackDisabled);
     }
 
+#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void ThrowsWhenGroupByWouldUseReflectionForKeySelector()
     {
@@ -96,6 +100,7 @@ public class ReflectionFallbackTests : IDisposable
         Assert.Contains("ReflectionFallbackDisabled", ex.Message);
         Assert.Contains("GroupBy", ex.Message);
     }
+#endif
 
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
@@ -120,5 +125,70 @@ public class ReflectionFallbackTests : IDisposable
         Assert.Equal(2, byAuthor[1].Count);
         Assert.Single(byAuthor[2]);
     }
+
+    [Fact]
+    public void Table_ToList_UnderPublishAotWithoutGeneratedMaterializers_ThrowsNotSupported()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(databasePath).Build();
+        using SQLiteDatabase db = new(options);
+
+        db.Table<Book>().Schema.CreateTable();
+        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => db.Table<Book>().ToList());
+
+        Assert.Contains("PublishAot", ex.Message);
+    }
+
+    [Fact]
+    public void FromSql_UnderPublishAotWithoutGeneratedMaterializers_ThrowsNotSupported()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(databasePath).Build();
+        using SQLiteDatabase db = new(options);
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => db.FromSql<Book>("SELECT 1"));
+
+        Assert.Contains("FromSql", ex.Message);
+        Assert.Contains("PublishAot", ex.Message);
+    }
+
+    [Fact]
+    public void Values_UnderPublishAotWithoutGeneratedMaterializers_ThrowsNotSupported()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(databasePath).Build();
+        using SQLiteDatabase db = new(options);
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => db.Values(new Book { Id = 1, Title = "x", AuthorId = 0, Price = 0 }));
+
+        Assert.Contains("Values", ex.Message);
+        Assert.Contains("PublishAot", ex.Message);
+    }
+
+    [Fact]
+    public void GroupBy_UnderPublishAotWithoutGeneratedMaterializers_ThrowsNotSupported()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(databasePath).Build();
+        using SQLiteDatabase db = new(options);
+
+        db.Table<Book>().Schema.CreateTable();
+        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => db.Table<Book>().GroupBy(b => b.AuthorId).ToList());
+
+        Assert.Contains("PublishAot", ex.Message);
+    }
+
+    [Fact]
+    public void QueryFilterRebind_UnderPublishAotWithoutGeneratedMaterializers_ThrowsNotSupported()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(databasePath).Build();
+        System.Linq.Expressions.Expression<Func<SQLite.Framework.Tests.Interfaces.ISoftDelete, bool>> source = e => !e.IsDeleted;
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            SQLite.Framework.Internals.Visitors.QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook), options));
+
+        Assert.Contains("PublishAot", ex.Message);
+    }
 #endif
 }
+#endif

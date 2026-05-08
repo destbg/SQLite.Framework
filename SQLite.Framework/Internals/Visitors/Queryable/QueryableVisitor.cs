@@ -124,8 +124,8 @@ internal partial class QueryableVisitor
 
             TableMapping tableMapping = database.TableMapping(entityType);
             newTableColumns = tableMapping.Columns
-                .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => new SQLiteExpression(f.PropertyType, visitor.Counters.IdentifierIndex++, $"{alias}.{f.Name}"));
-            sql = new SQLiteExpression(body.Type, -1, $"\"{tableMapping.TableName}\" AS {alias}");
+                .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{f.Name}"));
+            sql = SQLiteExpression.Leaf(body.Type, -1, $"\"{tableMapping.TableName}\" AS {alias}");
         }
         else if (ExpressionHelpers.IsConstant(body))
         {
@@ -158,7 +158,7 @@ internal partial class QueryableVisitor
                         string placeholder = $"{cteAliasChar}__cte_self_{visitor.CteRegistry.Ctes.Count}__";
 
                         Dictionary<string, Expression> selfColumns = cteElementType.GetProperties()
-                            .ToDictionary(f => f.Name, Expression (f) => new SQLiteExpression(f.PropertyType, visitor.Counters.IdentifierIndex++, $"{placeholder}.{f.Name}"));
+                            .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{placeholder}.{f.Name}"));
 
                         visitor.CteParameters[selfParam] = (placeholder, selfColumns);
                         visitor.MethodArguments[selfParam] = selfColumns;
@@ -185,8 +185,8 @@ internal partial class QueryableVisitor
 
                 entityType = cteElementType;
                 newTableColumns = cteElementType.GetProperties()
-                    .ToDictionary(f => f.Name, Expression (f) => new SQLiteExpression(f.PropertyType, visitor.Counters.IdentifierIndex++, $"{cteAlias}.{f.Name}"));
-                sql = new SQLiteExpression(body.Type, -1, $"{cteName} AS {cteAlias}");
+                    .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{cteAlias}.{f.Name}"));
+                sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteName} AS {cteAlias}");
             }
             else if (innerValue is SQLiteTable table)
             {
@@ -196,8 +196,8 @@ internal partial class QueryableVisitor
 
                 TableMapping tableMapping = database.TableMapping(entityType);
                 newTableColumns = tableMapping.Columns
-                    .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => new SQLiteExpression(f.PropertyType, visitor.Counters.IdentifierIndex++, $"{alias}.{f.Name}"));
-                sql = new SQLiteExpression(body.Type, -1, $"\"{table.Table.TableName}\" AS {alias}");
+                    .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{f.Name}"));
+                sql = SQLiteExpression.Leaf(body.Type, -1, $"\"{table.Table.TableName}\" AS {alias}");
             }
             else
             {
@@ -211,11 +211,11 @@ internal partial class QueryableVisitor
             string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
             newTableColumns = cteParamRef.Columns
-                .ToDictionary(kv => kv.Key, Expression (kv) => new SQLiteExpression(
+                .ToDictionary(kv => kv.Key, Expression (kv) => SQLiteExpression.Leaf(
                     ((SQLiteExpression)kv.Value).Type,
-                    visitor.Counters.IdentifierIndex++,
+                    visitor.Counters.NextIdentifier(),
                     $"{alias}.{kv.Key}"));
-            sql = new SQLiteExpression(body.Type, -1, $"{cteParamRef.Alias} AS {alias}");
+            sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteParamRef.Alias} AS {alias}");
         }
         else if (body.Type.IsGenericType && body.Type.GetGenericTypeDefinition() == typeof(IQueryable<>))
         {
@@ -227,8 +227,8 @@ internal partial class QueryableVisitor
             string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
             newTableColumns = entityType.GetProperties()
-                .ToDictionary(f => f.Name, Expression (f) => new SQLiteExpression(f.PropertyType, visitor.Counters.IdentifierIndex++, $"{alias}.{f.Name}"));
-            sql = new SQLiteExpression(
+                .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{f.Name}"));
+            sql = SQLiteExpression.Leaf(
                 body.Type,
                 -1,
                 $"({Environment.NewLine}{query.Sql}{Environment.NewLine}) AS {alias}",

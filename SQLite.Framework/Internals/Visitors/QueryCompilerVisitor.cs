@@ -32,10 +32,12 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     }
 
     private readonly IReadOnlyCollection<ParameterExpression>? inputParameters;
+    private readonly SQLiteOptions options;
 
-    public QueryCompilerVisitor(IReadOnlyCollection<ParameterExpression>? inputParameters = null)
+    public QueryCompilerVisitor(SQLiteOptions options, IReadOnlyCollection<ParameterExpression>? inputParameters = null)
     {
         this.inputParameters = inputParameters;
+        this.options = options;
     }
 
     public Expression VisitSQLExpression(SQLiteExpression node)
@@ -84,11 +86,11 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 ExpressionType.GreaterThanOrEqual => CompareValues(leftValue, rightValue) >= 0,
                 ExpressionType.LessThan => CompareValues(leftValue, rightValue) < 0,
                 ExpressionType.LessThanOrEqual => CompareValues(leftValue, rightValue) <= 0,
-                ExpressionType.Add => InvokeOperator(BinaryAdditionOperator, leftValue!, rightValue!),
-                ExpressionType.Subtract => InvokeOperator(BinarySubtractionOperator, leftValue!, rightValue!),
-                ExpressionType.Multiply => InvokeOperator(BinaryMultiplyOperator, leftValue!, rightValue!),
-                ExpressionType.Divide => InvokeOperator(BinaryDivisionOperator, leftValue!, rightValue!),
-                ExpressionType.Modulo => InvokeOperator(BinaryModulusOperator, leftValue!, rightValue!),
+                ExpressionType.Add => InvokeOperator(BinaryAdditionOperator, leftValue!, rightValue!, options),
+                ExpressionType.Subtract => InvokeOperator(BinarySubtractionOperator, leftValue!, rightValue!, options),
+                ExpressionType.Multiply => InvokeOperator(BinaryMultiplyOperator, leftValue!, rightValue!, options),
+                ExpressionType.Divide => InvokeOperator(BinaryDivisionOperator, leftValue!, rightValue!, options),
+                ExpressionType.Modulo => InvokeOperator(BinaryModulusOperator, leftValue!, rightValue!, options),
                 _ => throw new NotSupportedException($"The binary operator '{node.NodeType}' is not supported.")
             };
         });
@@ -234,7 +236,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             {
                 ExpressionType.Negate or ExpressionType.NegateChecked => node.Method != null
                     ? node.Method.Invoke(null, [operandValue])
-                    : InvokeUnaryOperator(BinaryNegationOperator, operandValue!),
+                    : InvokeUnaryOperator(BinaryNegationOperator, operandValue!, options),
                 ExpressionType.Not => !(bool)operandValue!,
                 ExpressionType.Convert => Convert.ChangeType(operandValue, node.Type),
                 ExpressionType.ConvertChecked => Convert.ChangeType(operandValue, node.Type),
@@ -459,7 +461,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
-    private static object? InvokeOperator(MethodInfo openMethod, object left, object right)
+    private static object? InvokeOperator(MethodInfo openMethod, object left, object right, SQLiteOptions options)
     {
         if (openMethod == BinaryAdditionOperator)
         {
@@ -476,7 +478,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 sbyte l => (sbyte)(l + (sbyte)right),
                 uint l => l + (uint)right,
                 ulong l => l + (ulong)right,
-                _ => InvokeGenericOperator(openMethod, left, right)
+                _ => InvokeGenericOperator(openMethod, left, right, options)
             };
         }
 
@@ -495,7 +497,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 sbyte l => (sbyte)(l - (sbyte)right),
                 uint l => l - (uint)right,
                 ulong l => l - (ulong)right,
-                _ => InvokeGenericOperator(openMethod, left, right)
+                _ => InvokeGenericOperator(openMethod, left, right, options)
             };
         }
 
@@ -514,7 +516,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 sbyte l => (sbyte)(l * (sbyte)right),
                 uint l => l * (uint)right,
                 ulong l => l * (ulong)right,
-                _ => InvokeGenericOperator(openMethod, left, right)
+                _ => InvokeGenericOperator(openMethod, left, right, options)
             };
         }
 
@@ -533,7 +535,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 sbyte l => (sbyte)(l / (sbyte)right),
                 uint l => l / (uint)right,
                 ulong l => l / (ulong)right,
-                _ => InvokeGenericOperator(openMethod, left, right)
+                _ => InvokeGenericOperator(openMethod, left, right, options)
             };
         }
 
@@ -552,16 +554,16 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 sbyte l => (sbyte)(l % (sbyte)right),
                 uint l => l % (uint)right,
                 ulong l => l % (ulong)right,
-                _ => InvokeGenericOperator(openMethod, left, right)
+                _ => InvokeGenericOperator(openMethod, left, right, options)
             };
         }
 
-        return InvokeGenericOperator(openMethod, left, right);
+        return InvokeGenericOperator(openMethod, left, right, options);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
-    private static object? InvokeUnaryOperator(MethodInfo openMethod, object operand)
+    private static object? InvokeUnaryOperator(MethodInfo openMethod, object operand, SQLiteOptions options)
     {
         if (openMethod == BinaryNegationOperator)
         {
@@ -574,16 +576,16 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 decimal o => -o,
                 short o => -o,
                 sbyte o => -o,
-                _ => InvokeGenericUnaryOperator(openMethod, operand)
+                _ => InvokeGenericUnaryOperator(openMethod, operand, options)
             };
         }
 
-        return InvokeGenericUnaryOperator(openMethod, operand);
+        return InvokeGenericUnaryOperator(openMethod, operand, options);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; user types implementing IAdditionOperators etc. must supply DynamicDependency hints under AOT.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; user types implementing IAdditionOperators etc. must supply DynamicDependency hints under AOT.")]
-    private static object? InvokeGenericOperator(MethodInfo openMethod, object left, object right)
+    private static object? InvokeGenericOperator(MethodInfo openMethod, object left, object right, SQLiteOptions options)
     {
         Type type = left.GetType();
         MethodInfo concrete;
@@ -591,6 +593,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         {
             if (!ConcreteMethodCache.TryGetValue((type, openMethod), out concrete!))
             {
+                ThrowIfDynamicCodeUnsupported(openMethod, type, options);
                 concrete = openMethod.MakeGenericMethod(type);
                 ConcreteMethodCache[(type, openMethod)] = concrete;
             }
@@ -601,7 +604,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; user types implementing IUnaryNegationOperators must supply DynamicDependency hints under AOT.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; user types implementing IUnaryNegationOperators must supply DynamicDependency hints under AOT.")]
-    private static object? InvokeGenericUnaryOperator(MethodInfo openMethod, object operand)
+    private static object? InvokeGenericUnaryOperator(MethodInfo openMethod, object operand, SQLiteOptions options)
     {
         Type type = operand.GetType();
         MethodInfo concrete;
@@ -609,12 +612,25 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         {
             if (!ConcreteMethodCache.TryGetValue((type, openMethod), out concrete!))
             {
+                ThrowIfDynamicCodeUnsupported(openMethod, type, options);
                 concrete = openMethod.MakeGenericMethod(type);
                 ConcreteMethodCache[(type, openMethod)] = concrete;
             }
         }
 
         return concrete.Invoke(null, [operand]);
+    }
+
+    private static void ThrowIfDynamicCodeUnsupported(MethodInfo openMethod, Type type, SQLiteOptions options)
+    {
+        if (!RuntimeFeature.IsDynamicCodeSupported && options.EntityMaterializers.Count == 0)
+        {
+            throw new NotSupportedException(
+                $"Translating '{openMethod.DeclaringType!.Name}.{openMethod.Name}' for runtime type '{type.FullName}' " +
+                "requires runtime code generation, which is unavailable under NativeAOT (PublishAot=true). " +
+                "Use the SQLite.Framework source generator and call UseGeneratedMaterializers, or rewrite the query so " +
+                "this operator is not invoked dynamically at runtime.");
+        }
     }
 
     private static int CompareValues(object? left, object? right)

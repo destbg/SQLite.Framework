@@ -5,6 +5,7 @@ using SQLite.Framework.Tests.Helpers;
 // ReSharper disable AccessToDisposedClosure
 // ReSharper disable CompareOfFloatsByEqualityOperator
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class MethodCallTests
@@ -1558,3 +1559,4 @@ public class MethodCallTests
         Assert.Equal("Book1", results[0].Title);
     }
 }
+#endif

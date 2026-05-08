@@ -14,24 +14,37 @@ internal static class SQLiteJsonFunctionsMemberVisitor
             .Cast<SQLiteExpression>()
             .ToArray());
 
-        string sql = node.Method.Name switch
+        return node.Method.Name switch
         {
-            nameof(SQLiteJsonFunctions.Extract) => $"json_extract({arguments[0].Sql}, {arguments[1].Sql})",
-            nameof(SQLiteJsonFunctions.Set) => $"json_set({arguments[0].Sql}, {arguments[1].Sql}, {arguments[2].Sql})",
-            nameof(SQLiteJsonFunctions.Insert) => $"json_insert({arguments[0].Sql}, {arguments[1].Sql}, {arguments[2].Sql})",
-            nameof(SQLiteJsonFunctions.Replace) => $"json_replace({arguments[0].Sql}, {arguments[1].Sql}, {arguments[2].Sql})",
-            nameof(SQLiteJsonFunctions.Remove) => $"json_remove({arguments[0].Sql}, {arguments[1].Sql})",
-            nameof(SQLiteJsonFunctions.Type) => $"json_type({arguments[0].Sql}, {arguments[1].Sql})",
-            nameof(SQLiteJsonFunctions.Valid) => $"json_valid({arguments[0].Sql})",
-            nameof(SQLiteJsonFunctions.Patch) => $"json_patch({arguments[0].Sql}, {arguments[1].Sql})",
-            nameof(SQLiteJsonFunctions.ArrayLength) when arguments.Count == 1 => $"json_array_length({arguments[0].Sql})",
-            nameof(SQLiteJsonFunctions.ArrayLength) => $"json_array_length({arguments[0].Sql}, {arguments[1].Sql})",
-            nameof(SQLiteJsonFunctions.Minify) => $"json({arguments[0].Sql})",
-            nameof(SQLiteJsonFunctions.ToJsonb) => $"jsonb({arguments[0].Sql})",
-            nameof(SQLiteJsonFunctions.ExtractJsonb) => $"jsonb_extract({arguments[0].Sql}, {arguments[1].Sql})",
+            nameof(SQLiteJsonFunctions.Extract) => Fn(visitor, node.Type, "json_extract", arguments[0], arguments[1], parameters),
+            nameof(SQLiteJsonFunctions.Set) => Fn(visitor, node.Type, "json_set", arguments[0], arguments[1], arguments[2], parameters),
+            nameof(SQLiteJsonFunctions.Insert) => Fn(visitor, node.Type, "json_insert", arguments[0], arguments[1], arguments[2], parameters),
+            nameof(SQLiteJsonFunctions.Replace) => Fn(visitor, node.Type, "json_replace", arguments[0], arguments[1], arguments[2], parameters),
+            nameof(SQLiteJsonFunctions.Remove) => Fn(visitor, node.Type, "json_remove", arguments[0], arguments[1], parameters),
+            nameof(SQLiteJsonFunctions.Type) => Fn(visitor, node.Type, "json_type", arguments[0], arguments[1], parameters),
+            nameof(SQLiteJsonFunctions.Valid) => Fn(visitor, node.Type, "json_valid", arguments[0], parameters),
+            nameof(SQLiteJsonFunctions.Patch) => Fn(visitor, node.Type, "json_patch", arguments[0], arguments[1], parameters),
+            nameof(SQLiteJsonFunctions.ArrayLength) when arguments.Count == 1 => Fn(visitor, node.Type, "json_array_length", arguments[0], parameters),
+            nameof(SQLiteJsonFunctions.ArrayLength) => Fn(visitor, node.Type, "json_array_length", arguments[0], arguments[1], parameters),
+            nameof(SQLiteJsonFunctions.Minify) => Fn(visitor, node.Type, "json", arguments[0], parameters),
+            nameof(SQLiteJsonFunctions.ToJsonb) => Fn(visitor, node.Type, "jsonb", arguments[0], parameters),
+            nameof(SQLiteJsonFunctions.ExtractJsonb) => Fn(visitor, node.Type, "jsonb_extract", arguments[0], arguments[1], parameters),
             _ => throw new NotSupportedException($"SQLiteJsonFunctions.{node.Method.Name} is not translatable to SQL."),
         };
+    }
 
-        return new SQLiteExpression(node.Type, visitor.Counters.IdentifierIndex++, sql, parameters);
+    private static SQLiteExpression Fn(SQLVisitor visitor, Type type, string fn, ResolvedModel a, SQLiteParameter[]? parameters)
+    {
+        return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), $"{fn}(", a.SQLiteExpression!, ")", parameters);
+    }
+
+    private static SQLiteExpression Fn(SQLVisitor visitor, Type type, string fn, ResolvedModel a, ResolvedModel b, SQLiteParameter[]? parameters)
+    {
+        return SQLiteExpression.Binary(type, visitor.Counters.NextIdentifier(), $"{fn}(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ")", parameters);
+    }
+
+    private static SQLiteExpression Fn(SQLVisitor visitor, Type type, string fn, ResolvedModel a, ResolvedModel b, ResolvedModel c, SQLiteParameter[]? parameters)
+    {
+        return SQLiteExpression.Trinary(type, visitor.Counters.NextIdentifier(), $"{fn}(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ", ", c.SQLiteExpression!, ")", parameters);
     }
 }

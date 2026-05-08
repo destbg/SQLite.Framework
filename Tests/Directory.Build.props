@@ -2,8 +2,18 @@
 
     <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
+    <PropertyGroup>
+        <NoWarn>$(NoWarn);CS0618;CS1718;xUnit1031;xUnit1051;IL2026;IL2060;IL2072;IL2075;IL3050</NoWarn>
+    </PropertyGroup>
+
     <ItemGroup>
         <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)SQLite.Framework.Tests/xunit.runner.json"
+              Link="xunit.runner.json"
+              CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
 </Project>

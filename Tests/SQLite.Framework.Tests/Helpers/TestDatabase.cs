@@ -15,19 +15,33 @@ public class TestDatabase : SQLiteDatabase
 #endif
 
     public TestDatabase([CallerMemberName] string? methodName = null)
-        : this(null, methodName)
+        : this(null, useFile: false, methodName)
     {
     }
 
     public TestDatabase(Action<SQLiteOptionsBuilder>? configure, [CallerMemberName] string? methodName = null)
-        : base(BuildOptions(methodName, configure))
+        : this(configure, useFile: false, methodName)
     {
-        File.Delete(Options.DatabasePath);
     }
 
-    private static SQLiteOptions BuildOptions(string? methodName, Action<SQLiteOptionsBuilder>? configure)
+    public TestDatabase(bool useFile, [CallerMemberName] string? methodName = null)
+        : this(null, useFile, methodName)
     {
-        SQLiteOptionsBuilder builder = new($"{methodName}_{Guid.NewGuid():N}.db3");
+    }
+
+    public TestDatabase(Action<SQLiteOptionsBuilder>? configure, bool useFile, [CallerMemberName] string? methodName = null)
+        : base(BuildOptions(methodName, configure, useFile))
+    {
+        if (Options.DatabasePath != ":memory:")
+        {
+            TryDeleteFile(Options.DatabasePath);
+        }
+    }
+
+    private static SQLiteOptions BuildOptions(string? methodName, Action<SQLiteOptionsBuilder>? configure, bool useFile)
+    {
+        string initialPath = useFile ? FilePath(methodName) : ":memory:";
+        SQLiteOptionsBuilder builder = new(initialPath);
 #if SQLITECIPHER
         builder.UseEncryptionKey("test-key");
 #endif
@@ -36,8 +50,16 @@ public class TestDatabase : SQLiteDatabase
         builder.DisableReflectionFallback();
 #endif
         configure?.Invoke(builder);
+
+        if (builder.IsWalMode && builder.DatabasePath == ":memory:")
+        {
+            builder.DatabasePath = FilePath(methodName);
+        }
+
         return builder.Build();
     }
+
+    private static string FilePath(string? methodName) => $"{methodName}_{Guid.NewGuid():N}.db3";
 
     public override void Dispose()
     {
@@ -46,9 +68,6 @@ public class TestDatabase : SQLiteDatabase
 #endif
 
         base.Dispose();
-
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
 
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR
         if (fallbacks > 0)
@@ -59,33 +78,27 @@ public class TestDatabase : SQLiteDatabase
         }
 #endif
 
-        for (int i = 0; i < 10; i++)
+        if (Options.DatabasePath == ":memory:")
         {
-            try
-            {
-                if (File.Exists(Options.DatabasePath))
-                {
-                    File.Delete(Options.DatabasePath);
-                }
-                break;
-            }
-            catch (IOException)
-            {
-                if (i == 9)
-                {
-                    return;
-                }
-                Thread.Sleep(100);
-            }
+            return;
         }
 
-        foreach (string suffix in new[] { "-wal", "-shm" })
+        TryDeleteFile(Options.DatabasePath);
+        TryDeleteFile(Options.DatabasePath + "-wal");
+        TryDeleteFile(Options.DatabasePath + "-shm");
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
         {
-            string sidecar = Options.DatabasePath + suffix;
-            if (File.Exists(sidecar))
+            if (File.Exists(path))
             {
-                File.Delete(sidecar);
+                File.Delete(path);
             }
+        }
+        catch (IOException)
+        {
         }
     }
 }

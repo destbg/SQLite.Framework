@@ -562,6 +562,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             throw new ArgumentNullException(nameof(parameters), "Parameters cannot be null.");
         }
 
+        ThrowIfDynamicCodeUnsupported(nameof(FromSql));
+
         return new Queryable<T>(this, Expression.Call(
             Expression.Constant(this),
             typeof(SQLiteDatabase).GetMethod(nameof(FromSql), BindingFlags.Instance | BindingFlags.Public)!
@@ -578,6 +580,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "The type should be part of the client assemblies.")]
     public IQueryable<T> Values<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(T value)
     {
+        ThrowIfDynamicCodeUnsupported(nameof(Values));
+
         return new Queryable<T>(this, Expression.Call(
             Expression.Constant(this),
             typeof(SQLiteDatabase).GetMethod(nameof(Values), BindingFlags.Instance | BindingFlags.Public)!
@@ -764,6 +768,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(IGrouping<,>))
         {
+            ThrowIfDynamicCodeUnsupported(nameof(ExecuteSequenceQuery));
             return (IEnumerable<T>)ExecuteGroupingQueryGeneric
                 .MakeGenericMethod(typeof(T).GetGenericArguments())
                 .Invoke(this, [expression])!;
@@ -967,7 +972,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         CompiledExpression? compiledKey = null;
         if (keyExtractor == null)
         {
-            QueryCompilerVisitor compiler = new(keyLambda.Parameters);
+            QueryCompilerVisitor compiler = new(Options, keyLambda.Parameters);
             compiledKey = (CompiledExpression)compiler.Visit(keyLambda.Body);
         }
 
@@ -1055,5 +1060,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 })
                 .ToList()
         };
+    }
+
+    private void ThrowIfDynamicCodeUnsupported(string memberName)
+    {
+        if (!RuntimeFeature.IsDynamicCodeSupported && Options.EntityMaterializers.Count == 0)
+        {
+            throw new NotSupportedException(
+                $"'{memberName}' uses MakeGenericMethod, which requires runtime code generation. " +
+                "This path is unavailable when the assembly is published or built with PublishAot=true. " +
+                "Use the SQLite.Framework source generator with UseGeneratedMaterializers, or remove PublishAot.");
+        }
     }
 }

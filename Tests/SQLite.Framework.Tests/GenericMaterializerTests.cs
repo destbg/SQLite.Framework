@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class GenericMaterializerTests
@@ -162,3 +163,4 @@ public class NomenclatureB : INomenclature
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
 }
+#endif

@@ -13,64 +13,31 @@ internal static class CharMemberVisitor
 
         if (arguments.Count > 0 && arguments[0].SQLiteExpression != null)
         {
+            SQLiteExpression a0 = arguments[0].SQLiteExpression!;
+            SQLiteParameter[]? parameters = arguments[0].Parameters;
+            Type returnType = node.Method.ReturnType;
             switch (node.Method.Name)
             {
                 case nameof(char.ToLower):
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"LOWER({arguments[0].Sql})",
-                        arguments[0].Parameters
-                    );
+                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOWER(", a0, ")", parameters);
                 case nameof(char.ToUpper):
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"UPPER({arguments[0].Sql})",
-                        arguments[0].Parameters
-                    );
+                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UPPER(", a0, ")", parameters);
                 case nameof(char.IsWhiteSpace):
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"TRIM({arguments[0].Sql}) = ''",
-                        arguments[0].Parameters
-                    );
+                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TRIM(", a0, ") = ''", parameters);
                 case nameof(char.IsAsciiDigit):
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"({arguments[0].Sql} >= '0' AND {arguments[0].Sql} <= '9')",
-                        arguments[0].Parameters
-                    );
+                    return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(", a0, " >= '0' AND ", a0, " <= '9')", parameters);
                 case nameof(char.IsAsciiLetter):
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"(({arguments[0].Sql} >= 'a' AND {arguments[0].Sql} <= 'z') OR ({arguments[0].Sql} >= 'A' AND {arguments[0].Sql} <= 'Z'))",
-                        arguments[0].Parameters
-                    );
+                    return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
+                        ["((", " >= 'a' AND ", " <= 'z') OR (", " >= 'A' AND ", " <= 'Z'))"],
+                        [a0, a0, a0, a0], parameters);
                 case nameof(char.IsAsciiLetterOrDigit):
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"(({arguments[0].Sql} >= '0' AND {arguments[0].Sql} <= '9') OR ({arguments[0].Sql} >= 'a' AND {arguments[0].Sql} <= 'z') OR ({arguments[0].Sql} >= 'A' AND {arguments[0].Sql} <= 'Z'))",
-                        arguments[0].Parameters
-                    );
+                    return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
+                        ["((", " >= '0' AND ", " <= '9') OR (", " >= 'a' AND ", " <= 'z') OR (", " >= 'A' AND ", " <= 'Z'))"],
+                        [a0, a0, a0, a0, a0, a0], parameters);
                 case nameof(char.IsAsciiLetterLower):
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"({arguments[0].Sql} >= 'a' AND {arguments[0].Sql} <= 'z')",
-                        arguments[0].Parameters
-                    );
+                    return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(", a0, " >= 'a' AND ", a0, " <= 'z')", parameters);
                 case nameof(char.IsAsciiLetterUpper):
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"({arguments[0].Sql} >= 'A' AND {arguments[0].Sql} <= 'Z')",
-                        arguments[0].Parameters
-                    );
+                    return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(", a0, " >= 'A' AND ", a0, " <= 'Z')", parameters);
             }
         }
 

@@ -1,15 +1,21 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
+#if SQLITE_FRAMEWORK_SOURCE_GENERATOR
+using SQLite.Framework.Generated;
+#endif
 using SQLite.Framework.Internals.Visitors;
 using SQLite.Framework.Tests.Entities;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class QueryCompilerVisitorCoverageTests
 {
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicMethods | DynamicallyAccessedMemberTypes.NonPublicFields)]
     private static readonly Type VisitorType = typeof(QueryCompilerVisitor);
+
+    private static readonly SQLiteOptions TestOptions = new SQLiteOptionsBuilder("compiler-coverage.db3").Build();
 
     private static readonly MethodInfo InvokeOperator = VisitorType.GetMethod("InvokeOperator", BindingFlags.Static | BindingFlags.NonPublic)!;
     private static readonly MethodInfo InvokeUnaryOperator = VisitorType.GetMethod("InvokeUnaryOperator", BindingFlags.Static | BindingFlags.NonPublic)!;
@@ -22,13 +28,14 @@ public class QueryCompilerVisitorCoverageTests
         return (MethodInfo)field.GetValue(null)!;
     }
 
+#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void InvokeOperator_AdditionOnCustomStruct_GoesThroughGenericFallback()
     {
         Coverage_NumericValue a = new(3m);
         Coverage_NumericValue b = new(5m);
 
-        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryAdditionOperator"), a, b]);
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryAdditionOperator"), a, b, TestOptions]);
 
         Assert.Equal(new Coverage_NumericValue(8m), result);
     }
@@ -39,7 +46,7 @@ public class QueryCompilerVisitorCoverageTests
         Coverage_NumericValue a = new(10m);
         Coverage_NumericValue b = new(3m);
 
-        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinarySubtractionOperator"), a, b]);
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinarySubtractionOperator"), a, b, TestOptions]);
 
         Assert.Equal(new Coverage_NumericValue(7m), result);
     }
@@ -50,7 +57,7 @@ public class QueryCompilerVisitorCoverageTests
         Coverage_NumericValue a = new(4m);
         Coverage_NumericValue b = new(6m);
 
-        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryMultiplyOperator"), a, b]);
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryMultiplyOperator"), a, b, TestOptions]);
 
         Assert.Equal(new Coverage_NumericValue(24m), result);
     }
@@ -61,7 +68,7 @@ public class QueryCompilerVisitorCoverageTests
         Coverage_NumericValue a = new(20m);
         Coverage_NumericValue b = new(4m);
 
-        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryDivisionOperator"), a, b]);
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryDivisionOperator"), a, b, TestOptions]);
 
         Assert.Equal(new Coverage_NumericValue(5m), result);
     }
@@ -72,7 +79,7 @@ public class QueryCompilerVisitorCoverageTests
         Coverage_NumericValue a = new(10m);
         Coverage_NumericValue b = new(3m);
 
-        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryModulusOperator"), a, b]);
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryModulusOperator"), a, b, TestOptions]);
 
         Assert.Equal(new Coverage_NumericValue(1m), result);
     }
@@ -82,10 +89,54 @@ public class QueryCompilerVisitorCoverageTests
     {
         Coverage_NumericValue value = new(7m);
 
-        object? result = InvokeUnaryOperator.Invoke(null, [GetOpenMethod("BinaryNegationOperator"), value]);
+        object? result = InvokeUnaryOperator.Invoke(null, [GetOpenMethod("BinaryNegationOperator"), value, TestOptions]);
 
         Assert.Equal(new Coverage_NumericValue(-7m), result);
     }
+#endif
+
+#if SQLITE_FRAMEWORK_SOURCE_GENERATOR
+    [Fact]
+    public void InvokeGenericOperator_UnderPublishAotWithoutGeneratedMaterializers_ThrowsNotSupported()
+    {
+        SQLiteOptions emptyOptions = new SQLiteOptionsBuilder("compiler-throw.db3").Build();
+        Coverage_NumericValue a = new(3m);
+        Coverage_NumericValue b = new(5m);
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(
+            () => InvokeOperator.Invoke(null, [GetOpenMethod("BinaryAdditionOperator"), a, b, emptyOptions]));
+
+        NotSupportedException inner = Assert.IsType<NotSupportedException>(ex.InnerException);
+        Assert.Contains("PublishAot", inner.Message);
+    }
+
+    [Fact]
+    public void InvokeGenericUnaryOperator_UnderPublishAotWithoutGeneratedMaterializers_ThrowsNotSupported()
+    {
+        SQLiteOptions emptyOptions = new SQLiteOptionsBuilder("compiler-throw-unary.db3").Build();
+        Coverage_NumericValue value = new(7m);
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(
+            () => InvokeUnaryOperator.Invoke(null, [GetOpenMethod("BinaryNegationOperator"), value, emptyOptions]));
+
+        NotSupportedException inner = Assert.IsType<NotSupportedException>(ex.InnerException);
+        Assert.Contains("PublishAot", inner.Message);
+    }
+
+    [Fact]
+    public void InvokeGenericOperator_UnderPublishAotWithGeneratedMaterializers_GoesThroughGenericFallback()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder("compiler-aot-genmat.db3")
+            .UseGeneratedMaterializers()
+            .Build();
+        Coverage_NumericValue a = new(8m);
+        Coverage_NumericValue b = new(3m);
+
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinarySubtractionOperator"), a, b, options]);
+
+        Assert.Equal(new Coverage_NumericValue(5m), result);
+    }
+#endif
 
     [Fact]
     public void CompareValues_LeftNullRightComparable_UsesRight()
@@ -119,7 +170,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void Visit_UnsupportedExpressionTypes_AllThrowNotSupported()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         LabelTarget target = Expression.Label();
 
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Block(Expression.Constant(1))));
@@ -139,7 +190,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitDynamic_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         DynamicExpression dyn = Expression.Dynamic(new TestCallSiteBinder(), typeof(object), Expression.Constant(0));
 
         TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
@@ -152,7 +203,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitMemberAssignment_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         MemberInfo member = typeof(Coverage_BindTarget).GetProperty(nameof(Coverage_BindTarget.Value))!;
         MemberAssignment binding = Expression.Bind(member, Expression.Constant(1));
 
@@ -166,7 +217,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitElementInit_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         MethodInfo addMethod = typeof(List<int>).GetMethod(nameof(List<int>.Add))!;
         ElementInit init = Expression.ElementInit(addMethod, Expression.Constant(1));
 
@@ -180,7 +231,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitMemberBinding_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         PropertyInfo prop = typeof(Coverage_BindTarget).GetProperty(nameof(Coverage_BindTarget.Value))!;
         MemberAssignment binding = Expression.Bind(prop, Expression.Constant(1));
 
@@ -194,7 +245,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitMemberListBinding_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         PropertyInfo prop = typeof(Coverage_BindTarget).GetProperty(nameof(Coverage_BindTarget.List))!;
         MethodInfo addMethod = typeof(List<int>).GetMethod(nameof(List<int>.Add))!;
         MemberListBinding binding = Expression.ListBind(prop, Expression.ElementInit(addMethod, Expression.Constant(1)));
@@ -209,7 +260,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitMemberMemberBinding_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         PropertyInfo nested = typeof(Coverage_BindTarget).GetProperty(nameof(Coverage_BindTarget.Nested))!;
         PropertyInfo nestedValue = typeof(Coverage_BindTargetNested).GetProperty(nameof(Coverage_BindTargetNested.Value))!;
         MemberMemberBinding binding = Expression.MemberBind(nested, Expression.Bind(nestedValue, Expression.Constant(1)));
@@ -224,7 +275,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitCatchBlock_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         CatchBlock block = Expression.Catch(typeof(Exception), Expression.Constant(0));
 
         TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
@@ -237,7 +288,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitDebugInfo_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         SymbolDocumentInfo doc = Expression.SymbolDocument("x");
         DebugInfoExpression debug = Expression.DebugInfo(doc, 1, 1, 1, 1);
 
@@ -251,7 +302,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitSwitchCase_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         SwitchCase switchCase = Expression.SwitchCase(Expression.Constant(1), Expression.Constant(0));
 
         TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
@@ -264,7 +315,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitLabelTarget_Null_ReturnsNull()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
 
         object? result = VisitorType.GetMethod("VisitLabelTarget", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(visitor, [null]);
@@ -275,7 +326,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitLabelTarget_NonNull_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         LabelTarget target = Expression.Label();
 
         TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
@@ -288,7 +339,7 @@ public class QueryCompilerVisitorCoverageTests
     [Fact]
     public void VisitIndex_Throws()
     {
-        QueryCompilerVisitor visitor = new();
+        QueryCompilerVisitor visitor = new(TestOptions);
         ConstantExpression list = Expression.Constant(new List<int> { 1, 2, 3 });
         PropertyInfo indexer = typeof(List<int>).GetProperty("Item")!;
         IndexExpression idx = Expression.MakeIndex(list, indexer, [Expression.Constant(0)]);
@@ -323,3 +374,4 @@ public sealed class TestCallSiteBinder : System.Runtime.CompilerServices.CallSit
         throw new NotImplementedException();
     }
 }
+#endif

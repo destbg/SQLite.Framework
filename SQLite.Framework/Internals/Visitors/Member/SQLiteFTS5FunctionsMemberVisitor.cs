@@ -59,9 +59,9 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
                 queryString = "{" + columnName + "} : " + queryString;
             }
 
-            string pName = $"@p{visitor.Counters.ParamIndex++}";
+            string pName = visitor.Counters.NextParamName();
             SQLiteParameter parameter = new() { Name = pName, Value = queryString };
-            return new SQLiteExpression(typeof(bool), visitor.Counters.IdentifierIndex++, $"\"{tableName}\" MATCH {pName}", [parameter]);
+            return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(), $"\"{tableName}\" MATCH {pName}", [parameter]);
         }
 
         Expression body = UnwrapPredicateBody(second);
@@ -77,9 +77,9 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         {
             string body = string.Concat(parts.Select(p => p.LiteralText));
             string queryString = columnName != null ? "{" + columnName + "} : (" + body + ")" : body;
-            string pName = $"@p{visitor.Counters.ParamIndex++}";
+            string pName = visitor.Counters.NextParamName();
             SQLiteParameter parameter = new() { Name = pName, Value = queryString };
-            return new SQLiteExpression(typeof(bool), visitor.Counters.IdentifierIndex++, $"\"{tableName}\" MATCH {pName}", [parameter]);
+            return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(), $"\"{tableName}\" MATCH {pName}", [parameter]);
         }
 
         StringBuilder operand = StringBuilderPool.Rent();
@@ -110,7 +110,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         }
 
         string operandSql = StringBuilderPool.ToStringAndReturn(operand);
-        return new SQLiteExpression(typeof(bool), visitor.Counters.IdentifierIndex++, $"\"{tableName}\" MATCH ({operandSql})", parameters.ToArray());
+        return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(), $"\"{tableName}\" MATCH ({operandSql})", parameters.ToArray());
     }
 
     private static void AppendLiteralPart(SQLVisitor visitor, StringBuilder operand, ref InlineParameterBuffer8 parameters, string text)
@@ -120,7 +120,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             operand.Append(" || ");
         }
 
-        string pName = $"@p{visitor.Counters.ParamIndex++}";
+        string pName = visitor.Counters.NextParamName();
         parameters.Add(new SQLiteParameter { Name = pName, Value = text });
         operand.Append(pName);
     }
@@ -147,10 +147,10 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         {
             string weights = string.Join(", ", mapping.FullTextSearch.IndexedColumns
                 .Select(c => c.Weight.ToString(CultureInfo.InvariantCulture)));
-            return new SQLiteExpression(typeof(double), visitor.Counters.IdentifierIndex++, $"bm25(\"{mapping.TableName}\", {weights})");
+            return SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), $"bm25(\"{mapping.TableName}\", {weights})");
         }
 
-        return new SQLiteExpression(typeof(double), visitor.Counters.IdentifierIndex++, $"{alias}.rank");
+        return SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), $"{alias}.rank");
     }
 
     private static SQLiteExpression HandleFTS5Snippet(SQLVisitor visitor, MethodCallExpression node)
@@ -165,7 +165,10 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         SQLiteExpression tokens = ResolveAuxArg(visitor, node.Arguments[5]);
 
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(before, after, ellipsis, tokens);
-        return new SQLiteExpression(typeof(string), visitor.Counters.IdentifierIndex++, $"snippet(\"{tableName}\", {columnIndex}, {before.Sql}, {after.Sql}, {ellipsis.Sql}, {tokens.Sql})", parameters);
+        return SQLiteExpression.Multi(typeof(string), visitor.Counters.NextIdentifier(),
+            [$"snippet(\"{tableName}\", {columnIndex}, ", ", ", ", ", ", ", ")"],
+            [before, after, ellipsis, tokens],
+            parameters);
     }
 
     private static SQLiteExpression HandleFTS5Highlight(SQLVisitor visitor, MethodCallExpression node)
@@ -178,7 +181,9 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         SQLiteExpression after = ResolveAuxArg(visitor, node.Arguments[3]);
 
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(before, after);
-        return new SQLiteExpression(typeof(string), visitor.Counters.IdentifierIndex++, $"highlight(\"{tableName}\", {columnIndex}, {before.Sql}, {after.Sql})", parameters);
+        return SQLiteExpression.Binary(typeof(string), visitor.Counters.NextIdentifier(),
+            $"highlight(\"{tableName}\", {columnIndex}, ", before, ", ", after, ")",
+            parameters);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]
@@ -207,10 +212,11 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             {
                 if (kv.Value is SQLiteExpression sql)
                 {
-                    int dot = sql.Sql.IndexOf('.');
+                    string sqlText = sql.ToString();
+                    int dot = sqlText.IndexOf('.');
                     if (dot > 0)
                     {
-                        return sql.Sql[..dot];
+                        return sqlText[..dot];
                     }
                 }
             }
@@ -221,10 +227,11 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             ResolvedModel resolved = visitor.ResolveExpression(member);
             if (resolved.SQLiteExpression != null)
             {
-                int dot = resolved.SQLiteExpression.Sql.IndexOf('.');
+                string sqlText = resolved.SQLiteExpression.ToString();
+                int dot = sqlText.IndexOf('.');
                 if (dot > 0)
                 {
-                    return resolved.SQLiteExpression.Sql[..dot];
+                    return sqlText[..dot];
                 }
             }
         }
@@ -274,7 +281,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         }
 
         operand.Append("printf('\"%w\"', ");
-        operand.Append(sql.Sql);
+        sql.WriteSqlTo(operand);
         operand.Append(')');
     }
 }

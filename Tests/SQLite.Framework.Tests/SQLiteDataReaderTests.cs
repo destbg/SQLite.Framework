@@ -1,5 +1,6 @@
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SQLiteDataReaderTests
@@ -146,3 +147,4 @@ public class SQLiteDataReaderTests
         Assert.False(reader.Read());
     }
 }
+#endif

@@ -3,16 +3,19 @@ using SQLite.Framework.Internals.Visitors;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Interfaces;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE && !SQLITE_FRAMEWORK_SOURCE_GENERATOR
 namespace SQLite.Framework.Tests;
 
 public class QueryFilterRebinderTests
 {
+    private static readonly SQLiteOptions Options = new SQLiteOptionsBuilder("rebinder-test.db3").Build();
+
     [Fact]
     public void Rebind_SameType_ReturnsSourceUnchanged()
     {
         Expression<Func<SoftDeletableBook, bool>> source = b => !b.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook), Options);
 
         Assert.Same(source, result);
     }
@@ -22,7 +25,7 @@ public class QueryFilterRebinderTests
     {
         Expression<Func<ISoftDelete, bool>> source = e => !e.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook), Options);
 
         Assert.NotSame(source, result);
         Assert.Equal(typeof(SoftDeletableBook), result.Parameters[0].Type);
@@ -39,7 +42,7 @@ public class QueryFilterRebinderTests
     {
         Expression<Func<ISoftDelete, bool>> source = e => !e.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook), Options);
 
         Assert.Equal(typeof(Func<SoftDeletableBook, bool>), result.Type);
     }
@@ -49,7 +52,7 @@ public class QueryFilterRebinderTests
     {
         Expression<Func<ISoftDelete, bool>> source = e => DateTime.UtcNow.Year > 2000 && !e.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook), Options);
 
         BinaryExpression and = Assert.IsAssignableFrom<BinaryExpression>(result.Body);
         BinaryExpression yearGt = Assert.IsAssignableFrom<BinaryExpression>(and.Left);
@@ -64,7 +67,7 @@ public class QueryFilterRebinderTests
         Expression<Func<ISoftDelete, bool>> source = e =>
             new[] { 1, 2, 3 }.Any(i => i > 0) && !e.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook), Options);
 
         Assert.Equal(typeof(SoftDeletableBook), result.Parameters[0].Type);
         BinaryExpression and = Assert.IsAssignableFrom<BinaryExpression>(result.Body);
@@ -78,7 +81,7 @@ public class QueryFilterRebinderTests
     {
         Expression<Func<RebinderFieldBase, bool>> source = b => b.Flag;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(RebinderFieldDerived));
+        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(RebinderFieldDerived), Options);
 
         Assert.Equal(typeof(RebinderFieldDerived), result.Parameters[0].Type);
         MemberExpression memberExpr = Assert.IsAssignableFrom<MemberExpression>(result.Body);
@@ -87,3 +90,4 @@ public class QueryFilterRebinderTests
         Assert.Same(result.Parameters[0], memberExpr.Expression);
     }
 }
+#endif

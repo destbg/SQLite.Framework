@@ -10,8 +10,5 @@ internal readonly struct ResolvedModel
     public required SQLiteExpression? SQLiteExpression { get; init; }
     public required Expression Expression { get; init; }
 
-    [NotNullIfNotNull(nameof(SQLiteExpression))]
-    public string? Sql => SQLiteExpression?.Sql;
-
     public SQLiteParameter[]? Parameters => SQLiteExpression!.Parameters;
 }

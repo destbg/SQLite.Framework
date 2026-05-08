@@ -90,26 +90,27 @@ internal partial class SQLVisitor
         if (node.NodeType is ExpressionType.AndAlso or ExpressionType.OrElse
             || (node.Type == typeof(bool) && node.NodeType is ExpressionType.And or ExpressionType.Or))
         {
-            string op = node.NodeType is ExpressionType.AndAlso or ExpressionType.And ? "AND" : "OR";
-            return new SQLiteExpression(typeof(bool), Counters.IdentifierIndex++, $"{left.Sql} {op} {right.Sql}", bothParameters);
+            string spacedOp = node.NodeType is ExpressionType.AndAlso or ExpressionType.And ? " AND " : " OR ";
+            return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", left, spacedOp, right, "", bothParameters);
         }
 
         if (node.NodeType is ExpressionType.ExclusiveOr)
         {
             if (node.Type == typeof(bool))
             {
-                return new SQLiteExpression(typeof(bool), Counters.IdentifierIndex++, $"{left.Sql} <> {right.Sql}", bothParameters);
+                return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", left, " <> ", right, "", bothParameters);
             }
 
-            return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, $"(({left.Sql} | {right.Sql}) - ({left.Sql} & {right.Sql}))", bothParameters);
+            return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+                ["((", " | ", ") - (", " & ", "))"],
+                [left, right, left, right],
+                bothParameters);
         }
 
         if (node.NodeType is ExpressionType.Coalesce)
         {
-            return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, $"COALESCE({left.Sql}, {right.Sql})", bothParameters);
+            return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "COALESCE(", left, ", ", right, ")", bothParameters);
         }
-
-        string sqlOp = null!;
 
         bool equalityOp = node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual;
         bool isLeftNull = resolvedLeft is { IsConstant: true, Constant: null };
@@ -117,48 +118,41 @@ internal partial class SQLVisitor
 
         if (equalityOp && (isLeftNull || isRightNull))
         {
-            if (node.NodeType == ExpressionType.Equal)
-            {
-                sqlOp = "IS";
-            }
-            else if (node.NodeType == ExpressionType.NotEqual)
-            {
-                sqlOp = "IS NOT";
-            }
+            string nullOp = node.NodeType == ExpressionType.Equal ? " IS NULL" : " IS NOT NULL";
 
             if (isLeftNull)
             {
                 left = right;
             }
 
-            return new SQLiteExpression(typeof(bool), Counters.IdentifierIndex++, $"{left.Sql} {sqlOp} NULL", left.Parameters);
+            return SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "", left, nullOp, left.Parameters);
         }
 
-        (sqlOp, bool parenthesis) = node.NodeType switch
+        (string sqlOp, bool parenthesis) = node.NodeType switch
         {
-            ExpressionType.Equal => ("=", false),
-            ExpressionType.NotEqual => ("<>", false),
-            ExpressionType.GreaterThan => (">", false),
-            ExpressionType.LessThan => ("<", false),
-            ExpressionType.GreaterThanOrEqual => (">=", false),
-            ExpressionType.LessThanOrEqual => ("<=", false),
-            ExpressionType.Add => (node.Type == typeof(string) ? "||" : "+", node.Type != typeof(string)),
-            ExpressionType.Subtract => ("-", true),
-            ExpressionType.Multiply => ("*", true),
-            ExpressionType.Divide => ("/", true),
-            ExpressionType.Modulo => ("%", true),
-            ExpressionType.And => ("&", true),
-            ExpressionType.Or => ("|", true),
-            ExpressionType.LeftShift => ("<<", true),
-            ExpressionType.RightShift => (">>", true),
+            ExpressionType.Equal => (" = ", false),
+            ExpressionType.NotEqual => (" <> ", false),
+            ExpressionType.GreaterThan => (" > ", false),
+            ExpressionType.LessThan => (" < ", false),
+            ExpressionType.GreaterThanOrEqual => (" >= ", false),
+            ExpressionType.LessThanOrEqual => (" <= ", false),
+            ExpressionType.Add => (node.Type == typeof(string) ? " || " : " + ", node.Type != typeof(string)),
+            ExpressionType.Subtract => (" - ", true),
+            ExpressionType.Multiply => (" * ", true),
+            ExpressionType.Divide => (" / ", true),
+            ExpressionType.Modulo => (" % ", true),
+            ExpressionType.And => (" & ", true),
+            ExpressionType.Or => (" | ", true),
+            ExpressionType.LeftShift => (" << ", true),
+            ExpressionType.RightShift => (" >> ", true),
             _ => throw new NotSupportedException($"Unsupported binary op {node.NodeType}")
         };
 
         if (parenthesis)
         {
-            return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, $"({left.Sql} {sqlOp} {right.Sql})", bothParameters);
+            return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "(", left, sqlOp, right, ")", bothParameters);
         }
 
-        return new SQLiteExpression(node.Type, Counters.IdentifierIndex++, $"{left.Sql} {sqlOp} {right.Sql}", bothParameters);
+        return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", left, sqlOp, right, "", bothParameters);
     }
 }

@@ -1,7 +1,11 @@
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
+#if SQLITE_FRAMEWORK_SOURCE_GENERATOR
+using SQLite.Framework.Generated;
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class BackupTests
@@ -43,6 +47,9 @@ public class BackupTests
             SQLiteOptionsBuilder reopenBuilder = new(path);
 #if SQLITECIPHER
             reopenBuilder.UseEncryptionKey("test-key");
+#endif
+#if SQLITE_FRAMEWORK_SOURCE_GENERATOR
+            reopenBuilder.UseGeneratedMaterializers();
 #endif
             using SQLiteDatabase reopened = new(reopenBuilder.Build());
             Book row = reopened.Table<Book>().Single();
@@ -131,3 +138,4 @@ public class BackupTests
         }
     }
 }
+#endif

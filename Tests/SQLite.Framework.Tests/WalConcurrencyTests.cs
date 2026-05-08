@@ -5,6 +5,7 @@ using SQLite.Framework.Tests.Helpers;
 
 // ReSharper disable AccessToDisposedClosure
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class WalConcurrencyTests
@@ -1350,3 +1351,4 @@ file sealed class HoldableReadDatabase : TestDatabase
         public void Dispose() => release.Wait();
     }
 }
+#endif

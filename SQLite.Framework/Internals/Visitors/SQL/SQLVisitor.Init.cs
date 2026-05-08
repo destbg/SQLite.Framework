@@ -15,13 +15,9 @@ internal partial class SQLVisitor
         }
 
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParametersFromModels(sqlExpressions);
+        SQLiteExpression[] argExprs = sqlExpressions.Select(f => f.SQLiteExpression!).ToArray();
 
-        return new SQLiteExpression(
-            node.Type,
-            Counters.IdentifierIndex++,
-            $"({string.Join(", ", sqlExpressions.Select(f => f.Sql))})",
-            parameters
-        );
+        return SQLiteExpression.Variadic(node.Type, Counters.NextIdentifier(), "(", argExprs, ", ", ")", parameters);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types have public properties.")]

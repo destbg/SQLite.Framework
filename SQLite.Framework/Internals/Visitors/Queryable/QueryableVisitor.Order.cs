@@ -40,10 +40,10 @@ internal partial class QueryableVisitor
         }
 
         string order = node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.ThenBy)
-            ? "ASC"
-            : "DESC";
+            ? " ASC"
+            : " DESC";
 
-        OrderBys.Add(new SQLiteExpression(node.Arguments[1].Type, visitor.Counters.IdentifierIndex++, $"{sqlExpression.Sql} {order}", sqlExpression.Parameters));
+        OrderBys.Add(SQLiteExpression.Wrap(node.Arguments[1].Type, visitor.Counters.NextIdentifier(), "", sqlExpression, order, sqlExpression.Parameters));
         return orderBy;
     }
 

@@ -3,6 +3,7 @@ using SQLite.Framework.Tests.DTObjects;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SelectTests
@@ -194,3 +195,4 @@ public class SelectTests
             command.CommandText.Replace("\r\n", "\n"));
     }
 }
+#endif

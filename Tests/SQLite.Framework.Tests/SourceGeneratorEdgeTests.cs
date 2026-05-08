@@ -1,6 +1,7 @@
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SourceGeneratorEdgeTests
@@ -243,3 +244,4 @@ public class SourceGeneratorEdgeTests
         Assert.Equal('x', row.CharValue);
     }
 }
+#endif

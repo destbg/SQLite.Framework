@@ -37,65 +37,52 @@ internal static class StringMemberVisitor
                 case nameof(string.IndexOf):
                 {
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"INSTR({obj.Sql}, {arguments[0].Sql}) - 1",
-                        parameters
-                    );
+                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "INSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, ") - 1", parameters);
                 }
                 case nameof(string.LastIndexOf):
                 {
-                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"CASE WHEN LENGTH({arguments[0].Sql}) = 0 THEN LENGTH({obj.Sql}) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, {obj.Sql} UNION ALL SELECT pos + INSTR(rem, {arguments[0].Sql}), SUBSTR(rem, INSTR(rem, {arguments[0].Sql}) + 1) FROM find_pos WHERE INSTR(rem, {arguments[0].Sql}) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END",
-                        parameters
-                    );
+                    SQLiteExpression objExpr = obj.SQLiteExpression!;
+                    SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
+                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);
+                    return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                        ["CASE WHEN LENGTH(", ") = 0 THEN LENGTH(", ") ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, ", " UNION ALL SELECT pos + INSTR(rem, ", "), SUBSTR(rem, INSTR(rem, ", ") + 1) FROM find_pos WHERE INSTR(rem, ", ") > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END"],
+                        [arg0, objExpr, objExpr, arg0, arg0, arg0],
+                        parameters);
                 }
                 case nameof(string.Insert):
                 {
-                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!);
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"SUBSTR({obj.Sql}, 1, {arguments[0].Sql}) || {arguments[1].Sql} || SUBSTR({obj.Sql}, {arguments[0].Sql} + 1)",
-                        parameters
-                    );
+                    SQLiteExpression objExpr = obj.SQLiteExpression!;
+                    SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
+                    SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
+                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0, arg1);
+                    return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                        ["SUBSTR(", ", 1, ", ") || ", " || SUBSTR(", ", ", " + 1)"],
+                        [objExpr, arg0, arg1, objExpr, arg0],
+                        parameters);
                 }
                 case nameof(string.Remove):
                 {
+                    SQLiteExpression objExpr = obj.SQLiteExpression!;
+                    SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
                     if (node.Arguments.Count == 2)
                     {
-                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!);
-                        return new SQLiteExpression(
-                            node.Method.ReturnType,
-                            visitor.Counters.IdentifierIndex++,
-                            $"SUBSTR({obj.Sql}, 1, {arguments[0].Sql}) || SUBSTR({obj.Sql}, {arguments[0].Sql} + {arguments[1].Sql} + 1)",
-                            parameters
-                        );
+                        SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0, arg1);
+                        return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                            ["SUBSTR(", ", 1, ", ") || SUBSTR(", ", ", " + ", " + 1)"],
+                            [objExpr, arg0, objExpr, arg0, arg1],
+                            parameters);
                     }
                     else
                     {
-                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                        return new SQLiteExpression(
-                            node.Method.ReturnType,
-                            visitor.Counters.IdentifierIndex++,
-                            $"SUBSTR({obj.Sql}, 1, {arguments[0].Sql})",
-                            parameters
-                        );
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);
+                        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", objExpr, ", 1, ", arg0, ")", parameters);
                     }
                 }
                 case nameof(string.Replace):
                 {
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!);
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"REPLACE({obj.Sql}, {arguments[0].Sql}, {arguments[1].Sql})",
-                        parameters
-                    );
+                    return SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "REPLACE(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, ", ", arguments[1].SQLiteExpression!, ")", parameters);
                 }
                 case nameof(string.Trim):
                 {
@@ -112,22 +99,17 @@ internal static class StringMemberVisitor
                 case "get_Chars":
                 {
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"SUBSTR({obj.Sql}, {arguments[0].Sql} + 1, 1)",
-                        parameters
-                    );
+                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, " + 1, 1)", parameters);
                 }
                 case nameof(string.CompareTo):
                 {
-                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"(CASE WHEN {obj.Sql} = {arguments[0].Sql} THEN 0 WHEN {obj.Sql} < {arguments[0].Sql} THEN -1 ELSE 1 END)",
-                        parameters
-                    );
+                    SQLiteExpression objExpr = obj.SQLiteExpression!;
+                    SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
+                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);
+                    return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                        ["(CASE WHEN ", " = ", " THEN 0 WHEN ", " < ", " THEN -1 ELSE 1 END)"],
+                        [objExpr, arg0, objExpr, arg0],
+                        parameters);
                 }
                 case nameof(string.Equals):
                 {
@@ -144,116 +126,89 @@ internal static class StringMemberVisitor
                     }
 
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"({obj.Sql} = {arguments[0].Sql}{collation})",
-                        parameters
-                    );
+                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", obj.SQLiteExpression!, " = ", arguments[0].SQLiteExpression!, $"{collation})", parameters);
                 }
                 case nameof(string.Substring):
                 {
                     if (node.Arguments.Count == 2)
                     {
                         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!);
-                        return new SQLiteExpression(
-                            node.Method.ReturnType,
-                            visitor.Counters.IdentifierIndex++,
-                            $"SUBSTR({obj.Sql}, {arguments[0].Sql} + 1, {arguments[1].Sql})",
-                            parameters
-                        );
+                        return SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, " + 1, ", arguments[1].SQLiteExpression!, ")", parameters);
                     }
                     else
                     {
                         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                        return new SQLiteExpression(
-                            node.Method.ReturnType,
-                            visitor.Counters.IdentifierIndex++,
-                            $"SUBSTR({obj.Sql}, {arguments[0].Sql} + 1)",
-                            parameters
-                        );
+                        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, " + 1)", parameters);
                     }
                 }
                 case nameof(string.ToUpper):
                 case nameof(string.ToUpperInvariant):
                 {
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"UPPER({obj.Sql})",
-                        obj.Parameters
-                    );
+                    return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "UPPER(", obj.SQLiteExpression!, ")", obj.Parameters);
                 }
                 case nameof(string.ToLower):
                 case nameof(string.ToLowerInvariant):
                 {
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"LOWER({obj.Sql})",
-                        obj.Parameters
-                    );
+                    return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "LOWER(", obj.SQLiteExpression!, ")", obj.Parameters);
                 }
                 case nameof(string.PadLeft):
                 {
+                    SQLiteExpression objExpr = obj.SQLiteExpression!;
+                    SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
                     if (node.Arguments.Count == 1)
                     {
                         SQLiteParameter spaceParam = new()
                         {
-                            Name = $"@p{visitor.Counters.ParamIndex++}",
+                            Name = visitor.Counters.NextParamName(),
                             Value = ' '
                         };
-                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);
                         parameters = [.. parameters ?? [], spaceParam];
 
-                        return new SQLiteExpression(
-                            node.Method.ReturnType,
-                            visitor.Counters.IdentifierIndex++,
-                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB({arguments[0].Sql} - LENGTH({obj.Sql}))), '00', {spaceParam.Name}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})) || {obj.Sql}) END)",
-                            parameters
-                        );
+                        return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                            ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', " + spaceParam.Name + "), 1, ", " - LENGTH(", ")) || ", ") END)"],
+                            [objExpr, arg0, objExpr, arg0, objExpr, arg0, objExpr, objExpr],
+                            parameters);
                     }
                     else
                     {
-                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!);
+                        SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0, arg1);
 
-                        return new SQLiteExpression(
-                            node.Method.ReturnType,
-                            visitor.Counters.IdentifierIndex++,
-                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB({arguments[0].Sql} - LENGTH({obj.Sql}))), '00', {arguments[1].Sql}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})) || {obj.Sql}) END)",
-                            parameters
-                        );
+                        return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                            ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', ", "), 1, ", " - LENGTH(", ")) || ", ") END)"],
+                            [objExpr, arg0, objExpr, arg0, objExpr, arg1, arg0, objExpr, objExpr],
+                            parameters);
                     }
                 }
                 case nameof(string.PadRight):
                 {
+                    SQLiteExpression objExpr = obj.SQLiteExpression!;
+                    SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
                     if (node.Arguments.Count == 1)
                     {
                         SQLiteParameter spaceParam = new()
                         {
-                            Name = $"@p{visitor.Counters.ParamIndex++}",
+                            Name = visitor.Counters.NextParamName(),
                             Value = ' '
                         };
-                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);
                         parameters = [.. parameters ?? [], spaceParam];
 
-                        return new SQLiteExpression(
-                            node.Method.ReturnType,
-                            visitor.Counters.IdentifierIndex++,
-                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE ({obj.Sql} || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB({arguments[0].Sql} - LENGTH({obj.Sql}))), '00', {spaceParam.Name}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})))) END)",
-                            parameters
-                        );
+                        return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                            ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (", " || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', " + spaceParam.Name + "), 1, ", " - LENGTH(", ")))) END)"],
+                            [objExpr, arg0, objExpr, objExpr, arg0, objExpr, arg0, objExpr],
+                            parameters);
                     }
                     else
                     {
-                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!);
+                        SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0, arg1);
 
-                        return new SQLiteExpression(
-                            node.Method.ReturnType,
-                            visitor.Counters.IdentifierIndex++,
-                            $"(CASE WHEN LENGTH({obj.Sql}) >= {arguments[0].Sql} THEN {obj.Sql} ELSE ({obj.Sql} || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB({arguments[0].Sql} - LENGTH({obj.Sql}))), '00', {arguments[1].Sql}), 1, {arguments[0].Sql} - LENGTH({obj.Sql})))) END)",
-                            parameters
-                        );
+                        return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                            ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (", " || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', ", "), 1, ", " - LENGTH(", ")))) END)"],
+                            [objExpr, arg0, objExpr, objExpr, arg0, objExpr, arg1, arg0, objExpr],
+                            parameters);
                     }
                 }
             }
@@ -266,45 +221,58 @@ internal static class StringMemberVisitor
         switch (node.Method.Name)
         {
             case nameof(string.IsNullOrEmpty):
-                return new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"({arguments[0].Sql} IS NULL OR {arguments[0].Sql} = '')",
-                    arguments[0].Parameters
-                );
+            {
+                SQLiteExpression a = arguments[0].SQLiteExpression!;
+                return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", a, " IS NULL OR ", a, " = '')", arguments[0].Parameters);
+            }
             case nameof(string.IsNullOrWhiteSpace):
-                return new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"({arguments[0].Sql} IS NULL OR TRIM({arguments[0].Sql}, ' ') = '')",
-                    arguments[0].Parameters
-                );
+            {
+                SQLiteExpression a = arguments[0].SQLiteExpression!;
+                return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", a, " IS NULL OR TRIM(", a, ", ' ') = '')", arguments[0].Parameters);
+            }
             case nameof(string.Concat):
-                return new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    string.Join(" || ", arguments.Select(f => f.Sql)),
-                    ParameterHelpers.CombineParametersFromModels(arguments)
-                );
+            {
+                SQLiteExpression[] concatArgs = arguments.Select(a => a.SQLiteExpression!).ToArray();
+                return SQLiteExpression.Variadic(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", concatArgs, " || ", "", ParameterHelpers.CombineParametersFromModels(arguments));
+            }
             case nameof(string.Join):
                 if (node.Arguments[1] is NewArrayExpression arrayExpr)
                 {
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        string.Join($" || {arguments[0].Sql} || ", arrayExpr.Expressions.Select(e => visitor.ResolveExpression(e).Sql)),
-                        ParameterHelpers.CombineParameters([arguments[0].SQLiteExpression!, .. arrayExpr.Expressions.Select(e => visitor.ResolveExpression(e).SQLiteExpression!)])
-                    );
+                    SQLiteExpression sep = arguments[0].SQLiteExpression!;
+                    SQLiteExpression[] joinArgs = arrayExpr.Expressions.Select(e => visitor.ResolveExpression(e).SQLiteExpression!).ToArray();
+                    if (joinArgs.Length == 0)
+                    {
+                        return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "''");
+                    }
+                    int childCount = joinArgs.Length * 2 - 1;
+                    SQLiteExpression[] interleaved = new SQLiteExpression[childCount];
+                    string[] partsArr = new string[childCount + 1];
+                    partsArr[0] = "";
+                    partsArr[childCount] = "";
+                    for (int i = 0; i < joinArgs.Length; i++)
+                    {
+                        int idx = i * 2;
+                        interleaved[idx] = joinArgs[i];
+                        if (i > 0)
+                        {
+                            interleaved[idx - 1] = sep;
+                            partsArr[idx - 1] = " || ";
+                            partsArr[idx] = " || ";
+                        }
+                    }
+                    return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(), partsArr, interleaved, ParameterHelpers.CombineParameters([sep, .. joinArgs]));
                 }
 
                 throw new NotSupportedException("string.Join with a non-array source is not translatable to SQL.");
             case nameof(string.Compare):
-                return new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"(CASE WHEN {arguments[0].Sql} = {arguments[1].Sql} THEN 0 WHEN {arguments[0].Sql} < {arguments[1].Sql} THEN -1 ELSE 1 END)",
-                    ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!)
-                );
+            {
+                SQLiteExpression a0 = arguments[0].SQLiteExpression!;
+                SQLiteExpression a1 = arguments[1].SQLiteExpression!;
+                return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                    ["(CASE WHEN ", " = ", " THEN 0 WHEN ", " < ", " THEN -1 ELSE 1 END)"],
+                    [a0, a1, a0, a1],
+                    ParameterHelpers.CombineParameters(a0, a1));
+            }
             case nameof(string.Equals):
                 if (arguments.Count == 3 && arguments[2].Constant is StringComparison comparison)
                 {
@@ -316,20 +284,10 @@ internal static class StringMemberVisitor
                         _ => ""
                     };
 
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"({arguments[0].Sql} = {arguments[1].Sql}{collation})",
-                        ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!)
-                    );
+                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", arguments[0].SQLiteExpression!, " = ", arguments[1].SQLiteExpression!, $"{collation})", ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!));
                 }
 
-                return new SQLiteExpression(
-                    node.Method.ReturnType,
-                    visitor.Counters.IdentifierIndex++,
-                    $"({arguments[0].Sql} = {arguments[1].Sql})",
-                    ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!)
-                );
+                return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", arguments[0].SQLiteExpression!, " = ", arguments[1].SQLiteExpression!, ")", ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!));
             default:
                 throw new NotSupportedException($"string.{node.Method.Name} is not translatable to SQL.");
         }
@@ -349,7 +307,7 @@ internal static class StringMemberVisitor
 
         if (arguments[0].IsConstant)
         {
-            string pName = $"@p{visitor.Counters.ParamIndex++}";
+            string pName = visitor.Counters.NextParamName();
             SQLiteParameter parameter = new()
             {
                 Name = pName,
@@ -365,18 +323,14 @@ internal static class StringMemberVisitor
                 ? [parameter]
                 : [.. obj.Parameters, parameter];
 
-            return new SQLiteExpression(method.ReturnType, visitor.Counters.IdentifierIndex++, $"{obj.Sql} LIKE {pName} {rest}", parameters);
+            return SQLiteExpression.Wrap(method.ReturnType, visitor.Counters.NextIdentifier(), "", obj, $" LIKE {pName} {rest}", parameters);
         }
         else
         {
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj, arguments[0].SQLiteExpression!);
+            string valueSql = selectValue(arguments[0].SQLiteExpression!);
 
-            return new SQLiteExpression(
-                method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"{obj.Sql} LIKE {selectValue(arguments[0].SQLiteExpression!)} {rest}",
-                parameters
-            );
+            return SQLiteExpression.Wrap(method.ReturnType, visitor.Counters.NextIdentifier(), "", obj, $" LIKE {valueSql} {rest}", parameters);
         }
     }
 
@@ -384,7 +338,7 @@ internal static class StringMemberVisitor
     {
         if (arguments.Count == 0)
         {
-            return new SQLiteExpression(node.Method.ReturnType, visitor.Counters.IdentifierIndex++, $"{trimType}({obj.Sql})", obj.Parameters);
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{trimType}(", obj, ")", obj.Parameters);
         }
 
         if (node.Arguments[0] is NewArrayExpression expression)
@@ -393,31 +347,33 @@ internal static class StringMemberVisitor
                 .Select(visitor.ResolveExpression)
                 .ToArray();
 
-            if (args.Any(f => f.Sql == null))
+            if (args.Any(f => f.SQLiteExpression == null))
             {
                 return Expression.Call(obj, node.Method, arguments.Select(f => f.Expression));
             }
 
-            string concatenatedChars = string.Join(" || ", args.Select(f => f.Sql));
+            SQLiteExpression[] argExprs = args.Select(f => f.SQLiteExpression!).ToArray();
 
-            SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters([obj, .. args.Select(f => f.SQLiteExpression!)]);
-            return new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"{trimType}({obj.Sql}, {concatenatedChars})",
-                parameters
-            );
+            SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters([obj, .. argExprs]);
+
+            int childCount = 1 + argExprs.Length;
+            SQLiteExpression[] children = new SQLiteExpression[childCount];
+            string[] parts = new string[childCount + 1];
+            children[0] = obj;
+            parts[0] = $"{trimType}(";
+            parts[1] = ", ";
+            for (int i = 0; i < argExprs.Length; i++)
+            {
+                children[i + 1] = argExprs[i];
+                parts[i + 2] = i == argExprs.Length - 1 ? ")" : " || ";
+            }
+
+            return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(), parts, children, parameters);
         }
         else
         {
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj, arguments[0].SQLiteExpression!);
-
-            return new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                $"{trimType}({obj.Sql}, {arguments[0].Sql})",
-                parameters
-            );
+            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{trimType}(", obj, ", ", arguments[0].SQLiteExpression!, ")", parameters);
         }
     }
 
@@ -425,12 +381,7 @@ internal static class StringMemberVisitor
     {
         return propertyName switch
         {
-            nameof(string.Length) => new SQLiteExpression(
-                type,
-                visitor.Counters.IdentifierIndex++,
-                $"LENGTH({node.Sql})",
-                node.Parameters
-            ),
+            nameof(string.Length) => SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "LENGTH(", node, ")", node.Parameters),
             _ => node
         };
     }

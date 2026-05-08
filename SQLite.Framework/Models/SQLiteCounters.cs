@@ -5,17 +5,33 @@ namespace SQLite.Framework.Internals;
 /// </summary>
 public class SQLiteCounters
 {
+    private static readonly string[] paramNameCache = BuildParamNameCache();
+
     private readonly Dictionary<char, int> tableIndex = [];
+    private int paramIndex;
+    private int identifierIndex;
 
     /// <summary>
-    /// Counter for generating unique parameter names in SQL queries.
+    /// Returns the next unique number and adds one to the counter. The number gives a SQL
+    /// expression a stable name that is used for caching and as a column alias.
     /// </summary>
-    public int ParamIndex;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int NextIdentifier()
+    {
+        return identifierIndex++;
+    }
 
     /// <summary>
-    /// Counter for generating unique identifiers for table aliases and other SQL elements that require uniqueness.
+    /// Returns the next parameter name (for example <c>@p0</c>, <c>@p1</c>, and so on) and adds
+    /// one to the counter. The first 256 names are kept in a shared array, so this call does not
+    /// build a new string for each parameter.
     /// </summary>
-    public int IdentifierIndex;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public string NextParamName()
+    {
+        int idx = paramIndex++;
+        return idx < paramNameCache.Length ? paramNameCache[idx] : "@p" + idx;
+    }
 
     /// <summary>
     /// Generates the next unique table alias index for a given starting character.
@@ -28,5 +44,16 @@ public class SQLiteCounters
         }
         tableIndex[c] = v + 1;
         return v;
+    }
+
+    private static string[] BuildParamNameCache()
+    {
+        const int size = 256;
+        string[] cache = new string[size];
+        for (int i = 0; i < size; i++)
+        {
+            cache[i] = "@p" + i;
+        }
+        return cache;
     }
 }

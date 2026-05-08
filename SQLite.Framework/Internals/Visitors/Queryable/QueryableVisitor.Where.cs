@@ -58,9 +58,9 @@ internal partial class QueryableVisitor
 
         if (!IsInnerQuery)
         {
-            string columnName = ((SQLiteExpression)visitor.TableColumns.Values.First()).Sql;
+            SQLiteExpression columnExpr = (SQLiteExpression)visitor.TableColumns.Values.First();
 
-            Wheres.Add(new SQLiteExpression(typeof(bool), visitor.Counters.IdentifierIndex++, $"{columnName} = {sqlExpression.Sql}", sqlExpression.Parameters));
+            Wheres.Add(SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " = ", sqlExpression, "", sqlExpression.Parameters));
 
             IsAny = true;
         }

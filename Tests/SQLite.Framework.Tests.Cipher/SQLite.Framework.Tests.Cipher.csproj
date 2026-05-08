@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <DefineConstants>$(DefineConstants);SQLITECIPHER</DefineConstants>
+        <DefineConstants>$(DefineConstants);SQLITECIPHER;SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE</DefineConstants>
     </PropertyGroup>
 
     <PropertyGroup>

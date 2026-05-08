@@ -7,9 +7,9 @@ internal partial class QueryableVisitor
         SQLTranslator sqlTranslator = visitor.CloneDeeper(visitor.Level);
         SQLQuery query = sqlTranslator.Translate(node.Arguments[1]);
 
-        SQLiteExpression sqlExpression = new(
+        SQLiteExpression sqlExpression = SQLiteExpression.Leaf(
             node.Arguments[1].Type,
-            visitor.Counters.IdentifierIndex++,
+            visitor.Counters.NextIdentifier(),
             query.Sql,
             query.Parameters.Count == 0 ? null : query.Parameters.ToArray()
         );
@@ -26,7 +26,7 @@ internal partial class QueryableVisitor
         IEnumerable<object> arguments = (IEnumerable<object>)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
         SQLiteParameter[] parameters = arguments.Select(a => (SQLiteParameter)a).ToArray();
 
-        visitor.AssignTable(genericType, new SQLiteExpression(genericType, -1, sql, parameters.Length == 0 ? null : parameters));
+        visitor.AssignTable(genericType, SQLiteExpression.Leaf(genericType, -1, sql, parameters.Length == 0 ? null : parameters));
         return node;
     }
 
@@ -43,7 +43,7 @@ internal partial class QueryableVisitor
 
         if (TypeHelpers.IsSimple(genericType, database.Options))
         {
-            string paramName = $"@p{visitor.Counters.ParamIndex++}";
+            string paramName = visitor.Counters.NextParamName();
             columnNames.Add("column__1");
             paramPlaceholders.Add(paramName);
             sqlParams.Add(new SQLiteParameter { Name = paramName, Value = value });
@@ -52,7 +52,7 @@ internal partial class QueryableVisitor
         {
             foreach (PropertyInfo prop in genericType.GetProperties())
             {
-                string paramName = $"@p{visitor.Counters.ParamIndex++}";
+                string paramName = visitor.Counters.NextParamName();
                 columnNames.Add(prop.Name);
                 paramPlaceholders.Add(paramName);
                 sqlParams.Add(new SQLiteParameter { Name = paramName, Value = prop.GetValue(value) });
@@ -64,12 +64,12 @@ internal partial class QueryableVisitor
 
         string selectList = string.Join(", ", paramPlaceholders.Select((p, i) => $"{p} AS \"{columnNames[i]}\""));
         string valuesSql = $"(SELECT {selectList}) AS {alias}";
-        SQLiteExpression fromExpression = new(genericType, -1, valuesSql, sqlParams.ToArray());
+        SQLiteExpression fromExpression = SQLiteExpression.Leaf(genericType, -1, valuesSql, sqlParams.ToArray());
         Dictionary<string, Expression> columns = columnNames
             .ToDictionary(
-                col => col == "column__1" ? string.Empty : col, Expression (col) => new SQLiteExpression(
+                col => col == "column__1" ? string.Empty : col, Expression (col) => SQLiteExpression.Leaf(
                     col == "column__1" ? genericType : genericType.GetProperty(col)!.PropertyType,
-                    visitor.Counters.IdentifierIndex++,
+                    visitor.Counters.NextIdentifier(),
                     $"{alias}.\"{col}\""));
 
         visitor.AssignValues(fromExpression, columns);

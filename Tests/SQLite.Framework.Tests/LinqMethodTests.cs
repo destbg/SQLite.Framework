@@ -2,6 +2,7 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class LinqMethodTests
@@ -639,3 +640,4 @@ public class LinqMethodTests
         Assert.Equal(3, results[0].Id);
     }
 }
+#endif

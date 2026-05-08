@@ -1,6 +1,7 @@
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class AsyncQueryableThrowTests
@@ -358,3 +359,4 @@ public class AsyncQueryableThrowTests
         return args;
     }
 }
+#endif

@@ -9,7 +9,7 @@ internal static class SQLiteFunctionsMemberVisitor
         MethodCallExpression node = (MethodCallExpression)ctx.Node;
         return node.Method.Name switch
         {
-            nameof(SQLiteFunctions.Random) => new SQLiteExpression(typeof(double), visitor.Counters.IdentifierIndex++, "RANDOM()", null),
+            nameof(SQLiteFunctions.Random) => SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), "RANDOM()", null),
             nameof(SQLiteFunctions.RandomBlob) => HandleFunctionsRandomBlob(visitor, node),
             nameof(SQLiteFunctions.Glob) => HandleFunctionsGlob(visitor, node),
             nameof(SQLiteFunctions.UnixEpoch) => HandleFunctionsUnixEpoch(visitor, node),
@@ -24,12 +24,12 @@ internal static class SQLiteFunctionsMemberVisitor
             nameof(SQLiteFunctions.Quote) => HandleFunctionsUnaryFn(visitor, node, "quote", typeof(string)),
             nameof(SQLiteFunctions.Zeroblob) => HandleFunctionsUnaryFn(visitor, node, "zeroblob", typeof(byte[])),
             nameof(SQLiteFunctions.Instr) => HandleFunctionsInstr(visitor, node),
-            nameof(SQLiteFunctions.LastInsertRowId) => new SQLiteExpression(typeof(long), visitor.Counters.IdentifierIndex++, "last_insert_rowid()", null),
-            nameof(SQLiteFunctions.SqliteVersion) => new SQLiteExpression(typeof(string), visitor.Counters.IdentifierIndex++, "sqlite_version()", null),
+            nameof(SQLiteFunctions.LastInsertRowId) => SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), "last_insert_rowid()", null),
+            nameof(SQLiteFunctions.SqliteVersion) => SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), "sqlite_version()", null),
             nameof(SQLiteFunctions.Min) => HandleFunctionsVariadic(visitor, node, "min", node.Method.ReturnType),
             nameof(SQLiteFunctions.Max) => HandleFunctionsVariadic(visitor, node, "max", node.Method.ReturnType),
-            nameof(SQLiteFunctions.Changes) => new SQLiteExpression(typeof(long), visitor.Counters.IdentifierIndex++, "changes()", null),
-            nameof(SQLiteFunctions.TotalChanges) => new SQLiteExpression(typeof(long), visitor.Counters.IdentifierIndex++, "total_changes()", null),
+            nameof(SQLiteFunctions.Changes) => SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), "changes()", null),
+            nameof(SQLiteFunctions.TotalChanges) => SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), "total_changes()", null),
             _ => throw new NotSupportedException($"SQLiteFunctions.{node.Method.Name} is not translatable to SQL."),
         };
     }
@@ -37,22 +37,14 @@ internal static class SQLiteFunctionsMemberVisitor
     private static SQLiteExpression HandleFunctionsRandomBlob(SQLVisitor visitor, MethodCallExpression node)
     {
         ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
-        return new SQLiteExpression(
-            typeof(byte[]),
-            visitor.Counters.IdentifierIndex++,
-            $"RANDOMBLOB({arg.Sql})",
-            arg.Parameters);
+        return SQLiteExpression.Wrap(typeof(byte[]), visitor.Counters.NextIdentifier(), "RANDOMBLOB(", arg.SQLiteExpression!, ")", arg.Parameters);
     }
 
     private static SQLiteExpression HandleFunctionsGlob(SQLVisitor visitor, MethodCallExpression node)
     {
         ResolvedModel pattern = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[1]);
-        return new SQLiteExpression(
-            typeof(bool),
-            visitor.Counters.IdentifierIndex++,
-            $"({value.Sql} GLOB {pattern.Sql})",
-            ParameterHelpers.CombineParameters(value.SQLiteExpression!, pattern.SQLiteExpression!));
+        return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, " GLOB ", pattern.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, pattern.SQLiteExpression!));
     }
 
     private static SQLiteExpression HandleFunctionsBetween(SQLVisitor visitor, MethodCallExpression node)
@@ -60,11 +52,7 @@ internal static class SQLiteFunctionsMemberVisitor
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel low = visitor.ResolveExpression(node.Arguments[1]);
         ResolvedModel high = visitor.ResolveExpression(node.Arguments[2]);
-        return new SQLiteExpression(
-            typeof(bool),
-            visitor.Counters.IdentifierIndex++,
-            $"({value.Sql} BETWEEN {low.Sql} AND {high.Sql})",
-            ParameterHelpers.CombineParameters(value.SQLiteExpression!, low.SQLiteExpression!, high.SQLiteExpression!));
+        return SQLiteExpression.Trinary(typeof(bool), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, " BETWEEN ", low.SQLiteExpression!, " AND ", high.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, low.SQLiteExpression!, high.SQLiteExpression!));
     }
 
     private static SQLiteExpression HandleFunctionsIn(SQLVisitor visitor, MethodCallExpression node)
@@ -72,57 +60,51 @@ internal static class SQLiteFunctionsMemberVisitor
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
         List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[1]);
 
-        string itemsSql = string.Join(", ", items.Select(r => r.Sql));
-        SQLiteExpression[] parts = [value.SQLiteExpression!, .. items.Select(r => r.SQLiteExpression!)];
-        return new SQLiteExpression(
-            typeof(bool),
-            visitor.Counters.IdentifierIndex++,
-            $"({value.Sql} IN ({itemsSql}))",
-            ParameterHelpers.CombineParameters(parts));
+        SQLiteExpression valueExpr = value.SQLiteExpression!;
+        SQLiteExpression[] itemExprs = items.Select(r => r.SQLiteExpression!).ToArray();
+        SQLiteExpression[] parts = [valueExpr, .. itemExprs];
+        if (itemExprs.Length == 0)
+        {
+            return SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", valueExpr, " IN ())", ParameterHelpers.CombineParameters(parts));
+        }
+        SQLiteExpression[] children = new SQLiteExpression[1 + itemExprs.Length];
+        children[0] = valueExpr;
+        string[] partsArr = new string[children.Length + 1];
+        partsArr[0] = "(";
+        partsArr[1] = " IN (";
+        for (int i = 0; i < itemExprs.Length; i++)
+        {
+            children[i + 1] = itemExprs[i];
+            partsArr[i + 2] = i == itemExprs.Length - 1 ? "))" : ", ";
+        }
+        return SQLiteExpression.Multi(typeof(bool), visitor.Counters.NextIdentifier(), partsArr, children, ParameterHelpers.CombineParameters(parts));
     }
 
     private static SQLiteExpression HandleFunctionsVariadic(SQLVisitor visitor, MethodCallExpression node, string sqlFunction, Type returnType)
     {
         List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[0]);
-        string argsSql = string.Join(", ", items.Select(r => r.Sql));
-        SQLiteExpression[] parts = items.Select(r => r.SQLiteExpression!).ToArray();
-        return new SQLiteExpression(
-            returnType,
-            visitor.Counters.IdentifierIndex++,
-            $"{sqlFunction}({argsSql})",
-            ParameterHelpers.CombineParameters(parts));
+        SQLiteExpression[] itemExprs = items.Select(r => r.SQLiteExpression!).ToArray();
+        return SQLiteExpression.Variadic(returnType, visitor.Counters.NextIdentifier(), $"{sqlFunction}(", itemExprs, ", ", ")", ParameterHelpers.CombineParameters(itemExprs));
     }
 
     private static SQLiteExpression HandleFunctionsNullif(SQLVisitor visitor, MethodCallExpression node)
     {
         ResolvedModel a = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel b = visitor.ResolveExpression(node.Arguments[1]);
-        return new SQLiteExpression(
-            node.Method.ReturnType,
-            visitor.Counters.IdentifierIndex++,
-            $"nullif({a.Sql}, {b.Sql})",
-            ParameterHelpers.CombineParameters(a.SQLiteExpression!, b.SQLiteExpression!));
+        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "nullif(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(a.SQLiteExpression!, b.SQLiteExpression!));
     }
 
     private static SQLiteExpression HandleFunctionsUnaryFn(SQLVisitor visitor, MethodCallExpression node, string sqlFunction, Type returnType)
     {
         ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
-        return new SQLiteExpression(
-            returnType,
-            visitor.Counters.IdentifierIndex++,
-            $"{sqlFunction}({arg.Sql})",
-            arg.Parameters);
+        return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), $"{sqlFunction}(", arg.SQLiteExpression!, ")", arg.Parameters);
     }
 
     private static SQLiteExpression HandleFunctionsInstr(SQLVisitor visitor, MethodCallExpression node)
     {
         ResolvedModel haystack = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel needle = visitor.ResolveExpression(node.Arguments[1]);
-        return new SQLiteExpression(
-            typeof(int),
-            visitor.Counters.IdentifierIndex++,
-            $"instr({haystack.Sql}, {needle.Sql})",
-            ParameterHelpers.CombineParameters(haystack.SQLiteExpression!, needle.SQLiteExpression!));
+        return SQLiteExpression.Binary(typeof(int), visitor.Counters.NextIdentifier(), "instr(", haystack.SQLiteExpression!, ", ", needle.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(haystack.SQLiteExpression!, needle.SQLiteExpression!));
     }
 
     private static List<ResolvedModel> ResolveVariadic(SQLVisitor visitor, Expression argument)
@@ -151,15 +133,11 @@ internal static class SQLiteFunctionsMemberVisitor
     {
         if (node.Arguments.Count == 0)
         {
-            return new SQLiteExpression(typeof(long), visitor.Counters.IdentifierIndex++, "unixepoch()", null);
+            return SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), "unixepoch()", null);
         }
 
         ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
-        return new SQLiteExpression(
-            typeof(long),
-            visitor.Counters.IdentifierIndex++,
-            $"unixepoch({arg.Sql})",
-            arg.Parameters);
+        return SQLiteExpression.Wrap(typeof(long), visitor.Counters.NextIdentifier(), "unixepoch(", arg.SQLiteExpression!, ")", arg.Parameters);
     }
 
     private static SQLiteExpression HandleFunctionsPrintf(SQLVisitor visitor, MethodCallExpression node)
@@ -175,26 +153,16 @@ internal static class SQLiteFunctionsMemberVisitor
             }
         }
 
-        string argsSql = rest.Count == 0
-            ? string.Empty
-            : ", " + string.Join(", ", rest.Select(r => r.Sql));
-
-        SQLiteExpression[] all = [format.SQLiteExpression!, .. rest.Select(r => r.SQLiteExpression!)];
-        return new SQLiteExpression(
-            typeof(string),
-            visitor.Counters.IdentifierIndex++,
-            $"printf({format.Sql}{argsSql})",
-            ParameterHelpers.CombineParameters(all));
+        SQLiteExpression formatExpr = format.SQLiteExpression!;
+        SQLiteExpression[] restExprs = rest.Select(r => r.SQLiteExpression!).ToArray();
+        SQLiteExpression[] all = [formatExpr, .. restExprs];
+        return SQLiteExpression.Variadic(typeof(string), visitor.Counters.NextIdentifier(), "printf(", all, ", ", ")", ParameterHelpers.CombineParameters(all));
     }
 
     private static SQLiteExpression HandleFunctionsRegexp(SQLVisitor visitor, MethodCallExpression node)
     {
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel pattern = visitor.ResolveExpression(node.Arguments[1]);
-        return new SQLiteExpression(
-            typeof(bool),
-            visitor.Counters.IdentifierIndex++,
-            $"({value.Sql} REGEXP {pattern.Sql})",
-            ParameterHelpers.CombineParameters(value.SQLiteExpression!, pattern.SQLiteExpression!));
+        return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, " REGEXP ", pattern.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, pattern.SQLiteExpression!));
     }
 }

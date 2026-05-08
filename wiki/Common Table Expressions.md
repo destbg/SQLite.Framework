@@ -208,7 +208,7 @@ FROM cte1 AS w0
 
 ### Sudoku solver
 
-This example is taken directly from the [SQLite WITH documentation](https://sqlite.org/lang_with.html). It solves a Sudoku puzzle entirely in SQL using three CTEs: one for the input grid, one to enumerate digits 1–9, and one recursive CTE that fills in blanks one at a time using `NOT EXISTS` to check row, column, and box constraints.
+This example is taken directly from the [SQLite WITH documentation](https://sqlite.org/lang_with.html). It solves a Sudoku puzzle entirely in SQL using three CTEs: one for the input grid, one to enumerate digits 1 to 9, and one recursive CTE that fills in blanks one at a time using `NOT EXISTS` to check row, column, and box constraints.
 
 The puzzle string is 81 characters where `.` marks an empty cell.
 
@@ -248,11 +248,11 @@ string solution = (from xr in x where xr.Ind == 0 select xr.S).First();
 ```
 
 The key LINQ features used:
-- `from xr in self from z in digits` → `CROSS JOIN` for trying each digit at each blank
-- `!(from lp in digits where ... select lp).Any()` → `NOT EXISTS (SELECT 1 FROM ... WHERE ...)`
-- `xr.S.Substring(offset, 1)` → `SUBSTR(s, offset + 1, 1)`
-- `xr.S.IndexOf('.')` → `INSTR(s, '.') - 1`
-- `(d.Lp + 1).ToString()` → `CAST((lp + 1) AS TEXT)`
+- `from xr in self from z in digits` becomes `CROSS JOIN` for trying each digit at each blank
+- `!(from lp in digits where ... select lp).Any()` becomes `NOT EXISTS (SELECT 1 FROM ... WHERE ...)`
+- `xr.S.Substring(offset, 1)` becomes `SUBSTR(s, offset + 1, 1)`
+- `xr.S.IndexOf('.')` becomes `INSTR(s, '.') - 1`
+- `(d.Lp + 1).ToString()` becomes `CAST((lp + 1) AS TEXT)`
 
 ### Tree traversal
 

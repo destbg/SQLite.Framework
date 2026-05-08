@@ -41,19 +41,18 @@ internal partial class QueryableVisitor
 
                 SQLiteParameter[]? combinedParameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
 
-                string comparison = $"{outerAlias.Sql} = {innerAlias.Sql}";
-                sqlExpressions.Add(new SQLiteExpression(typeof(bool), -1, comparison, combinedParameters));
+                sqlExpressions.Add(SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, " = ", innerAlias, "", combinedParameters));
             }
 
-            string onClause = string.Join(" AND ", sqlExpressions.Select(f => f.Sql));
             SQLiteParameter[]? sqlParameters = ParameterHelpers.CombineParameters(sqlExpressions);
+            SQLiteExpression[] onParts = sqlExpressions.ToArray();
 
             Joins.Add(new JoinInfo
             {
                 EntityType = entityType,
                 JoinType = joinType,
                 Sql = sql,
-                OnClause = new SQLiteExpression(typeof(bool), -1, onClause, sqlParameters),
+                OnClause = SQLiteExpression.Variadic(typeof(bool), -1, "", onParts, " AND ", "", sqlParameters),
                 IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
             });
         }
@@ -69,7 +68,7 @@ internal partial class QueryableVisitor
                 EntityType = entityType,
                 JoinType = joinType,
                 Sql = sql,
-                OnClause = new SQLiteExpression(typeof(bool), -1, $"{outerAlias.Sql} = {innerAlias.Sql}", parameters),
+                OnClause = SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, " = ", innerAlias, "", parameters),
                 IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
             });
         }

@@ -24,13 +24,10 @@ internal static class EnumMemberVisitor
             {
                 case nameof(Enum.HasFlag):
                 {
-                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        $"(({obj.Sql} & {arguments[0].Sql}) = {arguments[0].Sql})",
-                        parameters
-                    );
+                    SQLiteExpression objExpr = obj.SQLiteExpression!;
+                    SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
+                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);
+                    return SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "((", objExpr, " & ", arg0, ") = ", arg0, ")", parameters);
                 }
                 case nameof(Enum.ToString):
                 {
@@ -38,9 +35,8 @@ internal static class EnumMemberVisitor
                     Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
                     string[] enumNames = Enum.GetNames(enumType);
 
-                    List<string> caseClauses = new();
+                    StringBuilder caseSb = new();
                     List<SQLiteParameter> nameParams = new();
-
                     for (int i = 0; i < enumValuesArray.Length; i++)
                     {
                         object enumValue = enumValuesArray.GetValue(i)!;
@@ -49,25 +45,22 @@ internal static class EnumMemberVisitor
 
                         SQLiteParameter nameParam = new()
                         {
-                            Name = $"@p{visitor.Counters.ParamIndex++}",
+                            Name = visitor.Counters.NextParamName(),
                             Value = enumName
                         };
                         nameParams.Add(nameParam);
-                        caseClauses.Add($"WHEN {numericValue} THEN {nameParam.Name}");
+                        caseSb.Append(" WHEN ");
+                        caseSb.Append(numericValue);
+                        caseSb.Append(" THEN ");
+                        caseSb.Append(nameParam.Name);
                     }
 
-                    string caseExpression = $"(CASE {obj.Sql} {string.Join(" ", caseClauses)} ELSE CAST({obj.Sql} AS TEXT) END)";
-
+                    SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteParameter[] parameters = obj.Parameters == null
                         ? [.. nameParams]
                         : [.. obj.Parameters, .. nameParams];
 
-                    return new SQLiteExpression(
-                        node.Method.ReturnType,
-                        visitor.Counters.IdentifierIndex++,
-                        caseExpression,
-                        parameters
-                    );
+                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, caseSb.ToString() + " ELSE CAST(", objExpr, " AS TEXT) END)", parameters);
                 }
             }
         }
@@ -103,7 +96,7 @@ internal static class EnumMemberVisitor
             Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
             string[] enumNames = Enum.GetNames(enumType);
 
-            List<string> caseClauses = new();
+            StringBuilder caseSb = new();
             List<SQLiteParameter> parameters = new();
 
             for (int i = 0; i < enumValuesArray.Length; i++)
@@ -114,25 +107,22 @@ internal static class EnumMemberVisitor
 
                 SQLiteParameter nameParam = new()
                 {
-                    Name = $"@p{visitor.Counters.ParamIndex++}",
+                    Name = visitor.Counters.NextParamName(),
                     Value = enumName
                 };
                 parameters.Add(nameParam);
-                caseClauses.Add($"WHEN {nameParam.Name} THEN {numericValue}");
+                caseSb.Append(" WHEN ");
+                caseSb.Append(nameParam.Name);
+                caseSb.Append(" THEN ");
+                caseSb.Append(numericValue);
             }
 
-            string caseExpression = $"(CASE {stringArg.Sql} {string.Join(" ", caseClauses)} ELSE NULL END)";
-
+            SQLiteExpression stringArgExpr = stringArg.SQLiteExpression!;
             SQLiteParameter[] allParams = stringArg.Parameters == null
                 ? [.. parameters]
                 : [.. stringArg.Parameters, .. parameters];
 
-            return new SQLiteExpression(
-                node.Method.ReturnType,
-                visitor.Counters.IdentifierIndex++,
-                caseExpression,
-                allParams
-            );
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, caseSb.ToString() + " ELSE NULL END)", allParams);
         }
 
         throw new NotSupportedException($"Enum.{node.Method.Name} is not translatable to SQL.");

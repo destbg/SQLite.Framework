@@ -7,9 +7,6 @@
         <IsPackable>false</IsPackable>
         <OutputType>Exe</OutputType>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-        <PublishAot>true</PublishAot>
-        <PublishTrimmed>true</PublishTrimmed>
-        <TrimMode>partial</TrimMode>
     </PropertyGroup>
 
     <ItemGroup>

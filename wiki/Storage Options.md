@@ -10,7 +10,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("mydb.sqlite")
 using SQLiteDatabase db = new(options);
 ```
 
-`UseDateTimeStorage`, `UseDateTimeOffsetStorage`, `UseTimeSpanStorage`, `UseDateOnlyStorage`, `UseTimeOnlyStorage`, `UseDecimalStorage`, and `UseEnumStorage` each set the corresponding mode and optionally the format string. Chain them together with `AddTypeConverter`, `AddMethodTranslator`, `AddPredicateMethodTranslator`, `AddPropertyTranslator`, `AddMethodCallInterceptor`, `UseWalMode`, `UseOpenFlags`, and `UseEncryptionKey` to configure the whole database in one place.
+`UseDateTimeStorage`, `UseDateTimeOffsetStorage`, `UseTimeSpanStorage`, `UseDateOnlyStorage`, `UseTimeOnlyStorage`, `UseDecimalStorage`, and `UseEnumStorage` each set the corresponding mode and optionally the format string. Chain them together with `AddTypeConverter`, `AddMethodTranslator`, `AddPropertyTranslator`, `UseWalMode`, `UseOpenFlags`, and `UseEncryptionKey` to configure the whole database in one place.
 
 Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you need to change a setting, build a new options instance.
 
