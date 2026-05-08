@@ -20,6 +20,7 @@ public sealed class LambdaSqlExpression : SQLiteExpression
         this.writer = writer;
     }
 
+    /// <inheritdoc />
     public override void WriteSqlTo(StringBuilder sb)
     {
         writer(sb);
