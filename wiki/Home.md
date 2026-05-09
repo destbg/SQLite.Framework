@@ -45,6 +45,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - [Overview](Overview)
 - [Getting Started](Getting%20Started)
 - [Defining Models](Defining%20Models)
+- [Samples](Samples)
 - [CRUD Operations](CRUD%20Operations)
 - [Querying](Querying)
 - [Expressions](Expressions)

@@ -1,0 +1,36 @@
+html, body {
+    margin: 0;
+    background: #32333d;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.linq-snippet {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 0.85rem;
+    background: var(--mud-palette-background-gray);
+    border-radius: var(--mud-default-borderradius);
+    padding: 1rem;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 0;
+}
+
+#blazor-error-ui {
+    background: #ffeaea;
+    color: #b00;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}

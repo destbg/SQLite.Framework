@@ -1,0 +1,21 @@
+@inherits LayoutComponentBase
+
+<MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Surface">
+        <MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-3" />
+        <MudText Typo="Typo.h6">SQLite.Framework in the browser</MudText>
+        <MudSpacer />
+        <MudTooltip Text="Source on GitHub" Placement="Placement.Bottom">
+            <MudIconButton Icon="@Icons.Custom.Brands.GitHub"
+                           Color="Color.Default"
+                           Href="https://github.com/destbg/SQLite.Framework"
+                           Target="_blank" />
+        </MudTooltip>
+    </MudAppBar>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6 mb-12">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>

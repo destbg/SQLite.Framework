@@ -17,6 +17,7 @@ export const sections: Section[] = [
       { slug: "Overview", title: "Overview" },
       { slug: "Getting Started", title: "Getting Started" },
       { slug: "Defining Models", title: "Defining Models" },
+      { slug: "Samples", title: "Samples" },
     ],
   },
   {

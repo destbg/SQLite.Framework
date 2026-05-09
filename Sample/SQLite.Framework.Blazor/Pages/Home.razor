@@ -1,0 +1,245 @@
+@page "/"
+@inject TodoStore Store
+@inject ISnackbar Snackbar
+
+<PageTitle>SQLite.Framework Blazor sample</PageTitle>
+
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-6" Dense="true">
+    SQLite is running inside this WebAssembly app via
+    <MudLink Href="https://www.nuget.org/packages/SQLite.Framework.Bundled" Target="_blank">SQLite.Framework.Bundled</MudLink>.
+    Mutations are snapshotted to <code>localStorage</code>, so your data survives a page reload.
+</MudAlert>
+
+@if (todos == null)
+{
+    <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Class="mt-4" Typo="Typo.body2">Opening database...</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Class="pa-4 mb-6" Elevation="2">
+        <MudText Typo="Typo.h6" Class="mb-3">Add a todo</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="draftTitle"
+                              Label="What needs doing?"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              OnKeyDown="OnDraftKeyDown"
+                              Immediate="true" />
+            </MudItem>
+            <MudItem xs="8" sm="4">
+                <MudDatePicker @bind-Date="draftDueDate"
+                               Label="Due"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense"
+                               Editable="true"
+                               Clearable="true" />
+            </MudItem>
+            <MudItem xs="4" sm="2" Class="d-flex align-center">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddAsync"
+                           Disabled="@string.IsNullOrWhiteSpace(draftTitle)"
+                           FullWidth="true">
+                    Add
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Class="pa-2 mb-6" Elevation="2">
+        <MudList T="Todo">
+            @if (todos.Count == 0)
+            {
+                <MudListItem T="Todo" Disabled="true">
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">No todos. Add one above.</MudText>
+                </MudListItem>
+            }
+            else
+            {
+                @foreach (Todo todo in todos)
+                {
+                    <MudListItem T="Todo">
+                        <ChildContent>
+                            <div class="d-flex align-center" style="gap: 0.5rem;">
+                                <MudCheckBox T="bool"
+                                             Value="@todo.IsComplete"
+                                             ValueChanged="@(_ => ToggleAsync(todo))"
+                                             Color="Color.Primary"
+                                             Dense="true" />
+                                <div class="flex-grow-1">
+                                    <MudText Typo="Typo.body1"
+                                             Style="@(todo.IsComplete ? "text-decoration: line-through; opacity: 0.6;" : null)">
+                                        @todo.Title
+                                    </MudText>
+                                    @if (todo.DueBy.HasValue)
+                                    {
+                                        <MudText Typo="Typo.caption"
+                                                 Color="@(IsOverdue(todo) ? Color.Error : Color.Default)">
+                                            Due @todo.DueBy.Value.ToString("yyyy-MM-dd")
+                                        </MudText>
+                                    }
+                                </div>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => DeleteAsync(todo))" />
+                            </div>
+                        </ChildContent>
+                    </MudListItem>
+                }
+            }
+        </MudList>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-6" Elevation="2">
+        <MudText Typo="Typo.h6">LINQ aggregate</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            The query below runs on every refresh. SQLite executes it as a single SELECT,
+            with the bucket expression compiled into the SQL.
+        </MudText>
+        <pre class="linq-snippet mb-4">@AggregateSnippet</pre>
+        <MudTable Items="summary" Dense="true" Hover="true" Bordered="false" Elevation="0">
+            <HeaderContent>
+                <MudTh>Bucket</MudTh>
+                <MudTh Style="text-align: right">Count</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="@BucketColor(context.Bucket)" Variant="Variant.Filled">
+                        @context.Bucket
+                    </MudChip>
+                </MudTd>
+                <MudTd Style="text-align: right">@context.Count</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+
+    <div class="d-flex justify-end">
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.RestartAlt"
+                   OnClick="ResetAsync">
+            Reset database
+        </MudButton>
+    </div>
+}
+
+@code {
+    private List<Todo>? todos;
+    private List<SummaryRow> summary = [];
+    private string draftTitle = string.Empty;
+    private DateTime? draftDueDate;
+
+    private const string AggregateSnippet =
+@"from t in db.Table<Todo>()
+group t by t.IsComplete ? ""done""
+    : t.DueBy != null && t.DueBy < today ? ""overdue""
+    : ""open""
+into g
+select new { Bucket = g.Key, Count = g.Count() }";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        SQLiteDatabase db = await Store.GetDatabaseAsync();
+
+        todos = await db.Table<Todo>()
+            .OrderBy(t => t.IsComplete)
+            .ThenBy(t => t.DueBy ?? DateOnly.MaxValue)
+            .ThenByDescending(t => t.CreatedAt)
+            .ToListAsync();
+
+        DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+        summary = await (
+            from t in db.Table<Todo>()
+            group t by t.IsComplete
+                ? "done"
+                : t.DueBy != null && t.DueBy < today
+                    ? "overdue"
+                    : "open"
+            into g
+            select new SummaryRow(g.Key, g.Count())
+        ).ToListAsync();
+    }
+
+    private async Task OnDraftKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && !string.IsNullOrWhiteSpace(draftTitle))
+        {
+            await AddAsync();
+        }
+    }
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrWhiteSpace(draftTitle))
+        {
+            return;
+        }
+
+        SQLiteDatabase db = await Store.GetDatabaseAsync();
+        await db.Table<Todo>().AddAsync(new Todo
+        {
+            Title = draftTitle.Trim(),
+            DueBy = draftDueDate.HasValue ? DateOnly.FromDateTime(draftDueDate.Value) : null,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        draftTitle = string.Empty;
+        draftDueDate = null;
+        await Store.PersistAsync();
+        await LoadAsync();
+    }
+
+    private async Task ToggleAsync(Todo todo)
+    {
+        SQLiteDatabase db = await Store.GetDatabaseAsync();
+        await db.Table<Todo>()
+            .Where(t => t.Id == todo.Id)
+            .ExecuteUpdateAsync(s => s.Set(t => t.IsComplete, !todo.IsComplete));
+
+        await Store.PersistAsync();
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(Todo todo)
+    {
+        SQLiteDatabase db = await Store.GetDatabaseAsync();
+        await db.Table<Todo>()
+            .Where(t => t.Id == todo.Id)
+            .ExecuteDeleteAsync();
+
+        await Store.PersistAsync();
+        await LoadAsync();
+    }
+
+    private async Task ResetAsync()
+    {
+        await Store.ResetAsync();
+        Snackbar.Add("Database reset.", Severity.Info);
+        await LoadAsync();
+    }
+
+    private static bool IsOverdue(Todo t)
+    {
+        return !t.IsComplete && t.DueBy.HasValue && t.DueBy.Value < DateOnly.FromDateTime(DateTime.Today);
+    }
+
+    private static Color BucketColor(string bucket) => bucket switch
+    {
+        "done" => Color.Success,
+        "overdue" => Color.Error,
+        _ => Color.Info
+    };
+
+    private sealed record SummaryRow(string Bucket, int Count);
+}
