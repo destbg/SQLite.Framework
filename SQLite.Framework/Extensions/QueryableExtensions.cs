@@ -123,4 +123,73 @@ public static class QueryableExtensions
 
         return query.Sql;
     }
+
+    /// <summary>
+    /// Runs <c>EXPLAIN QUERY PLAN</c> for <paramref name="source" /> and returns the result
+    /// as a tree. Use <see cref="SQLiteQueryPlan.ToString" /> to get a printable text version.
+    /// Requires SQLite 3.24.0 or newer for the four-column <c>(id, parent, notused, detail)</c>
+    /// row format the helper parses.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android30.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios12.0")]
+#endif
+    public static SQLiteQueryPlan ExplainQueryPlan<T>(this IQueryable<T> source)
+    {
+        if (source is not BaseSQLiteQueryable table)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
+        }
+
+        SQLTranslator translator = new(table.Database);
+        SQLQuery query = translator.Translate(source.Expression);
+
+        SQLiteCommand command = table.Database.CreateCommand("EXPLAIN QUERY PLAN " + query.Sql, query.Parameters);
+        using SQLiteDataReader reader = command.ExecuteReader();
+
+        List<(int Id, int ParentId, string Detail)> rows = [];
+        while (reader.Read())
+        {
+            int id = (int)(long)reader.GetValue(0, reader.GetColumnType(0), typeof(long))!;
+            int parentId = (int)(long)reader.GetValue(1, reader.GetColumnType(1), typeof(long))!;
+            string detail = (string)reader.GetValue(3, reader.GetColumnType(3), typeof(string))!;
+            rows.Add((id, parentId, detail));
+        }
+
+        return BuildPlan(rows);
+    }
+
+    private static SQLiteQueryPlan BuildPlan(List<(int Id, int ParentId, string Detail)> rows)
+    {
+        Dictionary<int, List<SQLiteQueryPlanNode>> childrenById = [];
+        foreach ((int id, int _, string _) in rows)
+        {
+            childrenById[id] = [];
+        }
+
+        List<SQLiteQueryPlanNode> roots = [];
+        foreach ((int id, int parentId, string detail) in rows)
+        {
+            SQLiteQueryPlanNode node = new()
+            {
+                Id = id,
+                ParentId = parentId,
+                Detail = detail,
+                Children = childrenById[id],
+            };
+
+            if (parentId == 0 || !childrenById.TryGetValue(parentId, out List<SQLiteQueryPlanNode>? siblings))
+            {
+                roots.Add(node);
+            }
+            else
+            {
+                siblings.Add(node);
+            }
+        }
+
+        return new SQLiteQueryPlan { Roots = roots };
+    }
 }

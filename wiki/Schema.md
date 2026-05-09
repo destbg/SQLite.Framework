@@ -100,6 +100,44 @@ db.Schema.RenameTable<Book>("RenamedBooks");
 
 `RenameColumn`, `DropColumn`, and `RenameTable` take SQLite column or table names directly.
 
+## Views
+
+`db.Schema.CreateView<T>(...)` creates a SQL view from a LINQ expression. The view name comes from the `[Table("...")]` attribute on the entity, the body is the SQL produced by translating the lambda.
+
+```csharp
+db.Schema.CreateView<BookSummary>(() =>
+    from b in db.Table<Book>()
+    where b.Price > 0
+    select new BookSummary { Id = b.Id, Title = b.Title, Price = b.Price });
+
+bool exists = db.Schema.ViewExists<BookSummary>();
+IReadOnlyList<string> views = db.Schema.ListViews();
+
+db.Schema.DropView<BookSummary>();
+db.Schema.DropView("vBookSummary");
+```
+
+The DDL uses `CREATE VIEW IF NOT EXISTS`, so calling `CreateView` twice is safe. Pair the view with `db.ReadOnlyTable<T>()` to query it.
+
+SQLite does not allow placeholders inside view bodies, so any constants in the lambda are inlined as SQL literals when the view is created. Only simple types (numbers, strings, bool) work as inlined constants. For exotic types use raw SQL through `db.Execute`.
+
+## Triggers
+
+`db.Schema.CreateTrigger<T>(...)` creates a trigger on the table for `T`. The body and the optional `WHEN` predicate are raw SQL strings. Use `OLD` and `NEW` to refer to the row.
+
+```csharp
+db.Schema.CreateTrigger<Book>(
+    name: "trg_book_history",
+    timing: TriggerTiming.After,
+    @event: TriggerEvent.Update,
+    body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.Id, OLD.BookPrice, NEW.BookPrice)",
+    when: "OLD.BookPrice <> NEW.BookPrice");
+
+db.Schema.DropTrigger("trg_book_history");
+```
+
+`TriggerTiming` is `Before`, `After`, or `InsteadOf`. `TriggerEvent` is `Insert`, `Update`, or `Delete`. `InsteadOf` only works on views. The trigger runs once per row by default, pass `forEachRow: false` to run once per statement.
+
 ## Async
 
 Every method has an async wrapper that runs on a background thread:
@@ -110,6 +148,8 @@ await db.Schema.DropTableAsync<Book>();
 await db.Schema.CreateIndexAsync<Book>(b => b.Title);
 bool exists = await db.Schema.TableExistsAsync<Book>();
 IReadOnlyList<SchemaColumnInfo> cols = await db.Schema.ListColumnsAsync<Book>();
+await db.Schema.CreateViewAsync<BookSummary>(() => from b in db.Table<Book>() select new BookSummary { ... });
+await db.Schema.CreateTriggerAsync<Book>("trg_x", TriggerTiming.After, TriggerEvent.Insert, "...");
 ```
 
 ## Customizing schema generation

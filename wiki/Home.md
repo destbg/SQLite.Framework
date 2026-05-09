@@ -68,6 +68,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - [Full Text Search](Full%20Text%20Search)
 - [SQLite Functions](SQLite%20Functions)
 - [Performance](Performance)
+- [Logging](Logging)
 - [Native AOT](Native%20AOT)
 - [Source Generator](Source%20Generator)
 - [Dependency Injection](Dependency%20Injection)

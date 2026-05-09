@@ -64,6 +64,7 @@ export const sections: Section[] = [
     title: "Deployment",
     pages: [
       { slug: "Performance", title: "Performance" },
+      { slug: "Logging", title: "Logging" },
       { slug: "Native AOT", title: "Native AOT" },
       { slug: "Source Generator", title: "Source Generator" },
     ],

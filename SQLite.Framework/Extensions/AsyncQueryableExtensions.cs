@@ -30,6 +30,31 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
+    /// Runs <c>EXPLAIN QUERY PLAN</c> for <paramref name="source" /> and returns the result
+    /// as a tree. Requires SQLite 3.24.0 or newer for the four-column row format the helper
+    /// parses.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android30.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios12.0")]
+#endif
+    public static Task<SQLiteQueryPlan> ExplainQueryPlanAsync<T>(this IQueryable<T> source, CancellationToken ct = default)
+    {
+        if (source is not BaseSQLiteQueryable table)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
+        }
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await table.Database.ReadLockAsync(ct);
+            return source.ExplainQueryPlan();
+        }, ct);
+    }
+
+    /// <summary>
     /// Executes the query and deletes the records from the database.
     /// </summary>
     public static Task<int> ExecuteDeleteAsync<T>(this IQueryable<T> source, Expression<Func<T, bool>> predicate, CancellationToken ct = default)

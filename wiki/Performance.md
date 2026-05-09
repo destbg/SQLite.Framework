@@ -102,3 +102,26 @@ For `Select` projections and entity reads, the source generator emits typed read
 **Use WITHOUT ROWID for lookup tables**
 
 If a table is mostly looked up by primary key and rarely scanned in order, `[WithoutRowId]` can reduce the number of B-tree lookups. See [Defining Models](Defining%20Models) for usage.
+
+## Inspecting the query plan
+
+`IQueryable<T>.ExplainQueryPlan()` runs `EXPLAIN QUERY PLAN` on the query and returns the result as a tree of `SQLiteQueryPlanNode`.
+
+```csharp
+SQLiteQueryPlan plan = db.Table<Book>()
+    .Where(b => b.AuthorId == 1)
+    .ExplainQueryPlan();
+
+Console.WriteLine(plan);
+```
+
+prints
+
+```
+QUERY PLAN
+> SEARCH b0 USING INDEX IX_Book_AuthorId (BookAuthorId=?)
+```
+
+`SQLiteQueryPlan.ToString()` renders the tree as ASCII text. To inspect the tree directly, walk `plan.Roots` and `node.Children`. The async path is `ExplainQueryPlanAsync`.
+
+A non-indexed predicate gives a `SCAN` instead of a `SEARCH`.
