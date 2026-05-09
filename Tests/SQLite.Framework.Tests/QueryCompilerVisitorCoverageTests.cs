@@ -7,7 +7,6 @@ using SQLite.Framework.Generated;
 using SQLite.Framework.Internals.Visitors;
 using SQLite.Framework.Tests.Entities;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class QueryCompilerVisitorCoverageTests
@@ -29,6 +28,7 @@ public class QueryCompilerVisitorCoverageTests
     }
 
 #if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void InvokeOperator_AdditionOnCustomStruct_GoesThroughGenericFallback()
     {
@@ -39,7 +39,9 @@ public class QueryCompilerVisitorCoverageTests
 
         Assert.Equal(new Coverage_NumericValue(8m), result);
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void InvokeOperator_SubtractionOnCustomStruct_GoesThroughGenericFallback()
     {
@@ -50,7 +52,9 @@ public class QueryCompilerVisitorCoverageTests
 
         Assert.Equal(new Coverage_NumericValue(7m), result);
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void InvokeOperator_MultiplyOnCustomStruct_GoesThroughGenericFallback()
     {
@@ -61,7 +65,9 @@ public class QueryCompilerVisitorCoverageTests
 
         Assert.Equal(new Coverage_NumericValue(24m), result);
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void InvokeOperator_DivisionOnCustomStruct_GoesThroughGenericFallback()
     {
@@ -72,7 +78,9 @@ public class QueryCompilerVisitorCoverageTests
 
         Assert.Equal(new Coverage_NumericValue(5m), result);
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void InvokeOperator_ModulusOnCustomStruct_GoesThroughGenericFallback()
     {
@@ -83,7 +91,9 @@ public class QueryCompilerVisitorCoverageTests
 
         Assert.Equal(new Coverage_NumericValue(1m), result);
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void InvokeUnaryOperator_NegationOnCustomStruct_GoesThroughGenericFallback()
     {
@@ -93,6 +103,7 @@ public class QueryCompilerVisitorCoverageTests
 
         Assert.Equal(new Coverage_NumericValue(-7m), result);
     }
+#endif
 #endif
 
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR
@@ -167,6 +178,7 @@ public class QueryCompilerVisitorCoverageTests
         Assert.Contains("Cannot compare values of type", ex.InnerException!.Message);
     }
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void Visit_UnsupportedExpressionTypes_AllThrowNotSupported()
     {
@@ -186,7 +198,9 @@ public class QueryCompilerVisitorCoverageTests
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.TypeIs(Expression.Constant(1), typeof(int))));
         Assert.Throws<NotSupportedException>(() => visitor.Visit(new UnsupportedExtensionExpression()));
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void VisitDynamic_Throws()
     {
@@ -199,6 +213,7 @@ public class QueryCompilerVisitorCoverageTests
 
         Assert.IsType<NotSupportedException>(ex.InnerException);
     }
+#endif
 
     [Fact]
     public void VisitMemberAssignment_Throws()
@@ -374,4 +389,3 @@ public sealed class TestCallSiteBinder : System.Runtime.CompilerServices.CallSit
         throw new NotImplementedException();
     }
 }
-#endif

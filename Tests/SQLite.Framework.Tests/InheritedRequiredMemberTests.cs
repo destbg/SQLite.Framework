@@ -1,4 +1,3 @@
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class InheritedRequiredMemberTests
@@ -43,4 +42,3 @@ public class InheritedRequiredOutputDto : InheritedRequiredBaseDto
 {
     public int ActionType { get; set; }
 }
-#endif

@@ -6,7 +6,6 @@ using SQLite.Framework.Exceptions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class AutoIncrementFillTests
@@ -353,4 +352,3 @@ file class UniqueAiEntity
 
     public required string Name { get; set; }
 }
-#endif

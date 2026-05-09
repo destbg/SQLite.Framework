@@ -5,7 +5,6 @@ using SQLite.Framework.Tests.Helpers;
 using SQLite.Framework.Generated;
 #endif
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class BackupTests
@@ -138,4 +137,3 @@ public class BackupTests
         }
     }
 }
-#endif

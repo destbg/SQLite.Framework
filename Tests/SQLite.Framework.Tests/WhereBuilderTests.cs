@@ -3,7 +3,6 @@ using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class WhereBuilderTests
@@ -397,4 +396,3 @@ internal class BookAuthor
     public required Book Book { get; set; }
     public required Author Author { get; set; }
 }
-#endif

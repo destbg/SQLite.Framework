@@ -3,7 +3,6 @@ using SQLite.Framework.Tests.Helpers;
 
 #pragma warning disable CS0618 // intentionally exercises the obsolete SQLiteTable.CreateTable() shim to confirm subclass forwarding still works
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SQLiteTableSubclassTests
@@ -82,4 +81,3 @@ public class SQLiteTableSubclassTests
         Assert.Empty(db.Items.ToList());
     }
 }
-#endif

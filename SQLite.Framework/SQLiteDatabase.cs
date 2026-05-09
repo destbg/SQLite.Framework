@@ -580,7 +580,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             throw new ArgumentNullException(nameof(parameters), "Parameters cannot be null.");
         }
 
-        ThrowIfDynamicCodeUnsupported(nameof(FromSql));
 
         return new Queryable<T>(this, Expression.Call(
             Expression.Constant(this),
@@ -598,7 +597,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "The type should be part of the client assemblies.")]
     public IQueryable<T> Values<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(T value)
     {
-        ThrowIfDynamicCodeUnsupported(nameof(Values));
 
         return new Queryable<T>(this, Expression.Call(
             Expression.Constant(this),
@@ -786,7 +784,13 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(IGrouping<,>))
         {
-            ThrowIfDynamicCodeUnsupported(nameof(ExecuteSequenceQuery));
+            if (!RuntimeFeature.IsDynamicCodeSupported && Options.GroupByKeyMaterializers.Count == 0)
+            {
+                throw new NotSupportedException(
+                    $"Materializing 'IGrouping<,>' for '{typeof(T).FullName}' uses MakeGenericMethod, " +
+                    "which requires runtime code generation. This path is unavailable when the assembly is built with PublishAot=true. " +
+                    "Use the SQLite.Framework source generator with UseGeneratedMaterializers, or remove PublishAot.");
+            }
             return (IEnumerable<T>)ExecuteGroupingQueryGeneric
                 .MakeGenericMethod(typeof(T).GetGenericArguments())
                 .Invoke(this, [expression])!;
@@ -1146,14 +1150,4 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         };
     }
 
-    private void ThrowIfDynamicCodeUnsupported(string memberName)
-    {
-        if (!RuntimeFeature.IsDynamicCodeSupported && Options.EntityMaterializers.Count == 0)
-        {
-            throw new NotSupportedException(
-                $"'{memberName}' uses MakeGenericMethod, which requires runtime code generation. " +
-                "This path is unavailable when the assembly is published or built with PublishAot=true. " +
-                "Use the SQLite.Framework source generator with UseGeneratedMaterializers, or remove PublishAot.");
-        }
-    }
 }

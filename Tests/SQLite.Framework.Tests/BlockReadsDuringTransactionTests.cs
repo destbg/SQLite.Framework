@@ -2,7 +2,6 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class BlockReadsDuringTransactionTests
@@ -213,4 +212,3 @@ public class BlockReadsDuringTransactionTests
         Assert.Equal(2, db.Table<Book>().Count());
     }
 }
-#endif

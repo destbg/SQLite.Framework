@@ -13,7 +13,6 @@ using SQLite.Framework.Tests.Helpers;
 #pragma warning disable IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
 #pragma warning disable IL3050 // Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class CoverageGapTests
@@ -1249,6 +1248,7 @@ public class CoverageGapTests
         public string AuthorName { get; set; } = string.Empty;
     }
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void GroupBy_KeyShapes_ExerciseSignatureCompute()
     {
@@ -1279,6 +1279,7 @@ public class CoverageGapTests
         List<IGrouping<int, Book>> byConstant = db.Table<Book>().GroupBy(b => 7).ToList();
         Assert.Single(byConstant);
     }
+#endif
 
 
     [Fact]
@@ -3439,4 +3440,3 @@ public class CoverageGapTests
     {
     }
 }
-#endif

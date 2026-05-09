@@ -5,7 +5,6 @@ using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SQLiteDatabaseCoverageTests
@@ -51,6 +50,7 @@ public class SQLiteDatabaseCoverageTests
         Assert.Equal(typeof(string), result);
     }
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void GroupBy_GeneratedKeyMaterializer_IsUsedInsteadOfCompiler()
     {
@@ -77,6 +77,7 @@ public class SQLiteDatabaseCoverageTests
         Assert.Contains(groups, g => g.Key == 100);
         Assert.Contains(groups, g => g.Key == 200);
     }
+#endif
 
     private static string ComputeAuthorIdSignature()
     {
@@ -105,4 +106,3 @@ public class SQLiteDatabaseCoverageTests
             provider.Execute(Expression.Constant(1)));
     }
 }
-#endif

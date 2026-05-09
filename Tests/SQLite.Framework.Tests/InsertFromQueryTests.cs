@@ -2,7 +2,6 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class InsertFromQueryTests
@@ -131,4 +130,3 @@ public class InsertFromQueryTests
         Assert.Equal(2, db.Table<BookArchive>().Count());
     }
 }
-#endif

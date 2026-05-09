@@ -4,7 +4,6 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SQLiteConflictTests
@@ -132,4 +131,3 @@ public class SQLiteConflictTests
         public string GetSqlForConflict(SQLiteConflict conflict) => GetAddOrUpdateInfo(conflict).Sql;
     }
 }
-#endif

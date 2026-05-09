@@ -2,7 +2,6 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class AsyncSQLiteSourceUnsupportedTests
@@ -78,4 +77,3 @@ public class AsyncSQLiteSourceUnsupportedTests
         Assert.Equal(1L, c);
     }
 }
-#endif

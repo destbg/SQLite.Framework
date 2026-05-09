@@ -3,7 +3,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class RawSqlAsyncTests
@@ -364,4 +363,3 @@ public class RawSqlAsyncTests
             await db.QueryAsync<QueryItem>("SELECT * FROM QueryItems", Array.Empty<SQLiteParameter>(), cts.Token));
     }
 }
-#endif

@@ -1,7 +1,6 @@
 using System.Reflection;
 using SQLite.Framework.Enums;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 internal sealed class TestPassThroughConverterForOptions : ISQLiteTypeConverter
@@ -141,4 +140,3 @@ public class OptionsBuilderStorageTests
         Assert.Equal("G29", b.DecimalFormat);
     }
 }
-#endif

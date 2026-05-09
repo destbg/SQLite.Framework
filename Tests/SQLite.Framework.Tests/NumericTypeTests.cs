@@ -4,7 +4,6 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 [Table("NullableNumericRows")]
@@ -508,4 +507,3 @@ public class NumericTypeTests
         Assert.Equal("30.25", results[1].PriceString);
     }
 }
-#endif

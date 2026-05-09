@@ -4,7 +4,6 @@ using SQLite.Framework.Tests.Helpers;
 
 // ReSharper disable AccessToDisposedClosure
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class TransactionConcurrencyTests
@@ -514,4 +513,3 @@ public class TransactionConcurrencyTests
         Assert.Equal("B", result[0].Title);
     }
 }
-#endif

@@ -2,7 +2,6 @@ using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class PragmaTests
@@ -206,4 +205,3 @@ public class PragmaTests
         public string CustomLabel => "custom";
     }
 }
-#endif

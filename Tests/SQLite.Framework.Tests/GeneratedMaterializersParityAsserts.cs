@@ -6,7 +6,6 @@ using SQLite.Framework.Generated;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class GeneratedMaterializersParityAsserts
@@ -205,5 +204,4 @@ public class GeneratedMaterializersParityAsserts
         public required Address Payload { get; set; }
     }
 }
-#endif
 #endif

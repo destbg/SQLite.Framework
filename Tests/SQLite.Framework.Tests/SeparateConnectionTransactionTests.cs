@@ -4,7 +4,6 @@ using SQLite.Framework.Tests.Helpers;
 
 // ReSharper disable AccessToDisposedClosure
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SeparateConnectionTransactionTests
@@ -530,4 +529,3 @@ public class SeparateConnectionTransactionTests
         Assert.Equal(0, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 }
-#endif

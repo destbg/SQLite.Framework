@@ -4,7 +4,6 @@ using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Enums;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class CoverageBranchTests
@@ -432,4 +431,3 @@ internal class ArrayRowB
 [System.Text.Json.Serialization.JsonSerializable(typeof(List<string>))]
 [System.Text.Json.Serialization.JsonSerializable(typeof(string[]))]
 internal partial class CoverageJsonContext : System.Text.Json.Serialization.JsonSerializerContext;
-#endif

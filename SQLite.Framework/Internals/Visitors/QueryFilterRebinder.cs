@@ -18,7 +18,7 @@ internal sealed class QueryFilterRebinder : ExpressionVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Func<TEntity, bool> is constructed for entity types preserved by the user's Table<T>() reference.")]
-    public static LambdaExpression Rebind(LambdaExpression source, Type entityType, SQLiteOptions options)
+    public static LambdaExpression Rebind(LambdaExpression source, Type entityType)
     {
         ParameterExpression oldP = source.Parameters[0];
         if (oldP.Type == entityType)
@@ -29,13 +29,6 @@ internal sealed class QueryFilterRebinder : ExpressionVisitor
         ParameterExpression newP = Expression.Parameter(entityType, oldP.Name);
         QueryFilterRebinder visitor = new(oldP, newP);
         Expression body = visitor.Visit(source.Body)!;
-        if (!RuntimeFeature.IsDynamicCodeSupported && options.EntityMaterializers.Count == 0)
-        {
-            throw new NotSupportedException(
-                $"Rebinding a query filter to entity type '{entityType.FullName}' uses MakeGenericType, " +
-                "which requires runtime code generation. This path is unavailable when the assembly is built with PublishAot=true. " +
-                "Use the SQLite.Framework source generator with UseGeneratedMaterializers, or remove PublishAot.");
-        }
         Type funcType = typeof(Func<,>).MakeGenericType(entityType, typeof(bool));
         return Expression.Lambda(funcType, body, newP);
     }

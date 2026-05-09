@@ -4,7 +4,6 @@ using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Enums;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class CoverageGap3Tests
@@ -183,4 +182,3 @@ public class CoverageGap3Tests
         public int Value { get; set; }
     }
 }
-#endif

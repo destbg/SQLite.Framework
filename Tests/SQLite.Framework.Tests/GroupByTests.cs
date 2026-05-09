@@ -2,7 +2,6 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class GroupByTests
@@ -247,6 +246,7 @@ public class GroupByTests
         Assert.Single(byAuthor[2]);
     }
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void GroupBy_ToList_YieldsGroupingsInInsertionOrder()
     {
@@ -272,7 +272,9 @@ public class GroupByTests
         Assert.Equal(new[] { "A", "C" }, groups[0].Select(b => b.Title));
         Assert.Equal(new[] { "B", "D" }, groups[1].Select(b => b.Title));
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void GroupBy_ToDictionary_BuildsDictionaryOfLists()
     {
@@ -294,7 +296,9 @@ public class GroupByTests
         Assert.Equal(new[] { "A", "B" }, byAuthor[1].Select(b => b.Title));
         Assert.Equal(new[] { "C" }, byAuthor[2].Select(b => b.Title));
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void GroupBy_ForEach_EnumeratesElementsPerGroup()
     {
@@ -322,7 +326,9 @@ public class GroupByTests
         Assert.Equal(2, totalGroups);
         Assert.Equal(3, totalRows);
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void GroupBy_CompositeKey_AnonymousType()
     {
@@ -347,7 +353,9 @@ public class GroupByTests
         Assert.Equal(new[] { "C" }, byKey[(1, false)]);
         Assert.Equal(new[] { "D" }, byKey[(2, false)]);
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void GroupBy_WithWhereAndOrderBy_PreservesFilter()
     {
@@ -374,7 +382,9 @@ public class GroupByTests
         Assert.Single(groups[1]);
         Assert.Equal("C", groups[1].Single().Title);
     }
+#endif
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void GroupBy_EmptyResult_ReturnsEmpty()
     {
@@ -386,5 +396,5 @@ public class GroupByTests
 
         Assert.Empty(groups);
     }
-}
 #endif
+}

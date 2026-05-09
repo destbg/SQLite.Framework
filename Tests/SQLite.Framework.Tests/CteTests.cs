@@ -4,7 +4,6 @@ using SQLite.Framework.Tests.Helpers;
 
 // ReSharper disable AccessToDisposedClosure
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class CteTests
@@ -786,4 +785,3 @@ public class CteTests
         public string Name { get; set; } = string.Empty;
     }
 }
-#endif

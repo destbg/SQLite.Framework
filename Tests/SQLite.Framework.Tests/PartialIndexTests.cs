@@ -1,7 +1,6 @@
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class PartialIndexTests
@@ -81,4 +80,3 @@ public class PartialIndexTests
             db.Table<BookArchive>().Add(new BookArchive { Id = 4, Title = "different", AuthorId = 2, Price = 1 }));
     }
 }
-#endif

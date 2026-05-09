@@ -13,7 +13,6 @@ using SQLite.Framework.Tests.Interfaces;
 
 // ReSharper disable AccessToDisposedClosure
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class OtherTests
@@ -1398,4 +1397,3 @@ public class OtherTests
         public string? Title { get; set; }
     }
 }
-#endif

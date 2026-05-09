@@ -5,7 +5,6 @@ using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 using SQLitePCL;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class SQLiteTableCoverageTests
@@ -165,6 +164,7 @@ public class SQLiteTableCoverageTests
         Assert.DoesNotContain(db.Table<AuditedEntity>().ToList(), e => e.Name == "skip");
     }
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void AddRange_PreparedPath_PrepareFails_ThrowsSQLiteException()
     {
@@ -176,6 +176,7 @@ public class SQLiteTableCoverageTests
 
         Assert.Throws<SQLiteException>(() => table.AddRange(rows));
     }
+#endif
 
     [Fact]
     public void AddRange_PreparedPath_StepFails_ThrowsSQLiteException()
@@ -353,4 +354,3 @@ public class SQLiteTableCoverageTests
         }
     }
 }
-#endif

@@ -20,7 +20,6 @@ using ParameterHelpers = SQLite.Framework.Internals.Helpers.ParameterHelpers;
 using FtsRenderState = SQLite.Framework.Internals.FTS5.FtsRenderState;
 using UpsertSqlBuilder = SQLite.Framework.Internals.Helpers.UpsertSqlBuilder;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class InternalHelpersDirectTests
@@ -75,6 +74,7 @@ public class InternalHelpersDirectTests
         }
     }
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void WindowFunctionsMemberVisitor_HandleWindowFunctionMethod_UnknownMethodName_Throws()
     {
@@ -106,6 +106,7 @@ public class InternalHelpersDirectTests
         Assert.IsType<NotSupportedException>(ex.InnerException);
         Assert.Contains("not translatable to SQL", ex.InnerException!.Message);
     }
+#endif
 
     [Fact]
     public void FtsRenderState_WriteFts5Call_UnknownMethodName_Throws()
@@ -260,9 +261,8 @@ public class InternalHelpersDirectTests
     [Fact]
     public void QueryFilterRebinder_ConcreteMemberNotFound_FallsThroughToBaseUpdate()
     {
-        SQLiteOptions options = new SQLiteOptionsBuilder("rebinder-direct.db3").Build();
         Expression<Func<IRebindFoo, bool>> lambda = x => x.Tag == "x";
-        LambdaExpression rebound = QueryFilterRebinder.Rebind(lambda, typeof(RebindEntityWithExplicitImpl), options);
+        LambdaExpression rebound = QueryFilterRebinder.Rebind(lambda, typeof(RebindEntityWithExplicitImpl));
 
         Assert.NotSame(lambda, rebound);
         Assert.Equal(typeof(RebindEntityWithExplicitImpl), rebound.Parameters[0].Type);
@@ -325,6 +325,7 @@ public class InternalHelpersDirectTests
         Assert.Throws<NotSupportedException>(() => visitor.Visit(node));
     }
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void AliasVisitor_VisitNewExpression_ZeroArgsWithNonNullMembers_FallsThroughToMethodEnd()
     {
@@ -349,6 +350,7 @@ public class InternalHelpersDirectTests
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         method.Invoke(aliasVisitor, new object?[] { node, null });
     }
+#endif
 
     [Fact]
     public void QueryCompilerVisitor_VisitMemberBindingExpression_InvalidBindingType_Throws()
@@ -366,6 +368,7 @@ public class InternalHelpersDirectTests
         Assert.IsType<Exception>(ex.InnerException);
     }
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void QueryCompilerVisitor_VisitMember_FieldInfo_ReturnsFieldValue()
     {
@@ -378,6 +381,7 @@ public class InternalHelpersDirectTests
         SQLiteQueryContext ctx = new() { Input = new ValueTuple<int>(42) };
         Assert.Equal(42, compiled.Call(ctx));
     }
+#endif
 
     [Fact]
     public void QueryCompilerVisitor_VisitUnary_NegateWithUserDefinedOperator_InvokesMethod()
@@ -1760,4 +1764,3 @@ public sealed class InvalidMemberBinding : MemberBinding
     }
 }
 #pragma warning restore CS0618
-#endif

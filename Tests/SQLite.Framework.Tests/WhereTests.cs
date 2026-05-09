@@ -2,7 +2,6 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class WhereTests
@@ -933,4 +932,3 @@ public class WhereTests
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Max(1, 2));
     }
 }
-#endif

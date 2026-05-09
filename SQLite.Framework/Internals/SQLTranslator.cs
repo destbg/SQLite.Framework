@@ -683,15 +683,8 @@ internal class SQLTranslator
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "We are checking the Queryable class")]
-    private MethodCallExpression CreateIdentitySelectExpression(Type genericType)
+    private static MethodCallExpression CreateIdentitySelectExpression(Type genericType)
     {
-        if (!RuntimeFeature.IsDynamicCodeSupported && database.Options.EntityMaterializers.Count == 0)
-        {
-            throw new NotSupportedException(
-                $"Building an identity Select for '{genericType.FullName}' uses MakeGenericType, " +
-                "which requires runtime code generation. This path is unavailable when the assembly is built with PublishAot=true. " +
-                "Use the SQLite.Framework source generator with UseGeneratedMaterializers, or remove PublishAot.");
-        }
         Type genericQueryableType = typeof(IQueryable<>).MakeGenericType(genericType);
 
         ParameterExpression sourceParameter = Expression.Parameter(genericQueryableType, "source");

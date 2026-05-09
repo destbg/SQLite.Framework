@@ -7,7 +7,6 @@ using SQLite.Framework.Tests.Helpers;
 
 #pragma warning disable CS8601 // Possible null reference assignment.
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class ResultTests
@@ -814,4 +813,3 @@ public class ResultTests
 
     private record SeparateClass(IQueryable<Book> Books);
 }
-#endif

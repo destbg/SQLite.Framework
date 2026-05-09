@@ -2,7 +2,6 @@
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class JoinTests
@@ -336,4 +335,3 @@ public class JoinTests
         public required Author Author { get; set; }
     }
 }
-#endif

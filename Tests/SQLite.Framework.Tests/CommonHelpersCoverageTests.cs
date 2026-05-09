@@ -7,7 +7,6 @@ using ExpressionHelpers = SQLite.Framework.Internals.Helpers.ExpressionHelpers;
 using TypeHelpers = SQLite.Framework.Internals.Helpers.TypeHelpers;
 using ParameterHelpers = SQLite.Framework.Internals.Helpers.ParameterHelpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class CommonHelpersCoverageTests
@@ -376,4 +375,3 @@ public class CommonHelpersOuterTarget
 {
     public CommonHelpersTestTarget Inner { get; } = new();
 }
-#endif

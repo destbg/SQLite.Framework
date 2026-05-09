@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 [JsonSerializable(typeof(Address))]
@@ -419,4 +418,3 @@ file class TaggedEntity
 
     public required TagList Tags { get; set; }
 }
-#endif

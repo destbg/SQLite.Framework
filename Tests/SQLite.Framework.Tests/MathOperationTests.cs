@@ -2,7 +2,6 @@ using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class MathOperationTests
@@ -538,4 +537,3 @@ public class MathOperationTests
         Assert.Equal(3, results[2].Log10, 5);
     }
 }
-#endif

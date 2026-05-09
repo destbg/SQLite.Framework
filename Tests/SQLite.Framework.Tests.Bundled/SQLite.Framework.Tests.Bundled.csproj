@@ -32,6 +32,8 @@
 
     <ItemGroup>
         <Compile Include="../SQLite.Framework.Tests/**/*.cs" Exclude="../SQLite.Framework.Tests/obj/**/*.cs"/>
+        <None Include="../SQLite.Framework.Tests/TrimmerRootDescriptor.xml"/>
+        <TrimmerRootDescriptor Include="../SQLite.Framework.Tests/TrimmerRootDescriptor.xml"/>
     </ItemGroup>
 
     <ItemGroup>

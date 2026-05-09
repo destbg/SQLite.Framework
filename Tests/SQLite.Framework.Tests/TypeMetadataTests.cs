@@ -3,7 +3,6 @@ using SQLite.Framework.Enums;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Models;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class TypeMetadataTests
@@ -203,4 +202,3 @@ public class TypeMetadataTests
         public object? FromDatabase(object? value) => value;
     }
 }
-#endif

@@ -1,4 +1,3 @@
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class MarkerMethodsThrowTests
@@ -122,4 +121,3 @@ public class MarkerMethodsThrowTests
         });
     }
 }
-#endif

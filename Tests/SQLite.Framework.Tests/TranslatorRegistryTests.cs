@@ -4,7 +4,6 @@ using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Models;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class TranslatorRegistryTests
@@ -127,4 +126,3 @@ public class TranslatorRegistryTests
         public T Take(T value) => value;
     }
 }
-#endif

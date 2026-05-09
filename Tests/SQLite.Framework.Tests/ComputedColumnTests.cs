@@ -1,7 +1,6 @@
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class ComputedColumnTests
@@ -58,4 +57,3 @@ public class ComputedColumnTests
                 .Computed(p => p.Price + 1, p => p.Price));
     }
 }
-#endif

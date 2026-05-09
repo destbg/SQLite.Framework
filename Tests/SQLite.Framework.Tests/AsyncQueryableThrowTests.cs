@@ -1,7 +1,6 @@
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 
-#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
 namespace SQLite.Framework.Tests;
 
 public class AsyncQueryableThrowTests
@@ -304,6 +303,7 @@ public class AsyncQueryableThrowTests
     public async Task CountAsync_Predicate_NotSQLite_Throws()
         => await Assert.ThrowsAsync<InvalidOperationException>(async () => await NonSqlite().CountAsync(b => b.Id > 0));
 
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void ObsoleteMarker_AllErrorMarkers_Throw()
     {
@@ -328,6 +328,7 @@ public class AsyncQueryableThrowTests
             Assert.IsType<NotSupportedException>(ex.InnerException);
         }
     }
+#endif
 
     private static System.Reflection.MethodInfo MakeConcrete(System.Reflection.MethodInfo method)
     {
@@ -359,4 +360,3 @@ public class AsyncQueryableThrowTests
         return args;
     }
 }
-#endif
