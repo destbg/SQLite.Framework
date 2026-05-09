@@ -287,8 +287,14 @@ public class SQLiteSchema
 
     /// <summary>
     /// Renames a column on the table for <typeparamref name="T" />. Both names are SQLite column
-    /// names, not entity property names.
+    /// names, not entity property names. Requires SQLite 3.25.0 or newer.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android30.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios13.0")]
+#endif
     public virtual int RenameColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string fromColumn, string toColumn)
     {
         ArgumentException.ThrowIfNullOrEmpty(fromColumn);
@@ -301,7 +307,14 @@ public class SQLiteSchema
 
     /// <summary>
     /// Drops the column with the given SQLite name from the table for <typeparamref name="T" />.
+    /// Requires SQLite 3.35.0 or newer.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
     public virtual int DropColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string columnName)
     {
         ArgumentException.ThrowIfNullOrEmpty(columnName);

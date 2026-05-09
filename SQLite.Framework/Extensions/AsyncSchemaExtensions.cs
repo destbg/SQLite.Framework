@@ -175,8 +175,14 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
-    /// Renames a column on the table for <typeparamref name="T" />.
+    /// Renames a column on the table for <typeparamref name="T" />. Requires SQLite 3.25.0 or newer.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android30.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios13.0")]
+#endif
     public static Task<int> RenameColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string fromColumn, string toColumn, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
@@ -187,8 +193,14 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
-    /// Drops a column on the table for <typeparamref name="T" />.
+    /// Drops a column on the table for <typeparamref name="T" />. Requires SQLite 3.35.0 or newer.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
     public static Task<int> DropColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string columnName, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>

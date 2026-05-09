@@ -25,10 +25,17 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     /// Adds a generated (computed) column. The column is computed from <paramref name="sql" /> on
     /// every read when <paramref name="stored" /> is <see langword="false" /> (the default), or
     /// stored on disk when <paramref name="stored" /> is <see langword="true" />.
+    /// Requires SQLite 3.31.0 or newer.
     /// </summary>
     /// <param name="column">The property on the entity that maps to the computed column.</param>
     /// <param name="sql">Expression that produces the column value, translated to SQL.</param>
     /// <param name="stored">When <see langword="true" />, the column is stored on disk. Default is virtual.</param>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
     public SQLiteTableBuilder<T> Computed<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, TValue>> sql, bool stored = false)
     {
         ArgumentNullException.ThrowIfNull(column);
