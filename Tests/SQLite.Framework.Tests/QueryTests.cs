@@ -503,16 +503,29 @@ public class QueryTests
     }
 
     [Fact]
-    public void CommandCreated_EventFires()
+    public void CommandInterceptor_Fires()
     {
-        using TestDatabase db = SetupDatabase();
-        SQLiteCommand? captured = null;
-        db.CommandCreated += cmd => captured = cmd;
+        CapturingInterceptor capture = new();
+        using TestDatabase db = new(b => b.AddCommandInterceptor(capture));
+        db.Table<QueryItem>().Schema.CreateTable();
 
         db.Query<QueryItem>("SELECT * FROM QueryItems");
 
-        Assert.NotNull(captured);
-        Assert.Contains("SELECT", captured.CommandText);
+        Assert.NotEmpty(capture.Executing);
+        Assert.NotEmpty(capture.Executed);
+        Assert.Empty(capture.Failed);
+        Assert.Contains(capture.Executing, c => c.Contains("SELECT * FROM QueryItems"));
+    }
+
+    private sealed class CapturingInterceptor : ISQLiteCommandInterceptor
+    {
+        public List<string> Executing { get; } = [];
+        public List<string> Executed { get; } = [];
+        public List<string> Failed { get; } = [];
+
+        public void OnExecuting(SQLiteCommand command) => Executing.Add(command.CommandText);
+        public void OnExecuted(SQLiteCommand command, int? rowsAffected) => Executed.Add(command.CommandText);
+        public void OnFailed(SQLiteCommand command, Exception exception) => Failed.Add(command.CommandText);
     }
 
     [Fact]

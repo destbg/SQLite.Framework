@@ -222,6 +222,19 @@ public sealed class SQLiteOptionsBuilder
     public Func<SQLiteDatabase, SQLiteSchema> SchemaFactory { get; set; } = static db => new SQLiteSchema(db);
 
     /// <summary>
+    /// Hooks called for every <see cref="SQLiteCommand" /> the framework runs. Add entries
+    /// through <see cref="AddCommandInterceptor" /> or <see cref="LogCommands" />.
+    /// </summary>
+    public List<ISQLiteCommandInterceptor> CommandInterceptors { get; } = [];
+
+    /// <summary>
+    /// When <see langword="true" />, the built-in interceptor registered through
+    /// <see cref="LogCommands" /> inlines parameter values in its formatted output. Off by
+    /// default. Set this through <see cref="EnableSensitiveParameterLogging" />.
+    /// </summary>
+    public bool SensitiveParameterLoggingEnabled { get; set; }
+
+    /// <summary>
     /// Registers a predicate the framework injects into every query against <typeparamref name="T" />,
     /// or every query against any entity that implements <typeparamref name="T" /> when it is an
     /// interface. The framework rewrites the filter's parameter from <typeparamref name="T" /> to
@@ -536,6 +549,40 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Adds a hook that observes every <see cref="SQLiteCommand" /> the framework runs.
+    /// Multiple interceptors are supported and are called in registration order.
+    /// </summary>
+    public SQLiteOptionsBuilder AddCommandInterceptor(ISQLiteCommandInterceptor interceptor)
+    {
+        ArgumentNullException.ThrowIfNull(interceptor);
+        CommandInterceptors.Add(interceptor);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a built-in interceptor that formats every command to a single line and passes
+    /// it to <paramref name="logger" />. Use this for a quick log of every SQL statement the
+    /// framework runs. Parameter values are masked unless
+    /// <see cref="EnableSensitiveParameterLogging" /> is also called.
+    /// </summary>
+    public SQLiteOptionsBuilder LogCommands(Action<string> logger)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        CommandInterceptors.Add(new LoggingCommandInterceptor(logger));
+        return this;
+    }
+
+    /// <summary>
+    /// Lets the built-in <see cref="LoggingCommandInterceptor" /> include parameter values in
+    /// its formatted output. Off by default so logs are safe to ship to production.
+    /// </summary>
+    public SQLiteOptionsBuilder EnableSensitiveParameterLogging(bool enabled = true)
+    {
+        SensitiveParameterLoggingEnabled = enabled;
+        return this;
+    }
+
+    /// <summary>
     /// Sets a custom factory for <see cref="SQLiteDatabase.Pragmas" />. Use this to add more pragmas
     /// by passing a class that inherits from <see cref="SQLitePragmas" />.
     /// </summary>
@@ -599,6 +646,8 @@ public sealed class SQLiteOptionsBuilder
             QueryFilters = SnapshotQueryFilters(QueryFilters),
             PragmasFactory = PragmasFactory,
             SchemaFactory = SchemaFactory,
+            CommandInterceptors = [.. CommandInterceptors],
+            SensitiveParameterLoggingEnabled = SensitiveParameterLoggingEnabled,
         };
     }
 

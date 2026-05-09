@@ -159,7 +159,7 @@ public sealed class SQLiteOptions
     /// Use this together with <c>UseGeneratedMaterializers</c> to guarantee that every query in
     /// production goes through the source generator.
     /// </summary>
-    public bool ReflectionFallbackDisabled { get; init; }
+    public required bool ReflectionFallbackDisabled { get; init; }
 
     /// <summary>
     /// When <see langword="true" />, the <c>Add</c> family of methods uses the value already set on
@@ -170,7 +170,7 @@ public sealed class SQLiteOptions
     /// you set on an <c>[AutoIncrement]</c> primary key is overwritten by the generated key.
     /// Set this to <see langword="true" /> to match Entity Framework Core's <c>Add</c> behavior.
     /// </summary>
-    public bool ExplicitAutoIncrementKeysPreserved { get; init; }
+    public required bool ExplicitAutoIncrementKeysPreserved { get; init; }
 
     /// <summary>
     /// When <see langword="true" />, a read from a different async context waits for the active
@@ -179,7 +179,7 @@ public sealed class SQLiteOptions
     /// a separate-connection transaction is running and you do not want other code to read data
     /// that may be rolled back. Defaults to <see langword="false" />.
     /// </summary>
-    public bool BlockReadsDuringTransaction { get; init; }
+    public required bool BlockReadsDuringTransaction { get; init; }
 
     /// <summary>
     /// Per-entity hooks that fire before <c>Add</c>. Each delegate is a
@@ -230,6 +230,21 @@ public sealed class SQLiteOptions
     /// that inherits from <see cref="SQLitePragmas" /> through <see cref="SQLiteOptionsBuilder.UsePragmas" />.
     /// </summary>
     public required Func<SQLiteDatabase, SQLitePragmas> PragmasFactory { get; init; }
+
+    /// <summary>
+    /// Hooks called for every <see cref="SQLiteCommand" /> the framework runs.
+    /// Populated through <see cref="SQLiteOptionsBuilder.AddCommandInterceptor" /> and
+    /// <see cref="SQLiteOptionsBuilder.LogCommands" />.
+    /// </summary>
+    public required IReadOnlyList<ISQLiteCommandInterceptor> CommandInterceptors { get; init; }
+
+    /// <summary>
+    /// When <see langword="true" />, the built-in interceptor registered through
+    /// <see cref="SQLiteOptionsBuilder.LogCommands" /> inlines parameter values in its
+    /// formatted output. Off by default so logs are safe to ship to production. Set this
+    /// through <see cref="SQLiteOptionsBuilder.EnableSensitiveParameterLogging" />.
+    /// </summary>
+    public required bool SensitiveParameterLoggingEnabled { get; init; }
 
     /// <summary>
     /// Builds the <see cref="SQLiteSchema" /> instance returned by <see cref="SQLiteDatabase.Schema" />.

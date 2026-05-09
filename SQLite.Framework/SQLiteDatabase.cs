@@ -222,11 +222,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Called when a command is created using the <see cref="CreateCommand" /> method.
-    /// </summary>
-    public event Action<SQLiteCommand>? CommandCreated;
-
-    /// <summary>
     /// Creates a new table for the specified type.
     /// </summary>
     public virtual TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
@@ -333,11 +328,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         OpenConnection();
 
-        SQLiteCommand cmd = new(this, sql, parameters);
-
-        CommandCreated?.Invoke(cmd);
-
-        return cmd;
+        return new SQLiteCommand(this, sql, parameters);
     }
 
     /// <summary>

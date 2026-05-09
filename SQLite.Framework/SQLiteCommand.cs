@@ -46,19 +46,26 @@ public class SQLiteCommand
     /// <remarks>
     /// Read operations do not acquire the exclusive connection lock. SQLite's own serialized-mode mutex
     /// ensures statement safety, and WAL mode provides snapshot isolation from concurrent writers.
+    /// Interceptors fire once per call: <c>OnExecuting</c> before the statement is prepared,
+    /// <c>OnExecuted</c> after the reader is ready (before any rows are read), and <c>OnFailed</c>
+    /// if preparation throws.
     /// </remarks>
     public SQLiteDataReader ExecuteReader()
     {
         IDisposable connectionLock = Database.ReadLock();
 
+        NotifyExecuting();
         try
         {
             sqlite3_stmt statement = CreateStatement();
-            return new SQLiteDataReader(Database.GetActiveHandle(), statement, connectionLock, Database);
+            SQLiteDataReader reader = new(Database.GetActiveHandle(), statement, connectionLock, Database);
+            NotifyExecuted(rowsAffected: null);
+            return reader;
         }
-        catch
+        catch (Exception exception)
         {
             connectionLock.Dispose();
+            NotifyFailed(exception);
             throw;
         }
     }
@@ -70,16 +77,27 @@ public class SQLiteCommand
     {
         using IDisposable _ = Database.Lock();
 
-        sqlite3_stmt statement = CreateStatement();
-        SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
-        raw.sqlite3_finalize(statement);
-
-        if (result != SQLiteResult.Done)
+        NotifyExecuting();
+        try
         {
-            throw new SQLiteException(result, raw.sqlite3_errmsg(Database.GetActiveHandle()).utf8_to_string(), CommandText);
-        }
+            sqlite3_stmt statement = CreateStatement();
+            SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
+            raw.sqlite3_finalize(statement);
 
-        return raw.sqlite3_changes(Database.GetActiveHandle());
+            if (result != SQLiteResult.Done)
+            {
+                throw new SQLiteException(result, raw.sqlite3_errmsg(Database.GetActiveHandle()).utf8_to_string(), CommandText);
+            }
+
+            int changes = raw.sqlite3_changes(Database.GetActiveHandle());
+            NotifyExecuted(changes);
+            return changes;
+        }
+        catch (Exception exception)
+        {
+            NotifyFailed(exception);
+            throw;
+        }
     }
 
     /// <summary>
@@ -91,17 +109,29 @@ public class SQLiteCommand
     {
         using IDisposable _ = Database.Lock();
 
-        sqlite3_stmt statement = CreateStatement();
-        SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
-        raw.sqlite3_finalize(statement);
-
-        if (result != SQLiteResult.Done)
+        NotifyExecuting();
+        try
         {
-            throw new SQLiteException(result, raw.sqlite3_errmsg(Database.GetActiveHandle()).utf8_to_string(), CommandText);
-        }
+            sqlite3_stmt statement = CreateStatement();
+            SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
+            raw.sqlite3_finalize(statement);
 
-        sqlite3 handle = Database.GetActiveHandle();
-        return (raw.sqlite3_changes(handle), raw.sqlite3_last_insert_rowid(handle));
+            if (result != SQLiteResult.Done)
+            {
+                throw new SQLiteException(result, raw.sqlite3_errmsg(Database.GetActiveHandle()).utf8_to_string(), CommandText);
+            }
+
+            sqlite3 handle = Database.GetActiveHandle();
+            int changes = raw.sqlite3_changes(handle);
+            long rowId = raw.sqlite3_last_insert_rowid(handle);
+            NotifyExecuted(changes);
+            return (changes, rowId);
+        }
+        catch (Exception exception)
+        {
+            NotifyFailed(exception);
+            throw;
+        }
     }
 
     internal sqlite3_stmt CreateStatement()
@@ -130,6 +160,48 @@ public class SQLiteCommand
         foreach (SQLiteParameter parameter in Parameters)
         {
             CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);
+        }
+    }
+
+    private void NotifyExecuting()
+    {
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        if (interceptors.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < interceptors.Count; i++)
+        {
+            interceptors[i].OnExecuting(this);
+        }
+    }
+
+    private void NotifyExecuted(int? rowsAffected)
+    {
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        if (interceptors.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < interceptors.Count; i++)
+        {
+            interceptors[i].OnExecuted(this, rowsAffected);
+        }
+    }
+
+    private void NotifyFailed(Exception exception)
+    {
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        if (interceptors.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < interceptors.Count; i++)
+        {
+            interceptors[i].OnFailed(this, exception);
         }
     }
 }
