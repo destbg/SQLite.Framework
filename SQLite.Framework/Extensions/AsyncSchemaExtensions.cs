@@ -223,6 +223,90 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
+    /// Creates a view named after the SQLite name of <typeparamref name="T" />.
+    /// </summary>
+    public static Task<int> CreateViewAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, Expression<Func<IQueryable<T>>> query, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.CreateView<T>(query);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Drops the view named after the SQLite name of <typeparamref name="T" />.
+    /// </summary>
+    public static Task<int> DropViewAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.DropView<T>();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Drops the view whose SQLite name matches <paramref name="viewName" />.
+    /// </summary>
+    public static Task<int> DropViewAsync(this SQLiteSchema schema, string viewName, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.DropView(viewName);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Returns <see langword="true" /> when a view exists for <typeparamref name="T" />.
+    /// </summary>
+    public static Task<bool> ViewExistsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.ReadLockAsync(ct);
+            return schema.ViewExists<T>();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Lists the names of every user view in the database.
+    /// </summary>
+    public static Task<IReadOnlyList<string>> ListViewsAsync(this SQLiteSchema schema, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.ReadLockAsync(ct);
+            return schema.ListViews();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Creates a trigger on the table for <typeparamref name="T" />.
+    /// </summary>
+    public static Task<int> CreateTriggerAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string name, TriggerTiming timing, TriggerEvent @event, string body, string? when = null, bool forEachRow = true, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.CreateTrigger<T>(name, timing, @event, body, when, forEachRow);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Drops the trigger with the given SQLite name.
+    /// </summary>
+    public static Task<int> DropTriggerAsync(this SQLiteSchema schema, string name, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.DropTrigger(name);
+        }, ct);
+    }
+
+    /// <summary>
     /// Issues the <c>CREATE TABLE IF NOT EXISTS</c> built up by the fluent builder, plus its indexes.
     /// </summary>
     public static Task<int> CreateTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableBuilder<T> builder, CancellationToken ct = default)

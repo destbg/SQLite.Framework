@@ -1,0 +1,45 @@
+namespace SQLite.Framework.Internals.Helpers;
+
+/// <summary>
+/// Inlines parameter values into SQL where the SQLite engine does not allow placeholders
+/// (CHECK / Computed / partial-index expressions, view bodies, trigger bodies, and similar).
+/// </summary>
+internal static class SqlLiteralHelper
+{
+    public static string InlineParameters(string sql, IReadOnlyList<SQLiteParameter> parameters)
+    {
+        if (parameters.Count == 0)
+        {
+            return sql;
+        }
+
+        foreach (SQLiteParameter parameter in parameters.OrderByDescending(p => p.Name.Length))
+        {
+            sql = sql.Replace(parameter.Name, FormatLiteral(parameter.Value));
+        }
+        return sql;
+    }
+
+    public static string FormatLiteral(object? value)
+    {
+        return value switch
+        {
+            null => "NULL",
+            bool b => b ? "1" : "0",
+            string s => "'" + s.Replace("'", "''") + "'",
+            byte b => b.ToString(CultureInfo.InvariantCulture),
+            sbyte b => b.ToString(CultureInfo.InvariantCulture),
+            short b => b.ToString(CultureInfo.InvariantCulture),
+            ushort b => b.ToString(CultureInfo.InvariantCulture),
+            int b => b.ToString(CultureInfo.InvariantCulture),
+            uint b => b.ToString(CultureInfo.InvariantCulture),
+            long b => b.ToString(CultureInfo.InvariantCulture),
+            ulong b => b.ToString(CultureInfo.InvariantCulture),
+            float f => f.ToString("R", CultureInfo.InvariantCulture),
+            double d => d.ToString("R", CultureInfo.InvariantCulture),
+            decimal m => m.ToString(CultureInfo.InvariantCulture),
+            _ => throw new NotSupportedException(
+                $"Cannot inline value of type {value.GetType().Name} as a SQL literal. Use a simple constant in CHECK / Computed / partial-index / view / trigger expressions, or build the DDL with raw SQL."),
+        };
+    }
+}

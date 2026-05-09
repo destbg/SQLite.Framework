@@ -411,9 +411,7 @@ public class SQLiteTableBuilderTests
     [Fact]
     public void FormatLiteral_UnsupportedType_ThrowsNotSupported()
     {
-        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() =>
-            InvokeFormatLiteral(Guid.NewGuid()));
-        Assert.IsType<NotSupportedException>(ex.InnerException);
+        Assert.Throws<NotSupportedException>(() => InvokeFormatLiteral(Guid.NewGuid()));
     }
 
     [Fact]
@@ -434,9 +432,7 @@ public class SQLiteTableBuilderTests
 
     private static string InvokeFormatLiteral(object? value)
     {
-        MethodInfo method = typeof(SQLiteTableBuilder<BookArchive>)
-            .GetMethod("FormatLiteral", BindingFlags.Static | BindingFlags.NonPublic)!;
-        return (string)method.Invoke(null, new[] { value })!;
+        return SQLite.Framework.Internals.Helpers.SqlLiteralHelper.FormatLiteral(value);
     }
 }
 

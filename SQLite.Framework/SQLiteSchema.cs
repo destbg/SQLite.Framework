@@ -349,6 +349,147 @@ public class SQLiteSchema
     }
 
     /// <summary>
+    /// Creates a view named after the SQLite name of <typeparamref name="T" />. The body of
+    /// the view is the SQL produced by translating <paramref name="query" />. Issues
+    /// <c>CREATE VIEW IF NOT EXISTS</c>, so calling this twice does not throw.
+    /// </summary>
+    /// <remarks>
+    /// Pair the view with <see cref="SQLiteDatabase.ReadOnlyTable{T}" /> to query it. The
+    /// view body is captured once at create time; later changes to the lambda do not
+    /// affect the view in the database.
+    /// </remarks>
+    public virtual int CreateView<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Expression<Func<IQueryable<T>>> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        string viewName = Database.TableMapping<T>().TableName;
+        SQLTranslator translator = new(Database);
+        SQLQuery sqlQuery = translator.Translate(query.Body);
+
+        string body = SqlLiteralHelper.InlineParameters(sqlQuery.Sql, sqlQuery.Parameters);
+        string sql = $"CREATE VIEW IF NOT EXISTS \"{viewName.Replace("\"", "\"\"")}\" AS{Environment.NewLine}{body}";
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Drops the view named after the SQLite name of <typeparamref name="T" />.
+    /// </summary>
+    public virtual int DropView<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    {
+        return DropView(Database.TableMapping<T>().TableName);
+    }
+
+    /// <summary>
+    /// Drops the view whose SQLite name matches <paramref name="viewName" />.
+    /// </summary>
+    public virtual int DropView(string viewName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(viewName);
+        return Database.CreateCommand($"DROP VIEW IF EXISTS \"{viewName.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Returns <see langword="true" /> when a view exists for <typeparamref name="T" />.
+    /// </summary>
+    public virtual bool ViewExists<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    {
+        return ViewExists(Database.TableMapping<T>().TableName);
+    }
+
+    /// <summary>
+    /// Returns <see langword="true" /> when a view with the given SQLite name exists.
+    /// </summary>
+    public virtual bool ViewExists(string viewName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(viewName);
+        long? count = Database.ExecuteScalar<long?>(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'view' AND name = @name",
+            [new SQLiteParameter { Name = "@name", Value = viewName }]);
+        return count > 0;
+    }
+
+    /// <summary>
+    /// Lists the names of every user view in the database, ordered alphabetically.
+    /// </summary>
+    public virtual IReadOnlyList<string> ListViews()
+    {
+        return Database.Query<string>(
+            "SELECT name FROM sqlite_master WHERE type = 'view' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+    }
+
+    /// <summary>
+    /// Creates a trigger on the table for <typeparamref name="T" />. The body and the
+    /// optional <paramref name="when" /> predicate are raw SQL fragments. Use <c>NEW</c> and
+    /// <c>OLD</c> to refer to the new and old rows. Issues
+    /// <c>CREATE TRIGGER IF NOT EXISTS</c>.
+    /// </summary>
+    /// <param name="name">The trigger name.</param>
+    /// <param name="timing">When the trigger fires, relative to the row change.</param>
+    /// <param name="event">The row change that fires the trigger.</param>
+    /// <param name="body">The SQL statement(s) the trigger runs. Multiple statements are
+    /// separated by <c>;</c>.</param>
+    /// <param name="when">An optional <c>WHEN</c> predicate. Only rows for which this
+    /// expression is true fire the trigger body.</param>
+    /// <param name="forEachRow">When <see langword="true" /> (the default), the trigger
+    /// fires once per row. When <see langword="false" />, it fires once per statement.</param>
+    public virtual int CreateTrigger<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string name, TriggerTiming timing, TriggerEvent @event, string body, string? when = null, bool forEachRow = true)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrEmpty(body);
+
+        string tableName = Database.TableMapping<T>().TableName;
+        StringBuilder sb = new();
+        sb.Append("CREATE TRIGGER IF NOT EXISTS \"");
+        sb.Append(name.Replace("\"", "\"\""));
+        sb.Append("\" ");
+        sb.Append(timing switch
+        {
+            TriggerTiming.Before => "BEFORE",
+            TriggerTiming.After => "AFTER",
+            TriggerTiming.InsteadOf => "INSTEAD OF",
+            _ => throw new ArgumentOutOfRangeException(nameof(timing)),
+        });
+        sb.Append(' ');
+        sb.Append(@event switch
+        {
+            TriggerEvent.Insert => "INSERT",
+            TriggerEvent.Update => "UPDATE",
+            TriggerEvent.Delete => "DELETE",
+            _ => throw new ArgumentOutOfRangeException(nameof(@event)),
+        });
+        sb.Append(" ON \"");
+        sb.Append(tableName);
+        sb.Append('"');
+        if (forEachRow)
+        {
+            sb.Append(" FOR EACH ROW");
+        }
+        if (!string.IsNullOrEmpty(when))
+        {
+            sb.Append(" WHEN ");
+            sb.Append(when);
+        }
+        sb.Append(" BEGIN ");
+        sb.Append(body);
+        if (!body.TrimEnd().EndsWith(';'))
+        {
+            sb.Append(';');
+        }
+        sb.Append(" END");
+
+        return Database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Drops the trigger with the given SQLite name.
+    /// </summary>
+    public virtual int DropTrigger(string name)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        return Database.CreateCommand($"DROP TRIGGER IF EXISTS \"{name.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
+    }
+
+    /// <summary>
     /// Emits the <c>CREATE VIRTUAL TABLE ... USING fts5(...)</c> statement plus any
     /// <c>AFTER</c> sync triggers when <see cref="FtsTableInfo.AutoSync" /> is set to
     /// <see cref="FtsAutoSync.Triggers" />. Override to change how an FTS5 table is created

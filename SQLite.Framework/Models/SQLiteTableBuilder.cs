@@ -224,44 +224,6 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             throw new ArgumentException($"Expression '{lambda}' could not be translated to SQL.", nameof(lambda));
         }
 
-        return InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters);
+        return SqlLiteralHelper.InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters ?? []);
     }
-
-    private static string InlineParameters(string sql, SQLiteParameter[]? parameters)
-    {
-        if (parameters == null || parameters.Length == 0)
-        {
-            return sql;
-        }
-
-        foreach (SQLiteParameter parameter in parameters.OrderByDescending(p => p.Name.Length))
-        {
-            sql = sql.Replace(parameter.Name, FormatLiteral(parameter.Value));
-        }
-        return sql;
-    }
-
-    private static string FormatLiteral(object? value)
-    {
-        return value switch
-        {
-            null => "NULL",
-            bool b => b ? "1" : "0",
-            string s => "'" + s.Replace("'", "''") + "'",
-            byte b => b.ToString(CultureInfo.InvariantCulture),
-            sbyte b => b.ToString(CultureInfo.InvariantCulture),
-            short b => b.ToString(CultureInfo.InvariantCulture),
-            ushort b => b.ToString(CultureInfo.InvariantCulture),
-            int b => b.ToString(CultureInfo.InvariantCulture),
-            uint b => b.ToString(CultureInfo.InvariantCulture),
-            long b => b.ToString(CultureInfo.InvariantCulture),
-            ulong b => b.ToString(CultureInfo.InvariantCulture),
-            float f => f.ToString("R", CultureInfo.InvariantCulture),
-            double d => d.ToString("R", CultureInfo.InvariantCulture),
-            decimal m => m.ToString(CultureInfo.InvariantCulture),
-            _ => throw new NotSupportedException(
-                $"Cannot inline value of type {value.GetType().Name} as a SQL literal. Use a simple constant in CHECK / Computed / partial-index expressions, or build the table with raw SQL."),
-        };
-    }
-
 }
