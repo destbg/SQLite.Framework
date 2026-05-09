@@ -22,6 +22,23 @@ public static class QueryableExtensions
     }
 
     /// <summary>
+    /// Adds a single <c>WHERE</c> clause built from one or more predicates joined with <c>AND</c>
+    /// and <c>OR</c>. Use this when chaining <c>Where</c> would not capture the desired logic, for
+    /// example when a row should match any of several predicates, or when predicates are added in
+    /// a loop. An empty builder leaves the query unchanged.
+    /// </summary>
+    public static IQueryable<T> WhereBuilder<T>(this IQueryable<T> source, Action<SQLiteWhereBuilder<T>> build)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(build);
+
+        SQLiteWhereBuilder<T> builder = new();
+        build(builder);
+        Expression<Func<T, bool>>? predicate = builder.Build();
+        return predicate == null ? source : source.Where(predicate);
+    }
+
+    /// <summary>
     /// Executes the query and deletes the records from the database.
     /// </summary>
     public static int ExecuteDelete<T>(this IQueryable<T> source)

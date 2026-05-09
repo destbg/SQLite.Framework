@@ -34,7 +34,7 @@ That whole expression is one SQL query. The framework keeps the generated SQL cl
 | **sqlite-net-pcl** | Real LINQ - joins, group-by, subqueries, projections, FTS5, JSON, window functions all translate to SQL. AOT-friendly with the source generator. | Nothing meaningful, the API is similar where it overlaps and the migration is small. |
 | **Dapper** | No more raw SQL strings (although you can still call Query and Execute just the same) and type-safe queries. | Multi-database support, Dapper isn't SQLite-specific. |
 
-See the [Migrating from sqlite-net-pcl](https://destbg.github.io/SQLite.Framework/#/Migrating%20from%20sqlite-net-pcl) page if that's your starting point.
+See the [Migrating from sqlite-net-pcl](https://destbg.github.io/SQLite.Framework/#/Migrating%20from%20sqlite-net-pcl) or [Migrating from EF Core](https://destbg.github.io/SQLite.Framework/#/Migrating%20from%20EF%20Core) page if that's your starting point.
 
 ## Performance
 
@@ -79,7 +79,7 @@ sqlite-net-pcl's `TableQuery<T>` is `IEnumerable<T>`, not `IQueryable<T>`, so th
 
 ## Status
 
-The library is exercised by 10000+ test cases across all suites at 100% code coverage. The main test project alone runs 2000+ tests. The library targets .NET 8, 9, and 10.
+The library is exercised at 100% code coverage. It targets .NET 8, 9, and 10.
 
 ## Documentation
 

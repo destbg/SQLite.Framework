@@ -22,6 +22,43 @@ var byAuthor = await db.Table<Book>()
     .ToListAsync();
 ```
 
+## Mix AND and OR with WhereBuilder
+
+Chained `Where` calls always combine with `AND`. When you need `OR` between predicates, or when a filter comes from a search object whose fields are optional, use `WhereBuilder`. It collects `And` and `Or` calls on a small builder and emits one `WHERE` clause with just the active predicates.
+
+The common case is a filter object with several nullable fields. Each field is added to the builder only when it is set:
+
+```csharp
+public class BookFilter
+{
+    public string? Title { get; set; }
+    public decimal? MinPrice { get; set; }
+    public decimal? MaxPrice { get; set; }
+    public string[]? SearchTerms { get; set; }
+}
+
+var matches = await db.Table<Book>()
+    .WhereBuilder(f =>
+    {
+        if (filter.Title != null)    f.And(b => b.Title == filter.Title);
+        if (filter.MinPrice != null) f.And(b => b.Price >= filter.MinPrice);
+        if (filter.MaxPrice != null) f.And(b => b.Price <= filter.MaxPrice);
+        if (filter.SearchTerms is { Length: > 0 })
+        {
+            f.And(g =>
+            {
+                foreach (string term in filter.SearchTerms)
+                {
+                    g.Or(b => b.Title.Contains(term));
+                }
+            });
+        }
+    })
+    .ToListAsync();
+```
+
+The inner `g => ...` is a sub-builder. It builds a group of OR-combined predicates that becomes one operand at the outer level, so the generated SQL ends up as `WHERE title_match AND price_min AND price_max AND (term1 OR term2 OR ...)`. A sub-builder can contain another sub-builder if you need deeper nesting.
+
 ## Project with Select
 
 ```csharp
