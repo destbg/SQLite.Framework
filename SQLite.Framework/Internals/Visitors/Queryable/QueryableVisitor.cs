@@ -51,7 +51,7 @@ internal partial class QueryableVisitor
         {
             nameof(System.Linq.Queryable.Select) => VisitSelect(node),
             nameof(System.Linq.Queryable.Where) => VisitWhere(node),
-#if NET10_0
+#if NET10_0_OR_GREATER
             nameof(System.Linq.Queryable.LeftJoin) => VisitJoin(node, "LEFT JOIN"),
             nameof(System.Linq.Queryable.RightJoin) => VisitJoin(node, "JOIN"),
 #endif

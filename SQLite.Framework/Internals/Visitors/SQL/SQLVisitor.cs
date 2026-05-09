@@ -24,7 +24,7 @@ internal partial class SQLVisitor : ExpressionVisitor
     public SQLiteCounters Counters { get; }
     public int Level { get; }
     public bool IsInSelectProjection { get; set; }
-    public SQLiteExpression? From { get; private set; }
+    public SQLiteExpression? From { get; internal set; }
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments { get; set; } = [];
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
     public CteRegistry? CteRegistry { get; set; }

@@ -548,6 +548,7 @@ internal class SQLTranslator
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "We are checking the Queryable class")]
+    [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "Entity types come from user-rooted IQueryable<T> so their public properties are preserved.")]
     private Expression? TranslateMethodExpression(MethodCallExpression mce)
     {
         Type? declaringType = mce.Method.DeclaringType;
@@ -578,26 +579,51 @@ internal class SQLTranslator
             }
         }
 
-        if (callExpression.Arguments.Count == 0)
-        {
-            if (callExpression.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
-            {
-                object? obj = callExpression.Object != null
-                    ? ExpressionHelpers.GetConstantValue(callExpression.Object)
-                    : null;
-                BaseSQLiteTable resultTable = (BaseSQLiteTable)callExpression.Method.Invoke(obj, null)!;
+        int wrapIdx = FindSubqueryBoundary(methodCalls);
+        bool wrappedAsSubquery = false;
 
-                Visitor.AssignTable(resultTable.ElementType);
-                methodCalls.RemoveAt(methodCalls.Count - 1);
+        if (wrapIdx >= 0)
+        {
+            Expression innerExpr = methodCalls[wrapIdx].Arguments[0];
+            SQLTranslator innerTranslator = Visitor.CloneDeeper(level + 1);
+            SQLQuery innerQuery = innerTranslator.Translate(innerExpr);
+
+            Type entityType = innerExpr.Type.GetGenericArguments()[0];
+            char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
+            string alias = $"{aliasChar}{Visitor.Counters.NextTableIndex(aliasChar)}";
+
+            SQLiteParameter[]? innerParams = innerQuery.Parameters.Count == 0 ? null : innerQuery.Parameters.ToArray();
+            Visitor.From = SQLiteExpression.Leaf(entityType, -1, $"({Environment.NewLine}{innerQuery.Sql}{Environment.NewLine}) AS {alias}", innerParams);
+            Visitor.TableColumns = entityType.GetProperties()
+                .ToDictionary(p => p.Name, Expression (p) => SQLiteExpression.Leaf(p.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{p.Name}"));
+
+            methodCalls.RemoveRange(wrapIdx + 1, methodCalls.Count - (wrapIdx + 1));
+            wrappedAsSubquery = true;
+        }
+
+        if (!wrappedAsSubquery)
+        {
+            if (callExpression.Arguments.Count == 0)
+            {
+                if (callExpression.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
+                {
+                    object? obj = callExpression.Object != null
+                        ? ExpressionHelpers.GetConstantValue(callExpression.Object)
+                        : null;
+                    BaseSQLiteTable resultTable = (BaseSQLiteTable)callExpression.Method.Invoke(obj, null)!;
+
+                    Visitor.AssignTable(resultTable.ElementType);
+                    methodCalls.RemoveAt(methodCalls.Count - 1);
+                }
+                else
+                {
+                    throw new NotSupportedException($"Unsupported method: {callExpression.Method}");
+                }
             }
             else
             {
-                throw new NotSupportedException($"Unsupported method: {callExpression.Method}");
+                Visitor.Visit(callExpression.Arguments[0]);
             }
-        }
-        else
-        {
-            Visitor.Visit(callExpression.Arguments[0]);
         }
 
         if (methodCalls.Count == 0 || methodCalls.All(f => !IsSelectMethod(f.Method)))
@@ -680,6 +706,49 @@ internal class SQLTranslator
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(selectMethod.Arguments[1]);
         return lambda.Body;
+    }
+
+    private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls)
+    {
+        for (int i = 0; i < methodCalls.Count; i++)
+        {
+            if (!IsJoinLikeMethod(methodCalls[i].Method.Name))
+            {
+                continue;
+            }
+
+            for (int j = i + 1; j < methodCalls.Count; j++)
+            {
+                if (IsStateAffectingMethod(methodCalls[j].Method.Name))
+                {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    private static bool IsJoinLikeMethod(string name)
+    {
+        return name == nameof(Queryable.SelectMany)
+            || name == nameof(Queryable.Join)
+#if NET10_0_OR_GREATER
+            || name == nameof(Queryable.LeftJoin)
+            || name == nameof(Queryable.RightJoin)
+#endif
+            || name == nameof(Queryable.GroupJoin);
+    }
+
+    private static bool IsStateAffectingMethod(string name)
+    {
+        return name == nameof(Queryable.Select)
+            || name == nameof(Queryable.Where)
+            || name == nameof(Queryable.GroupBy)
+            || name == nameof(Queryable.Take)
+            || name == nameof(Queryable.Skip)
+            || name == nameof(Queryable.Distinct)
+            || name == nameof(Queryable.Reverse);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "We are checking the Queryable class")]

@@ -1,3 +1,4 @@
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
@@ -153,6 +154,61 @@ public class SystemTablesTests
 
         Assert.Contains("BookTitle", required);
         Assert.Contains("BookAuthorId", required);
+    }
+
+    [Fact]
+    public void SelectMany_OuterIsExplicitSubquery_EmitsRealSqlSubquery()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Schema.CreateTable();
+
+        SQLiteCommand cmd = (
+            from b in (from a in db.Table<Book>() where a.AuthorId == 1 select a)
+            from u in db.Table<Author>()
+            select new { b.Title, u.Name }
+        ).ToSqlCommand();
+
+        Assert.Contains("FROM (", cmd.CommandText);
+        Assert.Contains("WHERE", cmd.CommandText);
+    }
+
+    [Fact]
+    public void SelectMany_OuterIsExplicitSubquery_RoundTrips()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Schema.CreateTable();
+        db.Table<Author>().Add(new Author { Id = 1, Name = "A", Email = "x", BirthDate = DateTime.UtcNow });
+        db.Table<Author>().Add(new Author { Id = 2, Name = "B", Email = "y", BirthDate = DateTime.UtcNow });
+        db.Table<Book>().Add(new Book { Id = 1, Title = "T1", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "T2", AuthorId = 2, Price = 2 });
+
+        var rows = (
+            from b in (from a in db.Table<Book>() where a.AuthorId == 1 select a)
+            from u in db.Table<Author>()
+            select new { b.Title, u.Name }
+        ).ToList();
+
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, r => Assert.Equal("T1", r.Title));
+    }
+
+    [Fact]
+    public void SelectMany_OuterIsTakeBound_EmitsSubquery()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Schema.CreateTable();
+
+        SQLiteCommand cmd = (
+            from b in db.Table<Book>().Take(5)
+            from u in db.Table<Author>()
+            select new { b.Title, u.Name }
+        ).ToSqlCommand();
+
+        Assert.Contains("FROM (", cmd.CommandText);
+        Assert.Contains("LIMIT", cmd.CommandText);
     }
 
     [Fact]

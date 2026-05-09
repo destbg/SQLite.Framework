@@ -52,8 +52,8 @@ List<string> tables = db.Pragmas.Master
 ```csharp
 var rows = (
     from m in db.Pragmas.Master
-    where m.Type == "table" && !m.Name.StartsWith("sqlite_")
     from p in db.Pragmas.TableInfo(m.Name)
+    where m.Type == "table" && !m.Name.StartsWith("sqlite_")
     select new { Table = m.Name, Column = p.Name, Type = p.Type }
 ).ToList();
 ```
