@@ -83,8 +83,9 @@ The library is exercised at 100% code coverage. It targets .NET 8, 9, and 10.
 
 ## Documentation
 
-- [GitHub Wiki](https://github.com/destbg/SQLite.Framework/wiki)
-- [GitHub Pages](https://destbg.github.io/SQLite.Framework)
+The full docs live at **[destbg.github.io/SQLite.Framework](https://destbg.github.io/SQLite.Framework)**. Start with the [Overview](https://destbg.github.io/SQLite.Framework/#/Overview) and [Getting Started](https://destbg.github.io/SQLite.Framework/#/Getting%20Started) pages.
+
+The same content is also mirrored on the [GitHub Wiki](https://github.com/destbg/SQLite.Framework/wiki), but GitHub Pages is the primary source for the docs.
 
 ## Installation
 
