@@ -168,6 +168,12 @@ public sealed class SQLiteOptionsBuilder
     public bool ExplicitAutoIncrementKeysPreserved { get; set; }
 
     /// <summary>
+    /// When <see langword="true" />, a read from a different async context waits for the active
+    /// transaction to commit or roll back before it runs. Defaults to <see langword="false" />.
+    /// </summary>
+    public bool BlockReadsDuringTransaction { get; set; }
+
+    /// <summary>
     /// Per-entity hooks that fire before <c>Add</c>. Mutate the entity here for things like an
     /// audit timestamp.
     /// </summary>
@@ -519,6 +525,17 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Makes reads from a different async context wait until the active transaction commits or
+    /// rolls back. Reads from the transaction's own context, or from a context that holds the
+    /// connection lock, are not affected.
+    /// </summary>
+    public SQLiteOptionsBuilder UseBlockReadsDuringTransaction(bool enabled = true)
+    {
+        BlockReadsDuringTransaction = enabled;
+        return this;
+    }
+
+    /// <summary>
     /// Sets a custom factory for <see cref="SQLiteDatabase.Pragmas" />. Use this to add more pragmas
     /// by passing a class that inherits from <see cref="SQLitePragmas" />.
     /// </summary>
@@ -573,6 +590,7 @@ public sealed class SQLiteOptionsBuilder
             EntityWriters = new Dictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>>(EntityWriters),
             ReflectionFallbackDisabled = ReflectionFallbackDisabled,
             ExplicitAutoIncrementKeysPreserved = ExplicitAutoIncrementKeysPreserved,
+            BlockReadsDuringTransaction = BlockReadsDuringTransaction,
             AddHooks = SnapshotHooks(AddHooks),
             UpdateHooks = SnapshotHooks(UpdateHooks),
             RemoveHooks = SnapshotHooks(RemoveHooks),

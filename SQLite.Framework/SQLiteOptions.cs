@@ -173,6 +173,15 @@ public sealed class SQLiteOptions
     public bool ExplicitAutoIncrementKeysPreserved { get; init; }
 
     /// <summary>
+    /// When <see langword="true" />, a read from a different async context waits for the active
+    /// transaction to commit or roll back before it runs. Reads from the transaction's own
+    /// context, or from any context that holds the connection lock, do not wait. Use this when
+    /// a separate-connection transaction is running and you do not want other code to read data
+    /// that may be rolled back. Defaults to <see langword="false" />.
+    /// </summary>
+    public bool BlockReadsDuringTransaction { get; init; }
+
+    /// <summary>
     /// Per-entity hooks that fire before <c>Add</c>. Each delegate is a
     /// <c>Func&lt;SQLiteDatabase, T, bool&gt;</c>. Returning <see langword="false" /> skips the
     /// default INSERT and any later hooks. Populated through

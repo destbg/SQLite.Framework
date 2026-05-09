@@ -86,6 +86,8 @@ tx.Commit();
 
 Every read and write inside the transaction sees a consistent view of the data, and nothing from another thread can get in between.
 
+Reads from other threads still run in parallel. If you want them to wait until the transaction is done, set `BlockReadsDuringTransaction` on the options. See the [Transactions](Transactions#block-reads-during-a-transaction) page for details.
+
 ## Async transactions
 
 Use `BeginTransactionAsync` when you are in an async method. It waits for the lock without blocking a thread.

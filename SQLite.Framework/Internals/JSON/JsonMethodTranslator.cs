@@ -345,12 +345,7 @@ internal static class JsonMethodTranslator
 
     private static bool IsJsonCollectionExpression(SQLiteExpression expr, SQLiteOptions options)
     {
-        if (IsJsonCollection(expr.Type, options))
-        {
-            return true;
-        }
-
-        return expr.IsJsonSource && TypeHelpers.GetEnumerableElementType(expr.Type) != null;
+        return expr.IsJsonSource || IsJsonCollection(expr.Type, options);
     }
 
     private static SQLiteParameter[]? CombineAll(params SQLiteExpression?[] exprs)

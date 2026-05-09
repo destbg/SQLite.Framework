@@ -108,6 +108,44 @@ Task syncTask = Task.Run(async () =>
 List<Book> books = await db.Table<Book>().ToListAsync();
 ```
 
+## Block Reads During a Transaction
+
+By default, a read on another thread runs right away even when a transaction is open. With a separate-connection transaction this means the read sees the data as it was before the transaction started. That snapshot may not match what the transaction will commit, so the read can return a value that is about to change.
+
+If you want reads on other threads to wait until the transaction is done, set `BlockReadsDuringTransaction` on the options. While a transaction is open, any read started from a different async context waits for that transaction to commit or roll back, then runs.
+
+```csharp
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .UseBlockReadsDuringTransaction()
+    .Build();
+
+using var db = new SQLiteDatabase(options);
+```
+
+After this is set, the timeline looks like this:
+
+```
+// Task A opens a separate-connection transaction
+1. BEGIN
+2. INSERT INTO Books ...
+
+// Task B starts a read
+3. SELECT ... -- waits because Task A's transaction is still open
+
+// Task A commits
+4. COMMIT
+
+// Task B's read now runs and sees the inserted row
+5. SELECT ... -- returns the new state
+```
+
+Things to keep in mind:
+
+- The wait only affects reads from a different async context. Reads from the transaction's own context, or from a context that holds the connection lock, do not wait.
+- Both sync (`First`, `Count`, `ToList`) and async (`FirstAsync`, `CountAsync`, `ToListAsync`) reads honor the wait.
+- The async wait is non-blocking, so a thread is not held while the read waits.
+- `BlockReadsDuringTransaction` defaults to `false`.
+
 ## Writes Block While a Transaction Is Open
 
 Only one writer can hold the write lock at a time. If a transaction is already open, any standalone write from another thread will wait until that transaction finishes.

@@ -65,6 +65,7 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
             // SetTransactionConnection must run here, in the caller's execution context, so that
             // the AsyncLocal mutations are visible to all subsequent continuations the caller runs.
             database.SetTransactionConnection(ownedHandle);
+            database.NotifyTransactionStarted();
             return new SQLiteTransaction(database, ownedHandle);
         }
 
@@ -73,6 +74,7 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
         if (ownsLock)
         {
             database.SetConnectionLock();
+            database.NotifyTransactionStarted();
         }
 
         return new SQLiteTransaction(database, savepointName, ownsLock);

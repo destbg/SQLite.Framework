@@ -12,12 +12,15 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly object connectionOpenLock = new();
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object tableMappingsLock = new();
+    private readonly object readGateLock = new();
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
     private readonly AsyncLocal<bool> holdsConnectionLock = new();
     private readonly AsyncLocal<sqlite3?> transactionHandle = new();
     private readonly SemaphoreSlim walWriterGate = new(1, 1);
     private readonly Dictionary<Type, TableMapping> tableMappings = [];
     private int walWriterCount;
+    private int activeTransactionCount;
+    private TaskCompletionSource? readGateTcs;
 
 #if SQLITE_FRAMEWORK_TESTING
     private long entityMaterializerHits;
@@ -293,6 +296,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             sqlite3 handle = OpenTransactionConnection();
             SetTransactionConnection(handle);
+            NotifyTransactionStarted();
             return new SQLiteTransaction(this, handle);
         }
 
@@ -304,6 +308,10 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         string savepointName = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
         CreateCommand($"SAVEPOINT {savepointName}", []).ExecuteNonQuery();
+        if (ownsLock)
+        {
+            NotifyTransactionStarted();
+        }
         return new SQLiteTransaction(this, savepointName, ownsLock);
     }
 
@@ -528,9 +536,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// to keep concurrent statements on the same connection safe, and WAL mode gives each
     /// reader a consistent snapshot even when other connections are writing. Only write
     /// operations and transactions need the exclusive lock.
+    /// When <see cref="SQLiteOptions.BlockReadsDuringTransaction" /> is set, this call waits
+    /// until any active transaction running on another async context finishes.
     /// </remarks>
     public virtual IDisposable ReadLock()
     {
+        WaitForActiveTransactionsAsync(default).GetAwaiter().GetResult();
         return NoOpLockObject.Instance;
     }
 
@@ -542,7 +553,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public virtual Task<IDisposable> ReadLockAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(ReadLock());
+
+        Task wait = WaitForActiveTransactionsAsync(cancellationToken);
+        if (wait.IsCompletedSuccessfully)
+        {
+            return Task.FromResult(ReadLock());
+        }
+
+        return AwaitGateThenReadLock(wait);
     }
 
     /// <summary>
@@ -793,6 +811,48 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         connectionSemaphore.Release();
     }
 
+    internal void NotifyTransactionStarted()
+    {
+        if (!Options.BlockReadsDuringTransaction)
+        {
+            return;
+        }
+
+        lock (readGateLock)
+        {
+            if (++activeTransactionCount == 1)
+            {
+                readGateTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+    }
+
+    internal void NotifyTransactionEnded()
+    {
+        if (!Options.BlockReadsDuringTransaction)
+        {
+            return;
+        }
+
+        TaskCompletionSource? toSignal = null;
+        lock (readGateLock)
+        {
+            if (--activeTransactionCount == 0)
+            {
+                toSignal = readGateTcs;
+                readGateTcs = null;
+            }
+        }
+
+        toSignal?.TrySetResult();
+    }
+
+    internal Task WaitForActiveTransactionsAsync(CancellationToken cancellationToken = default)
+    {
+        Task? gate = TryGetReadGate();
+        return gate == null ? Task.CompletedTask : gate.WaitAsync(cancellationToken);
+    }
+
     internal void AcquireWalWrite()
     {
         walWriterGate.Wait();
@@ -935,6 +995,24 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return name;
     }
 
+    private Task? TryGetReadGate()
+    {
+        if (!Options.BlockReadsDuringTransaction)
+        {
+            return null;
+        }
+
+        if (holdsConnectionLock.Value || transactionHandle.Value != null)
+        {
+            return null;
+        }
+
+        lock (readGateLock)
+        {
+            return readGateTcs?.Task;
+        }
+    }
+
     private IEnumerable<IGrouping<TKey, TElement>> ExecuteGroupingQuery<TKey, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
         where TKey : notnull
     {
@@ -1002,6 +1080,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             yield return new Grouping<TKey, TElement>(key, groups[key]);
         }
+    }
+
+    private static async Task<IDisposable> AwaitGateThenReadLock(Task wait)
+    {
+        await wait.ConfigureAwait(false);
+        return NoOpLockObject.Instance;
     }
 
     private static void ValidateSchemaName(string schemaName)

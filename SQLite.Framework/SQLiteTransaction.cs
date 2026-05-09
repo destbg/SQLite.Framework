@@ -53,6 +53,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         if (ownedHandle != null)
         {
             Database.CommitOwnedConnection(ownedHandle);
+            Database.NotifyTransactionEnded();
             return;
         }
 
@@ -61,6 +62,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         if (ownsLock)
         {
             Database.ReleaseLock();
+            Database.NotifyTransactionEnded();
         }
     }
 
@@ -90,6 +92,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         if (ownedHandle != null)
         {
             Database.RollbackOwnedConnection(ownedHandle);
+            Database.NotifyTransactionEnded();
             return;
         }
 
@@ -98,6 +101,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         if (ownsLock)
         {
             Database.ReleaseLock();
+            Database.NotifyTransactionEnded();
         }
     }
 
@@ -125,6 +129,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         if (ownedHandle != null)
         {
             Database.RollbackOwnedConnection(ownedHandle);
+            Database.NotifyTransactionEnded();
             return;
         }
 
@@ -133,6 +138,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         if (ownsLock)
         {
             Database.ReleaseLock();
+            Database.NotifyTransactionEnded();
         }
     }
 
