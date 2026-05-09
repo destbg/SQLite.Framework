@@ -893,6 +893,95 @@ public class JsonFunctionsTests
     }
 
     [Fact]
+    public void List_ConcatThenCount_ReturnsCombinedCount()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        List<string> other = ["x", "y"];
+        int result = db.Table<ListRow>()
+            .Select(r => r.Tags.Concat(other).Count())
+            .First();
+
+        Assert.Equal(5, result);
+    }
+
+    [Fact]
+    public void List_ConcatThenFirst_ReturnsFirstFromFirstSource()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        List<string> other = ["x"];
+        string? result = db.Table<ListRow>()
+            .Select(r => r.Tags.Concat(other).First())
+            .First();
+
+        Assert.Equal("a", result);
+    }
+
+    [Fact]
+    public void List_UnionThenWhere_FiltersCombinedDistinct()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
+
+        List<string> other = ["b", "c"];
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Union(other).Where(x => x != "b"))
+            .First();
+
+        Assert.Equal(2, result.Count());
+        Assert.Contains("a", result);
+        Assert.Contains("c", result);
+    }
+
+    [Fact]
+    public void List_IntersectThenAny_ReturnsTrueWhenOverlap()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        List<string> other = ["b", "z"];
+        bool result = db.Table<ListRow>()
+            .Select(r => r.Tags.Intersect(other).Any())
+            .First();
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void List_ExceptThenWhere_FiltersAfterExcept()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b", "c"] });
+
+        List<string> other = ["b"];
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Except(other).Where(x => x != "c"))
+            .First();
+
+        Assert.Equal(["a"], result);
+    }
+
+    [Fact]
+    public void List_ConcatAfterDistinct_CombinesWithSecondSource()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "a", "b"] });
+
+        List<string> other = ["c"];
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Distinct().Concat(other))
+            .First();
+
+        Assert.Equal(3, result.Count());
+        Assert.Contains("a", result);
+        Assert.Contains("b", result);
+        Assert.Contains("c", result);
+    }
+
+    [Fact]
     public void ComplexType_Min_WithSelector()
     {
         using TestDatabase db = CreateAddressListDb();
@@ -1112,17 +1201,17 @@ public class JsonFunctionsTests
     }
 
     [Fact]
-    public void Enumerable_ChainedSourceWithNonJsonResultType_FallsThrough()
+    public void Enumerable_ConcatAfterReverse_PreservesBothSources()
     {
         using TestDatabase db = CreateListDb();
         db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
 
         List<string> other = ["c"];
-        SQLiteCommand command = db.Table<ListRow>()
+        IEnumerable<string> result = db.Table<ListRow>()
             .Select(r => Enumerable.Reverse(r.Tags).Concat(other))
-            .ToSqlCommand();
+            .First();
 
-        Assert.NotNull(command.CommandText);
+        Assert.Equal(["b", "a", "c"], result);
     }
 
     [Fact]
@@ -2210,16 +2299,17 @@ public class JsonFunctionsTests
     }
 
     [Fact]
-    public void Chain_WhereOnConcat_NonJsonResultType_FallsThrough()
+    public void Chain_WhereOnConcat_FiltersCombinedItems()
     {
         using TestDatabase db = CreateListDb();
         db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["a", "b"] });
-        List<string> other = ["x"];
+        List<string> other = ["a", "x"];
 
-        Assert.ThrowsAny<Exception>(() =>
-            db.Table<ListRow>()
-                .Select(r => r.Tags.Concat(other).Where(x => x == "a"))
-                .ToSqlCommand());
+        IEnumerable<string> result = db.Table<ListRow>()
+            .Select(r => r.Tags.Concat(other).Where(x => x == "a"))
+            .First();
+
+        Assert.Equal(["a", "a"], result);
     }
 
     [Fact]

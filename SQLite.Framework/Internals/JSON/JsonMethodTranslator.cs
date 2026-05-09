@@ -54,7 +54,7 @@ internal static class JsonMethodTranslator
     private static SQLiteExpression? TryEnumerable(MethodCallExpression node, SQLVisitor visitor)
     {
         ResolvedModel source = visitor.ResolveExpression(node.Arguments[0]);
-        if (source.SQLiteExpression == null || !IsJsonCollection(source.SQLiteExpression.Type, visitor.Database.Options))
+        if (source.SQLiteExpression == null || !IsJsonCollectionExpression(source.SQLiteExpression, visitor.Database.Options))
         {
             return null;
         }
@@ -341,6 +341,16 @@ internal static class JsonMethodTranslator
     {
         return options.TypeConverters.ContainsKey(type)
                && TypeHelpers.GetEnumerableElementType(type) != null;
+    }
+
+    private static bool IsJsonCollectionExpression(SQLiteExpression expr, SQLiteOptions options)
+    {
+        if (IsJsonCollection(expr.Type, options))
+        {
+            return true;
+        }
+
+        return expr.IsJsonSource && TypeHelpers.GetEnumerableElementType(expr.Type) != null;
     }
 
     private static SQLiteParameter[]? CombineAll(params SQLiteExpression?[] exprs)

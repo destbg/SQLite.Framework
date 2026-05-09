@@ -79,7 +79,7 @@ internal partial class JsonCollectionVisitor
             return null;
         }
 
-        if (!IsJsonCollection(sourceModel.SQLiteExpression.Type, sqlVisitor.Database.Options))
+        if (!IsJsonCollectionExpression(sourceModel.SQLiteExpression, sqlVisitor.Database.Options))
         {
             return null;
         }
@@ -224,6 +224,16 @@ internal partial class JsonCollectionVisitor
     {
         return options.TypeConverters.ContainsKey(type)
                && TypeHelpers.GetEnumerableElementType(type) != null;
+    }
+
+    private static bool IsJsonCollectionExpression(SQLiteExpression expr, SQLiteOptions options)
+    {
+        if (IsJsonCollection(expr.Type, options))
+        {
+            return true;
+        }
+
+        return expr.IsJsonSource && TypeHelpers.GetEnumerableElementType(expr.Type) != null;
     }
 
     private static Type CoerceType(Type declaredType, Type sourceType)
