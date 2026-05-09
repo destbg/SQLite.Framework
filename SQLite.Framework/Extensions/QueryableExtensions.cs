@@ -43,9 +43,9 @@ public static class QueryableExtensions
     /// </summary>
     public static int ExecuteDelete<T>(this IQueryable<T> source)
     {
-        if (source is not BaseSQLiteTable table)
+        if (source is not BaseSQLiteQueryable table)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         SQLTranslator translator = new(table.Database)
@@ -62,9 +62,9 @@ public static class QueryableExtensions
     /// </summary>
     public static int ExecuteDelete<T>(this IQueryable<T> source, Expression<Func<T, bool>> predicate)
     {
-        if (source is not BaseSQLiteTable table)
+        if (source is not BaseSQLiteQueryable table)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         SQLTranslator translator = new(table.Database)
@@ -81,9 +81,9 @@ public static class QueryableExtensions
     /// </summary>
     public static int ExecuteUpdate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this IQueryable<T> source, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
     {
-        if (source is not BaseSQLiteTable table)
+        if (source is not BaseSQLiteQueryable table)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         SQLTranslator translator = new(table.Database)
@@ -105,7 +105,7 @@ public static class QueryableExtensions
     /// </summary>
     public static SQLiteCommand ToSqlCommand<T>(this IQueryable<T> queryable)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)queryable;
+        BaseSQLiteQueryable table = (BaseSQLiteQueryable)queryable;
         SQLTranslator translator = new(table.Database);
         SQLQuery query = translator.Translate(queryable.Expression);
 
@@ -117,7 +117,7 @@ public static class QueryableExtensions
     /// </summary>
     public static string ToSql<T>(this IQueryable<T> queryable)
     {
-        BaseSQLiteTable table = (BaseSQLiteTable)queryable;
+        BaseSQLiteQueryable table = (BaseSQLiteQueryable)queryable;
         SQLTranslator translator = new(table.Database);
         SQLQuery query = translator.Translate(queryable.Expression);
 

@@ -3,7 +3,7 @@ namespace SQLite.Framework;
 /// <summary>
 /// Represents a Common Table Expression (CTE) that can be used in a query.
 /// </summary>
-public abstract class SQLiteCte : BaseSQLiteTable
+public abstract class SQLiteCte : BaseSQLiteQueryable
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteCte"/> class.

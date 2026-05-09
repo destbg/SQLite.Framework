@@ -102,6 +102,7 @@ internal partial class QueryableVisitor
         }
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Pragma function entity types are referenced by user code, so their public properties are rooted by the user.")]
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "The type is an entity.")]
@@ -111,7 +112,27 @@ internal partial class QueryableVisitor
         Type entityType;
         SQLiteExpression sql;
 
-        if (body is MethodCallExpression methodCall && methodCall.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
+        if (body is MethodCallExpression pragmaCall
+            && pragmaCall.Method.GetCustomAttribute<SQLitePragmaFunctionAttribute>() is { } pragmaAttr)
+        {
+            entityType = pragmaCall.Method.ReturnType.GetGenericArguments()[0];
+            char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+            string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
+
+            TableMapping pragmaMapping = database.TableMapping(entityType);
+            newTableColumns = pragmaMapping.Columns
+                .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.\"{f.Name}\""));
+
+            SQLiteExpression[] argExprs = new SQLiteExpression[pragmaCall.Arguments.Count];
+            for (int i = 0; i < pragmaCall.Arguments.Count; i++)
+            {
+                argExprs[i] = (SQLiteExpression)visitor.Visit(pragmaCall.Arguments[i]);
+            }
+
+            SQLiteParameter[]? pragmaParams = ParameterHelpers.CombineParameters(argExprs);
+            sql = SQLiteExpression.Variadic(body.Type, -1, $"{pragmaAttr.SqlName}(", argExprs, ", ", $") AS {alias}", pragmaParams);
+        }
+        else if (body is MethodCallExpression methodCall && methodCall.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
         {
             object? obj = methodCall.Object != null
                 ? ExpressionHelpers.GetConstantValue(methodCall.Object!)
@@ -188,7 +209,7 @@ internal partial class QueryableVisitor
                     .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{cteAlias}.{f.Name}"));
                 sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteName} AS {cteAlias}");
             }
-            else if (innerValue is SQLiteTable table)
+            else if (innerValue is BaseSQLiteTable table)
             {
                 entityType = table.ElementType;
                 char aliasChar = char.ToLowerInvariant(entityType.Name[0]);

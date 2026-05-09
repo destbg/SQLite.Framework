@@ -9,15 +9,9 @@ public class SQLiteTable : BaseSQLiteTable
     /// Initializes a new instance of the <see cref="SQLiteTable{T}"/> class.
     /// </summary>
     public SQLiteTable(SQLiteDatabase database, TableMapping table)
-        : base(database)
+        : base(database, table)
     {
-        Table = table;
     }
-
-    /// <summary>
-    /// The mapping of the database table to the class.
-    /// </summary>
-    public virtual TableMapping Table { get; }
 
     /// <inheritdoc />
     public override Type ElementType => Table.Type;
@@ -294,7 +288,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        if (source is not BaseSQLiteTable sourceTable)
+        if (source is not BaseSQLiteQueryable sourceTable)
         {
             throw new InvalidOperationException($"Source must be a framework queryable (a {nameof(SQLiteTable)} or a LINQ chain over one).");
         }

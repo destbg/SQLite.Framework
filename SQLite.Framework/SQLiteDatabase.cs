@@ -161,7 +161,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         if (typeof(TResult) == typeof(IEnumerable) && ExpressionHelpers.IsConstant(expression))
         {
-            BaseSQLiteTable table = (BaseSQLiteTable)ExpressionHelpers.GetConstantValue(expression)!;
+            BaseSQLiteQueryable table = (BaseSQLiteQueryable)ExpressionHelpers.GetConstantValue(expression)!;
             SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
             return (TResult)command.ExecuteQueryUntypedInternal(query, table.ElementType);
         }
@@ -276,6 +276,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public virtual SQLiteTable Table([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
     {
         return new SQLiteTable(this, TableMapping(type));
+    }
+
+    /// <summary>
+    /// Returns a read-only queryable wrapper for the table mapped to <typeparamref name="T" />.
+    /// The full LINQ surface (<c>Select</c>, <c>Where</c>, <c>Join</c>, etc.) works the same as
+    /// <see cref="Table{T}" />, but no mutation methods are exposed. Use this for SQLite system
+    /// tables (such as <c>sqlite_master</c>) or any user table you want to expose as read-only.
+    /// </summary>
+    public virtual ReadOnlySQLiteTable<T> ReadOnlyTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+    {
+        return new ReadOnlySQLiteTable<T>(this, TableMapping<T>());
     }
 
     /// <summary>
@@ -1107,8 +1118,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2073", Justification = "BaseSQLiteTable.ElementType comes from Queryable<T> / SQLiteTable<T>, which already require PublicProperties and PublicConstructors via DynamicallyAccessedMembers on T.")]
-    [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "The fallback path is unreachable in practice, every framework queryable chain bottoms out at a BaseSQLiteTable constant. The fallback exists only for defensiveness.")]
+    [UnconditionalSuppressMessage("AOT", "IL2073", Justification = "BaseSQLiteQueryable.ElementType comes from Queryable<T> / SQLiteTable<T>, which already require PublicProperties and PublicConstructors via DynamicallyAccessedMembers on T.")]
+    [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "The fallback path is unreachable in practice, every framework queryable chain bottoms out at a BaseSQLiteQueryable constant. The fallback exists only for defensiveness.")]
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)]
     private static Type FindRootElementType(Expression expression)
     {
@@ -1117,7 +1128,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             current = mce.Arguments[0];
         }
-        if (ExpressionHelpers.IsConstant(current) && ExpressionHelpers.GetConstantValue(current) is BaseSQLiteTable table)
+        if (ExpressionHelpers.IsConstant(current) && ExpressionHelpers.GetConstantValue(current) is BaseSQLiteQueryable table)
         {
             return table.ElementType;
         }

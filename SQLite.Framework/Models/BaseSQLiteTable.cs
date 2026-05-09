@@ -1,32 +1,23 @@
-﻿namespace SQLite.Framework.Models;
+namespace SQLite.Framework.Models;
 
 /// <summary>
-/// Represents a base class for SQLite tables.
+/// Base class for any queryable that maps directly to a SQL table. This includes regular
+/// tables, read-only tables, and built-in system tables. CTEs and LINQ chain wrappers do
+/// not inherit from this class; they go through <see cref="BaseSQLiteQueryable" /> instead.
 /// </summary>
-public abstract class BaseSQLiteTable : IQueryable
+public abstract class BaseSQLiteTable : BaseSQLiteQueryable
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="BaseSQLiteTable"/> class.
     /// </summary>
-    protected BaseSQLiteTable(SQLiteDatabase database)
+    protected BaseSQLiteTable(SQLiteDatabase database, TableMapping table)
+        : base(database)
     {
-        Database = database;
+        Table = table;
     }
 
     /// <summary>
-    /// The SQLite database.
+    /// The mapping between the entity type and the SQL table.
     /// </summary>
-    public SQLiteDatabase Database { get; }
-
-    /// <inheritdoc />
-    public abstract Type ElementType { get; }
-
-    /// <inheritdoc />
-    public abstract Expression Expression { get; }
-
-    /// <inheritdoc />
-    public abstract IQueryProvider Provider { get; }
-
-    /// <inheritdoc />
-    public abstract IEnumerator GetEnumerator();
+    public TableMapping Table { get; }
 }

@@ -17,9 +17,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> ExecuteDeleteAsync<T>(this IQueryable<T> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable table)
+        if (source is not BaseSQLiteQueryable table)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -34,9 +34,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> ExecuteDeleteAsync<T>(this IQueryable<T> source, Expression<Func<T, bool>> predicate, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable table)
+        if (source is not BaseSQLiteQueryable table)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -51,9 +51,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> ExecuteUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this IQueryable<T> source, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable table)
+        if (source is not BaseSQLiteQueryable table)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -69,9 +69,9 @@ public static class AsyncQueryableExtensions
     public static Task<Dictionary<TKey, TElement>> ToDictionaryAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource, TKey, TElement>(this IQueryable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector, CancellationToken ct = default)
         where TKey : notnull
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -87,9 +87,9 @@ public static class AsyncQueryableExtensions
     public static Task<Dictionary<TKey, TSource>> ToDictionaryAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource, TKey>(this IQueryable<TSource> source, Func<TSource, TKey> keySelector, CancellationToken ct = default)
         where TKey : notnull
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -104,9 +104,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<T[]> ToArrayAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IQueryable<T> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -121,9 +121,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<List<T>> ToListAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IQueryable<T> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -138,9 +138,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<HashSet<T>> ToHashSetAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IQueryable<T> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -156,9 +156,9 @@ public static class AsyncQueryableExtensions
     public static Task<ILookup<TKey, TElement>> ToLookupAsync<TSource, TKey, TElement>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector, CancellationToken ct = default)
         where TKey : notnull
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -173,9 +173,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -190,9 +190,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -207,9 +207,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> FirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -224,9 +224,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, TSource defaultValue, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -241,9 +241,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> FirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -258,9 +258,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> FirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, TSource defaultValue, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -275,9 +275,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -292,9 +292,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -309,9 +309,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> SingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -326,9 +326,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, TSource defaultValue, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -343,9 +343,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> SingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -360,9 +360,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> SingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, TSource defaultValue, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -377,9 +377,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource> ElementAtAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, int index, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -394,9 +394,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> ElementAtOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, int index, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -411,9 +411,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> ContainsAsync<TSource>(this IQueryable<TSource> source, TSource item, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -428,9 +428,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> AnyAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -445,9 +445,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> AnyAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -462,9 +462,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<bool> AllAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -479,9 +479,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> CountAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -496,9 +496,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> CountAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -513,9 +513,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -530,9 +530,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> LongCountAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -547,9 +547,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> MinAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -564,9 +564,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TResult?> MinAsync<TSource, TResult>(this IQueryable<TSource> source, Expression<Func<TSource, TResult>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -581,9 +581,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TSource?> MaxAsync<TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -598,9 +598,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<TResult?> MaxAsync<TSource, TResult>(this IQueryable<TSource> source, Expression<Func<TSource, TResult>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -615,9 +615,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> SumAsync(this IQueryable<int> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -632,9 +632,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int?> SumAsync(this IQueryable<int?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -649,9 +649,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> SumAsync(this IQueryable<long> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -666,9 +666,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long?> SumAsync(this IQueryable<long?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -683,9 +683,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> SumAsync(this IQueryable<float> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -700,9 +700,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> SumAsync(this IQueryable<float?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -717,9 +717,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> SumAsync(this IQueryable<double> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -734,9 +734,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> SumAsync(this IQueryable<double?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -751,9 +751,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> SumAsync(this IQueryable<decimal> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -768,9 +768,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> SumAsync(this IQueryable<decimal?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -785,9 +785,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync(this IQueryable<int> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -802,9 +802,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync(this IQueryable<int?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -819,9 +819,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync(this IQueryable<long> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -836,9 +836,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync(this IQueryable<long?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -853,9 +853,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> AverageAsync(this IQueryable<float> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -870,9 +870,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> AverageAsync(this IQueryable<float?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -887,9 +887,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync(this IQueryable<double> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -904,9 +904,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync(this IQueryable<double?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -921,9 +921,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> AverageAsync(this IQueryable<decimal> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -938,9 +938,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> AverageAsync(this IQueryable<decimal?> source, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -955,9 +955,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -972,9 +972,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<int?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -989,9 +989,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1006,9 +1006,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<long?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1023,9 +1023,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1040,9 +1040,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1057,9 +1057,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1074,9 +1074,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1091,9 +1091,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1108,9 +1108,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> SumAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1125,9 +1125,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1142,9 +1142,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1159,9 +1159,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1176,9 +1176,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<float?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, float?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1193,9 +1193,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1210,9 +1210,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1227,9 +1227,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1244,9 +1244,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<double?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1261,9 +1261,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>
@@ -1278,9 +1278,9 @@ public static class AsyncQueryableExtensions
     /// </summary>
     public static Task<decimal?> AverageAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal?>> selector, CancellationToken ct = default)
     {
-        if (source is not BaseSQLiteTable sqliteSource)
+        if (source is not BaseSQLiteQueryable sqliteSource)
         {
-            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteTable)}.");
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
         return AsyncRunner.Run(async () =>

@@ -14,6 +14,12 @@ internal partial class SQLVisitor
             return SQLiteExpression.Alias(node.Type, -1, From!, From!.Parameters);
         }
 
+        if (value is IPragmaTableSource pragmaSource)
+        {
+            AssignPragma(pragmaSource);
+            return SQLiteExpression.Alias(node.Type, -1, From!, From!.Parameters);
+        }
+
         if (value is BaseSQLiteTable table)
         {
             AssignTable(table.ElementType);
@@ -21,6 +27,25 @@ internal partial class SQLVisitor
         }
 
         return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), value);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Pragma entity types are referenced by user code, so their public properties are rooted by the user.")]
+    private void AssignPragma(IPragmaTableSource pragma)
+    {
+        Type entityType = pragma.ElementType;
+        char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+        string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
+
+        TableMapping mapping = Database.TableMapping(entityType);
+
+        SQLiteParameter[] parameters = pragma.Arguments
+            .Select(arg => new SQLiteParameter { Name = Counters.NextParamName(), Value = arg })
+            .ToArray();
+        string argList = string.Join(", ", parameters.Select(p => p.Name));
+
+        From = SQLiteExpression.Leaf(entityType, -1, $"{pragma.PragmaName}({argList}) AS {alias}", parameters);
+        TableColumns = mapping.Columns
+            .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.\"{f.Name}\""));
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types have public properties.")]

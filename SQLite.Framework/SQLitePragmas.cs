@@ -107,4 +107,50 @@ public class SQLitePragmas
         get => Database.ExecuteScalar<int>("PRAGMA secure_delete") == 1;
         set => Database.ExecuteScalar<int>($"PRAGMA secure_delete = {(value ? 1 : 0)}");
     }
+
+    /// <summary>
+    /// Queryable view over SQLite's built-in <c>sqlite_master</c> table, which lists every
+    /// table, index, view, and trigger in the database. Supports the full LINQ surface
+    /// (<c>Select</c>, <c>Where</c>, <c>Join</c>, etc.) like any other framework table.
+    /// </summary>
+    public virtual ReadOnlySQLiteTable<SQLiteMaster> Master => field ??= Database.ReadOnlyTable<SQLiteMaster>();
+
+    /// <summary>
+    /// Queryable view over SQLite's built-in <c>sqlite_sequence</c> table, which tracks the
+    /// highest <c>AUTOINCREMENT</c> value assigned per table. The table only exists once at
+    /// least one <c>AUTOINCREMENT</c> table has been created.
+    /// </summary>
+    public virtual ReadOnlySQLiteTable<SQLiteSequence> Sequence => field ??= Database.ReadOnlyTable<SQLiteSequence>();
+
+    /// <summary>
+    /// Returns the rows of <c>pragma_table_info(<paramref name="tableName" />)</c>, one per
+    /// column on the table. Can be used inside a LINQ expression with the argument bound to
+    /// a column from the outer query, for example
+    /// <c>from m in db.Pragmas.Master from p in db.Pragmas.TableInfo(m.Name)</c>.
+    /// </summary>
+    [SQLitePragmaFunction("pragma_table_info")]
+    public virtual IQueryable<PragmaTableInfo> TableInfo(string tableName)
+    {
+        return new SQLitePragmaTable<PragmaTableInfo>(Database, "pragma_table_info", tableName);
+    }
+
+    /// <summary>
+    /// Returns the rows of <c>pragma_index_list(<paramref name="tableName" />)</c>, one per
+    /// index attached to the table.
+    /// </summary>
+    [SQLitePragmaFunction("pragma_index_list")]
+    public virtual IQueryable<PragmaIndexList> IndexList(string tableName)
+    {
+        return new SQLitePragmaTable<PragmaIndexList>(Database, "pragma_index_list", tableName);
+    }
+
+    /// <summary>
+    /// Returns the rows of <c>pragma_foreign_key_list(<paramref name="tableName" />)</c>,
+    /// one per foreign key column on the table.
+    /// </summary>
+    [SQLitePragmaFunction("pragma_foreign_key_list")]
+    public virtual IQueryable<PragmaForeignKey> ForeignKeyList(string tableName)
+    {
+        return new SQLitePragmaTable<PragmaForeignKey>(Database, "pragma_foreign_key_list", tableName);
+    }
 }

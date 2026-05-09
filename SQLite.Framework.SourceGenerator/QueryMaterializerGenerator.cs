@@ -15,6 +15,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
     private static readonly HashSet<string> EntityReturningGenericMethods = new()
     {
         "Table",
+        "ReadOnlyTable",
         "With",
         "WithRecursive",
         "Query",
@@ -57,6 +58,18 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             .CreateSyntaxProvider(
                 predicate: static (node, _) => IsCandidateMember(node),
                 transform: static (ctx, _) => ExtractEntityFromMember(ctx))
+            .Where(static t => t is not null);
+
+        IncrementalValuesProvider<INamedTypeSymbol?> fromMemberAccesses = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => IsCandidateMemberAccess(node),
+                transform: static (ctx, _) => ExtractEntityFromMemberAccess(ctx))
+            .Where(static t => t is not null);
+
+        IncrementalValuesProvider<INamedTypeSymbol?> fromPragmaInvocations = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => node is InvocationExpressionSyntax,
+                transform: static (ctx, _) => ExtractEntityFromPragmaInvocation(ctx))
             .Where(static t => t is not null);
 
         IncrementalValuesProvider<INamedTypeSymbol?> fromSelectProjections = context.SyntaxProvider
@@ -117,9 +130,13 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         IncrementalValueProvider<ImmutableArray<INamedTypeSymbol?>> allEntities =
             fromInvocations.Collect()
                 .Combine(fromMembers.Collect())
+                .Combine(fromMemberAccesses.Collect())
+                .Combine(fromPragmaInvocations.Collect())
                 .Combine(fromSelectProjections.Collect())
                 .Combine(fromQueryProjections.Collect())
-                .Select(static (pair, _) => pair.Left.Left.Left
+                .Select(static (pair, _) => pair.Left.Left.Left.Left.Left
+                    .AddRange(pair.Left.Left.Left.Left.Right)
+                    .AddRange(pair.Left.Left.Left.Right)
                     .AddRange(pair.Left.Left.Right)
                     .AddRange(pair.Left.Right)
                     .AddRange(pair.Right));
@@ -1538,14 +1555,65 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             _ => null
         };
 
+        return ExtractMappedTableEntity(type);
+    }
+
+    private static INamedTypeSymbol? ExtractMappedTableEntity(ITypeSymbol? type)
+    {
         for (INamedTypeSymbol? current = type as INamedTypeSymbol; current != null; current = current.BaseType)
         {
             if (current.IsGenericType
-                && current.OriginalDefinition.ToDisplayString() == "SQLite.Framework.SQLiteTable<T>"
-                && current.TypeArguments.Length == 1)
+                && current.TypeArguments.Length == 1
+                && (current.OriginalDefinition.ToDisplayString() == "SQLite.Framework.SQLiteTable<T>"
+                    || current.OriginalDefinition.ToDisplayString() == "SQLite.Framework.ReadOnlySQLiteTable<T>"))
             {
                 return current.TypeArguments[0] as INamedTypeSymbol;
             }
+        }
+
+        return null;
+    }
+
+    private static bool IsCandidateMemberAccess(SyntaxNode node)
+    {
+        return node is MemberAccessExpressionSyntax;
+    }
+
+    private static INamedTypeSymbol? ExtractEntityFromMemberAccess(GeneratorSyntaxContext ctx)
+    {
+        MemberAccessExpressionSyntax memberAccess = (MemberAccessExpressionSyntax)ctx.Node;
+        ITypeSymbol? type = ctx.SemanticModel.GetTypeInfo(memberAccess).Type;
+        return ExtractMappedTableEntity(type);
+    }
+
+    private static INamedTypeSymbol? ExtractEntityFromPragmaInvocation(GeneratorSyntaxContext ctx)
+    {
+        InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)ctx.Node;
+        if (ctx.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+        {
+            return null;
+        }
+
+        bool hasPragmaAttribute = false;
+        foreach (AttributeData attribute in method.GetAttributes())
+        {
+            if (attribute.AttributeClass?.ToDisplayString() == "SQLite.Framework.Attributes.SQLitePragmaFunctionAttribute")
+            {
+                hasPragmaAttribute = true;
+                break;
+            }
+        }
+
+        if (!hasPragmaAttribute)
+        {
+            return null;
+        }
+
+        if (method.ReturnType is INamedTypeSymbol named
+            && named.IsGenericType
+            && named.TypeArguments.Length == 1)
+        {
+            return named.TypeArguments[0] as INamedTypeSymbol;
         }
 
         return null;

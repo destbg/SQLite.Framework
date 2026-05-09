@@ -32,6 +32,32 @@ The full set of built-in accessors:
 | `TempStore` | `temp_store` | `0` default, `1` file, `2` memory. |
 | `SecureDelete` | `secure_delete` | True or false. |
 
+## System tables
+
+`db.Pragmas.Master` and `db.Pragmas.Sequence` are LINQ-queryable views over `sqlite_master` and `sqlite_sequence`.
+
+```csharp
+List<string> tables = db.Pragmas.Master
+    .Where(m => m.Type == "table")
+    .Select(m => m.Name)
+    .ToList();
+```
+
+`sqlite_sequence` only exists after the first `[AutoIncrement]` table is created.
+
+## Pragma table-valued functions
+
+`db.Pragmas.TableInfo(name)`, `IndexList(name)`, and `ForeignKeyList(name)` wrap the SQLite pragma TVFs and return `IQueryable<T>`. The argument can be a column from an outer query, in which case the framework emits a single correlated SQL statement.
+
+```csharp
+var rows = (
+    from m in db.Pragmas.Master
+    where m.Type == "table" && !m.Name.StartsWith("sqlite_")
+    from p in db.Pragmas.TableInfo(m.Name)
+    select new { Table = m.Name, Column = p.Name, Type = p.Type }
+).ToList();
+```
+
 ## Adding more pragmas
 
 Make a class that inherits `SQLitePragmas`. Then register it on the options builder:
