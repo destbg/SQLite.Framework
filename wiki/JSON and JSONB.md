@@ -58,6 +58,23 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
 using var db = new SQLiteDatabase(options);
 ```
 
+### Registering a whole JSON graph
+
+When a JSON-mapped type holds another complex type, projecting that nested type directly normally requires its own `AddTypeConverter` registration. Pass your `JsonSerializerContext` to `AddJsonContext` and the framework registers a converter for every type declared in it.
+
+```csharp
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .AddJsonContext(AppJsonContext.Default)
+    .Build();
+
+// Address has no AddTypeConverter call, but the projection works:
+List<Address> shipTos = await db.Table<Test>()
+    .Select(t => t.Order.ShipTo)
+    .ToListAsync();
+```
+
+Both methods skip any type that already has a converter, so anything you registered through `AddTypeConverter` is left alone, including the root types declared in the context.
+
 After that, any model with an `Address` property is handled automatically:
 
 ```csharp

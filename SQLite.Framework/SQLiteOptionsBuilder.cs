@@ -388,6 +388,59 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Registers a TEXT-storage JSON converter for every type declared in
+    /// <paramref name="context" /> (via <c>[JsonSerializable(typeof(T))]</c>) and walks the
+    /// source-generated <see cref="JsonTypeInfo" /> graph for each one, registering converters
+    /// for every reachable nested property type. Explicit registrations are preserved.
+    /// </summary>
+    /// <remarks>
+    /// Enumerates the public <see cref="JsonTypeInfo{T}" /> properties on
+    /// <paramref name="context" />. The JSON source generator emits one such property per
+    /// <c>[JsonSerializable]</c> attribute and keeps them rooted, so the reflective enumeration
+    /// is safe under trimming and Native AOT.
+    /// </remarks>
+    public SQLiteOptionsBuilder AddJsonContext(JsonSerializerContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        foreach (JsonTypeInfo root in EnumerateContextRoots(context))
+        {
+            if (!TypeConverters.ContainsKey(root.Type))
+            {
+                TypeConverters[root.Type] = new SQLiteJsonObjectConverter(root, isJsonb: false);
+            }
+            WalkJsonGraph(root, isJsonb: false);
+        }
+        return this;
+    }
+
+#if !SQLITECIPHER
+    /// <summary>
+    /// Registers a JSONB-storage JSON converter for every type declared in
+    /// <paramref name="context" /> and walks the source-generated <see cref="JsonTypeInfo" />
+    /// graph for each one. Explicit registrations are preserved.
+    /// </summary>
+    /// <remarks>
+    /// JSONB requires SQLite 3.45 or later. See <see cref="SQLiteJsonbConverter{T}" /> for the
+    /// platform notes. The enumeration is trim-safe for the same reason as
+    /// <see cref="AddJsonContext" />: the JSON source generator roots every
+    /// <c>[JsonSerializable]</c> property.
+    /// </remarks>
+    public SQLiteOptionsBuilder AddJsonbContext(JsonSerializerContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        foreach (JsonTypeInfo root in EnumerateContextRoots(context))
+        {
+            if (!TypeConverters.ContainsKey(root.Type))
+            {
+                TypeConverters[root.Type] = new SQLiteJsonObjectConverter(root, isJsonb: true);
+            }
+            WalkJsonGraph(root, isJsonb: true);
+        }
+        return this;
+    }
+#endif
+
+    /// <summary>
     /// Registers a custom type converter for the given CLR type.
     /// </summary>
     public SQLiteOptionsBuilder AddTypeConverter(Type clrType, ISQLiteTypeConverter converter)
@@ -651,6 +704,42 @@ public sealed class SQLiteOptionsBuilder
         };
     }
 
+    private void WalkJsonGraph(JsonTypeInfo root, bool isJsonb)
+    {
+        Queue<JsonTypeInfo> queue = new();
+        queue.Enqueue(root);
+
+        while (queue.Count > 0)
+        {
+            JsonTypeInfo parent = queue.Dequeue();
+            foreach (JsonPropertyInfo prop in parent.Properties)
+            {
+                Type propType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+                if (TypeConverters.ContainsKey(propType) || IsSimpleJsonLeaf(propType))
+                {
+                    continue;
+                }
+
+                JsonTypeInfo? childInfo;
+                try
+                {
+                    childInfo = parent.Options.GetTypeInfo(propType);
+                }
+                catch (NotSupportedException)
+                {
+                    continue;
+                }
+                catch (InvalidOperationException)
+                {
+                    continue;
+                }
+
+                TypeConverters[propType] = new SQLiteJsonObjectConverter(childInfo, isJsonb);
+                queue.Enqueue(childInfo);
+            }
+        }
+    }
+
     private void RegisterDefaultMethodHandlers()
     {
         MemberTranslators[typeof(SQLiteFunctions)] = SQLiteFunctionsMemberVisitor.HandleSQLiteFunctionsMethod;
@@ -684,6 +773,37 @@ public sealed class SQLiteOptionsBuilder
         MemberTranslators[typeof(double)] = floatHandler;
         MemberTranslators[typeof(float)] = floatHandler;
         MemberTranslators[typeof(decimal)] = floatHandler;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2075",
+        Justification = "JsonSerializerContext subclasses are produced by the System.Text.Json source generator, which keeps their public JsonTypeInfo<T> properties rooted.")]
+    private static IEnumerable<JsonTypeInfo> EnumerateContextRoots(JsonSerializerContext context)
+    {
+        foreach (PropertyInfo pi in context.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (pi.PropertyType.IsGenericType
+                && pi.PropertyType.GetGenericTypeDefinition() == typeof(JsonTypeInfo<>)
+                && pi.GetValue(context) is JsonTypeInfo info)
+            {
+                yield return info;
+            }
+        }
+    }
+
+    private static bool IsSimpleJsonLeaf(Type type)
+    {
+        return type.IsPrimitive
+               || type.IsEnum
+               || type == typeof(string)
+               || type == typeof(decimal)
+               || type == typeof(DateTime)
+               || type == typeof(DateTimeOffset)
+               || type == typeof(TimeSpan)
+               || type == typeof(DateOnly)
+               || type == typeof(TimeOnly)
+               || type == typeof(Guid)
+               || type == typeof(byte[])
+               || type == typeof(object);
     }
 
     private static Dictionary<Type, IReadOnlyList<LambdaExpression>> SnapshotQueryFilters(Dictionary<Type, List<LambdaExpression>> source)
