@@ -32,6 +32,14 @@ public sealed class SQLiteOptionsBuilder
     public bool IsWalMode { get; set; }
 
     /// <summary>
+    /// When <see langword="true" /> (the default), the framework runs
+    /// <c>PRAGMA foreign_keys = ON</c> on every connection open. Set to
+    /// <see langword="false" /> via <see cref="UseForeignKeys" /> to opt out, for example for a
+    /// bulk import or a legacy database with broken references.
+    /// </summary>
+    public bool IsForeignKeysEnabled { get; set; } = true;
+
+    /// <summary>
     /// The encryption key for a SQLCipher database. Only applied when the framework is compiled with <c>SQLITECIPHER</c>.
     /// </summary>
     public string? EncryptionKey { get; set; }
@@ -111,8 +119,8 @@ public sealed class SQLiteOptionsBuilder
     /// Keyed by <see cref="MemberInfo" />: a <see cref="MethodInfo" /> registers per-method,
     /// a <see cref="Type" /> registers a fallback for every method/property declared on that
     /// type. The default constructor pre-registers the built-in handlers for <c>string</c>,
-    /// <c>Math</c>, the date/time types, the SQLite helper classes, and so on; user code can
-    /// replace any of those entries to override the framework's translation.
+    /// <c>Math</c>, the date/time types, the SQLite helper classes, and so on. User code can
+    /// replace any entry to override the framework's translation.
     /// </summary>
     public Dictionary<MemberInfo, SQLiteMemberTranslator> MemberTranslators { get; } = [];
 
@@ -123,8 +131,8 @@ public sealed class SQLiteOptionsBuilder
 
     /// <summary>
     /// Generated entity materializer builders, keyed by the entity's CLR type. Each value is a
-    /// factory called once per query with the current <see cref="SQLiteQueryContext" />; it
-    /// resolves column indices and returns a per-row materializer that closes over those
+    /// factory called once per query with the current <see cref="SQLiteQueryContext" />. The
+    /// factory resolves column indices and returns a per-row materializer that closes over those
     /// indices. Populated by the <c>UseGeneratedMaterializers</c> extension emitted by
     /// <c>SQLite.Framework.SourceGenerator</c>. User code should go through that extension
     /// rather than mutating this map directly.
@@ -150,7 +158,7 @@ public sealed class SQLiteOptionsBuilder
     /// property name to a delegate that binds that column on a prepared statement, removing the
     /// reflection cost of <c>PropertyInfo.GetValue</c> on <c>AddRange</c> / <c>UpdateRange</c> /
     /// <c>RemoveRange</c>. Populated by the <c>UseGeneratedMaterializers</c> extension emitted by
-    /// <c>SQLite.Framework.SourceGenerator</c>; user code should go through that extension rather
+    /// <c>SQLite.Framework.SourceGenerator</c>. User code should go through that extension rather
     /// than mutating this map directly.
     /// </summary>
     public Dictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>> EntityWriters { get; } = [];
@@ -207,8 +215,8 @@ public sealed class SQLiteOptionsBuilder
 
     /// <summary>
     /// Query filters keyed by registration type. Populated through <see cref="AddQueryFilter{T}" />.
-    /// Each filter is a typed lambda; the registration type can be the entity type or an interface,
-    /// in which case the filter applies to every entity assignable to that interface.
+    /// Each filter is a typed lambda. The registration type can be the entity type or an
+    /// interface. When it is an interface, the filter applies to every entity assignable to it.
     /// </summary>
     public Dictionary<Type, List<LambdaExpression>> QueryFilters { get; } = [];
 
@@ -261,7 +269,7 @@ public sealed class SQLiteOptionsBuilder
     /// Registers a cross-cutting hook that runs before every CRUD action across every entity.
     /// The hook can mutate the entity and rewrite the action (for example, turn
     /// <see cref="SQLiteAction.Remove" /> into <see cref="SQLiteAction.Update" /> for a
-    /// soft-delete scenario). Multiple hooks chain in registration order; each receives the
+    /// soft-delete scenario). Multiple hooks chain in registration order. Each receives the
     /// action returned by the previous hook.
     /// </summary>
     public SQLiteOptionsBuilder OnAction(SQLiteActionHook hook)
@@ -285,6 +293,16 @@ public sealed class SQLiteOptionsBuilder
     public SQLiteOptionsBuilder UseWalMode(bool enabled = true)
     {
         IsWalMode = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Enables (or disables) foreign key enforcement. On by default. Pass <see langword="false" />
+    /// to opt out.
+    /// </summary>
+    public SQLiteOptionsBuilder UseForeignKeys(bool enabled = true)
+    {
+        IsForeignKeysEnabled = enabled;
         return this;
     }
 
@@ -675,6 +693,7 @@ public sealed class SQLiteOptionsBuilder
             DatabasePath = DatabasePath,
             OpenFlags = OpenFlags,
             IsWalMode = IsWalMode,
+            IsForeignKeysEnabled = IsForeignKeysEnabled,
             EncryptionKey = EncryptionKey,
             DateTimeStorage = DateTimeStorage,
             DateTimeFormat = DateTimeFormat,

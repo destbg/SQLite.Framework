@@ -56,6 +56,13 @@ public class SQLiteSchema
             columns += $", PRIMARY KEY ({pkList})";
         }
 
+        foreach (ForeignKeyInfo composite in mapping.CompositeForeignKeys)
+        {
+            StringBuilder fkSb = new();
+            composite.WriteSql(fkSb, inline: false);
+            columns += $", {fkSb}";
+        }
+
         string sql = $"CREATE TABLE IF NOT EXISTS \"{mapping.TableName}\" ({columns})";
 
         if (mapping.WithoutRowId)
@@ -336,8 +343,9 @@ public class SQLiteSchema
 
     /// <summary>
     /// Renames the table for <typeparamref name="T" /> in the database. The mapping in your code
-    /// is not updated; usually you also update the <see cref="System.ComponentModel.DataAnnotations.Schema.TableAttribute" />
-    /// or the entity name to match.
+    /// is not updated. Usually you also update the
+    /// <see cref="System.ComponentModel.DataAnnotations.Schema.TableAttribute" /> or the entity
+    /// name to match.
     /// </summary>
     public virtual int RenameTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string newTableName)
     {
@@ -354,9 +362,9 @@ public class SQLiteSchema
     /// <c>CREATE VIEW IF NOT EXISTS</c>, so calling this twice does not throw.
     /// </summary>
     /// <remarks>
-    /// Pair the view with <see cref="SQLiteDatabase.ReadOnlyTable{T}" /> to query it. The
-    /// view body is captured once at create time; later changes to the lambda do not
-    /// affect the view in the database.
+    /// Pair the view with <see cref="SQLiteDatabase.ReadOnlyTable{T}" /> to query it. The view
+    /// body is captured once at create time. Later changes to the lambda do not affect the view
+    /// in the database.
     /// </remarks>
     public virtual int CreateView<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Expression<Func<IQueryable<T>>> query)
     {
@@ -432,7 +440,7 @@ public class SQLiteSchema
     /// expression is true fire the trigger body.</param>
     /// <param name="forEachRow">When <see langword="true" /> (the default), the trigger
     /// fires once per row. When <see langword="false" />, it fires once per statement.</param>
-    public virtual int CreateTrigger<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string name, TriggerTiming timing, TriggerEvent @event, string body, string? when = null, bool forEachRow = true)
+    public virtual int CreateTrigger<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string body, string? when = null, bool forEachRow = true)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentException.ThrowIfNullOrEmpty(body);
@@ -444,17 +452,17 @@ public class SQLiteSchema
         sb.Append("\" ");
         sb.Append(timing switch
         {
-            TriggerTiming.Before => "BEFORE",
-            TriggerTiming.After => "AFTER",
-            TriggerTiming.InsteadOf => "INSTEAD OF",
+            SQLiteTriggerTiming.Before => "BEFORE",
+            SQLiteTriggerTiming.After => "AFTER",
+            SQLiteTriggerTiming.InsteadOf => "INSTEAD OF",
             _ => throw new ArgumentOutOfRangeException(nameof(timing)),
         });
         sb.Append(' ');
         sb.Append(@event switch
         {
-            TriggerEvent.Insert => "INSERT",
-            TriggerEvent.Update => "UPDATE",
-            TriggerEvent.Delete => "DELETE",
+            SQLiteTriggerEvent.Insert => "INSERT",
+            SQLiteTriggerEvent.Update => "UPDATE",
+            SQLiteTriggerEvent.Delete => "DELETE",
             _ => throw new ArgumentOutOfRangeException(nameof(@event)),
         });
         sb.Append(" ON \"");

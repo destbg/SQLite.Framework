@@ -175,7 +175,7 @@ What the generator can follow:
 What is out of scope:
 
 - Cross-assembly helpers. If `Repo<T>` lives in a referenced library, the generator only sees its compiled signature, not its body, and cannot tell that it calls `ExecuteQuery<T>`. Move the helper into the project that runs the generator, or pre-call `ExecuteQuery<ConcreteType>()` directly.
-- Helpers with no concrete callsite in the same project. The generator has nothing to substitute; the runtime path is used.
+- Helpers with no concrete callsite in the same project. The generator has nothing to substitute. The runtime path is used.
 - Reflection inside the helper body (`Activator.CreateInstance(typeof(TResult))` and similar). The generator only follows real `new TResult { ... }` syntax.
 
 ## Combining with AOT

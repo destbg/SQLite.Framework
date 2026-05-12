@@ -90,9 +90,8 @@ public static class SQLiteFunctions
     /// Returns true when <paramref name="value" /> is between <paramref name="low" /> and
     /// <paramref name="high" /> inclusive. Translates to SQLite's
     /// <c>value BETWEEN low AND high</c>.
-    /// To express the negated form, wrap the call with <c>!</c> (or compare to <c>false</c>);
-    /// the framework emits <c>NOT (value BETWEEN low AND high)</c>, which SQLite treats
-    /// identically to <c>NOT BETWEEN</c>.
+    /// To negate, wrap the call with <c>!</c> (or compare to <c>false</c>). The framework emits
+    /// <c>NOT (value BETWEEN low AND high)</c>, which SQLite treats the same as <c>NOT BETWEEN</c>.
     /// </summary>
     public static bool Between<T>(T value, T low, T high)
     {
@@ -110,9 +109,9 @@ public static class SQLiteFunctions
     }
 
     /// <summary>
-    /// Returns the first non-null value among <paramref name="values" />, or <see langword="null" />
-    /// if all are null. Translates to SQLite's <c>coalesce(v0, v1, ...)</c>. Pass at least two
-    /// arguments; SQLite requires it.
+    /// Returns the first non-null value in <paramref name="values" />, or <see langword="null" />
+    /// when all are null. Maps to SQLite's <c>coalesce(v0, v1, ...)</c>. SQLite requires at
+    /// least two arguments.
     /// </summary>
     public static T? Coalesce<T>(params T?[] values)
     {

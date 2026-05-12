@@ -36,6 +36,15 @@ public class TableColumn
         }
 
         ColumnType = TypeHelpers.TypeToSQLiteType(type, options);
+        ReferencesTableAttribute = property.GetCustomAttribute<ReferencesTableAttribute>();
+        ForeignKeyAttribute = property.GetCustomAttribute<ForeignKeyAttribute>();
+
+        if (ReferencesTableAttribute != null && ForeignKeyAttribute != null)
+        {
+            throw new InvalidOperationException(
+                $"Property '{property.DeclaringType!.Name}.{property.Name}' carries both [ReferencesTable] and " +
+                "[System.ComponentModel.DataAnnotations.Schema.ForeignKey]. Pick one or the other, but not both.");
+        }
     }
 
     /// <summary>
@@ -84,6 +93,26 @@ public class TableColumn
     public bool IsNullable { get; }
 
     /// <summary>
+    /// The <see cref="Attributes.ReferencesTableAttribute" /> on the property, if any.
+    /// Mutually exclusive with <see cref="ForeignKeyAttribute" />.
+    /// </summary>
+    public ReferencesTableAttribute? ReferencesTableAttribute { get; }
+
+    /// <summary>
+    /// The EF-style
+    /// <see cref="System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute" /> on the
+    /// property, if any. The framework reads <c>Name</c> as the target class name and infers the
+    /// primary key.
+    /// </summary>
+    public ForeignKeyAttribute? ForeignKeyAttribute { get; }
+
+    /// <summary>
+    /// The resolved foreign key for this column, or <see langword="null" /> when the column does
+    /// not carry a single-column foreign key. Composite keys live on <see cref="TableMapping" />.
+    /// </summary>
+    public ForeignKeyInfo? ForeignKey { get; internal set; }
+
+    /// <summary>
     /// Gets the SQL statement to create the column in the database.
     /// </summary>
     /// <param name="emitInlinePrimaryKey">
@@ -98,13 +127,30 @@ public class TableColumn
         string primaryKey = inlinePk ? "PRIMARY KEY" : string.Empty;
         string autoIncrement = inlinePk && IsAutoIncrement ? "AUTOINCREMENT" : string.Empty;
 
-        return string.Join(' ', new[]
+        StringBuilder sb = new();
+        sb.Append(Name);
+        sb.Append(' ');
+        sb.Append(columnType);
+        if (nullability.Length > 0)
         {
-            Name,
-            columnType,
-            nullability,
-            primaryKey,
-            autoIncrement
-        }.Where(s => !string.IsNullOrEmpty(s)));
+            sb.Append(' ');
+            sb.Append(nullability);
+        }
+        if (primaryKey.Length > 0)
+        {
+            sb.Append(' ');
+            sb.Append(primaryKey);
+        }
+        if (autoIncrement.Length > 0)
+        {
+            sb.Append(' ');
+            sb.Append(autoIncrement);
+        }
+        if (ForeignKey != null)
+        {
+            sb.Append(' ');
+            ForeignKey.WriteSql(sb, inline: true);
+        }
+        return sb.ToString();
     }
 }

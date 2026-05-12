@@ -632,7 +632,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     /// <summary>
     /// Runs the default work for the given <paramref name="action" />. <see cref="SQLiteAction.Skip" />
-    /// returns <c>0</c> without touching the database; the other values map to the standard
+    /// returns <c>0</c> without touching the database. The other values map to the standard
     /// <c>INSERT</c>, <c>UPDATE</c>, <c>DELETE</c>, or <c>INSERT OR REPLACE</c> paths.
     /// </summary>
     protected virtual int DispatchAction(SQLiteAction action, T item)

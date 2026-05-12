@@ -86,14 +86,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 #if SQLITE_FRAMEWORK_TESTING
     /// <summary>
     /// Number of times a generated entity materializer from <see cref="SQLiteOptions.EntityMaterializers" />
-    /// has handled a query row for this database. Read-only counter; increments on every hit.
+    /// has handled a query row for this database. Read-only counter that increments on every hit.
     /// Only present when the framework is built with the <c>SQLITE_FRAMEWORK_TESTING</c> symbol.
     /// </summary>
     public long EntityMaterializerHits => Interlocked.Read(ref entityMaterializerHits);
 
     /// <summary>
     /// Number of times a generated Select materializer from <see cref="SQLiteOptions.SelectMaterializers" />
-    /// has handled a query for this database. Read-only counter; increments on every hit.
+    /// has handled a query for this database. Read-only counter that increments on every hit.
     /// Only present when the framework is built with the <c>SQLITE_FRAMEWORK_TESTING</c> symbol.
     /// </summary>
     public long SelectMaterializerHits => Interlocked.Read(ref selectMaterializerHits);
@@ -380,6 +380,15 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                     raw.sqlite3_step(walStmt);
                     raw.sqlite3_finalize(walStmt);
                 }
+
+                // Forced so behaviour is the same across SQLite builds. Some builds compile in
+                // SQLITE_DEFAULT_FOREIGN_KEYS=1 and would otherwise ignore the opt-out.
+                string fkPragma = Options.IsForeignKeysEnabled
+                    ? "PRAGMA foreign_keys = ON"
+                    : "PRAGMA foreign_keys = OFF";
+                raw.sqlite3_prepare_v2(Handle, fkPragma, out sqlite3_stmt fkStmt);
+                raw.sqlite3_step(fkStmt);
+                raw.sqlite3_finalize(fkStmt);
 
                 IsConnecting = false;
             }

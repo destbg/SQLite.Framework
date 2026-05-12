@@ -57,7 +57,7 @@ db.Table<Book>().Schema
     .CreateTable();
 ```
 
-`Computed(target, sql, stored)` adds a generated column. The default is virtual (computed on every read); pass `stored: true` to store the value on disk.
+`Computed(target, sql, stored)` adds a generated column. The default is virtual (computed on every read). Pass `stored: true` to store the value on disk.
 
 `Check(predicate, name)` adds a table-level CHECK constraint. The predicate is translated to SQL the same way `Where` clauses are.
 
@@ -128,15 +128,15 @@ SQLite does not allow placeholders inside view bodies, so any constants in the l
 ```csharp
 db.Schema.CreateTrigger<Book>(
     name: "trg_book_history",
-    timing: TriggerTiming.After,
-    @event: TriggerEvent.Update,
+    timing: SQLiteTriggerTiming.After,
+    @event: SQLiteTriggerEvent.Update,
     body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.Id, OLD.BookPrice, NEW.BookPrice)",
     when: "OLD.BookPrice <> NEW.BookPrice");
 
 db.Schema.DropTrigger("trg_book_history");
 ```
 
-`TriggerTiming` is `Before`, `After`, or `InsteadOf`. `TriggerEvent` is `Insert`, `Update`, or `Delete`. `InsteadOf` only works on views. The trigger runs once per row by default, pass `forEachRow: false` to run once per statement.
+`SQLiteTriggerTiming` is `Before`, `After`, or `InsteadOf`. `SQLiteTriggerEvent` is `Insert`, `Update`, or `Delete`. `InsteadOf` only works on views. The trigger runs once per row by default, pass `forEachRow: false` to run once per statement.
 
 ## Async
 
@@ -149,7 +149,7 @@ await db.Schema.CreateIndexAsync<Book>(b => b.Title);
 bool exists = await db.Schema.TableExistsAsync<Book>();
 IReadOnlyList<SchemaColumnInfo> cols = await db.Schema.ListColumnsAsync<Book>();
 await db.Schema.CreateViewAsync<BookSummary>(() => from b in db.Table<Book>() select new BookSummary { ... });
-await db.Schema.CreateTriggerAsync<Book>("trg_x", TriggerTiming.After, TriggerEvent.Insert, "...");
+await db.Schema.CreateTriggerAsync<Book>("trg_x", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, "...");
 ```
 
 ## Customizing schema generation

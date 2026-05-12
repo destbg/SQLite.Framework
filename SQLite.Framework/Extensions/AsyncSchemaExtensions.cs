@@ -285,7 +285,7 @@ public static class AsyncSchemaExtensions
     /// <summary>
     /// Creates a trigger on the table for <typeparamref name="T" />.
     /// </summary>
-    public static Task<int> CreateTriggerAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string name, TriggerTiming timing, TriggerEvent @event, string body, string? when = null, bool forEachRow = true, CancellationToken ct = default)
+    public static Task<int> CreateTriggerAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string body, string? when = null, bool forEachRow = true, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
         {

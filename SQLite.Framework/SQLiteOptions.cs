@@ -32,6 +32,13 @@ public sealed class SQLiteOptions
     public required bool IsWalMode { get; init; }
 
     /// <summary>
+    /// When <see langword="true" /> (the default), the framework runs
+    /// <c>PRAGMA foreign_keys = ON</c> on every connection open. Use
+    /// <see cref="SQLiteOptionsBuilder.UseForeignKeys" /> to turn it off.
+    /// </summary>
+    public required bool IsForeignKeysEnabled { get; init; }
+
+    /// <summary>
     /// The encryption key for a SQLCipher database. <see langword="null" /> when no key is set.
     /// Only applied when the framework is compiled with <c>SQLITECIPHER</c>.
     /// </summary>

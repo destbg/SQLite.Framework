@@ -54,7 +54,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     /// </summary>
     /// <param name="predicate">The condition every row must satisfy.</param>
     /// <param name="name">Optional constraint name. When set, emits
-    /// <c>CONSTRAINT &lt;name&gt; CHECK (...)</c>; otherwise emits a bare <c>CHECK (...)</c>.</param>
+    /// <c>CONSTRAINT &lt;name&gt; CHECK (...)</c>. Otherwise emits a bare <c>CHECK (...)</c>.</param>
     public SQLiteTableBuilder<T> Check(Expression<Func<T, bool>> predicate, string? name = null)
     {
         ArgumentNullException.ThrowIfNull(predicate);
@@ -82,6 +82,30 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
         indexes.Add(new IndexSpec(target.Name, indexName, unique, filterSql));
         return this;
+    }
+
+    /// <summary>
+    /// Adds a foreign key from <paramref name="column" /> to the primary key of
+    /// <typeparamref name="TParent" />. Use the overload that takes a target column selector for
+    /// non-PK targets or for composite keys.
+    /// </summary>
+    public SQLiteTableBuilder<T> ForeignKey<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TParent>(Expression<Func<T, object?>> column, SQLiteForeignKeyAction onDelete = SQLiteForeignKeyAction.NoAction, SQLiteForeignKeyAction onUpdate = SQLiteForeignKeyAction.NoAction, bool deferred = false)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        return ForeignKeyCore<TParent>(column, target: null, onDelete, onUpdate, deferred);
+    }
+
+    /// <summary>
+    /// Adds a foreign key from <paramref name="column" /> to <paramref name="targetColumn" /> on
+    /// <typeparamref name="TParent" />. Supports composite foreign keys when both selectors
+    /// project an anonymous tuple of the same arity (for example
+    /// <c>l =&gt; new { l.A, l.B }</c>).
+    /// </summary>
+    public SQLiteTableBuilder<T> ForeignKey<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TParent>(Expression<Func<T, object?>> column, Expression<Func<TParent, object?>> targetColumn, SQLiteForeignKeyAction onDelete = SQLiteForeignKeyAction.NoAction, SQLiteForeignKeyAction onUpdate = SQLiteForeignKeyAction.NoAction, bool deferred = false)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        ArgumentNullException.ThrowIfNull(targetColumn);
+        return ForeignKeyCore(column, targetColumn, onDelete, onUpdate, deferred);
     }
 
     /// <summary>
@@ -158,6 +182,12 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             sb.Append(')');
         }
 
+        foreach (ForeignKeyInfo composite in mapping.CompositeForeignKeys)
+        {
+            sb.Append(", ");
+            composite.WriteSql(sb, inline: false);
+        }
+
         sb.Append(')');
 
         if (mapping.WithoutRowId)
@@ -187,6 +217,59 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         }
 
         return count;
+    }
+
+    private SQLiteTableBuilder<T> ForeignKeyCore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TParent>(Expression<Func<T, object?>> column, Expression<Func<TParent, object?>>? target, SQLiteForeignKeyAction onDelete, SQLiteForeignKeyAction onUpdate, bool deferred)
+    {
+        string[] sourcePropertyNames = ResolvePropertyNames(column.Body);
+        bool[] sourceNullability = new bool[sourcePropertyNames.Length];
+        string[] sourceColumnNames = new string[sourcePropertyNames.Length];
+        for (int i = 0; i < sourcePropertyNames.Length; i++)
+        {
+            TableColumn col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == sourcePropertyNames[i])
+                ?? throw new ArgumentException($"Property '{sourcePropertyNames[i]}' is not mapped on {typeof(T).Name}.", nameof(column));
+            sourceColumnNames[i] = col.Name;
+            sourceNullability[i] = col.IsNullable;
+        }
+
+        string[]? targetPropertyNames = target == null ? null : ResolvePropertyNames(target.Body);
+        (string targetTable, string[] targetColumns) = ForeignKeyResolver.ResolveTargets(
+            sourceTable: mapping.TableName,
+            sourceColumns: sourceColumnNames,
+            typeof(TParent),
+            targetPropertyNames);
+
+        ForeignKeyResolver.ValidateSetNullCompatibility(
+            sourceTable: mapping.TableName,
+            sourceColumns: sourceColumnNames,
+            sourceNullability: sourceNullability,
+            onDelete,
+            onUpdate);
+
+        ForeignKeyInfo info = new(
+            columns: sourceColumnNames,
+            targetTable: targetTable,
+            targetColumns: targetColumns,
+            onDelete: onDelete,
+            onUpdate: onUpdate,
+            deferred: deferred);
+
+        if (sourceColumnNames.Length == 1)
+        {
+            TableColumn column0 = mapping.Columns.First(c => c.Name == sourceColumnNames[0]);
+            if (column0.ForeignKey != null)
+            {
+                throw new InvalidOperationException(
+                    $"Column \"{mapping.TableName}\".\"{column0.Name}\" already has a foreign key declared via [ForeignKey].");
+            }
+            column0.ForeignKey = info;
+        }
+        else
+        {
+            mapping.AddCompositeForeignKey(info);
+        }
+
+        return this;
     }
 
     private TableColumn ResolveTargetColumn<TKey>(Expression<Func<T, TKey>> column)
@@ -225,5 +308,39 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         }
 
         return SqlLiteralHelper.InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters ?? []);
+    }
+
+    private static string[] ResolvePropertyNames(Expression body)
+    {
+        if (body is UnaryExpression unary)
+        {
+            body = unary.Operand;
+        }
+
+        if (body is NewExpression newExpr)
+        {
+            string[] names = new string[newExpr.Arguments.Count];
+            for (int i = 0; i < newExpr.Arguments.Count; i++)
+            {
+                Expression arg = newExpr.Arguments[i];
+                if (arg is UnaryExpression u)
+                {
+                    arg = u.Operand;
+                }
+                if (arg is not MemberExpression mem)
+                {
+                    throw new ArgumentException("Foreign key tuple expressions must be plain property accesses like b => new { b.A, b.B }.");
+                }
+                names[i] = mem.Member.Name;
+            }
+            return names;
+        }
+
+        if (body is MemberExpression member)
+        {
+            return [member.Member.Name];
+        }
+
+        throw new ArgumentException("Expected a property access expression like b => b.Id, or an anonymous tuple like b => new { b.A, b.B }.");
     }
 }

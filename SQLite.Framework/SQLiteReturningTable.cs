@@ -1,12 +1,11 @@
 namespace SQLite.Framework;
 
 /// <summary>
-/// Wraps a <see cref="SQLiteTable{T}" /> and a projection so that the entity-level write
-/// methods (<see cref="Add" />, <see cref="Update" />, <see cref="Remove" /> and their range
-/// variants) issue a SQLite <c>INSERT</c>/<c>UPDATE</c>/<c>DELETE ... RETURNING</c> statement.
-/// The projection columns are pushed into the <c>RETURNING</c> clause and the result rows go
-/// through the same materialization pipeline as <c>Select</c>, so a registered source-generated
-/// <c>Select</c> materializer is reused when one matches.
+/// Wraps a <see cref="SQLiteTable{T}" /> with a projection. The entity-level write methods
+/// (<see cref="Add" />, <see cref="Update" />, <see cref="Remove" /> and their range variants)
+/// issue an <c>INSERT</c>/<c>UPDATE</c>/<c>DELETE ... RETURNING</c> and hand back the projected
+/// rows. The projection goes through the regular <c>Select</c> pipeline, so a matching
+/// source-generated materializer is reused.
 /// </summary>
 /// <remarks>
 /// <c>RETURNING</c> requires SQLite 3.35 or later.
@@ -43,11 +42,10 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     public SQLiteDatabase Database => Source.Database;
 
     /// <summary>
-    /// Inserts <paramref name="item" /> and returns the inserted row, projected. If a
-    /// registered <c>OnAdd</c> hook cancels the write, returns <see langword="default" />.
-    /// When the table has an auto-increment primary key and the projection materializes back
-    /// to <typeparamref name="T" />, the assigned value is copied back to <paramref name="item" />
-    /// on success, matching the behaviour of <see cref="SQLiteTable{T}.Add" />.
+    /// Inserts <paramref name="item" /> and returns the projected inserted row. Returns
+    /// <see langword="default" /> when an <c>OnAdd</c> hook cancels the write. Copies an
+    /// auto-increment primary key back to <paramref name="item" /> when the projection
+    /// materializes <typeparamref name="T" /> in full, the same as <see cref="SQLiteTable{T}.Add" />.
     /// </summary>
     public virtual TResult? Add(T item)
     {

@@ -3,7 +3,7 @@ namespace SQLite.Framework.Enums;
 /// <summary>
 /// The row change that fires a trigger. Used by <see cref="SQLiteSchema.CreateTrigger{T}" />.
 /// </summary>
-public enum TriggerEvent
+public enum SQLiteTriggerEvent
 {
     /// <summary>
     /// The trigger fires on <c>INSERT</c>.

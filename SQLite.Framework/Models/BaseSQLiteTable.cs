@@ -1,9 +1,9 @@
 namespace SQLite.Framework.Models;
 
 /// <summary>
-/// Base class for any queryable that maps directly to a SQL table. This includes regular
-/// tables, read-only tables, and built-in system tables. CTEs and LINQ chain wrappers do
-/// not inherit from this class; they go through <see cref="BaseSQLiteQueryable" /> instead.
+/// Base class for any queryable that maps directly to a SQL table. Covers regular tables,
+/// read-only tables, and built-in system tables. CTEs and LINQ chain wrappers go through
+/// <see cref="BaseSQLiteQueryable" /> instead.
 /// </summary>
 public abstract class BaseSQLiteTable : BaseSQLiteQueryable
 {

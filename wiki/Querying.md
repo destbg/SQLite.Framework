@@ -216,7 +216,7 @@ db.Table<Book>().Where(b => b.Price > 10).ToList();
 db.Table<Book>().ExecuteDelete();
 ```
 
-The registration type can be an interface, in which case the filter applies to every entity that implements it. One registration covers all matching entities; no per-entity hookup needed:
+The registration type can be an interface, in which case the filter applies to every entity that implements it. One registration covers all matching entities, no per-entity hookup needed.
 
 ```csharp
 public interface ISoftDelete

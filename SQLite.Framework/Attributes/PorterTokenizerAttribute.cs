@@ -2,8 +2,8 @@ namespace SQLite.Framework.Attributes;
 
 /// <summary>
 /// Configures the FTS5 <c>porter</c> stemming tokenizer. The Porter stemmer reduces English words
-/// to their stem so that "running" matches "ran" and "runs". It wraps another tokenizer; the wrapped
-/// tokenizer does the actual splitting.
+/// to their stem so that "running" matches "ran" and "runs". It wraps another tokenizer. The
+/// wrapped tokenizer does the actual splitting.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
 public sealed class PorterTokenizerAttribute : Attribute

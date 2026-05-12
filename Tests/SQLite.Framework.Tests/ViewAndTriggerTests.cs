@@ -135,8 +135,8 @@ public class ViewAndTriggerTests
 
         db.Schema.CreateTrigger<Book>(
             name: "trg_book_history",
-            timing: TriggerTiming.After,
-            @event: TriggerEvent.Update,
+            timing: SQLiteTriggerTiming.After,
+            @event: SQLiteTriggerEvent.Update,
             body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.BookId, OLD.BookPrice, NEW.BookPrice)",
             when: "OLD.BookPrice <> NEW.BookPrice");
 
@@ -159,8 +159,8 @@ public class ViewAndTriggerTests
 
         db.Schema.CreateTrigger<Book>(
             name: "trg_block",
-            timing: TriggerTiming.Before,
-            @event: TriggerEvent.Insert,
+            timing: SQLiteTriggerTiming.Before,
+            @event: SQLiteTriggerEvent.Insert,
             body: "SELECT RAISE(ABORT, 'nope') WHERE NEW.BookPrice < 0",
             forEachRow: true);
 
@@ -180,8 +180,8 @@ public class ViewAndTriggerTests
 
         db.Schema.CreateTrigger<Book>(
             name: "trg_with_semi",
-            timing: TriggerTiming.After,
-            @event: TriggerEvent.Insert,
+            timing: SQLiteTriggerTiming.After,
+            @event: SQLiteTriggerEvent.Insert,
             body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.BookId, 0, NEW.BookPrice);");
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });
@@ -198,8 +198,8 @@ public class ViewAndTriggerTests
 
         db.Schema.CreateTrigger<Book>(
             name: "trg_del",
-            timing: TriggerTiming.After,
-            @event: TriggerEvent.Delete,
+            timing: SQLiteTriggerTiming.After,
+            @event: SQLiteTriggerEvent.Delete,
             body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (OLD.BookId, OLD.BookPrice, 0)");
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });
@@ -217,8 +217,8 @@ public class ViewAndTriggerTests
 
         db.Schema.CreateTrigger<Book>(
             name: "trg_stmt",
-            timing: TriggerTiming.After,
-            @event: TriggerEvent.Insert,
+            timing: SQLiteTriggerTiming.After,
+            @event: SQLiteTriggerEvent.Insert,
             body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (-1, 0, 0)",
             forEachRow: false);
 
@@ -238,8 +238,8 @@ public class ViewAndTriggerTests
 
         db.Schema.CreateTrigger<BookView>(
             name: "trg_view_io",
-            timing: TriggerTiming.InsteadOf,
-            @event: TriggerEvent.Insert,
+            timing: SQLiteTriggerTiming.InsteadOf,
+            @event: SQLiteTriggerEvent.Insert,
             body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.Id, 0, NEW.Price)");
 
         db.Execute("INSERT INTO vBookSummary(Id, Title, Price) VALUES (1, 'T', 5)");
@@ -256,8 +256,8 @@ public class ViewAndTriggerTests
 
         await db.Schema.CreateTriggerAsync<Book>(
             "trg_async",
-            TriggerTiming.After,
-            TriggerEvent.Insert,
+            SQLiteTriggerTiming.After,
+            SQLiteTriggerEvent.Insert,
             "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.BookId, 0, NEW.BookPrice)",
             ct: TestContext.Current.CancellationToken);
 
@@ -274,7 +274,7 @@ public class ViewAndTriggerTests
         db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<ArgumentNullException>(() =>
-            db.Schema.CreateTrigger<Book>(null!, TriggerTiming.After, TriggerEvent.Insert, "SELECT 1"));
+            db.Schema.CreateTrigger<Book>(null!, SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, "SELECT 1"));
     }
 
     [Fact]
@@ -284,7 +284,7 @@ public class ViewAndTriggerTests
         db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<ArgumentNullException>(() =>
-            db.Schema.CreateTrigger<Book>("trg_x", TriggerTiming.After, TriggerEvent.Insert, null!));
+            db.Schema.CreateTrigger<Book>("trg_x", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, null!));
     }
 
     [Fact]
@@ -294,7 +294,7 @@ public class ViewAndTriggerTests
         db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            db.Schema.CreateTrigger<Book>("trg_x", (TriggerTiming)42, TriggerEvent.Insert, "SELECT 1"));
+            db.Schema.CreateTrigger<Book>("trg_x", (SQLiteTriggerTiming)42, SQLiteTriggerEvent.Insert, "SELECT 1"));
     }
 
     [Fact]
@@ -304,6 +304,6 @@ public class ViewAndTriggerTests
         db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            db.Schema.CreateTrigger<Book>("trg_x", TriggerTiming.After, (TriggerEvent)42, "SELECT 1"));
+            db.Schema.CreateTrigger<Book>("trg_x", SQLiteTriggerTiming.After, (SQLiteTriggerEvent)42, "SELECT 1"));
     }
 }

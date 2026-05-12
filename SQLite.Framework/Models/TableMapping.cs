@@ -7,6 +7,8 @@ namespace SQLite.Framework.Models;
 /// </summary>
 public class TableMapping
 {
+    private readonly List<ForeignKeyInfo> compositeForeignKeys = [];
+
     /// <summary>
     /// Initializes a new instance of the <see cref="TableMapping"/> class.
     /// </summary>
@@ -24,6 +26,18 @@ public class TableMapping
             .Where(p => FullTextSearch == null || IsFtsColumn(p))
             .Select(p => new TableColumn(p, options, IsFtsRowIdProperty(p)))
             .ToArray();
+
+        foreach (TableColumn column in Columns)
+        {
+            if (column.ReferencesTableAttribute is { } typed)
+            {
+                column.ForeignKey = ResolveTypedForeignKey(column, typed);
+            }
+            else if (column.ForeignKeyAttribute is { } ef)
+            {
+                column.ForeignKey = ResolveDataAnnotationsForeignKey(type, column, ef);
+            }
+        }
     }
 
     /// <summary>
@@ -57,6 +71,17 @@ public class TableMapping
     /// </summary>
     public bool IsFullTextSearch => FullTextSearch != null;
 
+    /// <summary>
+    /// Composite foreign keys declared on this table via the fluent builder. Single-column
+    /// foreign keys live on <see cref="TableColumn.ForeignKey" /> instead.
+    /// </summary>
+    public IReadOnlyList<ForeignKeyInfo> CompositeForeignKeys => compositeForeignKeys;
+
+    internal void AddCompositeForeignKey(ForeignKeyInfo info)
+    {
+        compositeForeignKeys.Add(info);
+    }
+
     private bool IsFtsRowIdProperty(PropertyInfo property)
     {
         if (FullTextSearch?.RowId == null)
@@ -75,5 +100,47 @@ public class TableMapping
         }
 
         return FullTextSearch!.IndexedColumns.Any(c => c.Property == property);
+    }
+
+    private ForeignKeyInfo ResolveTypedForeignKey(TableColumn column, ReferencesTableAttribute attribute)
+    {
+        (string targetTable, string targetColumn) = ForeignKeyResolver.ResolveSingleTarget(
+            sourceTable: TableName,
+            sourceColumn: column.Name,
+            attribute.TargetType,
+            attribute.TargetColumn);
+
+        ForeignKeyResolver.ValidateSetNullCompatibility(
+            sourceTable: TableName,
+            sourceColumns: [column.Name],
+            sourceNullability: [column.IsNullable],
+            attribute.OnDelete,
+            attribute.OnUpdate);
+
+        return new ForeignKeyInfo(
+            columns: [column.Name],
+            targetTable: targetTable,
+            targetColumns: [targetColumn],
+            onDelete: attribute.OnDelete,
+            onUpdate: attribute.OnUpdate,
+            deferred: attribute.Deferred);
+    }
+
+    private ForeignKeyInfo ResolveDataAnnotationsForeignKey(Type owner, TableColumn column, ForeignKeyAttribute attribute)
+    {
+        Type targetType = ForeignKeyResolver.ResolveTargetTypeByName(owner, column.Name, attribute.Name);
+        (string targetTable, string targetColumn) = ForeignKeyResolver.ResolveSingleTarget(
+            sourceTable: TableName,
+            sourceColumn: column.Name,
+            targetType,
+            targetColumnName: null);
+
+        return new ForeignKeyInfo(
+            columns: [column.Name],
+            targetTable: targetTable,
+            targetColumns: [targetColumn],
+            onDelete: SQLiteForeignKeyAction.NoAction,
+            onUpdate: SQLiteForeignKeyAction.NoAction,
+            deferred: false);
     }
 }

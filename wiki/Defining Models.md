@@ -104,6 +104,62 @@ public int AuthorId { get; set; }
 public string? Genre { get; set; }
 ```
 
+## Foreign Keys
+
+Mark the foreign key column with `[ReferencesTable(typeof(Parent))]`. The framework emits an inline `REFERENCES "Parent"("Id")` clause and infers the parent's primary key.
+
+```csharp
+public class Book
+{
+    [Key]
+    public int Id { get; set; }
+    public required string Title { get; set; }
+
+    [ReferencesTable(typeof(Author))]
+    public int AuthorId { get; set; }
+}
+```
+
+Set `OnDelete`, `OnUpdate`, or `Deferred` for richer behavior. `SetNull` requires the column to be nullable. The framework checks this at model load.
+
+```csharp
+[ReferencesTable(typeof(Author), OnDelete = SQLiteForeignKeyAction.Cascade)]
+public int AuthorId { get; set; }
+
+[ReferencesTable(typeof(Author), OnDelete = SQLiteForeignKeyAction.SetNull)]
+public int? AuthorId { get; set; }
+```
+
+Pass a column name to target a non-primary-key column.
+
+```csharp
+[ReferencesTable(typeof(Country), nameof(Country.Code))]
+public string CountryCode { get; set; }
+```
+
+The framework also reads `[System.ComponentModel.DataAnnotations.Schema.ForeignKey("Author")]`. It takes `Name` as the target class name and infers the primary key with `NoAction` defaults. Prefer `[ReferencesTable]` when you need an action other than `NoAction`, deferred enforcement, or refactor-safe `typeof` targeting. The two attributes cannot be combined on the same property.
+
+For composite keys use the fluent builder.
+
+```csharp
+db.Schema.Table<OrderLine>()
+    .ForeignKey<Order>(
+        l => new { l.OrderId, l.OrderVersion },
+        o => new { o.Id, o.Version },
+        onDelete: SQLiteForeignKeyAction.Cascade)
+    .CreateTable();
+```
+
+The single-column overload also lives on the builder for runtime decisions.
+
+```csharp
+db.Schema.Table<Book>()
+    .ForeignKey<Author>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.Cascade)
+    .CreateTable();
+```
+
+Enforcement is on by default. The framework runs `PRAGMA foreign_keys = ON` on every connection open. Pass `UseForeignKeys(false)` to the builder to opt out, or flip it at runtime with `db.Pragmas.ForeignKeys = false`.
+
 ## WITHOUT ROWID
 
 Use `[WithoutRowId]` on the class to create a WITHOUT ROWID table. This can improve performance for tables where every lookup goes through the primary key. The primary key must not be `[AutoIncrement]` when using this.
