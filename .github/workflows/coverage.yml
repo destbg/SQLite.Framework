@@ -3,10 +3,6 @@ name: Coverage
 on:
   push:
     branches: [main]
-    paths:
-      - 'Tests/**'
-      - 'SQLite.Framework/**'
-      - 'SQLite.Framework.SourceGenerator/**'
 
 jobs:
   test-results:

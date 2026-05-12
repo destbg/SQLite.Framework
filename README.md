@@ -3,7 +3,12 @@
 LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight - and without the trimming and AOT pain that EF Core still has on Native AOT today. Built for .NET MAUI, Avalonia, and any other AOT-published .NET 8/9/10 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
 
 [![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
 [![codecov](https://codecov.io/gh/destbg/SQLite.Framework/branch/main/graph/badge.svg)](https://codecov.io/gh/destbg/SQLite.Framework)
+[![Tests](https://github.com/destbg/SQLite.Framework/actions/workflows/coverage.yml/badge.svg)](https://github.com/destbg/SQLite.Framework/actions/workflows/coverage.yml)
+[![.NET](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/destbg/SQLite.Framework.svg?style=social)](https://github.com/destbg/SQLite.Framework/stargazers)
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
