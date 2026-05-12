@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+    <ShortName>SQLite.Framework</ShortName>
+    <Description>Documentation for SQLite.Framework, a LINQ-friendly ORM for SQLite in .NET</Description>
+    <Tags>sqlite dotnet csharp orm linq iqueryable maui avalonia aot</Tags>
+    <Url type="text/html" method="get" template="https://destbg.github.io/SQLite.Framework/"/>
+    <Image height="16" width="16" type="image/x-icon">https://destbg.github.io/SQLite.Framework/favicon.ico</Image>
+    <Image height="32" width="32" type="image/png">https://destbg.github.io/SQLite.Framework/favicon-32x32.png</Image>
+</OpenSearchDescription>
