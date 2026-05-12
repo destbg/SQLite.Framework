@@ -109,6 +109,22 @@ var books = db.Query<BookSummary>(
 );
 ```
 
+### Dictionary Rows
+
+Pass `Dictionary<string, object?>` (or `Dictionary<string, object>`) as the type to get each row as a column-name to value map. Values come back in their SQLite native form: `long` for INTEGER, `double` for REAL, `string` for TEXT, `byte[]` for BLOB, `null` for NULL.
+
+```csharp
+List<Dictionary<string, object?>> rows = db.Query<Dictionary<string, object?>>(
+    "SELECT Id, Name FROM Books");
+
+// Same shape on a raw SQLiteCommand
+var moreRows = db.CreateCommand("SELECT * FROM Books", [])
+    .ExecuteQuery<Dictionary<string, object?>>()
+    .ToList();
+```
+
+Use this when the schema is dynamic or you do not want to declare a type.
+
 ### Column Mapping
 
 `Query<T>` maps result columns to properties by name. If the database column name is different from the property name, alias it in the SQL:

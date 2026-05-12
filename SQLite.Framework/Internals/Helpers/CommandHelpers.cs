@@ -37,7 +37,11 @@ internal static class CommandHelpers
 
         type = Nullable.GetUnderlyingType(type) ?? type;
 
-        if (type == typeof(DateTime))
+        if (type == typeof(object))
+        {
+            return value;
+        }
+        else if (type == typeof(DateTime))
         {
             if (value is long ticks)
             {

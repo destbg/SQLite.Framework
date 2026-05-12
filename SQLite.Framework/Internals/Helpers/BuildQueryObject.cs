@@ -37,6 +37,26 @@ internal static class BuildQueryObject
 
         SQLiteOptions options = reader.Options;
 
+        bool isDictRow = elementType == typeof(Dictionary<string, object>) || elementType == typeof(Dictionary<string, object?>);
+
+        if (isDictRow && columns.Count > 1)
+        {
+            (string Name, int Index)[] capturedColumns = columns
+                .Select(c => (c.Key, c.Value))
+                .OrderBy(c => c.Value)
+                .ToArray();
+            return ctx =>
+            {
+                SQLiteDataReader r = ctx.Reader!;
+                Dictionary<string, object?> row = new(capturedColumns.Length, StringComparer.Ordinal);
+                foreach ((string name, int idx) in capturedColumns)
+                {
+                    row[name] = r.GetValue(idx, r.GetColumnType(idx), typeof(object));
+                }
+                return row;
+            };
+        }
+
         if (TypeHelpers.IsSimple(elementType, options))
         {
             Type capturedType = elementType;
@@ -44,6 +64,24 @@ internal static class BuildQueryObject
             {
                 SQLiteDataReader r = ctx.Reader!;
                 return r.GetValue(0, r.GetColumnType(0), capturedType);
+            };
+        }
+
+        if (isDictRow)
+        {
+            (string Name, int Index)[] capturedColumns = columns
+                .Select(c => (c.Key, c.Value))
+                .OrderBy(c => c.Value)
+                .ToArray();
+            return ctx =>
+            {
+                SQLiteDataReader r = ctx.Reader!;
+                Dictionary<string, object?> row = new(capturedColumns.Length, StringComparer.Ordinal);
+                foreach ((string name, int idx) in capturedColumns)
+                {
+                    row[name] = r.GetValue(idx, r.GetColumnType(idx), typeof(object));
+                }
+                return row;
             };
         }
 
