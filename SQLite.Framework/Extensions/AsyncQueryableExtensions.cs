@@ -89,6 +89,169 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
+    /// Async wrapper for
+    /// <see cref="QueryableExtensions.ExecuteDelete{T, TResult}(SQLiteReturningQueryable{T, TResult})" />.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<List<TResult>> ExecuteDeleteAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningQueryable<T, TResult> returning, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.ExecuteDelete();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async wrapper for
+    /// <see cref="QueryableExtensions.ExecuteUpdate{T, TResult}(SQLiteReturningQueryable{T, TResult}, Func{SQLitePropertyCalls{T}, SQLitePropertyCalls{T}})" />.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<List<TResult>> ExecuteUpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningQueryable<T, TResult> returning, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+        ArgumentNullException.ThrowIfNull(setters);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.ExecuteUpdate(setters);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.Add" />.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<TResult?> AddAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, T item, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.Add(item);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.AddRange" />.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<List<TResult>> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.AddRange(collection, runInTransaction, separateConnection);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.Update" />.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<TResult?> UpdateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, T item, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.Update(item);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.UpdateRange" />.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<List<TResult>> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.UpdateRange(collection, runInTransaction, separateConnection);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.Remove" />.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<TResult?> RemoveAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, T item, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.Remove(item);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.RemoveRange" />.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<List<TResult>> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.RemoveRange(collection, runInTransaction, separateConnection);
+        }, ct);
+    }
+
+    /// <summary>
     /// Converts the <see cref="IQueryable{T}" /> to a <see cref="Dictionary{TKey, TValue}" />.
     /// </summary>
     public static Task<Dictionary<TKey, TElement>> ToDictionaryAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource, TKey, TElement>(this IQueryable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector, CancellationToken ct = default)

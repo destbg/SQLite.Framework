@@ -38,6 +38,8 @@ internal class SQLTranslator
 
     public SQLVisitor Visitor { get; }
 
+    internal IReadOnlyList<SQLiteExpression> Selects => queryableMethodVisitor.Selects;
+
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
     {
         init => Visitor.MethodArguments = value;
@@ -54,6 +56,13 @@ internal class SQLTranslator
     }
 
     public QueryType QueryType { get; init; }
+
+    public bool EmitReturning { get; init; }
+
+    public bool OmitTableAlias
+    {
+        init => Visitor.OmitTableAlias = value;
+    }
 
     public List<(string Name, SQLiteExpression Expression)>? SetProperties { get; set; }
 
@@ -530,6 +539,23 @@ internal class SQLTranslator
             AppendSpacingNewline(sb, spacing, ref first);
             sb.Append("OFFSET ");
             sb.Append(q.Skip);
+        }
+
+        if (EmitReturning && (QueryType == QueryType.Update || QueryType == QueryType.Delete))
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("RETURNING ");
+            for (int i = 0; i < q.Selects.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(", ");
+                }
+                q.Selects[i].WriteSqlTo(sb);
+                sb.Append(" AS \"");
+                sb.Append(q.Selects[i].IdentifierText);
+                sb.Append('"');
+            }
         }
     }
 

@@ -24,6 +24,7 @@ internal partial class SQLVisitor : ExpressionVisitor
     public SQLiteCounters Counters { get; }
     public int Level { get; }
     public bool IsInSelectProjection { get; set; }
+    public bool OmitTableAlias { get; set; }
     public SQLiteExpression? From { get; internal set; }
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments { get; set; } = [];
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
@@ -73,11 +74,30 @@ internal partial class SQLVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
     public void AssignTable(Type entityType, SQLiteExpression? sql = null)
     {
+        TableMapping tableMapping = Database.TableMapping(entityType);
+        string tableName = tableMapping.TableName;
+
+        if (OmitTableAlias)
+        {
+            From = SQLiteExpression.Leaf(entityType, -1, $"\"{tableName}\"");
+
+            TableColumns = tableMapping.Columns
+                .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
+                {
+                    string colSql = f.Name;
+                    if (Database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? conv)
+                        && conv.ColumnSqlExpression is { } colExpr)
+                    {
+                        colSql = string.Format(colExpr, colSql);
+                    }
+                    return SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), colSql);
+                });
+            return;
+        }
+
         char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
         string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
 
-        TableMapping tableMapping = Database.TableMapping(entityType);
-        string tableName = tableMapping.TableName;
         From = sql != null
             ? SQLiteExpression.Wrap(entityType, -1, "(", sql, $") AS {alias}", sql.Parameters)
             : SQLiteExpression.Leaf(entityType, -1, $"\"{tableName}\" AS {alias}");

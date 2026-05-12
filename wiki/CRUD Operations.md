@@ -130,6 +130,38 @@ await db.Table<Book>().Where(b => b.InStock == false).ExecuteRemoveAsync();
 
 Uses SQLite's `DELETE FROM ... WHERE ...` syntax to delete rows matching the predicate without loading them into memory.
 
+## Returning the Written Row
+
+`Returning` wraps the table so the next `Add`, `Update`, or `Remove` issues a SQLite `INSERT`/`UPDATE`/`DELETE ... RETURNING *` and hands the written row back to the caller. Requires SQLite 3.35 or later.
+
+```csharp
+// Add and read back the inserted row (including generated columns or DEFAULTs).
+Book? added = await db.Table<Book>()
+    .Returning()
+    .AddAsync(new Book { Title = "Clean Code", AuthorId = 1, Price = 29.99m });
+
+// Project the result instead of taking the full entity.
+int newId = await db.Table<Book>()
+    .Returning(b => b.Id)
+    .AddAsync(new Book { Title = "Refactoring", AuthorId = 1, Price = 40m });
+
+// Update and read the post-update row.
+Book? updated = await db.Table<Book>()
+    .Returning()
+    .UpdateAsync(book);
+
+// Remove and read what was deleted.
+string? removedTitle = await db.Table<Book>()
+    .Returning(b => b.Title)
+    .RemoveAsync(book);
+```
+
+`Add`, `Update`, and `Remove` return `TResult?`. The result is `default` when the row was not matched (Update/Remove against a missing primary key) or when an `OnAdd` / `OnUpdate` / `OnRemove` hook returned `false`.
+
+`AddRange`, `UpdateRange`, and `RemoveRange` return `List<TResult>` with one entry per affected row, and run inside a transaction by default just like the non-Returning range methods. Each range method has an async counterpart (`AddRangeAsync`, `UpdateRangeAsync`, `RemoveRangeAsync`).
+
+For bulk `RETURNING` against a `Where`-filtered source, see [Returning the Affected Rows](Bulk%20Operations#returning-the-affected-rows).
+
 ## Clear All Rows
 
 ```csharp

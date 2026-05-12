@@ -81,7 +81,7 @@ public class InternalHelpersDirectTests
         using TestDatabase db = new();
         SQLite.Framework.Internals.Visitors.SQL.SQLVisitor visitor = new(
             db,
-            new SQLite.Framework.Internals.SQLiteCounters(),
+            new SQLite.Framework.Models.SQLiteCounters(),
             level: 0);
 
         MethodCallExpression unknownCall = Expression.Call(
@@ -114,7 +114,7 @@ public class InternalHelpersDirectTests
         using TestDatabase db = new();
         SQLite.Framework.Internals.Visitors.SQL.SQLVisitor visitor = new(
             db,
-            new SQLite.Framework.Internals.SQLiteCounters(),
+            new SQLite.Framework.Models.SQLiteCounters(),
             level: 0);
 
         FtsRenderState state = new(visitor);
@@ -332,7 +332,7 @@ public class InternalHelpersDirectTests
         using TestDatabase db = new();
         SQLite.Framework.Internals.Visitors.SQL.SQLVisitor sqlVisitor = new(
             db,
-            new SQLite.Framework.Internals.SQLiteCounters(),
+            new SQLite.Framework.Models.SQLiteCounters(),
             level: 0);
 
         Type aliasVisitorType = typeof(SQLite.Framework.Internals.Visitors.QueryFilterRebinder).Assembly
@@ -1660,7 +1660,7 @@ public class HandlerDispatchTests
     public void SQLVisitor_InternDecimalCast_SameSource_ReturnsSameInstance()
     {
         using TestDatabase db = new();
-        SQLVisitor visitor = new(db, new SQLite.Framework.Internals.SQLiteCounters(), level: 0);
+        SQLVisitor visitor = new(db, new SQLite.Framework.Models.SQLiteCounters(), level: 0);
 
         SQLiteExpression source = SQLiteExpression.Leaf(typeof(decimal), -1, "t0.Price", (SQLiteParameter[]?)null);
 
@@ -1699,7 +1699,7 @@ public class HandlerDispatchTests
     public void SQLiteCallerContext_ExposesVisitorState()
     {
         using TestDatabase db = new();
-        SQLVisitor visitor = new(db, new SQLite.Framework.Internals.SQLiteCounters(), level: 3);
+        SQLVisitor visitor = new(db, new SQLite.Framework.Models.SQLiteCounters(), level: 3);
         ConstantExpression node = Expression.Constant(0);
 
         SQLiteCallerContext ctx = new(visitor, node);
@@ -1714,7 +1714,7 @@ public class HandlerDispatchTests
     public void SQLVisitor_InternJsonExtract_SameSourceAndMember_ReturnsSameInstance()
     {
         using TestDatabase db = new();
-        SQLVisitor visitor = new(db, new SQLite.Framework.Internals.SQLiteCounters(), level: 0);
+        SQLVisitor visitor = new(db, new SQLite.Framework.Models.SQLiteCounters(), level: 0);
 
         SQLiteExpression source = SQLiteExpression.Leaf(typeof(string), -1, "t0.Address", (SQLiteParameter[]?)null);
 

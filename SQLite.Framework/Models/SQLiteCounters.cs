@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals;
+namespace SQLite.Framework.Models;
 
 /// <summary>
 /// Maintains counters for generating unique aliases and parameter names during SQL translation.
@@ -8,8 +8,26 @@ public class SQLiteCounters
     private static readonly string[] paramNameCache = BuildParamNameCache();
 
     private readonly Dictionary<char, int> tableIndex = [];
+    private readonly string? paramPrefix;
     private int paramIndex;
     private int identifierIndex;
+
+    /// <summary>
+    /// Default counter. Parameters are emitted as <c>@p0</c>, <c>@p1</c>, and so on.
+    /// </summary>
+    public SQLiteCounters()
+    {
+    }
+
+    /// <summary>
+    /// Counter with a custom parameter prefix. Used when two translation passes have to coexist
+    /// in the same SQL statement (for example the <c>RETURNING</c> projection emitted alongside
+    /// an entity-bound <c>INSERT</c>).
+    /// </summary>
+    public SQLiteCounters(string paramPrefix)
+    {
+        this.paramPrefix = paramPrefix;
+    }
 
     /// <summary>
     /// Returns the next unique number and adds one to the counter. The number gives a SQL
@@ -26,10 +44,13 @@ public class SQLiteCounters
     /// one to the counter. The first 256 names are kept in a shared array, so this call does not
     /// build a new string for each parameter.
     /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public string NextParamName()
     {
         int idx = paramIndex++;
+        if (paramPrefix != null)
+        {
+            return paramPrefix + idx;
+        }
         return idx < paramNameCache.Length ? paramNameCache[idx] : "@p" + idx;
     }
 

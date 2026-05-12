@@ -102,6 +102,32 @@ await db.Table<BookArchive>().InsertFromQueryAsync(
     db.Table<Book>().Where(b => b.InStock == false).Select(b => new BookArchive { ... }));
 ```
 
+## Returning the Affected Rows
+
+`Returning` wraps a query so the next `ExecuteDelete` or `ExecuteUpdate` emits a SQLite `RETURNING` clause and hands back the affected rows instead of the row count. Requires SQLite 3.35 or later.
+
+```csharp
+// Delete and read what was deleted in one round trip.
+List<Book> deleted = await db.Table<Book>()
+    .Where(b => b.InStock == false)
+    .Returning()
+    .ExecuteDeleteAsync();
+
+// Project the returned rows.
+List<int> archivedIds = await db.Table<Book>()
+    .Where(b => b.Price > 100)
+    .Returning(b => b.Id)
+    .ExecuteDeleteAsync();
+
+// Update and read the post-update values.
+List<decimal> newPrices = await db.Table<Book>()
+    .Where(b => b.AuthorId == 3)
+    .Returning(b => b.Price)
+    .ExecuteUpdateAsync(s => s.Set(b => b.Price, b => b.Price * 1.1m));
+```
+
+The `RETURNING` clause can only reference columns from the table being modified. If the projection lambda touches a column from a joined entity, SQLite rejects the statement.
+
 ## Sync Versions
 
 All of the above have synchronous versions:
@@ -113,4 +139,9 @@ db.Table<Book>().ExecuteDelete(b => b.InStock == false);
 db.Table<Book>()
     .Where(b => b.Price < 5)
     .ExecuteUpdate(s => s.Set(b => b.InStock, false));
+
+db.Table<Book>()
+    .Where(b => b.InStock == false)
+    .Returning()
+    .ExecuteDelete();
 ```

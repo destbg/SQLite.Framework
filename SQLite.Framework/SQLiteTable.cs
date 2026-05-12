@@ -276,6 +276,48 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     }
 
     /// <summary>
+    /// Wraps this table so the next entity write (<c>Add</c>, <c>Update</c>, or <c>Remove</c>)
+    /// emits a SQLite <c>RETURNING *</c> clause and hands the written rows back to the caller.
+    /// Useful when <c>INSERT</c>/<c>UPDATE</c>/<c>DELETE</c> triggers populate columns and you need
+    /// to read the final row values atomically with the write.
+    /// </summary>
+    /// <remarks>
+    /// <c>RETURNING</c> requires SQLite 3.35 or later.
+    /// </remarks>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public virtual SQLiteReturningTable<T, T> Returning()
+    {
+        ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
+        Expression<Func<T, T>> identity = Expression.Lambda<Func<T, T>>(parameter, parameter);
+        return new SQLiteReturningTable<T, T>(this, identity);
+    }
+
+    /// <summary>
+    /// Wraps this table with a projection so the next entity write emits a
+    /// <c>RETURNING *</c> clause and the result rows are projected through
+    /// <paramref name="projection" /> client-side before being returned.
+    /// </summary>
+    /// <remarks>
+    /// <c>RETURNING</c> requires SQLite 3.35 or later.
+    /// </remarks>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public virtual SQLiteReturningTable<T, TResult> Returning<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(Expression<Func<T, TResult>> projection)
+    {
+        ArgumentNullException.ThrowIfNull(projection);
+        return new SQLiteReturningTable<T, TResult>(this, projection);
+    }
+
+    /// <summary>
     /// Copies rows from <paramref name="source" /> into this table using a single
     /// <c>INSERT INTO ... SELECT</c> statement, so the data never round-trips through your code.
     /// The source must be a queryable from the same database (a table or a LINQ chain over one).
@@ -317,6 +359,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     {
         return ((IEnumerable<T>)this).GetEnumerator();
     }
+
+    internal (TableColumn[] Columns, string Sql) GetAddInfoInternal() => GetAddInfo();
+    internal (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfoInternal() => GetUpdateInfo();
+    internal (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfoInternal() => GetRemoveInfo();
+    internal bool RunHooksInternal(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item) => RunHooks(hooks, item);
 
     /// <summary>
     /// Prepares <paramref name="sql" /> once, then loops over <paramref name="items" /> and binds /

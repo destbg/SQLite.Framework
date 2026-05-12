@@ -101,6 +101,103 @@ public static class QueryableExtensions
     }
 
     /// <summary>
+    /// Wraps <paramref name="source" /> so that the next <c>ExecuteDelete</c> or
+    /// <c>ExecuteUpdate</c> call emits a SQLite <c>RETURNING *</c> clause and returns the
+    /// projected (full entity) rows instead of the row count.
+    /// </summary>
+    /// <remarks>
+    /// <c>RETURNING</c> requires SQLite 3.35 or later.
+    /// </remarks>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static SQLiteReturningQueryable<T, T> Returning<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IQueryable<T> source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
+        Expression<Func<T, T>> identity = Expression.Lambda<Func<T, T>>(parameter, parameter);
+        return new SQLiteReturningQueryable<T, T>(source, identity);
+    }
+
+    /// <summary>
+    /// Wraps <paramref name="source" /> with a projection so that the next <c>ExecuteDelete</c>
+    /// or <c>ExecuteUpdate</c> call emits a SQLite <c>RETURNING <em>projection</em></c> clause
+    /// and returns the projected rows instead of the row count.
+    /// </summary>
+    /// <remarks>
+    /// <c>RETURNING</c> requires SQLite 3.35 or later.
+    /// </remarks>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static SQLiteReturningQueryable<T, TResult> Returning<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this IQueryable<T> source, Expression<Func<T, TResult>> projection)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(projection);
+        return new SQLiteReturningQueryable<T, TResult>(source, projection);
+    }
+
+    /// <summary>
+    /// Executes a <c>DELETE ... RETURNING <em>projection</em></c> against the wrapped source and
+    /// returns the deleted rows projected through the wrapper's projection lambda. The projection
+    /// goes through the same pipeline as <see cref="Queryable.Select{TSource, TResult}(IQueryable{TSource}, Expression{Func{TSource, TResult}})" />,
+    /// so a matching source-generated materializer is used when one is registered.
+    /// </summary>
+    public static List<TResult> ExecuteDelete<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningQueryable<T, TResult> returning)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        SQLTranslator translator = new(returning.Database)
+        {
+            QueryType = QueryType.Delete,
+            EmitReturning = true,
+            OmitTableAlias = true,
+        };
+        IQueryable<TResult> projected = returning.Source.Select(returning.Projection);
+        SQLQuery query = translator.Translate(projected.Expression);
+
+        return returning.Database.CreateCommand(query.Sql, query.Parameters)
+            .ExecuteQueryInternal<TResult>(query)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Executes an <c>UPDATE ... RETURNING <em>projection</em></c> against the wrapped source
+    /// and returns the post-update rows projected through the wrapper's projection lambda. The
+    /// projection goes through the same pipeline as <c>Select</c>, so a matching
+    /// source-generated materializer is used when one is registered.
+    /// </summary>
+    public static List<TResult> ExecuteUpdate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningQueryable<T, TResult> returning, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+        ArgumentNullException.ThrowIfNull(setters);
+
+        SQLTranslator translator = new(returning.Database)
+        {
+            QueryType = QueryType.Update,
+            EmitReturning = true,
+            OmitTableAlias = true,
+        };
+        IQueryable<TResult> projected = returning.Source.Select(returning.Projection);
+        translator.Visit(projected.Expression);
+
+        SQLitePropertyCalls<T> propertyCalls = new(translator.Visitor, returning.Database.TableMapping<T>());
+        translator.SetProperties = setters(propertyCalls).SetProperties;
+
+        SQLQuery query = translator.Translate(null);
+
+        return returning.Database.CreateCommand(query.Sql, query.Parameters)
+            .ExecuteQueryInternal<TResult>(query)
+            .ToList();
+    }
+
+    /// <summary>
     /// Converts the <see cref="IQueryable{T}"/> to a <see cref="SQLiteCommand"/>.
     /// </summary>
     public static SQLiteCommand ToSqlCommand<T>(this IQueryable<T> queryable)

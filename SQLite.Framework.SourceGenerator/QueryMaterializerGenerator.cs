@@ -492,13 +492,20 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (method.Name != "Select")
+        if (method.Name != "Select" && method.Name != "Returning")
         {
             return null;
         }
 
         string containingType = method.ContainingType.ToDisplayString();
-        if (containingType != "System.Linq.Queryable" && containingType != "System.Linq.Enumerable")
+        if (method.Name == "Returning")
+        {
+            if (containingType != "SQLite.Framework.Extensions.QueryableExtensions")
+            {
+                return null;
+            }
+        }
+        else if (containingType != "System.Linq.Queryable" && containingType != "System.Linq.Enumerable")
         {
             return null;
         }
@@ -938,24 +945,6 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         return new SelectInvocation(signature, bodyExpr, writerCtx, ctx.SemanticModel, projection);
     }
 
-    private static bool IsPubliclyReachable(INamedTypeSymbol symbol)
-    {
-        for (INamedTypeSymbol? current = symbol; current != null; current = current.ContainingType)
-        {
-            switch (current.DeclaredAccessibility)
-            {
-                case Accessibility.Public:
-                case Accessibility.Internal:
-                case Accessibility.ProtectedOrInternal:
-                    continue;
-                default:
-                    return false;
-            }
-        }
-
-        return true;
-    }
-
     private static bool IsFrameworkType(INamedTypeSymbol symbol)
     {
         if (symbol.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
@@ -1044,7 +1033,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             _ => string.Empty
         };
 
-        return name == "Select" || name == "SelectMany";
+        return name == "Select" || name == "SelectMany" || name == "Returning";
     }
 
     private static INamedTypeSymbol? ExtractProjectionTypeFromSelect(GeneratorSyntaxContext ctx)
@@ -1055,13 +1044,20 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (method.Name != "Select" && method.Name != "SelectMany")
+        if (method.Name != "Select" && method.Name != "SelectMany" && method.Name != "Returning")
         {
             return null;
         }
 
         string containingType = method.ContainingType.ToDisplayString();
-        if (containingType != "System.Linq.Queryable" && containingType != "System.Linq.Enumerable")
+        if (method.Name == "Returning")
+        {
+            if (containingType != "SQLite.Framework.Extensions.QueryableExtensions")
+            {
+                return null;
+            }
+        }
+        else if (containingType != "System.Linq.Queryable" && containingType != "System.Linq.Enumerable")
         {
             return null;
         }
