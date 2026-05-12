@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Helpers;
+namespace SQLite.Framework.Internals.Models;
 
 /// <summary>
 /// Reflection data for one writable property on an entity type. Built once by

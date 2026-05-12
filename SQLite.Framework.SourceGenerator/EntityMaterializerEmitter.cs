@@ -438,19 +438,27 @@ internal static class EntityMaterializerEmitter
 
     private static void EmitMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
-        sb.Append("        private static object ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
-        sb.AppendLine("        {");
-        sb.AppendLine("            var reader = ctx.Reader!;");
-        sb.AppendLine("            var columns = ctx.Columns!;");
+        StringBuilder preamble = new();
+        StringBuilder rowBody = new();
 
         int counter = 0;
-        EmitEntityProperties(sb, entity, string.Empty, "            ", ref counter, out string resultLocalName, entitySet, nestedInitSet);
-        sb.Append("            return ").Append(resultLocalName).AppendLine(";");
+        EmitEntityProperties(rowBody, preamble, "            ", entity, string.Empty, "                ", ref counter, out string resultLocalName, entitySet, nestedInitSet);
+
+        sb.Append("        private static global::System.Func<SQLite.Framework.Models.SQLiteQueryContext, object?> ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var columns = ctx.Columns!;");
+        sb.Append(preamble);
+        sb.AppendLine("            return rowCtx =>");
+        sb.AppendLine("            {");
+        sb.AppendLine("                var reader = rowCtx.Reader!;");
+        sb.Append(rowBody);
+        sb.Append("                return ").Append(resultLocalName).AppendLine(";");
+        sb.AppendLine("            };");
         sb.AppendLine("        }");
         sb.AppendLine();
     }
 
-    private static void EmitEntityProperties(StringBuilder sb, INamedTypeSymbol entity, string columnPrefix, string indent, ref int counter, out string resultLocalName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
+    private static void EmitEntityProperties(StringBuilder sb, StringBuilder preamble, string preambleIndent, INamedTypeSymbol entity, string columnPrefix, string indent, ref int counter, out string resultLocalName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
         bool isAnonymous = entity.IsAnonymousType;
 
@@ -484,13 +492,13 @@ internal static class EntityMaterializerEmitter
 
             if (shouldRecurse && nestedStripped != null)
             {
-                EmitEntityProperties(sb, nestedStripped, propColumn + ".", indent, ref counter, out string nestedResult, entitySet, nestedInitSet);
+                EmitEntityProperties(sb, preamble, preambleIndent, nestedStripped, propColumn + ".", indent, ref counter, out string nestedResult, entitySet, nestedInitSet);
                 string propTypeDisplay = prop.Type.ToDisplayString();
                 sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).Append(" = ").Append(nestedResult).AppendLine(";");
             }
             else
             {
-                EmitSimpleColumnReadLocal(sb, prop.Type, propColumn, valueLocal, localSuffix, indent);
+                EmitSimpleColumnReadLocal(sb, preamble, preambleIndent, prop.Type, propColumn, valueLocal, localSuffix, indent);
             }
 
             propValueLocals.Add(valueLocal);
@@ -572,13 +580,24 @@ internal static class EntityMaterializerEmitter
         return result;
     }
 
-    private static void EmitSimpleColumnReadLocal(StringBuilder sb, ITypeSymbol propType, string columnName, string valueLocal, string localSuffix, string indent)
+    /// <summary>
+    /// Emits the index resolution to <paramref name="preamble"/> (one
+    /// <c>int idx_X = columns.TryGetValue(name, out int i) ? i : -1;</c> per call) and the
+    /// row-time value read to <paramref name="sb"/>. The index local is referenced by name from
+    /// the row body, which lets the row body live inside a closure that captures resolved indices
+    /// from the surrounding builder method, so the per-row loop never re-resolves column names.
+    /// </summary>
+    private static void EmitSimpleColumnReadLocal(StringBuilder sb, StringBuilder preamble, string preambleIndent, ITypeSymbol propType, string columnName, string valueLocal, string localSuffix, string indent)
     {
         string propTypeDisplay = propType.ToDisplayString();
         string strippedDisplay = StripNullable(propTypeDisplay);
         string safeColumn = columnName.Replace("\"", "\\\"");
         string idxLocal = "__idx_" + localSuffix;
+        string idxTemp = "__i_" + localSuffix;
         bool isEnum = StripNullableSymbol(propType).TypeKind == TypeKind.Enum;
+
+        preamble.Append(preambleIndent).Append("int ").Append(idxLocal)
+            .Append(" = columns.TryGetValue(\"").Append(safeColumn).Append("\", out int ").Append(idxTemp).Append(") ? ").Append(idxTemp).AppendLine(" : -1;");
 
         sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).Append(" = default");
         if (propType.IsReferenceType || propType.NullableAnnotation == NullableAnnotation.Annotated)
@@ -586,16 +605,16 @@ internal static class EntityMaterializerEmitter
             sb.Append("!");
         }
         sb.AppendLine(";");
-        sb.Append(indent).Append("if (columns.TryGetValue(\"").Append(safeColumn).Append("\", out int ").Append(idxLocal).AppendLine("))");
+        sb.Append(indent).Append("if (").Append(idxLocal).AppendLine(" >= 0)");
         sb.Append(indent).AppendLine("{");
 
         bool isNullable = propType.NullableAnnotation == NullableAnnotation.Annotated || propType.IsReferenceType
             || (propType is INamedTypeSymbol nt && nt.IsGenericType && nt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T);
 
-        if (!isEnum && SelectMaterializerEmitter.TryGetFastPathAccessor(propType, out string? accessor, out string? cast))
+        if (!isEnum && SelectMaterializerEmitter.TryGetFastPathAccessor(propType, out string? accessor, out string? cast, out bool handlesNull))
         {
             string castOpen = cast is null ? "" : "(" + cast + ")";
-            if (isNullable)
+            if (isNullable && !handlesNull)
             {
                 sb.Append(indent).Append("    if (!reader.IsDBNull(").Append(idxLocal).AppendLine("))");
                 sb.Append(indent).AppendLine("    {");
@@ -630,10 +649,8 @@ internal static class EntityMaterializerEmitter
         IMethodSymbol ctor = TryFindPositionalConstructor(entity)!;
         string typeName = entity.ToDisplayString();
 
-        sb.Append("        private static object ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
-        sb.AppendLine("        {");
-        sb.AppendLine("            var reader = ctx.Reader!;");
-        sb.AppendLine("            var columns = ctx.Columns!;");
+        StringBuilder preamble = new();
+        StringBuilder rowBody = new();
 
         int counter = 0;
         List<string> argLocals = new();
@@ -643,16 +660,25 @@ internal static class EntityMaterializerEmitter
             counter++;
             string argLocal = "__arg_" + suffix;
             argLocals.Add(argLocal);
-            EmitSimpleColumnReadLocal(sb, parameter.Type, parameter.Name, argLocal, suffix, "            ");
+            EmitSimpleColumnReadLocal(rowBody, preamble, "            ", parameter.Type, parameter.Name, argLocal, suffix, "                ");
         }
 
-        sb.Append("            return new ").Append(typeName).Append("(");
+        sb.Append("        private static global::System.Func<SQLite.Framework.Models.SQLiteQueryContext, object?> ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var columns = ctx.Columns!;");
+        sb.Append(preamble);
+        sb.AppendLine("            return rowCtx =>");
+        sb.AppendLine("            {");
+        sb.AppendLine("                var reader = rowCtx.Reader!;");
+        sb.Append(rowBody);
+        sb.Append("                return new ").Append(typeName).Append("(");
         for (int i = 0; i < argLocals.Count; i++)
         {
             if (i > 0) sb.Append(", ");
             sb.Append(argLocals[i]);
         }
         sb.AppendLine(");");
+        sb.AppendLine("            };");
         sb.AppendLine("        }");
         sb.AppendLine();
     }
@@ -697,11 +723,9 @@ internal static class EntityMaterializerEmitter
         }
 
         sb.AppendLine();
-        sb.Append("        private static object ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
-        sb.AppendLine("        {");
-        sb.AppendLine("            var reader = ctx.Reader!;");
-        sb.AppendLine("            var columns = ctx.Columns!;");
-        sb.Append("            object result = global::System.Activator.CreateInstance(").Append(typeField).AppendLine(", nonPublic: true)!;");
+
+        StringBuilder preamble = new();
+        StringBuilder rowBody = new();
 
         int counter = 0;
         foreach (IPropertySymbol prop in writableProps)
@@ -717,8 +741,8 @@ internal static class EntityMaterializerEmitter
 
             if (shouldRecurse && nestedStripped != null)
             {
-                EmitEntityProperties(sb, nestedStripped, propName + ".", "            ", ref counter, out string nestedResult, entitySet, nestedInitSet);
-                sb.Append("            s_prop_").Append(methodName).Append("_").Append(propName).Append(".SetValue(result, ").Append(nestedResult).AppendLine(");");
+                EmitEntityProperties(rowBody, preamble, "            ", nestedStripped, propName + ".", "                ", ref counter, out string nestedResult, entitySet, nestedInitSet);
+                rowBody.Append("                s_prop_").Append(methodName).Append("_").Append(propName).Append(".SetValue(result, ").Append(nestedResult).AppendLine(");");
                 continue;
             }
 
@@ -732,17 +756,30 @@ internal static class EntityMaterializerEmitter
                 typeExpression = $"s_propType_{methodName}_{propName}";
             }
 
-            sb.Append("            if (columns.TryGetValue(\"").Append(propName).AppendLine("\", out int idx_" + propName + "))");
-            sb.AppendLine("            {");
-            sb.Append("                object? value_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), ").Append(typeExpression).AppendLine(");");
-            sb.Append("                if (value_").Append(propName).AppendLine(" != null)");
-            sb.AppendLine("                {");
-            sb.Append("                    s_prop_").Append(methodName).Append("_").Append(propName).Append(".SetValue(result, value_").Append(propName).AppendLine(");");
-            sb.AppendLine("                }");
-            sb.AppendLine("            }");
+            preamble.Append("            int idx_").Append(propName)
+                .Append(" = columns.TryGetValue(\"").Append(propName).Append("\", out int __i_").Append(propName).Append(") ? __i_").Append(propName).AppendLine(" : -1;");
+
+            rowBody.Append("                if (idx_").Append(propName).AppendLine(" >= 0)");
+            rowBody.AppendLine("                {");
+            rowBody.Append("                    object? value_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), ").Append(typeExpression).AppendLine(");");
+            rowBody.Append("                    if (value_").Append(propName).AppendLine(" != null)");
+            rowBody.AppendLine("                    {");
+            rowBody.Append("                        s_prop_").Append(methodName).Append("_").Append(propName).Append(".SetValue(result, value_").Append(propName).AppendLine(");");
+            rowBody.AppendLine("                    }");
+            rowBody.AppendLine("                }");
         }
 
-        sb.AppendLine("            return result;");
+        sb.Append("        private static global::System.Func<SQLite.Framework.Models.SQLiteQueryContext, object?> ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var columns = ctx.Columns!;");
+        sb.Append(preamble);
+        sb.AppendLine("            return rowCtx =>");
+        sb.AppendLine("            {");
+        sb.AppendLine("                var reader = rowCtx.Reader!;");
+        sb.Append("                object result = global::System.Activator.CreateInstance(").Append(typeField).AppendLine(", nonPublic: true)!;");
+        sb.Append(rowBody);
+        sb.AppendLine("                return result;");
+        sb.AppendLine("            };");
         sb.AppendLine("        }");
         sb.AppendLine();
     }
@@ -773,10 +810,8 @@ internal static class EntityMaterializerEmitter
             .Append(" = (").Append(sample.ToString()).AppendLine(").GetType();");
         sb.AppendLine();
 
-        sb.Append("        private static object ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
-        sb.AppendLine("        {");
-        sb.AppendLine("            var reader = ctx.Reader!;");
-        sb.AppendLine("            var columns = ctx.Columns!;");
+        StringBuilder preamble = new();
+        StringBuilder rowBody = new();
 
         int nestedCounter = 0;
         Dictionary<string, string> nestedResultLocals = new();
@@ -791,59 +826,70 @@ internal static class EntityMaterializerEmitter
                 && entitySet.Contains(strippedNamed)
                 && IsCompositeUserType(strippedNamed))
             {
-                EmitEntityProperties(sb, strippedNamed, propName + ".", "            ", ref nestedCounter, out string nestedResult, entitySet, nestedInitSet);
+                EmitEntityProperties(rowBody, preamble, "            ", strippedNamed, propName + ".", "                ", ref nestedCounter, out string nestedResult, entitySet, nestedInitSet);
                 nestedResultLocals[propName] = nestedResult;
                 continue;
             }
 
             if (StripNullableSymbol(prop.Type) is INamedTypeSymbol strippedAnon && strippedAnon.IsAnonymousType)
             {
-                EmitAnonymousProperties(sb, strippedAnon, propName + ".", "            ", ref nestedCounter, out string nestedResult);
+                EmitAnonymousProperties(rowBody, preamble, "            ", strippedAnon, propName + ".", "                ", ref nestedCounter, out string nestedResult);
                 nestedResultLocals[propName] = nestedResult;
                 continue;
             }
 
             string strippedDisplay = StripNullableSymbol(prop.Type).ToDisplayString();
-            sb.Append("            ").Append(propTypeDisplay).Append(" value_").Append(propName).Append(" = default");
+            preamble.Append("            int idx_").Append(propName)
+                .Append(" = columns.TryGetValue(\"").Append(propName).Append("\", out int __i_").Append(propName).Append(") ? __i_").Append(propName).AppendLine(" : -1;");
+
+            rowBody.Append("                ").Append(propTypeDisplay).Append(" value_").Append(propName).Append(" = default");
             bool isAnnotatedOrRef = prop.Type.NullableAnnotation == NullableAnnotation.Annotated || prop.Type.IsReferenceType;
             if (isAnnotatedOrRef)
             {
-                sb.Append("!");
+                rowBody.Append("!");
             }
-            sb.AppendLine(";");
-            sb.Append("            if (columns.TryGetValue(\"").Append(propName).AppendLine("\", out int idx_" + propName + "))");
-            sb.AppendLine("            {");
+            rowBody.AppendLine(";");
+            rowBody.Append("                if (idx_").Append(propName).AppendLine(" >= 0)");
+            rowBody.AppendLine("                {");
 
             bool propIsNullable = isAnnotatedOrRef
                 || (prop.Type is INamedTypeSymbol propNt && propNt.IsGenericType && propNt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T);
 
-            if (SelectMaterializerEmitter.TryGetFastPathAccessor(prop.Type, out string? accessor, out string? cast))
+            if (SelectMaterializerEmitter.TryGetFastPathAccessor(prop.Type, out string? accessor, out string? cast, out bool handlesNull))
             {
                 string castOpen = cast is null ? "" : "(" + cast + ")";
-                if (propIsNullable)
+                if (propIsNullable && !handlesNull)
                 {
-                    sb.Append("                if (!reader.IsDBNull(idx_").Append(propName).AppendLine("))");
-                    sb.AppendLine("                {");
-                    sb.Append("                    value_").Append(propName).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
-                    sb.AppendLine("                }");
+                    rowBody.Append("                    if (!reader.IsDBNull(idx_").Append(propName).AppendLine("))");
+                    rowBody.AppendLine("                    {");
+                    rowBody.Append("                        value_").Append(propName).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
+                    rowBody.AppendLine("                    }");
                 }
                 else
                 {
-                    sb.Append("                value_").Append(propName).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
+                    rowBody.Append("                    value_").Append(propName).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
                 }
             }
             else
             {
-                sb.Append("                object? raw_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
-                sb.Append("                if (raw_").Append(propName).AppendLine(" != null)");
-                sb.AppendLine("                {");
-                sb.Append("                    value_").Append(propName).Append(" = (").Append(propTypeDisplay).Append(")raw_").Append(propName).AppendLine("!;");
-                sb.AppendLine("                }");
+                rowBody.Append("                    object? raw_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
+                rowBody.Append("                    if (raw_").Append(propName).AppendLine(" != null)");
+                rowBody.AppendLine("                    {");
+                rowBody.Append("                        value_").Append(propName).Append(" = (").Append(propTypeDisplay).Append(")raw_").Append(propName).AppendLine("!;");
+                rowBody.AppendLine("                    }");
             }
-            sb.AppendLine("            }");
+            rowBody.AppendLine("                }");
         }
 
-        sb.Append("            return new { ");
+        sb.Append("        private static global::System.Func<SQLite.Framework.Models.SQLiteQueryContext, object?> ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var columns = ctx.Columns!;");
+        sb.Append(preamble);
+        sb.AppendLine("            return rowCtx =>");
+        sb.AppendLine("            {");
+        sb.AppendLine("                var reader = rowCtx.Reader!;");
+        sb.Append(rowBody);
+        sb.Append("                return new { ");
         for (int i = 0; i < props.Count; i++)
         {
             if (i > 0)
@@ -857,11 +903,12 @@ internal static class EntityMaterializerEmitter
             sb.Append(propName).Append(" = ").Append(source);
         }
         sb.AppendLine(" };");
+        sb.AppendLine("            };");
         sb.AppendLine("        }");
         sb.AppendLine();
     }
 
-    private static void EmitAnonymousProperties(StringBuilder sb, INamedTypeSymbol anonType, string columnPrefix, string indent, ref int counter, out string resultLocalName)
+    private static void EmitAnonymousProperties(StringBuilder sb, StringBuilder preamble, string preambleIndent, INamedTypeSymbol anonType, string columnPrefix, string indent, ref int counter, out string resultLocalName)
     {
         List<IPropertySymbol> props = anonType.GetMembers().OfType<IPropertySymbol>().ToList();
         List<string> propValueLocals = new();
@@ -875,12 +922,12 @@ internal static class EntityMaterializerEmitter
 
             if (StripNullableSymbol(prop.Type) is INamedTypeSymbol nestedAnon && nestedAnon.IsAnonymousType)
             {
-                EmitAnonymousProperties(sb, nestedAnon, propColumn + ".", indent, ref counter, out string nestedResult);
+                EmitAnonymousProperties(sb, preamble, preambleIndent, nestedAnon, propColumn + ".", indent, ref counter, out string nestedResult);
                 sb.Append(indent).Append("var ").Append(valueLocal).Append(" = ").Append(nestedResult).AppendLine(";");
             }
             else
             {
-                EmitSimpleColumnReadLocal(sb, prop.Type, propColumn, valueLocal, localSuffix, indent);
+                EmitSimpleColumnReadLocal(sb, preamble, preambleIndent, prop.Type, propColumn, valueLocal, localSuffix, indent);
             }
             propValueLocals.Add(valueLocal);
         }

@@ -124,10 +124,15 @@ public sealed class SQLiteOptions
     public required IReadOnlyList<SQLitePropertyTranslator> PropertyTranslators { get; init; }
 
     /// <summary>
-    /// Generated entity materializers, keyed by the entity's CLR type. Populated by the
+    /// Generated entity materializer builders, keyed by the entity's CLR type. Each value is a
+    /// factory that the framework calls <em>once per query</em> with the current
+    /// <see cref="SQLiteQueryContext" />. The factory resolves column indices from
+    /// <see cref="SQLiteQueryContext.Columns" /> and returns a per-row materializer that closes
+    /// over those indices. This pattern moves the column-name lookup out of the row loop so the
+    /// generated code can use positional reads. Populated by the
     /// <c>UseGeneratedMaterializers</c> extension emitted by <c>SQLite.Framework.SourceGenerator</c>.
     /// </summary>
-    public required IReadOnlyDictionary<Type, Func<SQLiteQueryContext, object?>> EntityMaterializers { get; init; }
+    public required IReadOnlyDictionary<Type, Func<SQLiteQueryContext, Func<SQLiteQueryContext, object?>>> EntityMaterializers { get; init; }
 
     /// <summary>
     /// Generated Select projection materializers, keyed by a canonical signature derived from the

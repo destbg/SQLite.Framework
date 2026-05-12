@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Models;
+namespace SQLite.Framework.Internals.Interfaces;
 
 /// <summary>
 /// Non-generic view of <see cref="SQLitePragmaTable{T}" /> used by the translator. Lets the

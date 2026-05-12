@@ -126,4 +126,18 @@ public class SQLiteDataReader : IDisposable
     {
         return raw.sqlite3_column_int(Statement, index) != 0;
     }
+
+    /// <summary>
+    /// Reads a TEXT column directly without going through the generic
+    /// <see cref="GetValue(int, SQLiteColumnType, Type)" /> path. NULL columns return
+    /// <see langword="null" />.
+    /// </summary>
+    public string? GetString(int index)
+    {
+        if (raw.sqlite3_column_type(Statement, index) == raw.SQLITE_NULL)
+        {
+            return null;
+        }
+        return raw.sqlite3_column_text(Statement, index).utf8_to_string();
+    }
 }

@@ -20,10 +20,11 @@ public static class SQLiteCommandExtensions
 
         Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
         SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query: null);
+        Func<SQLiteQueryContext, object?> materializer = BuildQueryObject.BuildMaterializer(reader, columns, query: null, typeof(T));
 
         do
         {
-            yield return (T)BuildQueryObject.CreateInstance(context, typeof(T), query: null)!;
+            yield return (T)materializer(context)!;
         } while (reader.Read());
     }
 
@@ -44,10 +45,11 @@ public static class SQLiteCommandExtensions
 
             Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
             SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
+            Func<SQLiteQueryContext, object?> materializer = BuildQueryObject.BuildMaterializer(reader, columns, query, typeof(T));
 
             do
             {
-                yield return (T)BuildQueryObject.CreateInstance(context, typeof(T), query)!;
+                yield return (T)materializer(context)!;
             } while (reader.Read());
         }
     }
@@ -68,10 +70,11 @@ public static class SQLiteCommandExtensions
 
             Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
             SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
+            Func<SQLiteQueryContext, object?> materializer = BuildQueryObject.BuildMaterializer(reader, columns, query, elementType);
 
             do
             {
-                yield return BuildQueryObject.CreateInstance(context, elementType, query);
+                yield return materializer(context);
             } while (reader.Read());
         }
     }

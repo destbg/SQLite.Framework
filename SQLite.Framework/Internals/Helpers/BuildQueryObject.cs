@@ -6,7 +6,6 @@ namespace SQLite.Framework.Internals.Helpers;
 internal static class BuildQueryObject
 {
     private const int NotPresentSentinel = -1;
-    private const int NestedSentinel = -2;
 
     public static SQLiteQueryContext BuildContext(SQLiteDataReader reader, Dictionary<string, int> columns, SQLQuery? query)
     {
@@ -23,20 +22,29 @@ internal static class BuildQueryObject
         };
     }
 
-    public static object? CreateInstance(SQLiteQueryContext context, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, SQLQuery? query)
+    /// <summary>
+    /// Builds a row materializer once per query. Hoists every type check and reflection lookup
+    /// out of the row loop so the caller only does one delegate invocation per row.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of the client assemblies.")]
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "The type should be part of the client assemblies.")]
+    public static Func<SQLiteQueryContext, object?> BuildMaterializer(SQLiteDataReader reader, Dictionary<string, int> columns, SQLQuery? query, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType)
     {
-        SQLiteDataReader reader = context.Reader!;
-
         if (query?.CreateObject != null)
         {
-            return query.CreateObject(context);
+            return query.CreateObject;
         }
 
         SQLiteOptions options = reader.Options;
+
         if (TypeHelpers.IsSimple(elementType, options))
         {
-            SQLiteColumnType columnType = reader.GetColumnType(0);
-            return reader.GetValue(0, columnType, elementType);
+            Type capturedType = elementType;
+            return ctx =>
+            {
+                SQLiteDataReader r = ctx.Reader!;
+                return r.GetValue(0, r.GetColumnType(0), capturedType);
+            };
         }
 
         if (elementType.IsInterface || elementType.IsAbstract)
@@ -44,22 +52,36 @@ internal static class BuildQueryObject
             Type? converterType = options.GetConverterTypeForInterface(elementType);
             if (converterType != null)
             {
-                SQLiteColumnType columnType = reader.GetColumnType(0);
-                return reader.GetValue(0, columnType, converterType);
+                return ctx =>
+                {
+                    SQLiteDataReader r = ctx.Reader!;
+                    return r.GetValue(0, r.GetColumnType(0), converterType);
+                };
             }
         }
 
-        if (options.EntityMaterializers.TryGetValue(elementType, out Func<SQLiteQueryContext, object?>? generated))
+        if (options.EntityMaterializers.TryGetValue(elementType, out Func<SQLiteQueryContext, Func<SQLiteQueryContext, object?>>? builderFn))
         {
+            SQLiteQueryContext seedContext = new() { Reader = reader, Columns = columns };
+            Func<SQLiteQueryContext, object?> generated = builderFn(seedContext);
 #if SQLITE_FRAMEWORK_TESTING
-            reader.Database.IncrementEntityMaterializerHits();
+            SQLiteDatabase database = reader.Database;
+            Func<SQLiteQueryContext, object?> inner = generated;
+            return ctx =>
+            {
+                database.IncrementEntityMaterializerHits();
+                return inner(ctx);
+            };
+#else
+            return generated;
 #endif
-            return generated(context);
         }
 
-        if (!IsAnonymousType(elementType)
-            && !HasParameterlessConstructor(elementType)
-            && FindPositionalConstructor(elementType) == null)
+        bool isAnon = IsAnonymousType(elementType);
+        bool hasParameterless = HasParameterlessConstructor(elementType);
+        ConstructorInfo? positional = !isAnon && !hasParameterless ? FindPositionalConstructor(elementType) : null;
+
+        if (!isAnon && !hasParameterless && positional == null)
         {
             throw new InvalidOperationException(
                 $"Entity type '{elementType.FullName}' has no parameterless constructor and no usable positional constructor. " +
@@ -75,7 +97,18 @@ internal static class BuildQueryObject
                 "or remove the DisableReflectionFallback call.");
         }
 
-        return BuildInternal(elementType, reader, string.Empty, context, options);
+        return BuildReflective(elementType, prefix: string.Empty, reader, columns, options);
+    }
+
+    /// <summary>
+    /// Backwards compatible per-row entry point. Equivalent to calling
+    /// <see cref="BuildMaterializer" /> once and invoking the result, but keeps the old
+    /// signature for callers that materialize a single row.
+    /// </summary>
+    public static object? CreateInstance(SQLiteQueryContext context, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, SQLQuery? query)
+    {
+        Func<SQLiteQueryContext, object?> materializer = BuildMaterializer(context.Reader!, context.Columns!, query, elementType);
+        return materializer(context);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface; users keep their entities reachable.")]
@@ -118,42 +151,54 @@ internal static class BuildQueryObject
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All types should be part of the client assembly.")]
-    private static object? BuildInternal(Type type, SQLiteDataReader reader, string prefix, SQLiteQueryContext context, SQLiteOptions options)
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types should be part of the client assembly.")]
+    private static Func<SQLiteQueryContext, object?> BuildReflective([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, string prefix, SQLiteDataReader reader, Dictionary<string, int> columns, SQLiteOptions options)
     {
-        Dictionary<string, int> columns = context.Columns!;
-
         if (TypeHelpers.IsSimple(type, options))
         {
             string columnName = prefix.TrimEnd('.');
-            if (columns.TryGetValue(columnName, out int columnIndex))
+            if (!columns.TryGetValue(columnName, out int simpleIndex))
             {
-                object? value = reader.GetValue(columnIndex, reader.GetColumnType(columnIndex), type);
+                return _ => null;
+            }
 
+            Type capturedType = type;
+            int capturedIndex = simpleIndex;
+            return ctx =>
+            {
+                SQLiteDataReader r = ctx.Reader!;
+                object? value = r.GetValue(capturedIndex, r.GetColumnType(capturedIndex), capturedType);
                 if (value == null)
                 {
                     return null;
                 }
 
-                Type targetType = Nullable.GetUnderlyingType(type) ?? type;
+                Type targetType = Nullable.GetUnderlyingType(capturedType) ?? capturedType;
                 return Convert.ChangeType(value, targetType);
-            }
-
-            return null;
+            };
         }
 
         if (IsAnonymousType(type))
         {
             ConstructorInfo ctor = type.GetConstructors().Single();
             ParameterInfo[] parameters = ctor.GetParameters();
-            object?[] args = new object[parameters.Length];
+            Func<SQLiteQueryContext, object?>[] argBuilders = new Func<SQLiteQueryContext, object?>[parameters.Length];
             for (int i = 0; i < parameters.Length; i++)
             {
                 ParameterInfo p = parameters[i];
                 string paramPrefix = $"{prefix}{p.Name}.";
-                args[i] = BuildInternal(p.ParameterType, reader, paramPrefix, context, options);
+                argBuilders[i] = BuildReflective(p.ParameterType, paramPrefix, reader, columns, options);
             }
 
-            return ctor.Invoke(args);
+            return ctx =>
+            {
+                object?[] args = new object[argBuilders.Length];
+                for (int i = 0; i < argBuilders.Length; i++)
+                {
+                    args[i] = argBuilders[i](ctx);
+                }
+                return ctor.Invoke(args);
+            };
         }
 
         if (!HasParameterlessConstructor(type))
@@ -162,59 +207,131 @@ internal static class BuildQueryObject
             if (positional != null)
             {
                 ParameterInfo[] parameters = positional.GetParameters();
-                object?[] args = new object[parameters.Length];
+                PositionalSlot[] positionalSlots = new PositionalSlot[parameters.Length];
                 for (int i = 0; i < parameters.Length; i++)
                 {
                     ParameterInfo p = parameters[i];
                     string columnName = prefix + p.Name;
-                    if (columns.TryGetValue(columnName, out int columnIndex))
+                    int columnIndex = columns.TryGetValue(columnName, out int idx) ? idx : NotPresentSentinel;
+                    Type targetType = Nullable.GetUnderlyingType(p.ParameterType) ?? p.ParameterType;
+                    positionalSlots[i] = new PositionalSlot
                     {
-                        object? value = reader.GetValue(columnIndex, reader.GetColumnType(columnIndex), p.ParameterType);
-                        if (value != null)
-                        {
-                            Type targetType = Nullable.GetUnderlyingType(p.ParameterType) ?? p.ParameterType;
-                            if (targetType.IsEnum)
-                            {
-                                object underlyingType = Convert.ChangeType(value, Enum.GetUnderlyingType(targetType));
-                                args[i] = Enum.IsDefined(targetType, underlyingType)
-                                    ? Enum.ToObject(targetType, underlyingType)
-                                    : null;
-                            }
-                            else
-                            {
-                                args[i] = Convert.ChangeType(value, targetType);
-                            }
-                        }
-                    }
+                        ColumnIndex = columnIndex,
+                        DeclaredType = p.ParameterType,
+                        TargetType = targetType,
+                        IsEnum = targetType.IsEnum,
+                        EnumUnderlyingType = targetType.IsEnum ? Enum.GetUnderlyingType(targetType) : null,
+                    };
                 }
 
-                return positional.Invoke(args);
+                ConstructorInfo capturedCtor = positional;
+                return ctx =>
+                {
+                    SQLiteDataReader r = ctx.Reader!;
+                    object?[] args = new object?[positionalSlots.Length];
+                    for (int i = 0; i < positionalSlots.Length; i++)
+                    {
+                        PositionalSlot s = positionalSlots[i];
+                        if (s.ColumnIndex == NotPresentSentinel)
+                        {
+                            continue;
+                        }
+
+                        object? value = r.GetValue(s.ColumnIndex, r.GetColumnType(s.ColumnIndex), s.DeclaredType);
+                        if (value == null)
+                        {
+                            continue;
+                        }
+
+                        if (s.IsEnum)
+                        {
+                            object underlyingType = Convert.ChangeType(value, s.EnumUnderlyingType!);
+                            args[i] = Enum.IsDefined(s.TargetType, underlyingType)
+                                ? Enum.ToObject(s.TargetType, underlyingType)
+                                : null;
+                        }
+                        else
+                        {
+                            args[i] = Convert.ChangeType(value, s.TargetType);
+                        }
+                    }
+
+                    return capturedCtor.Invoke(args);
+                };
             }
         }
 
         MaterializerPlan plan = ReflectionMaterializerCache.GetPlan(type, options);
         PropertySlot[] slots = plan.Slots;
-        object? instance = plan.Factory != null
-            ? plan.Factory.Create()
-            : Activator.CreateInstance(type, nonPublic: true);
-        int[] indices = GetOrBuildIndices(type, prefix, slots, context, reader);
-
+        SlotPlan[] slotPlans = new SlotPlan[slots.Length];
         for (int s = 0; s < slots.Length; s++)
         {
             PropertySlot slot = slots[s];
-            int columnIndex = indices[s];
+            string columnName = prefix.Length == 0 ? slot.Name : prefix + slot.Name;
 
             if (slot.IsSimple)
             {
-                if (columnIndex >= 0)
+                slotPlans[s] = new SlotPlan
                 {
+                    Slot = slot,
+                    ColumnIndex = columns.TryGetValue(columnName, out int idx) ? idx : NotPresentSentinel,
+                    NestedMaterializer = null,
+                };
+            }
+            else
+            {
+                string nestedPrefix = columnName + ".";
+                bool hasNested = false;
+                int fieldCount = reader.FieldCount;
+                for (int j = 0; j < fieldCount; j++)
+                {
+                    if (reader.GetName(j).StartsWith(nestedPrefix, StringComparison.Ordinal))
+                    {
+                        hasNested = true;
+                        break;
+                    }
+                }
+
+                slotPlans[s] = new SlotPlan
+                {
+                    Slot = slot,
+                    ColumnIndex = NotPresentSentinel,
+                    NestedMaterializer = hasNested
+                        ? BuildReflective(slot.PropertyType, nestedPrefix, reader, columns, options)
+                        : null,
+                };
+            }
+        }
+
+        IInstanceFactory? factory = plan.Factory;
+        Type capturedFallback = type;
+        return ctx =>
+        {
+            SQLiteDataReader r = ctx.Reader!;
+            object instance = factory != null
+                ? factory.Create()
+                : Activator.CreateInstance(capturedFallback, nonPublic: true)!;
+
+            for (int i = 0; i < slotPlans.Length; i++)
+            {
+                SlotPlan sp = slotPlans[i];
+                PropertySlot slot = sp.Slot;
+                int columnIndex = sp.ColumnIndex;
+
+                if (slot.IsSimple)
+                {
+                    if (columnIndex < 0)
+                    {
+                        continue;
+                    }
+
                     if (slot.Assigner != null)
                     {
-                        slot.Assigner(reader.Statement, columnIndex, instance!);
+                        slot.Assigner(r.Statement, columnIndex, instance);
                     }
                     else
                     {
-                        object? val = reader.GetValue(columnIndex, reader.GetColumnType(columnIndex), slot.PropertyType);
+                        object? val = r.GetValue(columnIndex, r.GetColumnType(columnIndex), slot.PropertyType);
                         if (val != null)
                         {
                             object? convertedValue;
@@ -231,60 +348,19 @@ internal static class BuildQueryObject
                                 convertedValue = Convert.ChangeType(val, slot.TargetType);
                             }
 
-                            slot.Setter(instance!, convertedValue);
+                            slot.Setter(instance, convertedValue);
                         }
                     }
                 }
-            }
-            else if (columnIndex == NestedSentinel)
-            {
-                string nestedPrefix = (prefix.Length == 0 ? slot.Name : prefix + slot.Name) + ".";
-                object? nestedObj = BuildInternal(slot.PropertyType, reader, nestedPrefix, context, options);
-                slot.Setter(instance!, nestedObj);
-            }
-        }
-
-        return instance;
-    }
-
-    private static int[] GetOrBuildIndices(Type type, string prefix, PropertySlot[] slots, SQLiteQueryContext context, SQLiteDataReader reader)
-    {
-        Dictionary<(Type Type, string Prefix), int[]> cache = context.SlotIndexCache ??= new Dictionary<(Type, string), int[]>();
-        if (cache.TryGetValue((type, prefix), out int[]? cached))
-        {
-            return cached;
-        }
-
-        Dictionary<string, int> columns = context.Columns!;
-        int[] indices = new int[slots.Length];
-        for (int i = 0; i < slots.Length; i++)
-        {
-            PropertySlot slot = slots[i];
-            string columnName = prefix.Length == 0 ? slot.Name : prefix + slot.Name;
-
-            if (slot.IsSimple)
-            {
-                indices[i] = columns.TryGetValue(columnName, out int idx) ? idx : NotPresentSentinel;
-            }
-            else
-            {
-                string nestedPrefix = columnName + ".";
-                bool hasNested = false;
-                int fieldCount = reader.FieldCount;
-                for (int j = 0; j < fieldCount; j++)
+                else if (sp.NestedMaterializer != null)
                 {
-                    if (reader.GetName(j).StartsWith(nestedPrefix, StringComparison.Ordinal))
-                    {
-                        hasNested = true;
-                        break;
-                    }
+                    object? nestedObj = sp.NestedMaterializer(ctx);
+                    slot.Setter(instance, nestedObj);
                 }
-                indices[i] = hasNested ? NestedSentinel : NotPresentSentinel;
             }
-        }
 
-        cache[(type, prefix)] = indices;
-        return indices;
+            return instance;
+        };
     }
 
     private static bool IsAnonymousType(Type type)

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using SQLite.Framework.Enums;
+using SQLite.Framework.Internals.JSON;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -122,6 +123,21 @@ public class NestedJsonConverterTests
     }
 
     [Fact]
+    public void JsonObjectConverter_ToDatabase_WithNull_ReturnsNull()
+    {
+        SQLiteJsonObjectConverter converter = new(TestJsonContext.Default.Address, isJsonb: false);
+        Assert.Null(converter.ToDatabase(null));
+    }
+
+    [Fact]
+    public void JsonObjectConverter_FromDatabase_WithNonString_ReturnsNull()
+    {
+        SQLiteJsonObjectConverter converter = new(TestJsonContext.Default.Address, isJsonb: false);
+        Assert.Null(converter.FromDatabase(null));
+        Assert.Null(converter.FromDatabase(42));
+    }
+
+    [Fact]
     public void Cycle_RoundTrip_PreservesValues()
     {
         using TestDatabase db = new(b =>
@@ -158,7 +174,7 @@ public class NestedJsonConverterTests
     }
 }
 
-file class PersonEntity
+public class PersonEntity
 {
     [Key]
     public required int Id { get; set; }
@@ -166,7 +182,7 @@ file class PersonEntity
     public required Person Person { get; set; }
 }
 
-file class LoopEntity
+public class LoopEntity
 {
     [Key]
     public required int Id { get; set; }

@@ -15,17 +15,21 @@ public class BuildQueryObjectTests
     {
         using TestDatabase db = new(b =>
         {
-            b.EntityMaterializers[typeof(Book)] = ctx =>
+            b.EntityMaterializers[typeof(Book)] = setupCtx =>
             {
-                SQLiteDataReader reader = ctx.Reader!;
-                Dictionary<string, int> columns = ctx.Columns!;
-                long id = (long)reader.GetValue(columns["BookId"], reader.GetColumnType(columns["BookId"]), typeof(long))!;
-                return new Book
+                Dictionary<string, int> columns = setupCtx.Columns!;
+                int bookIdIndex = columns["BookId"];
+                return rowCtx =>
                 {
-                    Id = (int)id,
-                    Title = "stamped-by-materializer",
-                    AuthorId = 0,
-                    Price = 0.0
+                    SQLiteDataReader reader = rowCtx.Reader!;
+                    long id = (long)reader.GetValue(bookIdIndex, reader.GetColumnType(bookIdIndex), typeof(long))!;
+                    return new Book
+                    {
+                        Id = (int)id,
+                        Title = "stamped-by-materializer",
+                        AuthorId = 0,
+                        Price = 0.0
+                    };
                 };
             };
         });

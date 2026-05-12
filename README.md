@@ -38,44 +38,7 @@ See the [Migrating from sqlite-net-pcl](https://destbg.github.io/SQLite.Framewor
 
 ## Performance
 
-Head-to-head against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 100 rows per operation, .NET 10, BenchmarkDotNet. Lower is better.
-
-**Read 100 rows into a `List<Book>`:**
-
-| ORM | Mean | Allocated | Ratio |
-|---|---:|---:|---:|
-| **SQLite.Framework + SourceGenerator** | **39.0 μs** | **21.8 KB** | **0.56** |
-| sqlite-net-pcl | 45.0 μs | 15.4 KB | 0.65 |
-| SQLite.Framework (reflection path) | 69.7 μs | 36.1 KB | 1.00 |
-| EF Core 10 (`AsNoTracking`) | 77.0 μs | 47.6 KB | 1.11 |
-
-**Bulk insert 100 rows (single transaction):**
-
-| ORM | Mean | Allocated | Ratio |
-|---|---:|---:|---:|
-| **SQLite.Framework + SourceGenerator** | **130.9 μs** | **7.4 KB** | **0.91** |
-| SQLite.Framework (reflection path) | 143.8 μs | 16.7 KB | 1.00 |
-| sqlite-net-pcl (`InsertAll`) | 151.9 μs | 20.6 KB | 1.06 |
-| EF Core 10 (`AddRange` + `SaveChanges`) | 2,160 μs | 918.2 KB | 15.02 |
-
-**Bulk update 100 rows by predicate:**
-
-| ORM | Mean | Allocated | Ratio |
-|---|---:|---:|---:|
-| **SQLite.Framework (`ExecuteUpdate`)** | **154.6 μs** | **17.4 KB** | **1.00** |
-| EF Core 10 (`ExecuteUpdate`) | 187.3 μs | 19.3 KB | 1.21 |
-| sqlite-net-pcl (`UpdateAll`) | 476.9 μs | 198.3 KB | 3.08 |
-
-**Join + project (1000 Books and 50 Authors, filter `Price > 50`, sort, project to a DTO):**
-
-| ORM | Mean | Allocated | Ratio |
-|---|---:|---:|---:|
-| **SQLite.Framework + SourceGenerator** | **80.6 μs** | **34.9 KB** | **0.74** |
-| EF Core 10 | 104.2 μs | 61.7 KB | 0.96 |
-| SQLite.Framework (reflection path) | 109.0 μs | 45.3 KB | 1.00 |
-| sqlite-net-pcl | 417.0 μs | 155.4 KB | 3.83 |
-
-sqlite-net-pcl's `TableQuery<T>` is `IEnumerable<T>`, not `IQueryable<T>`, so the LINQ join binds to `Enumerable.Join`. The whole `Books` and `Authors` tables load into memory before the filter and join run client-side.
+Benchmarks against EF Core 10 and sqlite-net-pcl 1.9 live on the [Performance](https://destbg.github.io/SQLite.Framework/#/Performance) docs page.
 
 ## Status
 

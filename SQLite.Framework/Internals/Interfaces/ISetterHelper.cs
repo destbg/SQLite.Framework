@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Helpers;
+namespace SQLite.Framework.Internals.Interfaces;
 
 /// <summary>
 /// Untyped wrapper over a <see cref="SetterHelper{TInstance, TValue}" /> so the materializer can

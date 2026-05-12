@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Helpers;
+namespace SQLite.Framework.Internals.Models;
 
 /// <summary>
 /// Reflection data for building objects of a type. Worked out once and held in

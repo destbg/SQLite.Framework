@@ -122,11 +122,14 @@ public sealed class SQLiteOptionsBuilder
     public List<SQLitePropertyTranslator> PropertyTranslators { get; } = [];
 
     /// <summary>
-    /// Generated entity materializers, keyed by the entity's CLR type.
-    /// Populated by the <c>UseGeneratedMaterializers</c> extension emitted by <c>SQLite.Framework.SourceGenerator</c>.
-    /// User code should go through that extension rather than mutating this map directly.
+    /// Generated entity materializer builders, keyed by the entity's CLR type. Each value is a
+    /// factory called once per query with the current <see cref="SQLiteQueryContext" />; it
+    /// resolves column indices and returns a per-row materializer that closes over those
+    /// indices. Populated by the <c>UseGeneratedMaterializers</c> extension emitted by
+    /// <c>SQLite.Framework.SourceGenerator</c>. User code should go through that extension
+    /// rather than mutating this map directly.
     /// </summary>
-    public Dictionary<Type, Func<SQLiteQueryContext, object?>> EntityMaterializers { get; } = [];
+    public Dictionary<Type, Func<SQLiteQueryContext, Func<SQLiteQueryContext, object?>>> EntityMaterializers { get; } = [];
 
     /// <summary>
     /// Generated Select projection materializers, keyed by a canonical signature derived from the
@@ -684,7 +687,7 @@ public sealed class SQLiteOptionsBuilder
             TypeConverters = new Dictionary<Type, ISQLiteTypeConverter>(TypeConverters),
             MemberTranslators = new Dictionary<MemberInfo, SQLiteMemberTranslator>(MemberTranslators),
             PropertyTranslators = [.. PropertyTranslators],
-            EntityMaterializers = new Dictionary<Type, Func<SQLiteQueryContext, object?>>(EntityMaterializers),
+            EntityMaterializers = new Dictionary<Type, Func<SQLiteQueryContext, Func<SQLiteQueryContext, object?>>>(EntityMaterializers),
             SelectMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(SelectMaterializers),
             GroupByKeyMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(GroupByKeyMaterializers),
             EntityWriters = new Dictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>>(EntityWriters),
@@ -720,20 +723,7 @@ public sealed class SQLiteOptionsBuilder
                     continue;
                 }
 
-                JsonTypeInfo? childInfo;
-                try
-                {
-                    childInfo = parent.Options.GetTypeInfo(propType);
-                }
-                catch (NotSupportedException)
-                {
-                    continue;
-                }
-                catch (InvalidOperationException)
-                {
-                    continue;
-                }
-
+                JsonTypeInfo childInfo = parent.Options.GetTypeInfo(propType);
                 TypeConverters[propType] = new SQLiteJsonObjectConverter(childInfo, isJsonb);
                 queue.Enqueue(childInfo);
             }

@@ -387,6 +387,20 @@ public class RequestedProbeTests
     public record PositionalRecord([property: Key] int Id, string Name);
 
     [Fact]
+    public void PositionalRecord_Query_WithMissingColumn_LeavesParameterAsNull()
+    {
+        using TestDatabase db = new();
+
+        List<PositionalRecordNullable> rows = db.Query<PositionalRecordNullable>("SELECT 9 AS Id");
+
+        Assert.Single(rows);
+        Assert.Equal(9, rows[0].Id);
+        Assert.Null(rows[0].Name);
+    }
+
+    public record PositionalRecordNullable(int Id, string? Name);
+
+    [Fact]
     public void PositionalRecord_WithEnumParameter_RoundTrips()
     {
         using TestDatabase db = new();

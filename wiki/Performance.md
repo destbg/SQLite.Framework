@@ -1,5 +1,48 @@
 # Performance
 
+## Head-to-head benchmarks
+
+Against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 100 rows per operation, .NET 10, BenchmarkDotNet. Lower is better.
+
+**Read 100 rows into a `List<Book>`:**
+
+| ORM | Mean | Allocated |
+|---|---:|---:|
+| **SQLite.Framework + SourceGenerator** | **36.5 μs** | **22.1 KB** |
+| SQLite.Framework | 37.9 μs | 22.2 KB |
+| sqlite-net-pcl | 45.4 μs | 15.4 KB |
+| EF Core 10 (`AsNoTracking`) | 76.1 μs | 47.6 KB |
+
+**Bulk insert 100 rows (single transaction):**
+
+| ORM | Mean | Allocated |
+|---|---:|---:|
+| **SQLite.Framework + SourceGenerator** | **130.9 μs** | **7.4 KB** |
+| SQLite.Framework | 143.8 μs | 16.7 KB |
+| sqlite-net-pcl (`InsertAll`) | 151.9 μs | 20.6 KB |
+| EF Core 10 (`AddRange` + `SaveChanges`) | 2,160 μs | 918.2 KB |
+
+**Bulk update 100 rows by predicate:**
+
+| ORM | Mean | Allocated |
+|---|---:|---:|
+| **SQLite.Framework (`ExecuteUpdate`)** | **154.6 μs** | **17.4 KB** |
+| EF Core 10 (`ExecuteUpdate`) | 187.3 μs | 19.3 KB |
+| sqlite-net-pcl (`UpdateAll`) | 476.9 μs | 198.3 KB |
+
+**Join + project (1000 Books and 50 Authors, filter `Price > 50`, sort, project to a DTO):**
+
+| ORM | Mean | Allocated |
+|---|---:|---:|
+| **SQLite.Framework** | **75.1 μs** | **31.2 KB** |
+| SQLite.Framework + SourceGenerator | 75.5 μs | 35.1 KB |
+| EF Core 10 | 104.0 μs | 61.8 KB |
+| sqlite-net-pcl | 414.2 μs | 155.4 KB |
+
+sqlite-net-pcl's `TableQuery<T>` is `IEnumerable<T>`, not `IQueryable<T>`, so the LINQ join binds to `Enumerable.Join`. The whole `Books` and `Authors` tables load into memory before the filter and join run client-side.
+
+The benchmark project lives at [`Sample/SQLite.Framework.Benchmarks`](https://github.com/destbg/SQLite.Framework/tree/main/Sample/SQLite.Framework.Benchmarks) and can be reproduced with `dotnet run --project Sample/SQLite.Framework.Benchmarks -c Release`.
+
 ## Benchmark: Bulk Insert
 
 Inserting 1000 rows with a transaction takes a fraction of the time compared to inserting them one by one without one. SQLite commits each write to disk by default, so individual inserts are slow.
@@ -97,7 +140,7 @@ The connection is lazy and opens once. Creating a new `SQLiteDatabase` for every
 
 **Use the source generator on hot read paths**
 
-For `Select` projections and entity reads, the source generator emits typed reader code that skips the runtime expression-tree walk and the per-cell boxing the reflection path does. On a small list query (a `Where` plus `ToList` returning ~50 rows) it is up to **24% faster** end-to-end and uses up to **37% less allocated memory** than the runtime path. The materialization step alone is up to **63% faster**. See [Source Generator](Source%20Generator) for the full numbers and how to enable it.
+For `Select` projections and entity reads, the source generator emits typed reader code that skips the runtime expression-tree walk and the per-cell boxing the runtime path does. On a small list query (a `Where` plus `ToList` returning ~50 rows) it is up to **24% faster** end-to-end and uses up to **37% less allocated memory** than the runtime path. The materialization step alone is up to **63% faster**. See [Source Generator](Source%20Generator) for the full numbers and how to enable it.
 
 **Use WITHOUT ROWID for lookup tables**
 

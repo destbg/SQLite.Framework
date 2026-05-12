@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Helpers;
+namespace SQLite.Framework.Internals.Interfaces;
 
 /// <summary>
 /// Untyped wrapper over <see cref="InstanceFactory{T}" /> so the materializer can build an entity

@@ -117,12 +117,20 @@ internal static class SelectMaterializerEmitter
 
             if (leaf.IsNullable || leaf.IsReflected)
             {
-                if (TryGetFastPathAccessor(leaf.Type, out string? nAccessor, out string? nCast))
+                if (TryGetFastPathAccessor(leaf.Type, out string? nAccessor, out string? nCast, out bool nHandlesNull))
                 {
                     string castOpen = nCast is null ? "" : "(" + nCast + ")";
-                    sb.Append("            object? ").Append(leaf.VarName)
-                        .Append(" = reader.IsDBNull(").Append(i).Append(") ? null : (object)")
-                        .Append(castOpen).Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
+                    if (nHandlesNull)
+                    {
+                        sb.Append("            object? ").Append(leaf.VarName).Append(" = ")
+                            .Append(castOpen).Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
+                    }
+                    else
+                    {
+                        sb.Append("            object? ").Append(leaf.VarName)
+                            .Append(" = reader.IsDBNull(").Append(i).Append(") ? null : (object)")
+                            .Append(castOpen).Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
+                    }
                 }
                 else
                 {
@@ -556,6 +564,17 @@ internal static class SelectMaterializerEmitter
 
     internal static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out string? cast)
     {
+        return TryGetFastPathAccessor(type, out accessor, out cast, out _);
+    }
+
+    /// <summary>
+    /// Looks up the fast-path reader accessor for a CLR type. <paramref name="handlesNull"/>
+    /// is <see langword="true"/> when the accessor itself returns <see langword="null"/> for
+    /// SQL NULL, which lets the emitter skip a redundant <c>IsDBNull</c> guard.
+    /// </summary>
+    internal static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out string? cast, out bool handlesNull)
+    {
+        handlesNull = false;
         ITypeSymbol stripped = StripNullableSymbol(type);
         switch (stripped.SpecialType)
         {
@@ -602,6 +621,11 @@ internal static class SelectMaterializerEmitter
             case SpecialType.System_Boolean:
                 accessor = "GetBoolean";
                 cast = null;
+                return true;
+            case SpecialType.System_String:
+                accessor = "GetString";
+                cast = null;
+                handlesNull = true;
                 return true;
             default:
                 accessor = null;
