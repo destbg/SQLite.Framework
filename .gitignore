@@ -414,6 +414,7 @@ yarn.lock
 # wiki
 wiki/node_modules
 wiki/dist
+wiki/google*.html
 
 # Other
 *.db

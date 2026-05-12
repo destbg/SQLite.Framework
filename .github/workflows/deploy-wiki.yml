@@ -35,6 +35,13 @@ jobs:
         run: npm run build
         working-directory: wiki
 
+      - name: Write Google Search Console verification file
+        if: ${{ vars.GOOGLE_SITE_VERIFICATION_FILENAME != '' }}
+        env:
+          FILENAME: ${{ vars.GOOGLE_SITE_VERIFICATION_FILENAME }}
+        run: |
+          printf 'google-site-verification: %s\n' "$FILENAME" > "wiki/dist/$FILENAME"
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
