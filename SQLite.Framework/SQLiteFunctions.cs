@@ -41,6 +41,12 @@ public static class SQLiteFunctions
     /// <summary>
     /// Returns the current Unix timestamp in seconds. Translates to SQLite's <c>unixepoch()</c>.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios16.0")]
+#endif
     public static long UnixEpoch()
     {
         throw new InvalidOperationException(OutsideQuery);
@@ -50,6 +56,12 @@ public static class SQLiteFunctions
     /// Parses <paramref name="when" /> as a date or time string and returns its Unix timestamp in
     /// seconds. Translates to SQLite's <c>unixepoch(when)</c>.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios16.0")]
+#endif
     public static long UnixEpoch(string when)
     {
         throw new InvalidOperationException(OutsideQuery);

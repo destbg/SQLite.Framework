@@ -5,6 +5,12 @@ namespace SQLite.Framework;
 /// valid inside a LINQ query where they are translated to their SQL equivalents.
 /// JSON function translators are registered automatically by the framework.
 /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+[UnsupportedOSPlatform("android")]
+[SupportedOSPlatform("android24.0")]
+[UnsupportedOSPlatform("ios")]
+[SupportedOSPlatform("ios10.0")]
+#endif
 public static class SQLiteJsonFunctions
 {
     /// <summary>

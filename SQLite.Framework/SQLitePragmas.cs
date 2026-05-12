@@ -129,6 +129,12 @@ public class SQLitePragmas
     /// <c>from m in db.Pragmas.Master from p in db.Pragmas.TableInfo(m.Name)</c>.
     /// </summary>
     [SQLitePragmaFunction("pragma_table_info")]
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android26.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios11.0")]
+#endif
     public virtual IQueryable<PragmaTableInfo> TableInfo(string tableName)
     {
         return new SQLitePragmaTable<PragmaTableInfo>(Database, "pragma_table_info", tableName);
@@ -139,6 +145,12 @@ public class SQLitePragmas
     /// index attached to the table.
     /// </summary>
     [SQLitePragmaFunction("pragma_index_list")]
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android26.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios11.0")]
+#endif
     public virtual IQueryable<PragmaIndexList> IndexList(string tableName)
     {
         return new SQLitePragmaTable<PragmaIndexList>(Database, "pragma_index_list", tableName);
@@ -149,6 +161,12 @@ public class SQLitePragmas
     /// one per foreign key column on the table.
     /// </summary>
     [SQLitePragmaFunction("pragma_foreign_key_list")]
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android26.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios11.0")]
+#endif
     public virtual IQueryable<PragmaForeignKey> ForeignKeyList(string tableName)
     {
         return new SQLitePragmaTable<PragmaForeignKey>(Database, "pragma_foreign_key_list", tableName);

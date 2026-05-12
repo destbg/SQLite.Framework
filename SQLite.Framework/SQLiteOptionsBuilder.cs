@@ -416,7 +416,6 @@ public sealed class SQLiteOptionsBuilder
         return this;
     }
 
-#if !SQLITECIPHER
     /// <summary>
     /// Registers a JSONB-storage JSON converter for every type declared in
     /// <paramref name="context" /> and walks the source-generated <see cref="JsonTypeInfo" />
@@ -428,6 +427,13 @@ public sealed class SQLiteOptionsBuilder
     /// <see cref="AddJsonContext" />: the JSON source generator roots every
     /// <c>[JsonSerializable]</c> property.
     /// </remarks>
+#if SQLITECIPHER
+    [Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support; otherwise switch to AddJsonContext for plain JSON TEXT storage.", error: true)]
+#elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android36.0")]
+    [UnsupportedOSPlatform("ios")]
+#endif
     public SQLiteOptionsBuilder AddJsonbContext(JsonSerializerContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -441,7 +447,6 @@ public sealed class SQLiteOptionsBuilder
         }
         return this;
     }
-#endif
 
     /// <summary>
     /// Registers a custom type converter for the given CLR type.
