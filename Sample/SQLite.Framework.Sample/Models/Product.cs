@@ -27,6 +27,7 @@ public class Product
     [Column("ProductCategoryId")]
     [Required]
     [Indexed(Name = "IX_Product_CategoryId")]
+    [ReferencesTable(typeof(Category))]
     public required int CategoryId { get; set; }
 
     [Column("ProductStock")]

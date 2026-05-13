@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SQLite.Framework.Attributes;
+using SQLite.Framework.Enums;
 
 namespace SQLite.Framework.Sample.Models;
 
@@ -15,11 +16,13 @@ public class Review
     [Column("ReviewProductId")]
     [Required]
     [Indexed(Name = "IX_Review_ProductId")]
+    [ReferencesTable(typeof(Product), OnDelete = SQLiteForeignKeyAction.Cascade)]
     public required int ProductId { get; set; }
 
     [Column("ReviewCustomerId")]
     [Required]
     [Indexed(Name = "IX_Review_CustomerId")]
+    [ReferencesTable(typeof(Customer), OnDelete = SQLiteForeignKeyAction.Cascade)]
     public required int CustomerId { get; set; }
 
     [Column("ReviewRating")]

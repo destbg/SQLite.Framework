@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SQLite.Framework.Attributes;
+using SQLite.Framework.Enums;
 
 namespace SQLite.Framework.Sample.Models;
 
@@ -21,5 +22,6 @@ public class Category
     public string? Description { get; set; }
 
     [Column("CategoryParentId")]
+    [ReferencesTable(typeof(Category), OnDelete = SQLiteForeignKeyAction.SetNull)]
     public int? ParentId { get; set; }
 }

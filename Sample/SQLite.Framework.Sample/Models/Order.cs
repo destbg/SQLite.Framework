@@ -15,6 +15,7 @@ public class Order
     [Column("OrderCustomerId")]
     [Required]
     [Indexed(Name = "IX_Order_CustomerId")]
+    [ReferencesTable(typeof(Customer))]
     public required int CustomerId { get; set; }
 
     [Column("OrderDate")]

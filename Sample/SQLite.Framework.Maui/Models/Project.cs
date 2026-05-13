@@ -13,6 +13,8 @@ public class Project
     public required string Name { get; set; }
     public required string Description { get; set; }
     public required string Icon { get; set; }
+
+    [ReferencesTable(typeof(Category))]
     public int CategoryId { get; set; }
 
     public override string ToString() => $"{Name}";

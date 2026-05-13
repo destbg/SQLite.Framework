@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using SQLite.Framework.Attributes;
+using SQLite.Framework.Enums;
 
 namespace SQLite.Framework.Avalonia.Models;
 
@@ -17,5 +18,6 @@ public class ProjectTask
     public bool IsCompleted { get; set; }
 
     [JsonIgnore]
+    [ReferencesTable(typeof(Project), OnDelete = SQLiteForeignKeyAction.Cascade)]
     public int ProjectId { get; set; }
 }
