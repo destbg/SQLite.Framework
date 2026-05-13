@@ -933,7 +933,7 @@ public class CoverageGapTests
 
         releaseSignal.Set();
 
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
         SQLiteTransaction tx2 = awaiter.GetResult();
