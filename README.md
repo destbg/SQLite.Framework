@@ -83,10 +83,13 @@ public class Person
     public int Id { get; set; }
     public required string Name { get; set; }
     public DateTime? BirthDate { get; set; }
+
+    [ReferencesTable(typeof(Person))]
+    public int? ManagerId { get; set; }
 }
 ```
 
-   Per-class attributes: `[Table]`, `[WithoutRowId]`. Per-property: `[Column]`, `[NotMapped]`, `[Key]`, `[Index]`, `[AutoIncrement]`, `[Required]`. Columns are NOT NULL by default, use `?` to mark them as nullable.
+   Per-class attributes: `[Table]`, `[WithoutRowId]`. Per-property: `[Column]`, `[NotMapped]`, `[Key]`, `[Index]`, `[AutoIncrement]`, `[Required]`, `[ReferencesTable]`, `[ForeignKey]`. Columns are NOT NULL by default, use `?` to mark them as nullable.
 
 2. **Open a database.**
 
