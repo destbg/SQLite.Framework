@@ -65,10 +65,11 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     }
 
     /// <summary>
-    /// Adds an index. Optionally limit the index to rows matching <paramref name="filter" /> for a
-    /// partial index.
+    /// Adds an index. Pass a single property to create a single-column index, or an anonymous
+    /// object (<c>b =&gt; new { b.A, b.B }</c>) to create a composite index. Optionally limit the
+    /// index to rows matching <paramref name="filter" /> for a partial index.
     /// </summary>
-    /// <param name="column">Column to index.</param>
+    /// <param name="column">Column or columns to index.</param>
     /// <param name="name">Optional index name. The default is <c>idx_{TableName}_{ColumnName}</c>.</param>
     /// <param name="unique">Whether the index is unique.</param>
     /// <param name="filter">Optional predicate that produces a partial index (<c>WHERE</c> clause).</param>
@@ -76,11 +77,39 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     {
         ArgumentNullException.ThrowIfNull(column);
 
-        TableColumn target = ResolveTargetColumn(column);
-        string indexName = name ?? $"idx_{mapping.TableName}_{target.Name}";
+        Expression body = column.Body;
+        if (body is UnaryExpression unary) body = unary.Operand;
+
+        string[] columnNames;
+        string defaultName;
+
+        if (body is NewExpression newExpr)
+        {
+            columnNames = new string[newExpr.Arguments.Count];
+            for (int i = 0; i < newExpr.Arguments.Count; i++)
+            {
+                Expression arg = newExpr.Arguments[i];
+                if (arg is UnaryExpression u) arg = u.Operand;
+                if (arg is not MemberExpression mem)
+                    throw new ArgumentException("Composite index expressions must be plain property accesses like b => new { b.A, b.B }.", nameof(column));
+
+                TableColumn col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == mem.Member.Name)
+                    ?? throw new ArgumentException($"Property '{mem.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
+                columnNames[i] = col.Name;
+            }
+            defaultName = $"idx_{mapping.TableName}_{string.Join("_", columnNames)}";
+        }
+        else
+        {
+            TableColumn target = ResolveTargetColumn(column);
+            columnNames = [target.Name];
+            defaultName = $"idx_{mapping.TableName}_{target.Name}";
+        }
+
+        string indexName = name ?? defaultName;
         string? filterSql = filter == null ? null : TranslateBareSql(filter);
 
-        indexes.Add(new IndexSpec(target.Name, indexName, unique, filterSql));
+        indexes.Add(new IndexSpec(columnNames, indexName, unique, filterSql));
         return this;
     }
 
@@ -197,22 +226,29 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
         int count = database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
 
-        foreach (TableColumn tableColumn in mapping.Columns)
+        var indexGroups = mapping.Columns
+            .SelectMany(col => col.Indices.Select(idx => (
+                Name: idx.Name ?? ("idx_" + col.Name + "_" + idx.Order),
+                Column: col.Name,
+                Order: idx.Order,
+                IsUnique: idx.IsUnique)))
+            .GroupBy(x => x.Name);
+
+        foreach (var group in indexGroups)
         {
-            foreach (IndexedAttribute index in tableColumn.Indices)
-            {
-                string indexName = index.Name ?? ("idx_" + tableColumn.Name + "_" + index.Order);
-                string uniqueClause = index.IsUnique ? "UNIQUE " : string.Empty;
-                string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{indexName}\" ON \"{mapping.TableName}\" ({tableColumn.Name})";
-                count += database.CreateCommand(sql, []).ExecuteNonQuery();
-            }
+            string[] columns = [.. group.OrderBy(x => x.Order).Select(x => x.Column)];
+            string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
+            string columnList = string.Join(", ", columns);
+            string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
+            count += database.CreateCommand(sql, []).ExecuteNonQuery();
         }
 
         foreach (IndexSpec index in indexes)
         {
             string uniqueClause = index.Unique ? "UNIQUE " : string.Empty;
+            string columnList = string.Join(", ", index.Columns);
             string where = index.FilterSql == null ? string.Empty : $" WHERE {index.FilterSql}";
-            string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{index.Name}\" ON \"{mapping.TableName}\" ({index.Column}){where}";
+            string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{index.Name}\" ON \"{mapping.TableName}\" ({columnList}){where}";
             count += database.CreateCommand(sql, []).ExecuteNonQuery();
         }
 

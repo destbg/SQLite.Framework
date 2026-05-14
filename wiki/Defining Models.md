@@ -94,10 +94,22 @@ Give the index a specific name:
 public int AuthorId { get; set; }
 ```
 
-To create a composite index across multiple columns, use the same name and set the `Order`:
+To create a composite index across multiple columns, use the same name and set the `Order` to control the column order in the index. The framework groups all `[Indexed]` attributes that share the same name into one `CREATE INDEX` statement:
 
 ```csharp
 [Indexed("IX_Book_AuthorGenre", 0)]
+public int AuthorId { get; set; }
+
+[Indexed("IX_Book_AuthorGenre", 1)]
+public string? Genre { get; set; }
+```
+
+This produces one index: `CREATE INDEX "IX_Book_AuthorGenre" ON "Books" (AuthorId, Genre)`.
+
+Set `IsUnique = true` on any of the attributes to make the composite index unique:
+
+```csharp
+[Indexed("IX_Book_AuthorGenre", 0, IsUnique = true)]
 public int AuthorId { get; set; }
 
 [Indexed("IX_Book_AuthorGenre", 1)]

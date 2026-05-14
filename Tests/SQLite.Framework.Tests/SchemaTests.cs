@@ -46,6 +46,21 @@ public class SchemaTests
     }
 
     [Fact]
+    public void CreateTable_CompositeIndex_CreatesOneIndexWithBothColumns()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<CompositeIndexedEntity>();
+
+        IReadOnlyList<string> indexes = db.Schema.ListIndexes("CompositeIndexedTable");
+        Assert.Single(indexes, n => n == "IX_Schema_Composite");
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Schema_Composite'");
+        Assert.Contains("Col1", indexSql);
+        Assert.Contains("Col2", indexSql);
+    }
+
+    [Fact]
     public void DropTable_Generic_RemovesTable()
     {
         using TestDatabase db = new();
@@ -678,4 +693,17 @@ file class CompositeKeyEntity
     public int TagId { get; set; }
 
     public string Note { get; set; } = string.Empty;
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("CompositeIndexedTable")]
+file class CompositeIndexedEntity
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    public int Id { get; set; }
+
+    [SQLite.Framework.Attributes.Indexed("IX_Schema_Composite", 0)]
+    public int Col1 { get; set; }
+
+    [SQLite.Framework.Attributes.Indexed("IX_Schema_Composite", 1)]
+    public string? Col2 { get; set; }
 }

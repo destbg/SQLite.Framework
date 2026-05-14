@@ -54,6 +54,7 @@ db.Table<Book>().Schema
     .Index(b => b.Title)
     .Index(b => b.AuthorId, unique: true)
     .Index(b => b.CategoryId, filter: b => !b.Deleted)
+    .Index(b => new { b.AuthorId, b.Genre }, name: "IX_AuthorGenre")
     .CreateTable();
 ```
 
@@ -61,7 +62,7 @@ db.Table<Book>().Schema
 
 `Check(predicate, name)` adds a table-level CHECK constraint. The predicate is translated to SQL the same way `Where` clauses are.
 
-`Index(column, name, unique, filter)` adds an index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself).
+`Index(column, name, unique, filter)` adds an index. Pass a single property for a single-column index, or an anonymous object (`b => new { b.A, b.B }`) for a composite index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself). Composite indexes cannot have a partial filter.
 
 Constants in computed, CHECK, and partial-index expressions are inlined as SQL literals because CREATE TABLE / CREATE INDEX cannot bind parameters. Only simple types (numbers, strings, bool) are supported as constants. For exotic types, use raw SQL through `db.Execute`.
 

@@ -89,7 +89,6 @@ public class SQLiteTableBuilderTests
 
         Assert.True(db.Schema.TableExists<WithoutRowIdEntity>());
 
-        // Round-trip a row to confirm the table works
         db.Execute(
             "INSERT INTO WithoutRowIdEntity (Code, Name) VALUES ('a', 'first')");
         WithoutRowIdEntity row = db.Table<WithoutRowIdEntity>().Single();
@@ -106,10 +105,70 @@ public class SQLiteTableBuilderTests
         IReadOnlyList<string> indexes = db.Schema.ListIndexes("Books");
         Assert.Contains("IX_Book_AuthorId", indexes);
 
-        // Adding a duplicate price should fail because Book.Price has [Indexed(IsUnique = true)]
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 9.99 });
         Assert.ThrowsAny<Exception>(() =>
             db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 2, Price = 9.99 }));
+    }
+
+    [Fact]
+    public void Builder_CompositeIndex_CreatesOneIndexWithBothColumns()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => new { b.AuthorId, b.Price }, name: "IX_Builder_Composite")
+            .CreateTable();
+
+        Assert.True(db.Schema.IndexExists("IX_Builder_Composite"));
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Builder_Composite'");
+        Assert.Contains("BookAuthorId", indexSql);
+        Assert.Contains("BookPrice", indexSql);
+    }
+
+    [Fact]
+    public void Builder_CompositeIndex_Unique_RejectsDuplicatePairs()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => new { b.AuthorId, b.Price }, name: "IX_Builder_Composite_Unique", unique: true)
+            .CreateTable();
+
+        db.Table<BookArchive>().Add(new BookArchive { Id = 1, Title = "a", AuthorId = 1, Price = 1.0 });
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<BookArchive>().Add(new BookArchive { Id = 2, Title = "b", AuthorId = 1, Price = 1.0 }));
+    }
+
+    [Fact]
+    public void Builder_CompositeIndex_UnwrapsConvertOnArg()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => new { Boxed = (object?)b.AuthorId, b.Price }, name: "IX_Builder_Composite_Boxed")
+            .CreateTable();
+
+        Assert.True(db.Schema.IndexExists("IX_Builder_Composite_Boxed"));
+    }
+
+    [Fact]
+    public void Builder_CompositeIndex_NotMemberAccessArg_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<BookArchive>()
+                .Index(b => new { Bad = b.AuthorId + 1, b.Price }));
+    }
+
+    [Fact]
+    public void Builder_CompositeIndex_UnknownProperty_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<BookArchive>()
+                .Index(b => new { Bad = b.Title.Length, b.Price }));
     }
 
     [Fact]

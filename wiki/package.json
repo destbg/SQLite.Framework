@@ -13,7 +13,7 @@
         "react": "=19.2.6",
         "react-dom": "=19.2.6",
         "react-markdown": "=10.1.0",
-        "react-router-dom": "=7.15.0",
+        "react-router-dom": "=7.15.1",
         "rehype-highlight": "=7.0.2",
         "remark-gfm": "=4.0.1"
     },
@@ -22,6 +22,6 @@
         "@types/react-dom": "=19.2.3",
         "@vitejs/plugin-react": "=6.0.1",
         "typescript": "=5.9.3",
-        "vite": "=8.0.12"
+        "vite": "=8.0.13"
     }
 }

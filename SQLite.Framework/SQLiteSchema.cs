@@ -72,15 +72,21 @@ public class SQLiteSchema
 
         int count = Database.CreateCommand(sql, []).ExecuteNonQuery();
 
-        foreach (TableColumn tableColumn in mapping.Columns)
+        var indexGroups = mapping.Columns
+            .SelectMany(col => col.Indices.Select(idx => (
+                Name: idx.Name ?? ("idx_" + col.Name + "_" + idx.Order),
+                Column: col.Name,
+                Order: idx.Order,
+                IsUnique: idx.IsUnique)))
+            .GroupBy(x => x.Name);
+
+        foreach (var group in indexGroups)
         {
-            foreach (IndexedAttribute index in tableColumn.Indices)
-            {
-                string indexName = index.Name ?? ("idx_" + tableColumn.Name + "_" + index.Order);
-                string uniqueClause = index.IsUnique ? "UNIQUE " : string.Empty;
-                string indexSql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{indexName}\" ON \"{mapping.TableName}\" ({tableColumn.Name})";
-                count += Database.CreateCommand(indexSql, []).ExecuteNonQuery();
-            }
+            string[] indexColumns = [.. group.OrderBy(x => x.Order).Select(x => x.Column)];
+            string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
+            string columnList = string.Join(", ", indexColumns);
+            string indexSql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
+            count += Database.CreateCommand(indexSql, []).ExecuteNonQuery();
         }
 
         return count;
