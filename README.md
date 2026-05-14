@@ -7,7 +7,6 @@ LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime
 [![codecov](https://codecov.io/gh/destbg/SQLite.Framework/branch/main/graph/badge.svg)](https://codecov.io/gh/destbg/SQLite.Framework)
 [![.NET](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/destbg/SQLite.Framework.svg?style=social)](https://github.com/destbg/SQLite.Framework/stargazers)
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
