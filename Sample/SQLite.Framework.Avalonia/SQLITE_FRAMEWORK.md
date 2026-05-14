@@ -96,6 +96,43 @@ Keep entities to the columns of the table. There are no navigation properties â€
 
 Schema setup is idempotent (`CREATE TABLE IF NOT EXISTS`), so calling `Schema.CreateTable<T>()` on every startup is safe. Track migrations through `db.Pragmas.UserVersion`.
 
+## Foreign keys
+
+Mark a foreign key column with `[ReferencesTable(typeof(Parent))]`. The framework emits an inline `REFERENCES "Parent"("Id")` clause and infers the parent's primary key.
+
+```csharp
+public class Book
+{
+    [Key]
+    public int Id { get; set; }
+    public required string Title { get; set; }
+
+    [ReferencesTable(typeof(Author), OnDelete = SQLiteForeignKeyAction.Cascade)]
+    public int AuthorId { get; set; }
+}
+```
+
+- `OnDelete`, `OnUpdate`, `Deferred` for richer behavior. `SetNull` requires the column to be nullable.
+- Pass a column name to target a non-primary-key column: `[ReferencesTable(typeof(Country), nameof(Country.Code))]`.
+- `[ForeignKey("Author")]` from `System.ComponentModel.DataAnnotations.Schema` is also read, with `NoAction` defaults. Prefer `[ReferencesTable]` for non-default actions, deferred enforcement, or refactor-safe `typeof` targeting. The two cannot be combined on the same property.
+
+Composite keys, or runtime decisions, use the fluent builder:
+
+```csharp
+db.Schema.Table<OrderLine>()
+    .ForeignKey<Order>(
+        l => new { l.OrderId, l.OrderVersion },
+        o => new { o.Id, o.Version },
+        onDelete: SQLiteForeignKeyAction.Cascade)
+    .CreateTable();
+
+db.Schema.Table<Book>()
+    .ForeignKey<Author>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.Cascade)
+    .CreateTable();
+```
+
+Enforcement is on by default (`PRAGMA foreign_keys = ON` on every connection open). Opt out with `UseForeignKeys(false)` on the builder, or `db.Pragmas.ForeignKeys = false` at runtime.
+
 ## Data types
 
 - INTEGER: `int`, `long`, `short`, `byte`, `bool`, `enum`, `DateTime` / `DateOnly` / `TimeOnly` / `TimeSpan` / `DateTimeOffset` (all stored as ticks).

@@ -108,6 +108,35 @@ The most common attributes:
 
 Schema setup is safe to call on every startup because it uses `CREATE TABLE IF NOT EXISTS`. Track migrations through `db.Pragmas.UserVersion`. See [Defining Models](Defining%20Models) for the full list.
 
+## Foreign keys
+
+Mark a foreign key column with `[ReferencesTable(typeof(Parent))]`. The framework emits an inline `REFERENCES "Parent"("Id")` clause and infers the parent's primary key.
+
+```csharp
+public class Book
+{
+    [Key]
+    public int Id { get; set; }
+    public required string Title { get; set; }
+
+    [ReferencesTable(typeof(Author), OnDelete = SQLiteForeignKeyAction.Cascade)]
+    public int AuthorId { get; set; }
+}
+```
+
+Set `OnDelete`, `OnUpdate`, or `Deferred` for richer behavior. `SetNull` requires the column to be nullable. Pass a column name to target a non-primary-key column: `[ReferencesTable(typeof(Country), nameof(Country.Code))]`.
+
+For composite keys, or for a runtime decision, use the fluent builder:
+
+```csharp
+db.Schema.Table<OrderLine>()
+    .ForeignKey<Order>(
+        l => new { l.OrderId, l.OrderVersion },
+        o => new { o.Id, o.Version },
+        onDelete: SQLiteForeignKeyAction.Cascade)
+    .CreateTable();
+```
+
 ## Data types
 
 | .NET | SQLite | Notes |
