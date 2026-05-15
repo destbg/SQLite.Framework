@@ -99,6 +99,19 @@ db.Schema.RenameTable<Book>("RenamedBooks");
 
 `AddColumn` takes a property name on the entity. The framework reads the type, nullability, and primary-key flags from your model and emits the right `ALTER TABLE ADD COLUMN` SQL.
 
+A property selector overload is also available:
+
+```csharp
+db.Schema.AddColumn<Book>(b => b.Subtitle);
+```
+
+Pass `defaultValue` to emit a `DEFAULT` clause. You need this when you add a `NOT NULL` column to a table that already has rows. SQLite then uses the default to backfill existing rows.
+
+```csharp
+db.Schema.AddColumn<Book>(b => b.Pages, defaultValue: 0);
+db.Schema.AddColumn<Book>(b => b.Genre, defaultValue: "Unknown");
+```
+
 `RenameColumn`, `DropColumn`, and `RenameTable` take SQLite column or table names directly.
 
 ## Views

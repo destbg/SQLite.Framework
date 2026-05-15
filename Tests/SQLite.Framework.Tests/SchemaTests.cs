@@ -250,6 +250,134 @@ public class SchemaTests
     }
 
     [Fact]
+    public void AddColumn_WithDefaultValue_BackfillsExistingRows()
+    {
+        using TestDatabase db = new();
+        db.Table<EvolvingTable>().Schema.CreateTable();
+        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+        db.Execute("INSERT INTO Evolving (Id) VALUES (2)");
+
+        db.Schema.AddColumn<EvolvingPlusRequiredCount>(nameof(EvolvingPlusRequiredCount.Count), defaultValue: 7);
+
+        IReadOnlyList<int> counts = db.Query<int>("SELECT Count FROM Evolving ORDER BY Id");
+        Assert.Equal(new[] { 7, 7 }, counts);
+    }
+
+    [Fact]
+    public void AddColumn_DefaultValue_EmitsDefaultClauseInSchema()
+    {
+        using TestDatabase db = new();
+        db.Table<EvolvingTable>().Schema.CreateTable();
+
+        db.Schema.AddColumn<EvolvingPlusRequiredCount>(nameof(EvolvingPlusRequiredCount.Count), defaultValue: 42);
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Evolving'");
+        Assert.Contains("DEFAULT 42", sql);
+    }
+
+    [Fact]
+    public void AddColumn_StringDefault_EscapesQuote()
+    {
+        using TestDatabase db = new();
+        db.Table<EvolvingTable>().Schema.CreateTable();
+
+        db.Schema.AddColumn<EvolvingPlusRequiredLabel>(nameof(EvolvingPlusRequiredLabel.Label), defaultValue: "O'Reilly");
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Evolving'");
+        Assert.Contains("'O''Reilly'", sql);
+    }
+
+    [Fact]
+    public void AddColumn_PropertySelector_AddsTheColumn()
+    {
+        using TestDatabase db = new();
+        db.Table<EvolvingTable>().Schema.CreateTable();
+
+        db.Schema.AddColumn<EvolvingTablePlusName>(e => e.Name);
+
+        Assert.True(db.Schema.ColumnExists<EvolvingTablePlusName>("Name"));
+    }
+
+    [Fact]
+    public void AddColumn_PropertySelector_WithDefault_BackfillsExistingRows()
+    {
+        using TestDatabase db = new();
+        db.Table<EvolvingTable>().Schema.CreateTable();
+        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+
+        db.Schema.AddColumn<EvolvingPlusRequiredCount>(e => e.Count, defaultValue: 5);
+
+        Assert.Equal(5, db.QueryFirst<int>("SELECT Count FROM Evolving"));
+    }
+
+    [Fact]
+    public void AddColumn_PropertySelector_NotMemberAccess_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<EvolvingTable>().Schema.CreateTable();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.AddColumn<EvolvingPlusRequiredCount>(e => e.Count + 1));
+    }
+
+    [Fact]
+    public async Task AddColumnAsync_PropertySelector_RoundTrips()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<EvolvingTable>(TestContext.Current.CancellationToken);
+
+        await db.Schema.AddColumnAsync<EvolvingTablePlusName>(
+            e => e.Name,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(db.Schema.ColumnExists<EvolvingTablePlusName>("Name"));
+    }
+
+    [Fact]
+    public async Task AddColumnAsync_PropertySelector_WithDefault_BackfillsExistingRows()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<EvolvingTable>(TestContext.Current.CancellationToken);
+        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+
+        await db.Schema.AddColumnAsync<EvolvingPlusRequiredCount>(
+            e => e.Count,
+            defaultValue: 13,
+            ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal(13, db.QueryFirst<int>("SELECT Count FROM Evolving"));
+    }
+
+    [Fact]
+    public void AddColumn_NoDefault_NullableColumn_WorksOnPopulatedTable()
+    {
+        using TestDatabase db = new();
+        db.Table<EvolvingTable>().Schema.CreateTable();
+        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+
+        db.Schema.AddColumn<EvolvingTablePlusName>(nameof(EvolvingTablePlusName.Name));
+
+        Assert.True(db.Schema.ColumnExists<EvolvingTablePlusName>("Name"));
+    }
+
+    [Fact]
+    public async Task AddColumnAsync_WithDefaultValue_BackfillsExistingRows()
+    {
+        using TestDatabase db = new();
+        await db.Schema.CreateTableAsync<EvolvingTable>(TestContext.Current.CancellationToken);
+        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+
+        await db.Schema.AddColumnAsync<EvolvingPlusRequiredCount>(
+            nameof(EvolvingPlusRequiredCount.Count),
+            defaultValue: 99,
+            ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal(99, db.QueryFirst<int>("SELECT Count FROM Evolving"));
+    }
+
+    [Fact]
     public void AddColumn_UnknownProperty_Throws()
     {
         using TestDatabase db = new();
@@ -693,6 +821,24 @@ file class CompositeKeyEntity
     public int TagId { get; set; }
 
     public string Note { get; set; } = string.Empty;
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("Evolving")]
+file class EvolvingPlusRequiredCount
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    public int Id { get; set; }
+
+    public int Count { get; set; }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("Evolving")]
+file class EvolvingPlusRequiredLabel
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    public int Id { get; set; }
+
+    public required string Label { get; set; }
 }
 
 [System.ComponentModel.DataAnnotations.Schema.Table("CompositeIndexedTable")]

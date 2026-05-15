@@ -175,6 +175,46 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
+    /// Adds the column for the property named <paramref name="propertyName" /> on <typeparamref name="T" />.
+    /// The framework writes <paramref name="defaultValue" /> as the SQL <c>DEFAULT</c> clause. SQLite
+    /// needs this when you add a <c>NOT NULL</c> column to a table that already has rows.
+    /// </summary>
+    public static Task<int> AddColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string propertyName, object? defaultValue, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.AddColumn<T>(propertyName, defaultValue);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Adds the column selected by <paramref name="property" /> on <typeparamref name="T" />.
+    /// </summary>
+    public static Task<int> AddColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, Expression<Func<T, object?>> property, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.AddColumn(property);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Adds the column selected by <paramref name="property" /> on <typeparamref name="T" />.
+    /// The framework writes <paramref name="defaultValue" /> as the SQL <c>DEFAULT</c> clause. SQLite
+    /// needs this when you add a <c>NOT NULL</c> column to a table that already has rows.
+    /// </summary>
+    public static Task<int> AddColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, Expression<Func<T, object?>> property, object? defaultValue, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.AddColumn(property, defaultValue);
+        }, ct);
+    }
+
+    /// <summary>
     /// Renames a column on the table for <typeparamref name="T" />. Requires SQLite 3.25.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE

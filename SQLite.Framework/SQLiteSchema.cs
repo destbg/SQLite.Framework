@@ -284,9 +284,14 @@ public class SQLiteSchema
     /// <summary>
     /// Adds the column for the property named <paramref name="propertyName" /> to the table for
     /// <typeparamref name="T" />. The type, nullability, and primary-key flags come from the
-    /// entity mapping.
+    /// entity mapping. Pass <paramref name="defaultValue" /> to emit a <c>DEFAULT</c> clause. SQLite
+    /// needs this when you add a <c>NOT NULL</c> column to a table that already has rows.
     /// </summary>
-    public virtual int AddColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string propertyName)
+    /// <param name="propertyName">Property name on the entity to add.</param>
+    /// <param name="defaultValue">Optional default value. The framework writes it as the SQL
+    /// <c>DEFAULT</c> clause and SQLite uses it to backfill existing rows. Supported types are
+    /// numbers, strings, and <see cref="bool" />.</param>
+    public virtual int AddColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string propertyName, object? defaultValue = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(propertyName);
 
@@ -294,8 +299,25 @@ public class SQLiteSchema
         TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
 
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {column.GetCreateColumnSql()}";
+        string defaultClause = defaultValue == null ? string.Empty : $" DEFAULT {SqlLiteralHelper.FormatLiteral(defaultValue)}";
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {column.GetCreateColumnSql()}{defaultClause}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Adds the column selected by <paramref name="property" /> to the table for
+    /// <typeparamref name="T" />. The type, nullability, and primary-key flags come from the
+    /// entity mapping. Pass <paramref name="defaultValue" /> to emit a <c>DEFAULT</c> clause. SQLite
+    /// needs this when you add a <c>NOT NULL</c> column to a table that already has rows.
+    /// </summary>
+    /// <param name="property">Property selector on the entity, like <c>b =&gt; b.Pages</c>.</param>
+    /// <param name="defaultValue">Optional default value. The framework writes it as the SQL
+    /// <c>DEFAULT</c> clause and SQLite uses it to backfill existing rows. Supported types are
+    /// numbers, strings, and <see cref="bool" />.</param>
+    public virtual int AddColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Expression<Func<T, object?>> property, object? defaultValue = null)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        return AddColumn<T>(ResolvePropertyName(property), defaultValue);
     }
 
     /// <summary>
@@ -666,6 +688,22 @@ public class SQLiteSchema
         yield return ai;
         yield return ad;
         yield return au;
+    }
+
+    private static string ResolvePropertyName<T>(Expression<Func<T, object?>> property)
+    {
+        Expression body = property.Body;
+        if (body is UnaryExpression unary)
+        {
+            body = unary.Operand;
+        }
+
+        if (body is not MemberExpression member)
+        {
+            throw new InvalidOperationException("Expected a property access expression on the entity, like b => b.Pages.");
+        }
+
+        return member.Member.Name;
     }
 
     private static string ResolveColumnName<T>(TableMapping mapping, Expression<Func<T, object?>> column)
