@@ -290,7 +290,10 @@ public class SQLiteSchema
     /// <param name="propertyName">Property name on the entity to add.</param>
     /// <param name="defaultValue">Optional default value. The framework writes it as the SQL
     /// <c>DEFAULT</c> clause and SQLite uses it to backfill existing rows. Supported types are
-    /// numbers, strings, and <see cref="bool" />.</param>
+    /// numbers, strings, and <see cref="bool" />. SQLite does not let you use parameters inside
+    /// DDL statements like <c>ALTER TABLE</c>, so the value is written straight into the SQL text.
+    /// Single quotes inside strings are doubled, so a value with quotes in it cannot escape from
+    /// the string and run other SQL.</param>
     public virtual int AddColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string propertyName, object? defaultValue = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(propertyName);
@@ -313,7 +316,10 @@ public class SQLiteSchema
     /// <param name="property">Property selector on the entity, like <c>b =&gt; b.Pages</c>.</param>
     /// <param name="defaultValue">Optional default value. The framework writes it as the SQL
     /// <c>DEFAULT</c> clause and SQLite uses it to backfill existing rows. Supported types are
-    /// numbers, strings, and <see cref="bool" />.</param>
+    /// numbers, strings, and <see cref="bool" />. SQLite does not let you use parameters inside
+    /// DDL statements like <c>ALTER TABLE</c>, so the value is written straight into the SQL text.
+    /// Single quotes inside strings are doubled, so a value with quotes in it cannot escape from
+    /// the string and run other SQL.</param>
     public virtual int AddColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Expression<Func<T, object?>> property, object? defaultValue = null)
     {
         ArgumentNullException.ThrowIfNull(property);

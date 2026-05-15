@@ -112,6 +112,8 @@ db.Schema.AddColumn<Book>(b => b.Pages, defaultValue: 0);
 db.Schema.AddColumn<Book>(b => b.Genre, defaultValue: "Unknown");
 ```
 
+SQLite does not let you use parameters inside DDL statements like `ALTER TABLE`. The framework writes `defaultValue` straight into the SQL text. Only numbers, `bool`, and `string` are accepted. Single quotes inside strings are doubled, so a value with quotes in it cannot escape from the string and run other SQL.
+
 `RenameColumn`, `DropColumn`, and `RenameTable` take SQLite column or table names directly.
 
 ## Views
