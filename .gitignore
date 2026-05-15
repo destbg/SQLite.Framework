@@ -419,3 +419,4 @@ wiki/google*.html
 # Other
 *.db
 release.md
+*.lscache
