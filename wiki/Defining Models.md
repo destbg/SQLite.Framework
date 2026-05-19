@@ -207,6 +207,27 @@ public class BookTag
 
 See the [SQLite docs](https://sqlite.org/withoutrowid.html) for details on when this helps.
 
+## STRICT Tables
+
+Use `[StrictTable]` on the class to create a STRICT table. SQLite then enforces the declared column types on every insert and update. Without STRICT, SQLite stores values in whatever type was given. Requires SQLite 3.37.0 or newer.
+
+```csharp
+using SQLite.Framework.Attributes;
+
+[StrictTable]
+public class Book
+{
+    [Key]
+    public int Id { get; set; }
+
+    public required string Title { get; set; }
+}
+```
+
+`[StrictTable]` can be combined with `[WithoutRowId]`. The framework writes the two modifiers as `WITHOUT ROWID, STRICT`.
+
+See the [SQLite docs](https://sqlite.org/stricttables.html) for the list of accepted column types and the exact rules.
+
 ## Full Example
 
 ```csharp

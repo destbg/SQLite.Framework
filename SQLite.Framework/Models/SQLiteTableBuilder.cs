@@ -138,121 +138,19 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     }
 
     /// <summary>
-    /// Emits the <c>CREATE TABLE IF NOT EXISTS</c> statement plus any indexes recorded on the
-    /// builder. Returns the total number of statements run.
+    /// Marks the table as a SQLite <c>STRICT</c> table. SQLite enforces declared column types on
+    /// every insert and update instead of accepting any type. Requires SQLite 3.37.0 or newer.
     /// </summary>
-    public int CreateTable()
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios16.0")]
+#endif
+    public SQLiteTableBuilder<T> Strict()
     {
-        if (mapping.IsFullTextSearch)
-        {
-            if (computed.Count > 0 || checks.Count > 0 || indexes.Count > 0)
-            {
-                throw new InvalidOperationException($"FTS5 entity '{typeof(T).Name}' does not support Computed, Check, or Index from the fluent builder. Remove those calls.");
-            }
-
-            return database.Schema.CreateTable<T>();
-        }
-
-        TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
-        bool hasCompositePrimaryKey = primaryKeyColumns.Length > 1;
-
-        StringBuilder sb = new();
-        sb.Append("CREATE TABLE IF NOT EXISTS \"");
-        sb.Append(mapping.TableName);
-        sb.Append("\" (");
-
-        bool first = true;
-        foreach (TableColumn col in mapping.Columns)
-        {
-            if (!first) sb.Append(", ");
-            first = false;
-
-            ComputedColumnSpec? cc = computed.FirstOrDefault(c => c.Column.Name == col.Name);
-            if (cc != null)
-            {
-                sb.Append(col.Name);
-                sb.Append(' ');
-                sb.Append(col.ColumnType.ToString().ToUpperInvariant());
-                sb.Append(" GENERATED ALWAYS AS (");
-                sb.Append(cc.ExpressionSql);
-                sb.Append(") ");
-                sb.Append(cc.Stored ? "STORED" : "VIRTUAL");
-            }
-            else
-            {
-                sb.Append(col.GetCreateColumnSql(!hasCompositePrimaryKey));
-            }
-        }
-
-        if (hasCompositePrimaryKey)
-        {
-            sb.Append(", PRIMARY KEY (");
-            for (int i = 0; i < primaryKeyColumns.Length; i++)
-            {
-                if (i > 0) sb.Append(", ");
-                sb.Append('"');
-                sb.Append(primaryKeyColumns[i].Name);
-                sb.Append('"');
-            }
-            sb.Append(')');
-        }
-
-        foreach (CheckConstraintSpec check in checks)
-        {
-            sb.Append(", ");
-            if (!string.IsNullOrEmpty(check.Name))
-            {
-                sb.Append("CONSTRAINT \"");
-                sb.Append(check.Name.Replace("\"", "\"\""));
-                sb.Append("\" ");
-            }
-            sb.Append("CHECK (");
-            sb.Append(check.Sql);
-            sb.Append(')');
-        }
-
-        foreach (ForeignKeyInfo composite in mapping.CompositeForeignKeys)
-        {
-            sb.Append(", ");
-            composite.WriteSql(sb, inline: false);
-        }
-
-        sb.Append(')');
-
-        if (mapping.WithoutRowId)
-        {
-            sb.Append(" WITHOUT ROWID");
-        }
-
-        int count = database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
-
-        var indexGroups = mapping.Columns
-            .SelectMany(col => col.Indices.Select(idx => (
-                Name: idx.Name ?? ("idx_" + col.Name + "_" + idx.Order),
-                Column: col.Name,
-                Order: idx.Order,
-                IsUnique: idx.IsUnique)))
-            .GroupBy(x => x.Name);
-
-        foreach (var group in indexGroups)
-        {
-            string[] columns = [.. group.OrderBy(x => x.Order).Select(x => x.Column)];
-            string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", columns);
-            string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
-            count += database.CreateCommand(sql, []).ExecuteNonQuery();
-        }
-
-        foreach (IndexSpec index in indexes)
-        {
-            string uniqueClause = index.Unique ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", index.Columns);
-            string where = index.FilterSql == null ? string.Empty : $" WHERE {index.FilterSql}";
-            string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{index.Name}\" ON \"{mapping.TableName}\" ({columnList}){where}";
-            count += database.CreateCommand(sql, []).ExecuteNonQuery();
-        }
-
-        return count;
+        mapping.Strict = true;
+        return this;
     }
 
     /// <summary>
@@ -353,6 +251,129 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         }
 
         return this;
+    }
+
+    /// <summary>
+    /// Emits the <c>CREATE TABLE IF NOT EXISTS</c> statement plus any indexes recorded on the
+    /// builder. Returns the total number of statements run.
+    /// </summary>
+    public int CreateTable()
+    {
+        if (mapping.IsFullTextSearch)
+        {
+            if (computed.Count > 0 || checks.Count > 0 || indexes.Count > 0)
+            {
+                throw new InvalidOperationException($"FTS5 entity '{typeof(T).Name}' does not support Computed, Check, or Index from the fluent builder. Remove those calls.");
+            }
+
+            return database.Schema.CreateTable<T>();
+        }
+
+        TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
+        bool hasCompositePrimaryKey = primaryKeyColumns.Length > 1;
+
+        StringBuilder sb = new();
+        sb.Append("CREATE TABLE IF NOT EXISTS \"");
+        sb.Append(mapping.TableName);
+        sb.Append("\" (");
+
+        bool first = true;
+        foreach (TableColumn col in mapping.Columns)
+        {
+            if (!first) sb.Append(", ");
+            first = false;
+
+            ComputedColumnSpec? cc = computed.FirstOrDefault(c => c.Column.Name == col.Name);
+            if (cc != null)
+            {
+                sb.Append(col.Name);
+                sb.Append(' ');
+                sb.Append(col.ColumnType.ToString().ToUpperInvariant());
+                sb.Append(" GENERATED ALWAYS AS (");
+                sb.Append(cc.ExpressionSql);
+                sb.Append(") ");
+                sb.Append(cc.Stored ? "STORED" : "VIRTUAL");
+            }
+            else
+            {
+                sb.Append(col.GetCreateColumnSql(!hasCompositePrimaryKey));
+            }
+        }
+
+        if (hasCompositePrimaryKey)
+        {
+            sb.Append(", PRIMARY KEY (");
+            for (int i = 0; i < primaryKeyColumns.Length; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append('"');
+                sb.Append(primaryKeyColumns[i].Name);
+                sb.Append('"');
+            }
+            sb.Append(')');
+        }
+
+        foreach (CheckConstraintSpec check in checks)
+        {
+            sb.Append(", ");
+            if (!string.IsNullOrEmpty(check.Name))
+            {
+                sb.Append("CONSTRAINT \"");
+                sb.Append(check.Name.Replace("\"", "\"\""));
+                sb.Append("\" ");
+            }
+            sb.Append("CHECK (");
+            sb.Append(check.Sql);
+            sb.Append(')');
+        }
+
+        foreach (ForeignKeyInfo composite in mapping.CompositeForeignKeys)
+        {
+            sb.Append(", ");
+            composite.WriteSql(sb, inline: false);
+        }
+
+        sb.Append(')');
+
+        if (mapping.WithoutRowId)
+        {
+            sb.Append(" WITHOUT ROWID");
+        }
+
+        if (mapping.Strict)
+        {
+            sb.Append(mapping.WithoutRowId ? ", STRICT" : " STRICT");
+        }
+
+        int count = database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
+
+        var indexGroups = mapping.Columns
+            .SelectMany(col => col.Indices.Select(idx => (
+                Name: idx.Name ?? ("idx_" + col.Name + "_" + idx.Order),
+                Column: col.Name,
+                Order: idx.Order,
+                IsUnique: idx.IsUnique)))
+            .GroupBy(x => x.Name);
+
+        foreach (var group in indexGroups)
+        {
+            string[] columns = [.. group.OrderBy(x => x.Order).Select(x => x.Column)];
+            string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
+            string columnList = string.Join(", ", columns);
+            string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
+            count += database.CreateCommand(sql, []).ExecuteNonQuery();
+        }
+
+        foreach (IndexSpec index in indexes)
+        {
+            string uniqueClause = index.Unique ? "UNIQUE " : string.Empty;
+            string columnList = string.Join(", ", index.Columns);
+            string where = index.FilterSql == null ? string.Empty : $" WHERE {index.FilterSql}";
+            string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{index.Name}\" ON \"{mapping.TableName}\" ({columnList}){where}";
+            count += database.CreateCommand(sql, []).ExecuteNonQuery();
+        }
+
+        return count;
     }
 
     private TableColumn ResolveTargetColumn<TKey>(Expression<Func<T, TKey>> column)

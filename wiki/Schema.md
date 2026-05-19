@@ -58,6 +58,7 @@ db.Table<Book>().Schema
     .Index(b => b.AuthorId, unique: true)
     .Index(b => b.CategoryId, filter: b => !b.Deleted)
     .Index(b => new { b.AuthorId, b.Genre }, name: "IX_AuthorGenre")
+    .Strict()
     .CreateTable();
 ```
 
@@ -74,6 +75,8 @@ db.Table<Book>().Schema
 For columns set this way, `Add` and `AddRange` omit the column from the INSERT when its CLR value equals `default(T)`. Same behavior as `[DefaultValue]` (see [Defining Models](Defining%20Models)).
 
 `Index(column, name, unique, filter)` adds an index. Pass a single property for a single-column index, or an anonymous object (`b => new { b.A, b.B }`) for a composite index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself). Composite indexes cannot have a partial filter.
+
+`Strict()` marks the table as a SQLite STRICT table. Same effect as the `[StrictTable]` attribute (see [Defining Models](Defining%20Models)). Requires SQLite 3.37.0 or newer.
 
 Constants in computed, CHECK, default, and partial-index expressions are inlined as SQL literals because CREATE TABLE / CREATE INDEX cannot bind parameters. Only simple types (numbers, strings, bool) are supported as constants. For exotic types, use raw SQL through `db.Execute`.
 

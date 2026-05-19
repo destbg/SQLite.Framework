@@ -104,6 +104,7 @@ The most common attributes:
 - `[Indexed]`. Creates an index. You can make it unique, give it a name, or make it composite by using the same name on more than one column.
 - `[Column("...")]` and `[Table("...")]`. Rename a column or a table.
 - `[WithoutRowId]`. A class-level attribute. The primary key must not be `[AutoIncrement]`.
+- `[StrictTable]`. A class-level attribute. SQLite enforces declared column types on every write. Requires SQLite 3.37.0 or newer.
 - `[NotMapped]`. Leave a property out of the database. Useful for the rare case where you need a derived value on the class itself.
 
 Schema setup is safe to call on every startup because it uses `CREATE TABLE IF NOT EXISTS`. Track migrations through `db.Pragmas.UserVersion`. See [Defining Models](Defining%20Models) for the full list.

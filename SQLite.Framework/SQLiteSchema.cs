@@ -70,6 +70,11 @@ public class SQLiteSchema
             sql += " WITHOUT ROWID";
         }
 
+        if (mapping.Strict)
+        {
+            sql += mapping.WithoutRowId ? ", STRICT" : " STRICT";
+        }
+
         int count = Database.CreateCommand(sql, []).ExecuteNonQuery();
 
         var indexGroups = mapping.Columns

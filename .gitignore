@@ -419,4 +419,5 @@ wiki/google*.html
 # Other
 *.db
 release.md
+missing-features.md
 *.lscache

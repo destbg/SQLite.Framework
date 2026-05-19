@@ -87,7 +87,7 @@ public class Person
 }
 ```
 
-   Per-class attributes: `[Table]`, `[WithoutRowId]`. Per-property: `[Column]`, `[NotMapped]`, `[Key]`, `[Index]`, `[AutoIncrement]`, `[Required]`, `[ReferencesTable]`, `[ForeignKey]`. Columns are NOT NULL by default, use `?` to mark them as nullable.
+   Per-class attributes: `[Table]`, `[WithoutRowId]`, `[StrictTable]`. Per-property: `[Column]`, `[NotMapped]`, `[Key]`, `[Index]`, `[AutoIncrement]`, `[Required]`, `[ReferencesTable]`, `[ForeignKey]`. Columns are NOT NULL by default, use `?` to mark them as nullable.
 
 2. **Open a database.**
 

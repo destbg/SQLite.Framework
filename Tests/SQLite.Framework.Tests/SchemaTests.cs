@@ -787,6 +787,60 @@ public class SchemaTests
     }
 
     [Fact]
+    public void CreateTable_StrictAttribute_AppendsClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<StrictTableEntity>();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'StrictTableEntity'");
+        Assert.EndsWith(" STRICT", sql);
+    }
+
+    [Fact]
+    public void CreateTable_StrictAttribute_EnforcesTypes()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<StrictTableEntity>();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Execute("INSERT INTO StrictTableEntity (Id, Name) VALUES ('not-an-int', 'x')"));
+    }
+
+    [Fact]
+    public void CreateTable_StrictAndWithoutRowId_AppendsBothClauses()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<StrictWithoutRowIdEntity>();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'StrictWithoutRowIdEntity'");
+        Assert.Contains("WITHOUT ROWID, STRICT", sql);
+    }
+
+    [Fact]
+    public void CreateTable_BuilderStrict_AppendsClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.Table<Book>().Strict().CreateTable();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Books'");
+        Assert.EndsWith(" STRICT", sql);
+    }
+
+    [Fact]
+    public void CreateTable_BuilderStrictAndAttributeWithoutRowId_CombinesClauses()
+    {
+        using TestDatabase db = new();
+        db.Schema.Table<WithoutRowIdEntity>().Strict().CreateTable();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'WithoutRowIdEntity'");
+        Assert.Contains("WITHOUT ROWID, STRICT", sql);
+    }
+
+    [Fact]
     public void CreateIndex_OverIntColumn_UnwrapsConvert()
     {
         using TestDatabase db = new();

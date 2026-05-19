@@ -20,6 +20,7 @@ public class TableMapping
         Type = type;
         TableName = tableAttribute?.Name ?? type.Name;
         WithoutRowId = type.GetCustomAttribute<WithoutRowIdAttribute>() != null;
+        Strict = type.GetCustomAttribute<StrictTableAttribute>() != null;
         FullTextSearch = FtsMappingReader.TryRead(type);
         Columns = properties
             .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
@@ -59,6 +60,12 @@ public class TableMapping
     /// Indicates that a table does not have a RowId within the table.
     /// </summary>
     public bool WithoutRowId { get; }
+
+    /// <summary>
+    /// Indicates that the table is a SQLite <c>STRICT</c> table. SQLite enforces declared column
+    /// types on every insert and update. Requires SQLite 3.37.0 or newer.
+    /// </summary>
+    public bool Strict { get; internal set; }
 
     /// <summary>
     /// FTS5 metadata for this table when the class is decorated with
