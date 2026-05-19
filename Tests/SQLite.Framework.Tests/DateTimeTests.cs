@@ -396,6 +396,7 @@ public class DateTimeTests
         Assert.Equal(34, dayOfYear);
     }
 
+#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void DateTimeToStringInSelect_ReturnsFormatted()
     {
@@ -409,6 +410,7 @@ public class DateTimeTests
 
         Assert.NotNull(text);
     }
+#endif
 
     [Fact]
     public void DateTimeUnsupportedInstanceMethod_Throws()

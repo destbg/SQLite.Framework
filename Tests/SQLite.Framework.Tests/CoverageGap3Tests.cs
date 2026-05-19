@@ -234,6 +234,7 @@ public class CoverageGap3Tests
         Assert.Single(rows);
     }
 
+#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void Select_EnumHasFlagWithUntranslatableReceiver_FallsBack()
     {
@@ -247,6 +248,7 @@ public class CoverageGap3Tests
 
         Assert.Single(rows);
     }
+#endif
 
     [Fact]
     public void Select_StringSubstringWithUntranslatableReceiver_FallsBack()
@@ -679,13 +681,15 @@ public class CoverageGap3Tests
     }
 
     [Fact]
-    public void Select_ConvertToObject_StripsToInner()
+    public void Select_PrintfBoxesArgumentToObject_HitsConvertToObjectBranch()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
-        List<object> rows = db.Table<Book>().Select(b => (object)b.Id).ToList();
+        List<string> rows = db.Table<Book>()
+            .Select(b => SQLiteFunctions.Printf("%d", b.Id))
+            .ToList();
         Assert.Single(rows);
     }
 
