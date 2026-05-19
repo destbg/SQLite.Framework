@@ -302,8 +302,8 @@ public class SQLiteSchema
         TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
 
-        string defaultClause = defaultValue == null ? string.Empty : $" DEFAULT {SqlLiteralHelper.FormatLiteral(defaultValue)}";
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {column.GetCreateColumnSql()}{defaultClause}";
+        string? defaultOverride = defaultValue == null ? null : SqlLiteralHelper.FormatLiteral(defaultValue);
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {column.GetCreateColumnSql(defaultOverride: defaultOverride)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -324,6 +324,104 @@ public class SQLiteSchema
     {
         ArgumentNullException.ThrowIfNull(property);
         return AddColumn<T>(ResolvePropertyName(property), defaultValue);
+    }
+
+    /// <summary>
+    /// Adds the column for the property named <paramref name="propertyName" /> to the table for
+    /// <typeparamref name="T" /> with a built-in SQLite time default. The keyword is written as
+    /// the SQL <c>DEFAULT</c> clause, so future inserts that omit the column get the current
+    /// time, date, or timestamp from SQLite.
+    /// </summary>
+    /// <remarks>
+    /// SQLite only allows this on a table that has no rows. On a populated table, SQLite rejects
+    /// <c>ALTER TABLE ADD COLUMN</c> with a non-constant default and throws "Cannot add a column
+    /// with non-constant default." If you need to backfill rows, add the column with a constant
+    /// default first and update the rows with a separate statement.
+    /// </remarks>
+    /// <param name="propertyName">Property name on the entity to add.</param>
+    /// <param name="defaultExpression">One of the deterministic time keywords supported by SQLite.</param>
+    public virtual int AddColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string propertyName, SQLiteColumnDefault defaultExpression)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(propertyName);
+
+        TableMapping mapping = Database.TableMapping<T>();
+        TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
+            ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
+
+        string keyword = defaultExpression switch
+        {
+            SQLiteColumnDefault.CurrentTime => "CURRENT_TIME",
+            SQLiteColumnDefault.CurrentDate => "CURRENT_DATE",
+            SQLiteColumnDefault.CurrentTimestamp => "CURRENT_TIMESTAMP",
+            _ => throw new ArgumentOutOfRangeException(nameof(defaultExpression), defaultExpression, null),
+        };
+
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {column.GetCreateColumnSql(defaultOverride: keyword)}";
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Adds the column selected by <paramref name="property" /> to the table for
+    /// <typeparamref name="T" /> with a built-in SQLite time default.
+    /// </summary>
+    /// <param name="property">Property selector on the entity, like <c>b =&gt; b.CreatedAt</c>.</param>
+    /// <param name="defaultExpression">One of the deterministic time keywords supported by SQLite.</param>
+    public virtual int AddColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Expression<Func<T, object?>> property, SQLiteColumnDefault defaultExpression)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        return AddColumn<T>(ResolvePropertyName(property), defaultExpression);
+    }
+
+    /// <summary>
+    /// Adds the column for the property named <paramref name="propertyName" /> to the table for
+    /// <typeparamref name="T" />. The body of <paramref name="defaultExpression" /> is translated
+    /// to SQL and written into the <c>DEFAULT</c> clause. SQLite restricts what is allowed inside
+    /// a <c>DEFAULT</c>: the expression must not reference any column of the table, must not
+    /// contain a subquery, and must only call deterministic functions. Requires SQLite 3.31.0 or newer.
+    /// </summary>
+    /// <param name="propertyName">Property name on the entity to add.</param>
+    /// <param name="defaultExpression">A parameterless lambda that produces the default value. The
+    /// framework translates the body to SQL and inlines any constants as SQL literals. Parameters
+    /// are not allowed because SQLite does not accept placeholders in DDL.</param>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public virtual int AddColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string propertyName, Expression<Func<object?>> defaultExpression)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(propertyName);
+        ArgumentNullException.ThrowIfNull(defaultExpression);
+
+        TableMapping mapping = Database.TableMapping<T>();
+        TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
+            ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
+
+        string defaultSql = TranslateDefaultExpression(defaultExpression);
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {column.GetCreateColumnSql(defaultOverride: $"({defaultSql})")}";
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Adds the column selected by <paramref name="property" /> to the table for
+    /// <typeparamref name="T" />. The body of <paramref name="defaultExpression" /> is translated
+    /// to SQL and written into the <c>DEFAULT</c> clause. Requires SQLite 3.31.0 or newer.
+    /// </summary>
+    /// <param name="property">Property selector on the entity, like <c>b =&gt; b.CreatedAt</c>.</param>
+    /// <param name="defaultExpression">A parameterless lambda that produces the default value. See
+    /// <see cref="AddColumn{T}(string, Expression{Func{object}})" /> for the SQLite restrictions on
+    /// what is allowed in the body.</param>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public virtual int AddColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Expression<Func<T, object?>> property, Expression<Func<object?>> defaultExpression)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+        return AddColumn<T>(ResolvePropertyName(property), defaultExpression);
     }
 
     /// <summary>
@@ -694,6 +792,11 @@ public class SQLiteSchema
         yield return ai;
         yield return ad;
         yield return au;
+    }
+
+    private string TranslateDefaultExpression(Expression<Func<object?>> defaultExpression)
+    {
+        return DefaultExpressionTranslator.Translate(Database, defaultExpression, nameof(defaultExpression));
     }
 
     private static string ResolvePropertyName<T>(Expression<Func<T, object?>> property)

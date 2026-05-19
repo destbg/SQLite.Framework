@@ -67,6 +67,8 @@ public class SQLiteTable : BaseSQLiteTable
 /// </summary>
 public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T> : SQLiteTable, IQueryable<T>
 {
+    private bool? hasAnyDatabaseDefault;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteTable{T}"/> class.
     /// </summary>
@@ -106,7 +108,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int AddRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
     {
-        if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(InsertItem)))
+        if (Database.Options.OnActionHooks.Count == 0
+            && !IsItemMethodOverridden(nameof(InsertItem))
+            && !HasAnyDatabaseDefault())
         {
             (TableColumn[] columns, string sql) = GetAddInfo();
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
@@ -212,7 +216,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int AddOrUpdateRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, SQLiteConflict conflict = SQLiteConflict.Replace)
     {
-        if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(InsertItem)))
+        if (Database.Options.OnActionHooks.Count == 0
+            && !IsItemMethodOverridden(nameof(InsertItem))
+            && !HasAnyDatabaseDefault())
         {
             (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
@@ -452,12 +458,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             ? Table.Columns.ToArray()
             : Table.Columns.Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement).ToArray();
 
-        string columnsString = string.Join(", ", columns.Select(c => c.Name));
-        string parametersString = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
-
-        string sql = $"INSERT INTO \"{Table.TableName}\" ({columnsString}) VALUES ({parametersString})";
-
-        return (columns, sql);
+        return (columns, BuildAddSql(columns));
     }
 
     /// <summary>
@@ -521,21 +522,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
     {
         TableColumn[] columns = Table.Columns.ToArray();
-
-        string columnsString = string.Join(", ", columns.Select(c => c.Name));
-        string parametersString = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
-
-        string action = conflict switch
-        {
-            SQLiteConflict.Replace => "OR REPLACE ",
-            SQLiteConflict.Ignore => "OR IGNORE ",
-            SQLiteConflict.Abort => "OR ABORT ",
-            SQLiteConflict.Fail => "OR FAIL ",
-            SQLiteConflict.Rollback => "OR ROLLBACK ",
-            _ => "OR REPLACE ",
-        };
-
-        string sql = $"INSERT {action}INTO \"{Table.TableName}\" ({columnsString}) VALUES ({parametersString})";
+        string sql = BuildAddOrUpdateSql(columns, conflict);
 
         return (columns, sql);
     }
@@ -657,6 +644,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual int DefaultAdd(T item)
     {
         (TableColumn[] columns, string sql) = GetAddInfo();
+        if (!IsItemMethodOverridden(nameof(GetAddInfo)))
+        {
+            columns = FilterColumnsForDefaults(columns, item);
+            sql = BuildAddSql(columns);
+        }
         return InsertItem(columns, sql, item);
     }
 
@@ -690,6 +682,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual int DefaultAddOrUpdate(T item, SQLiteConflict conflict)
     {
         (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
+        if (!IsItemMethodOverridden(nameof(GetAddOrUpdateInfo)))
+        {
+            columns = FilterColumnsForDefaults(columns, item);
+            sql = BuildAddOrUpdateSql(columns, conflict);
+        }
         return InsertItem(columns, sql, item);
     }
 
@@ -816,6 +813,65 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         MethodInfo method = runtime.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!;
         return method.DeclaringType != typeof(SQLiteTable<T>);
+    }
+
+    private bool HasAnyDatabaseDefault()
+    {
+        return hasAnyDatabaseDefault ??= Table.Columns.Any(c => c.HasDatabaseDefault);
+    }
+
+    private TableColumn[] FilterColumnsForDefaults(TableColumn[] baseColumns, T item)
+    {
+        if (!HasAnyDatabaseDefault())
+        {
+            return baseColumns;
+        }
+
+        List<TableColumn>? filtered = null;
+        for (int i = 0; i < baseColumns.Length; i++)
+        {
+            TableColumn col = baseColumns[i];
+            bool skip = col.HasDatabaseDefault && col.IsClrDefaultValue(col.PropertyInfo.GetValue(item));
+            if (!skip)
+            {
+                filtered?.Add(col);
+                continue;
+            }
+
+            if (filtered == null)
+            {
+                filtered = new List<TableColumn>(baseColumns.Length - 1);
+                for (int j = 0; j < i; j++)
+                {
+                    filtered.Add(baseColumns[j]);
+                }
+            }
+        }
+
+        return filtered?.ToArray() ?? baseColumns;
+    }
+
+    private string BuildAddSql(TableColumn[] columns)
+    {
+        string columnList = string.Join(", ", columns.Select(c => c.Name));
+        string paramList = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
+        return $"INSERT INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
+    }
+
+    private string BuildAddOrUpdateSql(TableColumn[] columns, SQLiteConflict conflict)
+    {
+        string action = conflict switch
+        {
+            SQLiteConflict.Replace => "OR REPLACE ",
+            SQLiteConflict.Ignore => "OR IGNORE ",
+            SQLiteConflict.Abort => "OR ABORT ",
+            SQLiteConflict.Fail => "OR FAIL ",
+            SQLiteConflict.Rollback => "OR ROLLBACK ",
+            _ => "OR REPLACE ",
+        };
+        string columnList = string.Join(", ", columns.Select(c => c.Name));
+        string paramList = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
+        return $"INSERT {action}INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
     }
 
     private static Action<sqlite3_stmt, T> ResolveBindRow(TableColumn[] columns, int firstParameterIndex, SQLiteOptions options)

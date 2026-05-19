@@ -255,6 +255,53 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         return count;
     }
 
+    /// <summary>
+    /// Sets a literal <c>DEFAULT</c> for the column. <c>CreateTable</c> writes it into the column
+    /// definition, and the framework omits the column from <c>Add</c>/<c>AddRange</c> inserts when
+    /// the CLR value equals <c>default(TValue)</c>, so SQLite applies the default. To insert the
+    /// CLR-default value explicitly, the user must use raw SQL or change the property type.
+    /// </summary>
+    public SQLiteTableBuilder<T> Default<TValue>(Expression<Func<T, TValue>> column, TValue value)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        TableColumn col = ResolveTargetColumn(column);
+        col.DefaultSql = SqlLiteralHelper.FormatLiteral(value);
+        return this;
+    }
+
+    /// <summary>
+    /// Sets one of SQLite's deterministic time keywords (<c>CURRENT_TIME</c>, <c>CURRENT_DATE</c>,
+    /// <c>CURRENT_TIMESTAMP</c>) as the column's <c>DEFAULT</c>.
+    /// </summary>
+    public SQLiteTableBuilder<T> Default<TValue>(Expression<Func<T, TValue>> column, SQLiteColumnDefault keyword)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        TableColumn col = ResolveTargetColumn(column);
+        col.DefaultSql = keyword switch
+        {
+            SQLiteColumnDefault.CurrentTime => "CURRENT_TIME",
+            SQLiteColumnDefault.CurrentDate => "CURRENT_DATE",
+            SQLiteColumnDefault.CurrentTimestamp => "CURRENT_TIMESTAMP",
+            _ => throw new ArgumentOutOfRangeException(nameof(keyword), keyword, null),
+        };
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the column's <c>DEFAULT</c> to the SQL produced by translating
+    /// <paramref name="defaultExpression" />. The body must be a parameterless lambda; constants
+    /// are inlined as SQL literals. SQLite requires the resulting expression to be deterministic
+    /// and to not reference any row.
+    /// </summary>
+    public SQLiteTableBuilder<T> Default<TValue>(Expression<Func<T, TValue>> column, Expression<Func<TValue>> defaultExpression)
+    {
+        ArgumentNullException.ThrowIfNull(column);
+        ArgumentNullException.ThrowIfNull(defaultExpression);
+        TableColumn col = ResolveTargetColumn(column);
+        col.DefaultSql = "(" + DefaultExpressionTranslator.Translate(database, defaultExpression, nameof(defaultExpression)) + ")";
+        return this;
+    }
+
     private SQLiteTableBuilder<T> ForeignKeyCore<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TParent>(Expression<Func<T, object?>> column, Expression<Func<TParent, object?>>? target, SQLiteForeignKeyAction onDelete, SQLiteForeignKeyAction onUpdate, bool deferred)
     {
         string[] sourcePropertyNames = ResolvePropertyNames(column.Body);

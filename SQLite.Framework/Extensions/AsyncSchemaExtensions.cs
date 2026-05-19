@@ -215,6 +215,72 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
+    /// Adds the column for the property named <paramref name="propertyName" /> on <typeparamref name="T" />
+    /// with a built-in SQLite time default.
+    /// </summary>
+    public static Task<int> AddColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string propertyName, SQLiteColumnDefault defaultExpression, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.AddColumn<T>(propertyName, defaultExpression);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Adds the column selected by <paramref name="property" /> on <typeparamref name="T" /> with a
+    /// built-in SQLite time default.
+    /// </summary>
+    public static Task<int> AddColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, Expression<Func<T, object?>> property, SQLiteColumnDefault defaultExpression, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.AddColumn(property, defaultExpression);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Adds the column for the property named <paramref name="propertyName" /> on <typeparamref name="T" />.
+    /// The body of <paramref name="defaultExpression" /> is translated to SQL and written into the
+    /// <c>DEFAULT</c> clause. Requires SQLite 3.31.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public static Task<int> AddColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string propertyName, Expression<Func<object?>> defaultExpression, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.AddColumn<T>(propertyName, defaultExpression);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Adds the column selected by <paramref name="property" /> on <typeparamref name="T" />. The
+    /// body of <paramref name="defaultExpression" /> is translated to SQL and written into the
+    /// <c>DEFAULT</c> clause. Requires SQLite 3.31.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public static Task<int> AddColumnAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, Expression<Func<T, object?>> property, Expression<Func<object?>> defaultExpression, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.AddColumn(property, defaultExpression);
+        }, ct);
+    }
+
+    /// <summary>
     /// Renames a column on the table for <typeparamref name="T" />. Requires SQLite 3.25.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
