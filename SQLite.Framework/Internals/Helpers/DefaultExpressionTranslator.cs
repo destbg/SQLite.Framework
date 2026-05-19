@@ -9,11 +9,9 @@ internal static class DefaultExpressionTranslator
 {
     public static string Translate(SQLiteDatabase database, LambdaExpression lambda, string parameterName)
     {
-        Expression body = lambda.Body;
-        if (body is UnaryExpression { NodeType: ExpressionType.Convert } unary)
-        {
-            body = unary.Operand;
-        }
+        Expression body = lambda.Body is UnaryExpression { NodeType: ExpressionType.Convert } unary
+            ? unary.Operand
+            : lambda.Body;
 
         SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
         Expression result = visitor.Visit(body);

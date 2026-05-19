@@ -12,7 +12,7 @@ internal class CteRegistry
         return registeredCtes.GetValueOrDefault(cte);
     }
 
-    public string Register(string sql, SQLiteParameter[]? parameters, bool isRecursive, SQLiteCte? key = null)
+    public string Register(string sql, SQLiteParameter[]? parameters, bool isRecursive, SQLiteCte key)
     {
         string name = $"cte{ctes.Count}";
         ctes.Add(new CteInfo
@@ -22,11 +22,7 @@ internal class CteRegistry
             Parameters = parameters,
             IsRecursive = isRecursive
         });
-        if (key != null)
-        {
-            registeredCtes[key] = name;
-        }
-
+        registeredCtes[key] = name;
         return name;
     }
 }

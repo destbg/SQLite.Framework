@@ -237,6 +237,63 @@ public class FullTextSearchTokenizerCoverageTests
     }
 
     [Fact]
+    public void Ascii_EmptyOptions_BehavesLikeDefault()
+    {
+        using TestDatabase db = new();
+        db.Table<Ascii_EmptySettings_Search>().Schema.CreateTable();
+
+        Assert.Equal(
+            """CREATE VIRTUAL TABLE "Ascii_EmptySettings_Search" USING fts5(Body, tokenize='ascii')""",
+            ReadSchema(db, "Ascii_EmptySettings_Search"));
+    }
+
+    [Fact]
+    public void Porter_EmptyOptions_DefaultsThroughUnicode61()
+    {
+        using TestDatabase db = new();
+        db.Table<Porter_EmptySettings_Search>().Schema.CreateTable();
+
+        string sql = ReadSchema(db, "Porter_EmptySettings_Search");
+        Assert.StartsWith("""CREATE VIRTUAL TABLE "Porter_EmptySettings_Search" USING fts5(Body, tokenize='porter unicode61 remove_diacritics""", sql);
+        Assert.DoesNotContain("categories", sql);
+        Assert.DoesNotContain("separators", sql);
+        Assert.DoesNotContain("tokenchars", sql);
+    }
+
+    [Fact]
+    public void Unicode61_EmptyOptions_DefaultsTokenizerOnly()
+    {
+        using TestDatabase db = new();
+        db.Table<Unicode61_EmptySettings_Search>().Schema.CreateTable();
+
+        string sql = ReadSchema(db, "Unicode61_EmptySettings_Search");
+        Assert.Contains("tokenize='unicode61 remove_diacritics", sql);
+        Assert.DoesNotContain("categories", sql);
+        Assert.DoesNotContain("separators", sql);
+        Assert.DoesNotContain("tokenchars", sql);
+    }
+
+    [Fact]
+    public void Unicode61_AllOptions_RendersAllArgs()
+    {
+        using TestDatabase db = new();
+        db.Table<Unicode61_AllSettings_Search>().Schema.CreateTable();
+
+        string sql = ReadSchema(db, "Unicode61_AllSettings_Search");
+        Assert.Contains("categories ", sql);
+        Assert.Contains("separators ", sql);
+        Assert.Contains("tokenchars ", sql);
+    }
+
+    [Fact]
+    public void NullableLongRowId_Accepted()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableLongRowId_Search>().Schema.CreateTable();
+        Assert.True(db.Schema.TableExists("NullableLongRowId_Search"));
+    }
+
+    [Fact]
     public void Validation_StringFullTextRowId_Throws()
     {
         using TestDatabase db = new();

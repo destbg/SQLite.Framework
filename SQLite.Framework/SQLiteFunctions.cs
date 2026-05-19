@@ -237,4 +237,12 @@ public static class SQLiteFunctions
         throw new InvalidOperationException(OutsideQuery);
     }
 
+    /// <summary>
+    /// Wraps <paramref name="value" /> in a <c>COLLATE</c> clause so the surrounding comparison or
+    /// sort uses the given collation. <see cref="SQLiteCollation.Binary" /> emits no clause.
+    /// </summary>
+    public static string Collate(string value, SQLiteCollation collation)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
 }

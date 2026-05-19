@@ -37,4 +37,14 @@ public class IndexedAttribute : Attribute
     /// The order of the indexed property in the index. This is used when multiple properties are indexed together.
     /// </summary>
     public int Order { get; init; }
+
+    /// <summary>
+    /// Collation applied to this column inside the index. The default
+    /// <see cref="SQLiteCollation.Inherit" /> emits no clause so the column's declared collation
+    /// wins. Set to <see cref="SQLiteCollation.NoCase" /> or <see cref="SQLiteCollation.Rtrim" />
+    /// to make the index reusable for case-insensitive or trailing-space-insensitive lookups.
+    /// Set to <see cref="SQLiteCollation.Binary" /> to force binary comparison even when the
+    /// column declares a different collation.
+    /// </summary>
+    public SQLiteCollation Collation { get; init; }
 }

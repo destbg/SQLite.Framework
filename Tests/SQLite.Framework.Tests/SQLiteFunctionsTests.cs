@@ -123,5 +123,79 @@ public class SQLiteFunctionsTests
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Glob("a", "b"));
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.UnixEpoch());
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Changes());
+        Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Collate("x", SQLite.Framework.Enums.SQLiteCollation.NoCase));
+    }
+
+    [Fact]
+    public void Collate_NoCase_InWhere_MatchesCaseInsensitively()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "Hello", AuthorId = 1, Price = 1 });
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.NoCase) == "hello")
+            .ToSqlCommand();
+
+        Assert.Contains("COLLATE NOCASE", cmd.CommandText);
+
+        List<Book> rows = db.Table<Book>()
+            .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.NoCase) == "hello")
+            .ToList();
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void Collate_Binary_InWhere_EmitsBinaryClause()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.Binary) == "x")
+            .ToSqlCommand();
+
+        Assert.Contains("COLLATE BINARY", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Collate_Rtrim_InWhere_EmitsRtrimClause()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.Rtrim) == "x")
+            .ToSqlCommand();
+
+        Assert.Contains("COLLATE RTRIM", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Collate_Inherit_InWhere_EmitsNoClause()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        SQLiteCommand cmd = db.Table<Book>()
+            .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.Inherit) == "x")
+            .ToSqlCommand();
+
+        Assert.DoesNotContain("COLLATE", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Collate_InvalidEnumValue_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => db.Table<Book>()
+            .Where(b => SQLiteFunctions.Collate(b.Title, (SQLite.Framework.Enums.SQLiteCollation)999) == "x")
+            .ToSqlCommand());
     }
 }

@@ -396,6 +396,99 @@ public class DateTimeTests
         Assert.Equal(34, dayOfYear);
     }
 
+    [Fact]
+    public void DateTimeToStringInSelect_ReturnsFormatted()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        string text = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select a.Date.ToString()
+        ).First();
+
+        Assert.NotNull(text);
+    }
+
+    [Fact]
+    public void DateTimeUnsupportedInstanceMethod_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+        Assert.Throws<NotSupportedException>(() => (
+            from a in db.Table<TestEntity>()
+            where a.Date.IsDaylightSavingTime()
+            select a.Id
+        ).ToList());
+    }
+
+    [Fact]
+    public void DateTimeStaticMethod_NotConstant_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+        Assert.Throws<NotSupportedException>(() => (
+            from a in db.Table<TestEntity>()
+            where DateTime.IsLeapYear(a.Date.Year)
+            select a.Id
+        ).ToList());
+    }
+
+    [Fact]
+    public void DateTimeAddDays_OnComputedReceiver_PropagatesParameters()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        DateTime result = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select a.Date.AddDays(1).AddDays(2)
+        ).First();
+
+        Assert.Equal(6, result.Day);
+        Assert.Equal(2000, result.Year);
+    }
+
+    [Fact]
+    public void DateTimeAddYears_OnComputedReceiver_PropagatesParameters()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        DateTime result = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select a.Date.AddDays(1).AddYears(1)
+        ).First();
+
+        Assert.NotEqual(default, result);
+    }
+
+    [Fact]
+    public void DateTimeAddYears_NonConstantArg_PropagatesParameters()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        DateTime result = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select a.Date.AddYears(a.Id)
+        ).First();
+
+        Assert.Equal(new DateTime(2001, 2, 3, 4, 5, 6, 7, 8).ToString(DateTimeFormat), result.ToString(DateTimeFormat));
+    }
+
+    [Fact]
+    public void DateTimeYear_OnComputedReceiver_PropagatesParameters()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int year = (
+            from a in db.Table<TestEntity>()
+            where a.Id == 1
+            select a.Date.AddYears(5).Year
+        ).First();
+
+        Assert.Equal(2005, year);
+    }
+
     private static TestDatabase SetupDatabase([CallerMemberName] string? methodName = null)
     {
         TestDatabase db = new(methodName);

@@ -74,7 +74,15 @@ db.Table<Book>().Schema
 
 For columns set this way, `Add` and `AddRange` omit the column from the INSERT when its CLR value equals `default(T)`. Same behavior as `[DefaultValue]` (see [Defining Models](Defining%20Models)).
 
-`Index(column, name, unique, filter)` adds an index. Pass a single property for a single-column index, or an anonymous object (`b => new { b.A, b.B }`) for a composite index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself). Composite indexes cannot have a partial filter.
+`Index(column, name, unique, filter, collation, collations)` adds an index. Pass a single property for a single-column index, or an anonymous object (`b => new { b.A, b.B }`) for a composite index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself). Composite indexes cannot have a partial filter.
+
+Use `collation` to apply one of the built-in collations (`NoCase`, `Rtrim`, `Binary`) to every column of the index. The default `SQLiteCollation.Inherit` emits no clause. For per-column collations on a composite index, pass `collations` as an array of the same length as the column list.
+
+```csharp
+.Index(b => b.Email, unique: true, collation: SQLiteCollation.NoCase)
+.Index(b => new { b.LastName, b.FirstName },
+    collations: [SQLiteCollation.NoCase, SQLiteCollation.NoCase])
+```
 
 `Strict()` marks the table as a SQLite STRICT table. Same effect as the `[StrictTable]` attribute (see [Defining Models](Defining%20Models)). Requires SQLite 3.37.0 or newer.
 

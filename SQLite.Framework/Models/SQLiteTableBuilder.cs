@@ -73,7 +73,13 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     /// <param name="name">Optional index name. The default is <c>idx_{TableName}_{ColumnName}</c>.</param>
     /// <param name="unique">Whether the index is unique.</param>
     /// <param name="filter">Optional predicate that produces a partial index (<c>WHERE</c> clause).</param>
-    public SQLiteTableBuilder<T> Index<TKey>(Expression<Func<T, TKey>> column, string? name = null, bool unique = false, Expression<Func<T, bool>>? filter = null)
+    /// <param name="collation">Collation applied to every column of the index. The default
+    /// <see cref="SQLiteCollation.Inherit" /> emits no clause so the column's declared collation
+    /// wins. Use the <paramref name="collations" /> parameter for per-column collations on a
+    /// composite index.</param>
+    /// <param name="collations">Per-column collations for a composite index. Must match the
+    /// number of columns. When set, takes precedence over <paramref name="collation" />.</param>
+    public SQLiteTableBuilder<T> Index<TKey>(Expression<Func<T, TKey>> column, string? name = null, bool unique = false, Expression<Func<T, bool>>? filter = null, SQLiteCollation collation = SQLiteCollation.Inherit, SQLiteCollation[]? collations = null)
     {
         ArgumentNullException.ThrowIfNull(column);
 
@@ -106,10 +112,23 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             defaultName = $"idx_{mapping.TableName}_{target.Name}";
         }
 
+        SQLiteCollation[] columnCollations;
+        if (collations != null)
+        {
+            if (collations.Length != columnNames.Length)
+                throw new ArgumentException($"Expected {columnNames.Length} collation(s) to match the number of indexed columns, got {collations.Length}.", nameof(collations));
+            columnCollations = collations;
+        }
+        else
+        {
+            columnCollations = new SQLiteCollation[columnNames.Length];
+            Array.Fill(columnCollations, collation);
+        }
+
         string indexName = name ?? defaultName;
         string? filterSql = filter == null ? null : TranslateBareSql(filter);
 
-        indexes.Add(new IndexSpec(columnNames, indexName, unique, filterSql));
+        indexes.Add(new IndexSpec(columnNames, columnCollations, indexName, unique, filterSql));
         return this;
     }
 
@@ -352,14 +371,15 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
                 Name: idx.Name ?? ("idx_" + col.Name + "_" + idx.Order),
                 Column: col.Name,
                 Order: idx.Order,
-                IsUnique: idx.IsUnique)))
+                IsUnique: idx.IsUnique,
+                Collation: idx.Collation)))
             .GroupBy(x => x.Name);
 
         foreach (var group in indexGroups)
         {
-            string[] columns = [.. group.OrderBy(x => x.Order).Select(x => x.Column)];
+            var ordered = group.OrderBy(x => x.Order).ToArray();
             string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", columns);
+            string columnList = string.Join(", ", ordered.Select(x => x.Column + CollationHelper.Clause(x.Collation)));
             string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
             count += database.CreateCommand(sql, []).ExecuteNonQuery();
         }
@@ -367,7 +387,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         foreach (IndexSpec index in indexes)
         {
             string uniqueClause = index.Unique ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", index.Columns);
+            string columnList = string.Join(", ", index.Columns.Select((c, i) => c + CollationHelper.Clause(index.Collations[i])));
             string where = index.FilterSql == null ? string.Empty : $" WHERE {index.FilterSql}";
             string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{index.Name}\" ON \"{mapping.TableName}\" ({columnList}){where}";
             count += database.CreateCommand(sql, []).ExecuteNonQuery();

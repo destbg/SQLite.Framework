@@ -194,12 +194,7 @@ internal static class SelectSignature
         if (type.IsGenericType)
         {
             string def = type.GetGenericTypeDefinition().FullName!;
-            int tick = def.IndexOf('`');
-            if (tick >= 0)
-            {
-                def = def[..tick];
-            }
-
+            def = def[..def.IndexOf('`')];
             string args = string.Join(",", type.GenericTypeArguments.Select(FormatType));
             return def + "<" + args + ">";
         }

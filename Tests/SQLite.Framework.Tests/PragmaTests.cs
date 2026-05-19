@@ -199,6 +199,24 @@ public class PragmaTests
         Assert.True(on);
     }
 
+    [Fact]
+    public void Sequence_AccessedTwice_ReturnsSameInstance()
+    {
+        using TestDatabase db = new();
+        ReadOnlySQLiteTable<SQLite.Framework.Models.SQLiteSequence> a = db.Pragmas.Sequence;
+        ReadOnlySQLiteTable<SQLite.Framework.Models.SQLiteSequence> b = db.Pragmas.Sequence;
+        Assert.Same(a, b);
+    }
+
+    [Fact]
+    public void Master_AccessedTwice_ReturnsSameInstance()
+    {
+        using TestDatabase db = new();
+        ReadOnlySQLiteTable<SQLite.Framework.Models.SQLiteMaster> a = db.Pragmas.Master;
+        ReadOnlySQLiteTable<SQLite.Framework.Models.SQLiteMaster> b = db.Pragmas.Master;
+        Assert.Same(a, b);
+    }
+
     private sealed class CustomPragmas : SQLitePragmas
     {
         public CustomPragmas(SQLiteDatabase database) : base(database) { }

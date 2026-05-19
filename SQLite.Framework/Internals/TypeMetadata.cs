@@ -16,8 +16,7 @@ internal static class TypeMetadata
             return false;
         }
 
-        Type stripped = Nullable.GetUnderlyingType(type) ?? type;
-        if (!options.TypeConverters.TryGetValue(stripped, out ISQLiteTypeConverter? converter))
+        if (!options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter))
         {
             return false;
         }

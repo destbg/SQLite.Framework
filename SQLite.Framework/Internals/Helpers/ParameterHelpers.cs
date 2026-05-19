@@ -85,7 +85,7 @@ internal static class ParameterHelpers
         for (int i = 0; i < count; i++)
         {
             SQLiteParameter[]? p = expressions[i].Parameters;
-            if (p != null && p.Length > 0)
+            if (p != null)
             {
                 Array.Copy(p, 0, result, offset, p.Length);
                 offset += p.Length;
@@ -117,7 +117,7 @@ internal static class ParameterHelpers
         for (int i = 0; i < count; i++)
         {
             SQLiteParameter[]? p = models[i].SQLiteExpression?.Parameters;
-            if (p != null && p.Length > 0)
+            if (p != null)
             {
                 Array.Copy(p, 0, result, offset, p.Length);
                 offset += p.Length;

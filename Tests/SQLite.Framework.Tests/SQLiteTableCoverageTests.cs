@@ -353,4 +353,48 @@ public class SQLiteTableCoverageTests
             return (columns, "INSERT GARBAGE @!%");
         }
     }
+
+    [Fact]
+    public void Add_OverriddenGetAddInfo_SkipsDefaultFilter()
+    {
+        using TestDatabase db = new();
+        db.Table<Article>().Schema.CreateTable();
+        OverridingArticleTable table = new(db, db.TableMapping(typeof(Article)));
+
+        Article row = new() { Title = "t", Body = "b", PublishedAt = DateTime.UtcNow };
+
+        Assert.Throws<SQLiteException>(() => table.Add(row));
+    }
+
+    [Fact]
+    public void AddOrUpdate_OverriddenGetAddOrUpdateInfo_SkipsDefaultFilter()
+    {
+        using TestDatabase db = new();
+        db.Table<Article>().Schema.CreateTable();
+        OverridingArticleTable table = new(db, db.TableMapping(typeof(Article)));
+
+        Article row = new() { Title = "t", Body = "b", PublishedAt = DateTime.UtcNow };
+
+        Assert.Throws<SQLiteException>(() => table.AddOrUpdate(row));
+    }
+
+    private sealed class OverridingArticleTable : SQLiteTable<Article>
+    {
+        public OverridingArticleTable(SQLiteDatabase database, TableMapping table)
+            : base(database, table)
+        {
+        }
+
+        protected override (TableColumn[] Columns, string Sql) GetAddInfo()
+        {
+            (TableColumn[] columns, _) = base.GetAddInfo();
+            return (columns, "INSERT GARBAGE @!%");
+        }
+
+        protected override (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
+        {
+            (TableColumn[] columns, _) = base.GetAddOrUpdateInfo(conflict);
+            return (columns, "INSERT GARBAGE @!%");
+        }
+    }
 }

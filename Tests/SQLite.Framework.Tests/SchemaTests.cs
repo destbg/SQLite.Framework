@@ -841,6 +841,110 @@ public class SchemaTests
     }
 
     [Fact]
+    public void Add_WithTwoDefaultColumnsAtClrDefault_FiltersBothFromInsert()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<BookWithTwoDefaults>();
+
+        SQLiteTable<BookWithTwoDefaults> table = db.Table<BookWithTwoDefaults>();
+        table.Add(new BookWithTwoDefaults { Title = "Hello" });
+
+        BookWithTwoDefaults row = table.Single();
+        Assert.Equal(0, row.FirstCount);
+        Assert.Equal(0, row.SecondCount);
+    }
+
+    [Fact]
+    public void CreateTable_IndexedAttributeWithCollation_EmitsCollateClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<IndexedCollationEntity>();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'IndexedCollationTable'");
+        Assert.Contains("Email COLLATE NOCASE", sql);
+    }
+
+    [Fact]
+    public void CreateTable_CompositeIndexedAttributeWithMixedCollation_EmitsPerColumnClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<CompositeIndexedCollationEntity>();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Schema_MixedColl'");
+        Assert.Contains("LastName COLLATE NOCASE", sql);
+        Assert.Contains("FirstName", sql);
+        Assert.DoesNotContain("FirstName COLLATE", sql);
+    }
+
+    [Fact]
+    public void CreateTable_BuilderIndexCollation_EmitsCollateClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.Table<Book>()
+            .Index(b => b.Title, name: "IX_Book_Title_NoCase", collation: SQLiteCollation.NoCase)
+            .CreateTable();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_Title_NoCase'");
+        Assert.Contains("Title COLLATE NOCASE", sql);
+    }
+
+    [Fact]
+    public void CreateTable_BuilderIndexCollationBinary_EmitsBinaryClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.Table<Book>()
+            .Index(b => b.Title, name: "IX_Book_Title_Binary", collation: SQLiteCollation.Binary)
+            .CreateTable();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_Title_Binary'");
+        Assert.Contains("Title COLLATE BINARY", sql);
+    }
+
+    [Fact]
+    public void CreateTable_BuilderIndexNoCollation_EmitsNoClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.Table<Book>()
+            .Index(b => b.Title, name: "IX_Book_Title_Plain")
+            .CreateTable();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_Title_Plain'");
+        Assert.DoesNotContain("COLLATE", sql);
+    }
+
+    [Fact]
+    public void CreateTable_BuilderIndexPerColumnCollations_EmitsPerColumn()
+    {
+        using TestDatabase db = new();
+        db.Schema.Table<Book>()
+            .Index(b => new { b.Title, b.AuthorId }, name: "IX_Book_TitleAuthor",
+                collations: [SQLiteCollation.Rtrim, SQLiteCollation.Inherit])
+            .CreateTable();
+
+        string sql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_TitleAuthor'");
+        Assert.Contains("Title COLLATE RTRIM", sql);
+        Assert.DoesNotContain("AuthorId COLLATE", sql);
+    }
+
+    [Fact]
+    public void CreateTable_BuilderIndexCollationsWrongLength_Throws()
+    {
+        using TestDatabase db = new();
+        SQLiteTableBuilder<Book> builder = db.Schema.Table<Book>();
+
+        Assert.Throws<ArgumentException>(() => builder.Index(
+            b => new { b.Title, b.AuthorId },
+            name: "IX_BadLen",
+            collations: [SQLiteCollation.NoCase]));
+    }
+
+    [Fact]
     public void CreateIndex_OverIntColumn_UnwrapsConvert()
     {
         using TestDatabase db = new();
@@ -1245,6 +1349,24 @@ file class BookWithBuilderDefault
     public int Rating { get; set; }
 }
 
+[System.ComponentModel.DataAnnotations.Schema.Table("BookWithTwoDefaults")]
+file class BookWithTwoDefaults
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    [SQLite.Framework.Attributes.AutoIncrement]
+    public int Id { get; set; }
+
+    public required string Title { get; set; }
+
+    [System.ComponentModel.DefaultValue(0)]
+    public int FirstCount { get; set; }
+
+    public string Body { get; set; } = "";
+
+    [System.ComponentModel.DefaultValue(0)]
+    public int SecondCount { get; set; }
+}
+
 [System.ComponentModel.DataAnnotations.Schema.Table("BookWithDefaultFirst")]
 file class BookWithDefaultFirst
 {
@@ -1362,4 +1484,27 @@ file class CompositeIndexedEntity
 
     [SQLite.Framework.Attributes.Indexed("IX_Schema_Composite", 1)]
     public string? Col2 { get; set; }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("IndexedCollationTable")]
+file class IndexedCollationEntity
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    public int Id { get; set; }
+
+    [SQLite.Framework.Attributes.Indexed(Collation = SQLiteCollation.NoCase)]
+    public required string Email { get; set; }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("CompositeIndexedCollationTable")]
+file class CompositeIndexedCollationEntity
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    public int Id { get; set; }
+
+    [SQLite.Framework.Attributes.Indexed("IX_Schema_MixedColl", 0, Collation = SQLiteCollation.NoCase)]
+    public required string LastName { get; set; }
+
+    [SQLite.Framework.Attributes.Indexed("IX_Schema_MixedColl", 1)]
+    public required string FirstName { get; set; }
 }

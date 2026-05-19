@@ -30,6 +30,7 @@ internal static class SQLiteFunctionsMemberVisitor
             nameof(SQLiteFunctions.Max) => HandleFunctionsVariadic(visitor, node, "max", node.Method.ReturnType),
             nameof(SQLiteFunctions.Changes) => SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), "changes()", null),
             nameof(SQLiteFunctions.TotalChanges) => SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), "total_changes()", null),
+            nameof(SQLiteFunctions.Collate) => HandleFunctionsCollate(visitor, node),
             _ => throw new NotSupportedException($"SQLiteFunctions.{node.Method.Name} is not translatable to SQL."),
         };
     }
@@ -164,5 +165,17 @@ internal static class SQLiteFunctionsMemberVisitor
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel pattern = visitor.ResolveExpression(node.Arguments[1]);
         return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, " REGEXP ", pattern.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, pattern.SQLiteExpression!));
+    }
+
+    private static SQLiteExpression HandleFunctionsCollate(SQLVisitor visitor, MethodCallExpression node)
+    {
+        ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
+        SQLiteCollation collation = (SQLiteCollation)visitor.ResolveExpression(node.Arguments[1]).Constant!;
+        string clause = CollationHelper.Clause(collation);
+        if (clause.Length == 0)
+        {
+            return value.SQLiteExpression!;
+        }
+        return SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, clause + ")", value.Parameters);
     }
 }
