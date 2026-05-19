@@ -51,6 +51,9 @@ db.Table<Book>().Schema
     .Computed(b => b.PriceWithTax, b => b.Price * 1.21m, stored: true)
     .Check(b => b.Price > 0, name: "CK_Price_Positive")
     .Check(b => b.Title.Length > 0)
+    .Default(b => b.Rating, 0)
+    .Default(b => b.CreatedAt, SQLiteColumnDefault.CurrentTimestamp)
+    .Default(b => b.Slug, () => SQLiteFunctions.SqliteVersion())
     .Index(b => b.Title)
     .Index(b => b.AuthorId, unique: true)
     .Index(b => b.CategoryId, filter: b => !b.Deleted)
@@ -62,9 +65,17 @@ db.Table<Book>().Schema
 
 `Check(predicate, name)` adds a table-level CHECK constraint. The predicate is translated to SQL the same way `Where` clauses are.
 
+`Default(column, ...)` sets the column's `DEFAULT` clause. Three overloads:
+
+* `Default(column, value)` writes a literal.
+* `Default(column, SQLiteColumnDefault.CurrentTime | CurrentDate | CurrentTimestamp)` writes a time keyword.
+* `Default(column, () => expression)` writes a translated SQL expression in parentheses.
+
+For columns set this way, `Add` and `AddRange` omit the column from the INSERT when its CLR value equals `default(T)`. Same behavior as `[DefaultValue]` (see [Defining Models](Defining%20Models)).
+
 `Index(column, name, unique, filter)` adds an index. Pass a single property for a single-column index, or an anonymous object (`b => new { b.A, b.B }`) for a composite index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself). Composite indexes cannot have a partial filter.
 
-Constants in computed, CHECK, and partial-index expressions are inlined as SQL literals because CREATE TABLE / CREATE INDEX cannot bind parameters. Only simple types (numbers, strings, bool) are supported as constants. For exotic types, use raw SQL through `db.Execute`.
+Constants in computed, CHECK, default, and partial-index expressions are inlined as SQL literals because CREATE TABLE / CREATE INDEX cannot bind parameters. Only simple types (numbers, strings, bool) are supported as constants. For exotic types, use raw SQL through `db.Execute`.
 
 ## Existence checks
 
@@ -113,6 +124,15 @@ db.Schema.AddColumn<Book>(b => b.Genre, defaultValue: "Unknown");
 ```
 
 SQLite does not let you use parameters inside DDL statements like `ALTER TABLE`. The framework writes `defaultValue` straight into the SQL text. Only numbers, `bool`, and `string` are accepted. Single quotes inside strings are doubled, so a value with quotes in it cannot escape from the string and run other SQL.
+
+Two more overloads cover time keywords and translated SQL expressions:
+
+```csharp
+db.Schema.AddColumn<Book>(b => b.CreatedAt, SQLiteColumnDefault.CurrentTimestamp);
+db.Schema.AddColumn<Book>(b => b.Rating, () => 7 * 6);  // requires SQLite 3.31.0+
+```
+
+SQLite rejects the `CURRENT_*` keywords on `ADD COLUMN` when the table already has rows. Use them only on empty tables.
 
 `RenameColumn`, `DropColumn`, and `RenameTable` take SQLite column or table names directly.
 

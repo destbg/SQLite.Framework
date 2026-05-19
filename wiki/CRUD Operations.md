@@ -35,6 +35,8 @@ If the primary key has `[AutoIncrement]`, SQLite assigns the value and writes it
 
 `AddAsync` and `AddRangeAsync` always let SQLite assign the id when the primary key is `[AutoIncrement]`, even if you have already set a value on the property. The value you set is ignored and gets overwritten with the generated id. If you want to insert a row at a specific id, use `AddOrUpdateAsync` and set the id on the entity before calling it.
 
+When a column has a database `DEFAULT` (set via `[DefaultValue]`, `.Default(...)`, or `AddColumn`), the framework omits that column from the INSERT when its CLR value equals `default(T)` so SQLite applies the default. See [Defining Models](Defining%20Models) and [Schema](Schema).
+
 ## Add Many
 
 ```csharp

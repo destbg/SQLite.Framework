@@ -58,6 +58,24 @@ public required string Title { get; set; }
 
 Nullable reference types (`string?`, `int?`) map to nullable columns automatically.
 
+## Default Values
+
+Use `[DefaultValue]` to give a column a `DEFAULT` clause.
+
+```csharp
+using System.ComponentModel;
+
+[DefaultValue(0)]
+public int Rating { get; set; }
+
+[DefaultValue("Unknown")]
+public string Genre { get; set; }
+```
+
+For columns marked this way, `Add` and `AddRange` also omit the column from the INSERT when its CLR value equals `default(T)`, so SQLite applies the default. Use `int?` / `string?` if you need to insert `0` or `""` explicitly.
+
+Only literal values are supported in the attribute. For `CURRENT_TIMESTAMP` and translated SQL expressions, see [Schema](Schema).
+
 ## Excluding Properties
 
 Use `[NotMapped]` to keep a property out of the database entirely.
