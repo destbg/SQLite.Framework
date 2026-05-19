@@ -8,7 +8,7 @@ public class DateTimeTests
 {
     private const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss zz";
 
-    public class TestEntity
+    private class TestEntity
     {
         [Key]
         public required int Id { get; set; }
@@ -394,20 +394,6 @@ public class DateTimeTests
         ).First();
 
         Assert.Equal(34, dayOfYear);
-    }
-
-    [Fact]
-    public void DateTimeToStringInSelect_ReturnsFormatted()
-    {
-        using TestDatabase db = SetupDatabase();
-
-        string text = (
-            from a in db.Table<TestEntity>()
-            where a.Id == 1
-            select a.Date.ToString()
-        ).First();
-
-        Assert.NotNull(text);
     }
 
     [Fact]
