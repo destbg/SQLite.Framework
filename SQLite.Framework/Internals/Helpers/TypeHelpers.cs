@@ -21,7 +21,8 @@ internal static class TypeHelpers
                || type == typeof(TimeSpan)
                || type == typeof(Guid)
                || type == typeof(DateOnly)
-               || type == typeof(TimeOnly);
+               || type == typeof(TimeOnly)
+               || type == typeof(object);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Interface lookup is only used for known collection types with registered converters.")]

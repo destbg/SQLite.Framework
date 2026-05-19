@@ -34,7 +34,7 @@ internal partial class SQLVisitor : ExpressionVisitor
     private Dictionary<SQLiteExpression, SQLiteExpression>? decimalCastIntern;
     private Dictionary<(SQLiteExpression Source, string Member), SQLiteExpression>? jsonExtractIntern;
 
-    internal SQLiteExpression InternDecimalCast(SQLiteExpression source)
+    public SQLiteExpression InternDecimalCast(SQLiteExpression source)
     {
         decimalCastIntern ??= new();
         if (decimalCastIntern.TryGetValue(source, out SQLiteExpression? cached))
@@ -47,7 +47,7 @@ internal partial class SQLVisitor : ExpressionVisitor
         return cast;
     }
 
-    internal SQLiteExpression InternJsonExtract(SQLiteExpression source, string memberName, Type resultType)
+    public SQLiteExpression InternJsonExtract(SQLiteExpression source, string memberName, Type resultType)
     {
         jsonExtractIntern ??= new();
         (SQLiteExpression Source, string Member) key = (source, memberName);
@@ -80,18 +80,7 @@ internal partial class SQLVisitor : ExpressionVisitor
         if (OmitTableAlias)
         {
             From = SQLiteExpression.Leaf(entityType, -1, $"\"{tableName}\"");
-
-            TableColumns = tableMapping.Columns
-                .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
-                {
-                    string colSql = f.Name;
-                    if (Database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? conv)
-                        && conv.ColumnSqlExpression is { } colExpr)
-                    {
-                        colSql = string.Format(colExpr, colSql);
-                    }
-                    return SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), colSql);
-                });
+            TableColumns = BuildTableColumns(tableMapping, prefix: null);
             return;
         }
 
@@ -102,17 +91,7 @@ internal partial class SQLVisitor : ExpressionVisitor
             ? SQLiteExpression.Wrap(entityType, -1, "(", sql, $") AS {alias}", sql.Parameters)
             : SQLiteExpression.Leaf(entityType, -1, $"\"{tableName}\" AS {alias}");
 
-        TableColumns = tableMapping.Columns
-            .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
-            {
-                string colSql = $"{alias}.{f.Name}";
-                if (Database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? conv)
-                    && conv.ColumnSqlExpression is { } colExpr)
-                {
-                    colSql = string.Format(colExpr, colSql);
-                }
-                return SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), colSql);
-            });
+        TableColumns = BuildTableColumns(tableMapping, alias);
     }
 
     public SQLTranslator CloneDeeper(int innerLevel)
@@ -206,5 +185,20 @@ internal partial class SQLVisitor : ExpressionVisitor
             SQLiteExpression = sqlExpression,
             Expression = resolvedExpression
         };
+    }
+
+    private Dictionary<string, Expression> BuildTableColumns(TableMapping tableMapping, string? prefix)
+    {
+        return tableMapping.Columns
+            .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
+            {
+                string colSql = prefix != null ? $"{prefix}.{f.Name}" : f.Name;
+                if (Database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? conv)
+                    && conv.ColumnSqlExpression is { } colExpr)
+                {
+                    colSql = string.Format(colExpr, colSql);
+                }
+                return SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), colSql);
+            });
     }
 }

@@ -234,6 +234,29 @@ public class CoverageGap3Tests
         Assert.Single(rows);
     }
 
+    [Fact]
+    public void Select_MemberInitWithNullableSimpleField_HandlesBothNullAndNonNull()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Value = 42 });
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Value = null });
+
+        List<NullableMemberInitProjection> rows = db.Table<NullableEntity>()
+            .Select(e => new NullableMemberInitProjection { Id = e.Id, Value = e.Value })
+            .OrderBy(p => p.Id)
+            .ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(42, rows[0].Value);
+        Assert.Null(rows[1].Value);
+    }
+
+    public class NullableMemberInitProjection
+    {
+        public int Id { get; set; }
+        public int? Value { get; set; }
+    }
+
 #if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void Select_EnumHasFlagWithUntranslatableReceiver_FallsBack()
@@ -681,15 +704,13 @@ public class CoverageGap3Tests
     }
 
     [Fact]
-    public void Select_PrintfBoxesArgumentToObject_HitsConvertToObjectBranch()
+    public void Select_ConvertToObject_StripsToInner()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
 
-        List<string> rows = db.Table<Book>()
-            .Select(b => SQLiteFunctions.Printf("%d", b.Id))
-            .ToList();
+        List<object> rows = db.Table<Book>().Select(b => (object)b.Id).ToList();
         Assert.Single(rows);
     }
 

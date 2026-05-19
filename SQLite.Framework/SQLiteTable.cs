@@ -938,9 +938,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return Convert.ToInt64(value, CultureInfo.InvariantCulture) == 0L;
     }
 
-    private static object ConvertRowIdToType(long rowId, Type propertyType)
+    private static object ConvertRowIdToType(long rowId, Type type)
     {
-        Type type = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
         return type == typeof(long) ? rowId
             : type == typeof(int) ? (int)rowId
             : type == typeof(short) ? (short)rowId

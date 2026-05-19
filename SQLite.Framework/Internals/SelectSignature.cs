@@ -69,10 +69,7 @@ internal static class SelectSignature
                 }
                 break;
             case NewExpression ne:
-                if (ne.Constructor != null)
-                {
-                    sb.Append(' ').Append(FormatType(ne.Constructor.DeclaringType!));
-                }
+                sb.Append(' ').Append(FormatType(ne.Type));
                 foreach (Expression arg in ne.Arguments)
                 {
                     sb.Append(' ');

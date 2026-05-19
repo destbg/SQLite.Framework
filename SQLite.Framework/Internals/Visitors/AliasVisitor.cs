@@ -19,13 +19,13 @@ internal class AliasVisitor
 
     public Dictionary<string, Expression> ResolveResultAlias(LambdaExpression resultSelector)
     {
-        ResolveResultAlias(resultSelector, resultSelector.Body, null);
+        ResolveResultAlias(resultSelector, resultSelector.Body, string.Empty);
         Dictionary<string, Expression> newResult = result;
         result = [];
         return newResult;
     }
 
-    private void ResolveResultAlias(LambdaExpression resultSelector, Expression body, string? prefix)
+    private void ResolveResultAlias(LambdaExpression resultSelector, Expression body, string prefix)
     {
         switch (body)
         {
@@ -50,7 +50,7 @@ internal class AliasVisitor
         }
     }
 
-    private void VisitNewExpression(NewExpression newExpression, string? prefix)
+    private void VisitNewExpression(NewExpression newExpression, string prefix)
     {
         if (newExpression.Arguments.Count > 0)
         {
@@ -115,7 +115,7 @@ internal class AliasVisitor
         }
     }
 
-    private void VisitMemberInitExpression(LambdaExpression resultSelector, MemberInitExpression memberInitExpression, string? prefix)
+    private void VisitMemberInitExpression(LambdaExpression resultSelector, MemberInitExpression memberInitExpression, string prefix)
     {
         foreach (MemberAssignment memberAssignment in memberInitExpression.Bindings.OfType<MemberAssignment>())
         {
@@ -190,7 +190,7 @@ internal class AliasVisitor
         }
     }
 
-    private void VisitMemberExpression(MemberExpression memberExpression, string? prefix)
+    private void VisitMemberExpression(MemberExpression memberExpression, string prefix)
     {
         if (TypeHelpers.IsSimple(memberExpression.Type, database.Options))
         {
@@ -212,7 +212,7 @@ internal class AliasVisitor
         }
     }
 
-    private void VisitParameterExpression(ParameterExpression parameterExpression, string? prefix)
+    private void VisitParameterExpression(ParameterExpression parameterExpression, string prefix)
     {
         Dictionary<string, Expression> tableColumns = visitor.MethodArguments[parameterExpression];
 
@@ -222,24 +222,24 @@ internal class AliasVisitor
         }
     }
 
-    private void VisitMethodCallExpression(MethodCallExpression methodCallExpression, string? prefix)
+    private void VisitMethodCallExpression(MethodCallExpression methodCallExpression, string prefix)
     {
         Expression expression = visitor.Visit(methodCallExpression);
-        result.Add(prefix ?? string.Empty, expression);
+        result.Add(prefix, expression);
     }
 
-    private void VisitInnerExpression(Expression body, string? prefix)
+    private void VisitInnerExpression(Expression body, string prefix)
     {
         SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
         {
             MethodArguments = visitor.MethodArguments
         };
         Expression expression = innerVisitor.Visit(body);
-        result.Add(prefix ?? string.Empty, expression);
+        result.Add(prefix, expression);
     }
 
-    private static string CheckPrefix(string? prefix, string path)
+    private static string CheckPrefix(string prefix, string path)
     {
-        return prefix != null ? $"{prefix}.{path}" : path;
+        return prefix.Length > 0 ? $"{prefix}.{path}" : path;
     }
 }

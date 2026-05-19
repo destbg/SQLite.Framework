@@ -8,7 +8,7 @@ public class DateTimeTests
 {
     private const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss zz";
 
-    private class TestEntity
+    public class TestEntity
     {
         [Key]
         public required int Id { get; set; }
@@ -396,7 +396,6 @@ public class DateTimeTests
         Assert.Equal(34, dayOfYear);
     }
 
-#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void DateTimeToStringInSelect_ReturnsFormatted()
     {
@@ -410,7 +409,6 @@ public class DateTimeTests
 
         Assert.NotNull(text);
     }
-#endif
 
     [Fact]
     public void DateTimeUnsupportedInstanceMethod_Throws()
