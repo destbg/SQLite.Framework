@@ -524,16 +524,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return new LockObject(connectionSemaphore, holdsConnectionLock);
     }
 
-    /// <summary>
-    /// Async version of <see cref="Lock" />.
-    /// Waits for the connection lock without blocking a thread.
-    /// Dispose the returned <see cref="IDisposable" /> to release the lock.
-    /// </summary>
-    public virtual SQLiteLockAwaitable LockAsync(CancellationToken cancellationToken = default)
-    {
-        return new SQLiteLockAwaitable(this, cancellationToken);
-    }
-
     internal Task WaitConnectionSemaphoreAsync(CancellationToken cancellationToken)
     {
         return connectionSemaphore.WaitAsync(cancellationToken);
@@ -554,24 +544,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         WaitForActiveTransactionsAsync(default).GetAwaiter().GetResult();
         return NoOpLockObject.Instance;
-    }
-
-    /// <summary>
-    /// Async version of <see cref="ReadLock" />.
-    /// Defaults to calling <see cref="ReadLock" />.
-    /// Override this method when you need async read locking.
-    /// </summary>
-    public virtual Task<IDisposable> ReadLockAsync(CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        Task wait = WaitForActiveTransactionsAsync(cancellationToken);
-        if (wait.IsCompletedSuccessfully)
-        {
-            return Task.FromResult(ReadLock());
-        }
-
-        return AwaitGateThenReadLock(wait);
     }
 
     /// <summary>
@@ -1095,12 +1067,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             yield return new Grouping<TKey, TElement>(key, groups[key]);
         }
-    }
-
-    private static async Task<IDisposable> AwaitGateThenReadLock(Task wait)
-    {
-        await wait.ConfigureAwait(false);
-        return NoOpLockObject.Instance;
     }
 
     private static void ValidateSchemaName(string schemaName)

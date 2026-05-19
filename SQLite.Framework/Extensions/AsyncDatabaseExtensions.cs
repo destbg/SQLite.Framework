@@ -6,6 +6,32 @@ namespace SQLite.Framework.Extensions;
 public static class AsyncDatabaseExtensions
 {
     /// <summary>
+    /// Async version of <see cref="SQLiteDatabase.Lock" />.
+    /// Waits for the connection lock without blocking a thread.
+    /// Dispose the returned <see cref="IDisposable" /> to release the lock.
+    /// </summary>
+    public static SQLiteLockAwaitable LockAsync(this SQLiteDatabase database, CancellationToken cancellationToken = default)
+    {
+        return new SQLiteLockAwaitable(database, cancellationToken);
+    }
+
+    /// <summary>
+    /// Async version of <see cref="SQLiteDatabase.ReadLock" />.
+    /// </summary>
+    public static Task<IDisposable> ReadLockAsync(this SQLiteDatabase database, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        Task wait = database.WaitForActiveTransactionsAsync(cancellationToken);
+        if (wait.IsCompletedSuccessfully)
+        {
+            return Task.FromResult(database.ReadLock());
+        }
+
+        return AwaitGateThenReadLock(wait);
+    }
+
+    /// <summary>
     /// Begins a transaction on the database asynchronously.
     /// </summary>
     /// <param name="database">The database to begin the transaction on.</param>
@@ -243,5 +269,11 @@ public static class AsyncDatabaseExtensions
             using IDisposable _ = await database.LockAsync(ct);
             database.DetachDatabase(schemaName);
         }, ct);
+    }
+
+    private static async Task<IDisposable> AwaitGateThenReadLock(Task wait)
+    {
+        await wait.ConfigureAwait(false);
+        return NoOpLockObject.Instance;
     }
 }

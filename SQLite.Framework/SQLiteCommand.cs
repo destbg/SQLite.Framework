@@ -50,7 +50,7 @@ public class SQLiteCommand
     /// <c>OnExecuted</c> after the reader is ready (before any rows are read), and <c>OnFailed</c>
     /// if preparation throws.
     /// </remarks>
-    public SQLiteDataReader ExecuteReader()
+    public virtual SQLiteDataReader ExecuteReader()
     {
         IDisposable connectionLock = Database.ReadLock();
 
@@ -73,7 +73,7 @@ public class SQLiteCommand
     /// <summary>
     /// Executes the command against the database and returns the number of rows affected.
     /// </summary>
-    public int ExecuteNonQuery()
+    public virtual int ExecuteNonQuery()
     {
         using IDisposable _ = Database.Lock();
 
@@ -105,7 +105,7 @@ public class SQLiteCommand
     /// connection's <c>last_insert_rowid</c> value. The rowid is read inside the same lock as
     /// the INSERT, so a concurrent writer cannot replace it before the read.
     /// </summary>
-    public (int Changes, long RowId) ExecuteWithLastRowId()
+    public virtual (int Changes, long RowId) ExecuteWithLastRowId()
     {
         using IDisposable _ = Database.Lock();
 
