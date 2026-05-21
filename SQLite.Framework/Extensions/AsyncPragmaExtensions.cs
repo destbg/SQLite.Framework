@@ -221,4 +221,280 @@ public static class AsyncPragmaExtensions
             pragmas.SecureDelete = value;
         }, ct);
     }
+
+    /// <summary>
+    /// Reads <c>PRAGMA busy_timeout</c>.
+    /// </summary>
+    public static Task<int> GetBusyTimeoutAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.BusyTimeout;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA busy_timeout</c>.
+    /// </summary>
+    public static Task SetBusyTimeoutAsync(this SQLitePragmas pragmas, int value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.BusyTimeout = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA mmap_size</c>.
+    /// </summary>
+    public static Task<long> GetMmapSizeAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.MmapSize;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA mmap_size</c>.
+    /// </summary>
+    public static Task SetMmapSizeAsync(this SQLitePragmas pragmas, long value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.MmapSize = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA auto_vacuum</c>.
+    /// </summary>
+    public static Task<SQLiteAutoVacuumMode> GetAutoVacuumAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.AutoVacuum;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA auto_vacuum</c>.
+    /// </summary>
+    public static Task SetAutoVacuumAsync(this SQLitePragmas pragmas, SQLiteAutoVacuumMode value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.AutoVacuum = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Runs <c>PRAGMA incremental_vacuum</c>.
+    /// </summary>
+    public static Task IncrementalVacuumAsync(this SQLitePragmas pragmas, int? pages = null, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.IncrementalVacuum(pages);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA wal_autocheckpoint</c>.
+    /// </summary>
+    public static Task<int> GetWalAutoCheckpointAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.WalAutoCheckpoint;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA wal_autocheckpoint</c>.
+    /// </summary>
+    public static Task SetWalAutoCheckpointAsync(this SQLitePragmas pragmas, int value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.WalAutoCheckpoint = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Runs <c>PRAGMA wal_checkpoint(MODE)</c>.
+    /// </summary>
+    public static Task<bool> WalCheckpointAsync(this SQLitePragmas pragmas, SQLiteWalCheckpointMode mode = SQLiteWalCheckpointMode.Passive, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.WalCheckpoint(mode);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Runs <c>PRAGMA integrity_check</c>.
+    /// </summary>
+    public static Task<IReadOnlyList<string>> IntegrityCheckAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.IntegrityCheck();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Runs <c>PRAGMA quick_check</c>.
+    /// </summary>
+    public static Task<IReadOnlyList<string>> QuickCheckAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.QuickCheck();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Runs <c>PRAGMA optimize</c>.
+    /// </summary>
+    public static Task OptimizeAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.Optimize();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA defer_foreign_keys</c>.
+    /// </summary>
+    public static Task<bool> GetDeferForeignKeysAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.DeferForeignKeys;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA defer_foreign_keys</c>.
+    /// </summary>
+    public static Task SetDeferForeignKeysAsync(this SQLitePragmas pragmas, bool value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.DeferForeignKeys = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA encoding</c>.
+    /// </summary>
+    public static Task<SQLiteEncoding> GetEncodingAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.Encoding;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA encoding</c>.
+    /// </summary>
+    public static Task SetEncodingAsync(this SQLitePragmas pragmas, SQLiteEncoding value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.Encoding = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA locking_mode</c>.
+    /// </summary>
+    public static Task<SQLiteLockingMode> GetLockingModeAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.LockingMode;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA locking_mode</c>.
+    /// </summary>
+    public static Task SetLockingModeAsync(this SQLitePragmas pragmas, SQLiteLockingMode value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.LockingMode = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA application_id</c>.
+    /// </summary>
+    public static Task<int> GetApplicationIdAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.ApplicationId;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA application_id</c>.
+    /// </summary>
+    public static Task SetApplicationIdAsync(this SQLitePragmas pragmas, int value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.ApplicationId = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA data_version</c>.
+    /// </summary>
+    public static Task<int> GetDataVersionAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.DataVersion;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA schema_version</c>.
+    /// </summary>
+    public static Task<int> GetSchemaVersionAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.SchemaVersion;
+        }, ct);
+    }
 }

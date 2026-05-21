@@ -109,6 +109,135 @@ public class SQLitePragmas
     }
 
     /// <summary>
+    /// <c>PRAGMA busy_timeout</c>. Number of milliseconds the busy handler waits before
+    /// returning <c>SQLITE_BUSY</c>. Setting to <c>0</c> disables the busy handler.
+    /// </summary>
+    public virtual int BusyTimeout
+    {
+        get => Database.ExecuteScalar<int>("PRAGMA busy_timeout");
+        set => Database.ExecuteScalar<int>($"PRAGMA busy_timeout = {value}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA mmap_size</c>. Maximum number of bytes SQLite will memory-map. Setting to
+    /// <c>0</c> disables memory mapping. The build of SQLite must have
+    /// <c>SQLITE_MAX_MMAP_SIZE</c> greater than zero or the pragma is a no-op.
+    /// </summary>
+    public virtual long MmapSize
+    {
+        get => Database.ExecuteScalar<long>("PRAGMA mmap_size");
+        set => Database.ExecuteScalar<long>($"PRAGMA mmap_size = {value}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA auto_vacuum</c>. Controls how SQLite reclaims free pages. Only takes effect
+    /// before the database is first written.
+    /// </summary>
+    public virtual SQLiteAutoVacuumMode AutoVacuum
+    {
+        get => (SQLiteAutoVacuumMode)Database.ExecuteScalar<int>("PRAGMA auto_vacuum");
+        set => Database.Execute($"PRAGMA auto_vacuum = {(int)value}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA wal_autocheckpoint</c>. Number of pages in the WAL that triggers an automatic
+    /// checkpoint. Setting to <c>0</c> or a negative value disables auto-checkpointing.
+    /// </summary>
+    public virtual int WalAutoCheckpoint
+    {
+        get => Database.ExecuteScalar<int>("PRAGMA wal_autocheckpoint");
+        set => Database.ExecuteScalar<int>($"PRAGMA wal_autocheckpoint = {value}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA defer_foreign_keys</c>. When set to <see langword="true" /> inside a
+    /// transaction, defers foreign key checks until <c>COMMIT</c>. Useful for bulk operations
+    /// that temporarily violate referential integrity. Resets to <see langword="false" /> at
+    /// each commit or rollback.
+    /// </summary>
+    public virtual bool DeferForeignKeys
+    {
+        get => Database.ExecuteScalar<int>("PRAGMA defer_foreign_keys") == 1;
+        set => Database.Execute($"PRAGMA defer_foreign_keys = {(value ? 1 : 0)}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA encoding</c>. Character encoding used to store TEXT values. Only takes effect
+    /// before any table is created in a new database.
+    /// </summary>
+    public virtual SQLiteEncoding Encoding
+    {
+        get
+        {
+            string? value = Database.ExecuteScalar<string>("PRAGMA encoding");
+            return value switch
+            {
+                "UTF-8" => SQLiteEncoding.Utf8,
+                "UTF-16le" => SQLiteEncoding.Utf16le,
+                "UTF-16be" => SQLiteEncoding.Utf16be,
+                _ => throw new InvalidOperationException($"Unrecognized PRAGMA encoding value '{value ?? "<null>"}'."),
+            };
+        }
+        set => Database.Execute($"PRAGMA encoding = '{value switch
+        {
+            SQLiteEncoding.Utf8 => "UTF-8",
+            SQLiteEncoding.Utf16 => "UTF-16",
+            SQLiteEncoding.Utf16le => "UTF-16le",
+            SQLiteEncoding.Utf16be => "UTF-16be",
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null),
+        }}'");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA locking_mode</c>. Controls whether SQLite releases the file lock between
+    /// transactions. <see cref="SQLiteLockingMode.Exclusive" /> keeps the lock for the
+    /// connection's lifetime, which blocks other processes but is faster for single-process
+    /// access.
+    /// </summary>
+    public virtual SQLiteLockingMode LockingMode
+    {
+        get
+        {
+            string? value = Database.ExecuteScalar<string>("PRAGMA locking_mode");
+            return value switch
+            {
+                "normal" => SQLiteLockingMode.Normal,
+                "exclusive" => SQLiteLockingMode.Exclusive,
+                _ => throw new InvalidOperationException($"Unrecognized PRAGMA locking_mode value '{value ?? "<null>"}'."),
+            };
+        }
+        set => Database.ExecuteScalar<string>($"PRAGMA locking_mode = {value switch
+        {
+            SQLiteLockingMode.Normal => "NORMAL",
+            SQLiteLockingMode.Exclusive => "EXCLUSIVE",
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null),
+        }}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA application_id</c>. 32-bit integer stored in the database file header. Apps
+    /// can use it to identify which application owns the file (analogous to the magic number
+    /// on other file formats).
+    /// </summary>
+    public virtual int ApplicationId
+    {
+        get => Database.ExecuteScalar<int>("PRAGMA application_id");
+        set => Database.Execute($"PRAGMA application_id = {value}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA data_version</c>. Read-only integer that increases whenever the database is
+    /// modified by another connection. Useful for cache invalidation.
+    /// </summary>
+    public virtual int DataVersion => Database.ExecuteScalar<int>("PRAGMA data_version");
+
+    /// <summary>
+    /// <c>PRAGMA schema_version</c>. Read-only integer that increases whenever the database
+    /// schema changes. Writing this value is technically allowed but unsafe.
+    /// </summary>
+    public virtual int SchemaVersion => Database.ExecuteScalar<int>("PRAGMA schema_version");
+
+    /// <summary>
     /// Queryable view over SQLite's built-in <c>sqlite_master</c> table, which lists every
     /// table, index, view, and trigger in the database. Supports the full LINQ surface
     /// (<c>Select</c>, <c>Where</c>, <c>Join</c>, etc.) like any other framework table.
@@ -121,6 +250,69 @@ public class SQLitePragmas
     /// least one <c>AUTOINCREMENT</c> table has been created.
     /// </summary>
     public virtual ReadOnlySQLiteTable<SQLiteSequence> Sequence => field ??= Database.ReadOnlyTable<SQLiteSequence>();
+
+    /// <summary>
+    /// <c>PRAGMA incremental_vacuum(<paramref name="pages" />)</c>. Reclaims up to
+    /// <paramref name="pages" /> free pages and returns them to the file system. Pass
+    /// <see langword="null" /> to reclaim every free page. Only works when
+    /// <see cref="AutoVacuum" /> is <see cref="SQLiteAutoVacuumMode.Incremental" />.
+    /// </summary>
+    public virtual void IncrementalVacuum(int? pages = null)
+    {
+        string sql = pages == null
+            ? "PRAGMA incremental_vacuum"
+            : $"PRAGMA incremental_vacuum({pages.Value})";
+        Database.Execute(sql);
+    }
+
+    /// <summary>
+    /// <c>PRAGMA wal_checkpoint(<paramref name="mode" />)</c>. Runs a checkpoint with the given
+    /// mode. Returns <see langword="true" /> when the WAL was fully checkpointed,
+    /// <see langword="false" /> when a reader blocked the operation.
+    /// </summary>
+    public virtual bool WalCheckpoint(SQLiteWalCheckpointMode mode = SQLiteWalCheckpointMode.Passive)
+    {
+        string modeName = mode switch
+        {
+            SQLiteWalCheckpointMode.Passive => "PASSIVE",
+            SQLiteWalCheckpointMode.Full => "FULL",
+            SQLiteWalCheckpointMode.Restart => "RESTART",
+            SQLiteWalCheckpointMode.Truncate => "TRUNCATE",
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
+        };
+        int busy = Database.ExecuteScalar<int>($"PRAGMA wal_checkpoint({modeName})");
+        return busy == 0;
+    }
+
+    /// <summary>
+    /// <c>PRAGMA integrity_check</c>. Walks the database file and verifies it is well-formed.
+    /// Returns a list whose only element is <c>"ok"</c> when the database is healthy, otherwise
+    /// one row per problem. Expensive on large databases.
+    /// </summary>
+    public virtual IReadOnlyList<string> IntegrityCheck()
+    {
+        return Database.Query<string>("PRAGMA integrity_check").ToList();
+    }
+
+    /// <summary>
+    /// <c>PRAGMA quick_check</c>. Faster but less thorough sibling of
+    /// <see cref="IntegrityCheck" />. Skips checks that verify index content matches the table,
+    /// which is the most expensive part.
+    /// </summary>
+    public virtual IReadOnlyList<string> QuickCheck()
+    {
+        return Database.Query<string>("PRAGMA quick_check").ToList();
+    }
+
+    /// <summary>
+    /// <c>PRAGMA optimize</c>. Asks SQLite to perform any maintenance the query planner thinks
+    /// is worthwhile, mainly running <c>ANALYZE</c> on tables whose statistics are stale.
+    /// Safe to run at app shutdown.
+    /// </summary>
+    public virtual void Optimize()
+    {
+        Database.Execute("PRAGMA optimize");
+    }
 
     /// <summary>
     /// Returns the rows of <c>pragma_table_info(<paramref name="tableName" />)</c>, one per

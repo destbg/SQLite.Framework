@@ -217,6 +217,346 @@ public class PragmaTests
         Assert.Same(a, b);
     }
 
+    [Fact]
+    public void BusyTimeout_Roundtrip()
+    {
+        using TestDatabase db = new();
+        db.Pragmas.BusyTimeout = 2500;
+        Assert.Equal(2500, db.Pragmas.BusyTimeout);
+        db.Pragmas.BusyTimeout = 0;
+        Assert.Equal(0, db.Pragmas.BusyTimeout);
+    }
+
+    [Fact]
+    public void MmapSize_IsReadable()
+    {
+        using TestDatabase db = new();
+        long original = db.Pragmas.MmapSize;
+        Assert.True(original >= 0);
+        db.Pragmas.MmapSize = 0;
+        Assert.Equal(0, db.Pragmas.MmapSize);
+    }
+
+    [Fact]
+    public void AutoVacuum_Roundtrip_OnFreshFile()
+    {
+        using TestDatabase db = new();
+        db.Pragmas.AutoVacuum = SQLiteAutoVacuumMode.Incremental;
+        Assert.Equal(SQLiteAutoVacuumMode.Incremental, db.Pragmas.AutoVacuum);
+    }
+
+    [Fact]
+    public void AutoVacuum_DefaultReadsNone()
+    {
+        using TestDatabase db = new();
+        Assert.Equal(SQLiteAutoVacuumMode.None, db.Pragmas.AutoVacuum);
+    }
+
+    [Fact]
+    public void AutoVacuum_FullMode_Roundtrip()
+    {
+        using TestDatabase db = new();
+        db.Pragmas.AutoVacuum = SQLiteAutoVacuumMode.Full;
+        Assert.Equal(SQLiteAutoVacuumMode.Full, db.Pragmas.AutoVacuum);
+    }
+
+    [Fact]
+    public void IncrementalVacuum_Runs()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Pragmas.AutoVacuum = SQLiteAutoVacuumMode.Incremental;
+        db.Pragmas.IncrementalVacuum();
+        db.Pragmas.IncrementalVacuum(10);
+    }
+
+    [Fact]
+    public void WalAutoCheckpoint_Roundtrip()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Pragmas.JournalMode = "WAL";
+        db.Pragmas.WalAutoCheckpoint = 500;
+        Assert.Equal(500, db.Pragmas.WalAutoCheckpoint);
+    }
+
+    [Fact]
+    public void WalCheckpoint_ReturnsTrueOnEmptyWal()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Pragmas.JournalMode = "WAL";
+        Assert.True(db.Pragmas.WalCheckpoint());
+        Assert.True(db.Pragmas.WalCheckpoint(SQLiteWalCheckpointMode.Full));
+        Assert.True(db.Pragmas.WalCheckpoint(SQLiteWalCheckpointMode.Restart));
+        Assert.True(db.Pragmas.WalCheckpoint(SQLiteWalCheckpointMode.Truncate));
+    }
+
+    [Fact]
+    public void WalCheckpoint_InvalidEnum_Throws()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Pragmas.JournalMode = "WAL";
+        Assert.Throws<ArgumentOutOfRangeException>(() => db.Pragmas.WalCheckpoint((SQLiteWalCheckpointMode)999));
+    }
+
+    [Fact]
+    public void IntegrityCheck_OnHealthyDb_ReturnsOk()
+    {
+        using TestDatabase db = new();
+        IReadOnlyList<string> result = db.Pragmas.IntegrityCheck();
+        Assert.Single(result);
+        Assert.Equal("ok", result[0]);
+    }
+
+    [Fact]
+    public void QuickCheck_OnHealthyDb_ReturnsOk()
+    {
+        using TestDatabase db = new();
+        IReadOnlyList<string> result = db.Pragmas.QuickCheck();
+        Assert.Single(result);
+        Assert.Equal("ok", result[0]);
+    }
+
+    [Fact]
+    public void Optimize_Runs()
+    {
+        using TestDatabase db = new();
+        db.Pragmas.Optimize();
+    }
+
+    [Fact]
+    public void DeferForeignKeys_Roundtrip()
+    {
+        using TestDatabase db = new();
+        db.Pragmas.DeferForeignKeys = true;
+        Assert.True(db.Pragmas.DeferForeignKeys);
+        db.Pragmas.DeferForeignKeys = false;
+        Assert.False(db.Pragmas.DeferForeignKeys);
+    }
+
+    [Fact]
+    public void Encoding_IsReadable()
+    {
+        using TestDatabase db = new();
+        SQLiteEncoding encoding = db.Pragmas.Encoding;
+        Assert.True(encoding == SQLiteEncoding.Utf8 || encoding == SQLiteEncoding.Utf16
+            || encoding == SQLiteEncoding.Utf16le || encoding == SQLiteEncoding.Utf16be);
+    }
+
+    [Fact]
+    public void Encoding_OnFreshFile_AcceptsExplicitWrite()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Pragmas.Encoding = SQLiteEncoding.Utf8;
+        Assert.Equal(SQLiteEncoding.Utf8, db.Pragmas.Encoding);
+    }
+
+    [Fact]
+    public void Encoding_Utf16le_OnFreshFile_RoundTrips()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Pragmas.Encoding = SQLiteEncoding.Utf16le;
+        Assert.Equal(SQLiteEncoding.Utf16le, db.Pragmas.Encoding);
+    }
+
+    [Fact]
+    public void Encoding_Utf16be_OnFreshFile_RoundTrips()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Pragmas.Encoding = SQLiteEncoding.Utf16be;
+        Assert.Equal(SQLiteEncoding.Utf16be, db.Pragmas.Encoding);
+    }
+
+    [Fact]
+    public void Encoding_Utf16_OnFreshFile_BecomesPlatformVariant()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Pragmas.Encoding = SQLiteEncoding.Utf16;
+        SQLiteEncoding result = db.Pragmas.Encoding;
+        Assert.True(result == SQLiteEncoding.Utf16le || result == SQLiteEncoding.Utf16be);
+    }
+
+    [Fact]
+    public void Encoding_InvalidEnum_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentOutOfRangeException>(() => db.Pragmas.Encoding = (SQLiteEncoding)999);
+    }
+
+    [Fact]
+    public void LockingMode_Roundtrip()
+    {
+        using TestDatabase db = new();
+        db.Pragmas.LockingMode = SQLiteLockingMode.Exclusive;
+        Assert.Equal(SQLiteLockingMode.Exclusive, db.Pragmas.LockingMode);
+        db.Pragmas.LockingMode = SQLiteLockingMode.Normal;
+        Assert.Equal(SQLiteLockingMode.Normal, db.Pragmas.LockingMode);
+    }
+
+    [Fact]
+    public void LockingMode_InvalidEnum_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentOutOfRangeException>(() => db.Pragmas.LockingMode = (SQLiteLockingMode)999);
+    }
+
+    [Fact]
+    public void ApplicationId_Roundtrip()
+    {
+        using TestDatabase db = new();
+        db.Pragmas.ApplicationId = 0x42424242;
+        Assert.Equal(0x42424242, db.Pragmas.ApplicationId);
+    }
+
+    [Fact]
+    public void DataVersion_IsReadable()
+    {
+        using TestDatabase db = new();
+        int v = db.Pragmas.DataVersion;
+        Assert.True(v >= 0);
+    }
+
+    [Fact]
+    public void SchemaVersion_IsReadable()
+    {
+        using TestDatabase db = new();
+        int v = db.Pragmas.SchemaVersion;
+        Assert.True(v >= 0);
+    }
+
+    [Fact]
+    public async Task BusyTimeoutAsync_Roundtrip()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetBusyTimeoutAsync(1500);
+        Assert.Equal(1500, await db.Pragmas.GetBusyTimeoutAsync());
+    }
+
+    [Fact]
+    public async Task MmapSizeAsync_IsReadable()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetMmapSizeAsync(0);
+        Assert.Equal(0, await db.Pragmas.GetMmapSizeAsync());
+    }
+
+    [Fact]
+    public async Task AutoVacuumAsync_Roundtrip()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetAutoVacuumAsync(SQLiteAutoVacuumMode.Incremental);
+        Assert.Equal(SQLiteAutoVacuumMode.Incremental, await db.Pragmas.GetAutoVacuumAsync());
+    }
+
+    [Fact]
+    public async Task IncrementalVacuumAsync_Runs()
+    {
+        using TestDatabase db = new(useFile: true);
+        await db.Pragmas.SetAutoVacuumAsync(SQLiteAutoVacuumMode.Incremental);
+        await db.Pragmas.IncrementalVacuumAsync();
+        await db.Pragmas.IncrementalVacuumAsync(5);
+    }
+
+    [Fact]
+    public async Task WalAutoCheckpointAsync_Roundtrip()
+    {
+        using TestDatabase db = new(useFile: true);
+        await db.Pragmas.SetJournalModeAsync("WAL");
+        await db.Pragmas.SetWalAutoCheckpointAsync(800);
+        Assert.Equal(800, await db.Pragmas.GetWalAutoCheckpointAsync());
+    }
+
+    [Fact]
+    public async Task WalCheckpointAsync_ReturnsTrueOnEmptyWal()
+    {
+        using TestDatabase db = new(useFile: true);
+        await db.Pragmas.SetJournalModeAsync("WAL");
+        Assert.True(await db.Pragmas.WalCheckpointAsync());
+        Assert.True(await db.Pragmas.WalCheckpointAsync(SQLiteWalCheckpointMode.Truncate));
+    }
+
+    [Fact]
+    public async Task IntegrityCheckAsync_OnHealthyDb_ReturnsOk()
+    {
+        using TestDatabase db = new();
+        IReadOnlyList<string> result = await db.Pragmas.IntegrityCheckAsync();
+        Assert.Single(result);
+        Assert.Equal("ok", result[0]);
+    }
+
+    [Fact]
+    public async Task QuickCheckAsync_OnHealthyDb_ReturnsOk()
+    {
+        using TestDatabase db = new();
+        IReadOnlyList<string> result = await db.Pragmas.QuickCheckAsync();
+        Assert.Single(result);
+        Assert.Equal("ok", result[0]);
+    }
+
+    [Fact]
+    public async Task OptimizeAsync_Runs()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.OptimizeAsync();
+    }
+
+    [Fact]
+    public async Task DeferForeignKeysAsync_Roundtrip()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetDeferForeignKeysAsync(true);
+        Assert.True(await db.Pragmas.GetDeferForeignKeysAsync());
+    }
+
+    [Fact]
+    public async Task EncodingAsync_IsReadable()
+    {
+        using TestDatabase db = new();
+        SQLiteEncoding encoding = await db.Pragmas.GetEncodingAsync();
+        Assert.True(encoding == SQLiteEncoding.Utf8 || encoding == SQLiteEncoding.Utf16
+            || encoding == SQLiteEncoding.Utf16le || encoding == SQLiteEncoding.Utf16be);
+    }
+
+    [Fact]
+    public async Task EncodingAsync_OnFreshFile_AcceptsExplicitWrite()
+    {
+        using TestDatabase db = new(useFile: true);
+        await db.Pragmas.SetEncodingAsync(SQLiteEncoding.Utf8);
+        Assert.Equal(SQLiteEncoding.Utf8, await db.Pragmas.GetEncodingAsync());
+    }
+
+    [Fact]
+    public async Task LockingModeAsync_Roundtrip()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetLockingModeAsync(SQLiteLockingMode.Exclusive);
+        Assert.Equal(SQLiteLockingMode.Exclusive, await db.Pragmas.GetLockingModeAsync());
+        await db.Pragmas.SetLockingModeAsync(SQLiteLockingMode.Normal);
+        Assert.Equal(SQLiteLockingMode.Normal, await db.Pragmas.GetLockingModeAsync());
+    }
+
+    [Fact]
+    public async Task ApplicationIdAsync_Roundtrip()
+    {
+        using TestDatabase db = new();
+        await db.Pragmas.SetApplicationIdAsync(0x12345678);
+        Assert.Equal(0x12345678, await db.Pragmas.GetApplicationIdAsync());
+    }
+
+    [Fact]
+    public async Task DataVersionAsync_IsReadable()
+    {
+        using TestDatabase db = new();
+        int v = await db.Pragmas.GetDataVersionAsync();
+        Assert.True(v >= 0);
+    }
+
+    [Fact]
+    public async Task SchemaVersionAsync_IsReadable()
+    {
+        using TestDatabase db = new();
+        int v = await db.Pragmas.GetSchemaVersionAsync();
+        Assert.True(v >= 0);
+    }
+
     private sealed class CustomPragmas : SQLitePragmas
     {
         public CustomPragmas(SQLiteDatabase database) : base(database) { }

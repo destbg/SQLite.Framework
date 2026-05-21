@@ -31,6 +31,23 @@ The full set of built-in accessors:
 | `RecursiveTriggers` | `recursive_triggers` | True or false. |
 | `TempStore` | `temp_store` | `0` default, `1` file, `2` memory. |
 | `SecureDelete` | `secure_delete` | True or false. |
+| `BusyTimeout` | `busy_timeout` | Milliseconds the busy handler waits before returning `SQLITE_BUSY`. |
+| `MmapSize` | `mmap_size` | Bytes SQLite will memory-map. `0` disables. |
+| `AutoVacuum` | `auto_vacuum` | `SQLiteAutoVacuumMode` enum: `None`, `Full`, `Incremental`. Only takes effect before the first write. |
+| `IncrementalVacuum(pages)` | `incremental_vacuum` | Reclaims free pages. Pass `null` for all, or a count. |
+| `WalAutoCheckpoint` | `wal_autocheckpoint` | Pages-in-WAL threshold for auto checkpoint. |
+| `WalCheckpoint(mode)` | `wal_checkpoint` | Runs a checkpoint with the given `SQLiteWalCheckpointMode`. Returns `true` when fully checkpointed. |
+| `IntegrityCheck()` | `integrity_check` | Returns a list. `["ok"]` on a healthy database. |
+| `QuickCheck()` | `quick_check` | Faster but less thorough than `IntegrityCheck`. |
+| `Optimize()` | `optimize` | Runs planner maintenance. Safe to call at app shutdown. |
+| `DeferForeignKeys` | `defer_foreign_keys` | Defers foreign key checks to commit. Resets at commit/rollback. |
+| `Encoding` | `encoding` | `SQLiteEncoding` enum: `Utf8`, `Utf16`, `Utf16le`, `Utf16be`. |
+| `LockingMode` | `locking_mode` | `SQLiteLockingMode` enum: `Normal`, `Exclusive`. |
+| `ApplicationId` | `application_id` | 32-bit magic number stored in the file header. |
+| `DataVersion` | `data_version` | Read-only. Increases when another connection modifies the database. |
+| `SchemaVersion` | `schema_version` | Read-only. Increases when the schema changes. |
+
+Each accessor also has an async wrapper, for example `GetBusyTimeoutAsync` and `SetBusyTimeoutAsync`, or `IntegrityCheckAsync`, in `AsyncPragmaExtensions`.
 
 ## System tables
 
