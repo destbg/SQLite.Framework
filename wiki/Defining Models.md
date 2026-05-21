@@ -134,6 +134,18 @@ public int AuthorId { get; set; }
 public string? Genre { get; set; }
 ```
 
+Each `[Indexed]` slot can also carry `Collation` and `Direction`:
+
+```csharp
+[Indexed("IX_Book_TitleDesc", 0, Direction = SQLiteIndexDirection.Descending)]
+public required string Title { get; set; }
+
+[Indexed("IX_Book_EmailLookup", 0, Collation = SQLiteCollation.NoCase)]
+public required string Email { get; set; }
+```
+
+`Direction` defaults to `SQLiteIndexDirection.Inherit`, which emits no clause. Set it to `Ascending` to emit `ASC`, or `Descending` to emit `DESC` and let the planner read the index forward for matching `ORDER BY x DESC` queries.
+
 ## Foreign Keys
 
 Mark the foreign key column with `[ReferencesTable(typeof(Parent))]`. The framework emits an inline `REFERENCES "Parent"("Id")` clause and infers the parent's primary key.

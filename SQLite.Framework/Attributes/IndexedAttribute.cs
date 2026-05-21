@@ -47,4 +47,13 @@ public class IndexedAttribute : Attribute
     /// column declares a different collation.
     /// </summary>
     public SQLiteCollation Collation { get; init; }
+
+    /// <summary>
+    /// Sort direction for this column inside the index. The default
+    /// <see cref="SQLiteIndexDirection.Inherit" /> emits no clause. Set to
+    /// <see cref="SQLiteIndexDirection.Descending" /> to store the column in reverse order so
+    /// that the query planner can read the index forward for matching <c>ORDER BY x DESC</c>
+    /// clauses without a separate sort step.
+    /// </summary>
+    public SQLiteIndexDirection Direction { get; init; }
 }

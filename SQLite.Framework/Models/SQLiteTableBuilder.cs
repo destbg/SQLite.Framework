@@ -68,7 +68,10 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     /// Adds an index. Pass a single property to create a single-column index, an anonymous
     /// object (<c>b =&gt; new { b.A, b.B }</c>) to create a composite index, or any expression
     /// (<c>b =&gt; b.Title.ToLower()</c>) to create an expression index. Optionally limit the
-    /// index to rows matching <paramref name="filter" /> for a partial index.
+    /// index to rows matching <paramref name="filter" /> for a partial index. Use
+    /// <paramref name="direction" /> or <paramref name="directions" /> to store one or more
+    /// slots in descending order, which lets the planner skip the sort step for matching
+    /// <c>ORDER BY x DESC</c> queries.
     /// </summary>
     /// <param name="column">Column, columns, or expression to index. Composite indexes can mix
     /// plain properties and expressions.</param>
@@ -83,7 +86,18 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     /// composite index.</param>
     /// <param name="collations">Per-slot collations for a composite index. Must match the
     /// number of slots. When set, takes precedence over <paramref name="collation" />.</param>
-    public SQLiteTableBuilder<T> Index<TKey>(Expression<Func<T, TKey>> column, string? name = null, bool unique = false, Expression<Func<T, bool>>? filter = null, SQLiteCollation collation = SQLiteCollation.Inherit, SQLiteCollation[]? collations = null)
+    /// <param name="direction">Sort direction applied to every slot of the index. The default
+    /// <see cref="SQLiteIndexDirection.Inherit" /> emits no clause. Use the
+    /// <paramref name="directions" /> parameter for per-slot directions on a composite index.</param>
+    /// <param name="directions">Per-slot sort directions for a composite index. Must match the
+    /// number of slots. When set, takes precedence over <paramref name="direction" />.</param>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android24.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios10.0")]
+#endif
+    public SQLiteTableBuilder<T> Index<TKey>(Expression<Func<T, TKey>> column, string? name = null, bool unique = false, Expression<Func<T, bool>>? filter = null, SQLiteCollation collation = SQLiteCollation.Inherit, SQLiteCollation[]? collations = null, SQLiteIndexDirection direction = SQLiteIndexDirection.Inherit, SQLiteIndexDirection[]? directions = null)
     {
         ArgumentNullException.ThrowIfNull(column);
 
@@ -145,6 +159,22 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             Array.Fill(columnCollations, collation);
         }
 
+        SQLiteIndexDirection[] columnDirections;
+        if (directions != null)
+        {
+            if (directions.Length != items.Length)
+            {
+                throw new ArgumentException($"Expected {items.Length} direction(s) to match the number of indexed columns, got {directions.Length}.", nameof(directions));
+            }
+
+            columnDirections = directions;
+        }
+        else
+        {
+            columnDirections = new SQLiteIndexDirection[items.Length];
+            Array.Fill(columnDirections, direction);
+        }
+
         string indexName;
         if (name != null)
         {
@@ -161,7 +191,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
         string? filterSql = filter == null ? null : TranslateBareSql(filter);
 
-        indexes.Add(new IndexSpec(items, columnCollations, indexName, unique, filterSql));
+        indexes.Add(new IndexSpec(items, columnCollations, columnDirections, indexName, unique, filterSql));
         return this;
     }
 
@@ -417,14 +447,15 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
                 Column: col.Name,
                 Order: idx.Order,
                 IsUnique: idx.IsUnique,
-                Collation: idx.Collation)))
+                Collation: idx.Collation,
+                Direction: idx.Direction)))
             .GroupBy(x => x.Name);
 
         foreach (var group in indexGroups)
         {
             var ordered = group.OrderBy(x => x.Order).ToArray();
             string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", ordered.Select(x => x.Column + CollationHelper.Clause(x.Collation)));
+            string columnList = string.Join(", ", ordered.Select(x => x.Column + CollationHelper.Clause(x.Collation) + IndexDirectionHelper.Clause(x.Direction)));
             string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
             count += database.CreateCommand(sql, []).ExecuteNonQuery();
         }
@@ -432,7 +463,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         foreach (IndexSpec index in indexes)
         {
             string uniqueClause = index.Unique ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", index.Columns.Select((c, i) => c + CollationHelper.Clause(index.Collations[i])));
+            string columnList = string.Join(", ", index.Columns.Select((c, i) => c + CollationHelper.Clause(index.Collations[i]) + IndexDirectionHelper.Clause(index.Directions[i])));
             string where = index.FilterSql == null ? string.Empty : $" WHERE {index.FilterSql}";
             string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{index.Name}\" ON \"{mapping.TableName}\" ({columnList}){where}";
             count += database.CreateCommand(sql, []).ExecuteNonQuery();

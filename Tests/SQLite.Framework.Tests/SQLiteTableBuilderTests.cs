@@ -1,4 +1,5 @@
 using System.Reflection;
+using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
@@ -517,6 +518,161 @@ public class SQLiteTableBuilderTests
         using TestDatabase db = new();
         Assert.Throws<ArgumentException>(() =>
             db.Schema.Table<IndexBuilderEntityWithNotMapped>().Default(b => b.NotPersisted, "x"));
+    }
+
+    [Fact]
+    public void Builder_Index_DefaultDirection_EmitsNoClause()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.AuthorId, name: "IX_BookArchive_AuthorDefault")
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorDefault'");
+        Assert.Contains("BookAuthorId", indexSql);
+        Assert.DoesNotContain("BookAuthorId ASC", indexSql);
+        Assert.DoesNotContain("BookAuthorId DESC", indexSql);
+    }
+
+    [Fact]
+    public void Builder_Index_ExplicitAscending_EmitsAscClause()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.AuthorId, name: "IX_BookArchive_AuthorExplicitAsc", direction: SQLiteIndexDirection.Ascending)
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorExplicitAsc'");
+        Assert.Contains("BookAuthorId ASC", indexSql);
+    }
+
+    [Fact]
+    public void Builder_Index_SingleDescending_EmitsDescClause()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.AuthorId, name: "IX_BookArchive_AuthorDesc", direction: SQLiteIndexDirection.Descending)
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorDesc'");
+        Assert.Contains("BookAuthorId DESC", indexSql);
+    }
+
+    [Fact]
+    public void Builder_Index_CompositeAllDescending_AppliesToEverySlot()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => new { b.AuthorId, b.Title },
+                name: "IX_BookArchive_AuthorAndTitleDesc",
+                direction: SQLiteIndexDirection.Descending)
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorAndTitleDesc'");
+        Assert.Contains("BookAuthorId DESC", indexSql);
+        Assert.Contains("BookTitle DESC", indexSql);
+    }
+
+    [Fact]
+    public void Builder_Index_CompositeMixedDirections_AppliesPerSlot()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => new { b.AuthorId, b.Title },
+                name: "IX_BookArchive_AuthorAscTitleDesc",
+                directions: [SQLiteIndexDirection.Ascending, SQLiteIndexDirection.Descending])
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorAscTitleDesc'");
+        Assert.Contains("BookAuthorId ASC", indexSql);
+        Assert.Contains("BookTitle DESC", indexSql);
+    }
+
+    [Fact]
+    public void Builder_Index_DirectionWithCollation_EmitsBothClauses()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.Title,
+                name: "IX_BookArchive_TitleNoCaseDesc",
+                collation: SQLiteCollation.NoCase,
+                direction: SQLiteIndexDirection.Descending)
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_TitleNoCaseDesc'");
+        Assert.Contains("BookTitle COLLATE NOCASE DESC", indexSql);
+    }
+
+    [Fact]
+    public void Builder_Index_ExpressionWithDescending_EmitsDescAfterExpression()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.Title.ToLower(),
+                name: "IX_BookArchive_TitleLowerDesc",
+                direction: SQLiteIndexDirection.Descending)
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_TitleLowerDesc'");
+        Assert.Contains("DESC", indexSql);
+        Assert.Contains("lower(", indexSql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Builder_Index_DirectionsLengthMismatch_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<BookArchive>()
+                .Index(b => new { b.AuthorId, b.Title },
+                    name: "IX_Mismatch",
+                    directions: [SQLiteIndexDirection.Ascending]));
+    }
+
+    [Fact]
+    public void Builder_Index_InvalidDirectionEnum_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            db.Schema.Table<BookArchive>()
+                .Index(b => b.AuthorId,
+                    name: "IX_InvalidDir",
+                    direction: (SQLiteIndexDirection)999)
+                .CreateTable());
+    }
+
+    public class IndexAttrDirectionEntity
+    {
+        [System.ComponentModel.DataAnnotations.Key]
+        public int Id { get; set; }
+
+        [Indexed("IX_IndexAttrDirEntity_NameDesc", 0, Direction = SQLiteIndexDirection.Descending)]
+        public required string Name { get; set; }
+    }
+
+    [Fact]
+    public void IndexedAttribute_Descending_EmitsDescClause()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<IndexAttrDirectionEntity>();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_IndexAttrDirEntity_NameDesc'");
+        Assert.Contains("Name DESC", indexSql);
     }
 
     [Fact]

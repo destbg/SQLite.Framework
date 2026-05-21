@@ -83,14 +83,15 @@ public class SQLiteSchema
                 Column: col.Name,
                 Order: idx.Order,
                 IsUnique: idx.IsUnique,
-                Collation: idx.Collation)))
+                Collation: idx.Collation,
+                Direction: idx.Direction)))
             .GroupBy(x => x.Name);
 
         foreach (var group in indexGroups)
         {
             var ordered = group.OrderBy(x => x.Order).ToArray();
             string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", ordered.Select(x => x.Column + CollationHelper.Clause(x.Collation)));
+            string columnList = string.Join(", ", ordered.Select(x => x.Column + CollationHelper.Clause(x.Collation) + IndexDirectionHelper.Clause(x.Direction)));
             string indexSql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
             count += Database.CreateCommand(indexSql, []).ExecuteNonQuery();
         }

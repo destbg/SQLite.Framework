@@ -74,7 +74,7 @@ db.Table<Book>().Schema
 
 For columns set this way, `Add` and `AddRange` omit the column from the INSERT when its CLR value equals `default(T)`. Same behavior as `[DefaultValue]` (see [Defining Models](Defining%20Models)).
 
-`Index(column, name, unique, filter, collation, collations)` adds an index. Pass a single property for a single-column index, an anonymous object (`b => new { b.A, b.B }`) for a composite index, or any expression for an expression index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself). Composite indexes cannot have a partial filter.
+`Index(column, name, unique, filter, collation, collations, direction, directions)` adds an index. Pass a single property for a single-column index, an anonymous object (`b => new { b.A, b.B }`) for a composite index, or any expression for an expression index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself). Composite indexes cannot have a partial filter.
 
 Use `collation` to apply one of the built-in collations (`NoCase`, `Rtrim`, `Binary`) to every column of the index. The default `SQLiteCollation.Inherit` emits no clause. For per-column collations on a composite index, pass `collations` as an array of the same length as the column list.
 
@@ -90,6 +90,16 @@ Expression indexes accept any translatable expression, and a composite index can
 .Index(b => b.Title.ToLower(), name: "IX_Book_TitleLower")
 .Index(b => new { b.AuthorId, Lowered = b.Title.ToLower() },
     name: "IX_Book_AuthorAndTitleLower")
+```
+
+Use `direction` to store every slot of the index in descending order, or pass `directions` as an array for per-slot control on a composite index. The default `SQLiteIndexDirection.Inherit` emits no clause, `Ascending` emits `ASC`, and `Descending` emits `DESC`. Sorting a slot in `DESC` lets the planner skip the extra sort step for matching `ORDER BY x DESC` queries. The `[Indexed]` attribute has a `Direction` property with the same effect.
+
+```csharp
+.Index(b => b.PublishedAt, name: "IX_Book_PublishedDesc",
+    direction: SQLiteIndexDirection.Descending)
+.Index(b => new { b.AuthorId, b.PublishedAt },
+    name: "IX_Book_AuthorAndPublishedMixed",
+    directions: [SQLiteIndexDirection.Ascending, SQLiteIndexDirection.Descending])
 ```
 
 `Strict()` marks the table as a SQLite STRICT table. Same effect as the `[StrictTable]` attribute (see [Defining Models](Defining%20Models)). Requires SQLite 3.37.0 or newer.
