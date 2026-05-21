@@ -235,6 +235,257 @@ public class CoverageGap3Tests
     }
 
     [Fact]
+    public void StripUpcast_OnDowncastConvert_ReturnsOriginal()
+    {
+        System.Linq.Expressions.ParameterExpression p = System.Linq.Expressions.Expression.Parameter(typeof(Book), "b");
+        System.Linq.Expressions.UnaryExpression downcast = System.Linq.Expressions.Expression.Convert(p, typeof(CoverageDownBook));
+        System.Linq.Expressions.Expression result = SQLite.Framework.Internals.Helpers.ExpressionHelpers.StripUpcast(downcast);
+        Assert.Same(downcast, result);
+    }
+
+    [Fact]
+    public void StripUpcast_OnNonUnaryExpression_ReturnsOriginal()
+    {
+        System.Linq.Expressions.ParameterExpression p = System.Linq.Expressions.Expression.Parameter(typeof(Book), "b");
+        System.Linq.Expressions.Expression result = SQLite.Framework.Internals.Helpers.ExpressionHelpers.StripUpcast(p);
+        Assert.Same(p, result);
+    }
+
+    [Fact]
+    public void StripUpcast_OnNonConvertUnary_ReturnsOriginal()
+    {
+        System.Linq.Expressions.ConstantExpression c = System.Linq.Expressions.Expression.Constant(5);
+        System.Linq.Expressions.UnaryExpression negate = System.Linq.Expressions.Expression.Negate(c);
+        System.Linq.Expressions.Expression result = SQLite.Framework.Internals.Helpers.ExpressionHelpers.StripUpcast(negate);
+        Assert.Same(negate, result);
+    }
+
+    [Fact]
+    public void Where_EnumConvertToWrongType_DoesNotRewriteConstant()
+    {
+        using TestDatabase db = new();
+        db.Table<Publisher>().Schema.CreateTable();
+        db.Table<Publisher>().Add(new Publisher { Id = 1, Name = "x", Type = PublisherType.Book });
+
+        SQLiteCommand cmd = db.Table<Publisher>()
+            .Where(p => (long)p.Type == 1L)
+            .ToSqlCommand();
+
+        Assert.Contains("Type", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Where_ConstantToWrongTypeEqualsEnum_DoesNotRewriteConstant()
+    {
+        using TestDatabase db = new();
+        db.Table<Publisher>().Schema.CreateTable();
+        db.Table<Publisher>().Add(new Publisher { Id = 1, Name = "x", Type = PublisherType.Book });
+
+        SQLiteCommand cmd = db.Table<Publisher>()
+            .Where(p => 1L == (long)p.Type)
+            .ToSqlCommand();
+
+        Assert.Contains("Type", cmd.CommandText);
+    }
+
+    [Fact]
+    public void Where_StringEqualsOneArg_TranslatesToEquality()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        List<Book> rows = db.Table<Book>()
+            .Where(b => b.Title.Equals("x"))
+            .ToList();
+
+        Assert.Single(rows);
+    }
+
+    internal class CoverageHelper
+    {
+        internal CoverageInternalData GetData(int x) => new() { Value = x * 2 };
+    }
+
+    internal class CoverageInternalData
+    {
+        public int Value { get; set; }
+    }
+
+    [Fact]
+    public void Select_NonPublicInstanceMethodOnCapturedValue_PassesInstanceToReflectedCollector()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        CoverageHelper helper = new();
+        var rows = db.Table<Book>()
+            .Select(b => new { b.Id, Data = helper.GetData(b.Id) })
+            .ToList();
+        Assert.Single(rows);
+        Assert.Equal(2, rows[0].Data.Value);
+    }
+
+    [Fact]
+    public void Add_Returning_ExplicitAutoIncrementKey_PreservesValueInInsert()
+    {
+        using TestDatabase db = new(b => b.ExplicitAutoIncrementKeysPreserved = true);
+        db.Table<Article>().Schema.CreateTable();
+
+        Article inserted = db.Table<Article>()
+            .Returning()
+            .Add(new Article { Id = 42, Title = "x", Body = "y", PublishedAt = DateTime.UtcNow });
+
+        Assert.Equal(42, inserted.Id);
+    }
+
+#if SQLITECIPHER
+    [Fact]
+    public void OpenTransactionConnection_WithoutEncryptionKey_DoesNotApplyKeyPragma()
+    {
+        string path = $"NoKeyCipher_{Guid.NewGuid():N}.db3";
+        try
+        {
+            SQLiteOptionsBuilder builder = new(path);
+            // explicitly no UseEncryptionKey
+            using SQLiteDatabase db = new(builder.Build());
+            db.Table<Book>().Schema.CreateTable();
+
+            using SQLiteTransaction tx = db.BeginTransaction(separateConnection: true);
+            db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+            tx.Commit();
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+#endif
+
+    [Fact]
+    public void BlockReadsDuringTransaction_NotifyEndedWithoutStarted_DoesNotSignal()
+    {
+        using TestDatabase db = new(b => b.UseBlockReadsDuringTransaction());
+
+        System.Reflection.MethodInfo method = typeof(SQLiteDatabase).GetMethod(
+            "NotifyTransactionEnded",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        method.Invoke(db, null);
+    }
+
+    [Fact]
+    public void BlockReadsDuringTransaction_SingleSeparateConnectionTx_RunsToCompletion()
+    {
+        using TestDatabase db = new(b => b.UseBlockReadsDuringTransaction(), useFile: true);
+        db.Table<Book>().Schema.CreateTable();
+
+        using SQLiteTransaction tx = db.BeginTransaction(separateConnection: true);
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+        tx.Commit();
+
+        Assert.Single(db.Table<Book>().ToList());
+    }
+
+    [Fact]
+    public void Any_OnOrderedQuery_OmitsOrderBy()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 5 });
+
+        bool any = db.Table<Book>().OrderBy(b => b.Id).Any();
+        Assert.True(any);
+    }
+
+    [Fact]
+    public void Where_ContainsWithComputedItem_PropagatesItemParameters()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 5 });
+        int[] ids = [2];
+
+        List<Book> rows = db.Table<Book>().Where(b => ids.Contains(b.Id + 1)).ToList();
+        Assert.Single(rows);
+    }
+
+    [Fact]
+    public void ExecuteUpdate_PropertySelectorWithDowncast_ThrowsInvalidPropertyExpression()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        Assert.Throws<ArgumentException>(() =>
+            db.Table<Book>().ExecuteUpdate(s => s.Set(b => ((CoverageDownBook)b).Title, "new")));
+    }
+
+    public class CoverageDownBook : Book
+    {
+    }
+
+    public record CoveragePositionalRecord(int Id, int? Value);
+
+    public class CoverageEntityWithReadOnlyProp
+    {
+        [System.ComponentModel.DataAnnotations.Key]
+        public int Id { get; set; }
+
+        public required string Name { get; set; }
+
+        public string Computed => Name + "!";
+    }
+
+    private static string DescribeEntity(CoverageEntityWithReadOnlyProp e) => $"{e.Id}-{e.Name}";
+
+    [Fact]
+    public void Select_RowToClientMethod_SkipsReadOnlyPropertyInBindings()
+    {
+        using TestDatabase db = new();
+        db.Table<CoverageEntityWithReadOnlyProp>().Schema.CreateTable();
+        db.Table<CoverageEntityWithReadOnlyProp>().Add(new CoverageEntityWithReadOnlyProp { Id = 1, Name = "x" });
+
+        List<string> rows = db.Table<CoverageEntityWithReadOnlyProp>()
+            .Select(e => DescribeEntity(e))
+            .ToList();
+        Assert.Single(rows);
+        Assert.Equal("1-x", rows[0]);
+    }
+
+    [Fact]
+    public void Select_PositionalRecordWithNullableField_BuildsViaPositionalCtor()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Value = 42 });
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Value = null });
+
+        List<CoveragePositionalRecord> rows = db.Table<NullableEntity>()
+            .Select(e => new CoveragePositionalRecord(e.Id, e.Value))
+            .OrderBy(r => r.Id)
+            .ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(42, rows[0].Value);
+        Assert.Null(rows[1].Value);
+    }
+
+    [Fact]
+    public void Select_AnonymousWithNonNullNullableSimpleField_HitsConvertChangeType()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Value = 42 });
+
+        var result = db.Table<NullableEntity>()
+            .Select(e => new { e.Id, e.Value })
+            .First();
+
+        Assert.Equal(1, result.Id);
+        Assert.Equal(42, result.Value);
+    }
+
+    [Fact]
     public void Select_MemberInitWithNullableSimpleField_HandlesBothNullAndNonNull()
     {
         using TestDatabase db = new();
@@ -525,6 +776,32 @@ public class CoverageGap3Tests
     }
 
     [Fact]
+    public void DateOnly_ToStringWithFormat_OnIntegerStorage_FallsBackClientSide()
+    {
+        using TestDatabase db = SetupDateOnlyDb();
+
+        string s = db.Table<DateOnlyEntity>()
+            .Where(a => a.Id == 1)
+            .Select(a => a.Date.ToString("yyyy-MM-dd"))
+            .First();
+
+        Assert.NotEmpty(s);
+    }
+
+    [Fact]
+    public void TimeOnly_ToStringWithFormat_OnIntegerStorage_FallsBackClientSide()
+    {
+        using TestDatabase db = SetupTimeOnlyDb();
+
+        string s = db.Table<TimeOnlyEntity>()
+            .Where(a => a.Id == 1)
+            .Select(a => a.Time.ToString("HH:mm"))
+            .First();
+
+        Assert.NotEmpty(s);
+    }
+
+    [Fact]
     public void DateOnly_AddDays_OnChained_PropagatesParameters()
     {
         using TestDatabase db = SetupDateOnlyDb();
@@ -735,6 +1012,63 @@ public class CoverageGap3Tests
 
         System.Text.StringBuilder another = SQLite.Framework.Internals.Helpers.StringBuilderPool.Rent();
         Assert.NotSame(sb, another);
+    }
+
+    public class JsonRowWithStringList
+    {
+        [System.ComponentModel.DataAnnotations.Key]
+        public int Id { get; set; }
+
+        public string Marker { get; set; } = "";
+
+        public List<string> Items { get; set; } = [];
+    }
+
+    [Fact]
+    public void EnumerateContextRoots_SkipsNonJsonTypeInfoGenericProperties()
+    {
+        ContextWithUnrelatedGenericProperty context = new();
+
+        System.Reflection.MethodInfo method = typeof(SQLiteOptionsBuilder).GetMethod(
+            "EnumerateContextRoots",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        IEnumerable<System.Text.Json.Serialization.Metadata.JsonTypeInfo> result =
+            (IEnumerable<System.Text.Json.Serialization.Metadata.JsonTypeInfo>)method.Invoke(null, [context])!;
+
+        List<System.Text.Json.Serialization.Metadata.JsonTypeInfo> typeInfos = [.. result];
+        Assert.Empty(typeInfos);
+    }
+
+    private sealed class ContextWithUnrelatedGenericProperty : System.Text.Json.Serialization.JsonSerializerContext
+    {
+        public ContextWithUnrelatedGenericProperty() : base(new System.Text.Json.JsonSerializerOptions())
+        {
+        }
+
+        public List<int> UnrelatedGenericProperty { get; } = [];
+
+        public override System.Text.Json.Serialization.Metadata.JsonTypeInfo? GetTypeInfo(Type type) => null;
+
+        protected override System.Text.Json.JsonSerializerOptions? GeneratedSerializerOptions => null;
+    }
+
+    [Fact]
+    public void JsonCollection_ChainedContainsWithColumnReference_RoundTrips()
+    {
+        using TestDatabase db = new(b =>
+        {
+            b.TypeConverters[typeof(List<string>)] =
+                new SQLite.Framework.SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString);
+        });
+        db.Table<JsonRowWithStringList>().Schema.CreateTable();
+        db.Table<JsonRowWithStringList>().Add(new JsonRowWithStringList { Id = 1, Marker = "b", Items = ["a", "b", "c"] });
+
+        List<JsonRowWithStringList> rows = db.Table<JsonRowWithStringList>()
+            .Where(r => r.Items.Where(x => x != "z").Contains(r.Marker))
+            .ToList();
+
+        Assert.Single(rows);
     }
 
     public class CoverageNestedOuter

@@ -85,7 +85,7 @@ internal static class BuildQueryObject
             };
         }
 
-        if (elementType.IsInterface || elementType.IsAbstract)
+        if (elementType.IsInterface)
         {
             Type? converterType = options.GetConverterTypeForInterface(elementType);
             if (converterType != null)
@@ -178,7 +178,7 @@ internal static class BuildQueryObject
 
         foreach (ParameterInfo parameter in parameters)
         {
-            if (parameter.Name == null || !propertyNames.Contains(parameter.Name))
+            if (!propertyNames.Contains(parameter.Name!))
             {
                 return null;
             }

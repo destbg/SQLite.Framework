@@ -131,33 +131,28 @@ internal partial class QueryableVisitor
         LambdaExpression selector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
         LambdaExpression resultSelector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[2]);
 
-        if (selector.Body is MethodCallExpression { Method.Name: nameof(Enumerable.DefaultIfEmpty) })
+        if (selector.Body is MethodCallExpression { Method.Name: nameof(Enumerable.DefaultIfEmpty) } methodCallExpression)
         {
-            if (Joins.Count > 0)
-            {
-                Type type = selector.Body.Type.GetGenericArguments()[^1];
-                JoinInfo join = Joins.First(f => f.EntityType == type && f.IsGroupJoin);
-                join.JoinType = "LEFT JOIN";
-                join.IsGroupJoin = false;
-            }
+            Type type = selector.Body.Type.GetGenericArguments()[^1];
+            JoinInfo join = Joins.First(f => f.EntityType == type && f.IsGroupJoin);
+            join.JoinType = "LEFT JOIN";
+            join.IsGroupJoin = false;
 
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
 
-            if (selector.Body is MethodCallExpression methodCallExpression && methodCallExpression.Arguments[0] is MemberExpression memberExpression)
+            MemberExpression memberExpression = (MemberExpression)methodCallExpression.Arguments[0];
+            Dictionary<string, Expression> result = [];
+
+            foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
-                Dictionary<string, Expression> result = [];
-
-                foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
+                if (tableColumn.Key.StartsWith(memberExpression.Member.Name))
                 {
-                    if (tableColumn.Key.StartsWith(memberExpression.Member.Name))
-                    {
-                        string path = tableColumn.Key[(memberExpression.Member.Name.Length + 1)..];
-                        result.Add(path, tableColumn.Value);
-                    }
+                    string path = tableColumn.Key[(memberExpression.Member.Name.Length + 1)..];
+                    result.Add(path, tableColumn.Value);
                 }
-
-                visitor.MethodArguments[resultSelector.Parameters[1]] = result;
             }
+
+            visitor.MethodArguments[resultSelector.Parameters[1]] = result;
 
             resultSelector = RowParameterExpander.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);

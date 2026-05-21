@@ -113,17 +113,14 @@ internal static class StringMemberVisitor
                 }
                 case nameof(string.Equals):
                 {
-                    string collation = string.Empty;
-                    if (arguments.Count == 2 && arguments[1].Constant is StringComparison comparison)
+                    StringComparison comparison = (StringComparison)arguments[1].Constant!;
+                    string collation = comparison switch
                     {
-                        collation = comparison switch
-                        {
-                            StringComparison.OrdinalIgnoreCase or
-                                StringComparison.CurrentCultureIgnoreCase or
-                                StringComparison.InvariantCultureIgnoreCase => " COLLATE NOCASE",
-                            _ => ""
-                        };
-                    }
+                        StringComparison.OrdinalIgnoreCase or
+                            StringComparison.CurrentCultureIgnoreCase or
+                            StringComparison.InvariantCultureIgnoreCase => " COLLATE NOCASE",
+                        _ => ""
+                    };
 
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
                     return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", obj.SQLiteExpression!, " = ", arguments[0].SQLiteExpression!, $"{collation})", parameters);

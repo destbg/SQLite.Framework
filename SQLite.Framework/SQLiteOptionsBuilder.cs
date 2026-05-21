@@ -796,10 +796,9 @@ public sealed class SQLiteOptionsBuilder
         foreach (PropertyInfo pi in context.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             if (pi.PropertyType.IsGenericType
-                && pi.PropertyType.GetGenericTypeDefinition() == typeof(JsonTypeInfo<>)
-                && pi.GetValue(context) is JsonTypeInfo info)
+                && pi.PropertyType.GetGenericTypeDefinition() == typeof(JsonTypeInfo<>))
             {
-                yield return info;
+                yield return (JsonTypeInfo)pi.GetValue(context)!;
             }
         }
     }

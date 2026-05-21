@@ -8,6 +8,18 @@ namespace SQLite.Framework.Internals;
 /// </remarks>
 internal class SQLTranslator
 {
+    private static readonly HashSet<string> SelectMethodNames = new(StringComparer.Ordinal)
+    {
+        nameof(Queryable.Select),
+        nameof(Queryable.Min),
+        nameof(Queryable.Max),
+        nameof(Queryable.Sum),
+        nameof(Queryable.Count),
+        nameof(Queryable.LongCount),
+        nameof(Queryable.Average),
+        nameof(Queryable.Contains),
+    };
+
     private readonly SQLiteDatabase database;
     private readonly int level;
     private readonly bool isInnerQuery;
@@ -116,9 +128,9 @@ internal class SQLTranslator
 
         VisitSQLExpression(Visitor.From);
 
-        if (QueryType == QueryType.Update && SetProperties != null)
+        if (QueryType == QueryType.Update)
         {
-            foreach ((string _, SQLiteExpression sqlExpression) in SetProperties)
+            foreach ((string _, SQLiteExpression sqlExpression) in SetProperties!)
             {
                 VisitSQLExpression(sqlExpression);
             }
@@ -239,32 +251,14 @@ internal class SQLTranslator
             database.IncrementSelectMaterializerHits();
 #endif
             createObject = generatedAnon;
-            if (selectMethodExpression != null)
-            {
-                ReflectedBindingsCollector anonCollector = new();
-                anonCollector.Visit(queryableMethodVisitor.LastSelectLambdaBody);
-                if (anonCollector.Methods.Count > 0)
-                {
-                    reflectedMethods = anonCollector.Methods;
-                    reflectedInstances = anonCollector.Instances;
-                }
-                if (anonCollector.CapturedValues.Count > 0)
-                {
-                    capturedValues = anonCollector.CapturedValues;
-                }
-                if (anonCollector.Types.Count > 0)
-                {
-                    reflectedTypes = anonCollector.Types;
-                }
-                if (anonCollector.Members.Count > 0)
-                {
-                    reflectedMembers = anonCollector.Members;
-                }
-                if (anonCollector.Constructors.Count > 0)
-                {
-                    reflectedConstructors = anonCollector.Constructors;
-                }
-            }
+            ReflectedBindingsCollector anonCollector = new();
+            anonCollector.Visit(queryableMethodVisitor.LastSelectLambdaBody);
+            reflectedMethods = anonCollector.Methods;
+            reflectedInstances = anonCollector.Instances;
+            capturedValues = anonCollector.CapturedValues;
+            reflectedTypes = anonCollector.Types;
+            reflectedMembers = anonCollector.Members;
+            reflectedConstructors = anonCollector.Constructors;
         }
         else if (selectMethodExpression is null
             or ParameterExpression
@@ -289,27 +283,12 @@ internal class SQLTranslator
 
                 ReflectedBindingsCollector collector = new();
                 collector.Visit(selectMethodExpression);
-                if (collector.Methods.Count > 0)
-                {
-                    reflectedMethods = collector.Methods;
-                    reflectedInstances = collector.Instances;
-                }
-                if (collector.CapturedValues.Count > 0)
-                {
-                    capturedValues = collector.CapturedValues;
-                }
-                if (collector.Types.Count > 0)
-                {
-                    reflectedTypes = collector.Types;
-                }
-                if (collector.Members.Count > 0)
-                {
-                    reflectedMembers = collector.Members;
-                }
-                if (collector.Constructors.Count > 0)
-                {
-                    reflectedConstructors = collector.Constructors;
-                }
+                reflectedMethods = collector.Methods;
+                reflectedInstances = collector.Instances;
+                capturedValues = collector.CapturedValues;
+                reflectedTypes = collector.Types;
+                reflectedMembers = collector.Members;
+                reflectedConstructors = collector.Constructors;
             }
             else
             {
@@ -432,11 +411,11 @@ internal class SQLTranslator
         }
 
         // SET
-        if (QueryType == QueryType.Update && SetProperties != null)
+        if (QueryType == QueryType.Update)
         {
             AppendSpacingNewline(sb, spacing, ref first);
             sb.Append("SET ");
-            for (int i = 0; i < SetProperties.Count; i++)
+            for (int i = 0; i < SetProperties!.Count; i++)
             {
                 if (i > 0) sb.Append(", ");
                 sb.Append(SetProperties[i].Name);
@@ -541,7 +520,7 @@ internal class SQLTranslator
             sb.Append(q.Skip);
         }
 
-        if (EmitReturning && (QueryType == QueryType.Update || QueryType == QueryType.Delete))
+        if (EmitReturning)
         {
             AppendSpacingNewline(sb, spacing, ref first);
             sb.Append("RETURNING ");
@@ -798,13 +777,6 @@ internal class SQLTranslator
 
     private static bool IsSelectMethod(MethodInfo method)
     {
-        return method.GetParameters().Length > 0 && method.Name is nameof(Queryable.Select)
-            or nameof(Queryable.Min)
-            or nameof(Queryable.Max)
-            or nameof(Queryable.Sum)
-            or nameof(Queryable.Count)
-            or nameof(Queryable.LongCount)
-            or nameof(Queryable.Average)
-            or nameof(Queryable.Contains);
+        return SelectMethodNames.Contains(method.Name);
     }
 }

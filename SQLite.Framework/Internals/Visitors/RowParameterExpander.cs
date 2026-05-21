@@ -113,7 +113,7 @@ internal sealed class RowParameterExpander : ExpressionVisitor
         List<MemberBinding> bindings = [];
         foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (prop.CanWrite && prop.GetIndexParameters().Length == 0)
+            if (prop.CanWrite)
             {
                 bindings.Add(Expression.Bind(prop, Expression.Property(rowReference, prop)));
             }

@@ -104,8 +104,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
         return new CompiledExpression(node.Type, ctx =>
         {
-            object? testValue = test.Call(ctx);
-            return testValue is not null and not false ? ifTrue.Call(ctx) : ifFalse.Call(ctx);
+            return (bool)test.Call(ctx)! ? ifTrue.Call(ctx) : ifFalse.Call(ctx);
         });
     }
 
@@ -301,15 +300,17 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             .Where(b => b.BindingType != MemberBindingType.ListBinding)
             .Select(f => (f, VisitMemberBindingExpression(f)))
             .ToList();
-        List<(MemberInfo Member, List<(MethodInfo AddMethod, CompiledExpression[] Args)> Initializers)> listBindings = node.Bindings
-            .OfType<MemberListBinding>()
-            .Select(lb => (
-                lb.Member,
-                lb.Initializers
-                    .Select(init => (init.AddMethod, init.Arguments.Select(a => (CompiledExpression)Visit(a)).ToArray()))
-                    .ToList()
-            ))
-            .ToList();
+        List<(MemberInfo Member, List<(MethodInfo AddMethod, CompiledExpression[] Args)> Initializers)> listBindings = [];
+        foreach (MemberListBinding lb in node.Bindings.OfType<MemberListBinding>())
+        {
+            List<(MethodInfo AddMethod, CompiledExpression[] Args)> initializers = [];
+            foreach (ElementInit init in lb.Initializers)
+            {
+                CompiledExpression[] args = init.Arguments.Select(a => (CompiledExpression)Visit(a)).ToArray();
+                initializers.Add((init.AddMethod, args));
+            }
+            listBindings.Add((lb.Member, initializers));
+        }
 
         return new CompiledExpression(node.Type, ctx =>
         {

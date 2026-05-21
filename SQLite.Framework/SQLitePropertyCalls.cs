@@ -64,12 +64,7 @@ public class SQLitePropertyCalls<T>
             throw new ArgumentException($"Expression '{propertyGetter}' refers to a method, not a property.");
         }
 
-        Expression target = member.Expression!;
-        if (target is UnaryExpression { NodeType: ExpressionType.Convert } cast
-            && cast.Type.IsAssignableFrom(cast.Operand.Type))
-        {
-            target = cast.Operand;
-        }
+        Expression target = ExpressionHelpers.StripUpcast(member.Expression!);
 
         if (target is not ParameterExpression)
         {

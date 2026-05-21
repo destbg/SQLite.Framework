@@ -831,7 +831,10 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             }
         }
 
-        toSignal?.TrySetResult();
+        if (toSignal != null)
+        {
+            toSignal.TrySetResult();
+        }
     }
 
     internal Task WaitForActiveTransactionsAsync(CancellationToken cancellationToken = default)

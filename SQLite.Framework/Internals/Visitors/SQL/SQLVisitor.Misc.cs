@@ -166,7 +166,7 @@ internal partial class SQLVisitor
 
         if (node.NodeType == ExpressionType.Convert)
         {
-            if (resolved.SQLiteExpression.Type == node.Type || node.Type == typeof(object))
+            if (node.Type == typeof(object))
             {
                 return resolved.SQLiteExpression;
             }

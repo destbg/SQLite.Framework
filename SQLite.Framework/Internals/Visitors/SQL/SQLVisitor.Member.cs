@@ -23,13 +23,13 @@ internal partial class SQLVisitor
             return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), value);
         }
 
-        if (node.Expression is UnaryExpression { NodeType: ExpressionType.Convert } cast
-            && cast.Type.IsAssignableFrom(cast.Operand.Type))
+        Expression stripped = ExpressionHelpers.StripUpcast(node.Expression!);
+        if (stripped != node.Expression)
         {
-            node = node.Update(cast.Operand);
+            node = node.Update(stripped);
         }
 
-        if (node.Expression is not MemberExpression and not ParameterExpression and not SQLiteExpression)
+        if (node.Expression is not MemberExpression and not ParameterExpression)
         {
             node = (MemberExpression)ResolveMember(node);
         }

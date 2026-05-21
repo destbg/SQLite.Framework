@@ -121,6 +121,14 @@ internal static class ExpressionHelpers
         return node;
     }
 
+    public static Expression StripUpcast(Expression node)
+    {
+        return node is UnaryExpression { NodeType: ExpressionType.Convert } cast
+            && cast.Type.IsAssignableFrom(cast.Operand.Type)
+            ? cast.Operand
+            : node;
+    }
+
     public static SQLiteExpression BracketIfNeeded(SQLiteExpression node)
     {
         return node.RequiresBrackets

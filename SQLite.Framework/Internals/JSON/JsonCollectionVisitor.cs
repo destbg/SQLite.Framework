@@ -192,7 +192,7 @@ internal partial class JsonCollectionVisitor
 
     private static bool IsChainedCollectionMethod(MethodCallExpression node)
     {
-        if (node.Method.DeclaringType != typeof(Enumerable) || !CollectionMethods.Contains(node.Method.Name))
+        if (!CollectionMethods.Contains(node.Method.Name))
         {
             return false;
         }

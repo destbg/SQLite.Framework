@@ -2576,6 +2576,21 @@ public class CoverageGapTests
     }
 
     [Fact]
+    public void QueryCompilerVisitor_VisitConditional_FalseBranch_ReachesCompiler()
+    {
+        using SQLiteDatabase db = CreateCompilerFallbackDb();
+        db.Table<CompilerEntity>().Schema.CreateTable();
+        db.Table<CompilerEntity>().Add(new CompilerEntity { Id = 1, Value = 10 });
+
+        List<int> rows = db.Table<CompilerEntity>()
+            .Select(b => b.Id < 0 ? UnsupportedHelperReturningInt() : 0)
+            .ToList();
+
+        Assert.Single(rows);
+        Assert.Equal(0, rows[0]);
+    }
+
+    [Fact]
     public void QueryCompilerVisitor_VisitUnary_NotConvertNegate_ReachesCompiler()
     {
         using SQLiteDatabase db = CreateCompilerFallbackDb();

@@ -55,6 +55,39 @@ public class ReflectedBindingsCollectorCoverageTests
     }
 
     [Fact]
+    public void Collector_VisitsNonPublicStaticMethodCall_AddsNullInstance()
+    {
+        MethodInfo method = typeof(ReflectedBindingsCollectorCoverageTests)
+            .GetMethod(nameof(StaticNonPublicEcho), BindingFlags.NonPublic | BindingFlags.Static)!;
+        MethodCallExpression call = Expression.Call(method, Expression.Constant(5));
+
+        Internals.Helpers.ReflectedBindingsCollector collector = new();
+        collector.Visit(call);
+
+        Assert.Single(collector.Methods);
+        Assert.Single(collector.Instances);
+        Assert.Null(collector.Instances[0]);
+    }
+
+    [Fact]
+    public void Collector_VisitsNonPublicInstanceMethodOnNonConstantReceiver_AddsNullInstance()
+    {
+        MethodInfo method = typeof(PrivateInstanceUtilForRbc)
+            .GetMethod(nameof(PrivateInstanceUtilForRbc.Echo))!;
+        ParameterExpression p = Expression.Parameter(typeof(PrivateInstanceUtilForRbc), "u");
+        MethodCallExpression call = Expression.Call(p, method, Expression.Constant("a"));
+
+        Internals.Helpers.ReflectedBindingsCollector collector = new();
+        collector.Visit(call);
+
+        Assert.Single(collector.Methods);
+        Assert.Single(collector.Instances);
+        Assert.Null(collector.Instances[0]);
+    }
+
+    internal static int StaticNonPublicEcho(int x) => x;
+
+    [Fact]
     public void Collector_VisitsMemberInitOnPrivateTypeWithMemberMemberBinding_RecursesIntoSubBindings()
     {
         MemberInfo innerMember = typeof(RbcCollectorPrivateOuter).GetProperty(nameof(RbcCollectorPrivateOuter.Inner))!;
@@ -77,6 +110,11 @@ public class ReflectedBindingsCollectorCoverageTests
     {
         public string Stamp(string s) => "[" + s + "]";
     }
+}
+
+internal class PrivateInstanceUtilForRbc
+{
+    public string Echo(string s) => s;
 }
 
 public class RbcStamper

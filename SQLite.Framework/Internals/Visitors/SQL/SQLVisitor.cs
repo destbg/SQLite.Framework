@@ -151,7 +151,7 @@ internal partial class SQLVisitor : ExpressionVisitor
         if (isConstant)
         {
             constantValue = ExpressionHelpers.GetConstantValue(node);
-            if (node is UnaryExpression { NodeType: ExpressionType.Convert } convertNode)
+            if (node is UnaryExpression convertNode)
             {
                 object? innerValue = ExpressionHelpers.GetConstantValue(convertNode.Operand);
                 Type targetType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
