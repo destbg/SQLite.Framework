@@ -37,6 +37,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - Transactions using SQLite savepoints
 - Raw SQL via `FromSql`
 - Full-text search through SQLite's FTS5 module
+- Spatial queries through SQLite's R-Tree module
 - AOT compatible, works great in .NET MAUI and Avalonia apps
 - Supports .NET 8, 9, and 10
 
@@ -67,6 +68,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - [JSON and JSONB](JSON%20and%20JSONB)
 - [Window Functions](Window%20Functions)
 - [Full Text Search](Full%20Text%20Search)
+- [R-Tree](R-Tree)
 - [SQLite Functions](SQLite%20Functions)
 - [Performance](Performance)
 - [Logging](Logging)

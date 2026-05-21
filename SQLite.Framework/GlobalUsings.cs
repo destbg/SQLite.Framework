@@ -10,6 +10,7 @@ global using SQLite.Framework.Internals.Helpers;
 global using SQLite.Framework.Internals.Interfaces;
 global using SQLite.Framework.Internals.JSON;
 global using SQLite.Framework.Internals.Models;
+global using SQLite.Framework.Internals.RTree;
 global using SQLite.Framework.Internals.Visitors;
 global using SQLite.Framework.Internals.Visitors.Member;
 global using SQLite.Framework.Internals.Visitors.Queryable;

@@ -68,7 +68,7 @@ The provider packages all expose the same API and assembly name, so you can swap
 | `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. |
 | `SQLite.Framework.Base` | Bring-your-own SQLitePCLRaw provider. |
 
-JSON, JSONB, FTS5, and window functions are built into all four.
+JSON, JSONB, FTS5, R-Tree, and window functions are built into all four.
 
 ## Quick Start
 
@@ -87,7 +87,7 @@ public class Person
 }
 ```
 
-   Per-class attributes: `[Table]`, `[WithoutRowId]`, `[StrictTable]`. Per-property: `[Column]`, `[NotMapped]`, `[Key]`, `[Index]`, `[AutoIncrement]`, `[Required]`, `[ReferencesTable]`, `[ForeignKey]`. Columns are NOT NULL by default, use `?` to mark them as nullable.
+   Per-class attributes: `[Table]`, `[WithoutRowId]`, `[StrictTable]`, `[FullTextSearch]`, `[RTreeIndex]`. Per-property: `[Column]`, `[NotMapped]`, `[Key]`, `[Indexed]`, `[AutoIncrement]`, `[Required]`, `[ReferencesTable]`, `[ForeignKey]`, `[FullTextIndexed]`, `[RTreeMin]`, `[RTreeMax]`, `[RTreeAuxiliary]`. Columns are NOT NULL by default, use `?` to mark them as nullable.
 
 2. **Open a database.**
 

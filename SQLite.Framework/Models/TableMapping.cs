@@ -21,10 +21,19 @@ public class TableMapping
         TableName = tableAttribute?.Name ?? type.Name;
         WithoutRowId = type.GetCustomAttribute<WithoutRowIdAttribute>() != null;
         Strict = type.GetCustomAttribute<StrictTableAttribute>() != null;
+        bool hasFts = type.GetCustomAttribute<FullTextSearchAttribute>() != null;
+        bool hasRtree = type.GetCustomAttribute<RTreeIndexAttribute>() != null;
+        if (hasFts && hasRtree)
+        {
+            throw new InvalidOperationException(
+                $"Entity '{type.Name}' cannot be both an FTS5 and an R-Tree virtual table. Remove one of the attributes.");
+        }
         FullTextSearch = FtsMappingReader.TryRead(type);
+        RTree = RTreeMappingReader.TryRead(type);
         Columns = properties
             .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
             .Where(p => FullTextSearch == null || IsFtsColumn(p))
+            .Where(p => RTree == null || IsRTreeColumn(p))
             .Select(p => new TableColumn(p, options, IsFtsRowIdProperty(p)))
             .ToArray();
 
@@ -79,6 +88,17 @@ public class TableMapping
     public bool IsFullTextSearch => FullTextSearch != null;
 
     /// <summary>
+    /// R-Tree metadata for this table when the class is decorated with
+    /// <see cref="RTreeIndexAttribute" />, otherwise <see langword="null" />.
+    /// </summary>
+    public RTreeTableInfo? RTree { get; }
+
+    /// <summary>
+    /// Convenience: <see langword="true" /> when this mapping describes an R-Tree virtual table.
+    /// </summary>
+    public bool IsRTree => RTree != null;
+
+    /// <summary>
     /// Composite foreign keys declared on this table via the fluent builder. Single-column
     /// foreign keys live on <see cref="TableColumn.ForeignKey" /> instead.
     /// </summary>
@@ -107,6 +127,21 @@ public class TableMapping
         }
 
         return FullTextSearch!.IndexedColumns.Any(c => c.Property == property);
+    }
+
+    private bool IsRTreeColumn(PropertyInfo property)
+    {
+        if (RTree!.RowIdProperty == property)
+        {
+            return true;
+        }
+
+        if (RTree.Bounds.Any(b => b.Property == property))
+        {
+            return true;
+        }
+
+        return RTree.Auxiliaries.Any(a => a.Property == property);
     }
 
     private ForeignKeyInfo ResolveTypedForeignKey(TableColumn column, ReferencesTableAttribute attribute)

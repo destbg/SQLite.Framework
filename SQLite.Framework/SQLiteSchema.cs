@@ -46,6 +46,11 @@ public class SQLiteSchema
             return CreateFullTextSearchTable(mapping);
         }
 
+        if (mapping.IsRTree)
+        {
+            return CreateRTreeTable(mapping);
+        }
+
         TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
         bool hasCompositePrimaryKey = primaryKeyColumns.Length > 1;
 
@@ -706,6 +711,41 @@ public class SQLiteSchema
         }
 
         return count;
+    }
+
+    /// <summary>
+    /// Emits the <c>CREATE VIRTUAL TABLE ... USING rtree(...)</c> (or <c>rtree_i32</c>) statement
+    /// for an R-Tree mapping. Override to change how the R-Tree table is created (for example,
+    /// to add extra options).
+    /// </summary>
+    /// <returns>The total number of rows affected by the issued statements.</returns>
+    protected virtual int CreateRTreeTable(TableMapping mapping)
+    {
+        RTreeTableInfo rtree = mapping.RTree!;
+        StringBuilder sb = new();
+        sb.Append("CREATE VIRTUAL TABLE IF NOT EXISTS \"");
+        sb.Append(mapping.TableName);
+        sb.Append("\" USING ");
+        sb.Append(rtree.Storage == SQLiteRTreeStorage.Int32 ? "rtree_i32" : "rtree");
+        sb.Append('(');
+
+        sb.Append(rtree.RowIdColumnName);
+
+        foreach (RTreeBoundsColumn bound in rtree.Bounds)
+        {
+            sb.Append(", ");
+            sb.Append(bound.ColumnName);
+        }
+
+        foreach (RTreeAuxiliaryColumn aux in rtree.Auxiliaries)
+        {
+            sb.Append(", +");
+            sb.Append(aux.ColumnName);
+        }
+
+        sb.Append(')');
+
+        return Database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
     }
 
     /// <summary>

@@ -40,6 +40,7 @@ export const sections: Section[] = [
       { slug: "Raw SQL", title: "Raw SQL" },
       { slug: "Common Table Expressions", title: "Common Table Expressions" },
       { slug: "Full Text Search", title: "Full Text Search" },
+      { slug: "R-Tree", title: "R-Tree" },
       { slug: "JSON and JSONB", title: "JSON and JSONB" },
       { slug: "Window Functions", title: "Window Functions" },
       { slug: "SQLite Functions", title: "SQLite Functions" },
