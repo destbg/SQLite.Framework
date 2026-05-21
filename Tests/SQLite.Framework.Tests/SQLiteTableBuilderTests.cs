@@ -1,4 +1,5 @@
 using System.Reflection;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
@@ -403,6 +404,119 @@ public class SQLiteTableBuilderTests
             .CreateTable();
 
         Assert.Contains("idx_BooksArchive_BookAuthorId", db.Schema.ListIndexes("BooksArchive"));
+    }
+
+    [Fact]
+    public void Builder_Index_SingleExpressionBody_EmitsExpressionIndex()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.Title.ToLower(), name: "IX_BookArchive_TitleLower")
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_TitleLower'");
+        Assert.Contains("lower(", indexSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("BookTitle", indexSql);
+    }
+
+    [Fact]
+    public void Builder_Index_ExpressionBody_QueryUsesIndex()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.Title.ToLower(), name: "IX_BookArchive_TitleLower")
+            .CreateTable();
+
+        db.Table<BookArchive>().Add(new BookArchive { Id = 1, Title = "FooBar", AuthorId = 1, Price = 1 });
+
+        BookArchive row = db.Table<BookArchive>()
+            .First(b => b.Title.ToLower() == "foobar");
+        Assert.Equal("FooBar", row.Title);
+    }
+
+    [Fact]
+    public void Builder_Index_CompositeMixedColumnAndExpression_EmitsBothSlots()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => new { b.AuthorId, Lowered = b.Title.ToLower() }, name: "IX_BookArchive_AuthorAndTitleLower")
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorAndTitleLower'");
+        Assert.Contains("BookAuthorId", indexSql);
+        Assert.Contains("lower(", indexSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("BookTitle", indexSql);
+    }
+
+    [Fact]
+    public void Builder_Index_ExpressionWithCollation_EmitsCollateClause()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Table<BookArchive>()
+            .Index(b => b.Title.Substring(0, 3), name: "IX_BookArchive_TitlePrefix", collation: SQLiteCollation.NoCase)
+            .CreateTable();
+
+        string indexSql = db.QueryFirst<string>(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_TitlePrefix'");
+        Assert.Contains("COLLATE NOCASE", indexSql);
+        Assert.Contains("substr(", indexSql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Builder_Index_ExpressionWithoutName_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<BookArchive>().Index(b => b.Title.ToLower()));
+    }
+
+    [Fact]
+    public void Builder_Index_CompositeMixed_WithoutName_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<BookArchive>().Index(b => new { b.AuthorId, Lowered = b.Title.ToLower() }));
+    }
+
+    public class IndexBuilderEntityWithNotMapped
+    {
+        [System.ComponentModel.DataAnnotations.Key]
+        public int Id { get; set; }
+
+        public required string Name { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public string NotPersisted { get; set; } = "";
+    }
+
+    [Fact]
+    public void Builder_Index_SinglePlainNotMappedProperty_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<IndexBuilderEntityWithNotMapped>().Index(b => b.NotPersisted));
+    }
+
+    [Fact]
+    public void Builder_Index_CompositePlainNotMappedProperty_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<IndexBuilderEntityWithNotMapped>().Index(b => new { b.Name, b.NotPersisted }));
+    }
+
+    [Fact]
+    public void Builder_Default_NotMappedProperty_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.Table<IndexBuilderEntityWithNotMapped>().Default(b => b.NotPersisted, "x"));
     }
 
     [Fact]

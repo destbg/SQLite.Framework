@@ -65,20 +65,24 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     }
 
     /// <summary>
-    /// Adds an index. Pass a single property to create a single-column index, or an anonymous
-    /// object (<c>b =&gt; new { b.A, b.B }</c>) to create a composite index. Optionally limit the
+    /// Adds an index. Pass a single property to create a single-column index, an anonymous
+    /// object (<c>b =&gt; new { b.A, b.B }</c>) to create a composite index, or any expression
+    /// (<c>b =&gt; b.Title.ToLower()</c>) to create an expression index. Optionally limit the
     /// index to rows matching <paramref name="filter" /> for a partial index.
     /// </summary>
-    /// <param name="column">Column or columns to index.</param>
-    /// <param name="name">Optional index name. The default is <c>idx_{TableName}_{ColumnName}</c>.</param>
+    /// <param name="column">Column, columns, or expression to index. Composite indexes can mix
+    /// plain properties and expressions.</param>
+    /// <param name="name">Optional index name. The default is <c>idx_{TableName}_{ColumnName}</c>
+    /// for plain-property indexes. Required when the body contains any expression that is not a
+    /// plain property access.</param>
     /// <param name="unique">Whether the index is unique.</param>
     /// <param name="filter">Optional predicate that produces a partial index (<c>WHERE</c> clause).</param>
-    /// <param name="collation">Collation applied to every column of the index. The default
+    /// <param name="collation">Collation applied to every slot of the index. The default
     /// <see cref="SQLiteCollation.Inherit" /> emits no clause so the column's declared collation
-    /// wins. Use the <paramref name="collations" /> parameter for per-column collations on a
+    /// wins. Use the <paramref name="collations" /> parameter for per-slot collations on a
     /// composite index.</param>
-    /// <param name="collations">Per-column collations for a composite index. Must match the
-    /// number of columns. When set, takes precedence over <paramref name="collation" />.</param>
+    /// <param name="collations">Per-slot collations for a composite index. Must match the
+    /// number of slots. When set, takes precedence over <paramref name="collation" />.</param>
     public SQLiteTableBuilder<T> Index<TKey>(Expression<Func<T, TKey>> column, string? name = null, bool unique = false, Expression<Func<T, bool>>? filter = null, SQLiteCollation collation = SQLiteCollation.Inherit, SQLiteCollation[]? collations = null)
     {
         ArgumentNullException.ThrowIfNull(column);
@@ -86,50 +90,91 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         Expression body = column.Body;
         if (body is UnaryExpression unary) body = unary.Operand;
 
-        string[] columnNames;
-        string defaultName;
+        ParameterExpression rowParameter = column.Parameters[0];
+        string[] items;
+        string[]? plainColumnNames;
 
         if (body is NewExpression newExpr)
         {
-            columnNames = new string[newExpr.Arguments.Count];
+            items = new string[newExpr.Arguments.Count];
+            string[] memberNames = new string[newExpr.Arguments.Count];
+            bool allPlain = true;
             for (int i = 0; i < newExpr.Arguments.Count; i++)
             {
                 Expression arg = newExpr.Arguments[i];
                 if (arg is UnaryExpression u) arg = u.Operand;
-                if (arg is not MemberExpression mem)
-                    throw new ArgumentException("Composite index expressions must be plain property accesses like b => new { b.A, b.B }.", nameof(column));
 
-                TableColumn col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == mem.Member.Name)
-                    ?? throw new ArgumentException($"Property '{mem.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
-                columnNames[i] = col.Name;
+                if (IsPlainRowMember(arg, rowParameter, out MemberExpression? mem))
+                {
+                    TableColumn col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == mem.Member.Name)
+                        ?? throw new ArgumentException($"Property '{mem.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
+                    items[i] = col.Name;
+                    memberNames[i] = col.Name;
+                }
+                else
+                {
+                    items[i] = "(" + TranslateBareSql(rowParameter, arg) + ")";
+                    allPlain = false;
+                }
             }
-            defaultName = $"idx_{mapping.TableName}_{string.Join("_", columnNames)}";
+            plainColumnNames = allPlain ? memberNames : null;
+        }
+        else if (IsPlainRowMember(body, rowParameter, out MemberExpression? plainMember))
+        {
+            TableColumn target = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == plainMember.Member.Name)
+                ?? throw new ArgumentException($"Property '{plainMember.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
+            items = [target.Name];
+            plainColumnNames = [target.Name];
         }
         else
         {
-            TableColumn target = ResolveTargetColumn(column);
-            columnNames = [target.Name];
-            defaultName = $"idx_{mapping.TableName}_{target.Name}";
+            items = ["(" + TranslateBareSql(rowParameter, body) + ")"];
+            plainColumnNames = null;
         }
 
         SQLiteCollation[] columnCollations;
         if (collations != null)
         {
-            if (collations.Length != columnNames.Length)
-                throw new ArgumentException($"Expected {columnNames.Length} collation(s) to match the number of indexed columns, got {collations.Length}.", nameof(collations));
+            if (collations.Length != items.Length)
+                throw new ArgumentException($"Expected {items.Length} collation(s) to match the number of indexed columns, got {collations.Length}.", nameof(collations));
             columnCollations = collations;
         }
         else
         {
-            columnCollations = new SQLiteCollation[columnNames.Length];
+            columnCollations = new SQLiteCollation[items.Length];
             Array.Fill(columnCollations, collation);
         }
 
-        string indexName = name ?? defaultName;
+        string indexName;
+        if (name != null)
+        {
+            indexName = name;
+        }
+        else if (plainColumnNames != null)
+        {
+            indexName = $"idx_{mapping.TableName}_{string.Join("_", plainColumnNames)}";
+        }
+        else
+        {
+            throw new ArgumentException("Expression indexes require an explicit 'name'. The framework cannot derive a stable default name from a translated SQL expression.", nameof(name));
+        }
+
         string? filterSql = filter == null ? null : TranslateBareSql(filter);
 
-        indexes.Add(new IndexSpec(columnNames, columnCollations, indexName, unique, filterSql));
+        indexes.Add(new IndexSpec(items, columnCollations, indexName, unique, filterSql));
         return this;
+    }
+
+    private static bool IsPlainRowMember(Expression expr, ParameterExpression rowParameter, [NotNullWhen(true)] out MemberExpression? member)
+    {
+        if (expr is MemberExpression me && me.Expression == rowParameter)
+        {
+            member = me;
+            return true;
+        }
+
+        member = null;
+        return false;
     }
 
     /// <summary>
@@ -398,13 +443,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
     private TableColumn ResolveTargetColumn<TKey>(Expression<Func<T, TKey>> column)
     {
-        Expression body = column.Body;
-        if (body is UnaryExpression unary)
-        {
-            body = unary.Operand;
-        }
-
-        if (body is not MemberExpression member)
+        if (column.Body is not MemberExpression member)
         {
             throw new ArgumentException("Expected a property access expression on the entity, like b => b.Title.", nameof(column));
         }
@@ -417,18 +456,23 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
     private string TranslateBareSql(LambdaExpression lambda)
     {
+        return TranslateBareSql(lambda.Parameters[0], lambda.Body);
+    }
+
+    private string TranslateBareSql(ParameterExpression rowParameter, Expression body)
+    {
         SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
 
         Dictionary<string, Expression> columnExpressions = mapping.Columns.ToDictionary(
             c => c.PropertyInfo.Name,
             Expression (c) => SQLiteExpression.Leaf(c.PropertyType, visitor.Counters.NextIdentifier(), c.Name));
 
-        visitor.MethodArguments[lambda.Parameters[0]] = columnExpressions;
+        visitor.MethodArguments[rowParameter] = columnExpressions;
 
-        Expression result = visitor.Visit(lambda.Body);
+        Expression result = visitor.Visit(body);
         if (result is not SQLiteExpression sqlExpr)
         {
-            throw new ArgumentException($"Expression '{lambda}' could not be translated to SQL.", nameof(lambda));
+            throw new ArgumentException($"Expression '{body}' could not be translated to SQL.", nameof(body));
         }
 
         return SqlLiteralHelper.InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters ?? []);
