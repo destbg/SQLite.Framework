@@ -557,6 +557,38 @@ public class PragmaTests
         Assert.True(v >= 0);
     }
 
+    [Fact]
+    public void ParseEncoding_UnknownString_Throws()
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => SQLitePragmas.ParseEncoding("garbage"));
+        Assert.Contains("garbage", ex.Message);
+    }
+
+    [Fact]
+    public void ParseEncoding_Null_Throws()
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => SQLitePragmas.ParseEncoding(null));
+        Assert.Contains("<null>", ex.Message);
+    }
+
+    [Fact]
+    public void ParseLockingMode_UnknownString_Throws()
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => SQLitePragmas.ParseLockingMode("weird"));
+        Assert.Contains("weird", ex.Message);
+    }
+
+    [Fact]
+    public void ParseLockingMode_Null_Throws()
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => SQLitePragmas.ParseLockingMode(null));
+        Assert.Contains("<null>", ex.Message);
+    }
+
     private sealed class CustomPragmas : SQLitePragmas
     {
         public CustomPragmas(SQLiteDatabase database) : base(database) { }

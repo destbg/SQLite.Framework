@@ -167,17 +167,7 @@ public class SQLitePragmas
     /// </summary>
     public virtual SQLiteEncoding Encoding
     {
-        get
-        {
-            string? value = Database.ExecuteScalar<string>("PRAGMA encoding");
-            return value switch
-            {
-                "UTF-8" => SQLiteEncoding.Utf8,
-                "UTF-16le" => SQLiteEncoding.Utf16le,
-                "UTF-16be" => SQLiteEncoding.Utf16be,
-                _ => throw new InvalidOperationException($"Unrecognized PRAGMA encoding value '{value ?? "<null>"}'."),
-            };
-        }
+        get => ParseEncoding(Database.ExecuteScalar<string>("PRAGMA encoding"));
         set => Database.Execute($"PRAGMA encoding = '{value switch
         {
             SQLiteEncoding.Utf8 => "UTF-8",
@@ -196,16 +186,7 @@ public class SQLitePragmas
     /// </summary>
     public virtual SQLiteLockingMode LockingMode
     {
-        get
-        {
-            string? value = Database.ExecuteScalar<string>("PRAGMA locking_mode");
-            return value switch
-            {
-                "normal" => SQLiteLockingMode.Normal,
-                "exclusive" => SQLiteLockingMode.Exclusive,
-                _ => throw new InvalidOperationException($"Unrecognized PRAGMA locking_mode value '{value ?? "<null>"}'."),
-            };
-        }
+        get => ParseLockingMode(Database.ExecuteScalar<string>("PRAGMA locking_mode"));
         set => Database.ExecuteScalar<string>($"PRAGMA locking_mode = {value switch
         {
             SQLiteLockingMode.Normal => "NORMAL",
@@ -446,5 +427,26 @@ public class SQLitePragmas
     public virtual IQueryable<PragmaForeignKey> ForeignKeyList(string tableName)
     {
         return new SQLitePragmaTable<PragmaForeignKey>(Database, "pragma_foreign_key_list", tableName);
+    }
+
+    internal static SQLiteEncoding ParseEncoding(string? value)
+    {
+        return value switch
+        {
+            "UTF-8" => SQLiteEncoding.Utf8,
+            "UTF-16le" => SQLiteEncoding.Utf16le,
+            "UTF-16be" => SQLiteEncoding.Utf16be,
+            _ => throw new InvalidOperationException($"Unrecognized PRAGMA encoding value '{value ?? "<null>"}'."),
+        };
+    }
+
+    internal static SQLiteLockingMode ParseLockingMode(string? value)
+    {
+        return value switch
+        {
+            "normal" => SQLiteLockingMode.Normal,
+            "exclusive" => SQLiteLockingMode.Exclusive,
+            _ => throw new InvalidOperationException($"Unrecognized PRAGMA locking_mode value '{value ?? "<null>"}'."),
+        };
     }
 }

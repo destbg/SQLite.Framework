@@ -126,6 +126,7 @@ public class CipherCoverageTests
         using TestDatabase db = new();
         db.Pragmas.CipherUseHmac = true;
         bool _ = db.Pragmas.CipherUseHmac;
+        db.Pragmas.CipherUseHmac = false;
     }
 
     [Fact]
