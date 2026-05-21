@@ -45,3 +45,27 @@ source.BackupTo(destination, sourceName: "aux", destName: "main");
 ## Concurrency
 
 Both the source and the destination connections are locked while the copy runs. Other writes on the source wait until the backup is done. Reads keep working as normal in WAL mode.
+
+## VACUUM and VACUUM INTO
+
+`Vacuum()` rebuilds the database file to reclaim free space and defragment pages. `VacuumInto(path)` writes a clean copy of the database to a separate file, similar to `BackupTo` but in a single SQL statement.
+
+```csharp
+db.Vacuum();
+db.VacuumInto("clean-copy.db");
+
+await db.VacuumAsync();
+await db.VacuumIntoAsync("clean-copy.db");
+```
+
+Pass an attached schema name to operate on that schema instead of `main`:
+
+```csharp
+db.AttachDatabase("aux.db", "aux");
+db.Vacuum("aux");
+db.VacuumInto("aux-copy.db", "aux");
+```
+
+`VACUUM` cannot run inside a transaction. `VACUUM INTO` requires SQLite 3.27.0 or newer; the `SQLite.Framework.Bundled` package always satisfies that, the OS-provided SQLite needs Android 30 (API level) or iOS 13.
+
+`VacuumInto` differs from `BackupTo` in that it is a single SQLite statement, the destination file is created fresh and must not already exist, and the copy is fully checkpointed and defragmented. `BackupTo` is incremental, can re-copy pages that change mid-flight, and can target an already-open connection.

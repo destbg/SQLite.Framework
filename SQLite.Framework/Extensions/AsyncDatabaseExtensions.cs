@@ -248,6 +248,37 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
+    /// Runs <c>VACUUM</c> on the main database, or on the attached <paramref name="schema" />.
+    /// </summary>
+    public static Task VacuumAsync(this SQLiteDatabase database, string? schema = null, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await database.LockAsync(ct);
+            database.Vacuum(schema);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Runs <c>VACUUM INTO '...'</c> to write a clean copy of the database to
+    /// <paramref name="destinationPath" />. Requires SQLite 3.27.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android30.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios13.0")]
+#endif
+    public static Task VacuumIntoAsync(this SQLiteDatabase database, string destinationPath, string? schema = null, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await database.LockAsync(ct);
+            database.VacuumInto(destinationPath, schema);
+        }, ct);
+    }
+
+    /// <summary>
     /// Attaches another SQLite file to this connection.
     /// </summary>
     public static Task AttachDatabaseAsync(this SQLiteDatabase database, string path, string schemaName, string? encryptionKey = null, CancellationToken ct = default)

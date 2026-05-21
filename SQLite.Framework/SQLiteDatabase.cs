@@ -468,6 +468,55 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Runs <c>VACUUM</c> to rebuild the database file. SQLite copies every page into a fresh
+    /// file, defragments, and reclaims free space. Pass an attached schema name to vacuum that
+    /// schema instead of <c>main</c>. Cannot run inside a transaction.
+    /// </summary>
+    /// <param name="schema">Attached schema name. Defaults to <see langword="null" />, which
+    /// means the main database.</param>
+    public virtual void Vacuum(string? schema = null)
+    {
+        if (schema == null)
+        {
+            Execute("VACUUM");
+        }
+        else
+        {
+            ValidateSchemaName(schema);
+            Execute($"VACUUM \"{schema}\"");
+        }
+    }
+
+    /// <summary>
+    /// Runs <c>VACUUM INTO '<paramref name="destinationPath" />'</c> to write a clean copy of
+    /// the database to a separate file. The destination file must not already exist.
+    /// Requires SQLite 3.27.0 or newer. Cannot run inside a transaction.
+    /// </summary>
+    /// <param name="destinationPath">Path where the new database file will be created.</param>
+    /// <param name="schema">Attached schema name to copy. Defaults to <see langword="null" />,
+    /// which means the main database.</param>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android30.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios13.0")]
+#endif
+    public virtual void VacuumInto(string destinationPath, string? schema = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(destinationPath);
+        string escapedPath = destinationPath.Replace("'", "''");
+        if (schema == null)
+        {
+            Execute($"VACUUM INTO '{escapedPath}'");
+        }
+        else
+        {
+            ValidateSchemaName(schema);
+            Execute($"VACUUM \"{schema}\" INTO '{escapedPath}'");
+        }
+    }
+
+    /// <summary>
     /// Attaches another SQLite file to this connection under the given schema name. After this
     /// call you can read tables in the attached file with raw SQL, like
     /// <c>SELECT * FROM aux.Books</c>.
