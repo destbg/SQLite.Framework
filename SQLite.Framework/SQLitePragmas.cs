@@ -237,6 +237,76 @@ public class SQLitePragmas
     /// </summary>
     public virtual int SchemaVersion => Database.ExecuteScalar<int>("PRAGMA schema_version");
 
+#if SQLITECIPHER
+    /// <summary>
+    /// <c>PRAGMA cipher_version</c>. SQLCipher only. Read-only string identifying the SQLCipher
+    /// build, for example <c>"4.6.0 community"</c>.
+    /// </summary>
+    public virtual string CipherVersion => Database.ExecuteScalar<string>("PRAGMA cipher_version")!;
+
+    /// <summary>
+    /// <c>PRAGMA cipher_provider</c>. SQLCipher only. Read-only string identifying the
+    /// underlying crypto provider, for example <c>"openssl"</c> or <c>"commoncrypto"</c>.
+    /// </summary>
+    public virtual string CipherProvider => Database.ExecuteScalar<string>("PRAGMA cipher_provider")!;
+
+    /// <summary>
+    /// <c>PRAGMA cipher_provider_version</c>. SQLCipher only. Read-only string identifying the
+    /// version of the underlying crypto provider.
+    /// </summary>
+    public virtual string CipherProviderVersion => Database.ExecuteScalar<string>("PRAGMA cipher_provider_version")!;
+
+    /// <summary>
+    /// <c>PRAGMA cipher_compatibility</c>. SQLCipher only. Compatibility version <c>1</c>
+    /// through <c>4</c>. Use to read databases created by older SQLCipher releases.
+    /// </summary>
+    public virtual int CipherCompatibility
+    {
+        get => Database.ExecuteScalar<int>("PRAGMA cipher_compatibility");
+        set => Database.Execute($"PRAGMA cipher_compatibility = {value}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA cipher_page_size</c>. SQLCipher only. Page size used for the encrypted file.
+    /// Must be set before the database is read or written.
+    /// </summary>
+    public virtual int CipherPageSize
+    {
+        get => Database.ExecuteScalar<int>("PRAGMA cipher_page_size");
+        set => Database.Execute($"PRAGMA cipher_page_size = {value}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA cipher_use_hmac</c>. SQLCipher only. Enables or disables HMAC integrity
+    /// protection on each page.
+    /// </summary>
+    public virtual bool CipherUseHmac
+    {
+        get => Database.ExecuteScalar<int>("PRAGMA cipher_use_hmac") == 1;
+        set => Database.Execute($"PRAGMA cipher_use_hmac = {(value ? "ON" : "OFF")}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA cipher_kdf_iter</c>. SQLCipher only. Number of PBKDF2 iterations applied to
+    /// the passphrase when deriving the encryption key.
+    /// </summary>
+    public virtual int CipherKdfIter
+    {
+        get => Database.ExecuteScalar<int>("PRAGMA cipher_kdf_iter");
+        set => Database.Execute($"PRAGMA cipher_kdf_iter = {value}");
+    }
+
+    /// <summary>
+    /// <c>PRAGMA cipher_memory_security</c>. SQLCipher only. When enabled, SQLCipher zeroes
+    /// internal memory buffers after use.
+    /// </summary>
+    public virtual bool CipherMemorySecurity
+    {
+        get => Database.ExecuteScalar<int>("PRAGMA cipher_memory_security") == 1;
+        set => Database.Execute($"PRAGMA cipher_memory_security = {(value ? "ON" : "OFF")}");
+    }
+#endif
+
     /// <summary>
     /// Queryable view over SQLite's built-in <c>sqlite_master</c> table, which lists every
     /// table, index, view, and trigger in the database. Supports the full LINQ surface
@@ -313,6 +383,20 @@ public class SQLitePragmas
     {
         Database.Execute("PRAGMA optimize");
     }
+
+#if SQLITECIPHER
+    /// <summary>
+    /// <c>PRAGMA rekey = '...'</c>. SQLCipher only. Re-encrypts the database with a new
+    /// passphrase. The connection must already be authenticated with the current key. The new
+    /// key is bound as a parameter to keep it out of the SQL string.
+    /// </summary>
+    public virtual void Rekey(string newKey)
+    {
+        ArgumentNullException.ThrowIfNull(newKey);
+        string escaped = newKey.Replace("'", "''");
+        Database.ExecuteScalar<string>($"PRAGMA rekey = '{escaped}'");
+    }
+#endif
 
     /// <summary>
     /// Returns the rows of <c>pragma_table_info(<paramref name="tableName" />)</c>, one per

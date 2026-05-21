@@ -49,6 +49,24 @@ The full set of built-in accessors:
 
 Each accessor also has an async wrapper, for example `GetBusyTimeoutAsync` and `SetBusyTimeoutAsync`, or `IntegrityCheckAsync`, in `AsyncPragmaExtensions`.
 
+## SQLCipher pragmas
+
+On the `SQLite.Framework.Cipher` package the same accessor adds the `cipher_*` family. These are only visible when the `SQLITECIPHER` compile symbol is defined (the Cipher package sets it):
+
+| Property or method | Pragma | Notes |
+|---|---|---|
+| `CipherVersion` | `cipher_version` | Read-only SQLCipher build string. |
+| `CipherProvider` | `cipher_provider` | Read-only crypto provider name. |
+| `CipherProviderVersion` | `cipher_provider_version` | Read-only provider version. |
+| `CipherCompatibility` | `cipher_compatibility` | Compatibility version 1-4. Set before opening. |
+| `CipherPageSize` | `cipher_page_size` | Page size for the encrypted file. Set before opening. |
+| `CipherUseHmac` | `cipher_use_hmac` | Enables HMAC per page. Set before opening. |
+| `CipherKdfIter` | `cipher_kdf_iter` | PBKDF2 iterations. Set before opening. |
+| `CipherMemorySecurity` | `cipher_memory_security` | Zero internal buffers after use. |
+| `Rekey(newKey)` | `rekey` | Re-encrypts the database with a new passphrase. The connection must already be authenticated. |
+
+The cipher set-only properties (compatibility, page size, HMAC, KDF iterations, memory security) only take effect when applied before the encryption key is set on the connection. The setters do not throw if you apply them later, but the new value will not be used until the next key operation.
+
 ## System tables
 
 `db.Pragmas.Master` and `db.Pragmas.Sequence` are LINQ-queryable views over `sqlite_master` and `sqlite_sequence`.

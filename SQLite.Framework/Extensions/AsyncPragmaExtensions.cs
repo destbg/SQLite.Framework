@@ -497,4 +497,174 @@ public static class AsyncPragmaExtensions
             return pragmas.SchemaVersion;
         }, ct);
     }
+
+#if SQLITECIPHER
+    /// <summary>
+    /// Reads <c>PRAGMA cipher_version</c>. SQLCipher only.
+    /// </summary>
+    public static Task<string> GetCipherVersionAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.CipherVersion;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA cipher_provider</c>. SQLCipher only.
+    /// </summary>
+    public static Task<string> GetCipherProviderAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.CipherProvider;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA cipher_provider_version</c>. SQLCipher only.
+    /// </summary>
+    public static Task<string> GetCipherProviderVersionAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.CipherProviderVersion;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA cipher_compatibility</c>. SQLCipher only.
+    /// </summary>
+    public static Task<int> GetCipherCompatibilityAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.CipherCompatibility;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA cipher_compatibility</c>. SQLCipher only.
+    /// </summary>
+    public static Task SetCipherCompatibilityAsync(this SQLitePragmas pragmas, int value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.CipherCompatibility = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA cipher_page_size</c>. SQLCipher only.
+    /// </summary>
+    public static Task<int> GetCipherPageSizeAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.CipherPageSize;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA cipher_page_size</c>. SQLCipher only.
+    /// </summary>
+    public static Task SetCipherPageSizeAsync(this SQLitePragmas pragmas, int value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.CipherPageSize = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA cipher_use_hmac</c>. SQLCipher only.
+    /// </summary>
+    public static Task<bool> GetCipherUseHmacAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.CipherUseHmac;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA cipher_use_hmac</c>. SQLCipher only.
+    /// </summary>
+    public static Task SetCipherUseHmacAsync(this SQLitePragmas pragmas, bool value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.CipherUseHmac = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA cipher_kdf_iter</c>. SQLCipher only.
+    /// </summary>
+    public static Task<int> GetCipherKdfIterAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.CipherKdfIter;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA cipher_kdf_iter</c>. SQLCipher only.
+    /// </summary>
+    public static Task SetCipherKdfIterAsync(this SQLitePragmas pragmas, int value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.CipherKdfIter = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reads <c>PRAGMA cipher_memory_security</c>. SQLCipher only.
+    /// </summary>
+    public static Task<bool> GetCipherMemorySecurityAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            return pragmas.CipherMemorySecurity;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Writes <c>PRAGMA cipher_memory_security</c>. SQLCipher only.
+    /// </summary>
+    public static Task SetCipherMemorySecurityAsync(this SQLitePragmas pragmas, bool value, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.CipherMemorySecurity = value;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Runs <c>PRAGMA rekey</c> to re-encrypt the database with a new passphrase. SQLCipher only.
+    /// </summary>
+    public static Task RekeyAsync(this SQLitePragmas pragmas, string newKey, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await pragmas.Database.LockAsync(ct);
+            pragmas.Rekey(newKey);
+        }, ct);
+    }
+#endif
 }
