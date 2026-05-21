@@ -77,6 +77,7 @@ public static class QueryableExtensions
     /// <summary>
     /// Executes the query and updates the records in the database.
     /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The From type comes from a Table<T>() in the queryable chain, so its public properties are rooted by the user.")]
     public static int ExecuteUpdate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this IQueryable<T> source, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
     {
         if (source is not BaseSQLiteQueryable table)
@@ -90,7 +91,8 @@ public static class QueryableExtensions
         };
         translator.Visit(source.Expression);
 
-        SQLitePropertyCalls<T> propertyCalls = new(translator.Visitor, table.Database.TableMapping<T>());
+        TableMapping targetMapping = table.Database.TableMapping(translator.Visitor.From!.Type);
+        SQLitePropertyCalls<T> propertyCalls = new(translator.Visitor, targetMapping);
         translator.SetProperties = setters(propertyCalls).SetProperties;
 
         SQLQuery query = translator.Translate(null);
@@ -171,6 +173,7 @@ public static class QueryableExtensions
     /// projection goes through the same pipeline as <c>Select</c>, so a matching
     /// source-generated materializer is used when one is registered.
     /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The From type comes from a Table<T>() in the queryable chain, so its public properties are rooted by the user.")]
     public static List<TResult> ExecuteUpdate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningQueryable<T, TResult> returning, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
     {
         ArgumentNullException.ThrowIfNull(returning);
@@ -185,7 +188,8 @@ public static class QueryableExtensions
         IQueryable<TResult> projected = returning.Source.Select(returning.Projection);
         translator.Visit(projected.Expression);
 
-        SQLitePropertyCalls<T> propertyCalls = new(translator.Visitor, returning.Database.TableMapping<T>());
+        TableMapping targetMapping = returning.Database.TableMapping(translator.Visitor.From!.Type);
+        SQLitePropertyCalls<T> propertyCalls = new(translator.Visitor, targetMapping);
         translator.SetProperties = setters(propertyCalls).SetProperties;
 
         SQLQuery query = translator.Translate(null);

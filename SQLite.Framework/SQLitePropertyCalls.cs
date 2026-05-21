@@ -6,12 +6,12 @@ namespace SQLite.Framework;
 public class SQLitePropertyCalls<T>
 {
     private readonly SQLVisitor visitor;
-    private readonly TableMapping tableMapping;
+    private readonly TableMapping targetMapping;
 
-    internal SQLitePropertyCalls(SQLVisitor visitor, TableMapping tableMapping)
+    internal SQLitePropertyCalls(SQLVisitor visitor, TableMapping targetMapping)
     {
         this.visitor = visitor;
-        this.tableMapping = tableMapping;
+        this.targetMapping = targetMapping;
     }
 
     internal List<(string, SQLiteExpression)> SetProperties { get; } = [];
@@ -66,7 +66,7 @@ public class SQLitePropertyCalls<T>
 
         Expression target = ExpressionHelpers.StripUpcast(member.Expression!);
 
-        if (target is not ParameterExpression)
+        if (target is not ParameterExpression && target is not MemberExpression)
         {
             throw new ArgumentException("Invalid property expression.", nameof(propertyGetter));
         }
@@ -76,6 +76,15 @@ public class SQLitePropertyCalls<T>
             throw new ArgumentException($"Expression '{propertyGetter}' refers to a field, not a property.");
         }
 
-        return tableMapping.Columns.First(f => f.PropertyInfo.Name == property.Name).Name;
+        if (target is MemberExpression && property.DeclaringType != targetMapping.Type)
+        {
+            throw new ArgumentException(
+                $"Expression '{propertyGetter}' references '{property.DeclaringType!.Name}.{property.Name}', " +
+                $"but the target table is '{targetMapping.Type.Name}'. " +
+                $"In an UPDATE FROM, only columns of the target table can appear on the left side of Set.",
+                nameof(propertyGetter));
+        }
+
+        return targetMapping.Columns.First(f => f.PropertyInfo.Name == property.Name).Name;
     }
 }

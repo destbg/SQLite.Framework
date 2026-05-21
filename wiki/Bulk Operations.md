@@ -75,6 +75,19 @@ await db.Table<Book>()
     );
 ```
 
+## Update from a Joined Table
+
+`ExecuteUpdate` (and its async variant) accept a `Join` chain so you can pull values from another table into the update. SQLite emits this as `UPDATE target SET ... FROM source WHERE ...`. Requires SQLite 3.33 or later.
+
+```csharp
+db.Table<Book>()
+    .Join(db.Table<Author>(), b => b.AuthorId, a => a.Id, (b, a) => new { b, a })
+    .Where(x => x.a.Country == "US")
+    .ExecuteUpdate(s => s.Set(x => x.b.Title, x => x.a.Name + " - bestseller"));
+```
+
+The `Set` left value must point at the target table (the first `Table<T>` in the chain). The right value can read any column from the joined sources. Chaining more `Join` calls produces a comma-separated `FROM` list.
+
 ## Insert Rows From a Query
 
 `InsertFromQuery` copies rows from one query into a table using a single `INSERT INTO ... SELECT` statement. The data never round-trips through your code, so this is the fastest way to copy or archive rows.

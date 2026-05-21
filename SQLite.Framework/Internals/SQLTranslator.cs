@@ -395,18 +395,23 @@ internal class SQLTranslator
         }
         Visitor.From!.WriteSqlTo(sb);
 
-        // JOINs
-        for (int i = 0; i < q.Joins.Count; i++)
+        bool isUpdateFrom = QueryType == QueryType.Update && q.Joins.Count > 0;
+
+        // JOINs (for SELECT/DELETE). For UPDATE FROM, joins go after SET.
+        if (!isUpdateFrom)
         {
-            AppendSpacingNewline(sb, spacing, ref first);
-            JoinInfo j = q.Joins[i];
-            sb.Append(j.JoinType);
-            sb.Append(' ');
-            j.Sql.WriteSqlTo(sb);
-            if (j.OnClause != null)
+            for (int i = 0; i < q.Joins.Count; i++)
             {
-                sb.Append(" ON ");
-                j.OnClause.WriteSqlTo(sb);
+                AppendSpacingNewline(sb, spacing, ref first);
+                JoinInfo j = q.Joins[i];
+                sb.Append(j.JoinType);
+                sb.Append(' ');
+                j.Sql.WriteSqlTo(sb);
+                if (j.OnClause != null)
+                {
+                    sb.Append(" ON ");
+                    j.OnClause.WriteSqlTo(sb);
+                }
             }
         }
 
@@ -424,27 +429,48 @@ internal class SQLTranslator
             }
         }
 
-        // WHERE
-        if (q.Wheres.Count > 0)
+        // FROM (UPDATE FROM source tables)
+        if (isUpdateFrom)
+        {
+            AppendSpacingNewline(sb, spacing, ref first);
+            sb.Append("FROM ");
+            for (int i = 0; i < q.Joins.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                q.Joins[i].Sql.WriteSqlTo(sb);
+            }
+        }
+
+        // WHERE (includes UPDATE FROM join ON clauses)
+        List<SQLiteExpression> wheres = q.Wheres.ToList();
+        if (isUpdateFrom)
+        {
+            for (int i = 0; i < q.Joins.Count; i++)
+            {
+                wheres.Insert(i, q.Joins[i].OnClause!);
+            }
+        }
+
+        if (wheres.Count > 0)
         {
             AppendSpacingNewline(sb, spacing, ref first);
             sb.Append("WHERE ");
             if (q.IsAll)
             {
                 sb.Append("NOT (");
-                for (int i = 0; i < q.Wheres.Count; i++)
+                for (int i = 0; i < wheres.Count; i++)
                 {
                     if (i > 0) sb.Append(" AND ");
-                    q.Wheres[i].WriteSqlTo(sb);
+                    wheres[i].WriteSqlTo(sb);
                 }
                 sb.Append(')');
             }
             else
             {
-                for (int i = 0; i < q.Wheres.Count; i++)
+                for (int i = 0; i < wheres.Count; i++)
                 {
                     if (i > 0) sb.Append(" AND ");
-                    q.Wheres[i].WriteSqlTo(sb);
+                    wheres[i].WriteSqlTo(sb);
                 }
             }
         }
