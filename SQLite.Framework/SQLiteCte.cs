@@ -18,6 +18,15 @@ public abstract class SQLiteCte : BaseSQLiteQueryable
     /// </summary>
     public LambdaExpression Query { get; }
 
+    /// <summary>
+    /// Materialization hint emitted between <c>AS</c> and the opening parenthesis. The default
+    /// <see cref="SQLiteCteMaterialization.Default" /> emits no hint and lets SQLite choose.
+    /// Set to <see cref="SQLiteCteMaterialization.Materialized" /> or
+    /// <see cref="SQLiteCteMaterialization.NotMaterialized" /> to force the choice.
+    /// Requires SQLite 3.35.0 or newer.
+    /// </summary>
+    public SQLiteCteMaterialization Materialization { get; init; }
+
     /// <inheritdoc />
     public override Type ElementType => Query.ReturnType.GetGenericArguments()[0];
 

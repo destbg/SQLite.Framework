@@ -210,7 +210,17 @@ internal class SQLTranslator
                 }
                 CteInfo cte = cteRegistry.Ctes[i];
                 cteSb.Append(cte.Name);
-                cteSb.Append(" AS (");
+                cteSb.Append(" AS ");
+                switch (cte.Materialization)
+                {
+                    case SQLiteCteMaterialization.Materialized:
+                        cteSb.Append("MATERIALIZED ");
+                        break;
+                    case SQLiteCteMaterialization.NotMaterialized:
+                        cteSb.Append("NOT MATERIALIZED ");
+                        break;
+                }
+                cteSb.Append('(');
                 cteSb.Append(Environment.NewLine);
                 cteSb.Append(cte.Sql);
                 cteSb.Append(Environment.NewLine);

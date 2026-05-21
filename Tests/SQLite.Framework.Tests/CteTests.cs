@@ -733,6 +733,69 @@ public class CteTests
             """), N(command.CommandText));
     }
 
+    [Fact]
+    public void With_DefaultMaterialization_EmitsNoHint()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCte<Book> cte = db.With(() => db.Table<Book>());
+        SQLiteCommand command = (from b in cte select b).ToSqlCommand();
+
+        Assert.DoesNotContain("MATERIALIZED", command.CommandText);
+    }
+
+    [Fact]
+    public void With_Materialized_EmitsMaterializedKeyword()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCte<Book> cte = db.With(() => db.Table<Book>(), SQLite.Framework.Enums.SQLiteCteMaterialization.Materialized);
+        SQLiteCommand command = (from b in cte select b).ToSqlCommand();
+
+        Assert.Contains("AS MATERIALIZED (", command.CommandText);
+        Assert.DoesNotContain("NOT MATERIALIZED", command.CommandText);
+    }
+
+    [Fact]
+    public void With_NotMaterialized_EmitsNotMaterializedKeyword()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCte<Book> cte = db.With(() => db.Table<Book>(), SQLite.Framework.Enums.SQLiteCteMaterialization.NotMaterialized);
+        SQLiteCommand command = (from b in cte select b).ToSqlCommand();
+
+        Assert.Contains("AS NOT MATERIALIZED (", command.CommandText);
+    }
+
+    [Fact]
+    public void With_Materialized_RoundTripsThroughExecution()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 10 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "y", AuthorId = 1, Price = 20 });
+
+        SQLiteCte<Book> cte = db.With(
+            () => db.Table<Book>().Where(b => b.Price > 5),
+            SQLite.Framework.Enums.SQLiteCteMaterialization.Materialized);
+
+        List<Book> rows = (from b in cte select b).ToList();
+        Assert.Equal(2, rows.Count);
+    }
+
+    [Fact]
+    public void WithRecursive_Materialized_EmitsMaterializedKeyword()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCte<Book> simpleRecursive = db.WithRecursive<Book>(
+            self => db.Table<Book>(),
+            SQLite.Framework.Enums.SQLiteCteMaterialization.Materialized);
+
+        SQLiteCommand command = (from b in simpleRecursive select b).ToSqlCommand();
+        Assert.Contains("AS MATERIALIZED (", command.CommandText);
+    }
+
     private class Cnt
     {
         public int X { get; set; }

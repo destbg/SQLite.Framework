@@ -20,7 +20,8 @@ internal class CteRegistry
             Name = name,
             Sql = sql,
             Parameters = parameters,
-            IsRecursive = isRecursive
+            IsRecursive = isRecursive,
+            Materialization = key.Materialization
         });
         registeredCtes[key] = name;
         return name;

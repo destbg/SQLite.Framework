@@ -6,4 +6,5 @@ internal class CteInfo
     public required string Sql { get; init; }
     public required SQLiteParameter[]? Parameters { get; init; }
     public bool IsRecursive { get; init; }
+    public SQLiteCteMaterialization Materialization { get; init; }
 }

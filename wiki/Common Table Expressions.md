@@ -33,6 +33,18 @@ FROM cte0 AS b0
 
 The CTE body can be any queryable expression including `Where`, `Select`, `OrderBy`, joins, and set operations.
 
+## Materialization hint
+
+SQLite 3.35 added `MATERIALIZED` and `NOT MATERIALIZED` hints that force or block CTE inlining. Pass a `SQLiteCteMaterialization` value to `With` or `WithRecursive` to set the hint. The default emits no hint and lets SQLite choose.
+
+```csharp
+SQLiteCte<Book> expensive = db.With(
+    () => db.Table<Book>().Where(b => b.Price > 100),
+    SQLiteCteMaterialization.Materialized);
+```
+
+`Materialized` forces SQLite to compute the CTE body once and reuse the result. `NotMaterialized` forces SQLite to inline the body at every reference.
+
 ## Using a CTE in joins
 
 A CTE can be used on either side of a join:

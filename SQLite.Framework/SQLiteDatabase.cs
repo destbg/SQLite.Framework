@@ -598,11 +598,49 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Defines a non-recursive Common Table Expression (CTE) with an explicit materialization hint.
+    /// </summary>
+    /// <param name="query">The lambda that returns the CTE body query.</param>
+    /// <param name="materialization">
+    /// Materialization hint emitted between <c>AS</c> and the opening parenthesis.
+    /// <see cref="SQLiteCteMaterialization.Default" /> emits no hint and lets SQLite choose.
+    /// </param>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public SQLiteCte<T> With<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression<Func<IQueryable<T>>> query, SQLiteCteMaterialization materialization)
+    {
+        return new SQLiteCte<T>(this, query) { Materialization = materialization };
+    }
+
+    /// <summary>
     /// Defines a recursive Common Table Expression (CTE). The lambda parameter is the self-reference used in the recursive term.
     /// </summary>
     public SQLiteCte<T> WithRecursive<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression<Func<IQueryable<T>, IQueryable<T>>> query)
     {
         return new SQLiteCte<T>(this, query);
+    }
+
+    /// <summary>
+    /// Defines a recursive Common Table Expression (CTE) with an explicit materialization hint.
+    /// </summary>
+    /// <param name="query">The lambda that defines the recursive CTE body. The parameter is the self-reference.</param>
+    /// <param name="materialization">
+    /// Materialization hint emitted between <c>AS</c> and the opening parenthesis.
+    /// <see cref="SQLiteCteMaterialization.Default" /> emits no hint and lets SQLite choose.
+    /// </param>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public SQLiteCte<T> WithRecursive<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression<Func<IQueryable<T>, IQueryable<T>>> query, SQLiteCteMaterialization materialization)
+    {
+        return new SQLiteCte<T>(this, query) { Materialization = materialization };
     }
 
     /// <summary>
