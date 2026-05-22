@@ -3454,4 +3454,46 @@ public class CoverageGapTests
     private sealed class ContainsTestComplex
     {
     }
+
+    [Fact]
+    public async Task UpdateRangeAsync_Table_AppliesAllUpdates()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+        ]);
+
+        await db.Table<Book>().UpdateRangeAsync(
+        [
+            new Book { Id = 1, Title = "AA", AuthorId = 1, Price = 11 },
+            new Book { Id = 2, Title = "BB", AuthorId = 1, Price = 22 },
+        ], ct: TestContext.Current.CancellationToken);
+
+        List<Book> rows = db.Table<Book>().OrderBy(b => b.Id).ToList();
+        Assert.Equal("AA", rows[0].Title);
+        Assert.Equal("BB", rows[1].Title);
+    }
+
+    [Fact]
+    public async Task RemoveRangeAsync_Table_DeletesAllItems()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+        ]);
+
+        await db.Table<Book>().RemoveRangeAsync(
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+        ], ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, db.Table<Book>().Count());
+    }
 }
