@@ -19,6 +19,7 @@ The class also holds the FTS5 helpers (`Match`, `Rank`, `Snippet`, `Highlight`).
 | `In(value, v0, v1, ...)` | `value IN (v0, v1, ...)` |
 | `Coalesce(v0, v1, ...)` | `coalesce(v0, v1, ...)` |
 | `Nullif(a, b)` | `nullif(a, b)` |
+| `Iif(condition, whenTrue, whenFalse)` | `iif(condition, whenTrue, whenFalse)` |
 | `Typeof(x)` | `typeof(x)` |
 | `Hex(bytes)` | `hex(bytes)` |
 | `Quote(x)` | `quote(x)` |

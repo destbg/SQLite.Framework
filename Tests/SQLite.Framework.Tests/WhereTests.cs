@@ -715,6 +715,56 @@ public class WhereTests
     }
 
     [Fact]
+    public void Where_Iif_RoundTrip()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "cheap", AuthorId = 1, Price = 5 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "pricey", AuthorId = 1, Price = 50 });
+
+        List<int> ids = db.Table<Book>()
+            .Where(b => SQLiteFunctions.Iif(b.Price > 10, 1, 0) == 1)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([2], ids);
+    }
+
+    [Fact]
+    public void Select_Iif_EmitsIifSql()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.Table<Book>()
+            .Select(b => SQLiteFunctions.Iif(b.Price > 10, "high", "low"))
+            .ToSqlCommand();
+
+        Assert.Contains("iif(", command.CommandText);
+    }
+
+    [Fact]
+    public void Select_Iif_ProjectsCorrectValues()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 5 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "y", AuthorId = 1, Price = 50 });
+
+        List<string> labels = db.Table<Book>()
+            .OrderBy(b => b.Id)
+            .Select(b => SQLiteFunctions.Iif(b.Price > 10, "high", "low"))
+            .ToList();
+
+        Assert.Equal(["low", "high"], labels);
+    }
+
+    [Fact]
+    public void SQLiteFunctions_Iif_OutsideQuery_Throws()
+    {
+        Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Iif(true, 1, 2));
+    }
+
+    [Fact]
     public void Select_Typeof_RoundTrip()
     {
         using TestDatabase db = new();

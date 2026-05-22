@@ -19,6 +19,7 @@ internal static class SQLiteFunctionsMemberVisitor
             nameof(SQLiteFunctions.In) => HandleFunctionsIn(visitor, node),
             nameof(SQLiteFunctions.Coalesce) => HandleFunctionsVariadic(visitor, node, "coalesce", node.Method.ReturnType),
             nameof(SQLiteFunctions.Nullif) => HandleFunctionsNullif(visitor, node),
+            nameof(SQLiteFunctions.Iif) => HandleFunctionsIif(visitor, node),
             nameof(SQLiteFunctions.Typeof) => HandleFunctionsUnaryFn(visitor, node, "typeof", typeof(string)),
             nameof(SQLiteFunctions.Hex) => HandleFunctionsUnaryFn(visitor, node, "hex", typeof(string)),
             nameof(SQLiteFunctions.Quote) => HandleFunctionsUnaryFn(visitor, node, "quote", typeof(string)),
@@ -93,6 +94,14 @@ internal static class SQLiteFunctionsMemberVisitor
         ResolvedModel a = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel b = visitor.ResolveExpression(node.Arguments[1]);
         return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "nullif(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(a.SQLiteExpression!, b.SQLiteExpression!));
+    }
+
+    private static SQLiteExpression HandleFunctionsIif(SQLVisitor visitor, MethodCallExpression node)
+    {
+        ResolvedModel condition = visitor.ResolveExpression(node.Arguments[0]);
+        ResolvedModel whenTrue = visitor.ResolveExpression(node.Arguments[1]);
+        ResolvedModel whenFalse = visitor.ResolveExpression(node.Arguments[2]);
+        return SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "iif(", condition.SQLiteExpression!, ", ", whenTrue.SQLiteExpression!, ", ", whenFalse.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(condition.SQLiteExpression!, whenTrue.SQLiteExpression!, whenFalse.SQLiteExpression!));
     }
 
     private static SQLiteExpression HandleFunctionsUnaryFn(SQLVisitor visitor, MethodCallExpression node, string sqlFunction, Type returnType)

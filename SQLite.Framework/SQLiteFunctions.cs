@@ -128,6 +128,24 @@ public static class SQLiteFunctions
     }
 
     /// <summary>
+    /// Returns <paramref name="whenTrue" /> if <paramref name="condition" /> is true, otherwise
+    /// <paramref name="whenFalse" />. Translates to SQLite's <c>iif(condition, whenTrue, whenFalse)</c>.
+    /// SQLite implements <c>iif</c> as a shorthand for <c>CASE WHEN condition THEN whenTrue ELSE whenFalse END</c>.
+    /// The C# ternary <c>?:</c> operator already translates to a <c>CASE</c> expression.
+    /// Requires SQLite 3.32.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public static T Iif<T>(bool condition, T whenTrue, T whenFalse)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
     /// Returns the SQLite storage class of <paramref name="value" /> as a lowercase string
     /// (<c>"null"</c>, <c>"integer"</c>, <c>"real"</c>, <c>"text"</c>, or <c>"blob"</c>).
     /// Translates to SQLite's <c>typeof(value)</c>.
