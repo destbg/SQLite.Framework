@@ -1,3 +1,3 @@
 User-Agent: *
 Allow: /
-Sitemap: https://destbg.github.io/SQLite.Framework/sitemap.xml
+Sitemap: https://sqlite-framework.net/sitemap.xml

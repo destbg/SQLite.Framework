@@ -1,9 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://destbg.github.io/SQLite.Framework/</loc>
-    <lastmod>2026-05-12</lastmod>
+    <loc>https://sqlite-framework.net/</loc>
+    <lastmod>2026-05-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+  <url><loc>https://sqlite-framework.net/Overview</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://sqlite-framework.net/Getting%20Started</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://sqlite-framework.net/Defining%20Models</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://sqlite-framework.net/Samples</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/CRUD%20Operations</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://sqlite-framework.net/Querying</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://sqlite-framework.net/Expressions</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Subqueries</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Joins</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Grouping%20and%20Aggregates</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Bulk%20Operations</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Transactions</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Multi-threading</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Raw%20SQL</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Common%20Table%20Expressions</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Full%20Text%20Search</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/R-Tree</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/JSON%20and%20JSONB</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Window%20Functions</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/SQLite%20Functions</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Pragmas</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Backup</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Attached%20Databases</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Schema</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Data%20Types</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Storage%20Options</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Custom%20Converters</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Dependency%20Injection</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Performance</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Logging</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Native%20AOT</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Source%20Generator</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Migrating%20from%20sqlite-net-pcl</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/Migrating%20from%20EF%20Core</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://sqlite-framework.net/AI%20Assistance</loc><lastmod>2026-05-22</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
 </urlset>

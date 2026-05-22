@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  HashRouter,
+  BrowserRouter,
   Navigate,
   Route,
   Routes,
@@ -54,7 +54,7 @@ export default function App() {
   }, [openSearch]);
 
   return (
-    <HashRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <div className="app">
         <Sidebar onOpenSearch={() => openSearch("")} />
         <main className="content">
@@ -69,6 +69,6 @@ export default function App() {
         initialQuery={searchInitial}
         onClose={closeSearch}
       />
-    </HashRouter>
+    </BrowserRouter>
   );
 }

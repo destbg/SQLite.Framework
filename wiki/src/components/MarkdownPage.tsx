@@ -37,7 +37,7 @@ function PageLayer({ slug, onLinkClick }: LayerProps) {
           if (href && !href.startsWith("http") && !href.startsWith("#")) {
             return (
               <a
-                href={`#/${href}`}
+                href={`${import.meta.env.BASE_URL}${href}`}
                 onClick={(e) => {
                   e.preventDefault();
                   onLinkClick(href);

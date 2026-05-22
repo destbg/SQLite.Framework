@@ -3,7 +3,7 @@
     <ShortName>SQLite.Framework</ShortName>
     <Description>Documentation for SQLite.Framework, a LINQ-friendly ORM for SQLite in .NET</Description>
     <Tags>sqlite dotnet csharp orm linq iqueryable maui avalonia aot</Tags>
-    <Url type="text/html" method="get" template="https://destbg.github.io/SQLite.Framework/"/>
-    <Image height="16" width="16" type="image/x-icon">https://destbg.github.io/SQLite.Framework/favicon.ico</Image>
-    <Image height="32" width="32" type="image/png">https://destbg.github.io/SQLite.Framework/favicon-32x32.png</Image>
+    <Url type="text/html" method="get" template="https://sqlite-framework.net/"/>
+    <Image height="16" width="16" type="image/x-icon">https://sqlite-framework.net/favicon.ico</Image>
+    <Image height="32" width="32" type="image/png">https://sqlite-framework.net/favicon-32x32.png</Image>
 </OpenSearchDescription>

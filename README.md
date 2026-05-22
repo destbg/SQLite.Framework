@@ -39,11 +39,11 @@ That whole expression is one SQL query. The framework keeps the generated SQL cl
 | **sqlite-net-pcl** | Real LINQ - joins, group-by, subqueries, projections, FTS5, JSON, window functions all translate to SQL. AOT-friendly with the source generator. | Nothing meaningful, the API is similar where it overlaps and the migration is small. |
 | **Dapper** | No more raw SQL strings (although you can still call Query and Execute just the same) and type-safe queries. | Multi-database support, Dapper isn't SQLite-specific. |
 
-See the [Migrating from sqlite-net-pcl](https://destbg.github.io/SQLite.Framework/#/Migrating%20from%20sqlite-net-pcl) or [Migrating from EF Core](https://destbg.github.io/SQLite.Framework/#/Migrating%20from%20EF%20Core) page if that's your starting point.
+See the [Migrating from sqlite-net-pcl](https://sqlite-framework.net/Migrating%20from%20sqlite-net-pcl) or [Migrating from EF Core](https://sqlite-framework.net/Migrating%20from%20EF%20Core) page if that's your starting point.
 
 ## Performance
 
-Benchmarks against EF Core 10 and sqlite-net-pcl 1.9 live on the [Performance](https://destbg.github.io/SQLite.Framework/#/Performance) docs page.
+Benchmarks against EF Core 10 and sqlite-net-pcl 1.9 live on the [Performance](https://sqlite-framework.net/Performance) docs page.
 
 ## Status
 
@@ -51,7 +51,7 @@ The library is exercised at 100% code coverage. It targets .NET 8, 9, and 10.
 
 ## Documentation
 
-The full docs live at **[destbg.github.io/SQLite.Framework](https://destbg.github.io/SQLite.Framework)**. Start with the [Overview](https://destbg.github.io/SQLite.Framework/#/Overview) and [Getting Started](https://destbg.github.io/SQLite.Framework/#/Getting%20Started) pages.
+The full docs live at **[sqlite-framework.net](https://sqlite-framework.net)**. Start with the [Overview](https://sqlite-framework.net/Overview) and [Getting Started](https://sqlite-framework.net/Getting%20Started) pages.
 
 The same content is also mirrored on the [GitHub Wiki](https://github.com/destbg/SQLite.Framework/wiki), but GitHub Pages is the primary source for the docs.
 
@@ -160,7 +160,7 @@ var options = new SQLiteOptionsBuilder("app.db")
 
 The generator writes the row-to-object code at build time, so the trimmer keeps every type used in a `Select` and there's no per-query reflection. The `UseGeneratedMaterializers` extension is generated `internal` per project, so each project that builds queries needs its own reference.
 
-Without the generator, the library still runs under AOT but uses reflection for queries. Make sure the model classes are reachable from the entry assembly so the trimmer keeps them. Full setup on the [Source Generator](https://destbg.github.io/SQLite.Framework/#/Source%20Generator) and [Native AOT](https://destbg.github.io/SQLite.Framework/#/Native%20AOT) pages.
+Without the generator, the library still runs under AOT but uses reflection for queries. Make sure the model classes are reachable from the entry assembly so the trimmer keeps them. Full setup on the [Source Generator](https://sqlite-framework.net/Source%20Generator) and [Native AOT](https://sqlite-framework.net/Native%20AOT) pages.
 
 ## Contributing
 
