@@ -510,7 +510,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public virtual void VacuumInto(string destinationPath, string? schema = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(destinationPath);
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_27, "VACUUM INTO");
 #endif
         string escapedPath = destinationPath.Replace("'", "''");

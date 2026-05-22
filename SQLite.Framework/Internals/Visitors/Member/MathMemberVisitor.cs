@@ -26,7 +26,7 @@ internal static class MathMemberVisitor
             return expression;
         }
 
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         if (MathExtensionFunctions.Contains(node.Method.Name))
         {
             visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, $"Math.{node.Method.Name}");

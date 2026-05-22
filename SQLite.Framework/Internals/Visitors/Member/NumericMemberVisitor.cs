@@ -75,7 +75,7 @@ internal static class NumericMemberVisitor
 
         if (node.Method.Name == nameof(double.DegreesToRadians))
         {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
             visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, $"{node.Method.DeclaringType!.Name}.DegreesToRadians");
 #endif
             return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "RADIANS(", arguments[0].SQLiteExpression!, ")", arguments[0].Parameters);
@@ -83,7 +83,7 @@ internal static class NumericMemberVisitor
 
         if (node.Method.Name == nameof(double.RadiansToDegrees))
         {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
             visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, $"{node.Method.DeclaringType!.Name}.RadiansToDegrees");
 #endif
             return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "DEGREES(", arguments[0].SQLiteExpression!, ")", arguments[0].Parameters);

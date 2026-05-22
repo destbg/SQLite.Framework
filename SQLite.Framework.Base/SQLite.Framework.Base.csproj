@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <DefineConstants>$(DefineConstants);NO_SQLITEPCL_RAW_BATTERIES</DefineConstants>
+        <DefineConstants>$(DefineConstants);NO_SQLITEPCL_RAW_BATTERIES;SQLITE_FRAMEWORK_VERSION_AWARE</DefineConstants>
     </PropertyGroup>
 
     <PropertyGroup>

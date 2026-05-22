@@ -51,7 +51,7 @@ Behavior:
 - At connection-open time the framework reads sqlite's version and throws if the loaded SQLite is below the floor.
 - A method that needs a newer SQLite version than the floor throws an exception.
 
-Only the main `SQLite.Framework` package reads the value. The `SQLite.Framework.Bundled`, `SQLite.Framework.Base`, and `SQLite.Framework.Cipher` packages all ship (or wrap) a SQLite with a known version, so the enum only has `Unspecified`.
+The enum is available on `SQLite.Framework` (where the loaded SQLite comes from the OS and the version varies by device) and on `SQLite.Framework.Base` (where you bring your own provider). The `SQLite.Framework.Bundled` and `SQLite.Framework.Cipher` packages ship a SQLite with a known version, so the enum only has `Unspecified` in those.
 
 ## .NET MAUI App
 

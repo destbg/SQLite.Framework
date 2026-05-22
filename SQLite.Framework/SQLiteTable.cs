@@ -525,7 +525,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<UpsertBuilder<T>> configure)
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_24, "UPSERT (INSERT ... ON CONFLICT ... DO ...)");
 #endif
         UpsertBuilder<T> builder = new();

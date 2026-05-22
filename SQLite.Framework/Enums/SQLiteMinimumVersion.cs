@@ -17,7 +17,7 @@ public enum SQLiteMinimumVersion
     /// </summary>
     Unspecified = 0,
 
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
     /// <summary>
     /// SQLite 3.8.0 (2013-08-26). Lowest floor the framework supports. Supported on iOS 8 and
     /// later (iOS 8 ships SQLite 3.8.5) and Android 5 (Lollipop, API 21) and later.

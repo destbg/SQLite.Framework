@@ -103,7 +103,7 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsDistinctFrom(SQLVisitor visitor, MethodCallExpression node)
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_39, "SQLiteFunctions.DistinctFrom");
 #endif
         ResolvedModel a = visitor.ResolveExpression(node.Arguments[0]);
@@ -113,7 +113,7 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsIif(SQLVisitor visitor, MethodCallExpression node)
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_32, "SQLiteFunctions.Iif");
 #endif
         ResolvedModel condition = visitor.ResolveExpression(node.Arguments[0]);
@@ -159,7 +159,7 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsUnixEpoch(SQLVisitor visitor, MethodCallExpression node)
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_38, "SQLiteFunctions.UnixEpoch");
 #endif
         if (node.Arguments.Count == 0)
@@ -173,7 +173,7 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsPrintf(SQLVisitor visitor, MethodCallExpression node)
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_8_3, "SQLiteFunctions.Printf");
 #endif
         return HandleFunctionsFormatLike(visitor, node, "printf");
@@ -181,7 +181,7 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsFormat(SQLVisitor visitor, MethodCallExpression node)
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_38, "SQLiteFunctions.Format");
 #endif
         return HandleFunctionsFormatLike(visitor, node, "format");
@@ -208,7 +208,7 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsUnhex(SQLVisitor visitor, MethodCallExpression node)
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_41, "SQLiteFunctions.Unhex");
 #endif
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);

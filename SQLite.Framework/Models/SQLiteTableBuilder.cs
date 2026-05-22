@@ -40,7 +40,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     {
         ArgumentNullException.ThrowIfNull(column);
         ArgumentNullException.ThrowIfNull(sql);
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_31, "Computed columns");
 #endif
 
@@ -130,7 +130,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
                 }
                 else
                 {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
                     database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "Expression indexes");
 #endif
                     items[i] = "(" + TranslateBareSql(rowParameter, arg) + ")";
@@ -148,7 +148,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         }
         else
         {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
             database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "Expression indexes");
 #endif
             items = ["(" + TranslateBareSql(rowParameter, body) + ")"];
@@ -280,7 +280,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     {
         ArgumentNullException.ThrowIfNull(column);
         ArgumentNullException.ThrowIfNull(defaultExpression);
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_31, "Column DEFAULT with computed expression");
 #endif
         TableColumn col = ResolveTargetColumn(column);
@@ -430,7 +430,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
         if (mapping.Strict)
         {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
             database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_37, "STRICT tables");
 #endif
             sb.Append(mapping.WithoutRowId ? ", STRICT" : " STRICT");

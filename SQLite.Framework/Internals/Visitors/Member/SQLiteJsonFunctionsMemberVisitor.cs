@@ -14,7 +14,7 @@ internal static class SQLiteJsonFunctionsMemberVisitor
             .ToArray());
 
         string methodName = node.Method.Name;
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         if (methodName is nameof(SQLiteJsonFunctions.ToJsonb) or nameof(SQLiteJsonFunctions.ExtractJsonb))
         {
             visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_45, $"SQLiteJsonFunctions.{methodName}");

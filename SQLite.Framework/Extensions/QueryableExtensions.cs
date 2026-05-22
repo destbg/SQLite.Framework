@@ -152,7 +152,7 @@ public static class QueryableExtensions
     public static List<TResult> ExecuteDelete<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningQueryable<T, TResult> returning)
     {
         ArgumentNullException.ThrowIfNull(returning);
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         returning.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "RETURNING");
 #endif
 
@@ -181,7 +181,7 @@ public static class QueryableExtensions
     {
         ArgumentNullException.ThrowIfNull(returning);
         ArgumentNullException.ThrowIfNull(setters);
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         returning.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "RETURNING");
 #endif
 
@@ -248,7 +248,7 @@ public static class QueryableExtensions
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         table.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_24, "EXPLAIN QUERY PLAN (4-column row format)");
 #endif
         SQLTranslator translator = new(table.Database);

@@ -50,11 +50,12 @@ public sealed class SQLiteOptionsBuilder
     /// a non-default value, <see cref="SQLiteDatabase" /> verifies that the loaded SQLite is at
     /// or above this floor when the connection is first opened, and the framework rejects SQL
     /// translations that need a newer SQLite version than this floor. Set this through
-    /// <see cref="UseMinimumSqliteVersion" />. Only the main <c>SQLite.Framework</c> package
-    /// exposes non-<see cref="SQLiteMinimumVersion.Unspecified" /> values on the enum;
-    /// <c>SQLite.Framework.Bundled</c>, <c>SQLite.Framework.Base</c>, and
-    /// <c>SQLite.Framework.Cipher</c> ship (or wrap) a SQLite with a known version, so the
-    /// enum has only <see cref="SQLiteMinimumVersion.Unspecified" /> in those packages.
+    /// <see cref="UseMinimumSqliteVersion" />. Available on the main <c>SQLite.Framework</c>
+    /// package (where the loaded SQLite comes from the OS and the version varies by device) and
+    /// on <c>SQLite.Framework.Base</c> (where you bring your own provider and the framework
+    /// cannot know the version ahead of time). On <c>SQLite.Framework.Bundled</c> and
+    /// <c>SQLite.Framework.Cipher</c> the loaded SQLite is shipped with the package, so the
+    /// enum is restricted to <see cref="SQLiteMinimumVersion.Unspecified" />.
     /// </summary>
     public SQLiteMinimumVersion MinimumSqliteVersion { get; set; } = SQLiteMinimumVersion.Unspecified;
 

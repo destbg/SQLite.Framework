@@ -77,7 +77,7 @@ public class SQLiteSchema
 
         if (mapping.Strict)
         {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
             Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_37, "STRICT tables");
 #endif
             sql += mapping.WithoutRowId ? ", STRICT" : " STRICT";
@@ -362,7 +362,7 @@ public class SQLiteSchema
     {
         ArgumentException.ThrowIfNullOrEmpty(propertyName);
         ArgumentNullException.ThrowIfNull(defaultExpression);
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_31, "ALTER TABLE ADD COLUMN with computed DEFAULT");
 #endif
 
@@ -410,7 +410,7 @@ public class SQLiteSchema
     {
         ArgumentException.ThrowIfNullOrEmpty(fromColumn);
         ArgumentException.ThrowIfNullOrEmpty(toColumn);
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_25, "ALTER TABLE RENAME COLUMN");
 #endif
 
@@ -432,7 +432,7 @@ public class SQLiteSchema
     public virtual int DropColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string columnName)
     {
         ArgumentException.ThrowIfNullOrEmpty(columnName);
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "ALTER TABLE DROP COLUMN");
 #endif
 
@@ -616,7 +616,7 @@ public class SQLiteSchema
     /// <returns>The total number of rows affected by the issued statements.</returns>
     protected virtual int CreateFullTextSearchTable(TableMapping mapping)
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "FTS5 virtual tables");
 #endif
         FtsTableInfo fts = mapping.FullTextSearch!;
@@ -690,7 +690,7 @@ public class SQLiteSchema
     /// <returns>The total number of rows affected by the issued statements.</returns>
     protected virtual int CreateRTreeTable(TableMapping mapping)
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_8_5, "R-Tree virtual tables");
 #endif
         RTreeTableInfo rtree = mapping.RTree!;
@@ -709,7 +709,7 @@ public class SQLiteSchema
             sb.Append(bound.ColumnName);
         }
 
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         if (rtree.Auxiliaries.Count > 0)
         {
             Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_24, "R-Tree auxiliary columns");

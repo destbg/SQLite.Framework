@@ -195,7 +195,7 @@ internal class SQLTranslator
 
         if (level == 0 && cteRegistry?.Ctes.Count > 0)
         {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
             database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_8_3, "Common table expressions (WITH ... AS)");
 #endif
             bool anyRecursive = cteRegistry.Ctes.Any(c => c.IsRecursive);
@@ -214,7 +214,7 @@ internal class SQLTranslator
                 CteInfo cte = cteRegistry.Ctes[i];
                 cteSb.Append(cte.Name);
                 cteSb.Append(" AS ");
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
                 if (cte.Materialization != SQLiteCteMaterialization.Default)
                 {
                     database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "MATERIALIZED CTE hints");
@@ -415,7 +415,7 @@ internal class SQLTranslator
         Visitor.From!.WriteSqlTo(sb);
 
         bool isUpdateFrom = QueryType == QueryType.Update && q.Joins.Count > 0;
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         if (isUpdateFrom)
         {
             database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_33, "UPDATE FROM");
@@ -573,7 +573,7 @@ internal class SQLTranslator
 
         if (EmitReturning)
         {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
             database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "RETURNING");
 #endif
             AppendSpacingNewline(sb, spacing, ref first);

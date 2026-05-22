@@ -8,7 +8,7 @@
         <LangVersion>preview</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <DefineConstants>$(DefineConstants);SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE</DefineConstants>
+        <DefineConstants>$(DefineConstants);SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE;SQLITE_FRAMEWORK_VERSION_AWARE</DefineConstants>
         <NoWarn>$(NoWarn);CA1416</NoWarn>
     </PropertyGroup>
 

@@ -6,7 +6,7 @@ internal static class WindowFunctionsMemberVisitor
     {
         SQLVisitor visitor = ctx.Visitor;
         MethodCallExpression node = (MethodCallExpression)ctx.Node;
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_25, "Window functions");
 #endif
         if (node.Method.DeclaringType == typeof(SQLiteFrameBoundary))

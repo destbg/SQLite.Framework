@@ -6,7 +6,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
     {
         SQLVisitor visitor = ctx.Visitor;
         MethodCallExpression node = (MethodCallExpression)ctx.Node;
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITE_FRAMEWORK_VERSION_AWARE
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, $"SQLiteFTS5Functions.{node.Method.Name}");
 #endif
         return node.Method.Name switch
