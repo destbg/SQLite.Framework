@@ -108,7 +108,7 @@ jobs:
             --format cobertura \
             --output coverage.cobertura.xml
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v4.6.0
+        uses: codecov/codecov-action@v6.0.1
         with:
           files: coverage.cobertura.xml
           flags: ${{ matrix.flag }}
