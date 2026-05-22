@@ -73,7 +73,11 @@ public class VacuumTests
 
             db.VacuumInto(destPath);
 
-            using SQLiteDatabase clone = new(new SQLiteOptionsBuilder(destPath).Build());
+            SQLiteOptionsBuilder cloneBuilder = new(destPath);
+#if SQLITECIPHER
+            cloneBuilder.UseEncryptionKey("test-key");
+#endif
+            using SQLiteDatabase clone = new(cloneBuilder.Build());
             Book copied = clone.Table<Book>().First();
             Assert.Equal(1, copied.Id);
             Assert.Equal("x", copied.Title);
@@ -148,7 +152,8 @@ public class VacuumTests
             main.AttachDatabase(auxPath, "aux");
             main.VacuumInto(destPath, "aux");
 
-            using SQLiteDatabase clone = new(new SQLiteOptionsBuilder(destPath).Build());
+            SQLiteOptionsBuilder cloneBuilder = new(destPath);
+            using SQLiteDatabase clone = new(cloneBuilder.Build());
             Book row = clone.Table<Book>().First();
             Assert.Equal(7, row.Id);
             Assert.Equal("aux-row", row.Title);
@@ -188,7 +193,11 @@ public class VacuumTests
 
             await db.VacuumIntoAsync(destPath);
 
-            using SQLiteDatabase clone = new(new SQLiteOptionsBuilder(destPath).Build());
+            SQLiteOptionsBuilder cloneBuilder = new(destPath);
+#if SQLITECIPHER
+            cloneBuilder.UseEncryptionKey("test-key");
+#endif
+            using SQLiteDatabase clone = new(cloneBuilder.Build());
             Book row = clone.Table<Book>().First();
             Assert.Equal("async", row.Title);
         }
