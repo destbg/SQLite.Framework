@@ -169,7 +169,9 @@ public static class SQLiteFunctions
     /// <see cref="Hex" />. Translates to SQLite's <c>unhex(value)</c>. Requires SQLite 3.41.0
     /// or newer.
     /// </summary>
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITECIPHER
+    [Obsolete("unhex is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled.", error: true)]
+#elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
     [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
@@ -185,7 +187,9 @@ public static class SQLiteFunctions
     /// <paramref name="ignoreChars" />. Translates to SQLite's <c>unhex(value, ignoreChars)</c>.
     /// Requires SQLite 3.41.0 or newer.
     /// </summary>
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+#if SQLITECIPHER
+    [Obsolete("unhex is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled.", error: true)]
+#elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
     [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]

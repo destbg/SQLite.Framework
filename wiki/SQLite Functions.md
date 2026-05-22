@@ -186,6 +186,33 @@ long sinceLastWrite = db.Table<Book>().Select(b => SQLiteFunctions.Changes()).Fi
 long sinceConnectionOpen = db.Table<Book>().Select(b => SQLiteFunctions.TotalChanges()).First();
 ```
 
+## Date and time functions
+
+`SQLiteDateFunctions` exposes SQLite's date and time SQL functions directly. Each accepts a time value plus any number of modifier strings like `"+7 days"`, `"start of month"`, `"unixepoch"`, or `"utc"`. Time values can be ISO 8601 strings, the literal `"now"`, Julian day numbers, or column references.
+
+| Method | What it maps to |
+|---|---|
+| `Date()` | `date()` |
+| `Date(when, modifiers)` | `date(when, modifiers)` |
+| `Time()` | `time()` |
+| `Time(when, modifiers)` | `time(when, modifiers)` |
+| `Datetime()` | `datetime()` |
+| `Datetime(when, modifiers)` | `datetime(when, modifiers)` |
+| `JulianDay()` | `julianday()` |
+| `JulianDay(when, modifiers)` | `julianday(when, modifiers)` |
+| `Strftime(format, when, modifiers)` | `strftime(format, when, modifiers)` |
+| `Timediff(when1, when2)` | `timediff(when1, when2)` (SQLite 3.43+, not available in SQLCipher) |
+
+```csharp
+string thisMonth = db.Table<Book>()
+    .Select(b => SQLiteDateFunctions.Strftime("%Y-%m", b.CreatedAt))
+    .First();
+
+string nextWeek = db.Table<Book>()
+    .Select(b => SQLiteDateFunctions.Date(b.CreatedAt, "+7 days"))
+    .First();
+```
+
 ## Calling outside a query
 
 These methods throw `InvalidOperationException` if you call them outside a LINQ query. They are markers for the translator, not real C# code.

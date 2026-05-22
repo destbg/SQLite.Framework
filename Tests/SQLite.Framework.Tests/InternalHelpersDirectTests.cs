@@ -1584,6 +1584,16 @@ public class HandlerDispatchTests
     }
 
     [Fact]
+    public void HandleSQLiteDateFunctionsMethod_UnknownName_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor v = GetVisitor(db);
+        MethodCallExpression mce = UnknownNamedCall();
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => SQLiteDateFunctionsMemberVisitor.HandleSQLiteDateFunctionsMethod(new SQLiteCallerContext(v, mce)));
+        Assert.Contains("SQLiteDateFunctions.GetType", ex.Message);
+    }
+
+    [Fact]
     public void HandleWindowFunction_UnknownName_Throws()
     {
         using TestDatabase db = new();

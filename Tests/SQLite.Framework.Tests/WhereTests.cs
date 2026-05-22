@@ -764,6 +764,7 @@ public class WhereTests
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Iif(true, 1, 2));
     }
 
+#if !SQLITECIPHER
     [Fact]
     public void Select_Unhex_RoundTrip()
     {
@@ -798,6 +799,7 @@ public class WhereTests
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Unhex("AA"));
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Unhex("AA", " "));
     }
+#endif
 
     [Fact]
     public void Select_Format_EmitsFormatSql()

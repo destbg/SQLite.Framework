@@ -23,6 +23,7 @@ internal partial class SQLVisitor
         SQLiteCallerContext ctx = new(this, node);
 
         if (declaringType == typeof(SQLiteFunctions)
+            || declaringType == typeof(SQLiteDateFunctions)
             || declaringType == typeof(SQLiteFTS5Functions)
             || declaringType == typeof(SQLiteJsonFunctions)
             || declaringType == typeof(SQLiteWindowFunctions)

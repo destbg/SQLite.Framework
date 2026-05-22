@@ -757,6 +757,7 @@ public sealed class SQLiteOptionsBuilder
     private void RegisterDefaultMethodHandlers()
     {
         MemberTranslators[typeof(SQLiteFunctions)] = SQLiteFunctionsMemberVisitor.HandleSQLiteFunctionsMethod;
+        MemberTranslators[typeof(SQLiteDateFunctions)] = SQLiteDateFunctionsMemberVisitor.HandleSQLiteDateFunctionsMethod;
         MemberTranslators[typeof(SQLiteFTS5Functions)] = SQLiteFTS5FunctionsMemberVisitor.HandleSQLiteFTS5FunctionsMethod;
         MemberTranslators[typeof(SQLiteJsonFunctions)] = SQLiteJsonFunctionsMemberVisitor.HandleSQLiteJsonFunctionsMethod;
         MemberTranslators[typeof(SQLiteWindowFunctions)] = WindowFunctionsMemberVisitor.HandleWindowFunctionMethod;
