@@ -6,6 +6,7 @@ global using SQLite.Framework.Extensions;
 global using SQLite.Framework.Internals;
 global using SQLite.Framework.Internals.Enums;
 global using SQLite.Framework.Internals.FTS5;
+global using SQLite.Framework.Internals.Geopoly;
 global using SQLite.Framework.Internals.Helpers;
 global using SQLite.Framework.Internals.Interfaces;
 global using SQLite.Framework.Internals.JSON;

@@ -129,6 +129,10 @@ internal static class CommandHelpers
         {
             return converter.FromDatabase(value);
         }
+        else if (type == typeof(string) && value is byte[] blobBytes)
+        {
+            return Encoding.UTF8.GetString(blobBytes);
+        }
 
         return Convert.ChangeType(value, type);
     }

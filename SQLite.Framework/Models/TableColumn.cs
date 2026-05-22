@@ -15,7 +15,7 @@ public class TableColumn
     /// <summary>
     /// Initializes a new instance of the <see cref="TableColumn"/> class.
     /// </summary>
-    public TableColumn(PropertyInfo property, SQLiteOptions options, bool isFtsRowId = false)
+    public TableColumn(PropertyInfo property, SQLiteOptions options, bool isFtsRowId = false, string? nameOverride = null)
     {
         ColumnAttribute? columnAttribute = property.GetCustomAttribute<ColumnAttribute>();
         Type type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
@@ -23,7 +23,7 @@ public class TableColumn
         NullabilityInfoContext nullabilityInfoContext = new();
 
         PropertyInfo = property;
-        Name = isFtsRowId ? "rowid" : columnAttribute?.Name ?? property.Name;
+        Name = nameOverride ?? (isFtsRowId ? "rowid" : columnAttribute?.Name ?? property.Name);
         PropertyType = type;
         Indices = property.GetCustomAttributes<IndexedAttribute>().ToArray();
         IsPrimaryKey = keyProperty != null;

@@ -223,7 +223,7 @@ public class RTreeTests
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
             new TableMapping(typeof(BothFtsAndRtree), new SQLite.Framework.SQLiteOptionsBuilder(":memory:").Build()));
-        Assert.Contains("FTS5 and an R-Tree", ex.Message);
+        Assert.Contains("at most one virtual table kind", ex.Message);
     }
 
     [Fact]

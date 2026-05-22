@@ -789,6 +789,7 @@ public sealed class SQLiteOptionsBuilder
         MemberTranslators[typeof(SQLiteFunctions)] = SQLiteFunctionsMemberVisitor.HandleSQLiteFunctionsMethod;
         MemberTranslators[typeof(SQLiteDateFunctions)] = SQLiteDateFunctionsMemberVisitor.HandleSQLiteDateFunctionsMethod;
         MemberTranslators[typeof(SQLiteFTS5Functions)] = SQLiteFTS5FunctionsMemberVisitor.HandleSQLiteFTS5FunctionsMethod;
+        MemberTranslators[typeof(SQLiteGeopolyFunctions)] = SQLiteGeopolyFunctionsMemberVisitor.HandleSQLiteGeopolyFunctionsMethod;
         MemberTranslators[typeof(SQLiteJsonFunctions)] = SQLiteJsonFunctionsMemberVisitor.HandleSQLiteJsonFunctionsMethod;
         MemberTranslators[typeof(SQLiteWindowFunctions)] = WindowFunctionsMemberVisitor.HandleWindowFunctionMethod;
         MemberTranslators[typeof(SQLiteFrameBoundary)] = WindowFunctionsMemberVisitor.HandleWindowFunctionMethod;
