@@ -3,6 +3,16 @@ name: Coverage
 on:
   push:
     branches: [main]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - '**/*.props'
+      - '**/*.targets'
+      - 'Directory.Build.*'
+      - 'Directory.Packages.*'
+      - 'Tests/**'
+      - 'SQLite.Framework*/**'
+      - '.github/workflows/coverage.yml'
 
 permissions:
   contents: read
