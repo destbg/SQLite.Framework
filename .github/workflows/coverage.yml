@@ -38,7 +38,7 @@ jobs:
                --results-directory TestResults
       - name: Upload test results artifact
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: junit-${{ matrix.project }}
           path: TestResults/${{ matrix.project }}.junit.xml
