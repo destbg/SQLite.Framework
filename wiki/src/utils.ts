@@ -5,3 +5,7 @@ export function slugify(text: string): string {
     .replace(/\s+/g, "-")
     .trim();
 }
+
+export function urlSlug(text: string): string {
+  return text.trim().replace(/\s+/g, "-");
+}

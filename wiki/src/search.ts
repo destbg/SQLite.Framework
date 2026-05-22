@@ -26,7 +26,7 @@ let cachedIndex: PageIndex[] | null = null;
 function buildIndex(): PageIndex[] {
   if (cachedIndex) return cachedIndex;
   cachedIndex = pages.map((page) => {
-    const content = loadContent(page.slug);
+    const content = loadContent(page.title);
     const headings: string[] = [];
     for (const line of content.split("\n")) {
       const m = line.match(/^#{1,6}\s+(.+?)\s*$/);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 interface Props {
-  slug: string;
+  fileName: string;
   markdown: string;
 }
 
@@ -10,12 +10,12 @@ const repoEditBase =
 const repoRawBase =
   "https://raw.githubusercontent.com/destbg/SQLite.Framework/main/wiki";
 
-function buildPrompt(slug: string): string {
-  const rawUrl = `${repoRawBase}/${encodeURIComponent(slug)}.md`;
-  return `Read the SQLite.Framework documentation page "${slug}" at ${rawUrl} and help me with questions about it.`;
+function buildPrompt(fileName: string): string {
+  const rawUrl = `${repoRawBase}/${encodeURIComponent(fileName)}.md`;
+  return `Read the SQLite.Framework documentation page "${fileName}" at ${rawUrl} and help me with questions about it.`;
 }
 
-export default function OpenInButton({ slug, markdown }: Props) {
+export default function OpenInButton({ fileName, markdown }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,9 +41,9 @@ export default function OpenInButton({ slug, markdown }: Props) {
     };
   }, [open]);
 
-  const rawUrl = `${repoRawBase}/${encodeURIComponent(slug)}.md`;
-  const editUrl = `${repoEditBase}/${encodeURIComponent(slug)}.md`;
-  const prompt = buildPrompt(slug);
+  const rawUrl = `${repoRawBase}/${encodeURIComponent(fileName)}.md`;
+  const editUrl = `${repoEditBase}/${encodeURIComponent(fileName)}.md`;
+  const prompt = buildPrompt(fileName);
   const promptEncoded = encodeURIComponent(prompt);
   const chatGptUrl = `https://chatgpt.com/?q=${promptEncoded}`;
   const claudeUrl = `https://claude.ai/new?q=${promptEncoded}`;

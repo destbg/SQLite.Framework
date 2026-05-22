@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { slugify } from "../utils";
+import { findPageBySlug } from "../pages";
 import OpenInButton from "./OpenInButton";
 
 // @ts-expect-error
@@ -34,7 +35,8 @@ export default function TableOfContents() {
   const slug = decodeURIComponent(
     location.pathname === "/" ? "Home" : location.pathname.slice(1),
   );
-  const content = markdownFiles[`../../${slug}.md`] ?? "";
+  const page = findPageBySlug(slug);
+  const content = page ? markdownFiles[`../../${page.title}.md`] ?? "" : "";
   const headings = parseHeadings(content);
   const [activeId, setActiveId] = useState("");
 
@@ -65,7 +67,7 @@ export default function TableOfContents() {
     <aside className="toc">
       <div className="toc-header">
         <p className="toc-title">On this page</p>
-        <OpenInButton slug={slug} markdown={content} />
+        <OpenInButton fileName={page?.title ?? slug} markdown={content} />
       </div>
       {headings.length > 0 && (
         <ul className="toc-list">

@@ -10,14 +10,14 @@ import Sidebar from "./components/Sidebar";
 import MarkdownPage from "./components/MarkdownPage";
 import SearchModal from "./components/SearchModal";
 import TableOfContents from "./components/TableOfContents";
-import { pages } from "./pages";
+import { findPageBySlug } from "./pages";
 
 function CurrentPage() {
   const { pathname } = useLocation();
   const slug = decodeURIComponent(pathname.replace(/^\/+/, "")) || "Home";
-  const page = pages.find((p) => p.slug === slug);
+  const page = findPageBySlug(slug);
   if (!page) return <Navigate to="/" replace />;
-  return <MarkdownPage slug={page.slug} />;
+  return <MarkdownPage page={page} />;
 }
 
 export default function App() {

@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { useNavigate } from "react-router-dom";
 import { slugify } from "../utils";
 import { loadContent } from "../markdownFiles";
+import { findPageByLink, type Page } from "../pages";
 import PageNavigation from "./PageNavigation";
 
 const FADE_DURATION = 200;
@@ -23,11 +24,11 @@ function childrenToText(node: ReactNode): string {
 }
 
 interface LayerProps {
-  slug: string;
+  page: Page;
   onLinkClick: (href: string) => void;
 }
 
-function PageLayer({ slug, onLinkClick }: LayerProps) {
+function PageLayer({ page, onLinkClick }: LayerProps) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -35,12 +36,14 @@ function PageLayer({ slug, onLinkClick }: LayerProps) {
       components={{
         a({ href, children }) {
           if (href && !href.startsWith("http") && !href.startsWith("#")) {
+            const target = findPageByLink(href);
+            const resolved = target ? target.slug : href;
             return (
               <a
-                href={`${import.meta.env.BASE_URL}${href}`}
+                href={`${import.meta.env.BASE_URL}${resolved}`}
                 onClick={(e) => {
                   e.preventDefault();
-                  onLinkClick(href);
+                  onLinkClick(resolved);
                 }}
               >
                 {children}
@@ -63,40 +66,40 @@ function PageLayer({ slug, onLinkClick }: LayerProps) {
         },
       }}
     >
-      {loadContent(slug)}
+      {loadContent(page.title)}
     </ReactMarkdown>
   );
 }
 
 interface Props {
-  slug: string;
+  page: Page;
 }
 
-export default function MarkdownPage({ slug }: Props) {
+export default function MarkdownPage({ page }: Props) {
   const navigate = useNavigate();
   const articleRef = useRef<HTMLElement>(null);
-  const prevSlugRef = useRef(slug);
-  const [displaySlug, setDisplaySlug] = useState(slug);
-  const [outgoingSlug, setOutgoingSlug] = useState<string | null>(null);
+  const prevPageRef = useRef(page);
+  const [displayPage, setDisplayPage] = useState(page);
+  const [outgoingPage, setOutgoingPage] = useState<Page | null>(null);
   const [lockedHeight, setLockedHeight] = useState<number | null>(null);
 
   useEffect(() => {
-    if (slug === prevSlugRef.current) return;
+    if (page.slug === prevPageRef.current.slug) return;
 
-    const outgoing = prevSlugRef.current;
-    prevSlugRef.current = slug;
+    const outgoing = prevPageRef.current;
+    prevPageRef.current = page;
 
     const currentHeight = articleRef.current?.offsetHeight ?? 0;
     setLockedHeight(currentHeight);
-    setOutgoingSlug(outgoing);
-    setDisplaySlug(slug);
+    setOutgoingPage(outgoing);
+    setDisplayPage(page);
 
     const raf = requestAnimationFrame(() => {
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
     const fadeTimer = window.setTimeout(() => {
-      setOutgoingSlug(null);
+      setOutgoingPage(null);
     }, FADE_DURATION);
 
     const heightTimer = window.setTimeout(() => {
@@ -108,9 +111,10 @@ export default function MarkdownPage({ slug }: Props) {
       window.clearTimeout(fadeTimer);
       window.clearTimeout(heightTimer);
     };
-  }, [slug]);
+  }, [page]);
 
-  const handleLinkClick = (href: string) => navigate(`/${href}`);
+  const handleLinkClick = (href: string) =>
+    navigate(href === "Home" ? "/" : `/${href}`);
 
   return (
     <article
@@ -118,18 +122,18 @@ export default function MarkdownPage({ slug }: Props) {
       className="markdown-content page-stage"
       style={lockedHeight != null ? { minHeight: lockedHeight } : undefined}
     >
-      <div key={displaySlug} className="page-layer page-layer--in">
-        <PageLayer slug={displaySlug} onLinkClick={handleLinkClick} />
-        <PageNavigation slug={displaySlug} />
+      <div key={displayPage.slug} className="page-layer page-layer--in">
+        <PageLayer page={displayPage} onLinkClick={handleLinkClick} />
+        <PageNavigation slug={displayPage.slug} />
       </div>
-      {outgoingSlug && (
+      {outgoingPage && (
         <div
-          key={outgoingSlug}
+          key={outgoingPage.slug}
           className="page-layer page-layer--out"
           aria-hidden="true"
         >
-          <PageLayer slug={outgoingSlug} onLinkClick={handleLinkClick} />
-          <PageNavigation slug={outgoingSlug} />
+          <PageLayer page={outgoingPage} onLinkClick={handleLinkClick} />
+          <PageNavigation slug={outgoingPage.slug} />
         </div>
       )}
     </article>

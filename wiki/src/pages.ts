@@ -1,3 +1,5 @@
+import { urlSlug } from "./utils";
+
 export interface Page {
   slug: string;
   title: string;
@@ -8,82 +10,83 @@ export interface Section {
   pages: Page[];
 }
 
+function makePage(title: string, slug?: string): Page {
+  return { slug: slug ?? urlSlug(title), title };
+}
+
 export const ungrouped: Page[] = [{ slug: "Home", title: "Home" }];
 
 export const sections: Section[] = [
   {
     title: "Getting Started",
     pages: [
-      { slug: "Overview", title: "Overview" },
-      { slug: "Getting Started", title: "Getting Started" },
-      { slug: "Defining Models", title: "Defining Models" },
-      { slug: "Samples", title: "Samples" },
+      makePage("Overview"),
+      makePage("Getting Started"),
+      makePage("Defining Models"),
+      makePage("Samples"),
     ],
   },
   {
     title: "Querying",
     pages: [
-      { slug: "CRUD Operations", title: "CRUD Operations" },
-      { slug: "Querying", title: "Querying" },
-      { slug: "Expressions", title: "Expressions" },
-      { slug: "Subqueries", title: "Subqueries" },
-      { slug: "Joins", title: "Joins" },
-      { slug: "Grouping and Aggregates", title: "Grouping and Aggregates" },
-      { slug: "Bulk Operations", title: "Bulk Operations" },
+      makePage("CRUD Operations"),
+      makePage("Querying"),
+      makePage("Expressions"),
+      makePage("Subqueries"),
+      makePage("Joins"),
+      makePage("Grouping and Aggregates"),
+      makePage("Bulk Operations"),
     ],
   },
   {
     title: "Advanced",
     pages: [
-      { slug: "Transactions", title: "Transactions" },
-      { slug: "Multi-threading", title: "Multi-threading" },
-      { slug: "Raw SQL", title: "Raw SQL" },
-      { slug: "Common Table Expressions", title: "Common Table Expressions" },
-      { slug: "Full Text Search", title: "Full Text Search" },
-      { slug: "R-Tree", title: "R-Tree" },
-      { slug: "JSON and JSONB", title: "JSON and JSONB" },
-      { slug: "Window Functions", title: "Window Functions" },
-      { slug: "SQLite Functions", title: "SQLite Functions" },
-      { slug: "Pragmas", title: "Pragmas" },
-      { slug: "Backup", title: "Backup" },
-      { slug: "Attached Databases", title: "Attached Databases" },
-      { slug: "Schema", title: "Schema" },
+      makePage("Transactions"),
+      makePage("Multi-threading"),
+      makePage("Raw SQL"),
+      makePage("Common Table Expressions"),
+      makePage("Full Text Search"),
+      makePage("R-Tree"),
+      makePage("JSON and JSONB"),
+      makePage("Window Functions"),
+      makePage("SQLite Functions"),
+      makePage("Pragmas"),
+      makePage("Backup"),
+      makePage("Attached Databases"),
+      makePage("Schema"),
     ],
   },
   {
     title: "Data Types",
     pages: [
-      { slug: "Data Types", title: "Data Types" },
-      { slug: "Storage Options", title: "Storage Options" },
-      { slug: "Custom Converters", title: "Custom Converters" },
+      makePage("Data Types"),
+      makePage("Storage Options"),
+      makePage("Custom Converters"),
     ],
   },
   {
     title: "Extra Packages",
-    pages: [{ slug: "Dependency Injection", title: "Dependency Injection" }],
+    pages: [makePage("Dependency Injection")],
   },
   {
     title: "Deployment",
     pages: [
-      { slug: "Performance", title: "Performance" },
-      { slug: "Logging", title: "Logging" },
-      { slug: "Native AOT", title: "Native AOT" },
-      { slug: "Source Generator", title: "Source Generator" },
+      makePage("Performance"),
+      makePage("Logging"),
+      makePage("Native AOT"),
+      makePage("Source Generator"),
     ],
   },
   {
     title: "Migration Guides",
     pages: [
-      {
-        slug: "Migrating from sqlite-net-pcl",
-        title: "Migrating from sqlite-net-pcl",
-      },
-      { slug: "Migrating from EF Core", title: "Migrating from EF Core" },
+      makePage("Migrating from sqlite-net-pcl"),
+      makePage("Migrating from EF Core"),
     ],
   },
   {
     title: "Tooling",
-    pages: [{ slug: "AI Assistance", title: "AI Assistance" }],
+    pages: [makePage("AI Assistance")],
   },
 ];
 
@@ -91,3 +94,19 @@ export const pages: Page[] = [
   ...ungrouped,
   ...sections.flatMap((s) => s.pages),
 ];
+
+export function findPageBySlug(slug: string): Page | undefined {
+  return pages.find((p) => p.slug === slug);
+}
+
+export function findPageByLink(href: string): Page | undefined {
+  const decoded = decodeURIComponent(href).trim();
+  if (!decoded) return undefined;
+  const lower = decoded.toLowerCase();
+  return (
+    pages.find((p) => p.title === decoded) ??
+    pages.find((p) => p.slug === decoded) ??
+    pages.find((p) => p.title.toLowerCase() === lower) ??
+    pages.find((p) => p.slug.toLowerCase() === lower)
+  );
+}
