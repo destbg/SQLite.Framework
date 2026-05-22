@@ -380,56 +380,6 @@ public class SchemaTests
     }
 
     [Fact]
-    public void AddColumn_SQLiteColumnDefault_CurrentTimestamp_EmitsKeyword()
-    {
-        using TestDatabase db = new();
-        db.Table<EvolvingTable>().Schema.CreateTable();
-
-        db.Schema.AddColumn<EvolvingPlusRequiredLabel>(nameof(EvolvingPlusRequiredLabel.Label), SQLiteColumnDefault.CurrentTimestamp);
-
-        string sql = db.QueryFirst<string>(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Evolving'");
-        Assert.Contains("DEFAULT CURRENT_TIMESTAMP", sql);
-    }
-
-    [Fact]
-    public void AddColumn_SQLiteColumnDefault_OnEmptyTable_AppliesToNewInserts()
-    {
-        using TestDatabase db = new();
-        db.Table<EvolvingTable>().Schema.CreateTable();
-
-        db.Schema.AddColumn<EvolvingPlusRequiredLabel>(e => e.Label, SQLiteColumnDefault.CurrentDate);
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
-
-        string label = db.QueryFirst<string>("SELECT Label FROM Evolving");
-        Assert.Matches(@"^\d{4}-\d{2}-\d{2}$", label);
-    }
-
-    [Fact]
-    public void AddColumn_SQLiteColumnDefault_OnPopulatedTable_Throws()
-    {
-        using TestDatabase db = new();
-        db.Table<EvolvingTable>().Schema.CreateTable();
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
-
-        Assert.Throws<SQLiteException>(() =>
-            db.Schema.AddColumn<EvolvingPlusRequiredLabel>(e => e.Label, SQLiteColumnDefault.CurrentTimestamp));
-    }
-
-    [Fact]
-    public void AddColumn_SQLiteColumnDefault_PropertySelector_EmitsKeyword()
-    {
-        using TestDatabase db = new();
-        db.Table<EvolvingTable>().Schema.CreateTable();
-
-        db.Schema.AddColumn<EvolvingPlusRequiredLabel>(e => e.Label, SQLiteColumnDefault.CurrentTime);
-
-        string sql = db.QueryFirst<string>(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Evolving'");
-        Assert.Contains("DEFAULT CURRENT_TIME", sql);
-    }
-
-    [Fact]
     public void AddColumn_ExpressionDefault_BackfillsWithConstant()
     {
         using TestDatabase db = new();
@@ -465,22 +415,6 @@ public class SchemaTests
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Evolving'");
         Assert.Contains("DEFAULT (", sql);
         Assert.Contains("42", sql);
-    }
-
-    [Fact]
-    public async Task AddColumnAsync_SQLiteColumnDefault_PropertySelector_AppliesToNewInserts()
-    {
-        using TestDatabase db = new();
-        await db.Schema.CreateTableAsync<EvolvingTable>(TestContext.Current.CancellationToken);
-
-        await db.Schema.AddColumnAsync<EvolvingPlusRequiredLabel>(
-            e => e.Label,
-            SQLiteColumnDefault.CurrentTimestamp,
-            TestContext.Current.CancellationToken);
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
-
-        string label = db.QueryFirst<string>("SELECT Label FROM Evolving");
-        Assert.Matches(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", label);
     }
 
     [Fact]
@@ -1111,34 +1045,6 @@ public class SchemaTests
     }
 
     [Fact]
-    public void CreateTable_BuilderDefaultKeyword_EmitsCurrentTimestamp()
-    {
-        using TestDatabase db = new();
-        db.Schema.Table<BookWithBuilderTimestamp>()
-            .Default(b => b.CreatedAt, SQLiteColumnDefault.CurrentTimestamp)
-            .CreateTable();
-
-        string sql = db.QueryFirst<string>(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithBuilderTimestamp'");
-        Assert.Contains("DEFAULT CURRENT_TIMESTAMP", sql);
-    }
-
-    [Fact]
-    public void Add_BuilderDefaultKeyword_AppliesDatabaseDefault()
-    {
-        using TestDatabase db = new();
-        db.Schema.Table<BookWithBuilderTimestamp>()
-            .Default(b => b.CreatedAt, SQLiteColumnDefault.CurrentTimestamp)
-            .CreateTable();
-
-        SQLiteTable<BookWithBuilderTimestamp> table = db.Table<BookWithBuilderTimestamp>();
-        table.Add(new BookWithBuilderTimestamp { Title = "Hello" });
-
-        string createdAt = db.QueryFirst<string>("SELECT CreatedAt FROM BookWithBuilderTimestamp");
-        Assert.Matches(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", createdAt);
-    }
-
-    [Fact]
     public void CreateTable_BuilderDefaultExpression_EmitsParenthesizedClause()
     {
         using TestDatabase db = new();
@@ -1168,57 +1074,18 @@ public class SchemaTests
     }
 
     [Fact]
-    public void CreateTable_BuilderDefault_CurrentTime_EmitsKeyword()
+    public void Add_BuilderDefault_StringColumn_OmitsColumnWhenNull()
     {
         using TestDatabase db = new();
-        db.Schema.Table<BookWithBuilderTimestamp>()
-            .Default(b => b.CreatedAt, SQLiteColumnDefault.CurrentTime)
+        db.Schema.Table<BookWithStringDefault>()
+            .Default(b => b.Label, "from-db")
             .CreateTable();
 
-        string sql = db.QueryFirst<string>(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithBuilderTimestamp'");
-        Assert.Contains("DEFAULT CURRENT_TIME", sql);
-    }
+        SQLiteTable<BookWithStringDefault> table = db.Table<BookWithStringDefault>();
+        table.Add(new BookWithStringDefault { Title = "Hello" });
 
-    [Fact]
-    public void CreateTable_BuilderDefault_CurrentDate_EmitsKeyword()
-    {
-        using TestDatabase db = new();
-        db.Schema.Table<BookWithBuilderTimestamp>()
-            .Default(b => b.CreatedAt, SQLiteColumnDefault.CurrentDate)
-            .CreateTable();
-
-        string sql = db.QueryFirst<string>(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithBuilderTimestamp'");
-        Assert.Contains("DEFAULT CURRENT_DATE", sql);
-    }
-
-    [Fact]
-    public void BuilderDefault_InvalidEnum_Throws()
-    {
-        using TestDatabase db = new();
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            db.Schema.Table<BookWithBuilderTimestamp>().Default(b => b.CreatedAt, (SQLiteColumnDefault)999));
-    }
-
-    [Fact]
-    public void AddColumn_SQLiteColumnDefault_InvalidEnum_Throws()
-    {
-        using TestDatabase db = new();
-        db.Table<EvolvingTable>().Schema.CreateTable();
-
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            db.Schema.AddColumn<EvolvingPlusRequiredLabel>(nameof(EvolvingPlusRequiredLabel.Label), (SQLiteColumnDefault)999));
-    }
-
-    [Fact]
-    public void AddColumn_SQLiteColumnDefault_UnknownProperty_Throws()
-    {
-        using TestDatabase db = new();
-        db.Table<EvolvingTable>().Schema.CreateTable();
-
-        Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.AddColumn<EvolvingPlusRequiredLabel>("NotAProperty", SQLiteColumnDefault.CurrentTimestamp));
+        string label = db.QueryFirst<string>("SELECT Label FROM BookWithStringDefault");
+        Assert.Equal("from-db", label);
     }
 
     [Fact]
@@ -1229,22 +1096,6 @@ public class SchemaTests
 
         Assert.Throws<InvalidOperationException>(() =>
             db.Schema.AddColumn<EvolvingPlusRequiredCount>("NotAProperty", () => 5));
-    }
-
-    [Fact]
-    public async Task AddColumnAsync_StringPropertyName_SQLiteColumnDefault_EmitsKeyword()
-    {
-        using TestDatabase db = new();
-        await db.Schema.CreateTableAsync<EvolvingTable>(TestContext.Current.CancellationToken);
-
-        await db.Schema.AddColumnAsync<EvolvingPlusRequiredLabel>(
-            nameof(EvolvingPlusRequiredLabel.Label),
-            SQLiteColumnDefault.CurrentDate,
-            TestContext.Current.CancellationToken);
-
-        string sql = db.QueryFirst<string>(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Evolving'");
-        Assert.Contains("DEFAULT CURRENT_DATE", sql);
     }
 
     [Fact]
@@ -1322,6 +1173,18 @@ file class BookWithBuilderDefault
     public required string Title { get; set; }
 
     public int Rating { get; set; }
+}
+
+[System.ComponentModel.DataAnnotations.Schema.Table("BookWithStringDefault")]
+file class BookWithStringDefault
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    [SQLite.Framework.Attributes.AutoIncrement]
+    public int Id { get; set; }
+
+    public required string Title { get; set; }
+
+    public string? Label { get; set; }
 }
 
 [System.ComponentModel.DataAnnotations.Schema.Table("BookWithTwoDefaults")]

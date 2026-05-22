@@ -271,24 +271,6 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     }
 
     /// <summary>
-    /// Sets one of SQLite's deterministic time keywords (<c>CURRENT_TIME</c>, <c>CURRENT_DATE</c>,
-    /// <c>CURRENT_TIMESTAMP</c>) as the column's <c>DEFAULT</c>.
-    /// </summary>
-    public SQLiteTableBuilder<T> Default<TValue>(Expression<Func<T, TValue>> column, SQLiteColumnDefault keyword)
-    {
-        ArgumentNullException.ThrowIfNull(column);
-        TableColumn col = ResolveTargetColumn(column);
-        col.DefaultSql = keyword switch
-        {
-            SQLiteColumnDefault.CurrentTime => "CURRENT_TIME",
-            SQLiteColumnDefault.CurrentDate => "CURRENT_DATE",
-            SQLiteColumnDefault.CurrentTimestamp => "CURRENT_TIMESTAMP",
-            _ => throw new ArgumentOutOfRangeException(nameof(keyword), keyword, null),
-        };
-        return this;
-    }
-
-    /// <summary>
     /// Sets the column's <c>DEFAULT</c> to the SQL produced by translating
     /// <paramref name="defaultExpression" />. The body must be a parameterless lambda; constants
     /// are inlined as SQL literals. SQLite requires the resulting expression to be deterministic

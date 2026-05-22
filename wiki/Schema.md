@@ -52,7 +52,6 @@ db.Table<Book>().Schema
     .Check(b => b.Price > 0, name: "CK_Price_Positive")
     .Check(b => b.Title.Length > 0)
     .Default(b => b.Rating, 0)
-    .Default(b => b.CreatedAt, SQLiteColumnDefault.CurrentTimestamp)
     .Default(b => b.Slug, () => SQLiteFunctions.SqliteVersion())
     .Index(b => b.Title)
     .Index(b => b.AuthorId, unique: true)
@@ -66,11 +65,12 @@ db.Table<Book>().Schema
 
 `Check(predicate, name)` adds a table-level CHECK constraint. The predicate is translated to SQL the same way `Where` clauses are.
 
-`Default(column, ...)` sets the column's `DEFAULT` clause. Three overloads:
+`Default(column, ...)` sets the column's `DEFAULT` clause. Two overloads:
 
 * `Default(column, value)` writes a literal.
-* `Default(column, SQLiteColumnDefault.CurrentTime | CurrentDate | CurrentTimestamp)` writes a time keyword.
 * `Default(column, () => expression)` writes a translated SQL expression in parentheses.
+
+`DateTime` columns are stored as ticks by default, so SQLite's `CURRENT_TIMESTAMP`/`datetime('now')` is not a good default for them. Set the value in C# before insert, or change the column to a different storage mode through [Storage Options](Storage%20Options).
 
 For columns set this way, `Add` and `AddRange` omit the column from the INSERT when its CLR value equals `default(T)`. Same behavior as `[DefaultValue]` (see [Defining Models](Defining%20Models)).
 
@@ -154,14 +154,13 @@ db.Schema.AddColumn<Book>(b => b.Genre, defaultValue: "Unknown");
 
 SQLite does not let you use parameters inside DDL statements like `ALTER TABLE`. The framework writes `defaultValue` straight into the SQL text. Only numbers, `bool`, and `string` are accepted. Single quotes inside strings are doubled, so a value with quotes in it cannot escape from the string and run other SQL.
 
-Two more overloads cover time keywords and translated SQL expressions:
+A second overload takes a translated SQL expression:
 
 ```csharp
-db.Schema.AddColumn<Book>(b => b.CreatedAt, SQLiteColumnDefault.CurrentTimestamp);
-db.Schema.AddColumn<Book>(b => b.Rating, () => 7 * 6);  // requires SQLite 3.31.0+
+db.Schema.AddColumn<Book>(b => b.Rating, () => 7 * 6);
 ```
 
-SQLite rejects the `CURRENT_*` keywords on `ADD COLUMN` when the table already has rows. Use them only on empty tables.
+Requires SQLite 3.31.0 or newer. SQLite also rejects non-constant defaults on `ADD COLUMN` when the table already has rows. Use them only on empty tables.
 
 `RenameColumn`, `DropColumn`, and `RenameTable` take SQLite column or table names directly.
 

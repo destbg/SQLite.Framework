@@ -125,9 +125,9 @@ public class TableColumn
     /// <summary>
     /// The raw SQL fragment used in this column's <c>DEFAULT</c> clause, or <see langword="null" />
     /// when no default is configured. Set from a <see cref="DefaultValueAttribute" /> on the
-    /// property, or by the fluent builder, or by the <see cref="SQLiteSchema.AddColumn{T}(string, SQLiteColumnDefault)" />
-    /// family. When set, the framework also omits this column from <c>Add</c> inserts whenever the
-    /// CLR value equals <c>default(T)</c>, so SQLite applies the configured default instead.
+    /// property, or by the fluent builder. When set, the framework also omits this column from
+    /// <c>Add</c> inserts whenever the CLR value equals <c>default(T)</c>, so SQLite applies the
+    /// configured default instead.
     /// </summary>
     public string? DefaultSql { get; internal set; }
 
