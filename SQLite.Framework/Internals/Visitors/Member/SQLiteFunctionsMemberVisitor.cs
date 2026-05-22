@@ -22,6 +22,10 @@ internal static class SQLiteFunctionsMemberVisitor
             nameof(SQLiteFunctions.Iif) => HandleFunctionsIif(visitor, node),
             nameof(SQLiteFunctions.Typeof) => HandleFunctionsUnaryFn(visitor, node, "typeof", typeof(string)),
             nameof(SQLiteFunctions.Hex) => HandleFunctionsUnaryFn(visitor, node, "hex", typeof(string)),
+            nameof(SQLiteFunctions.Unhex) => HandleFunctionsUnhex(visitor, node),
+            nameof(SQLiteFunctions.Format) => HandleFunctionsFormat(visitor, node),
+            nameof(SQLiteFunctions.Unicode) => HandleFunctionsUnaryFn(visitor, node, "unicode", typeof(int)),
+            nameof(SQLiteFunctions.Char) => HandleFunctionsChar(visitor, node),
             nameof(SQLiteFunctions.Quote) => HandleFunctionsUnaryFn(visitor, node, "quote", typeof(string)),
             nameof(SQLiteFunctions.Zeroblob) => HandleFunctionsUnaryFn(visitor, node, "zeroblob", typeof(byte[])),
             nameof(SQLiteFunctions.Instr) => HandleFunctionsInstr(visitor, node),
@@ -152,6 +156,16 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsPrintf(SQLVisitor visitor, MethodCallExpression node)
     {
+        return HandleFunctionsFormatLike(visitor, node, "printf");
+    }
+
+    private static SQLiteExpression HandleFunctionsFormat(SQLVisitor visitor, MethodCallExpression node)
+    {
+        return HandleFunctionsFormatLike(visitor, node, "format");
+    }
+
+    private static SQLiteExpression HandleFunctionsFormatLike(SQLVisitor visitor, MethodCallExpression node, string sqlFunction)
+    {
         ResolvedModel format = visitor.ResolveExpression(node.Arguments[0]);
 
         List<ResolvedModel> rest = [];
@@ -166,7 +180,25 @@ internal static class SQLiteFunctionsMemberVisitor
         SQLiteExpression formatExpr = format.SQLiteExpression!;
         SQLiteExpression[] restExprs = rest.Select(r => r.SQLiteExpression!).ToArray();
         SQLiteExpression[] all = [formatExpr, .. restExprs];
-        return SQLiteExpression.Variadic(typeof(string), visitor.Counters.NextIdentifier(), "printf(", all, ", ", ")", ParameterHelpers.CombineParameters(all));
+        return SQLiteExpression.Variadic(typeof(string), visitor.Counters.NextIdentifier(), $"{sqlFunction}(", all, ", ", ")", ParameterHelpers.CombineParameters(all));
+    }
+
+    private static SQLiteExpression HandleFunctionsUnhex(SQLVisitor visitor, MethodCallExpression node)
+    {
+        ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
+        if (node.Arguments.Count == 1)
+        {
+            return SQLiteExpression.Wrap(typeof(byte[]), visitor.Counters.NextIdentifier(), "unhex(", value.SQLiteExpression!, ")", value.Parameters);
+        }
+        ResolvedModel ignoreChars = visitor.ResolveExpression(node.Arguments[1]);
+        return SQLiteExpression.Binary(typeof(byte[]), visitor.Counters.NextIdentifier(), "unhex(", value.SQLiteExpression!, ", ", ignoreChars.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, ignoreChars.SQLiteExpression!));
+    }
+
+    private static SQLiteExpression HandleFunctionsChar(SQLVisitor visitor, MethodCallExpression node)
+    {
+        List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[0]);
+        SQLiteExpression[] itemExprs = items.Select(r => r.SQLiteExpression!).ToArray();
+        return SQLiteExpression.Variadic(typeof(string), visitor.Counters.NextIdentifier(), "char(", itemExprs, ", ", ")", ParameterHelpers.CombineParameters(itemExprs));
     }
 
     private static SQLiteExpression HandleFunctionsRegexp(SQLVisitor visitor, MethodCallExpression node)

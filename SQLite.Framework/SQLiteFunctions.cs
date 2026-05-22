@@ -165,6 +165,72 @@ public static class SQLiteFunctions
     }
 
     /// <summary>
+    /// Decodes the hex string <paramref name="value" /> back into a BLOB. The inverse of
+    /// <see cref="Hex" />. Translates to SQLite's <c>unhex(value)</c>. Requires SQLite 3.41.0
+    /// or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios17.0")]
+#endif
+    public static byte[] Unhex(string value)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Decodes the hex string <paramref name="value" />, ignoring any characters that appear in
+    /// <paramref name="ignoreChars" />. Translates to SQLite's <c>unhex(value, ignoreChars)</c>.
+    /// Requires SQLite 3.41.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios17.0")]
+#endif
+    public static byte[] Unhex(string value, string ignoreChars)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Formats <paramref name="args" /> using the C-style <paramref name="format" /> string.
+    /// Translates to SQLite's <c>format(format, ...)</c>, which is the modern alias for
+    /// <c>printf</c>. Requires SQLite 3.38.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios16.0")]
+#endif
+    public static string Format(string format, params object[] args)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns the Unicode code point of the first character of <paramref name="value" />.
+    /// Translates to SQLite's <c>unicode(value)</c>.
+    /// </summary>
+    public static int Unicode(string value)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
+    /// Returns a string built from the given Unicode <paramref name="codePoints" />. Translates
+    /// to SQLite's <c>char(c0, c1, ...)</c>.
+    /// </summary>
+    public static string Char(params int[] codePoints)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
     /// Returns a SQL-quoted string literal representation of <paramref name="value" />, suitable
     /// for inclusion in a SQL statement. Translates to SQLite's <c>quote(value)</c>.
     /// </summary>

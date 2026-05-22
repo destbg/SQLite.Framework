@@ -765,6 +765,113 @@ public class WhereTests
     }
 
     [Fact]
+    public void Select_Unhex_RoundTrip()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        byte[] decoded = db.Table<Book>()
+            .Select(b => SQLiteFunctions.Unhex("48656C6C6F"))
+            .First();
+
+        Assert.Equal([0x48, 0x65, 0x6C, 0x6C, 0x6F], decoded);
+    }
+
+    [Fact]
+    public void Select_Unhex_WithIgnoreChars_RoundTrip()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        byte[] decoded = db.Table<Book>()
+            .Select(b => SQLiteFunctions.Unhex("48-65 6C:6C 6F", " -:"))
+            .First();
+
+        Assert.Equal([0x48, 0x65, 0x6C, 0x6C, 0x6F], decoded);
+    }
+
+    [Fact]
+    public void SQLiteFunctions_Unhex_OutsideQuery_Throws()
+    {
+        Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Unhex("AA"));
+        Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Unhex("AA", " "));
+    }
+
+    [Fact]
+    public void Select_Format_EmitsFormatSql()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.Table<Book>()
+            .Select(b => SQLiteFunctions.Format("%s costs %d", b.Title, b.Price))
+            .ToSqlCommand();
+
+        Assert.Contains("format(", command.CommandText);
+    }
+
+    [Fact]
+    public void Select_Format_RoundTrip()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "Foo", AuthorId = 1, Price = 5 });
+
+        string result = db.Table<Book>()
+            .Select(b => SQLiteFunctions.Format("%s/%d", b.Title, b.Id))
+            .First();
+
+        Assert.Equal("Foo/1", result);
+    }
+
+    [Fact]
+    public void SQLiteFunctions_Format_OutsideQuery_Throws()
+    {
+        Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Format("%s", "x"));
+    }
+
+    [Fact]
+    public void Select_Unicode_RoundTrip()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "Apple", AuthorId = 1, Price = 1 });
+
+        int codePoint = db.Table<Book>()
+            .Select(b => SQLiteFunctions.Unicode(b.Title))
+            .First();
+
+        Assert.Equal('A', codePoint);
+    }
+
+    [Fact]
+    public void SQLiteFunctions_Unicode_OutsideQuery_Throws()
+    {
+        Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Unicode("x"));
+    }
+
+    [Fact]
+    public void Select_Char_RoundTrip()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        string built = db.Table<Book>()
+            .Select(b => SQLiteFunctions.Char(72, 105))
+            .First();
+
+        Assert.Equal("Hi", built);
+    }
+
+    [Fact]
+    public void SQLiteFunctions_Char_OutsideQuery_Throws()
+    {
+        Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Char(65));
+    }
+
+    [Fact]
     public void Select_Typeof_RoundTrip()
     {
         using TestDatabase db = new();

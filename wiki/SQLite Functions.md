@@ -22,6 +22,10 @@ The class also holds the FTS5 helpers (`Match`, `Rank`, `Snippet`, `Highlight`).
 | `Iif(condition, whenTrue, whenFalse)` | `iif(condition, whenTrue, whenFalse)` |
 | `Typeof(x)` | `typeof(x)` |
 | `Hex(bytes)` | `hex(bytes)` |
+| `Unhex(value)` / `Unhex(value, ignoreChars)` | `unhex(...)` (SQLite 3.41+) |
+| `Format(format, args)` | `format(format, ...)` (SQLite 3.38+) |
+| `Unicode(value)` | `unicode(value)` |
+| `Char(c0, c1, ...)` | `char(c0, c1, ...)` |
 | `Quote(x)` | `quote(x)` |
 | `Zeroblob(n)` | `zeroblob(n)` |
 | `Instr(haystack, needle)` | `instr(haystack, needle)` |
