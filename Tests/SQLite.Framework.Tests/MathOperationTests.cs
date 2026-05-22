@@ -536,4 +536,81 @@ public class MathOperationTests
         Assert.Equal(2, results[1].Log10, 5);
         Assert.Equal(3, results[2].Log10, 5);
     }
+
+    [Fact]
+    public void DoubleDegreesToRadians()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 0 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 90 },
+            new Book { Id = 3, Title = "Book 3", AuthorId = 2, Price = 180 }
+        });
+
+        var query = db.Table<Book>().Select(b => new { b.Id, Radians = double.DegreesToRadians(b.Price) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            RADIANS(b0.BookPrice) AS "Radians"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
+        Assert.Equal(3, results.Count);
+        Assert.Equal(0, results[0].Radians, 5);
+        Assert.Equal(Math.PI / 2, results[1].Radians, 5);
+        Assert.Equal(Math.PI, results[2].Radians, 5);
+    }
+
+    [Fact]
+    public void DoubleRadiansToDegrees()
+    {
+        using TestDatabase db = new();
+
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 0 },
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = Math.PI / 2 },
+            new Book { Id = 3, Title = "Book 3", AuthorId = 2, Price = Math.PI }
+        });
+
+        var query = db.Table<Book>().Select(b => new { b.Id, Degrees = double.RadiansToDegrees(b.Price) });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Empty(command.Parameters);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            DEGREES(b0.BookPrice) AS "Degrees"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+
+        var results = query.ToList();
+        Assert.Equal(3, results.Count);
+        Assert.Equal(0, results[0].Degrees, 5);
+        Assert.Equal(90, results[1].Degrees, 5);
+        Assert.Equal(180, results[2].Degrees, 5);
+    }
+
+    [Fact]
+    public void MathPiIsInlinedAsConstant()
+    {
+        using TestDatabase db = new();
+
+        var query = db.Table<Book>().Select(b => new { b.Id, TwoPi = b.Price * Math.PI });
+
+        SQLiteCommand command = query.ToSqlCommand();
+
+        Assert.Single(command.Parameters);
+        Assert.Equal(Math.PI, command.Parameters[0].Value);
+    }
 }

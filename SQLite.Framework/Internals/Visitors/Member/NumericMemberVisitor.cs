@@ -73,6 +73,22 @@ internal static class NumericMemberVisitor
             return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", arguments[0].SQLiteExpression!, " AS REAL)", arguments[0].Parameters);
         }
 
+        if (node.Method.Name == nameof(double.DegreesToRadians))
+        {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, $"{node.Method.DeclaringType!.Name}.DegreesToRadians");
+#endif
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "RADIANS(", arguments[0].SQLiteExpression!, ")", arguments[0].Parameters);
+        }
+
+        if (node.Method.Name == nameof(double.RadiansToDegrees))
+        {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, $"{node.Method.DeclaringType!.Name}.RadiansToDegrees");
+#endif
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "DEGREES(", arguments[0].SQLiteExpression!, ")", arguments[0].Parameters);
+        }
+
         throw new NotSupportedException($"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");
     }
 }
