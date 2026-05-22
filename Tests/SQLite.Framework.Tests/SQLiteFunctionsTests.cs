@@ -124,6 +124,51 @@ public class SQLiteFunctionsTests
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.UnixEpoch());
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Changes());
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Collate("x", SQLite.Framework.Enums.SQLiteCollation.NoCase));
+        Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.DistinctFrom<int?>(1, 2));
+    }
+
+    [Fact]
+    public void DistinctFrom_EmitsIsDistinctFromSql()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<NullableStringEntity>();
+
+        SQLiteCommand cmd = db.Table<NullableStringEntity>()
+            .Where(e => SQLiteFunctions.DistinctFrom(e.Name, "Alice"))
+            .ToSqlCommand();
+
+        Assert.Contains("IS DISTINCT FROM", cmd.CommandText);
+    }
+
+    [Fact]
+    public void DistinctFrom_NegatedEmitsNotIsDistinctFromSql()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<NullableStringEntity>();
+
+        SQLiteCommand cmd = db.Table<NullableStringEntity>()
+            .Where(e => !SQLiteFunctions.DistinctFrom(e.Name, "Alice"))
+            .ToSqlCommand();
+
+        Assert.Contains("NOT", cmd.CommandText);
+        Assert.Contains("IS DISTINCT FROM", cmd.CommandText);
+    }
+
+    [Fact]
+    public void DistinctFrom_TreatsTwoNullsAsEqual()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<NullableStringEntity>();
+        db.Table<NullableStringEntity>().Add(new NullableStringEntity { Id = 1, Name = null });
+        db.Table<NullableStringEntity>().Add(new NullableStringEntity { Id = 2, Name = "Alice" });
+
+        int nullDistinctCount = db.Table<NullableStringEntity>()
+            .Count(e => SQLiteFunctions.DistinctFrom(e.Name, (string?)null));
+        Assert.Equal(1, nullDistinctCount);
+
+        int nullEqualCount = db.Table<NullableStringEntity>()
+            .Count(e => !SQLiteFunctions.DistinctFrom(e.Name, (string?)null));
+        Assert.Equal(1, nullEqualCount);
     }
 
     [Fact]

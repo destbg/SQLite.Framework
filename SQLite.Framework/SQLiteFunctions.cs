@@ -128,6 +128,25 @@ public static class SQLiteFunctions
     }
 
     /// <summary>
+    /// Null-safe inequality. Returns <see langword="true" /> when <paramref name="a" /> and
+    /// <paramref name="b" /> are different, treating two <see langword="null" /> values as equal
+    /// (so they are <em>not</em> distinct). Translates to SQLite's <c>a IS DISTINCT FROM b</c>.
+    /// For the inverse, negate with <c>!</c>: the framework emits
+    /// <c>NOT (a IS DISTINCT FROM b)</c>, which SQLite reads identically to <c>a IS NOT DISTINCT FROM b</c>.
+    /// Requires SQLite 3.39.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios16.0")]
+#endif
+    public static bool DistinctFrom<T>(T a, T b)
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
     /// Returns <paramref name="whenTrue" /> if <paramref name="condition" /> is true, otherwise
     /// <paramref name="whenFalse" />. Translates to SQLite's <c>iif(condition, whenTrue, whenFalse)</c>.
     /// SQLite implements <c>iif</c> as a shorthand for <c>CASE WHEN condition THEN whenTrue ELSE whenFalse END</c>.

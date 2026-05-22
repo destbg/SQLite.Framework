@@ -19,6 +19,7 @@ internal static class SQLiteFunctionsMemberVisitor
             nameof(SQLiteFunctions.In) => HandleFunctionsIn(visitor, node),
             nameof(SQLiteFunctions.Coalesce) => HandleFunctionsVariadic(visitor, node, "coalesce", node.Method.ReturnType),
             nameof(SQLiteFunctions.Nullif) => HandleFunctionsNullif(visitor, node),
+            nameof(SQLiteFunctions.DistinctFrom) => HandleFunctionsDistinctFrom(visitor, node),
             nameof(SQLiteFunctions.Iif) => HandleFunctionsIif(visitor, node),
             nameof(SQLiteFunctions.Typeof) => HandleFunctionsUnaryFn(visitor, node, "typeof", typeof(string)),
             nameof(SQLiteFunctions.Hex) => HandleFunctionsUnaryFn(visitor, node, "hex", typeof(string)),
@@ -98,6 +99,16 @@ internal static class SQLiteFunctionsMemberVisitor
         ResolvedModel a = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel b = visitor.ResolveExpression(node.Arguments[1]);
         return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "nullif(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(a.SQLiteExpression!, b.SQLiteExpression!));
+    }
+
+    private static SQLiteExpression HandleFunctionsDistinctFrom(SQLVisitor visitor, MethodCallExpression node)
+    {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_39, "SQLiteFunctions.DistinctFrom");
+#endif
+        ResolvedModel a = visitor.ResolveExpression(node.Arguments[0]);
+        ResolvedModel b = visitor.ResolveExpression(node.Arguments[1]);
+        return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", a.SQLiteExpression!, " IS DISTINCT FROM ", b.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(a.SQLiteExpression!, b.SQLiteExpression!));
     }
 
     private static SQLiteExpression HandleFunctionsIif(SQLVisitor visitor, MethodCallExpression node)

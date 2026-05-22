@@ -290,6 +290,21 @@ public class MinimumSqliteVersionTests
     }
 
     [Fact]
+    public void LowFloor_BlocksDistinctFrom()
+    {
+        using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_38));
+        db.Table<Book>().Schema.CreateTable();
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .Where(b => SQLiteFunctions.DistinctFrom(b.Title, "x"))
+                .ToList());
+
+        Assert.Contains("DistinctFrom", ex.Message);
+        Assert.Contains("3.39", ex.Message);
+    }
+
+    [Fact]
     public void LowFloor_BlocksUpsert()
     {
         using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_22));
