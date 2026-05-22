@@ -40,6 +40,9 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     {
         ArgumentNullException.ThrowIfNull(column);
         ArgumentNullException.ThrowIfNull(sql);
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_31, "Computed columns");
+#endif
 
         TableColumn target = ResolveTargetColumn(column);
         string expressionSql = TranslateBareSql(sql);
@@ -127,6 +130,9 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
                 }
                 else
                 {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+                    database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "Expression indexes");
+#endif
                     items[i] = "(" + TranslateBareSql(rowParameter, arg) + ")";
                     allPlain = false;
                 }
@@ -142,6 +148,9 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         }
         else
         {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+            database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "Expression indexes");
+#endif
             items = ["(" + TranslateBareSql(rowParameter, body) + ")"];
             plainColumnNames = null;
         }
@@ -289,6 +298,9 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
     {
         ArgumentNullException.ThrowIfNull(column);
         ArgumentNullException.ThrowIfNull(defaultExpression);
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_31, "Column DEFAULT with computed expression");
+#endif
         TableColumn col = ResolveTargetColumn(column);
         col.DefaultSql = "(" + DefaultExpressionTranslator.Translate(database, defaultExpression, nameof(defaultExpression)) + ")";
         return this;
@@ -436,6 +448,9 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
         if (mapping.Strict)
         {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+            database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_37, "STRICT tables");
+#endif
             sb.Append(mapping.WithoutRowId ? ", STRICT" : " STRICT");
         }
 

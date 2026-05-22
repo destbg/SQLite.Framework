@@ -31,6 +31,7 @@ Plain console:
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35) // declare the SQLite floor
     .UseWalMode()                     // optional, allows concurrent writes
     .UseGeneratedMaterializers()      // requires SQLite.Framework.SourceGenerator
     .DisableReflectionFallback()      // throws if a query needs runtime reflection

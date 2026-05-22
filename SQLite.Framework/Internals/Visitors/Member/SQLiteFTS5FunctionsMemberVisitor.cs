@@ -4,9 +4,11 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
 {
     public static Expression HandleSQLiteFTS5FunctionsMethod(SQLiteCallerContext ctx)
     {
-
         SQLVisitor visitor = ctx.Visitor;
         MethodCallExpression node = (MethodCallExpression)ctx.Node;
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, $"SQLiteFTS5Functions.{node.Method.Name}");
+#endif
         return node.Method.Name switch
         {
             nameof(SQLiteFTS5Functions.Match) => HandleFTS5Match(visitor, node),

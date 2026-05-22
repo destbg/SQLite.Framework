@@ -44,6 +44,9 @@ internal static class SQLiteDateFunctionsMemberVisitor
 
     private static SQLiteExpression HandleTimediff(SQLVisitor visitor, MethodCallExpression node)
     {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_43, "SQLiteDateFunctions.Timediff");
+#endif
         ResolvedModel when1 = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel when2 = visitor.ResolveExpression(node.Arguments[1]);
         return SQLiteExpression.Binary(typeof(string), visitor.Counters.NextIdentifier(), "timediff(", when1.SQLiteExpression!, ", ", when2.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(when1.SQLiteExpression!, when2.SQLiteExpression!));

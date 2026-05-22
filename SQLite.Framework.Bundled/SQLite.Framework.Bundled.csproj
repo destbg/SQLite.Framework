@@ -8,6 +8,7 @@
         <LangVersion>preview</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <DefineConstants>$(DefineConstants);SQLITE_FRAMEWORK_BUNDLED</DefineConstants>
     </PropertyGroup>
 
     <PropertyGroup>

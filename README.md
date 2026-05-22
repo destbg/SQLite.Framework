@@ -9,7 +9,9 @@ LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ```csharp
-SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
+SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .Build();
 using var db = new SQLiteDatabase(options);
 
 var authors = await (
@@ -94,7 +96,9 @@ public class Person
 ```csharp
 using SQLite.Framework;
 
-var options = new SQLiteOptionsBuilder("app.db").Build();
+var options = new SQLiteOptionsBuilder("app.db")
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .Build();
 using var db = new SQLiteDatabase(options);
 db.Schema.CreateTable<Person>();
 ```

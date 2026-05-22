@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <DefineConstants>$(DefineConstants);SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE</DefineConstants>
+        <DefineConstants>$(DefineConstants);SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE;SQLITE_FRAMEWORK_BUNDLED</DefineConstants>
     </PropertyGroup>
 
     <PropertyGroup>

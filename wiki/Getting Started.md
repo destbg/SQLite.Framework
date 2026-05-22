@@ -13,7 +13,9 @@ dotnet add package SQLite.Framework
 Build a read-only `SQLiteOptions` with `SQLiteOptionsBuilder` and hand it to the `SQLiteDatabase` constructor. The database path lives on the options. The connection opens automatically on the first operation.
 
 ```csharp
-SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
+SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .Build();
 using SQLiteDatabase db = new(options);
 
 await db.Schema.CreateTableAsync<Author>();
@@ -34,6 +36,23 @@ var results = await books.Where(b => b.Price < 50).ToListAsync();
 
 `SQLiteOptionsBuilder` is mutable and lets you chain `Use*` / `Add*` calls. Once you call `Build()`, the returned `SQLiteOptions` is fully immutable, this makes it safe to share through dependency injection and reuse across databases without worrying about a late change affecting live code paths.
 
+### Declaring a minimum SQLite version
+
+The system SQLite on Android and iOS varies by OS version, so a method that compiles against the framework may still fail at runtime if the device's SQLite is too old. Declare the floor your app commits to:
+
+```csharp
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .Build();
+```
+
+Behavior:
+
+- At connection-open time the framework reads sqlite's version and throws if the loaded SQLite is below the floor.
+- A method that needs a newer SQLite version than the floor throws an exception.
+
+Only the main `SQLite.Framework` package reads the value. The `SQLite.Framework.Bundled`, `SQLite.Framework.Base`, and `SQLite.Framework.Cipher` packages all ship (or wrap) a SQLite with a known version, so the enum only has `Unspecified`.
+
 ## .NET MAUI App
 
 Use `FileSystem.AppDataDirectory` to get a path that works on every platform.
@@ -52,7 +71,11 @@ public static class MauiProgram
 
         string dbPath = Path.Combine(FileSystem.AppDataDirectory, "library.db");
         builder.Services.AddSQLiteDatabase<AppDatabase>(
-            b => b.DatabasePath = dbPath,
+            b =>
+            {
+                b.DatabasePath = dbPath;
+                b.MinimumSqliteVersion = SQLiteMinimumVersion.V3_35;
+            },
             ServiceLifetime.Singleton);
 
         builder.Services.AddSingleton<LibraryPage>();

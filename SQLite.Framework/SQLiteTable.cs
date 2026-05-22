@@ -240,8 +240,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// Performs an <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> upsert built through the
     /// <see cref="UpsertBuilder{T}" /> DSL. Use this when <c>AddOrUpdate</c> with an
     /// <see cref="SQLiteConflict" /> value is not enough, for example to update only some
-    /// columns or to do nothing on conflict.
+    /// columns or to do nothing on conflict. Requires SQLite 3.24.0 or newer.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android30.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios12.0")]
+#endif
     public virtual int Upsert(T item, Action<UpsertBuilder<T>> configure)
     {
         if (!RunHooks(Database.Options.AddOrUpdateHooks, item))
@@ -259,8 +265,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     }
 
     /// <summary>
-    /// Range version of <see cref="Upsert" />. Runs hooks per row.
+    /// Range version of <see cref="Upsert" />. Runs hooks per row. Requires SQLite 3.24.0 or newer.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android30.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios12.0")]
+#endif
     public virtual int UpsertRange(IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, bool separateConnection = false)
     {
         if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(InsertItem)))
@@ -534,6 +546,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<UpsertBuilder<T>> configure)
     {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_24, "UPSERT (INSERT ... ON CONFLICT ... DO ...)");
+#endif
         UpsertBuilder<T> builder = new();
         configure(builder);
         UpsertConflictTarget<T> target = builder.Build();

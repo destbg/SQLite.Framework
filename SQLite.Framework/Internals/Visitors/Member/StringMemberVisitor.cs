@@ -41,6 +41,9 @@ internal static class StringMemberVisitor
                 }
                 case nameof(string.LastIndexOf):
                 {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+                    visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_8_3, "string.LastIndexOf (uses WITH RECURSIVE CTE)");
+#endif
                     SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);

@@ -184,6 +184,9 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
 
     private List<TResult> ExecuteWithReturning(string entitySql, List<SQLiteParameter> entityParameters)
     {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "RETURNING");
+#endif
         ProjectionPlan plan = cachedPlan ??= BuildProjectionPlan();
 
         string finalSql = entitySql + " RETURNING " + plan.ColumnsSql;

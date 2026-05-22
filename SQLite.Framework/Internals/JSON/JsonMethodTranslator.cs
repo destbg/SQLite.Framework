@@ -33,6 +33,10 @@ internal static class JsonMethodTranslator
             return null;
         }
 
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "JSON1 collection translation (json_each, json_extract)");
+#endif
+
         if (declaring == typeof(Enumerable))
         {
             return JsonCollectionVisitor.TryHandle(node, visitor) ?? TryEnumerable(node, visitor);

@@ -45,6 +45,20 @@ public sealed class SQLiteOptionsBuilder
     public string? EncryptionKey { get; set; }
 
     /// <summary>
+    /// The minimum SQLite version the application is willing to commit to. Defaults to
+    /// <see cref="SQLiteMinimumVersion.Unspecified" />, which disables enforcement. When set to
+    /// a non-default value, <see cref="SQLiteDatabase" /> verifies that the loaded SQLite is at
+    /// or above this floor when the connection is first opened, and the framework rejects SQL
+    /// translations that need a newer SQLite version than this floor. Set this through
+    /// <see cref="UseMinimumSqliteVersion" />. Only the main <c>SQLite.Framework</c> package
+    /// exposes non-<see cref="SQLiteMinimumVersion.Unspecified" /> values on the enum;
+    /// <c>SQLite.Framework.Bundled</c>, <c>SQLite.Framework.Base</c>, and
+    /// <c>SQLite.Framework.Cipher</c> ship (or wrap) a SQLite with a known version, so the
+    /// enum has only <see cref="SQLiteMinimumVersion.Unspecified" /> in those packages.
+    /// </summary>
+    public SQLiteMinimumVersion MinimumSqliteVersion { get; set; } = SQLiteMinimumVersion.Unspecified;
+
+    /// <summary>
     /// Controls how DateTime values are stored. Defaults to <see cref="DateTimeStorageMode.Integer" />.
     /// </summary>
     public DateTimeStorageMode DateTimeStorage { get; set; } = DateTimeStorageMode.Integer;
@@ -312,6 +326,21 @@ public sealed class SQLiteOptionsBuilder
     public SQLiteOptionsBuilder UseEncryptionKey(string key)
     {
         EncryptionKey = key;
+        return this;
+    }
+
+    /// <summary>
+    /// Declares the minimum SQLite version the application is willing to commit to. When the
+    /// floor is not <see cref="SQLiteMinimumVersion.Unspecified" />, the framework verifies the
+    /// loaded SQLite is at or above the floor when the database is first opened, and rejects
+    /// SQL features that need a newer SQLite version. Calls that need a newer version throw
+    /// <see cref="NotSupportedException" /> instead of falling through to SQLite, so the
+    /// failure points at the line in the user's code rather than at an opaque
+    /// <c>no such function</c> error from the engine.
+    /// </summary>
+    public SQLiteOptionsBuilder UseMinimumSqliteVersion(SQLiteMinimumVersion version)
+    {
+        MinimumSqliteVersion = version;
         return this;
     }
 
@@ -695,6 +724,7 @@ public sealed class SQLiteOptionsBuilder
             IsWalMode = IsWalMode,
             IsForeignKeysEnabled = IsForeignKeysEnabled,
             EncryptionKey = EncryptionKey,
+            MinimumSqliteVersion = MinimumSqliteVersion,
             DateTimeStorage = DateTimeStorage,
             DateTimeFormat = DateTimeFormat,
             DateTimeOffsetStorage = DateTimeOffsetStorage,

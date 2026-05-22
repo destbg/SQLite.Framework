@@ -372,6 +372,25 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 }
 #endif
 
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+                if (Options.MinimumSqliteVersion != SQLiteMinimumVersion.Unspecified)
+                {
+                    int loadedVersion = raw.sqlite3_libversion_number();
+                    if (loadedVersion < (int)Options.MinimumSqliteVersion)
+                    {
+                        raw.sqlite3_close(Handle);
+                        Handle = null;
+                        IsConnecting = false;
+                        throw new NotSupportedException(
+                            $"The loaded SQLite version {SQLiteVersionFormatter.Format(loadedVersion)} " +
+                            $"is below the configured minimum {SQLiteVersionFormatter.Format((int)Options.MinimumSqliteVersion)}. " +
+                            $"Use the SQLite.Framework.Bundled package to ship a known SQLite version, " +
+                            $"or lower the value passed to UseMinimumSqliteVersion (and retest your queries)."
+                        );
+                    }
+                }
+#endif
+
                 IsConnected = true;
 
                 if (Options.IsWalMode)
@@ -504,6 +523,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public virtual void VacuumInto(string destinationPath, string? schema = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(destinationPath);
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_27, "VACUUM INTO");
+#endif
         string escapedPath = destinationPath.Replace("'", "''");
         if (schema == null)
         {

@@ -3,7 +3,9 @@
 A lightweight [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapping) for SQLite, built for .NET. It gives you LINQ queries, async support, and AOT compatibility, with an API that will feel familiar if you have used Entity Framework before.
 
 ```csharp
-SQLiteOptions options = new SQLiteOptionsBuilder("library.db").Build();
+SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .Build();
 using SQLiteDatabase db = new(options);
 
 await db.Schema.CreateTableAsync<Book>();

@@ -4,7 +4,6 @@ internal static class SQLiteJsonFunctionsMemberVisitor
 {
     public static Expression HandleSQLiteJsonFunctionsMethod(SQLiteCallerContext ctx)
     {
-
         SQLVisitor visitor = ctx.Visitor;
         MethodCallExpression node = (MethodCallExpression)ctx.Node;
         List<ResolvedModel> arguments = node.Arguments.Select(visitor.ResolveExpression).ToList();
@@ -14,7 +13,19 @@ internal static class SQLiteJsonFunctionsMemberVisitor
             .Cast<SQLiteExpression>()
             .ToArray());
 
-        return node.Method.Name switch
+        string methodName = node.Method.Name;
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        if (methodName is nameof(SQLiteJsonFunctions.ToJsonb) or nameof(SQLiteJsonFunctions.ExtractJsonb))
+        {
+            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_45, $"SQLiteJsonFunctions.{methodName}");
+        }
+        else
+        {
+            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, $"SQLiteJsonFunctions.{methodName}");
+        }
+#endif
+
+        return methodName switch
         {
             nameof(SQLiteJsonFunctions.Extract) => Fn(visitor, node.Type, "json_extract", arguments[0], arguments[1], parameters),
             nameof(SQLiteJsonFunctions.Set) => Fn(visitor, node.Type, "json_set", arguments[0], arguments[1], arguments[2], parameters),
@@ -29,7 +40,7 @@ internal static class SQLiteJsonFunctionsMemberVisitor
             nameof(SQLiteJsonFunctions.Minify) => Fn(visitor, node.Type, "json", arguments[0], parameters),
             nameof(SQLiteJsonFunctions.ToJsonb) => Fn(visitor, node.Type, "jsonb", arguments[0], parameters),
             nameof(SQLiteJsonFunctions.ExtractJsonb) => Fn(visitor, node.Type, "jsonb_extract", arguments[0], arguments[1], parameters),
-            _ => throw new NotSupportedException($"SQLiteJsonFunctions.{node.Method.Name} is not translatable to SQL."),
+            _ => throw new NotSupportedException($"SQLiteJsonFunctions.{methodName} is not translatable to SQL."),
         };
     }
 

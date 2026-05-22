@@ -362,6 +362,9 @@ public class SQLitePragmas
     /// </summary>
     public virtual void Optimize()
     {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_18, "PRAGMA optimize");
+#endif
         Database.Execute("PRAGMA optimize");
     }
 
@@ -394,6 +397,9 @@ public class SQLitePragmas
 #endif
     public virtual IQueryable<PragmaTableInfo> TableInfo(string tableName)
     {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_16, "pragma_table_info() as a table-valued function");
+#endif
         return new SQLitePragmaTable<PragmaTableInfo>(Database, "pragma_table_info", tableName);
     }
 
@@ -410,6 +416,9 @@ public class SQLitePragmas
 #endif
     public virtual IQueryable<PragmaIndexList> IndexList(string tableName)
     {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_16, "pragma_index_list() as a table-valued function");
+#endif
         return new SQLitePragmaTable<PragmaIndexList>(Database, "pragma_index_list", tableName);
     }
 
@@ -426,6 +435,9 @@ public class SQLitePragmas
 #endif
     public virtual IQueryable<PragmaForeignKey> ForeignKeyList(string tableName)
     {
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_16, "pragma_foreign_key_list() as a table-valued function");
+#endif
         return new SQLitePragmaTable<PragmaForeignKey>(Database, "pragma_foreign_key_list", tableName);
     }
 

@@ -45,6 +45,15 @@ public sealed class SQLiteOptions
     public required string? EncryptionKey { get; init; }
 
     /// <summary>
+    /// The minimum SQLite version the application is willing to commit to. Defaults to
+    /// <see cref="SQLiteMinimumVersion.Unspecified" />, which disables enforcement. When set
+    /// to a non-default value, <see cref="SQLiteDatabase" /> verifies that the loaded SQLite is
+    /// at or above this floor when the connection is first opened, and the framework rejects
+    /// SQL translations that need a newer SQLite version than this floor.
+    /// </summary>
+    public required SQLiteMinimumVersion MinimumSqliteVersion { get; init; }
+
+    /// <summary>
     /// Controls how DateTime values are stored. Defaults to <see cref="DateTimeStorageMode.Integer" />.
     /// </summary>
     public required DateTimeStorageMode DateTimeStorage { get; init; }
@@ -265,6 +274,30 @@ public sealed class SQLiteOptions
     /// <see cref="SQLiteOptionsBuilder.UseSchema" />.
     /// </summary>
     public required Func<SQLiteDatabase, SQLiteSchema> SchemaFactory { get; init; }
+
+    /// <summary>
+    /// Throws <see cref="NotSupportedException" /> when <paramref name="requiredVersion" /> is
+    /// greater than the configured <see cref="MinimumSqliteVersion" />. Always succeeds when
+    /// the floor is <see cref="SQLiteMinimumVersion.Unspecified" />. Used by built-in SQL
+    /// emitters to fail fast when a query, DDL fragment, or pragma needs a newer SQLite than
+    /// the caller has committed to.
+    /// </summary>
+    public void EnsureMinimumVersion(SQLiteMinimumVersion requiredVersion, string featureName)
+    {
+        if (MinimumSqliteVersion == SQLiteMinimumVersion.Unspecified)
+        {
+            return;
+        }
+
+        if ((int)requiredVersion > (int)MinimumSqliteVersion)
+        {
+            throw new NotSupportedException(
+                $"{featureName} requires SQLite {SQLiteVersionFormatter.Format((int)requiredVersion)} or later. " +
+                $"The configured minimum is {SQLiteVersionFormatter.Format((int)MinimumSqliteVersion)}. " +
+                $"Raise the value passed to UseMinimumSqliteVersion or remove the call that needs the newer feature."
+            );
+        }
+    }
 
     /// <summary>
     /// Binds <paramref name="value" /> to <paramref name="parameterIndex" /> on

@@ -4,9 +4,11 @@ internal static class WindowFunctionsMemberVisitor
 {
     public static Expression HandleWindowFunctionMethod(SQLiteCallerContext ctx)
     {
-
         SQLVisitor visitor = ctx.Visitor;
         MethodCallExpression node = (MethodCallExpression)ctx.Node;
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_25, "Window functions");
+#endif
         if (node.Method.DeclaringType == typeof(SQLiteFrameBoundary))
         {
             return HandleFrameBoundary(visitor, node);
