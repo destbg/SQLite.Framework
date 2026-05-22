@@ -597,6 +597,84 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Opens a <see cref="Stream" /> over a BLOB column on a specific row, using SQLite's
+    /// incremental BLOB I/O. The blob must already exist at the size you want to read or write,
+    /// pre-allocate by inserting a sized byte array or by running raw SQL with <c>zeroblob(n)</c>.
+    /// The stream holds a connection-level lock until it is disposed, so wrap it in a
+    /// <c>using</c> block.
+    /// </summary>
+    /// <param name="tableName">SQLite table name (not the entity type name).</param>
+    /// <param name="columnName">SQLite column name (not the entity property name).</param>
+    /// <param name="rowid">The rowid of the target row. For tables with an <c>INTEGER PRIMARY KEY</c>
+    /// this matches the primary key value. For <c>WITHOUT ROWID</c> tables, incremental BLOB I/O
+    /// is not supported by SQLite.</param>
+    /// <param name="writable">When <see langword="true" />, the stream can be written to. The
+    /// underlying blob must not change size, see <see cref="SQLiteBlobStream" /> for details.</param>
+    /// <param name="schema">The database schema name. Defaults to <c>main</c>. Use the name passed
+    /// to <see cref="AttachDatabase" /> to target an attached database.</param>
+    public virtual SQLiteBlobStream OpenBlobStream(string tableName, string columnName, long rowid, bool writable = false, string schema = "main")
+    {
+        ArgumentException.ThrowIfNullOrEmpty(tableName);
+        ArgumentException.ThrowIfNullOrEmpty(columnName);
+        ValidateSchemaName(schema);
+
+        OpenConnection();
+        IDisposable connectionLock = Lock();
+        try
+        {
+            SQLiteResult result = (SQLiteResult)raw.sqlite3_blob_open(
+                Handle!,
+                schema,
+                tableName,
+                columnName,
+                rowid,
+                writable ? 1 : 0,
+                out sqlite3_blob blobHandle);
+
+            if (result != SQLiteResult.OK)
+            {
+                string message = raw.sqlite3_errmsg(Handle!).utf8_to_string();
+                throw new SQLiteException(result, message, null);
+            }
+
+            return new SQLiteBlobStream(this, blobHandle, writable, connectionLock);
+        }
+        catch
+        {
+            connectionLock.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Opens a <see cref="Stream" /> over a BLOB column on a specific row, resolving the table
+    /// name and column name from the entity mapping. See
+    /// <see cref="OpenBlobStream(string, string, long, bool, string)" /> for the constraints.
+    /// </summary>
+    /// <typeparam name="T">The entity type. Its <c>[Table]</c> attribute (or class name) sets
+    /// the SQLite table name.</typeparam>
+    /// <param name="rowid">The rowid of the target row.</param>
+    /// <param name="columnSelector">A selector for the BLOB property, like <c>b =&gt; b.Cover</c>.
+    /// The property must be mapped to a column.</param>
+    /// <param name="writable">When <see langword="true" />, the stream can be written to.</param>
+    /// <param name="schema">The database schema name. Defaults to <c>main</c>.</param>
+    public virtual SQLiteBlobStream OpenBlobStream<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(long rowid, Expression<Func<T, byte[]?>> columnSelector, bool writable = false, string schema = "main")
+    {
+        ArgumentNullException.ThrowIfNull(columnSelector);
+
+        TableMapping mapping = TableMapping<T>();
+        if (columnSelector.Body is not MemberExpression member)
+        {
+            throw new ArgumentException("Expected a property access expression like b => b.Cover.", nameof(columnSelector));
+        }
+
+        TableColumn column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name)
+            ?? throw new ArgumentException($"Property '{member.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(columnSelector));
+
+        return OpenBlobStream(mapping.TableName, column.Name, rowid, writable, schema);
+    }
+
+    /// <summary>
     /// Locks the all queries from entering the <see cref="Lock" /> method until <see cref="IDisposable.Dispose" /> is
     /// called.
     /// </summary>

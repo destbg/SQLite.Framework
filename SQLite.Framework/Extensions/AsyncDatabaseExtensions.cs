@@ -303,6 +303,25 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
+    /// Opens a <see cref="SQLiteBlobStream" /> by table and column name, waiting for the
+    /// connection asynchronously. The returned stream still holds the connection lock, so
+    /// dispose it before issuing other operations.
+    /// </summary>
+    public static Task<SQLiteBlobStream> OpenBlobStreamAsync(this SQLiteDatabase database, string tableName, string columnName, long rowid, bool writable = false, string schema = "main", CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(() => Task.FromResult(database.OpenBlobStream(tableName, columnName, rowid, writable, schema)), ct);
+    }
+
+    /// <summary>
+    /// Opens a <see cref="SQLiteBlobStream" /> by entity type and column selector, waiting for
+    /// the connection asynchronously.
+    /// </summary>
+    public static Task<SQLiteBlobStream> OpenBlobStreamAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteDatabase database, long rowid, Expression<Func<T, byte[]?>> columnSelector, bool writable = false, string schema = "main", CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(() => Task.FromResult(database.OpenBlobStream(rowid, columnSelector, writable, schema)), ct);
+    }
+
+    /// <summary>
     /// Detaches a previously attached database from this connection.
     /// </summary>
     public static Task DetachDatabaseAsync(this SQLiteDatabase database, string schemaName, CancellationToken ct = default)
