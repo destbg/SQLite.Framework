@@ -23,22 +23,18 @@ public class TableMapping
         Strict = type.GetCustomAttribute<StrictTableAttribute>() != null;
         bool hasFts = type.GetCustomAttribute<FullTextSearchAttribute>() != null;
         bool hasRtree = type.GetCustomAttribute<RTreeIndexAttribute>() != null;
-        bool hasGeopoly = type.GetCustomAttribute<GeopolyIndexAttribute>() != null;
-        int virtualKinds = (hasFts ? 1 : 0) + (hasRtree ? 1 : 0) + (hasGeopoly ? 1 : 0);
-        if (virtualKinds > 1)
+        if (hasFts && hasRtree)
         {
             throw new InvalidOperationException(
-                $"Entity '{type.Name}' cannot combine [FullTextSearch], [RTreeIndex], and [GeopolyIndex]. Pick at most one virtual table kind.");
+                $"Entity '{type.Name}' cannot combine [FullTextSearch] and [RTreeIndex]. Pick at most one virtual table kind.");
         }
         FullTextSearch = FtsMappingReader.TryRead(type);
         RTree = RTreeMappingReader.TryRead(type);
-        Geopoly = GeopolyMappingReader.TryRead(type);
         Columns = properties
             .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
             .Where(p => FullTextSearch == null || IsFtsColumn(p))
             .Where(p => RTree == null || IsRTreeColumn(p))
-            .Where(p => Geopoly == null || IsGeopolyColumn(p))
-            .Select(p => new TableColumn(p, options, IsFtsRowIdProperty(p), GeopolyNameOverride(p)))
+            .Select(p => new TableColumn(p, options, IsFtsRowIdProperty(p)))
             .ToArray();
 
         foreach (TableColumn column in Columns)
@@ -103,17 +99,6 @@ public class TableMapping
     public bool IsRTree => RTree != null;
 
     /// <summary>
-    /// Geopoly metadata for this table when the class is decorated with
-    /// <see cref="GeopolyIndexAttribute" />, otherwise <see langword="null" />.
-    /// </summary>
-    public GeopolyTableInfo? Geopoly { get; }
-
-    /// <summary>
-    /// Convenience: <see langword="true" /> when this mapping describes a Geopoly virtual table.
-    /// </summary>
-    public bool IsGeopoly => Geopoly != null;
-
-    /// <summary>
     /// Composite foreign keys declared on this table via the fluent builder. Single-column
     /// foreign keys live on <see cref="TableColumn.ForeignKey" /> instead.
     /// </summary>
@@ -157,41 +142,6 @@ public class TableMapping
         }
 
         return RTree.Auxiliaries.Any(a => a.Property == property);
-    }
-
-    private bool IsGeopolyColumn(PropertyInfo property)
-    {
-        if (Geopoly!.RowIdProperty == property)
-        {
-            return true;
-        }
-
-        if (Geopoly.ShapeProperty == property)
-        {
-            return true;
-        }
-
-        return Geopoly.Auxiliaries.Any(a => a.Property == property);
-    }
-
-    private string? GeopolyNameOverride(PropertyInfo property)
-    {
-        if (Geopoly == null)
-        {
-            return null;
-        }
-
-        if (Geopoly.RowIdProperty == property)
-        {
-            return "rowid";
-        }
-
-        if (Geopoly.ShapeProperty == property)
-        {
-            return "_shape";
-        }
-
-        return null;
     }
 
     private ForeignKeyInfo ResolveTypedForeignKey(TableColumn column, ReferencesTableAttribute attribute)

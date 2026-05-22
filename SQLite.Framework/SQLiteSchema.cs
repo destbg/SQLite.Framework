@@ -51,11 +51,6 @@ public class SQLiteSchema
             return CreateRTreeTable(mapping);
         }
 
-        if (mapping.IsGeopoly)
-        {
-            return CreateGeopolyTable(mapping);
-        }
-
         TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
         bool hasCompositePrimaryKey = primaryKeyColumns.Length > 1;
 
@@ -778,36 +773,6 @@ public class SQLiteSchema
         return Database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
     }
 
-    /// <summary>
-    /// Emits the <c>CREATE VIRTUAL TABLE ... USING geopoly(...)</c> statement for a Geopoly
-    /// mapping. The auxiliary columns are listed in declaration order. The implicit
-    /// <c>_shape</c> and rowid columns are not named in the DDL.
-    /// </summary>
-    /// <returns>The total number of rows affected by the issued statements.</returns>
-    protected virtual int CreateGeopolyTable(TableMapping mapping)
-    {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_27, "Geopoly virtual tables");
-#endif
-        GeopolyTableInfo geopoly = mapping.Geopoly!;
-        StringBuilder sb = new();
-        sb.Append("CREATE VIRTUAL TABLE IF NOT EXISTS \"");
-        sb.Append(mapping.TableName);
-        sb.Append("\" USING geopoly(");
-
-        for (int i = 0; i < geopoly.Auxiliaries.Count; i++)
-        {
-            if (i > 0)
-            {
-                sb.Append(", ");
-            }
-            sb.Append(geopoly.Auxiliaries[i].ColumnName);
-        }
-
-        sb.Append(')');
-
-        return Database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
-    }
 
     /// <summary>
     /// Returns the SQL table name of the source content table for an external-content FTS5 table.

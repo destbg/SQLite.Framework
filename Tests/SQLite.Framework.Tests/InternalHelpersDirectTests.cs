@@ -38,6 +38,18 @@ public class InternalHelpersDirectTests
             CommandHelpers.ReadColumnValue(reader.Statement, 0, (SQLiteColumnType)999, typeof(int), db.Options));
     }
 
+    [Fact]
+    public void CommandHelpers_ReadColumnValue_BlobToString_DecodesUtf8()
+    {
+        using TestDatabase db = new();
+        SQLiteCommand cmd = db.CreateCommand("SELECT x'48656C6C6F'", []);
+        using SQLiteDataReader reader = cmd.ExecuteReader();
+        reader.Read();
+
+        object? result = CommandHelpers.ReadColumnValue(reader.Statement, 0, SQLiteColumnType.Blob, typeof(string), db.Options);
+        Assert.Equal("Hello", result);
+    }
+
 #if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void WindowFunctionsMemberVisitor_HandleWindowFunctionMethod_UnknownMethodName_Throws()

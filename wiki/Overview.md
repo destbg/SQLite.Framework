@@ -292,7 +292,7 @@ await tx.CommitAsync();
 // no Commit -> auto rollback on dispose
 ```
 
-Nested transactions use SQLite savepoints. Pass `separateConnection: true` to run a transaction on a dedicated connection (file databases only). Keep transactions short because they hold the write lock. See [Transactions](Transactions).
+Nested transactions use SQLite savepoints. Keep transactions short because they hold the write lock. See [Transactions](Transactions).
 
 ## Raw SQL
 

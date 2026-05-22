@@ -190,8 +190,8 @@ public enum SQLiteMinimumVersion
     V3_26 = 3026000,
 
     /// <summary>
-    /// SQLite 3.27.0 (2019-02-07). Adds <c>VACUUM INTO</c> and the Geopoly module. Supported
-    /// on iOS 13 (which ships SQLite 3.28.0) and Android 11 (API 30) and later.
+    /// SQLite 3.27.0 (2019-02-07). Adds <c>VACUUM INTO</c>. Supported on iOS 13 (which ships
+    /// SQLite 3.28.0) and Android 11 (API 30) and later.
     /// </summary>
     V3_27 = 3027000,
 
