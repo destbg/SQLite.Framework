@@ -5,45 +5,52 @@ on:
     types: [published]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event.release.tag_name }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.3.1
+        with:
+          persist-credentials: false
+
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v4.3.1
         with:
           dotnet-version: 10.0.x
 
       - name: Pack SQLite.Framework
-        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false "/p:Version=$TAG" "/p:PackageReleaseNotes=See https://github.com/destbg/SQLite.Framework/releases/tag/$TAG"
         working-directory: ./SQLite.Framework
 
       - name: Pack SQLite.Framework.Bundled
-        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false "/p:Version=$TAG" "/p:PackageReleaseNotes=See https://github.com/destbg/SQLite.Framework/releases/tag/$TAG"
         working-directory: ./SQLite.Framework.Bundled
 
       - name: Pack SQLite.Framework.Cipher
-        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false "/p:Version=$TAG" "/p:PackageReleaseNotes=See https://github.com/destbg/SQLite.Framework/releases/tag/$TAG"
         working-directory: ./SQLite.Framework.Cipher
 
       - name: Pack SQLite.Framework.Base
-        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false "/p:Version=$TAG" "/p:PackageReleaseNotes=See https://github.com/destbg/SQLite.Framework/releases/tag/$TAG"
         working-directory: ./SQLite.Framework.Base
 
       - name: Pack SQLite.Framework.DependencyInjection
-        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false "/p:Version=$TAG" "/p:PackageReleaseNotes=See https://github.com/destbg/SQLite.Framework/releases/tag/$TAG"
         working-directory: ./SQLite.Framework.DependencyInjection
 
       - name: Pack SQLite.Framework.SourceGenerator
-        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false /p:Version=${{ github.event.release.tag_name }} /p:PackageReleaseNotes="See https://github.com/destbg/SQLite.Framework/releases/tag/${{ github.event.release.tag_name }}"
+        run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false "/p:Version=$TAG" "/p:PackageReleaseNotes=See https://github.com/destbg/SQLite.Framework/releases/tag/$TAG"
         working-directory: ./SQLite.Framework.SourceGenerator
 
       - name: Archive NuGet Packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: nuget-packages
           path: |
@@ -59,20 +66,26 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            SQLite.Framework/bin/Release/SQLite.Framework.${{ github.event.release.tag_name }}.nupkg \
-            SQLite.Framework.Bundled/bin/Release/SQLite.Framework.Bundled.${{ github.event.release.tag_name }}.nupkg \
-            SQLite.Framework.Cipher/bin/Release/SQLite.Framework.Cipher.${{ github.event.release.tag_name }}.nupkg \
-            SQLite.Framework.Base/bin/Release/SQLite.Framework.Base.${{ github.event.release.tag_name }}.nupkg \
-            SQLite.Framework.DependencyInjection/bin/Release/SQLite.Framework.DependencyInjection.${{ github.event.release.tag_name }}.nupkg \
-            SQLite.Framework.SourceGenerator/bin/Release/SQLite.Framework.SourceGenerator.${{ github.event.release.tag_name }}.nupkg \
+          gh release upload "$TAG" \
+            "SQLite.Framework/bin/Release/SQLite.Framework.${TAG}.nupkg" \
+            "SQLite.Framework.Bundled/bin/Release/SQLite.Framework.Bundled.${TAG}.nupkg" \
+            "SQLite.Framework.Cipher/bin/Release/SQLite.Framework.Cipher.${TAG}.nupkg" \
+            "SQLite.Framework.Base/bin/Release/SQLite.Framework.Base.${TAG}.nupkg" \
+            "SQLite.Framework.DependencyInjection/bin/Release/SQLite.Framework.DependencyInjection.${TAG}.nupkg" \
+            "SQLite.Framework.SourceGenerator/bin/Release/SQLite.Framework.SourceGenerator.${TAG}.nupkg" \
             --clobber --repo "$GH_REPO"
 
       - name: Publish to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.nuget_api_key }}
         run: |
-          dotnet nuget push SQLite.Framework/bin/Release/SQLite.Framework.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
-          dotnet nuget push SQLite.Framework.Bundled/bin/Release/SQLite.Framework.Bundled.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
-          dotnet nuget push SQLite.Framework.Cipher/bin/Release/SQLite.Framework.Cipher.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
-          dotnet nuget push SQLite.Framework.Base/bin/Release/SQLite.Framework.Base.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
-          dotnet nuget push SQLite.Framework.DependencyInjection/bin/Release/SQLite.Framework.DependencyInjection.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
-          dotnet nuget push SQLite.Framework.SourceGenerator/bin/Release/SQLite.Framework.SourceGenerator.${{ github.event.release.tag_name }}.nupkg --api-key ${{ secrets.nuget_api_key }} --source https://api.nuget.org/v3/index.json
+          for pkg in \
+            "SQLite.Framework/bin/Release/SQLite.Framework.${TAG}.nupkg" \
+            "SQLite.Framework.Bundled/bin/Release/SQLite.Framework.Bundled.${TAG}.nupkg" \
+            "SQLite.Framework.Cipher/bin/Release/SQLite.Framework.Cipher.${TAG}.nupkg" \
+            "SQLite.Framework.Base/bin/Release/SQLite.Framework.Base.${TAG}.nupkg" \
+            "SQLite.Framework.DependencyInjection/bin/Release/SQLite.Framework.DependencyInjection.${TAG}.nupkg" \
+            "SQLite.Framework.SourceGenerator/bin/Release/SQLite.Framework.SourceGenerator.${TAG}.nupkg"
+          do
+            dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+          done
