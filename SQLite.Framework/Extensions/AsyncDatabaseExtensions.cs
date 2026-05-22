@@ -279,6 +279,18 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
+    /// Runs <c>REINDEX</c>, optionally limited to a table, index, or collation name.
+    /// </summary>
+    public static Task ReindexAsync(this SQLiteDatabase database, string? nameOrCollation = null, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await database.LockAsync(ct);
+            database.Reindex(nameOrCollation);
+        }, ct);
+    }
+
+    /// <summary>
     /// Attaches another SQLite file to this connection.
     /// </summary>
     public static Task AttachDatabaseAsync(this SQLiteDatabase database, string path, string schemaName, string? encryptionKey = null, CancellationToken ct = default)

@@ -517,6 +517,27 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Runs <c>REINDEX</c> to rebuild indexes. With no argument, rebuilds every index in every
+    /// attached database. Pass a table name to rebuild every index on that table, an index name
+    /// to rebuild that single index, or a collation name to rebuild every index that uses the
+    /// collation.
+    /// </summary>
+    /// <param name="nameOrCollation">Optional table name, index name, or collation name.
+    /// Must be a plain identifier (letters, digits, and underscores).</param>
+    public virtual void Reindex(string? nameOrCollation = null)
+    {
+        if (nameOrCollation == null)
+        {
+            Execute("REINDEX");
+        }
+        else
+        {
+            ValidateSchemaName(nameOrCollation);
+            Execute($"REINDEX \"{nameOrCollation}\"");
+        }
+    }
+
+    /// <summary>
     /// Attaches another SQLite file to this connection under the given schema name. After this
     /// call you can read tables in the attached file with raw SQL, like
     /// <c>SELECT * FROM aux.Books</c>.
