@@ -20,9 +20,9 @@ public static class AsyncSQLiteTableExtensions
     /// <summary>
     /// Performs an INSERT operation on the database table using the rows.
     /// </summary>
-    public static Task<int> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    public static Task<int> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, CancellationToken ct = default)
     {
-        return RunRangeAsync(source, collection, runInTransaction, separateConnection, source.AddRange, ct);
+        return RunRangeAsync(source, collection, runInTransaction, source.AddRange, ct);
     }
 
     /// <summary>
@@ -53,9 +53,9 @@ public static class AsyncSQLiteTableExtensions
     /// <summary>
     /// Performs an UPDATE operation on the database table using the rows.
     /// </summary>
-    public static Task<int> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    public static Task<int> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, CancellationToken ct = default)
     {
-        return RunRangeAsync(source, collection, runInTransaction, separateConnection, source.UpdateRange, ct);
+        return RunRangeAsync(source, collection, runInTransaction, source.UpdateRange, ct);
     }
 
     /// <summary>
@@ -73,9 +73,9 @@ public static class AsyncSQLiteTableExtensions
     /// <summary>
     /// Performs a DELETE operation on the database table using the rows.
     /// </summary>
-    public static Task<int> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    public static Task<int> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, CancellationToken ct = default)
     {
-        return RunRangeAsync(source, collection, runInTransaction, separateConnection, source.RemoveRange, ct);
+        return RunRangeAsync(source, collection, runInTransaction, source.RemoveRange, ct);
     }
 
     /// <summary>
@@ -101,18 +101,18 @@ public static class AsyncSQLiteTableExtensions
     /// <summary>
     /// Performs an <c>INSERT OR REPLACE</c> operation on the database table using the rows.
     /// </summary>
-    public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction = true, CancellationToken ct = default)
     {
-        return AddOrUpdateRangeAsync(source, collection, SQLiteConflict.Replace, runInTransaction, separateConnection, ct);
+        return AddOrUpdateRangeAsync(source, collection, SQLiteConflict.Replace, runInTransaction, ct);
     }
 
     /// <summary>
     /// Performs an <c>INSERT OR &lt;conflict&gt;</c> operation on the database table using the rows.
     /// </summary>
-    public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, SQLiteConflict conflict, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    public static Task<int> AddOrUpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, SQLiteConflict conflict, bool runInTransaction = true, CancellationToken ct = default)
     {
-        return RunRangeAsync(source, collection, runInTransaction, separateConnection,
-            (c, t, sc) => source.AddOrUpdateRange(c, t, sc, conflict), ct);
+        return RunRangeAsync(source, collection, runInTransaction,
+            (c, t) => source.AddOrUpdateRange(c, t, conflict), ct);
     }
 
     /// <summary>
@@ -131,10 +131,10 @@ public static class AsyncSQLiteTableExtensions
     /// <summary>
     /// Range version of <see cref="UpsertAsync{T}(SQLiteTable{T}, T, Action{UpsertBuilder{T}}, CancellationToken)" />.
     /// </summary>
-    public static Task<int> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    public static Task<int> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, CancellationToken ct = default)
     {
-        return RunRangeAsync(source, collection, runInTransaction, separateConnection,
-            (c, t, sc) => source.UpsertRange(c, configure, t, sc), ct);
+        return RunRangeAsync(source, collection, runInTransaction,
+            (c, t) => source.UpsertRange(c, configure, t), ct);
     }
 
     /// <summary>
@@ -152,46 +152,20 @@ public static class AsyncSQLiteTableExtensions
         }, ct);
     }
 
-    /// <summary>
-    /// Creates the table in the database if it does not exist.
-    /// </summary>
-    [Obsolete("Use Database.Schema.CreateTableAsync<T>() instead.")]
-    public static Task<int> CreateTableAsync(this SQLiteTable source, CancellationToken ct = default)
-    {
-        return AsyncRunner.Run(async () =>
-        {
-            using IDisposable _ = await source.Database.LockAsync(ct);
-            return source.CreateTable();
-        }, ct);
-    }
-
-    /// <summary>
-    /// Deletes the table from the database.
-    /// </summary>
-    [Obsolete("Use Database.Schema.DropTableAsync<T>() instead.")]
-    public static Task<int> DropTableAsync(this SQLiteTable source, CancellationToken ct = default)
-    {
-        return AsyncRunner.Run(async () =>
-        {
-            using IDisposable _ = await source.Database.LockAsync(ct);
-            return source.DropTable();
-        }, ct);
-    }
-
-    private static Task<int> RunRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction, bool separateConnection, Func<IEnumerable<T>, bool, bool, int> sync, CancellationToken ct)
+    private static Task<int> RunRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(SQLiteTable<T> source, IEnumerable<T> collection, bool runInTransaction, Func<IEnumerable<T>, bool, int> sync, CancellationToken ct)
     {
         return AsyncRunner.Run(async () =>
         {
             if (!runInTransaction)
             {
                 using IDisposable _ = await source.Database.LockAsync(ct);
-                return sync(collection, false, false);
+                return sync(collection, false);
             }
 
-            SQLiteTransaction transaction = await source.Database.BeginTransactionAsync(separateConnection, ct);
+            SQLiteTransaction transaction = await source.Database.BeginTransactionAsync(ct);
             try
             {
-                int count = sync(collection, false, false);
+                int count = sync(collection, false);
                 await transaction.CommitAsync(ct);
                 return count;
             }

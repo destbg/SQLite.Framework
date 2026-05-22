@@ -164,7 +164,7 @@ Without the generator, the library still runs under AOT but uses reflection for 
 
 ## Contributing
 
-Bug reports and missing-feature requests are welcome.
+Bug reports and missing-feature requests are welcome. Any feature that SQLite has by default and we don't support, you can ask for and it will likely be added.
 
 ## License
 

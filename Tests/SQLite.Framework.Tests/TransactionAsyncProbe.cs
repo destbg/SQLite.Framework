@@ -41,7 +41,7 @@ public class TransactionAsyncProbe
     {
         using TestDatabase db = NewDb();
 
-        using (SQLiteTransaction tx = db.BeginTransaction(separateConnection: true))
+        using (SQLiteTransaction tx = db.BeginTransaction())
         {
             await db.Table<Book>().AddAsync(NewBook(1), TestContext.Current.CancellationToken);
             tx.Rollback();
@@ -83,7 +83,7 @@ public class TransactionAsyncProbe
     {
         using TestDatabase db = NewDb();
 
-        await using (SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true, ct: TestContext.Current.CancellationToken))
+        await using (SQLiteTransaction tx = await db.BeginTransactionAsync(TestContext.Current.CancellationToken))
         {
             db.Table<Book>().Add(NewBook(1));
             tx.Rollback();

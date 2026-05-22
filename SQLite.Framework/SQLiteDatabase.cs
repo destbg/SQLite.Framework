@@ -15,7 +15,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly object readGateLock = new();
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
     private readonly AsyncLocal<bool> holdsConnectionLock = new();
-    private readonly AsyncLocal<sqlite3?> transactionHandle = new();
     private readonly SemaphoreSlim walWriterGate = new(1, 1);
     private readonly Dictionary<Type, TableMapping> tableMappings = [];
     private int walWriterCount;
@@ -285,26 +284,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Begins a transaction on the database.
+    /// Begins a transaction. Other writers from any async context wait on the framework's
+    /// write semaphore until this transaction commits or rolls back. Uses <c>SAVEPOINT</c>
+    /// under the hood so nested calls compose. Standalone reads from other async contexts
+    /// are not blocked.
     /// </summary>
-    /// <param name="separateConnection">
-    /// When <see langword="true" />, the transaction runs on its own dedicated connection to the database file.
-    /// All operations in the current async context are routed to that connection automatically,
-    /// so standalone reads and writes on the shared connection are not blocked for the duration of the transaction.
-    /// When <see langword="false" /> (the default), the transaction uses the shared connection
-    /// and holds the exclusive write lock until it is committed or rolled back.
-    /// </param>
-    public SQLiteTransaction BeginTransaction(bool separateConnection = false)
+    public SQLiteTransaction BeginTransaction()
     {
         bool ownsLock = !holdsConnectionLock.Value;
-
-        if (ownsLock && separateConnection)
-        {
-            sqlite3 handle = OpenTransactionConnection();
-            SetTransactionConnection(handle);
-            NotifyTransactionStarted();
-            return new SQLiteTransaction(this, handle);
-        }
 
         if (ownsLock)
         {
@@ -942,14 +929,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Returns the active connection handle for the current async context.
-    /// When a transaction was started with <c>separateConnection: true</c>,
-    /// this returns that transaction's dedicated connection.
-    /// Otherwise, it returns the shared connection handle.
+    /// Returns the shared connection handle for the current async context.
     /// </summary>
     internal sqlite3 GetActiveHandle()
     {
-        return transactionHandle.Value ?? Handle!;
+        return Handle!;
     }
 
 #if SQLITE_FRAMEWORK_TESTING
@@ -1107,78 +1091,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         holdsConnectionLock.Value = true;
     }
 
-    internal void SetTransactionConnection(sqlite3 handle)
-    {
-        transactionHandle.Value = handle;
-        holdsConnectionLock.Value = true;
-    }
-
-    internal void ReleaseTransactionLock()
-    {
-        holdsConnectionLock.Value = false;
-        transactionHandle.Value = null;
-    }
-
-    internal sqlite3 OpenTransactionConnection()
-    {
-        SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
-            Options.DatabasePath,
-            out sqlite3 handle,
-            (int)Options.OpenFlags,
-            null
-        );
-
-        if (result != SQLiteResult.OK)
-        {
-            throw new SQLiteException(result, "Unable to open database", null);
-        }
-
-#if SQLITECIPHER
-        if (!string.IsNullOrEmpty(Options.EncryptionKey))
-        {
-            raw.sqlite3_prepare_v2(handle, $"PRAGMA key = '{Options.EncryptionKey.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
-            raw.sqlite3_step(keyStmt);
-            raw.sqlite3_finalize(keyStmt);
-        }
-#endif
-
-        raw.sqlite3_prepare_v2(handle, "BEGIN", out sqlite3_stmt? stmt);
-        SQLiteResult beginResult = (SQLiteResult)raw.sqlite3_step(stmt);
-        raw.sqlite3_finalize(stmt);
-
-        ThrowIfBeginFailed(handle, beginResult);
-        return handle;
-    }
-
-    private static void ThrowIfBeginFailed(sqlite3 handle, SQLiteResult beginResult)
-    {
-        if (beginResult == SQLiteResult.Done)
-        {
-            return;
-        }
-
-        raw.sqlite3_close(handle);
-        throw new SQLiteException(beginResult, "Failed to begin transaction", null);
-    }
-
-    internal void CommitOwnedConnection(sqlite3 handle)
-    {
-        raw.sqlite3_prepare_v2(handle, "COMMIT", out sqlite3_stmt? stmt);
-        raw.sqlite3_step(stmt);
-        raw.sqlite3_finalize(stmt);
-        raw.sqlite3_close(handle);
-        ReleaseTransactionLock();
-    }
-
-    internal void RollbackOwnedConnection(sqlite3 handle)
-    {
-        raw.sqlite3_prepare_v2(handle, "ROLLBACK", out sqlite3_stmt? stmt);
-        raw.sqlite3_step(stmt);
-        raw.sqlite3_finalize(stmt);
-        raw.sqlite3_close(handle);
-        ReleaseTransactionLock();
-    }
-
     internal async Task<string> AcquireConnectionAndCreateSavepoint(CancellationToken cancellationToken)
     {
         await connectionSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -1200,7 +1112,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return null;
         }
 
-        if (holdsConnectionLock.Value || transactionHandle.Value != null)
+        if (holdsConnectionLock.Value)
         {
             return null;
         }

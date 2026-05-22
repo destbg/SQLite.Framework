@@ -76,7 +76,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     /// Inserts every item in <paramref name="collection" /> and returns the projected rows.
     /// Runs inside a transaction by default.
     /// </summary>
-    public virtual List<TResult> AddRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
+    public virtual List<TResult> AddRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
         ArgumentNullException.ThrowIfNull(collection);
 
@@ -87,7 +87,6 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             collection,
             Database.Options.AddHooks,
             runInTransaction,
-            separateConnection,
             item =>
             {
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
@@ -123,7 +122,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     /// Updates every item in <paramref name="collection" /> by primary key and returns the
     /// projected post-update rows. Runs inside a transaction by default.
     /// </summary>
-    public virtual List<TResult> UpdateRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
+    public virtual List<TResult> UpdateRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
         ArgumentNullException.ThrowIfNull(collection);
 
@@ -133,7 +132,6 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             collection,
             Database.Options.UpdateHooks,
             runInTransaction,
-            separateConnection,
             item =>
             {
                 List<SQLiteParameter> parameters = BuildUpdateParameters(columns, primaryColumns, item);
@@ -164,7 +162,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     /// Deletes every item in <paramref name="collection" /> by primary key and returns the
     /// projected deleted rows. Runs inside a transaction by default.
     /// </summary>
-    public virtual List<TResult> RemoveRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
+    public virtual List<TResult> RemoveRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
         ArgumentNullException.ThrowIfNull(collection);
 
@@ -174,7 +172,6 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             collection,
             Database.Options.RemoveHooks,
             runInTransaction,
-            separateConnection,
             item =>
             {
                 List<SQLiteParameter> parameters = BuildKeyParameters(primaryColumns, item);
@@ -258,13 +255,13 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         }
     }
 
-    private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, bool separateConnection, Func<T, List<TResult>> writeOne)
+    private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, Func<T, List<TResult>> writeOne)
     {
         List<TResult> results = [];
 
         if (runInTransaction)
         {
-            using SQLiteTransaction transaction = Database.BeginTransaction(separateConnection);
+            using SQLiteTransaction transaction = Database.BeginTransaction();
             Body();
             transaction.Commit();
         }

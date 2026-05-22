@@ -13,6 +13,12 @@ using SQLite.Framework.Generated;
 
 SQLitePCL.Batteries_V2.Init();
 
+if (args.Length > 0 && args[0] == "--separate-connection")
+{
+    SQLite.Framework.Benchmarks.SeparateConnectionScenario.Run();
+    return;
+}
+
 IConfig config = DefaultConfig.Instance
     .AddJob(Job.Default
         .WithWarmupCount(5)

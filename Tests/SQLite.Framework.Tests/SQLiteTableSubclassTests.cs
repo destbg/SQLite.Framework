@@ -1,8 +1,6 @@
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-#pragma warning disable CS0618 // intentionally exercises the obsolete SQLiteTable.CreateTable() shim to confirm subclass forwarding still works
-
 namespace SQLite.Framework.Tests;
 
 public class SQLiteTableSubclassTests
@@ -11,7 +9,7 @@ public class SQLiteTableSubclassTests
     public void Subclass_CreateTable_RoundTripsThroughCustomProperty()
     {
         using AuditingDatabase db = new();
-        db.Items.CreateTable();
+        db.Items.Schema.CreateTable();
 
         db.Items.Add(new SubclassedTableEntity { Name = "first" });
 
@@ -25,7 +23,7 @@ public class SQLiteTableSubclassTests
     public void Subclass_AddOrRemoveItemOverride_FiresOnAdd()
     {
         using AuditingDatabase db = new();
-        db.Items.CreateTable();
+        db.Items.Schema.CreateTable();
 
         db.Items.Add(new SubclassedTableEntity { Name = "one" });
 
@@ -36,7 +34,7 @@ public class SQLiteTableSubclassTests
     public void Subclass_AddOrRemoveItemOverride_FiresOncePerRowInAddRange()
     {
         using AuditingDatabase db = new();
-        db.Items.CreateTable();
+        db.Items.Schema.CreateTable();
 
         db.Items.AddRange(new[]
         {
@@ -52,7 +50,7 @@ public class SQLiteTableSubclassTests
     public void Subclass_LinqQuery_MaterializesEntity()
     {
         using AuditingDatabase db = new();
-        db.Items.CreateTable();
+        db.Items.Schema.CreateTable();
 
         db.Items.Add(new SubclassedTableEntity { Name = "alpha" });
         db.Items.Add(new SubclassedTableEntity { Name = "beta" });
@@ -67,7 +65,7 @@ public class SQLiteTableSubclassTests
     public void Subclass_RemoveAndUpdate_GoThroughOverride()
     {
         using AuditingDatabase db = new();
-        db.Items.CreateTable();
+        db.Items.Schema.CreateTable();
 
         db.Items.Add(new SubclassedTableEntity { Name = "x" });
         SubclassedTableEntity row = db.Items.Single();

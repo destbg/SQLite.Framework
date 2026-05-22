@@ -12,21 +12,12 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
 {
     private readonly SQLiteDatabase database;
     private readonly Task<string> savepointTask;
-    private readonly sqlite3? ownedHandle;
     private readonly bool ownsLock;
 
-    internal SQLiteBeginTransactionAwaiter(SQLiteDatabase database, bool separateConnection, CancellationToken cancellationToken)
+    internal SQLiteBeginTransactionAwaiter(SQLiteDatabase database, CancellationToken cancellationToken)
     {
         this.database = database;
         ownsLock = !database.HoldsConnectionLock;
-
-        if (ownsLock && separateConnection)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ownedHandle = database.OpenTransactionConnection();
-            savepointTask = Task.FromResult(string.Empty);
-            return;
-        }
 
         savepointTask = ownsLock
             ? database.AcquireConnectionAndCreateSavepoint(cancellationToken)
@@ -60,15 +51,6 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
     /// </remarks>
     public SQLiteTransaction GetResult()
     {
-        if (ownedHandle != null)
-        {
-            // SetTransactionConnection must run here, in the caller's execution context, so that
-            // the AsyncLocal mutations are visible to all subsequent continuations the caller runs.
-            database.SetTransactionConnection(ownedHandle);
-            database.NotifyTransactionStarted();
-            return new SQLiteTransaction(database, ownedHandle);
-        }
-
         string savepointName = savepointTask.GetAwaiter().GetResult();
 
         if (ownsLock)

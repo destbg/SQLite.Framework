@@ -245,14 +245,6 @@ public class AsyncContentionTests
         }
     }
 
-#pragma warning disable CS0618
-    [Fact]
-    public Task ObsoleteCreateTableAsync_Contended() => RunContended(db => db.Table<Author>().CreateTableAsync());
-
-    [Fact]
-    public Task ObsoleteDropTableAsync_Contended() => RunContended(db => db.Table<Book>().DropTableAsync());
-#pragma warning restore CS0618
-
     [Fact]
     public Task AddRangeAsync_NoTransaction_Contended() => RunContended(
         db => db.Table<Book>().AddRangeAsync(

@@ -160,14 +160,14 @@ public static class AsyncQueryableExtensions
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
-    public static Task<List<TResult>> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    public static Task<List<TResult>> AddRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, bool runInTransaction = true, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(returning);
 
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await returning.Database.LockAsync(ct);
-            return returning.AddRange(collection, runInTransaction, separateConnection);
+            return returning.AddRange(collection, runInTransaction);
         }, ct);
     }
 
@@ -200,14 +200,14 @@ public static class AsyncQueryableExtensions
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
-    public static Task<List<TResult>> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    public static Task<List<TResult>> UpdateRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, bool runInTransaction = true, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(returning);
 
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await returning.Database.LockAsync(ct);
-            return returning.UpdateRange(collection, runInTransaction, separateConnection);
+            return returning.UpdateRange(collection, runInTransaction);
         }, ct);
     }
 
@@ -240,14 +240,14 @@ public static class AsyncQueryableExtensions
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
-    public static Task<List<TResult>> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, CancellationToken ct = default)
+    public static Task<List<TResult>> RemoveRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, bool runInTransaction = true, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(returning);
 
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await returning.Database.LockAsync(ct);
-            return returning.RemoveRange(collection, runInTransaction, separateConnection);
+            return returning.RemoveRange(collection, runInTransaction);
         }, ct);
     }
 

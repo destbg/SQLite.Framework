@@ -32,20 +32,13 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Begins a transaction on the database asynchronously.
+    /// Async version of <see cref="SQLiteDatabase.BeginTransaction" />.
     /// </summary>
     /// <param name="database">The database to begin the transaction on.</param>
-    /// <param name="separateConnection">
-    /// When <see langword="true" />, the transaction runs on its own dedicated connection to the database file.
-    /// All operations in the current async context are routed to that connection automatically,
-    /// so standalone reads and writes on the shared connection are not blocked for the duration of the transaction.
-    /// When <see langword="false" /> (the default), the transaction uses the shared connection
-    /// and holds the exclusive write lock until it is committed or rolled back.
-    /// </param>
     /// <param name="ct">Token that cancels the wait for the shared connection lock. Has no effect once the transaction has started.</param>
-    public static SQLiteBeginTransactionAwaitable BeginTransactionAsync(this SQLiteDatabase database, bool separateConnection = false, CancellationToken ct = default)
+    public static SQLiteBeginTransactionAwaitable BeginTransactionAsync(this SQLiteDatabase database, CancellationToken ct = default)
     {
-        return new SQLiteBeginTransactionAwaitable(database, separateConnection, ct);
+        return new SQLiteBeginTransactionAwaitable(database, ct);
     }
 
     /// <summary>

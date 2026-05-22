@@ -38,42 +38,6 @@ public class InternalHelpersDirectTests
             CommandHelpers.ReadColumnValue(reader.Statement, 0, (SQLiteColumnType)999, typeof(int), db.Options));
     }
 
-    [Fact]
-    public void SQLiteDatabase_ThrowIfBeginFailed_NonDoneResult_ClosesHandleAndThrows()
-    {
-        SQLitePCL.Batteries_V2.Init();
-        SQLitePCL.raw.sqlite3_open(":memory:", out SQLitePCL.sqlite3 handle);
-
-        MethodInfo method = typeof(SQLiteDatabase).GetMethod(
-            "ThrowIfBeginFailed",
-            BindingFlags.Static | BindingFlags.NonPublic)!;
-
-        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(
-            () => method.Invoke(null, new object?[] { handle, SQLiteResult.Error }));
-        SQLite.Framework.Exceptions.SQLiteException sqlEx = Assert.IsType<SQLite.Framework.Exceptions.SQLiteException>(ex.InnerException);
-        Assert.Equal(SQLiteResult.Error, sqlEx.Result);
-        Assert.Contains("Failed to begin transaction", sqlEx.Message);
-    }
-
-    [Fact]
-    public void SQLiteDatabase_ThrowIfBeginFailed_DoneResult_DoesNothing()
-    {
-        SQLitePCL.Batteries_V2.Init();
-        SQLitePCL.raw.sqlite3_open(":memory:", out SQLitePCL.sqlite3 handle);
-        try
-        {
-            MethodInfo method = typeof(SQLiteDatabase).GetMethod(
-                "ThrowIfBeginFailed",
-                BindingFlags.Static | BindingFlags.NonPublic)!;
-
-            method.Invoke(null, new object?[] { handle, SQLiteResult.Done });
-        }
-        finally
-        {
-            SQLitePCL.raw.sqlite3_close(handle);
-        }
-    }
-
 #if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void WindowFunctionsMemberVisitor_HandleWindowFunctionMethod_UnknownMethodName_Throws()

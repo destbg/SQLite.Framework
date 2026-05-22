@@ -56,7 +56,7 @@ public class CipherCoverageTests
         using TestDatabase db = new(useFile: true);
         db.Execute("CREATE TABLE T (Id INTEGER)");
 
-        using (SQLiteTransaction tx = db.BeginTransaction(separateConnection: true))
+        using (SQLiteTransaction tx = db.BeginTransaction())
         {
             db.Execute("INSERT INTO T (Id) VALUES (1)");
             tx.Commit();

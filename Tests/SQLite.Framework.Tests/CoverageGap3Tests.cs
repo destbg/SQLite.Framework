@@ -352,7 +352,7 @@ public class CoverageGap3Tests
             using SQLiteDatabase db = new(builder.Build());
             db.Table<Book>().Schema.CreateTable();
 
-            using SQLiteTransaction tx = db.BeginTransaction(separateConnection: true);
+            using SQLiteTransaction tx = db.BeginTransaction();
             db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
             tx.Commit();
         }
@@ -380,7 +380,7 @@ public class CoverageGap3Tests
         using TestDatabase db = new(b => b.UseBlockReadsDuringTransaction(), useFile: true);
         db.Table<Book>().Schema.CreateTable();
 
-        using SQLiteTransaction tx = db.BeginTransaction(separateConnection: true);
+        using SQLiteTransaction tx = db.BeginTransaction();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
         tx.Commit();
 

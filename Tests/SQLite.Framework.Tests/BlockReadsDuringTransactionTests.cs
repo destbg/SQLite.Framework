@@ -28,7 +28,7 @@ public class BlockReadsDuringTransactionTests
         using TestDatabase db = new(b => b.UseBlockReadsDuringTransaction(), useFile: true);
         db.Table<Book>().Schema.CreateTable();
 
-        using SQLiteTransaction tx = db.BeginTransaction(separateConnection: true);
+        using SQLiteTransaction tx = db.BeginTransaction();
         db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 });
 
         int count = db.Table<Book>().Count();
@@ -53,7 +53,7 @@ public class BlockReadsDuringTransactionTests
         using TestDatabase db = new(b => b.UseBlockReadsDuringTransaction(), useFile: true);
         db.Table<Book>().Schema.CreateTable();
 
-        await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true);
+        await using SQLiteTransaction tx = await db.BeginTransactionAsync();
         db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 });
 
         int count = await db.Table<Book>().CountAsync();
@@ -73,7 +73,7 @@ public class BlockReadsDuringTransactionTests
 
         Task writer = Task.Run(async () =>
         {
-            await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true);
+            await using SQLiteTransaction tx = await db.BeginTransactionAsync();
             db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 });
             insideTransaction.Release();
             await allowCommit.WaitAsync();
@@ -104,7 +104,7 @@ public class BlockReadsDuringTransactionTests
 
         Task writer = Task.Run(async () =>
         {
-            await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true);
+            await using SQLiteTransaction tx = await db.BeginTransactionAsync();
             db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 });
             insideTransaction.Release();
             await allowRollback.WaitAsync();
@@ -134,7 +134,7 @@ public class BlockReadsDuringTransactionTests
 
         Task writer = Task.Run(async () =>
         {
-            await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true);
+            await using SQLiteTransaction tx = await db.BeginTransactionAsync();
             db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 });
             insideTransaction.Release();
             await allowCommit.WaitAsync();
@@ -166,7 +166,7 @@ public class BlockReadsDuringTransactionTests
 
         Task writer = Task.Run(async () =>
         {
-            await using SQLiteTransaction tx = await db.BeginTransactionAsync(separateConnection: true);
+            await using SQLiteTransaction tx = await db.BeginTransactionAsync();
             db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 });
             insideTransaction.Release();
             await allowCommit.WaitAsync();
@@ -189,7 +189,7 @@ public class BlockReadsDuringTransactionTests
         using TestDatabase db = new(b => b.UseBlockReadsDuringTransaction(), useFile: true);
         db.Table<Book>().Schema.CreateTable();
 
-        await using (SQLiteTransaction tx1 = await db.BeginTransactionAsync(separateConnection: true))
+        await using (SQLiteTransaction tx1 = await db.BeginTransactionAsync())
         {
             db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 });
             await tx1.CommitAsync();
@@ -199,7 +199,7 @@ public class BlockReadsDuringTransactionTests
         Assert.True(firstReadLock.IsCompletedSuccessfully);
         firstReadLock.Result.Dispose();
 
-        await using (SQLiteTransaction tx2 = await db.BeginTransactionAsync(separateConnection: true))
+        await using (SQLiteTransaction tx2 = await db.BeginTransactionAsync())
         {
             db.Table<Book>().Add(new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 });
             await tx2.CommitAsync();

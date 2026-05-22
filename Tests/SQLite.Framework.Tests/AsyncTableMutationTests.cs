@@ -138,22 +138,4 @@ public class AsyncTableMutationTests
         Assert.Equal(2, affected);
     }
 
-#pragma warning disable CS0618 // Obsolete shim
-    [Fact]
-    public async Task CreateTableAsync_ObsoleteShim_CreatesTable()
-    {
-        using TestDatabase db = new();
-        await db.Table<Book>().CreateTableAsync();
-        Assert.True(db.Schema.TableExists<Book>());
-    }
-
-    [Fact]
-    public async Task DropTableAsync_ObsoleteShim_DropsTable()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-        await db.Table<Book>().DropTableAsync();
-        Assert.False(db.Schema.TableExists<Book>());
-    }
-#pragma warning restore CS0618
 }

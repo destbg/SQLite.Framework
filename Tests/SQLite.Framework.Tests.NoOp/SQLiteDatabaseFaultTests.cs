@@ -66,15 +66,4 @@ public class SQLiteDatabaseFaultTests
         Assert.True(callCount >= 0);
     }
 
-    [Fact]
-    public void OpenTransactionConnection_BeginFails_ThrowsSQLiteException()
-    {
-        NoOpSQLite.BeginStepReturnCode = 1;
-
-        SQLiteOptions options = new SQLiteOptionsBuilder("noop-tx.db").Build();
-        using SQLiteDatabase db = new(options);
-
-        SQLiteException ex = Assert.Throws<SQLiteException>(() => db.BeginTransaction(separateConnection: true));
-        Assert.Contains("Failed to begin transaction", ex.Message);
-    }
 }

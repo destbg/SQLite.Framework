@@ -395,7 +395,7 @@ public class AsyncLockBehaviorTests
         ManualResetEventSlim release = new();
         Task syncHolder = Task.Run(() =>
         {
-            using SQLiteTransaction tx = db.BeginTransaction(separateConnection: false);
+            using SQLiteTransaction tx = db.BeginTransaction();
             acquired.SetResult();
             release.Wait();
             tx.Commit();

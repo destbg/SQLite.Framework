@@ -2260,12 +2260,12 @@ public class CoverageGapTests
     }
 
     [Fact]
-    public void SQLiteDatabase_BeginTransaction_SeparateConnection_InvalidPath_Throws()
+    public void SQLiteDatabase_BeginTransaction_InvalidPath_Throws()
     {
         SQLiteOptionsBuilder bad = new("/no-such-directory-xyz/db.sqlite");
         using SQLiteDatabase badDb = new(bad.Build());
 
-        Assert.Throws<SQLiteException>(() => badDb.BeginTransaction(separateConnection: true));
+        Assert.Throws<SQLiteException>(() => badDb.BeginTransaction());
     }
 
     [Fact]

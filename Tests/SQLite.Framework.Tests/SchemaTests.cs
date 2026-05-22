@@ -704,31 +704,6 @@ public class SchemaTests
     }
 
     [Fact]
-    public void ObsoleteShim_CreateTable_StillWorks()
-    {
-        using TestDatabase db = new();
-
-#pragma warning disable CS0618
-        db.Table<Book>().CreateTable();
-#pragma warning restore CS0618
-
-        Assert.True(db.Schema.TableExists<Book>());
-    }
-
-    [Fact]
-    public void ObsoleteShim_DropTable_StillWorks()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-
-#pragma warning disable CS0618
-        db.Table<Book>().DropTable();
-#pragma warning restore CS0618
-
-        Assert.False(db.Schema.TableExists<Book>());
-    }
-
-    [Fact]
     public void CompositePrimaryKey_CreateTable_EmitsTableLevelConstraint()
     {
         using TestDatabase db = new();

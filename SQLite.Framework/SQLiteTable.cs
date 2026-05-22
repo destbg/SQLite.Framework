@@ -29,27 +29,6 @@ public class SQLiteTable : BaseSQLiteTable
     }
 
     /// <summary>
-    /// Creates the table in the database if it does not exist. Forwards to
-    /// <see cref="SQLiteSchema.CreateTable(Type)" />.
-    /// </summary>
-    [Obsolete("Use Schema.CreateTable() instead.")]
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Table.Type comes from a TableMapping that already preserves public properties.")]
-    public virtual int CreateTable()
-    {
-        return Database.Schema.CreateTable(Table.Type);
-    }
-
-    /// <summary>
-    /// Deletes the table from the database. Forwards to <see cref="SQLiteSchema.DropTable(Type)" />.
-    /// </summary>
-    [Obsolete("Use Database.Schema.DropTable<T>() instead.")]
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Table.Type comes from a TableMapping that already preserves public properties.")]
-    public virtual int DropTable()
-    {
-        return Database.Schema.DropTable(Table.Type);
-    }
-
-    /// <summary>
     /// Performs a DELETE operation on the database table.
     /// </summary>
     /// <remarks>
@@ -106,7 +85,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs an INSERT operation on the database table using the rows.
     /// </summary>
-    public virtual int AddRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
+    public virtual int AddRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
         if (Database.Options.OnActionHooks.Count == 0
             && !IsItemMethodOverridden(nameof(InsertItem))
@@ -116,10 +95,10 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
-            return RunPreparedRange(sql, collection, Database.Options.AddHooks, runInTransaction, separateConnection, bindRow, autoIncrement);
+            return RunPreparedRange(sql, collection, Database.Options.AddHooks, runInTransaction, bindRow, autoIncrement);
         }
 
-        return RunRange(Database.Options.AddHooks, collection, runInTransaction, separateConnection,
+        return RunRange(Database.Options.AddHooks, collection, runInTransaction,
             item => DispatchAction(RunActionHooks(item, SQLiteAction.Add), item));
     }
 
@@ -139,7 +118,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs an UPDATE operation on the database table using the rows.
     /// </summary>
-    public virtual int UpdateRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
+    public virtual int UpdateRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
         if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(UpdateItem)))
         {
@@ -147,7 +126,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindData = ResolveBindRow(columns, 0, options);
             Action<sqlite3_stmt, T> bindPk = ResolveBindRow(primaryKeyColumns, columns.Length, options);
-            return RunPreparedRange(sql, collection, Database.Options.UpdateHooks, runInTransaction, separateConnection, BindRow);
+            return RunPreparedRange(sql, collection, Database.Options.UpdateHooks, runInTransaction, BindRow);
 
             void BindRow(sqlite3_stmt stmt, T item)
             {
@@ -156,7 +135,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             }
         }
 
-        return RunRange(Database.Options.UpdateHooks, collection, runInTransaction, separateConnection,
+        return RunRange(Database.Options.UpdateHooks, collection, runInTransaction,
             item => DispatchAction(RunActionHooks(item, SQLiteAction.Update), item));
     }
 
@@ -176,17 +155,17 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs a DELETE operation on the database table using the rows.
     /// </summary>
-    public virtual int RemoveRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false)
+    public virtual int RemoveRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
         if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(AddOrRemoveItem)))
         {
             (TableColumn[] primaryKeyColumns, string sql) = GetRemoveInfo();
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindRow = ResolveBindRow(primaryKeyColumns, 0, options);
-            return RunPreparedRange(sql, collection, Database.Options.RemoveHooks, runInTransaction, separateConnection, bindRow);
+            return RunPreparedRange(sql, collection, Database.Options.RemoveHooks, runInTransaction, bindRow);
         }
 
-        return RunRange(Database.Options.RemoveHooks, collection, runInTransaction, separateConnection,
+        return RunRange(Database.Options.RemoveHooks, collection, runInTransaction,
             item => DispatchAction(RunActionHooks(item, SQLiteAction.Remove), item));
     }
 
@@ -214,7 +193,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Performs an <c>INSERT OR &lt;conflict&gt;</c> operation on the database table using the rows.
     /// </summary>
-    public virtual int AddOrUpdateRange(IEnumerable<T> collection, bool runInTransaction = true, bool separateConnection = false, SQLiteConflict conflict = SQLiteConflict.Replace)
+    public virtual int AddOrUpdateRange(IEnumerable<T> collection, bool runInTransaction = true, SQLiteConflict conflict = SQLiteConflict.Replace)
     {
         if (Database.Options.OnActionHooks.Count == 0
             && !IsItemMethodOverridden(nameof(InsertItem))
@@ -224,10 +203,10 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
-            return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, separateConnection, bindRow, autoIncrement);
+            return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, bindRow, autoIncrement);
         }
 
-        return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, separateConnection, item =>
+        return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, item =>
         {
             SQLiteAction final = RunActionHooks(item, SQLiteAction.AddOrUpdate);
             return final == SQLiteAction.AddOrUpdate
@@ -273,7 +252,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios12.0")]
 #endif
-    public virtual int UpsertRange(IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, bool separateConnection = false)
+    public virtual int UpsertRange(IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true)
     {
         if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(InsertItem)))
         {
@@ -281,10 +260,10 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindRow = ResolveBindRow(columns, 0, options);
-            return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, separateConnection, bindRow, autoIncrement);
+            return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, bindRow, autoIncrement);
         }
 
-        return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, separateConnection, item =>
+        return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, item =>
         {
             SQLiteAction final = RunActionHooks(item, SQLiteAction.AddOrUpdate);
             return final == SQLiteAction.AddOrUpdate
@@ -390,13 +369,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// is supplied, <c>last_insert_rowid</c> is read after every row that affected at least one row
     /// and written back to the entity.
     /// </summary>
-    protected virtual int RunPreparedRange(string sql, IEnumerable<T> items, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, bool separateConnection, Action<sqlite3_stmt, T> bindRow, TableColumn? autoIncrement = null)
+    protected virtual int RunPreparedRange(string sql, IEnumerable<T> items, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, Action<sqlite3_stmt, T> bindRow, TableColumn? autoIncrement = null)
     {
         int count = 0;
 
         if (runInTransaction)
         {
-            using SQLiteTransaction transaction = Database.BeginTransaction(separateConnection);
+            using SQLiteTransaction transaction = Database.BeginTransaction();
             Body();
             transaction.Commit();
         }
@@ -584,13 +563,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// invokes <paramref name="execute" /> for every item that the hooks did not cancel. Wraps the
     /// loop in a transaction when <paramref name="runInTransaction" /> is set.
     /// </summary>
-    protected virtual int RunRange(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, IEnumerable<T> collection, bool runInTransaction, bool separateConnection, Func<T, int> execute)
+    protected virtual int RunRange(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, IEnumerable<T> collection, bool runInTransaction, Func<T, int> execute)
     {
         int count = 0;
 
         if (runInTransaction)
         {
-            using SQLiteTransaction transaction = Database.BeginTransaction(separateConnection);
+            using SQLiteTransaction transaction = Database.BeginTransaction();
             Body();
             transaction.Commit();
         }
