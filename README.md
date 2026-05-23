@@ -52,7 +52,7 @@ The library is exercised at 100% code coverage. It targets .NET 8, 9, and 10.
 
 The full docs live at **[sqlite-framework.net](https://sqlite-framework.net)**. Start with the [Overview](https://sqlite-framework.net/Overview) and [Getting Started](https://sqlite-framework.net/Getting-Started) pages.
 
-The same content is also mirrored on the [GitHub Wiki](https://github.com/destbg/SQLite.Framework/wiki), but GitHub Pages is the primary source for the docs.
+The same content is also mirrored on the [GitHub Wiki](https://github.com/destbg/SQLite.Framework/wiki), but the external site is the primary source for the docs.
 
 ## Installation
 
