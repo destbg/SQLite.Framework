@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { slugify } from "../utils";
+import { parseHeadings } from "../utils";
 import { findPageBySlug } from "../pages";
 import OpenInButton from "./OpenInButton";
 
@@ -10,25 +10,6 @@ const markdownFiles = import.meta.glob("../../*.md", {
   import: "default",
   eager: true,
 }) as Record<string, string>;
-
-interface Heading {
-  id: string;
-  text: string;
-  level: 2 | 3;
-}
-
-function parseHeadings(markdown: string): Heading[] {
-  const headings: Heading[] = [];
-  for (const line of markdown.split("\n")) {
-    const m = line.match(/^(#{2,3}) (.+)/);
-    if (m) {
-      const level = m[1].length as 2 | 3;
-      const text = m[2].trim();
-      headings.push({ id: slugify(text), text, level });
-    }
-  }
-  return headings;
-}
 
 export default function TableOfContents() {
   const location = useLocation();
@@ -61,7 +42,7 @@ export default function TableOfContents() {
     return () => window.removeEventListener("scroll", updateActive);
   }, [slug]);
 
-  if (headings.length === 0 && !content) return null;
+  if (headings.length === 0) return null;
 
   return (
     <aside className="toc">

@@ -619,6 +619,30 @@ body {
     margin: 0;
 }
 
+.floating-actions {
+    display: none;
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 200;
+    gap: 8px;
+}
+
+.floating-toc {
+    position: relative;
+}
+
+.floating-toc-menu {
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    max-width: calc(100vw - 28px);
+}
+
+.floating-toc-item--h3 {
+    padding-left: 22px;
+    color: var(--text-muted);
+}
+
 .open-in {
     position: relative;
 }
@@ -838,6 +862,10 @@ body {
 
     .content {
         margin-right: 0;
+    }
+
+    .floating-actions {
+        display: flex;
     }
 }
 

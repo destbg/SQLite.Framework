@@ -10,6 +10,7 @@ import Sidebar from "./components/Sidebar";
 import MarkdownPage from "./components/MarkdownPage";
 import SearchModal from "./components/SearchModal";
 import TableOfContents from "./components/TableOfContents";
+import FloatingActions from "./components/FloatingActions";
 import { findPageBySlug } from "./pages";
 
 function CurrentPage() {
@@ -63,6 +64,7 @@ export default function App() {
           </Routes>
         </main>
         <TableOfContents />
+        <FloatingActions />
       </div>
       <SearchModal
         open={searchOpen}
