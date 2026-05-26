@@ -1,6 +1,6 @@
 # SQLite.Framework
 
-LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight and without the trimming and AOT pain that EF Core still has on Native AOT today. Built for .NET MAUI, Avalonia, and any other AOT-published .NET 8/9/10 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
+LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight and without the trimming and AOT pain. Built for .NET MAUI, Avalonia, and any other AOT-published .NET 8/9/10 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
 
 [![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
 [![codecov](https://codecov.io/gh/destbg/SQLite.Framework/branch/main/graph/badge.svg)](https://codecov.io/gh/destbg/SQLite.Framework)
@@ -28,7 +28,7 @@ var authors = await (
 ).Skip(10).Take(20).ToListAsync();
 ```
 
-That whole expression is one SQL query. The framework keeps the generated SQL close to the shape of the LINQ chain you wrote and does not wrap it in extra subqueries or rewrite it behind your back to make a method work. When a LINQ method does not map cleanly to SQL, you get a clear `NotSupportedException` instead of a silently rewritten query. No client-side fallback that pulls rows into memory, and no reflection at runtime when you opt into the source generator.
+That whole expression is one SQL query. The framework keeps the generated SQL close to the shape of the LINQ chain you wrote and does not wrap it in extra subqueries or rewrite it behind your back to make a method work. No client-side fallback that pulls rows into memory, and no reflection at runtime when you opt into the source generator.
 
 ## Why this and not...
 
@@ -36,7 +36,6 @@ That whole expression is one SQL query. The framework keeps the generated SQL cl
 |---|---|---|
 | **EF Core** | Same `IQueryable` shape, smaller dependency, AOT works with minimal setup, no migrations or change tracker overhead. | EF's full mapping model (owned types, value converters via fluent API, complex inheritance). |
 | **sqlite-net-pcl** | Real LINQ - joins, group-by, subqueries, projections, FTS5, JSON, window functions all translate to SQL. AOT-friendly with the source generator. | Nothing meaningful, the API is similar where it overlaps and the migration is small. |
-| **Dapper** | No more raw SQL strings (although you can still call Query and Execute just the same) and type-safe queries. | Multi-database support, Dapper isn't SQLite-specific. |
 
 See the [Migrating from sqlite-net-pcl](https://sqlite-framework.net/Migrating-from-sqlite-net-pcl) or [Migrating from EF Core](https://sqlite-framework.net/Migrating-from-EF-Core) page if that's your starting point.
 
