@@ -327,6 +327,18 @@ public static class SQLiteFunctions
     }
 
     /// <summary>
+    /// Returns the sum of the projected values from <paramref name="values" /> as a
+    /// <see cref="double" />. Translates to SQLite's <c>total(X)</c> aggregate.
+    /// Unlike <c>sum</c>, <c>total</c> always returns a <c>REAL</c> value and returns
+    /// <c>0.0</c> for an empty input set instead of <see langword="null" />. Use this when
+    /// callers do not want to special case the empty group.
+    /// </summary>
+    public static double Total<T>(IEnumerable<T> values) where T : struct
+    {
+        throw new InvalidOperationException(OutsideQuery);
+    }
+
+    /// <summary>
     /// Returns the number of database rows that the most recent SQL statement changed. Translates
     /// to SQLite's <c>changes()</c>.
     /// </summary>

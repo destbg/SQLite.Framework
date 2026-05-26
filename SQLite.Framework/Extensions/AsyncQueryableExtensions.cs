@@ -1622,4 +1622,74 @@ public static class AsyncQueryableExtensions
             return source.StringJoin(separator);
         }, ct);
     }
+
+    /// <summary>
+    /// Async variant of <see cref="QueryableExtensions.Total{TSource}(IQueryable{TSource}, Expression{Func{TSource, double}})" />.
+    /// Emits a single <c>SELECT total(column) FROM ...</c> SQL query and returns the sum as a
+    /// <see cref="double" />. Returns <c>0.0</c> when the source has no rows.
+    /// </summary>
+    public static Task<double> TotalAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double>> selector, CancellationToken ct = default)
+    {
+        if (source is not BaseSQLiteQueryable sqliteSource)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
+        }
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await sqliteSource.Database.ReadLockAsync(ct);
+            return source.Total(selector);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async variant of <see cref="QueryableExtensions.Total{TSource}(IQueryable{TSource}, Expression{Func{TSource, decimal}})" />.
+    /// </summary>
+    public static Task<double> TotalAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal>> selector, CancellationToken ct = default)
+    {
+        if (source is not BaseSQLiteQueryable sqliteSource)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
+        }
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await sqliteSource.Database.ReadLockAsync(ct);
+            return source.Total(selector);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async variant of <see cref="QueryableExtensions.Total{TSource}(IQueryable{TSource}, Expression{Func{TSource, int}})" />.
+    /// </summary>
+    public static Task<double> TotalAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int>> selector, CancellationToken ct = default)
+    {
+        if (source is not BaseSQLiteQueryable sqliteSource)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
+        }
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await sqliteSource.Database.ReadLockAsync(ct);
+            return source.Total(selector);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Async variant of <see cref="QueryableExtensions.Total{TSource}(IQueryable{TSource}, Expression{Func{TSource, long}})" />.
+    /// </summary>
+    public static Task<double> TotalAsync<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long>> selector, CancellationToken ct = default)
+    {
+        if (source is not BaseSQLiteQueryable sqliteSource)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
+        }
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await sqliteSource.Database.ReadLockAsync(ct);
+            return source.Total(selector);
+        }, ct);
+    }
 }

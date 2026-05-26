@@ -339,4 +339,81 @@ public static class QueryableExtensions
             "GroupConcatMarker is a marker for the SQL translator. " +
             "Use string.Join(separator, queryable) inside a query expression, or call queryable.StringJoin(separator).");
     }
+
+    /// <summary>
+    /// Computes the sum of the projected values as a <see cref="double" />. Emits a single
+    /// <c>SELECT total(column) FROM ...</c> SQL query. Always returns a value: <c>0.0</c> when
+    /// the source has no rows or every projected value is <see langword="null" />. Unlike
+    /// <see cref="Queryable.Sum(IQueryable{double})" /> which delegates the empty case to LINQ,
+    /// <c>Total</c> gets the zero default from SQLite itself.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
+    public static double Total<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, double>> selector)
+    {
+        return InvokeTotalMarker(source, selector);
+    }
+
+    /// <summary>
+    /// Computes the sum of the projected decimal values as a <see cref="double" />. Emits a single
+    /// <c>SELECT total(column) FROM ...</c> SQL query. Always returns a value: <c>0.0</c> when
+    /// the source has no rows or every projected value is <see langword="null" />.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
+    public static double Total<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, decimal>> selector)
+    {
+        return InvokeTotalMarker(source, selector);
+    }
+
+    /// <summary>
+    /// Computes the sum of the projected integer values as a <see cref="double" />. Emits a single
+    /// <c>SELECT total(column) FROM ...</c> SQL query. Always returns a value: <c>0.0</c> when
+    /// the source has no rows or every projected value is <see langword="null" />.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
+    public static double Total<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, int>> selector)
+    {
+        return InvokeTotalMarker(source, selector);
+    }
+
+    /// <summary>
+    /// Computes the sum of the projected long values as a <see cref="double" />. Emits a single
+    /// <c>SELECT total(column) FROM ...</c> SQL query. Always returns a value: <c>0.0</c> when
+    /// the source has no rows or every projected value is <see langword="null" />.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
+    public static double Total<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, long>> selector)
+    {
+        return InvokeTotalMarker(source, selector);
+    }
+
+    /// <summary>
+    /// Marker method that the SQL translator rewrites into SQLite's <c>total</c> aggregate. Invoked
+    /// indirectly by <see cref="Total{TSource}(IQueryable{TSource}, Expression{Func{TSource, double}})" />
+    /// and its overloads. Throws <see cref="InvalidOperationException" /> when called directly.
+    /// </summary>
+    internal static double TotalMarker<TSource, TValue>(IQueryable<TSource> source, Expression<Func<TSource, TValue>> selector)
+    {
+        throw new InvalidOperationException(
+            "TotalMarker is a marker for the SQL translator. " +
+            "Call queryable.Total(selector) instead.");
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
+    private static double InvokeTotalMarker<TSource, TValue>(IQueryable<TSource> source, Expression<Func<TSource, TValue>> selector)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(selector);
+
+        if (source is not BaseSQLiteQueryable sqliteSource)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
+        }
+
+        MethodInfo marker = typeof(QueryableExtensions)
+            .GetMethod(nameof(TotalMarker), BindingFlags.Static | BindingFlags.NonPublic)!
+            .MakeGenericMethod(typeof(TSource), typeof(TValue));
+        Expression callExpression = Expression.Call(marker, source.Expression, selector);
+
+        return sqliteSource.Provider.Execute<double>(callExpression);
+    }
 }

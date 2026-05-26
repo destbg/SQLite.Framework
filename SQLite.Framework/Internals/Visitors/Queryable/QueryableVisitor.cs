@@ -89,6 +89,7 @@ internal partial class QueryableVisitor
             nameof(SQLiteDatabase.FromSql) => VisitFromSql(node),
             nameof(SQLiteDatabase.Values) => VisitValues(node),
             nameof(QueryableExtensions.GroupConcatMarker) => VisitGroupConcat(node),
+            nameof(QueryableExtensions.TotalMarker) => VisitTotal(node),
             _ => throw new NotSupportedException($"Unsupported method: {node.Method}")
         };
     }

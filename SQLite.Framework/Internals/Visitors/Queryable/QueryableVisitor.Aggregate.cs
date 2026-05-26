@@ -180,6 +180,48 @@ internal partial class QueryableVisitor
         return select;
     }
 
+    private SQLiteExpression VisitTotal(MethodCallExpression node)
+    {
+        if (Take != null || Skip != null)
+        {
+            throw new NotSupportedException(
+                "Total over an IQueryable does not support Take or Skip on the source. " +
+                "Materialize the limited rows first with ToList and call SQLiteFunctions.Total over them, " +
+                "or move the limit inside a CTE.");
+        }
+
+        ThrowIfSetOperations(node.Method.Name);
+
+        if (IsDistinct)
+        {
+            throw new NotSupportedException(
+                "Total over a Distinct() queryable is not supported. " +
+                "Materialize with ToList() and total in memory, " +
+                "or drop the Distinct() and let total() keep duplicates.");
+        }
+
+        LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+        Expression expression = visitor.Visit(lambda.Body);
+
+        if (expression is not SQLiteExpression sqlExpression)
+        {
+            throw new NotSupportedException($"Unsupported Total expression {lambda.Body}");
+        }
+
+        SQLiteExpression select = SQLiteExpression.Wrap(
+            typeof(double),
+            visitor.Counters.NextIdentifier(),
+            "total(",
+            sqlExpression,
+            ")",
+            sqlExpression.Parameters);
+
+        Selects.Clear();
+        Selects.Add(select);
+
+        return select;
+    }
+
     private void ThrowOnMultiColumnDistinct(MethodCallExpression node)
     {
         if (Selects.Count != 1)

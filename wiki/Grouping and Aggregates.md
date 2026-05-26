@@ -59,6 +59,32 @@ var statsByGenre = await (
 ).ToListAsync();
 ```
 
+## Sum vs Total
+
+`g.Sum(b => b.Price)` emits SQLite's `SUM(...)` and returns `NULL` when every aggregated row is `NULL` or when the projected input is empty. LINQ then coerces the `NULL` to the default value of the numeric type, but the underlying SQL still produces `NULL`.
+
+`SQLiteFunctions.Total(g.Select(b => b.Price))` emits SQLite's `total(...)` and always returns a `REAL` value. An empty input returns `0.0` instead of `NULL`.
+
+```csharp
+var revenueByAuthor = await (
+    from book in db.Table<Book>()
+    group book by book.AuthorId into g
+    select new
+    {
+        AuthorId = g.Key,
+        Revenue = SQLiteFunctions.Total(g.Select(b => b.Price))
+    }
+).ToListAsync();
+```
+
+At the root of a query, call `Total` (or `TotalAsync`) directly on the queryable.
+
+```csharp
+double revenue = db.Table<Book>()
+    .Where(b => b.AuthorId == 1)
+    .Total(b => b.Price);
+```
+
 ## Concatenating Strings Across Rows
 
 `string.Join` over an `IQueryable` translates to SQLite's `group_concat` aggregate. The inner query runs as a correlated subquery and the rows are joined into one string.

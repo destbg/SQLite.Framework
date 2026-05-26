@@ -33,6 +33,7 @@ The class also holds the FTS5 helpers (`Match`, `Rank`, `Snippet`, `Highlight`).
 | `SqliteVersion()` | `sqlite_version()` |
 | `Min(v0, v1, ...)` | `min(v0, v1, ...)` (scalar, two or more args) |
 | `Max(v0, v1, ...)` | `max(v0, v1, ...)` (scalar, two or more args) |
+| `Total(g.Select(x => x.Col))` | `total(col)` (aggregate, returns `REAL`, `0.0` for empty input) |
 | `Changes()` | `changes()` |
 | `TotalChanges()` | `total_changes()` |
 
@@ -171,6 +172,33 @@ List<int> floors = db.Table<Book>()
 ```
 
 > **Always pass two or more values.** Calling `SQLiteFunctions.Min(x)` or `SQLiteFunctions.Max(x)` with a single value compiles fine but is wrong. SQLite reads `min(x)` and `max(x)` as the aggregate forms, so the surrounding query silently turns into an aggregate query and returns one row instead of one per input row. For aggregates over a column, use LINQ's own `Queryable.Min` / `Queryable.Max` instead.
+
+## Total aggregate
+
+`Total` translates to SQLite's `total(X)` aggregate. It is like `Queryable.Sum` but always returns a `REAL` value and returns `0.0` for an empty input set instead of `NULL`. Pass a `Select` projection over a grouping enumerable.
+
+```csharp
+var revenue = (
+    from b in db.Table<Book>()
+    group b by b.AuthorId into g
+    select new
+    {
+        AuthorId = g.Key,
+        Revenue = SQLiteFunctions.Total(g.Select(x => x.Price))
+    }
+).ToList();
+```
+
+The SQL is:
+
+```sql
+SELECT b0.BookAuthorId AS "AuthorId",
+       total(b0.BookPrice) AS "Revenue"
+FROM "Books" AS b0
+GROUP BY b0.BookAuthorId
+```
+
+`total` shines when the aggregated column has `NULL` values or when the projected input is empty. `sum` returns `NULL` in those cases. `total` returns `0.0` so callers do not need a special case for empty groups.
 
 ## Last insert rowid and SQLite version
 

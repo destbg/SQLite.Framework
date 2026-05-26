@@ -12,6 +12,7 @@ public class MarkerMethodsThrowTests
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.UnixEpoch("now"));
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Printf("%d", 1));
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Regexp("abc", "a.*"));
+        Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.Total(new[] { 1, 2 }));
         Assert.Throws<InvalidOperationException>(() => SQLiteFunctions.TotalChanges());
     }
 

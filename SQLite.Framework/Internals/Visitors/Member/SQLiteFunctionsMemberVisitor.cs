@@ -34,6 +34,7 @@ internal static class SQLiteFunctionsMemberVisitor
             nameof(SQLiteFunctions.SqliteVersion) => SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), "sqlite_version()", null),
             nameof(SQLiteFunctions.Min) => HandleFunctionsVariadic(visitor, node, "min", node.Method.ReturnType),
             nameof(SQLiteFunctions.Max) => HandleFunctionsVariadic(visitor, node, "max", node.Method.ReturnType),
+            nameof(SQLiteFunctions.Total) => HandleFunctionsTotal(visitor, node),
             nameof(SQLiteFunctions.Changes) => SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), "changes()", null),
             nameof(SQLiteFunctions.TotalChanges) => SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), "total_changes()", null),
             nameof(SQLiteFunctions.Collate) => HandleFunctionsCollate(visitor, node),
@@ -92,6 +93,40 @@ internal static class SQLiteFunctionsMemberVisitor
         List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[0]);
         SQLiteExpression[] itemExprs = items.Select(r => r.SQLiteExpression!).ToArray();
         return SQLiteExpression.Variadic(returnType, visitor.Counters.NextIdentifier(), $"{sqlFunction}(", itemExprs, ", ", ")", ParameterHelpers.CombineParameters(itemExprs));
+    }
+
+    private static SQLiteExpression HandleFunctionsTotal(SQLVisitor visitor, MethodCallExpression node)
+    {
+        if (node.Arguments[0] is not MethodCallExpression selectCall
+            || selectCall.Method.Name != nameof(Enumerable.Select)
+            || selectCall.Arguments.Count != 2
+            || selectCall.Arguments[0] is not ParameterExpression groupingParameter)
+        {
+            throw new NotSupportedException(
+                "SQLiteFunctions.Total expects a Select projection over a grouping, " +
+                "for example `g.Select(x => x.Price)`.");
+        }
+
+        int prefixLength = nameof(IGrouping<,>.Key).Length + 1;
+        Dictionary<string, Expression> newTableColumns = [];
+        foreach (KeyValuePair<string, Expression> kvp in visitor.MethodArguments[groupingParameter])
+        {
+            string[] split = kvp.Key[Math.Min(prefixLength, kvp.Key.Length)..]
+                .Split('.', StringSplitOptions.RemoveEmptyEntries);
+            string newKey = string.Join('.', split);
+            newTableColumns[newKey] = kvp.Value;
+        }
+
+        LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(selectCall.Arguments[1]);
+        visitor.MethodArguments[lambda.Parameters[0]] = newTableColumns;
+
+        Expression resolved = visitor.Visit(lambda.Body);
+        if (resolved is not SQLiteExpression sql)
+        {
+            throw new NotSupportedException("SQLiteFunctions.Total could not resolve the projected expression.");
+        }
+
+        return SQLiteExpression.Wrap(typeof(double), visitor.Counters.NextIdentifier(), "total(", sql, ")", sql.Parameters);
     }
 
     private static SQLiteExpression HandleFunctionsNullif(SQLVisitor visitor, MethodCallExpression node)
