@@ -718,7 +718,7 @@ public class InternalHelpersDirectTests
         MethodInfo aggregateMethod = typeof(QueryableMemberVisitor).GetMethod("AggregateExpression", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() =>
-            aggregateMethod.Invoke(null, [sqlVisitor, mce, "SUM", null]));
+            aggregateMethod.Invoke(null, [sqlVisitor, mce, "SUM", null, null]));
 
         Assert.IsType<NotSupportedException>(tie.InnerException);
         Assert.Contains("Sum could not resolve", tie.InnerException!.Message);

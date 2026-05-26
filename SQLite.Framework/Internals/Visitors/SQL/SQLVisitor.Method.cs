@@ -37,6 +37,16 @@ internal partial class SQLVisitor
             return Database.Options.MemberTranslators[typeof(SQLiteWindowFunctions)](ctx);
         }
 
+        if (node.Arguments.Count > 0
+            && node.Arguments[0] is MethodCallExpression firstCall
+            && firstCall.Method.Name == nameof(Enumerable.Where)
+            && firstCall.Arguments.Count == 2
+            && firstCall.Arguments[0].Type.IsGenericType
+            && firstCall.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+        {
+            return QueryableMemberVisitor.HandleGroupingMethod(this, node);
+        }
+
         if (JsonMethodTranslator.TryHandle(node, this) is { } jsonHandled)
         {
             return jsonHandled;

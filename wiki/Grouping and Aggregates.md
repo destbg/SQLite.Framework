@@ -102,18 +102,6 @@ var titlesPerAuthor = await (
 ).ToListAsync();
 ```
 
-The SQL it emits is:
-
-```sql
-SELECT a0.AuthorName AS "Author",
-       (
-           SELECT group_concat(b1.BookTitle, @p0)
-           FROM "Books" AS b1
-           WHERE b1.BookAuthorId = a0.AuthorId
-       ) AS "Titles"
-FROM "Authors" AS a0
-```
-
 ### Root-Level StringJoin
 
 For a single SQL roundtrip at the root of a query, call `StringJoin` on the queryable directly.
@@ -130,15 +118,25 @@ string allTitlesAsync = await db.Table<Book>()
     .StringJoinAsync(", ");
 ```
 
-The SQL is one query:
+A plain `string.Join(sep, queryable)` at the root, without `StringJoin`, still works but does not get `group_concat`. The runtime enumerates every row first and concatenates them in memory. Use `StringJoin` when you want the aggregation to happen in SQL.
 
-```sql
-SELECT group_concat(b0.BookTitle, @p0)
-FROM "Books" AS b0
-ORDER BY b0.BookId
+## Filtering Inside an Aggregate
+
+Chain a `Where` clause before any grouping aggregate to restrict which rows the aggregate sees. This translates to SQLite's `FILTER (WHERE ...)` clause, added in SQLite 3.30.
+
+```csharp
+var rows = await (
+    from book in db.Table<Book>()
+    group book by book.AuthorId into g
+    select new
+    {
+        AuthorId = g.Key,
+        PriceyRevenue = g.Where(x => x.Price >= 10).Sum(x => x.Price),
+        TotalRevenue = g.Sum(x => x.Price)
+    }
+).ToListAsync();
 ```
 
-A plain `string.Join(sep, queryable)` at the root, without `StringJoin`, still works but does not get `group_concat`. The runtime enumerates every row first and concatenates them in memory. Use `StringJoin` when you want the aggregation to happen in SQL.
 
 ## Filter Groups with HAVING
 

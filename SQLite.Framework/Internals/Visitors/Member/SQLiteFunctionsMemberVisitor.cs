@@ -99,22 +99,49 @@ internal static class SQLiteFunctionsMemberVisitor
     {
         if (node.Arguments[0] is not MethodCallExpression selectCall
             || selectCall.Method.Name != nameof(Enumerable.Select)
-            || selectCall.Arguments.Count != 2
-            || selectCall.Arguments[0] is not ParameterExpression groupingParameter)
+            || selectCall.Arguments.Count != 2)
         {
             throw new NotSupportedException(
                 "SQLiteFunctions.Total expects a Select projection over a grouping, " +
                 "for example `g.Select(x => x.Price)`.");
         }
 
-        int prefixLength = nameof(IGrouping<,>.Key).Length + 1;
-        Dictionary<string, Expression> newTableColumns = [];
-        foreach (KeyValuePair<string, Expression> kvp in visitor.MethodArguments[groupingParameter])
+        Expression receiver = selectCall.Arguments[0];
+        LambdaExpression? filterLambda = null;
+        if (receiver is MethodCallExpression whereCall
+            && whereCall.Method.Name == nameof(Enumerable.Where)
+            && whereCall.Arguments.Count == 2)
         {
-            string[] split = kvp.Key[Math.Min(prefixLength, kvp.Key.Length)..]
-                .Split('.', StringSplitOptions.RemoveEmptyEntries);
-            string newKey = string.Join('.', split);
-            newTableColumns[newKey] = kvp.Value;
+            LambdaExpression candidate = (LambdaExpression)ExpressionHelpers.StripQuotes(whereCall.Arguments[1]);
+            if (candidate.Parameters.Count == 1)
+            {
+                filterLambda = candidate;
+                receiver = whereCall.Arguments[0];
+            }
+        }
+
+        if (receiver is not ParameterExpression)
+        {
+            throw new NotSupportedException(
+                "SQLiteFunctions.Total expects a Select projection over a grouping, " +
+                "for example `g.Select(x => x.Price)`.");
+        }
+
+        Dictionary<string, Expression> newTableColumns = QueryableMemberVisitor.BuildGroupingColumnMap(visitor, receiver);
+
+        SQLiteExpression? filterExpression = null;
+        if (filterLambda != null)
+        {
+            visitor.MethodArguments[filterLambda.Parameters[0]] = newTableColumns;
+            Expression resolvedFilter = visitor.Visit(filterLambda.Body);
+            if (resolvedFilter is not SQLiteExpression sqlFilter)
+            {
+                throw new NotSupportedException("Aggregate FILTER predicate could not be resolved.");
+            }
+            filterExpression = sqlFilter;
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_30, "FILTER (WHERE ...) on aggregates");
+#endif
         }
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(selectCall.Arguments[1]);
@@ -126,7 +153,20 @@ internal static class SQLiteFunctionsMemberVisitor
             throw new NotSupportedException("SQLiteFunctions.Total could not resolve the projected expression.");
         }
 
-        return SQLiteExpression.Wrap(typeof(double), visitor.Counters.NextIdentifier(), "total(", sql, ")", sql.Parameters);
+        if (filterExpression == null)
+        {
+            return SQLiteExpression.Wrap(typeof(double), visitor.Counters.NextIdentifier(), "total(", sql, ")", sql.Parameters);
+        }
+
+        return SQLiteExpression.Binary(
+            typeof(double),
+            visitor.Counters.NextIdentifier(),
+            "total(",
+            sql,
+            ") FILTER (WHERE ",
+            filterExpression,
+            ")",
+            ParameterHelpers.CombineParameters(sql, filterExpression));
     }
 
     private static SQLiteExpression HandleFunctionsNullif(SQLVisitor visitor, MethodCallExpression node)

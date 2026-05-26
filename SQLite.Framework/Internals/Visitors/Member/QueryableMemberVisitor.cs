@@ -110,49 +110,58 @@ internal static class QueryableMemberVisitor
 
     public static Expression HandleGroupingMethod(SQLVisitor visitor, MethodCallExpression node)
     {
+        Expression receiver = node.Arguments[0];
+        LambdaExpression? filterLambda = null;
+        if (receiver is MethodCallExpression whereCall
+            && whereCall.Method.Name == nameof(Enumerable.Where)
+            && whereCall.Arguments.Count == 2)
+        {
+            LambdaExpression candidate = (LambdaExpression)ExpressionHelpers.StripQuotes(whereCall.Arguments[1]);
+            if (candidate.Parameters.Count == 1)
+            {
+                filterLambda = candidate;
+                receiver = whereCall.Arguments[0];
+            }
+        }
+
+        Dictionary<string, Expression>? newTableColumns = null;
+        SQLiteExpression? sqlExpression = null;
+
+        if (node.Arguments.Count == 2 || filterLambda != null)
+        {
+            newTableColumns = BuildGroupingColumnMap(visitor, receiver);
+        }
+
+        SQLiteExpression? filterExpression = null;
+        if (filterLambda != null)
+        {
+            visitor.MethodArguments[filterLambda.Parameters[0]] = newTableColumns!;
+            Expression resolvedFilter = visitor.Visit(filterLambda.Body);
+            if (resolvedFilter is not SQLiteExpression sqlFilter)
+            {
+                throw new NotSupportedException("Aggregate FILTER predicate could not be resolved.");
+            }
+            filterExpression = sqlFilter;
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_30, "FILTER (WHERE ...) on aggregates");
+#endif
+        }
+
         switch (node.Method.Name)
         {
             case nameof(Enumerable.LongCount):
             case nameof(Enumerable.Count):
-                return SQLiteExpression.Leaf(
-                    node.Method.ReturnType,
-                    visitor.Counters.NextIdentifier(),
-                    "COUNT(*)",
-                    []
-                );
+                return BuildCountExpression(visitor, node, filterExpression);
         }
 
-        SQLiteExpression? sqlExpression = null;
-
-        // We have a selection like `g.Sum(f => f.Price)`, where `g` is a grouping.
         if (node.Arguments.Count == 2)
         {
-            (string path, ParameterExpression pe) = ExpressionHelpers.ResolveParameterPath(node.Arguments[0]);
-
-            Dictionary<string, Expression> newTableColumns = [];
-
-            foreach (KeyValuePair<string, Expression> kvp in visitor.MethodArguments[pe])
-            {
-                if (kvp.Key.StartsWith(path))
-                {
-                    // +1 for the dot between the path and the key
-                    int length = path.Length + nameof(IGrouping<,>.Key).Length + 1;
-                    string[] split = kvp.Key[Math.Min(length, kvp.Key.Length)..]
-                        .Split('.', StringSplitOptions.RemoveEmptyEntries);
-
-                    string newKey = string.Join('.', split);
-                    newTableColumns[newKey] = kvp.Value;
-                }
-            }
-
             LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
-            visitor.MethodArguments[lambda.Parameters[0]] = newTableColumns;
+            visitor.MethodArguments[lambda.Parameters[0]] = newTableColumns!;
         }
         else
         {
-            // If the path is empty, we are dealing with a grouping without a key, like `g.Sum()`.
-            // We need to resolve the grouping key to the correct column.
-            Expression expression = visitor.ResolveMember(node.Arguments[0]);
+            Expression expression = visitor.ResolveMember(receiver);
 
             if (expression is not SQLiteExpression expr)
             {
@@ -164,30 +173,89 @@ internal static class QueryableMemberVisitor
 
         return node.Method.Name switch
         {
-            nameof(Enumerable.Sum) => AggregateExpression(visitor, node, "SUM", sqlExpression),
-            nameof(Enumerable.Average) => AggregateExpression(visitor, node, "AVG", sqlExpression),
-            nameof(Enumerable.Min) => AggregateExpression(visitor, node, "MIN", sqlExpression),
-            nameof(Enumerable.Max) => AggregateExpression(visitor, node, "MAX", sqlExpression),
+            nameof(Enumerable.Sum) => AggregateExpression(visitor, node, "SUM", sqlExpression, filterExpression),
+            nameof(Enumerable.Average) => AggregateExpression(visitor, node, "AVG", sqlExpression, filterExpression),
+            nameof(Enumerable.Min) => AggregateExpression(visitor, node, "MIN", sqlExpression, filterExpression),
+            nameof(Enumerable.Max) => AggregateExpression(visitor, node, "MAX", sqlExpression, filterExpression),
             _ => throw new NotSupportedException($"Grouping aggregate {node.Method.Name} is not translatable to SQL.")
         };
     }
 
-    private static SQLiteExpression AggregateExpression(SQLVisitor visitor, MethodCallExpression node, string aggregateFunction, SQLiteExpression? sqlExpression)
+    internal static Dictionary<string, Expression> BuildGroupingColumnMap(SQLVisitor visitor, Expression receiver)
     {
+        (string path, ParameterExpression pe) = ExpressionHelpers.ResolveParameterPath(receiver);
+
+        Dictionary<string, Expression> newTableColumns = [];
+
+        foreach (KeyValuePair<string, Expression> kvp in visitor.MethodArguments[pe])
+        {
+            if (kvp.Key.StartsWith(path))
+            {
+                // +1 for the dot between the path and the key
+                int length = path.Length + nameof(IGrouping<,>.Key).Length + 1;
+                string[] split = kvp.Key[Math.Min(length, kvp.Key.Length)..]
+                    .Split('.', StringSplitOptions.RemoveEmptyEntries);
+
+                string newKey = string.Join('.', split);
+                newTableColumns[newKey] = kvp.Value;
+            }
+        }
+
+        return newTableColumns;
+    }
+
+    private static SQLiteExpression BuildCountExpression(SQLVisitor visitor, MethodCallExpression node, SQLiteExpression? filterExpression)
+    {
+        if (filterExpression == null)
+        {
+            return SQLiteExpression.Leaf(
+                node.Method.ReturnType,
+                visitor.Counters.NextIdentifier(),
+                "COUNT(*)",
+                []);
+        }
+
+        return SQLiteExpression.Wrap(
+            node.Method.ReturnType,
+            visitor.Counters.NextIdentifier(),
+            "COUNT(*) FILTER (WHERE ",
+            filterExpression,
+            ")",
+            filterExpression.Parameters);
+    }
+
+    private static SQLiteExpression AggregateExpression(SQLVisitor visitor, MethodCallExpression node, string aggregateFunction, SQLiteExpression? sqlExpression, SQLiteExpression? filterExpression)
+    {
+        SQLiteExpression target;
         if (node.Arguments.Count == 1)
         {
-            SQLiteExpression target = sqlExpression!;
+            target = sqlExpression!;
+        }
+        else
+        {
+            LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+            Expression resolvedExpression = visitor.Visit(lambda.Body);
+            if (resolvedExpression is not SQLiteExpression sql)
+            {
+                throw new NotSupportedException("Sum could not resolve the expression.");
+            }
+            target = sql;
+        }
+
+        if (filterExpression == null)
+        {
             return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{aggregateFunction}(", target, ")", target.Parameters);
         }
 
-        LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
-        Expression resolvedExpression = visitor.Visit(lambda.Body);
-        if (resolvedExpression is not SQLiteExpression sql)
-        {
-            throw new NotSupportedException("Sum could not resolve the expression.");
-        }
-
-        return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{aggregateFunction}(", sql, ")", sql.Parameters);
+        return SQLiteExpression.Binary(
+            node.Method.ReturnType,
+            visitor.Counters.NextIdentifier(),
+            $"{aggregateFunction}(",
+            target,
+            ") FILTER (WHERE ",
+            filterExpression,
+            ")",
+            ParameterHelpers.CombineParameters(target, filterExpression));
     }
 
     internal static bool CheckConstantMethod<T>(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, [MaybeNullWhen(false)] out Expression expression)
