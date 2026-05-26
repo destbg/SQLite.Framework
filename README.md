@@ -1,6 +1,6 @@
 # SQLite.Framework
 
-LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight - and without the trimming and AOT pain that EF Core still has on Native AOT today. Built for .NET MAUI, Avalonia, and any other AOT-published .NET 8/9/10 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
+LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight and without the trimming and AOT pain that EF Core still has on Native AOT today. Built for .NET MAUI, Avalonia, and any other AOT-published .NET 8/9/10 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
 
 [![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
 [![codecov](https://codecov.io/gh/destbg/SQLite.Framework/branch/main/graph/badge.svg)](https://codecov.io/gh/destbg/SQLite.Framework)
