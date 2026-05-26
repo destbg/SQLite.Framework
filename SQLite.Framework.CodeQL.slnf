@@ -1,0 +1,13 @@
+{
+  "solution": {
+    "path": "SQLite.Framework.sln",
+    "projects": [
+      "SQLite.Framework\\SQLite.Framework.csproj",
+      "SQLite.Framework.Base\\SQLite.Framework.Base.csproj",
+      "SQLite.Framework.Cipher\\SQLite.Framework.Cipher.csproj",
+      "SQLite.Framework.Bundled\\SQLite.Framework.Bundled.csproj",
+      "SQLite.Framework.DependencyInjection\\SQLite.Framework.DependencyInjection.csproj",
+      "SQLite.Framework.SourceGenerator\\SQLite.Framework.SourceGenerator.csproj"
+    ]
+  }
+}
