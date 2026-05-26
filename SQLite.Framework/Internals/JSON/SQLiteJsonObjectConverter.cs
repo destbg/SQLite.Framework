@@ -9,7 +9,7 @@ internal sealed class SQLiteJsonObjectConverter : ISQLiteTypeConverter
     private readonly JsonTypeInfo typeInfo;
     private readonly bool isJsonb;
 
-    internal SQLiteJsonObjectConverter(JsonTypeInfo typeInfo, bool isJsonb)
+    public SQLiteJsonObjectConverter(JsonTypeInfo typeInfo, bool isJsonb)
     {
         this.typeInfo = typeInfo;
         this.isJsonb = isJsonb;

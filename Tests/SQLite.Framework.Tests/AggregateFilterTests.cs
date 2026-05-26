@@ -364,6 +364,69 @@ public class AggregateFilterTests
     }
 
     [Fact]
+    public void Total_IndexedSelect_Throws()
+    {
+        using TestDatabase db = new();
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            (
+                from book in db.Table<Book>()
+                group book by book.AuthorId
+                into g
+                select SQLiteFunctions.Total(g.Select((x, i) => x.Price))
+            ).ToSqlCommand());
+
+        Assert.Contains("Select projection over a grouping", ex.Message);
+    }
+
+    [Fact]
+    public void Total_SelectOverNonGroupingChain_Throws()
+    {
+        using TestDatabase db = new();
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            (
+                from book in db.Table<Book>()
+                group book by book.AuthorId
+                into g
+                select SQLiteFunctions.Total(g.OrderBy(x => x.Price).Select(x => x.Price))
+            ).ToSqlCommand());
+
+        Assert.Contains("Select projection over a grouping", ex.Message);
+    }
+
+    [Fact]
+    public void Total_NonSelectMethodCall_Throws()
+    {
+        using TestDatabase db = new();
+
+        int[] arr = [1, 2, 3];
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            (
+                from book in db.Table<Book>()
+                group book by book.AuthorId
+                into g
+                select SQLiteFunctions.Total(arr.Reverse())
+            ).ToSqlCommand());
+
+        Assert.Contains("Select projection over a grouping", ex.Message);
+    }
+
+    [Fact]
+    public void Aggregate_IndexedWhereOnGrouping_NotPeeledAsFilter()
+    {
+        using TestDatabase db = new();
+
+        Assert.ThrowsAny<NotSupportedException>(() =>
+            (
+                from book in db.Table<Book>()
+                group book by book.AuthorId
+                into g
+                select g.Where((x, i) => i > 0).Sum(x => x.Price)
+            ).ToSqlCommand());
+    }
+
+    [Fact]
     public void Total_SelectReceiverNotGrouping_Throws()
     {
         using TestDatabase db = new();

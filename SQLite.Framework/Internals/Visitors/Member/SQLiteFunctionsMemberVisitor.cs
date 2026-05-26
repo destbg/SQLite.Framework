@@ -97,34 +97,24 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsTotal(SQLVisitor visitor, MethodCallExpression node)
     {
-        if (node.Arguments[0] is not MethodCallExpression selectCall
-            || selectCall.Method.Name != nameof(Enumerable.Select)
-            || selectCall.Arguments.Count != 2)
+        const string BadShape = "SQLiteFunctions.Total expects a Select projection over a grouping, for example `g.Select(x => x.Price)`.";
+
+        if (node.Arguments[0] is not MethodCallExpression selectCall)
         {
-            throw new NotSupportedException(
-                "SQLiteFunctions.Total expects a Select projection over a grouping, " +
-                "for example `g.Select(x => x.Price)`.");
+            throw new NotSupportedException(BadShape);
+        }
+
+        if (selectCall.Method.Name != nameof(Enumerable.Select))
+        {
+            throw new NotSupportedException(BadShape);
         }
 
         Expression receiver = selectCall.Arguments[0];
-        LambdaExpression? filterLambda = null;
-        if (receiver is MethodCallExpression whereCall
-            && whereCall.Method.Name == nameof(Enumerable.Where)
-            && whereCall.Arguments.Count == 2)
-        {
-            LambdaExpression candidate = (LambdaExpression)ExpressionHelpers.StripQuotes(whereCall.Arguments[1]);
-            if (candidate.Parameters.Count == 1)
-            {
-                filterLambda = candidate;
-                receiver = whereCall.Arguments[0];
-            }
-        }
+        LambdaExpression? filterLambda = QueryableMemberVisitor.TryPeelWhereFilter(ref receiver);
 
         if (receiver is not ParameterExpression)
         {
-            throw new NotSupportedException(
-                "SQLiteFunctions.Total expects a Select projection over a grouping, " +
-                "for example `g.Select(x => x.Price)`.");
+            throw new NotSupportedException(BadShape);
         }
 
         Dictionary<string, Expression> newTableColumns = QueryableMemberVisitor.BuildGroupingColumnMap(visitor, receiver);
@@ -145,6 +135,10 @@ internal static class SQLiteFunctionsMemberVisitor
         }
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(selectCall.Arguments[1]);
+        if (lambda.Parameters.Count != 1)
+        {
+            throw new NotSupportedException(BadShape);
+        }
         visitor.MethodArguments[lambda.Parameters[0]] = newTableColumns;
 
         Expression resolved = visitor.Visit(lambda.Body);

@@ -52,7 +52,7 @@ internal class SQLTranslator
 
     public SQLVisitor Visitor { get; }
 
-    internal IReadOnlyList<SQLiteExpression> Selects => queryableMethodVisitor.Selects;
+    public IReadOnlyList<SQLiteExpression> Selects => queryableMethodVisitor.Selects;
 
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
     {

@@ -111,18 +111,7 @@ internal static class QueryableMemberVisitor
     public static Expression HandleGroupingMethod(SQLVisitor visitor, MethodCallExpression node)
     {
         Expression receiver = node.Arguments[0];
-        LambdaExpression? filterLambda = null;
-        if (receiver is MethodCallExpression whereCall
-            && whereCall.Method.Name == nameof(Enumerable.Where)
-            && whereCall.Arguments.Count == 2)
-        {
-            LambdaExpression candidate = (LambdaExpression)ExpressionHelpers.StripQuotes(whereCall.Arguments[1]);
-            if (candidate.Parameters.Count == 1)
-            {
-                filterLambda = candidate;
-                receiver = whereCall.Arguments[0];
-            }
-        }
+        LambdaExpression? filterLambda = TryPeelWhereFilter(ref receiver);
 
         Dictionary<string, Expression>? newTableColumns = null;
         SQLiteExpression? sqlExpression = null;
@@ -181,7 +170,29 @@ internal static class QueryableMemberVisitor
         };
     }
 
-    internal static Dictionary<string, Expression> BuildGroupingColumnMap(SQLVisitor visitor, Expression receiver)
+    public static LambdaExpression? TryPeelWhereFilter(ref Expression receiver)
+    {
+        if (receiver is not MethodCallExpression whereCall)
+        {
+            return null;
+        }
+
+        if (whereCall.Method.Name != nameof(Enumerable.Where))
+        {
+            return null;
+        }
+
+        LambdaExpression candidate = (LambdaExpression)ExpressionHelpers.StripQuotes(whereCall.Arguments[1]);
+        if (candidate.Parameters.Count != 1)
+        {
+            return null;
+        }
+
+        receiver = whereCall.Arguments[0];
+        return candidate;
+    }
+
+    public static Dictionary<string, Expression> BuildGroupingColumnMap(SQLVisitor visitor, Expression receiver)
     {
         (string path, ParameterExpression pe) = ExpressionHelpers.ResolveParameterPath(receiver);
 
@@ -258,7 +269,7 @@ internal static class QueryableMemberVisitor
             ParameterHelpers.CombineParameters(target, filterExpression));
     }
 
-    internal static bool CheckConstantMethod<T>(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, [MaybeNullWhen(false)] out Expression expression)
+    public static bool CheckConstantMethod<T>(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, [MaybeNullWhen(false)] out Expression expression)
     {
         if (arguments.Any(f => f.SQLiteExpression == null))
         {
