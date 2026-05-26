@@ -23,7 +23,7 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>sqlite database orm di dependency-injection</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageIcon>sqlite.png</PackageIcon>
+        <PackageIcon>SQLite.Framework.png</PackageIcon>
         <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
@@ -32,7 +32,7 @@
             <Pack>true</Pack>
             <PackagePath>\</PackagePath>
         </None>
-        <None Include="../sqlite.png">
+        <None Include="../SQLite.Framework.png">
             <Pack>true</Pack>
             <PackagePath>\</PackagePath>
         </None>

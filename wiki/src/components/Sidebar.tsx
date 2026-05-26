@@ -47,7 +47,7 @@ export default function Sidebar({ onOpenSearch }: Props) {
             onClick={() => setMobileOpen(false)}
           >
             <img
-              src={`${import.meta.env.BASE_URL}sqlite.png`}
+              src={`${import.meta.env.BASE_URL}SQLite.Framework.png`}
               alt=""
               className="sidebar-logo"
             />

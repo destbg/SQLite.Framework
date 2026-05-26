@@ -24,7 +24,7 @@
         <RepositoryUrl>https://github.com/destbg/SQLite.Framework</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageTags>sqlite database orm</PackageTags>
-        <PackageIcon>sqlite.png</PackageIcon>
+        <PackageIcon>SQLite.Framework.png</PackageIcon>
         <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
@@ -34,7 +34,7 @@
             <Pack>true</Pack>
             <PackagePath>\</PackagePath>
         </None>
-        <None Include="../sqlite.png">
+        <None Include="../SQLite.Framework.png">
             <Pack>true</Pack>
             <PackagePath>\</PackagePath>
         </None>
