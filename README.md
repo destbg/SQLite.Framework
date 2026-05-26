@@ -4,6 +4,7 @@ LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime
 
 [![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
 [![codecov](https://codecov.io/gh/destbg/SQLite.Framework/branch/main/graph/badge.svg)](https://codecov.io/gh/destbg/SQLite.Framework)
+[![CodeQL](https://github.com/destbg/SQLite.Framework/actions/workflows/codeql.yml/badge.svg)](https://github.com/destbg/SQLite.Framework/security/code-scanning)
 [![.NET](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
