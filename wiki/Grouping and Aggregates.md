@@ -59,6 +59,61 @@ var statsByGenre = await (
 ).ToListAsync();
 ```
 
+## Concatenating Strings Across Rows
+
+`string.Join` over an `IQueryable` translates to SQLite's `group_concat` aggregate. The inner query runs as a correlated subquery and the rows are joined into one string.
+
+```csharp
+var titlesPerAuthor = await (
+    from a in db.Table<Author>()
+    select new
+    {
+        Author = a.Name,
+        Titles = string.Join(", ", db.Table<Book>()
+            .Where(b => b.AuthorId == a.Id)
+            .Select(b => b.Title))
+    }
+).ToListAsync();
+```
+
+The SQL it emits is:
+
+```sql
+SELECT a0.AuthorName AS "Author",
+       (
+           SELECT group_concat(b1.BookTitle, @p0)
+           FROM "Books" AS b1
+           WHERE b1.BookAuthorId = a0.AuthorId
+       ) AS "Titles"
+FROM "Authors" AS a0
+```
+
+### Root-Level StringJoin
+
+For a single SQL roundtrip at the root of a query, call `StringJoin` on the queryable directly.
+
+```csharp
+string allTitles = db.Table<Book>()
+    .OrderBy(b => b.Id)
+    .Select(b => b.Title)
+    .StringJoin(", ");
+
+string allTitlesAsync = await db.Table<Book>()
+    .OrderBy(b => b.Id)
+    .Select(b => b.Title)
+    .StringJoinAsync(", ");
+```
+
+The SQL is one query:
+
+```sql
+SELECT group_concat(b0.BookTitle, @p0)
+FROM "Books" AS b0
+ORDER BY b0.BookId
+```
+
+A plain `string.Join(sep, queryable)` at the root, without `StringJoin`, still works but does not get `group_concat`. The runtime enumerates every row first and concatenates them in memory. Use `StringJoin` when you want the aggregation to happen in SQL.
+
 ## Filter Groups with HAVING
 
 Add a `where` clause after the `into` to filter groups. This becomes a `HAVING` clause in SQL.

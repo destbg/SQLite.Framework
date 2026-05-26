@@ -61,7 +61,20 @@ public class UpdateFromTests
             .Where(x => x.a.Name == "X")
             .ToSqlCommand();
 
-        Assert.Contains("JOIN", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "b.Id",
+                            b0.BookTitle AS "b.Title",
+                            b0.BookAuthorId AS "b.AuthorId",
+                            b0.BookPrice AS "b.Price",
+                            a1.AuthorId AS "a.Id",
+                            a1.AuthorName AS "a.Name",
+                            a1.AuthorEmail AS "a.Email",
+                            a1.AuthorBirthDate AS "a.BirthDate"
+                     FROM "Books" AS b0
+                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     WHERE a1.AuthorName = @p0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

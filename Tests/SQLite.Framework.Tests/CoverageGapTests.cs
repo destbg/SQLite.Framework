@@ -294,7 +294,15 @@ public class CoverageGapTests
             .Where(b => SQLiteFunctions.Regexp(b.Title, "^A.*"))
             .ToSqlCommand();
 
-        Assert.Contains("REGEXP", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE (b0.BookTitle REGEXP @p0)
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -308,8 +316,14 @@ public class CoverageGapTests
             .Where(a => SQLiteFTS5Functions.Match(a.Title, "native"))
             .ToSqlCommand();
 
-        Assert.Contains("MATCH", cmd.CommandText);
-        Assert.Contains("Title", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT a0.rowid AS "Id",
+                            a0.Title AS "Title",
+                            a0.Body AS "Body"
+                     FROM "ArticleSearch" AS a0
+                     WHERE "ArticleSearch" MATCH @p0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -397,8 +411,15 @@ public class CoverageGapTests
             .Where(b => b.AuthorId.ToString() == "5")
             .ToSqlCommand();
 
-        Assert.Contains("CAST", cmd.CommandText);
-        Assert.Contains("TEXT", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE CAST(b0.BookAuthorId AS TEXT) = @p0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -411,8 +432,15 @@ public class CoverageGapTests
             .Where(b => int.Parse(b.Title) > 0)
             .ToSqlCommand();
 
-        Assert.Contains("CAST", cmd.CommandText);
-        Assert.Contains("INTEGER", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE CAST(b0.BookTitle AS INTEGER) > @p0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -425,8 +453,15 @@ public class CoverageGapTests
             .Where(b => b.Price.ToString() == "5")
             .ToSqlCommand();
 
-        Assert.Contains("CAST", cmd.CommandText);
-        Assert.Contains("TEXT", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE CAST(b0.BookPrice AS TEXT) = @p0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -439,8 +474,15 @@ public class CoverageGapTests
             .Where(b => double.Parse(b.Title) > 0)
             .ToSqlCommand();
 
-        Assert.Contains("CAST", cmd.CommandText);
-        Assert.Contains("REAL", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE CAST(b0.BookTitle AS REAL) > @p0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -499,7 +541,12 @@ public class CoverageGapTests
             .Select(a => SQLiteFTS5Functions.Snippet(a, a.Title, before, after, ellipsis, 5))
             .ToSqlCommand();
 
-        Assert.Contains("snippet(", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT snippet("ArticleSearch", 0, @p1, @p2, @p3, @p4) AS "9"
+                     FROM "ArticleSearch" AS a0
+                     WHERE "ArticleSearch" MATCH @p0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -513,7 +560,14 @@ public class CoverageGapTests
             .Where(a => SQLiteFTS5Functions.Match(a, f => f.Term(a.Title) && f.Term("static")))
             .ToSqlCommand();
 
-        Assert.Contains("printf", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT a0.rowid AS "Id",
+                            a0.Title AS "Title",
+                            a0.Body AS "Body"
+                     FROM "ArticleSearch" AS a0
+                     WHERE "ArticleSearch" MATCH (printf('"%w"', a0.Title) || @p0)
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -526,7 +580,14 @@ public class CoverageGapTests
             .Where(p => p.Type == (PublisherType)Enum.Parse(typeof(PublisherType), "Magazine"))
             .ToSqlCommand();
 
-        Assert.Contains("CASE", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT p0.Id AS "Id",
+                            p0.Name AS "Name",
+                            p0.Type AS "Type"
+                     FROM "Publisher" AS p0
+                     WHERE p0.Type = CAST((CASE @p1 WHEN @p2 THEN 1 WHEN @p3 THEN 2 WHEN @p4 THEN 3 WHEN @p5 THEN 4 ELSE NULL END) AS INTEGER)
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -563,7 +624,14 @@ public class CoverageGapTests
             .Where(p => p.Type.ToString() == "Magazine")
             .ToSqlCommand();
 
-        Assert.Contains("CASE", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT p0.Id AS "Id",
+                            p0.Name AS "Name",
+                            p0.Type AS "Type"
+                     FROM "Publisher" AS p0
+                     WHERE (CASE p0.Type WHEN 1 THEN @p0 WHEN 2 THEN @p1 WHEN 3 THEN @p2 WHEN 4 THEN @p3 ELSE CAST(p0.Type AS TEXT) END) = @p4
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -580,7 +648,18 @@ public class CoverageGapTests
             .Where(b => db.Table<Author>().Select(a => a.Id).Contains(b.AuthorId))
             .ToSqlCommand();
 
-        Assert.Contains("IN (", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE b0.BookAuthorId IN (
+                         SELECT a1.AuthorId AS "Id"
+                         FROM "Authors" AS a1
+                     )
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -594,7 +673,19 @@ public class CoverageGapTests
             .Where(b => db.Table<Author>().Any(a => a.Id == b.AuthorId))
             .ToSqlCommand();
 
-        Assert.Contains("EXISTS", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE EXISTS (
+                         SELECT 1
+                         FROM "Authors" AS a1
+                         WHERE a1.AuthorId = b0.BookAuthorId
+                     )
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -608,7 +699,15 @@ public class CoverageGapTests
             .Where(b => b.Title.Trim(' ', '\t') == "hello")
             .ToSqlCommand();
 
-        Assert.Contains("TRIM(", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE TRIM(b0.BookTitle, @p1 || @p2) = @p3
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -794,7 +893,14 @@ public class CoverageGapTests
             .Where(a => SQLiteFTS5Functions.Match(a, f => f.Term(a.Title + suffix)))
             .ToSqlCommand();
 
-        Assert.Contains("printf", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT a0.rowid AS "Id",
+                            a0.Title AS "Title",
+                            a0.Body AS "Body"
+                     FROM "ArticleSearch" AS a0
+                     WHERE "ArticleSearch" MATCH (printf('"%w"', a0.Title || @p0))
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
         Assert.True(cmd.Parameters.Count > 0);
     }
 
@@ -814,7 +920,14 @@ public class CoverageGapTests
             .Where(p => p.Type.HasFlag(PublisherType.Magazine))
             .ToSqlCommand();
 
-        Assert.Contains("&", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT p0.Id AS "Id",
+                            p0.Name AS "Name",
+                            p0.Type AS "Type"
+                     FROM "Publisher" AS p0
+                     WHERE ((p0.Type & @p0) = @p0)
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
 
@@ -1121,7 +1234,13 @@ public class CoverageGapTests
             }
         ).ToSqlCommand();
 
-        Assert.Contains("UPPER", command.CommandText);
+        Assert.Equal("""
+                     SELECT UPPER(b0.BookTitle) AS "UpperTitle",
+                            a1.AuthorName AS "AuthorName"
+                     FROM "Books" AS b0
+                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -1133,7 +1252,11 @@ public class CoverageGapTests
             .Select(b => new SingleStringRecord(b.Title))
             .ToSqlCommand();
 
-        Assert.Contains("BookTitle", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookTitle AS "Title"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -1151,8 +1274,20 @@ public class CoverageGapTests
             })
             .ToSqlCommand();
 
-        Assert.Contains("SELECT", command.CommandText);
-        Assert.Contains("JOIN", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookTitle AS "Title",
+                            a2.Name AS "Name"
+                     FROM "Books" AS b0
+                     JOIN (
+                         SELECT a1.AuthorId AS "Id",
+                            a1.AuthorName AS "Name",
+                            a1.AuthorEmail AS "Email",
+                            a1.AuthorBirthDate AS "BirthDate"
+                         FROM "Authors" AS a1
+                         WHERE a1.AuthorId > @p0
+                     ) AS a2 ON b0.BookAuthorId = a2.Id
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     private class DateOnlyEntity
@@ -1926,7 +2061,11 @@ public class CoverageGapTests
             .Select(b => (char)b.Id)
             .ToSqlCommand();
 
-        Assert.Contains("CHAR", command.CommandText);
+        Assert.Equal("""
+                     SELECT CHAR(b0.BookId) AS "5"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -1944,7 +2083,11 @@ public class CoverageGapTests
             .Select(e => (int)e.Letter)
             .ToSqlCommand();
 
-        Assert.Contains("UNICODE", command.CommandText);
+        Assert.Equal("""
+                     SELECT UNICODE(c0.Letter) AS "3"
+                     FROM "CharEntity" AS c0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -2194,7 +2337,11 @@ public class CoverageGapTests
             .Select(b => (long)b.Price)
             .ToSqlCommand();
 
-        Assert.Contains("CAST", command.CommandText);
+        Assert.Equal("""
+                     SELECT CAST(b0.BookPrice AS INTEGER) AS "5"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     private class EnumEntity

@@ -17,7 +17,15 @@ public class MethodVisitorCoverageTests
             .Where(b => string.Equals(b.Title, "Test", StringComparison.Ordinal))
             .ToSqlCommand();
 
-        Assert.Contains("= @p0", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE (b0.BookTitle = @p0)
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
         Assert.DoesNotContain("COLLATE NOCASE", command.CommandText);
     }
 
@@ -144,8 +152,11 @@ public class MethodVisitorCoverageTests
             .Select(b => b.Price.ToString())
             .ToSqlCommand();
 
-        Assert.Contains("CAST", command.CommandText);
-        Assert.Contains("AS TEXT", command.CommandText);
+        Assert.Equal("""
+                     SELECT CAST(b0.BookPrice AS TEXT) AS "5"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -157,8 +168,15 @@ public class MethodVisitorCoverageTests
             .Where(b => float.Parse(b.Title) > 10.0f)
             .ToSqlCommand();
 
-        Assert.Contains("CAST", command.CommandText);
-        Assert.Contains("AS REAL", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE CAST(b0.BookTitle AS REAL) > @p0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

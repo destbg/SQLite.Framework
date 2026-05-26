@@ -93,6 +93,93 @@ internal partial class QueryableVisitor
         return select;
     }
 
+    private SQLiteExpression VisitGroupConcat(MethodCallExpression node)
+    {
+        if (Take != null || Skip != null)
+        {
+            throw new NotSupportedException(
+                "string.Join over an IQueryable does not support Take or Skip on the source. " +
+                "Materialize the limited rows first with ToList and call string.Join in memory.");
+        }
+
+        ThrowIfSetOperations(node.Method.Name);
+
+        if (Selects.Count != 1)
+        {
+            throw new NotSupportedException(
+                "string.Join over an IQueryable requires a single-column projection. " +
+                "Project to one column first (for example 'string.Join(\", \", q.Select(x => x.Name))').");
+        }
+
+        if (IsDistinct)
+        {
+            throw new NotSupportedException(
+                "string.Join over a Distinct() queryable is not supported. " +
+                "SQLite's group_concat aggregate rejects a custom separator when DISTINCT is used. " +
+                "Materialize with ToList() and call string.Join in memory, " +
+                "or drop the Distinct() and let group_concat keep duplicates.");
+        }
+
+        SQLiteExpression separatorExpression = (SQLiteExpression)visitor.Visit(node.Arguments[1]);
+        SQLiteExpression innerExpression = Selects[0];
+        SQLiteExpression select;
+
+#if !SQLITECIPHER
+        if (OrderBys.Count > 0)
+        {
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+            database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_44, "ORDER BY inside group_concat");
+#endif
+            int orderCount = OrderBys.Count;
+            SQLiteExpression[] children = new SQLiteExpression[2 + orderCount];
+            children[0] = innerExpression;
+            children[1] = separatorExpression;
+            for (int i = 0; i < orderCount; i++)
+            {
+                children[2 + i] = OrderBys[i];
+            }
+
+            string[] parts = new string[3 + orderCount];
+            parts[0] = "group_concat(";
+            parts[1] = ", ";
+            parts[2] = " ORDER BY ";
+            for (int i = 0; i < orderCount - 1; i++)
+            {
+                parts[3 + i] = ", ";
+            }
+            parts[2 + orderCount] = ")";
+
+            SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(children);
+            select = SQLiteExpression.Multi(
+                typeof(string),
+                visitor.Counters.NextIdentifier(),
+                parts,
+                children,
+                parameters);
+
+            OrderBys.Clear();
+        }
+        else
+#endif
+        {
+            SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(innerExpression, separatorExpression);
+            select = SQLiteExpression.Binary(
+                typeof(string),
+                visitor.Counters.NextIdentifier(),
+                "group_concat(",
+                innerExpression,
+                ", ",
+                separatorExpression,
+                ")",
+                parameters);
+        }
+
+        Selects.Clear();
+        Selects.Add(select);
+
+        return select;
+    }
+
     private void ThrowOnMultiColumnDistinct(MethodCallExpression node)
     {
         if (Selects.Count != 1)

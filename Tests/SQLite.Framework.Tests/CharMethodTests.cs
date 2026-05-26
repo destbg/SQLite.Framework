@@ -387,7 +387,11 @@ public class CharMethodTests
             .Select(n => (int)n.CharValue)
             .ToSqlCommand();
 
-        Assert.Contains("UNICODE(n0.CharValue)", command.CommandText);
+        Assert.Equal("""
+                     SELECT UNICODE(n0.CharValue) AS "15"
+                     FROM "NumericTypes" AS n0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -412,7 +416,11 @@ public class CharMethodTests
             .Select(n => (char)n.IntValue)
             .ToSqlCommand();
 
-        Assert.Contains("CHAR(n0.IntValue)", command.CommandText);
+        Assert.Equal("""
+                     SELECT CHAR(n0.IntValue) AS "15"
+                     FROM "NumericTypes" AS n0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

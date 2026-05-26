@@ -40,7 +40,6 @@ public class PartialIndexTests
 
         Assert.True(db.Schema.IndexExists("IX_Title_Active"));
 
-        // Verify it is a partial index by checking the SQL stored in sqlite_master
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Title_Active'");
 
@@ -66,16 +65,13 @@ public class PartialIndexTests
             .Index(b => b.Title, name: "IX_ActiveTitleUnique", unique: true, filter: b => b.AuthorId > 0)
             .CreateTable();
 
-        // Both rows have AuthorId = 0 so neither falls under the partial unique index
         db.Table<BookArchive>().Add(new BookArchive { Id = 1, Title = "same", AuthorId = 0, Price = 1 });
         db.Table<BookArchive>().Add(new BookArchive { Id = 2, Title = "same", AuthorId = 0, Price = 2 });
 
         Assert.Equal(2, db.Table<BookArchive>().Count());
 
-        // Now add one inside the filter
         db.Table<BookArchive>().Add(new BookArchive { Id = 3, Title = "different", AuthorId = 1, Price = 1 });
 
-        // Adding another inside the filter with the same title should fail
         Assert.ThrowsAny<Exception>(() =>
             db.Table<BookArchive>().Add(new BookArchive { Id = 4, Title = "different", AuthorId = 2, Price = 1 }));
     }

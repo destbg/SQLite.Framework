@@ -18,6 +18,7 @@ internal class SQLTranslator
         nameof(Queryable.LongCount),
         nameof(Queryable.Average),
         nameof(Queryable.Contains),
+        nameof(QueryableExtensions.GroupConcatMarker),
     };
 
     private readonly SQLiteDatabase database;

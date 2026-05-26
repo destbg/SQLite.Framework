@@ -112,7 +112,14 @@ public class FullTextSearchTests
             .OrderBy(a => SQLiteFTS5Functions.Rank(a))
             .ToSqlCommand();
 
-        Assert.Contains(".rank", N(command.CommandText));
+        Assert.Equal("""
+                     SELECT s0.rowid AS "Id",
+                            s0.Body AS "Body"
+                     FROM "SimpleSearchEntity" AS s0
+                     WHERE "SimpleSearchEntity" MATCH @p0
+                     ORDER BY s0.rank ASC
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
         Assert.DoesNotContain("bm25(", N(command.CommandText));
     }
 

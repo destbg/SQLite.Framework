@@ -169,8 +169,20 @@ public class SystemTablesTests
             select new { b.Title, u.Name }
         ).ToSqlCommand();
 
-        Assert.Contains("FROM (", cmd.CommandText);
-        Assert.Contains("WHERE", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b1.Title AS "Title",
+                            a1.AuthorName AS "Name"
+                     FROM (
+                         SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                         FROM "Books" AS b0
+                         WHERE b0.BookAuthorId = @p0
+                     ) AS b1
+                     CROSS JOIN "Authors" AS a1
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -207,8 +219,20 @@ public class SystemTablesTests
             select new { b.Title, u.Name }
         ).ToSqlCommand();
 
-        Assert.Contains("FROM (", cmd.CommandText);
-        Assert.Contains("LIMIT", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b1.Title AS "Title",
+                            a1.AuthorName AS "Name"
+                     FROM (
+                         SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                         FROM "Books" AS b0
+                         LIMIT 5
+                     ) AS b1
+                     CROSS JOIN "Authors" AS a1
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

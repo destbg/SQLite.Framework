@@ -752,7 +752,21 @@ public class CteTests
         SQLiteCte<Book> cte = db.With(() => db.Table<Book>(), SQLite.Framework.Enums.SQLiteCteMaterialization.Materialized);
         SQLiteCommand command = (from b in cte select b).ToSqlCommand();
 
-        Assert.Contains("AS MATERIALIZED (", command.CommandText);
+        Assert.Equal("""
+                     WITH cte0 AS MATERIALIZED (
+                         SELECT b1.BookId AS "Id",
+                            b1.BookTitle AS "Title",
+                            b1.BookAuthorId AS "AuthorId",
+                            b1.BookPrice AS "Price"
+                         FROM "Books" AS b1
+                     )
+                     SELECT b0.Id AS "Id",
+                            b0.Title AS "Title",
+                            b0.AuthorId AS "AuthorId",
+                            b0.Price AS "Price"
+                     FROM cte0 AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
         Assert.DoesNotContain("NOT MATERIALIZED", command.CommandText);
     }
 
@@ -764,7 +778,21 @@ public class CteTests
         SQLiteCte<Book> cte = db.With(() => db.Table<Book>(), SQLite.Framework.Enums.SQLiteCteMaterialization.NotMaterialized);
         SQLiteCommand command = (from b in cte select b).ToSqlCommand();
 
-        Assert.Contains("AS NOT MATERIALIZED (", command.CommandText);
+        Assert.Equal("""
+                     WITH cte0 AS NOT MATERIALIZED (
+                         SELECT b1.BookId AS "Id",
+                            b1.BookTitle AS "Title",
+                            b1.BookAuthorId AS "AuthorId",
+                            b1.BookPrice AS "Price"
+                         FROM "Books" AS b1
+                     )
+                     SELECT b0.Id AS "Id",
+                            b0.Title AS "Title",
+                            b0.AuthorId AS "AuthorId",
+                            b0.Price AS "Price"
+                     FROM cte0 AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -793,7 +821,21 @@ public class CteTests
             SQLite.Framework.Enums.SQLiteCteMaterialization.Materialized);
 
         SQLiteCommand command = (from b in simpleRecursive select b).ToSqlCommand();
-        Assert.Contains("AS MATERIALIZED (", command.CommandText);
+        Assert.Equal("""
+                     WITH RECURSIVE cte0 AS MATERIALIZED (
+                         SELECT b1.BookId AS "Id",
+                            b1.BookTitle AS "Title",
+                            b1.BookAuthorId AS "AuthorId",
+                            b1.BookPrice AS "Price"
+                         FROM "Books" AS b1
+                     )
+                     SELECT b0.Id AS "Id",
+                            b0.Title AS "Title",
+                            b0.AuthorId AS "AuthorId",
+                            b0.Price AS "Price"
+                     FROM cte0 AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     private class Cnt

@@ -333,7 +333,13 @@ public class CoverageBranchTests
             select new { book.Id }
         ).ToSqlCommand();
 
-        Assert.Contains("LEFT JOIN", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id"
+                     FROM "Books" AS b0
+                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     LEFT JOIN "Article" AS a2 ON b0.BookId = a2.Id
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

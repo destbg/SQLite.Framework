@@ -492,7 +492,15 @@ public class WhereTests
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal(2, command.Parameters[0].Value);
         Assert.Equal(4, command.Parameters[1].Value);
-        Assert.Contains("BETWEEN @p0 AND @p1", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE (b0.BookId BETWEEN @p0 AND @p1)
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -585,7 +593,15 @@ public class WhereTests
             .Where(b => SQLiteFunctions.In(b.Id, 1, 3))
             .ToSqlCommand();
 
-        Assert.Contains(" IN (", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE (b0.BookId IN (@p0, @p1))
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
         Assert.Equal(2, command.Parameters.Count);
     }
 
@@ -641,7 +657,15 @@ public class WhereTests
             .Where(b => SQLiteFunctions.In(b.Id, wanted))
             .ToSqlCommand();
 
-        Assert.Contains(" IN (", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE (b0.BookId IN (@p0, @p1))
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
         Assert.Equal(2, command.Parameters.Count);
     }
 
@@ -670,7 +694,15 @@ public class WhereTests
             .Where(b => SQLiteFunctions.Coalesce<string>(null, b.Title) == "b")
             .ToSqlCommand();
 
-        Assert.Contains("coalesce(", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE coalesce(@p0, b0.BookTitle) = @p1
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -705,7 +737,15 @@ public class WhereTests
             .Where(b => SQLiteFunctions.Nullif(b.Title, "b") == null)
             .ToSqlCommand();
 
-        Assert.Contains("nullif(", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE nullif(b0.BookTitle, @p0) IS NULL
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -739,7 +779,11 @@ public class WhereTests
             .Select(b => SQLiteFunctions.Iif(b.Price > 10, "high", "low"))
             .ToSqlCommand();
 
-        Assert.Contains("iif(", command.CommandText);
+        Assert.Equal("""
+                     SELECT iif(b0.BookPrice > @p0, @p1, @p2) AS "9"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -810,7 +854,11 @@ public class WhereTests
             .Select(b => SQLiteFunctions.Format("%s costs %d", b.Title, b.Price))
             .ToSqlCommand();
 
-        Assert.Contains("format(", command.CommandText);
+        Assert.Equal("""
+                     SELECT format(@p0, b0.BookTitle, b0.BookPrice) AS "6"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -1045,8 +1093,15 @@ public class WhereTests
             .Where(b => SQLiteFunctions.Min(b.Id, b.AuthorId) == 2)
             .ToSqlCommand();
 
-        Assert.Contains("min(", command.CommandText);
-        Assert.Contains(",", command.CommandText[command.CommandText.IndexOf("min(", StringComparison.Ordinal)..]);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE min(b0.BookId, b0.BookAuthorId) = @p0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -1075,8 +1130,15 @@ public class WhereTests
             .Where(b => SQLiteFunctions.Max(b.Id, b.AuthorId) == 2)
             .ToSqlCommand();
 
-        Assert.Contains("max(", command.CommandText);
-        Assert.Contains(",", command.CommandText[command.CommandText.IndexOf("max(", StringComparison.Ordinal)..]);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE max(b0.BookId, b0.BookAuthorId) = @p0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

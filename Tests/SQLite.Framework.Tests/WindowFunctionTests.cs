@@ -331,11 +331,16 @@ public class WindowFunctionTests
             })
             .ToSqlCommand();
 
-        Assert.Contains("AVG(w0.Amount) OVER ( PARTITION BY w0.CustomerId)", command.CommandText);
-        Assert.Contains("MIN(w0.Amount) OVER ( PARTITION BY w0.CustomerId)", command.CommandText);
-        Assert.Contains("MAX(w0.Amount) OVER ( PARTITION BY w0.CustomerId)", command.CommandText);
-        Assert.Contains("COUNT(*) OVER ()", command.CommandText);
-        Assert.Contains("COUNT(w0.Amount) OVER ()", command.CommandText);
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            AVG(w0.Amount) OVER ( PARTITION BY w0.CustomerId) AS "Avg",
+                            MIN(w0.Amount) OVER ( PARTITION BY w0.CustomerId) AS "Min",
+                            MAX(w0.Amount) OVER ( PARTITION BY w0.CustomerId) AS "Max",
+                            COUNT(*) OVER () AS "CntAll",
+                            COUNT(w0.Amount) OVER () AS "CntCol"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -354,10 +359,15 @@ public class WindowFunctionTests
             })
             .ToSqlCommand();
 
-        Assert.Contains("PERCENT_RANK() OVER ( ORDER BY w0.Amount ASC)", command.CommandText);
-        Assert.Contains("CUME_DIST() OVER ( ORDER BY w0.Amount ASC)", command.CommandText);
-        Assert.Contains("NTILE(@p", command.CommandText);
-        Assert.Contains("DENSE_RANK() OVER ( ORDER BY w0.Amount ASC)", command.CommandText);
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            PERCENT_RANK() OVER ( ORDER BY w0.Amount ASC) AS "Pr",
+                            CUME_DIST() OVER ( ORDER BY w0.Amount ASC) AS "Cd",
+                            NTILE(@p0) OVER ( ORDER BY w0.Amount ASC) AS "Nt",
+                            DENSE_RANK() OVER ( ORDER BY w0.Amount ASC) AS "Dr"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -378,11 +388,17 @@ public class WindowFunctionTests
             })
             .ToSqlCommand();
 
-        Assert.Contains("LEAD(w0.Amount) OVER ", command.CommandText);
-        Assert.Contains("LEAD(w0.Amount, @", command.CommandText);
-        Assert.Contains("FIRST_VALUE(w0.Amount) OVER ", command.CommandText);
-        Assert.Contains("LAST_VALUE(w0.Amount) OVER ", command.CommandText);
-        Assert.Contains("NTH_VALUE(w0.Amount, @", command.CommandText);
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            LEAD(w0.Amount) OVER ( ORDER BY w0.Id ASC) AS "Lead1",
+                            LEAD(w0.Amount, @p0) OVER ( ORDER BY w0.Id ASC) AS "Lead2",
+                            LEAD(w0.Amount, @p1, @p2) OVER ( ORDER BY w0.Id ASC) AS "Lead3",
+                            FIRST_VALUE(w0.Amount) OVER ( ORDER BY w0.Id ASC) AS "Fv",
+                            LAST_VALUE(w0.Amount) OVER ( ORDER BY w0.Id ASC) AS "Lv",
+                            NTH_VALUE(w0.Amount, @p3) OVER ( ORDER BY w0.Id ASC) AS "Nv"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -410,14 +426,14 @@ public class WindowFunctionTests
             })
             .ToSqlCommand();
 
-        Assert.Contains("PARTITION BY w0.CustomerId, w0.Date", command.CommandText);
-        Assert.Contains("ORDER BY w0.Id ASC, w0.Date ASC, w0.Amount DESC", command.CommandText);
-        Assert.Contains("RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW", command.CommandText);
-        Assert.Contains("GROUPS BETWEEN @p", command.CommandText);
-        Assert.Contains("PRECEDING AND @p", command.CommandText);
-        Assert.Contains("FOLLOWING", command.CommandText);
-        Assert.Contains("ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING", command.CommandText);
-        Assert.Contains("ORDER BY w0.Id DESC", command.CommandText);
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            SUM(w0.Amount) OVER ( PARTITION BY w0.CustomerId, w0.Date ORDER BY w0.Id ASC, w0.Date ASC, w0.Amount DESC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "R",
+                            SUM(w0.Amount) OVER ( ORDER BY w0.Id ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING) AS "G",
+                            SUM(w0.Amount) OVER ( ORDER BY w0.Id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS "Rw"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     private static TestDatabase SetupDatabase(Action<SQLiteOptionsBuilder>? configure = null, [CallerMemberName] string? methodName = null)

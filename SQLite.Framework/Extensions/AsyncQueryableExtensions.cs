@@ -1603,4 +1603,23 @@ public static class AsyncQueryableExtensions
     {
         throw new NotSupportedException(AggregateUnsupported);
     }
+
+    /// <summary>
+    /// Async variant of <see cref="QueryableExtensions.StringJoin{T}" />. Emits a single
+    /// <c>SELECT group_concat(column, separator) FROM ...</c> SQL query and returns the
+    /// concatenated string. Returns an empty string when the source has no rows.
+    /// </summary>
+    public static Task<string> StringJoinAsync<T>(this IQueryable<T> source, string separator, CancellationToken ct = default)
+    {
+        if (source is not BaseSQLiteQueryable sqliteSource)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
+        }
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await sqliteSource.Database.ReadLockAsync(ct);
+            return source.StringJoin(separator);
+        }, ct);
+    }
 }

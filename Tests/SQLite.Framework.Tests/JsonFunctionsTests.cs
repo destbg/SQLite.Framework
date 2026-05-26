@@ -1155,8 +1155,11 @@ public class JsonFunctionsTests
             .Select(r => r.Tags.Slice(1, 2))
             .ToSqlCommand();
 
-        Assert.Contains("LIMIT @", command.CommandText);
-        Assert.Contains("OFFSET @", command.CommandText);
+        Assert.Equal("""
+                     SELECT (SELECT json_group_array(value) FROM (SELECT value FROM json_each(l0.Tags) LIMIT @p1 OFFSET @p0)) AS "5"
+                     FROM "ListRow" AS l0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 #endif
 
@@ -1475,7 +1478,11 @@ public class JsonFunctionsTests
             .Select(r => Array.ConvertAll(r.Tags, x => x + "!"))
             .ToSqlCommand();
 
-        Assert.Contains("json_group_array", command.CommandText);
+        Assert.Equal("""
+                     SELECT (SELECT json_group_array(value || @p0) FROM json_each(a0.Tags)) AS "5"
+                     FROM "ArrayRow" AS a0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     private static TestDatabase CreateArrayDb(string? methodName = null)
@@ -2457,7 +2464,11 @@ public class JsonFunctionsTests
             .Select(r => r.Addresses.FindAll(a => a.City == "Y"))
             .ToSqlCommand();
 
-        Assert.Contains("json_extract(value, '$.City')", command.CommandText);
+        Assert.Equal("""
+                     SELECT (SELECT json_group_array(value) FROM json_each(a0.Addresses) WHERE json_extract(value, '$.City') = @p0) AS "5"
+                     FROM "AddressListRow" AS a0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

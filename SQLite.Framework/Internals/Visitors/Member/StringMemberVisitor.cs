@@ -263,6 +263,11 @@ internal static class StringMemberVisitor
                     return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(), partsArr, interleaved, ParameterHelpers.CombineParameters([sep, .. joinArgs]));
                 }
 
+                if (typeof(IQueryable).IsAssignableFrom(node.Arguments[1].Type))
+                {
+                    return RewriteJoinAsGroupConcat(visitor, node);
+                }
+
                 throw new NotSupportedException("string.Join with a non-array source is not translatable to SQL.");
             case nameof(string.Compare):
             {
@@ -291,6 +296,21 @@ internal static class StringMemberVisitor
             default:
                 throw new NotSupportedException($"string.{node.Method.Name} is not translatable to SQL.");
         }
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
+    private static Expression RewriteJoinAsGroupConcat(SQLVisitor visitor, MethodCallExpression node)
+    {
+        Type elementType = node.Arguments[1].Type.GenericTypeArguments[0];
+
+        MethodInfo openMarker = typeof(QueryableExtensions).GetMethod(
+            nameof(QueryableExtensions.GroupConcatMarker),
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        MethodInfo closedMarker = openMarker.MakeGenericMethod(elementType);
+        MethodCallExpression rewritten = Expression.Call(closedMarker, node.Arguments[1], node.Arguments[0]);
+
+        SQLiteCallerContext ctx = new(visitor, rewritten);
+        return QueryableMemberVisitor.HandleQueryableMethod(ctx);
     }
 
     private static SQLiteExpression ResolveLike(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, Func<object?, string> selectParameter, Func<SQLiteExpression, string> selectValue)

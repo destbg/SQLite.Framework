@@ -146,7 +146,7 @@ public class UpsertTests
         Assert.Throws<InvalidOperationException>(() =>
             db.Table<Book>().Upsert(
                 new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 },
-                _ => { /* no OnConflict call */ }));
+                _ => { }));
     }
 
     [Fact]

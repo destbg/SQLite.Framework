@@ -61,7 +61,11 @@ public class SQLiteDateFunctionsTests
 
         SQLiteCommand cmd = db.Table<Book>().Select(b => SQLiteDateFunctions.Time()).ToSqlCommand();
 
-        Assert.Contains("time()", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT time() AS "5"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -83,7 +87,11 @@ public class SQLiteDateFunctionsTests
 
         SQLiteCommand cmd = db.Table<Book>().Select(b => SQLiteDateFunctions.Datetime()).ToSqlCommand();
 
-        Assert.Contains("datetime()", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT datetime() AS "5"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -105,7 +113,11 @@ public class SQLiteDateFunctionsTests
 
         SQLiteCommand cmd = db.Table<Book>().Select(b => SQLiteDateFunctions.JulianDay()).ToSqlCommand();
 
-        Assert.Contains("julianday()", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT julianday() AS "5"
+                     FROM "Books" AS b0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

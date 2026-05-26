@@ -16,9 +16,14 @@ public class AliasVisitorCoverageTests
             .Select(g => new { g.Key, Count = g.Count() })
             .ToSqlCommand();
 
-        Assert.Contains("BookAuthorId", command.CommandText);
-        Assert.Contains("BookTitle", command.CommandText);
-        Assert.Contains("COUNT", command.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookAuthorId AS "Key.AuthorId",
+                            b0.BookTitle AS "Key.Title",
+                            COUNT(*) AS "Count"
+                     FROM "Books" AS b0
+                     GROUP BY b0.BookAuthorId, b0.BookTitle
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
         Assert.DoesNotContain("\"Key.Id\"", command.CommandText);
         Assert.DoesNotContain("\"Key.Price\"", command.CommandText);
         Assert.DoesNotContain("\"Key\"", command.CommandText);

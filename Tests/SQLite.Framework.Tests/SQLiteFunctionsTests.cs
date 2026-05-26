@@ -17,7 +17,15 @@ public class SQLiteFunctionsTests
             .Where(b => SQLiteFunctions.Random() > 0)
             .ToSqlCommand();
 
-        Assert.Contains("RANDOM()", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE RANDOM() > @p0
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -137,7 +145,13 @@ public class SQLiteFunctionsTests
             .Where(e => SQLiteFunctions.DistinctFrom(e.Name, "Alice"))
             .ToSqlCommand();
 
-        Assert.Contains("IS DISTINCT FROM", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT n0.Id AS "Id",
+                            n0.Name AS "Name"
+                     FROM "NullableStringEntity" AS n0
+                     WHERE (n0.Name IS DISTINCT FROM @p0)
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -150,8 +164,13 @@ public class SQLiteFunctionsTests
             .Where(e => !SQLiteFunctions.DistinctFrom(e.Name, "Alice"))
             .ToSqlCommand();
 
-        Assert.Contains("NOT", cmd.CommandText);
-        Assert.Contains("IS DISTINCT FROM", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT n0.Id AS "Id",
+                            n0.Name AS "Name"
+                     FROM "NullableStringEntity" AS n0
+                     WHERE NOT (n0.Name IS DISTINCT FROM @p0)
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -182,7 +201,15 @@ public class SQLiteFunctionsTests
             .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.NoCase) == "hello")
             .ToSqlCommand();
 
-        Assert.Contains("COLLATE NOCASE", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE (b0.BookTitle COLLATE NOCASE) = @p1
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
 
         List<Book> rows = db.Table<Book>()
             .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.NoCase) == "hello")
@@ -201,7 +228,15 @@ public class SQLiteFunctionsTests
             .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.Binary) == "x")
             .ToSqlCommand();
 
-        Assert.Contains("COLLATE BINARY", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE (b0.BookTitle COLLATE BINARY) = @p1
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -215,7 +250,15 @@ public class SQLiteFunctionsTests
             .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.Rtrim) == "x")
             .ToSqlCommand();
 
-        Assert.Contains("COLLATE RTRIM", cmd.CommandText);
+        Assert.Equal("""
+                     SELECT b0.BookId AS "Id",
+                            b0.BookTitle AS "Title",
+                            b0.BookAuthorId AS "AuthorId",
+                            b0.BookPrice AS "Price"
+                     FROM "Books" AS b0
+                     WHERE (b0.BookTitle COLLATE RTRIM) = @p1
+                     """.Replace("\r\n", "\n"),
+            cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

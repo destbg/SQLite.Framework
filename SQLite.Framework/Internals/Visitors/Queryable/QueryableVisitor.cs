@@ -88,6 +88,7 @@ internal partial class QueryableVisitor
             nameof(System.Linq.Queryable.Cast) => node,
             nameof(SQLiteDatabase.FromSql) => VisitFromSql(node),
             nameof(SQLiteDatabase.Values) => VisitValues(node),
+            nameof(QueryableExtensions.GroupConcatMarker) => VisitGroupConcat(node),
             _ => throw new NotSupportedException($"Unsupported method: {node.Method}")
         };
     }

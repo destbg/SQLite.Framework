@@ -300,4 +300,43 @@ public static class QueryableExtensions
 
         return new SQLiteQueryPlan { Roots = roots };
     }
+
+    /// <summary>
+    /// Concatenates the projected values of <paramref name="source" /> into one string, separated
+    /// by <paramref name="separator" />. Emits a single
+    /// <c>SELECT group_concat(column, separator) FROM ...</c> SQL query. Returns an empty string
+    /// when the source has no rows, matching <see cref="string.Join(string, IEnumerable{string})" />.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
+    public static string StringJoin<T>(this IQueryable<T> source, string separator)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(separator);
+
+        if (source is not BaseSQLiteQueryable sqliteSource)
+        {
+            throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
+        }
+
+        MethodInfo marker = typeof(QueryableExtensions)
+            .GetMethod(nameof(GroupConcatMarker), BindingFlags.Static | BindingFlags.NonPublic)!
+            .MakeGenericMethod(typeof(T));
+        Expression callExpression = Expression.Call(marker, source.Expression, Expression.Constant(separator));
+
+        return sqliteSource.Provider.Execute<string?>(callExpression) ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Marker method that the SQL translator rewrites into SQLite's <c>group_concat</c> aggregate.
+    /// Invoked indirectly when <see cref="string.Join(string, IEnumerable{string})" /> is called
+    /// with an <see cref="IQueryable{T}" /> as the source inside a query expression, or by
+    /// <see cref="StringJoin{T}" /> at the root. Throws <see cref="InvalidOperationException" />
+    /// when called directly.
+    /// </summary>
+    internal static string GroupConcatMarker<T>(IQueryable<T> source, string separator)
+    {
+        throw new InvalidOperationException(
+            "GroupConcatMarker is a marker for the SQL translator. " +
+            "Use string.Join(separator, queryable) inside a query expression, or call queryable.StringJoin(separator).");
+    }
 }
