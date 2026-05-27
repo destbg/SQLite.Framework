@@ -131,7 +131,7 @@ await using SQLiteTransaction tx = await db.BeginTransactionAsync();
 await db.Table<Author>().AddRangeAsync(authors, runInTransaction: false);
 await db.Table<Book>().AddRangeAsync(books, runInTransaction: false);
 
-transaction.Commit();
+await transaction.CommitAsync();
 ```
 
 **Reuse the SQLiteDatabase instance**
