@@ -170,7 +170,7 @@ body {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    z-index: 100;
+    z-index: 250;
     border-right: 1px solid var(--sidebar-border);
 }
 
@@ -362,7 +362,7 @@ body {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 99;
+    z-index: 240;
 }
 
 .content {
@@ -530,6 +530,49 @@ body {
     padding: 10px 12px;
     overflow-x: auto;
     background: var(--code-block-bg);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.markdown-content pre > code.hljs::-webkit-scrollbar {
+    height: 8px;
+}
+
+.markdown-content pre > code.hljs::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+.markdown-content pre > code.hljs::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.table-wrap {
+    margin: 22px 0;
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.table-wrap::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-wrap::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+.table-wrap::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.table-wrap > table {
+    margin: 0;
+    border: none;
+    border-radius: 0;
 }
 
 .markdown-content table {
@@ -540,6 +583,11 @@ body {
     border-radius: var(--radius);
     overflow: hidden;
     border: 1px solid var(--border);
+}
+
+.markdown-content td code,
+.markdown-content th code {
+    white-space: nowrap;
 }
 
 .markdown-content thead {
@@ -626,6 +674,16 @@ body {
     right: 14px;
     z-index: 200;
     gap: 8px;
+}
+
+.floating-actions .open-in-button {
+    background: color-mix(in srgb, var(--bg) 35%, transparent);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+.floating-actions .open-in-button:hover {
+    background: color-mix(in srgb, var(--bg-subtle) 35%, transparent);
 }
 
 .floating-toc {
@@ -889,7 +947,29 @@ body {
 
     .content {
         margin-left: 0;
-        padding: 64px 20px 48px;
+        padding: 64px 16px 48px;
+    }
+
+    .markdown-content h1 {
+        font-size: 1.625rem;
+    }
+
+    .markdown-content h2 {
+        font-size: 1.25rem;
+        margin-top: 36px;
+    }
+
+    .markdown-content pre code {
+        font-size: 0.78rem;
+    }
+
+    .markdown-content table {
+        font-size: 0.85rem;
+    }
+
+    .markdown-content th,
+    .markdown-content td {
+        padding: 8px 10px;
     }
 
     .page-nav {

@@ -64,6 +64,13 @@ function PageLayer({ page, onLinkClick }: LayerProps) {
           const id = slugify(childrenToText(children));
           return <h3 id={id}>{children}</h3>;
         },
+        table({ children }) {
+          return (
+            <div className="table-wrap">
+              <table>{children}</table>
+            </div>
+          );
+        },
       }}
     >
       {loadContent(page.title)}
