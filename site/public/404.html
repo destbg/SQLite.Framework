@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>SQLite.Framework: LINQ-friendly ORM for SQLite in .NET</title>
+    <script>
+        (function () {
+            var l = window.location;
+            var path = l.pathname.slice(1);
+            var docsPrefix = 'Docs/';
+            var origin = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '');
+            if (path.indexOf(docsPrefix) === 0) {
+                var rest = path.slice(docsPrefix.length);
+                l.replace(
+                    origin + '/Docs/?p=' + encodeURIComponent(rest) +
+                    (l.search ? '&q=' + encodeURIComponent(l.search.slice(1)) : '') +
+                    l.hash
+                );
+            } else {
+                l.replace(origin + '/');
+            }
+        })();
+    </script>
+</head>
+
+<body>
+    <p>Redirecting...</p>
+</body>
+
+</html>

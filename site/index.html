@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon"
+          href="/favicon.ico"
+          sizes="any" />
+    <link rel="icon"
+          type="image/svg+xml"
+          href="/favicon.svg" />
+    <link rel="icon"
+          type="image/png"
+          sizes="96x96"
+          href="/favicon-96x96.png" />
+    <link rel="icon"
+          type="image/png"
+          sizes="192x192"
+          href="/web-app-manifest-192x192.png" />
+    <link rel="icon"
+          type="image/png"
+          sizes="512x512"
+          href="/web-app-manifest-512x512.png" />
+    <link rel="apple-touch-icon"
+          sizes="180x180"
+          href="/apple-touch-icon.png" />
+    <link rel="search"
+          type="application/opensearchdescription+xml"
+          title="SQLite.Framework: LINQ-friendly ORM for SQLite in .NET"
+          href="/opensearch.xml" />
+    <link rel="manifest"
+          href="/manifest.webmanifest" />
+    <link rel="canonical"
+          href="https://sqlite-framework.net/" />
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color"
+          content="#0d1117" />
+    <meta name="description"
+          content="SQLite.Framework is a LINQ-friendly ORM for SQLite in .NET 8, 9, and 10. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
+    <meta name="keywords"
+          content="SQLite, .NET, ORM, LINQ, IQueryable, EF Core alternative, sqlite-net-pcl alternative, MAUI, Avalonia, Native AOT, FTS5, JSON, source generator" />
+    <meta name="author"
+          content="Nikolay Kostadinov" />
+    <meta name="creator"
+          content="destbg" />
+    <meta name="publisher"
+          content="https://github.com/destbg/SQLite.Framework" />
+    <meta name="robots"
+          content="index, follow" />
+    <meta name="title"
+          content="SQLite.Framework: LINQ-friendly ORM for SQLite in .NET" />
+    <title>SQLite.Framework: LINQ-friendly ORM for SQLite in .NET</title>
+
+    <meta property="og:site_name"
+          content="SQLite.Framework" />
+    <meta property="og:title"
+          content="SQLite.Framework: LINQ-friendly ORM for SQLite in .NET" />
+    <meta property="og:description"
+          content="A LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
+    <meta property="og:image"
+          content="https://sqlite-framework.net/SQLite.Framework.png" />
+    <meta property="og:type"
+          content="website" />
+    <meta property="og:url"
+          content="https://sqlite-framework.net/" />
+
+    <meta name="twitter:card"
+          content="summary" />
+    <meta name="twitter:title"
+          content="SQLite.Framework: LINQ-friendly ORM for SQLite in .NET" />
+    <meta name="twitter:description"
+          content="A LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
+    <meta name="twitter:image"
+          content="https://sqlite-framework.net/SQLite.Framework.png" />
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "SQLite.Framework",
+        "description": "A LINQ-friendly ORM for SQLite in .NET 8, 9, and 10. IQueryable, async, FTS5, JSON, window functions, and Native AOT support.",
+        "url": "https://sqlite-framework.net/",
+        "image": "https://sqlite-framework.net/SQLite.Framework.png",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Cross-platform",
+        "programmingLanguage": "C#",
+        "runtimePlatform": [".NET 8", ".NET 9", ".NET 10"],
+        "softwareRequirements": ".NET 8, .NET 9, or .NET 10",
+        "license": "https://spdx.org/licenses/MIT.html",
+        "codeRepository": "https://github.com/destbg/SQLite.Framework",
+        "downloadUrl": "https://www.nuget.org/packages/SQLite.Framework/",
+        "installUrl": "https://www.nuget.org/packages/SQLite.Framework/",
+        "sameAs": [
+            "https://www.nuget.org/packages/SQLite.Framework/",
+            "https://github.com/destbg/SQLite.Framework"
+        ],
+        "author": {
+            "@type": "Person",
+            "name": "Nikolay Kostadinov",
+            "alternateName": "destbg",
+            "url": "https://github.com/destbg"
+        },
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        }
+    }
+    </script>
+
+    <script>if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');</script>
+</head>
+
+<body>
+    <header class="site-header">
+        <a class="brand"
+           href="/"
+           aria-label="SQLite.Framework home">
+            <img src="/SQLite.Framework.png"
+                 alt=""
+                 class="brand-logo" />
+            <span class="brand-name">SQLite.Framework</span>
+        </a>
+        <nav class="site-nav">
+            <a href="/Docs/"
+               class="nav-link">Docs</a>
+            <a href="https://www.nuget.org/packages/SQLite.Framework/"
+               class="nav-link"
+               target="_blank"
+               rel="noopener noreferrer">NuGet</a>
+            <a href="https://github.com/destbg/SQLite.Framework"
+               class="nav-link"
+               target="_blank"
+               rel="noopener noreferrer">GitHub</a>
+            <button id="theme-toggle"
+                    class="theme-toggle"
+                    aria-label="Toggle theme"
+                    title="Toggle theme">
+                <svg class="icon icon-sun"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2"
+                     stroke-linecap="round"
+                     stroke-linejoin="round"
+                     aria-hidden="true">
+                    <circle cx="12"
+                            cy="12"
+                            r="5" />
+                    <line x1="12"
+                          y1="1"
+                          x2="12"
+                          y2="3" />
+                    <line x1="12"
+                          y1="21"
+                          x2="12"
+                          y2="23" />
+                    <line x1="4.22"
+                          y1="4.22"
+                          x2="5.64"
+                          y2="5.64" />
+                    <line x1="18.36"
+                          y1="18.36"
+                          x2="19.78"
+                          y2="19.78" />
+                    <line x1="1"
+                          y1="12"
+                          x2="3"
+                          y2="12" />
+                    <line x1="21"
+                          y1="12"
+                          x2="23"
+                          y2="12" />
+                    <line x1="4.22"
+                          y1="19.78"
+                          x2="5.64"
+                          y2="18.36" />
+                    <line x1="18.36"
+                          y1="5.64"
+                          x2="19.78"
+                          y2="4.22" />
+                </svg>
+                <svg class="icon icon-moon"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2"
+                     stroke-linecap="round"
+                     stroke-linejoin="round"
+                     aria-hidden="true">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+            </button>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="hero-glow"
+                 aria-hidden="true"></div>
+            <div class="hero-inner">
+                <span class="hero-eyebrow">Lightweight ORM for SQLite on .NET</span>
+                <h1 class="hero-title">
+                    Write <span class="accent">LINQ</span>.<br />
+                    Query SQLite.<br />
+                    <span class="muted">No dynamic code.</span>
+                </h1>
+                <p class="hero-subtitle">
+                    SQLite.Framework gives you typed tables, async queries, and a familiar EF-style API,
+                    built for MAUI, Avalonia, and Native AOT.
+                </p>
+                <div class="hero-cta">
+                    <a href="/Docs/"
+                       class="btn btn-primary">
+                        Read the Docs
+                        <svg viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             stroke-linejoin="round"
+                             aria-hidden="true">
+                            <line x1="5"
+                                  y1="12"
+                                  x2="19"
+                                  y2="12" />
+                            <polyline points="12 5 19 12 12 19" />
+                        </svg>
+                    </a>
+                    <a href="/Docs/Getting%20Started"
+                       class="btn btn-secondary">Get Started</a>
+                    <a href="https://github.com/destbg/SQLite.Framework"
+                       class="btn btn-ghost"
+                       target="_blank"
+                       rel="noopener noreferrer">
+                        <svg viewBox="0 0 24 24"
+                             width="18"
+                             height="18"
+                             fill="currentColor"
+                             aria-hidden="true">
+                            <path
+                                  d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.92.58.1.79-.25.79-.56 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.35.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.9-.39.99 0 1.98.13 2.9.39 2.21-1.49 3.18-1.18 3.18-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.42-2.7 5.39-5.27 5.68.41.36.77 1.06.77 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.67.79.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z" />
+                        </svg>
+                        GitHub
+                    </a>
+                </div>
+                <div class="hero-meta">
+                    <span class="meta-item">.NET 8, 9, 10</span>
+                    <span class="meta-dot"></span>
+                    <span class="meta-item">Native AOT ready</span>
+                    <span class="meta-dot"></span>
+                    <span class="meta-item">MIT licensed</span>
+                </div>
+            </div>
+            <div class="hero-code">
+                <div class="code-window">
+                    <div class="code-header">
+                        <span class="code-dot code-dot-red"></span>
+                        <span class="code-dot code-dot-yellow"></span>
+                        <span class="code-dot code-dot-green"></span>
+                        <span class="code-filename">Program.cs</span>
+                    </div>
+                    <pre class="code-block"><code class="language-csharp">var options = new SQLiteOptionsBuilder("books.db")
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .Build();
+
+using SQLiteDatabase db = new(options);
+
+var topAuthors = await (
+    from b in db.Table&lt;Book&gt;()
+    join a in db.Table&lt;Author&gt;() on b.AuthorId equals a.Id
+    where b.Price &lt; 30
+    group b by a.Name into g
+    orderby g.Sum(b =&gt; b.Sales) descending
+    select new
+    {
+        Author = g.Key,
+        Titles = g.Count(),
+        Revenue = g.Sum(b =&gt; b.Sales),
+    }
+).Take(5).ToListAsync();
+</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="section-head">
+                <h2>Built for real apps</h2>
+                <p>Everything you expect from a modern ORM, sized for embedded SQLite.</p>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"
+                         aria-hidden="true">
+                        <svg viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <polyline points="16 18 22 12 16 6" />
+                            <polyline points="8 6 2 12 8 18" />
+                        </svg>
+                    </div>
+                    <h3>LINQ first</h3>
+                    <p>Full IQueryable support. Joins, group by, subqueries, window functions, and CTEs all translate to
+                        SQL.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"
+                         aria-hidden="true">
+                        <svg viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <path d="M21 12a9 9 0 1 1-6.22-8.56" />
+                            <polyline points="21 4 21 10 15 10" />
+                        </svg>
+                    </div>
+                    <h3>Async everywhere</h3>
+                    <p>Every operation has an async sibling. ToListAsync, FirstOrDefaultAsync, ExecuteUpdateAsync, and
+                        more.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"
+                         aria-hidden="true">
+                        <svg viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                    </div>
+                    <h3>Native AOT</h3>
+                    <p>The framework never generates code at runtime. An optional source generator emits materializers
+                        at build time, so it ships clean under Native AOT.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"
+                         aria-hidden="true">
+                        <svg viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <circle cx="11"
+                                    cy="11"
+                                    r="8" />
+                            <line x1="21"
+                                  y1="21"
+                                  x2="16.65"
+                                  y2="16.65" />
+                        </svg>
+                    </div>
+                    <h3>FTS5 and R-Tree</h3>
+                    <p>First-class bindings for SQLite's full-text search and spatial modules. Type-safe, no raw SQL
+                        needed.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"
+                         aria-hidden="true">
+                        <svg viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                    </div>
+                    <h3>JSON and JSONB</h3>
+                    <p>Query into JSON columns with LINQ. SQLite 3.45 JSONB is supported when your runtime has it.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"
+                         aria-hidden="true">
+                        <svg viewBox="0 0 24 24"
+                             fill="none"
+                             stroke="currentColor"
+                             stroke-width="2"
+                             stroke-linecap="round"
+                             stroke-linejoin="round">
+                            <rect x="3"
+                                  y="3"
+                                  width="18"
+                                  height="18"
+                                  rx="2" />
+                            <line x1="3"
+                                  y1="9"
+                                  x2="21"
+                                  y2="9" />
+                            <line x1="9"
+                                  y1="21"
+                                  x2="9"
+                                  y2="9" />
+                        </svg>
+                    </div>
+                    <h3>Bulk operations</h3>
+                    <p>ExecuteDelete and ExecuteUpdate let you change thousands of rows in one round trip.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="packages">
+            <div class="section-head">
+                <h2>One API, four flavors</h2>
+                <p>Pick the package that matches how SQLite is shipped in your app.</p>
+            </div>
+            <div class="package-grid">
+                <div class="package-card">
+                    <h3 class="package-name">SQLite.Framework</h3>
+                    <p>Uses the SQLite version that ships with the OS. The right default for most apps.</p>
+                </div>
+                <div class="package-card">
+                    <h3 class="package-name">SQLite.Framework.Bundled</h3>
+                    <p>Ships its own SQLite binary. Use when the OS SQLite is too old or you want a pinned version.</p>
+                </div>
+                <div class="package-card">
+                    <h3 class="package-name">SQLite.Framework.Cipher</h3>
+                    <p>Uses SQLCipher for encrypted databases. Call UseEncryptionKey on the options builder to enable.
+                    </p>
+                </div>
+                <div class="package-card">
+                    <h3 class="package-name">SQLite.Framework.Base</h3>
+                    <p>No provider included. Bring your own SQLitePCLRaw bundle and stay in control.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="cta">
+            <div class="cta-inner">
+                <h2>Ready to try it?</h2>
+                <p>The docs walk you through your first table, query, and migration in under five minutes.</p>
+                <div class="hero-cta">
+                    <a href="/Docs/Getting%20Started"
+                       class="btn btn-primary">Get Started</a>
+                    <a href="/Docs/"
+                       class="btn btn-secondary">Browse the Docs</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <img src="/SQLite.Framework.png"
+                     alt=""
+                     class="footer-logo" />
+                <span>SQLite.Framework</span>
+            </div>
+            <div class="footer-links">
+                <a href="/Docs/">Docs</a>
+                <a href="/Docs/Getting%20Started">Getting Started</a>
+                <a href="/Docs/Samples">Samples</a>
+                <a href="https://www.nuget.org/packages/SQLite.Framework/"
+                   target="_blank"
+                   rel="noopener noreferrer">NuGet</a>
+                <a href="https://github.com/destbg/SQLite.Framework"
+                   target="_blank"
+                   rel="noopener noreferrer">GitHub</a>
+                <a href="https://github.com/destbg/SQLite.Framework/blob/main/LICENSE"
+                   target="_blank"
+                   rel="noopener noreferrer">License</a>
+            </div>
+            <p class="footer-meta">MIT licensed. Built by <a href="https://github.com/destbg"
+                   target="_blank"
+                   rel="noopener noreferrer">Nikolay Kostadinov</a>.</p>
+        </div>
+    </footer>
+
+    <script type="module"
+            src="/src/landing/main.ts"></script>
+</body>
+
+</html>

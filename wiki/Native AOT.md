@@ -1,10 +1,10 @@
 # Native AOT
 
-Native AOT compiles your application into a standalone native binary ahead of time, rather than running through the .NET runtime at startup. The result is faster startup, lower memory use, and no JIT overhead. SQLite.Framework supports Native AOT publishing with a small amount of setup.
+Native AOT compiles your application into a standalone native binary ahead of time, rather than running through the .NET runtime at startup. The result is faster startup, lower memory use, and no JIT overhead. SQLite.Framework doesn't generate code at runtime, so the library itself is AOT-compatible. The setup below is mostly about keeping the trimmer happy on your own types.
 
 ## Use the source generator
 
-For AOT builds, add the `SQLite.Framework.SourceGenerator` package and call `UseGeneratedMaterializers` on your options builder. The generator writes the code that turns SQLite rows into .NET objects at build time, so the trimmer can see every public type used in a `Select` and no reflection is needed for those. Private types and private methods still go through a small amount of reflection. See the [Source Generator](Source%20Generator.md) page for the full setup.
+For AOT builds, add the `SQLite.Framework.SourceGenerator` package and call `UseGeneratedMaterializers` on your options builder. The generator writes the code that turns SQLite rows into .NET objects at build time, so the trimmer can see every public type used in a `Select`. Private types and private methods still go through reflection at runtime. See the [Source Generator](Source%20Generator.md) page for the full setup.
 
 ```csharp
 using SQLite.Framework.Generated;

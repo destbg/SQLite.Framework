@@ -1,4 +1,4 @@
-name: Sync wiki to GitHub Wiki
+name: Sync docs to GitHub Wiki
 
 on:
   release:
@@ -43,6 +43,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to sync"
           else
-            git commit -m "Sync wiki from main"
+            git commit -m "Sync docs from main"
             git push
           fi

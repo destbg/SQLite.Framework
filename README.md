@@ -38,11 +38,11 @@ That whole expression is one SQL query. The framework keeps the generated SQL cl
 | **EF Core** | Same `IQueryable` shape, smaller dependency, AOT works with minimal setup, no migrations or change tracker overhead. | EF's full mapping model (owned types, complex inheritance and such). |
 | **sqlite-net-pcl** | Real LINQ - joins, group-by, subqueries, projections, FTS5, JSON, window functions all translate to SQL. AOT-friendly with the source generator. | Nothing meaningful, the API is similar where it overlaps. |
 
-See the [Migrating from sqlite-net-pcl](https://sqlite-framework.net/Migrating-from-sqlite-net-pcl) or [Migrating from EF Core](https://sqlite-framework.net/Migrating-from-EF-Core) page if that's your starting point.
+See the [Migrating from sqlite-net-pcl](https://sqlite-framework.net/Docs/Migrating-from-sqlite-net-pcl) or [Migrating from EF Core](https://sqlite-framework.net/Docs/Migrating-from-EF-Core) page if that's your starting point.
 
 ## Performance
 
-Benchmarks against EF Core 10 and sqlite-net-pcl 1.9 live on the [Performance](https://sqlite-framework.net/Performance) docs page.
+Benchmarks against EF Core 10 and sqlite-net-pcl 1.9 live on the [Performance](https://sqlite-framework.net/Docs/Performance) docs page.
 
 ## Status
 
@@ -50,7 +50,7 @@ The library is exercised at 100% code coverage. It targets .NET 8, 9, and 10.
 
 ## Documentation
 
-The full docs live at **[sqlite-framework.net](https://sqlite-framework.net)**. Start with the [Overview](https://sqlite-framework.net/Overview) and [Getting Started](https://sqlite-framework.net/Getting-Started) pages.
+The full docs live at **[sqlite-framework.net](https://sqlite-framework.net)**. Start with the [Overview](https://sqlite-framework.net/Docs/Overview) and [Getting Started](https://sqlite-framework.net/Docs/Getting-Started) pages.
 
 The same content is also mirrored on the [GitHub Wiki](https://github.com/destbg/SQLite.Framework/wiki).
 
@@ -159,7 +159,7 @@ var options = new SQLiteOptionsBuilder("app.db")
 
 The generator writes the row-to-object code at build time, so the trimmer keeps every type used in a `Select` and there's no per-query reflection. The `UseGeneratedMaterializers` extension is generated `internal` per project, so each project that builds queries needs its own reference.
 
-Without the generator, the library still runs under AOT but uses reflection for queries. Make sure the model classes are reachable from the entry assembly so the trimmer keeps them. Full setup on the [Source Generator](https://sqlite-framework.net/Source-Generator) and [Native AOT](https://sqlite-framework.net/Native-AOT) pages.
+Without the generator, the library still runs under AOT but uses reflection for queries. Make sure the model classes are reachable from the entry assembly so the trimmer keeps them. Full setup on the [Source Generator](https://sqlite-framework.net/Docs/Source-Generator) and [Native AOT](https://sqlite-framework.net/Docs/Native-AOT) pages.
 
 ## Contributing
 

@@ -7,9 +7,9 @@ Without the source generator, SQLite.Framework walks the expression tree of ever
 - **Startup and per-query cost**: every row goes through reflected constructor, property, and method calls.
 - **AOT compatibility**: the expression tree methods the C# compiler generates for a `Select` (like `Expression.New` and `Expression.Bind`) are annotated with `[RequiresUnreferencedCode]`, which produces trimmer warnings under `PublishAot`. The trimmer can also strip types that are only reached through reflection.
 
-The source generator solves both. It reads your code at build time and writes plain C# that creates the objects directly. Every public type or method the generator can see is referenced by name, so the trimmer keeps it and no reflection is needed for those.
+The source generator solves both. It reads your code at build time and writes plain C# that creates the objects directly. Every public type or method the generator can see is referenced by name, so the trimmer keeps it and the reflected materializer path is not used for those.
 
-Reflection is still used in two narrow cases: when a `Select` or entity target is a `private` or `internal` type that the generated code cannot name, and when a `Select` body calls a private method. In those cases the generator falls back to `MethodInfo.Invoke` / `Activator.CreateInstance` on types and members that are captured at query-build time. The word "reflection-free" would be too strong, but reflection is avoided for everything the generator can see. If you want zero reflection on the hot path, keep the types and methods that appear in your `Select` projections `public` or `internal` with `InternalsVisibleTo`.
+Reflection is still used in two narrow cases: when a `Select` or entity target is a `private` or `internal` type that the generated code cannot name, and when a `Select` body calls a private method. In those cases the generator falls back to `MethodInfo.Invoke` / `Activator.CreateInstance` on types and members that are captured at query-build time. If you want the reflected path off your hot path entirely, keep the types and methods that appear in your `Select` projections `public` or `internal` with `InternalsVisibleTo`.
 
 ## When to use it
 
@@ -17,7 +17,7 @@ Use the source generator when any of these apply:
 
 - You ship with Native AOT (`PublishAot`). This is the main reason it exists.
 - You want faster cold-start queries (for example in a mobile app or a short-lived CLI).
-- You want to avoid reflection for every public type and method the generator can see, and keep the trimmer happy on every shape the generator covers.
+- You want to skip the reflected materializer path for every public type and method the generator can see, and keep the trimmer happy on every shape the generator covers.
 
 If you do not need any of these, you can skip it. The runtime path still works.
 
@@ -180,7 +180,7 @@ What is out of scope:
 
 ## Combining with AOT
 
-If you publish with `PublishAot=true`, the source generator is the recommended way to avoid reflection during queries. See [Native AOT](Native%20AOT.md) for the full AOT setup, including the trimmer descriptor and the `[UnconditionalSuppressMessage]` usage on methods that build expression trees directly.
+If you publish with `PublishAot=true`, the source generator is the recommended way to keep the reflected materializer path out of your queries. See [Native AOT](Native%20AOT.md) for the full AOT setup, including the trimmer descriptor and the `[UnconditionalSuppressMessage]` usage on methods that build expression trees directly.
 
 ## How it works
 

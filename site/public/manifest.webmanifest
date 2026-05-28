@@ -2,7 +2,7 @@
     "name": "SQLite.Framework Docs",
     "short_name": "SQLite.Framework",
     "description": "Documentation for SQLite.Framework, a lightweight ORM for SQLite in .NET",
-    "start_url": "/",
+    "start_url": "/Docs/",
     "scope": "/",
     "display": "standalone",
     "background_color": "#0d1117",

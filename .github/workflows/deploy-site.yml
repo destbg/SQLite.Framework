@@ -1,4 +1,4 @@
-name: Deploy wiki to GitHub Pages
+name: Deploy site to GitHub Pages
 
 on:
   release:
@@ -31,23 +31,16 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        working-directory: wiki
+        working-directory: site
 
       - name: Build
         run: npm run build
-        working-directory: wiki
-
-      - name: Write Google Search Console verification file
-        if: ${{ vars.GOOGLE_SITE_VERIFICATION_FILENAME != '' }}
-        env:
-          FILENAME: ${{ vars.GOOGLE_SITE_VERIFICATION_FILENAME }}
-        run: |
-          printf 'google-site-verification: %s\n' "$FILENAME" > "wiki/dist/$FILENAME"
+        working-directory: site
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5.0.0
         with:
-          path: wiki/dist
+          path: site/dist
 
   deploy:
     name: Deploy

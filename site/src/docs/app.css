@@ -398,6 +398,7 @@ body {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -407,12 +408,14 @@ body {
     from {
         opacity: 1;
     }
+
     to {
         opacity: 0;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .page-layer--in,
     .page-layer--out {
         animation: none;
@@ -478,7 +481,7 @@ body {
     line-height: 1.6;
 }
 
-.markdown-content li > p {
+.markdown-content li>p {
     margin-bottom: 6px;
 }
 
@@ -491,7 +494,7 @@ body {
     text-decoration: underline;
 }
 
-.markdown-content :not(pre) > code {
+.markdown-content :not(pre)>code {
     font-family:
         "Cascadia Code", "Fira Code", "JetBrains Mono", ui-monospace, Consolas,
         monospace;
@@ -525,7 +528,7 @@ body {
     line-height: 1.65;
 }
 
-.markdown-content pre > code.hljs {
+.markdown-content pre>code.hljs {
     display: block;
     padding: 10px 12px;
     overflow-x: auto;
@@ -534,16 +537,16 @@ body {
     scrollbar-color: var(--border) transparent;
 }
 
-.markdown-content pre > code.hljs::-webkit-scrollbar {
+.markdown-content pre>code.hljs::-webkit-scrollbar {
     height: 8px;
 }
 
-.markdown-content pre > code.hljs::-webkit-scrollbar-thumb {
+.markdown-content pre>code.hljs::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 4px;
 }
 
-.markdown-content pre > code.hljs::-webkit-scrollbar-track {
+.markdown-content pre>code.hljs::-webkit-scrollbar-track {
     background: transparent;
 }
 
@@ -569,7 +572,7 @@ body {
     background: transparent;
 }
 
-.table-wrap > table {
+.table-wrap>table {
     margin: 0;
     border: none;
     border-radius: 0;
@@ -1006,6 +1009,7 @@ body {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -1015,6 +1019,7 @@ body {
     from {
         opacity: 1;
     }
+
     to {
         opacity: 0;
     }
@@ -1047,6 +1052,7 @@ body {
         opacity: 0;
         transform: translateY(-6px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1058,6 +1064,7 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
+
     to {
         opacity: 0;
         transform: translateY(-6px);

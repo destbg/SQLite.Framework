@@ -25,7 +25,7 @@ var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 | `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. Call `UseEncryptionKey` on the options builder to enable encryption. |
 | `SQLite.Framework.Base` | No SQLite provider included. Use this when you want to supply your own SQLitePCLRaw provider. You are responsible for calling `SQLitePCL.Batteries_V2.Init()` before creating a database. |
 | `SQLite.Framework.DependencyInjection` | `AddSQLiteDatabase` helpers for `Microsoft.Extensions.DependencyInjection`. Use it to register a `SQLiteDatabase` (or a subclass) into an `IServiceCollection`. |
-| `SQLite.Framework.SourceGenerator` | Build-time source generator that writes materializers for your entities and `Select` projections. Avoids reflection for every public type the generator can see. Recommended for Native AOT builds. |
+| `SQLite.Framework.SourceGenerator` | Build-time source generator that writes materializers for your entities and `Select` projections. Recommended for Native AOT builds, where it removes the reflection-driven materializer path. |
 
 All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose the same API and assembly name, so you can swap between them without changing any code. The other packages layer optional features on top.
 

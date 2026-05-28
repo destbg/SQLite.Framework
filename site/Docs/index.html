@@ -26,12 +26,12 @@
           href="/apple-touch-icon.png" />
     <link rel="search"
           type="application/opensearchdescription+xml"
-          title="SQLite.Framework: LINQ-friendly ORM for SQLite in .NET"
+          title="SQLite.Framework Docs"
           href="/opensearch.xml" />
     <link rel="manifest"
           href="/manifest.webmanifest" />
     <link rel="canonical"
-          href="https://sqlite-framework.net/" />
+          href="https://sqlite-framework.net/Docs/" />
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color"
@@ -49,73 +49,37 @@
     <meta name="robots"
           content="index, follow" />
     <meta name="title"
-          content="SQLite.Framework: LINQ-friendly ORM for SQLite in .NET" />
-    <title>SQLite.Framework: LINQ-friendly ORM for SQLite in .NET</title>
+          content="SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET" />
+    <title>SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET</title>
 
     <meta property="og:site_name"
           content="SQLite.Framework" />
     <meta property="og:title"
-          content="SQLite.Framework: LINQ-friendly ORM for SQLite in .NET" />
+          content="SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET" />
     <meta property="og:description"
-          content="A LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
+          content="Documentation for SQLite.Framework, a LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
     <meta property="og:image"
           content="https://sqlite-framework.net/SQLite.Framework.png" />
     <meta property="og:type"
           content="website" />
     <meta property="og:url"
-          content="https://sqlite-framework.net/" />
+          content="https://sqlite-framework.net/Docs/" />
 
     <meta name="twitter:card"
           content="summary" />
     <meta name="twitter:title"
-          content="SQLite.Framework: LINQ-friendly ORM for SQLite in .NET" />
+          content="SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET" />
     <meta name="twitter:description"
-          content="A LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
+          content="Documentation for SQLite.Framework, a LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
     <meta name="twitter:image"
           content="https://sqlite-framework.net/SQLite.Framework.png" />
 
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "SQLite.Framework",
-        "description": "A LINQ-friendly ORM for SQLite in .NET 8, 9, and 10. IQueryable, async, FTS5, JSON, window functions, and Native AOT support.",
-        "url": "https://sqlite-framework.net/",
-        "image": "https://sqlite-framework.net/SQLite.Framework.png",
-        "applicationCategory": "DeveloperApplication",
-        "operatingSystem": "Cross-platform",
-        "programmingLanguage": "C#",
-        "runtimePlatform": [".NET 8", ".NET 9", ".NET 10"],
-        "softwareRequirements": ".NET 8, .NET 9, or .NET 10",
-        "license": "https://spdx.org/licenses/MIT.html",
-        "codeRepository": "https://github.com/destbg/SQLite.Framework",
-        "downloadUrl": "https://www.nuget.org/packages/SQLite.Framework/",
-        "installUrl": "https://www.nuget.org/packages/SQLite.Framework/",
-        "sameAs": [
-            "https://www.nuget.org/packages/SQLite.Framework/",
-            "https://github.com/destbg/SQLite.Framework",
-            "https://github.com/destbg/SQLite.Framework/wiki"
-        ],
-        "author": {
-            "@type": "Person",
-            "name": "Nikolay Kostadinov",
-            "alternateName": "destbg",
-            "url": "https://github.com/destbg"
-        },
-        "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
-        }
-    }
-    </script>
-
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
         "@type": "WebSite",
-        "name": "SQLite.Framework: LINQ-friendly ORM for SQLite in .NET",
-        "url": "https://sqlite-framework.net/",
+        "name": "SQLite.Framework Docs",
+        "url": "https://sqlite-framework.net/Docs/",
         "description": "Documentation for SQLite.Framework, a LINQ-friendly ORM for SQLite in .NET.",
         "inLanguage": "en"
     }
@@ -131,7 +95,7 @@
                     if (i > 0) params[kv.slice(0, i)] = kv.slice(i + 1);
                 });
                 if (params.p !== undefined) {
-                    var path = '/' + decodeURIComponent(params.p);
+                    var path = '/Docs/' + decodeURIComponent(params.p);
                     var query = params.q ? '?' + decodeURIComponent(params.q) : '';
                     window.history.replaceState(null, '', path + query + l.hash);
                 }
@@ -144,7 +108,7 @@
 <body>
     <div id="root"></div>
     <script type="module"
-            src="/src/main.tsx"></script>
+            src="/src/docs/main.tsx"></script>
 </body>
 
 </html>
