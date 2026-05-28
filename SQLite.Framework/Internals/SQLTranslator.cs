@@ -610,6 +610,7 @@ internal class SQLTranslator
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "We are checking the Queryable class")]
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "Entity types come from user-rooted IQueryable<T> so their public properties are preserved.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "We are calling the Queryable.Select method on user-rooted IQueryable<T>.")]
     private Expression? TranslateMethodExpression(MethodCallExpression mce)
     {
         Type? declaringType = mce.Method.DeclaringType;
@@ -659,6 +660,34 @@ internal class SQLTranslator
                 .ToDictionary(p => p.Name, Expression (p) => SQLiteExpression.Leaf(p.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{p.Name}"));
 
             methodCalls.RemoveRange(wrapIdx + 1, methodCalls.Count - (wrapIdx + 1));
+            wrappedAsSubquery = true;
+        }
+
+        if (!wrappedAsSubquery && IsTerminalCountOverGroupBy(methodCalls))
+        {
+            Expression innerExpr = methodCalls[0].Arguments[0];
+            Type groupingType = innerExpr.Type.GetGenericArguments()[0];
+
+            ParameterExpression groupingParam = Expression.Parameter(groupingType, "g");
+            LambdaExpression selector = Expression.Lambda(Expression.Constant(1), groupingParam);
+            MethodCallExpression projectedInner = Expression.Call(
+                typeof(Queryable),
+                nameof(Queryable.Select),
+                [groupingType, typeof(int)],
+                innerExpr,
+                selector);
+
+            SQLTranslator innerTranslator = Visitor.CloneDeeper(level + 1);
+            SQLQuery innerQuery = innerTranslator.Translate(projectedInner);
+
+            char aliasChar = 'g';
+            string alias = $"{aliasChar}{Visitor.Counters.NextTableIndex(aliasChar)}";
+
+            SQLiteParameter[] innerParams = innerQuery.Parameters.ToArray();
+            Visitor.From = SQLiteExpression.Leaf(typeof(int), -1, $"({Environment.NewLine}{innerQuery.Sql}{Environment.NewLine}) AS {alias}", innerParams);
+            Visitor.TableColumns = new Dictionary<string, Expression>();
+
+            methodCalls.RemoveRange(1, methodCalls.Count - 1);
             wrappedAsSubquery = true;
         }
 
@@ -767,6 +796,36 @@ internal class SQLTranslator
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(selectMethod.Arguments[1]);
         return lambda.Body;
+    }
+
+    private static bool IsTerminalCountOverGroupBy(List<MethodCallExpression> methodCalls)
+    {
+        if (methodCalls.Count < 2)
+        {
+            return false;
+        }
+
+        MethodCallExpression outer = methodCalls[0];
+        string outerName = outer.Method.Name;
+        if (outerName != nameof(Queryable.Count) && outerName != nameof(Queryable.LongCount))
+        {
+            return false;
+        }
+
+        if (outer.Arguments.Count != 1)
+        {
+            return false;
+        }
+
+        for (int i = 1; i < methodCalls.Count; i++)
+        {
+            if (methodCalls[i].Method.Name == nameof(Queryable.GroupBy))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls)
