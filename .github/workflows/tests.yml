@@ -23,7 +23,7 @@ jobs:
           - SQLite.Framework.Tests.SourceGenerator
     name: ${{ matrix.project }}
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Setup .NET
