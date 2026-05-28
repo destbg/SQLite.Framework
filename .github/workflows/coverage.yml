@@ -33,7 +33,7 @@ jobs:
           - SQLite.Framework.Tests.SourceGenerator
     name: Test results (${{ matrix.project }})
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Setup .NET
@@ -61,7 +61,7 @@ jobs:
       contents: read
     name: Upload test results to Codecov
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Download all test result artifacts
@@ -98,7 +98,7 @@ jobs:
             flag: sourcegen
     name: Coverage (${{ matrix.flag }})
     steps:
-      - uses: actions/checkout@v6.0.2
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Setup .NET
