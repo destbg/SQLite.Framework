@@ -82,6 +82,7 @@ internal static class WindowFunctionsMemberVisitor
             nameof(SQLiteWindowFunctions.NthValue) => FnOver(t, id, "NTH_VALUE", arguments[0], arguments[1], parameters),
             nameof(SQLiteWindow<>.AsValue) => SQLiteExpression.Alias(t, id, arguments[0].SQLiteExpression!, parameters),
             nameof(SQLiteWindow<>.Over) => SQLiteExpression.Alias(t, id, arguments[0].SQLiteExpression!, parameters),
+            nameof(SQLiteWindow<>.Filter) => Filter(visitor, t, id, arguments[0], arguments[1], parameters),
             nameof(SQLiteWindow<>.PartitionBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, arguments[0], " PARTITION BY ", arguments[1]), parameters),
             nameof(SQLiteWindow<>.ThenPartitionBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, arguments[0], ", ", arguments[1]), parameters),
             nameof(SQLiteWindow<>.OrderBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], " ORDER BY ", arguments[1], " ASC"), parameters),
@@ -108,6 +109,14 @@ internal static class WindowFunctionsMemberVisitor
     private static SQLiteExpression FnOver(Type t, int id, string fn, ResolvedModel a, ResolvedModel b, ResolvedModel c, SQLiteParameter[]? parameters)
     {
         return SQLiteExpression.Trinary(t, id, $"{fn}(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ", ", c.SQLiteExpression!, ") OVER ()", parameters);
+    }
+
+    private static SQLiteExpression Filter(SQLVisitor visitor, Type t, int id, ResolvedModel prev, ResolvedModel predicate, SQLiteParameter[]? parameters)
+    {
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_30, "FILTER (WHERE ...) on window aggregates");
+#endif
+        return SQLiteExpression.Lambda(t, id, sb => WriteFilter(sb, prev, predicate), parameters);
     }
 
     private static void WriteOverChain(StringBuilder sb, ResolvedModel prev, string sep, ResolvedModel arg)
@@ -138,5 +147,18 @@ internal static class WindowFunctionsMemberVisitor
         sb.Append(" AND ");
         end.SQLiteExpression!.WriteSqlTo(sb);
         sb.Append(')');
+    }
+
+    private static void WriteFilter(StringBuilder sb, ResolvedModel prev, ResolvedModel predicate)
+    {
+        int start = sb.Length;
+        prev.SQLiteExpression!.WriteSqlTo(sb);
+        int overIndex = start + sb.ToString(start, sb.Length - start).IndexOf(" OVER ", StringComparison.Ordinal);
+
+        StringBuilder clause = StringBuilderPool.Rent();
+        clause.Append(" FILTER (WHERE ");
+        predicate.SQLiteExpression!.WriteSqlTo(clause);
+        clause.Append(')');
+        sb.Insert(overIndex, StringBuilderPool.ToStringAndReturn(clause));
     }
 }

@@ -31,6 +31,24 @@ public readonly struct SQLiteWindow<T>
     }
 
     /// <summary>
+    /// Adds a <c>FILTER (WHERE ...)</c> clause so only rows matching <paramref name="predicate" />
+    /// feed the aggregate. The clause is emitted between the function and <c>OVER</c>, so the
+    /// chain order relative to the other window clauses does not matter. SQLite only allows
+    /// <c>FILTER</c> on aggregate window functions (SUM, AVG, MIN, MAX, COUNT); it rejects it on
+    /// ranking functions such as ROW_NUMBER.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public SQLiteWindow<T> Filter(bool predicate)
+    {
+        throw new InvalidOperationException("SQLiteWindow<T> chain methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
     /// Adds a <c>PARTITION BY</c> clause to the window.
     /// </summary>
     public SQLiteWindow<T> PartitionBy<TKey>(TKey key)

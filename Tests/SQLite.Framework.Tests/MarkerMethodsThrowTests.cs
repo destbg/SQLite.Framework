@@ -107,6 +107,7 @@ public class MarkerMethodsThrowTests
 
         Assert.Throws<InvalidOperationException>(() => spec.AsValue());
         Assert.Throws<InvalidOperationException>(() => spec.Over());
+        Assert.Throws<InvalidOperationException>(() => spec.Filter(true));
         Assert.Throws<InvalidOperationException>(() => spec.PartitionBy(1));
         Assert.Throws<InvalidOperationException>(() => spec.ThenPartitionBy(1));
         Assert.Throws<InvalidOperationException>(() => spec.OrderBy(1));

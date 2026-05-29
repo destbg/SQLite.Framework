@@ -498,6 +498,137 @@ public class WindowFunctionTests
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
+
+    [Fact]
+    public void Sum_Filter_ProducesCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Filter(o.Amount > 150)
+                    .Over()
+                    .PartitionBy(o.CustomerId)
+                    .OrderBy(o.Date)
+            })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            SUM(w0.Amount) FILTER (WHERE w0.Amount > @p0) OVER ( PARTITION BY w0.CustomerId ORDER BY w0.Date ASC) AS "RunningTotal"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Sum_Filter_ChainOrderDoesNotChangeSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand filterFirst = db.Table<Order>()
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Filter(o.Amount > 150)
+                    .Over()
+                    .PartitionBy(o.CustomerId)
+                    .OrderBy(o.Date)
+            })
+            .ToSqlCommand();
+
+        SQLiteCommand filterLast = db.Table<Order>()
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Over()
+                    .PartitionBy(o.CustomerId)
+                    .OrderBy(o.Date)
+                    .Filter(o.Amount > 150)
+            })
+            .ToSqlCommand();
+
+        Assert.Equal(filterFirst.CommandText, filterLast.CommandText);
+    }
+
+    [Fact]
+    public void Sum_Filter_WithFrame_ProducesCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Filter(o.Amount > 150)
+                    .Over()
+                    .OrderBy(o.Id)
+                    .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow())
+            })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            SUM(w0.Amount) FILTER (WHERE w0.Amount > @p0) OVER ( ORDER BY w0.Id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void CountStar_Filter_ProducesCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new OrderWithRowNum
+            {
+                Id = o.Id,
+                RowNum = SQLiteWindowFunctions.Count()
+                    .Filter(o.Amount > 150)
+                    .Over()
+                    .PartitionBy(o.CustomerId)
+            })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            COUNT(*) FILTER (WHERE w0.Amount > @p0) OVER ( PARTITION BY w0.CustomerId) AS "RowNum"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Sum_Filter_ReturnsCorrectValues()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<OrderWithTotal> results = db.Table<Order>()
+            .Where(o => o.CustomerId == 1)
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Filter(o.Amount != 200)
+                    .Over()
+                    .PartitionBy(o.CustomerId)
+                    .OrderBy(o.Id)
+            })
+            .OrderBy(r => r.Id)
+            .ToList();
+
+        Assert.Equal(3, results.Count);
+        Assert.Equal(100.0, results[0].RunningTotal);
+        Assert.Equal(100.0, results[1].RunningTotal);
+        Assert.Equal(400.0, results[2].RunningTotal);
+    }
 }
 
 [Table("Order")]
