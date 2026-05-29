@@ -44,7 +44,7 @@ internal static class UpsertSqlBuilder
             case UpsertActionKind.DoUpdateAll:
             {
                 IEnumerable<TableColumn> setColumns = insertColumns.Where(c => !target.ConflictColumns.Contains(c.PropertyInfo.Name) && !target.ConflictColumns.Contains(c.Name));
-                AppendSet(sb, setColumns);
+                AppendUpdate(sb, database, table, setColumns, action);
                 break;
             }
 
@@ -57,7 +57,7 @@ internal static class UpsertSqlBuilder
                         ?? throw new InvalidOperationException($"Upsert.DoUpdate references property '{propertyName}' which is not a mapped column on '{table.TableName}'.");
                     setColumns.Add(column);
                 }
-                AppendSet(sb, setColumns);
+                AppendUpdate(sb, database, table, setColumns, action);
                 break;
             }
 
@@ -68,7 +68,7 @@ internal static class UpsertSqlBuilder
         return (insertColumns, sb.ToString());
     }
 
-    private static void AppendSet(StringBuilder sb, IEnumerable<TableColumn> setColumns)
+    private static void AppendUpdate<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, IEnumerable<TableColumn> setColumns, UpsertAction<T> action)
     {
         TableColumn[] columns = setColumns.ToArray();
         if (columns.Length == 0)
@@ -87,6 +87,12 @@ internal static class UpsertSqlBuilder
             sb.Append(columns[i].Name);
             sb.Append(" = excluded.");
             sb.Append(columns[i].Name);
+        }
+
+        if (action.UpdateWhere != null)
+        {
+            sb.Append(" WHERE ");
+            sb.Append(BareSqlTranslator.TranslateUpdateWhere(database, table, action.UpdateWhere));
         }
     }
 

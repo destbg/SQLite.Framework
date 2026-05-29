@@ -228,6 +228,26 @@ db.Table<Book>().Upsert(book, c => c
     .DoUpdate(b => b.Price));
 ```
 
+You can also add a `Where` guard after `DoUpdate` or `DoUpdateAll`. This becomes `DO UPDATE SET ... WHERE pred`, so SQLite skips the update when the guard is false and keeps the existing row. The guard comes in two shapes. The one-parameter shape sees only the row already stored:
+
+```csharp
+// Only update when the stored row is not locked.
+db.Table<Book>().Upsert(book, c => c
+    .OnConflict(b => b.Id)
+    .DoUpdate(b => b.Price)
+    .Where(current => current.AuthorId == 1));
+```
+
+The two-parameter shape sees both rows. The first parameter is the row already stored. The second parameter is the incoming row, which maps to SQLite's `excluded` row. This is the shape for last-write-wins, where you only overwrite when the incoming row is newer:
+
+```csharp
+// Last-write-wins: only overwrite when the incoming Price is higher.
+db.Table<Book>().Upsert(book, c => c
+    .OnConflict(b => b.Id)
+    .DoUpdateAll()
+    .Where((current, excluded) => excluded.Price > current.Price));
+```
+
 `UpsertRange` is the range version. There is also `UpsertAsync` and `UpsertRangeAsync`.
 
 ## Hooks

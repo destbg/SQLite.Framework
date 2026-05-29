@@ -42,7 +42,7 @@ public sealed class UpsertConflictTarget<T>
     /// </summary>
     public UpsertAction<T> DoNothing()
     {
-        return Set(UpsertAction<T>.DoNothing);
+        return Set(UpsertAction<T>.DoNothing());
     }
 
     /// <summary>
@@ -50,7 +50,7 @@ public sealed class UpsertConflictTarget<T>
     /// </summary>
     public UpsertAction<T> DoUpdateAll()
     {
-        return Set(UpsertAction<T>.DoUpdateAll);
+        return Set(UpsertAction<T>.DoUpdateAll());
     }
 
     /// <summary>

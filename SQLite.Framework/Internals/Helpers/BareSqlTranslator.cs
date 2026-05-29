@@ -16,13 +16,32 @@ internal static class BareSqlTranslator
     public static string Translate(SQLiteDatabase database, TableMapping mapping, ParameterExpression rowParameter, Expression body)
     {
         SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
+        visitor.MethodArguments[rowParameter] = RowColumns(visitor, mapping, null);
+        return Finish(visitor, body);
+    }
 
-        Dictionary<string, Expression> columnExpressions = mapping.Columns.ToDictionary(
+    public static string TranslateUpdateWhere(SQLiteDatabase database, TableMapping mapping, LambdaExpression lambda)
+    {
+        SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
+        visitor.MethodArguments[lambda.Parameters[0]] = RowColumns(visitor, mapping, null);
+
+        if (lambda.Parameters.Count > 1)
+        {
+            visitor.MethodArguments[lambda.Parameters[1]] = RowColumns(visitor, mapping, "excluded.");
+        }
+
+        return Finish(visitor, lambda.Body);
+    }
+
+    private static Dictionary<string, Expression> RowColumns(SQLVisitor visitor, TableMapping mapping, string? prefix)
+    {
+        return mapping.Columns.ToDictionary(
             c => c.PropertyInfo.Name,
-            Expression (c) => SQLiteExpression.Leaf(c.PropertyType, visitor.Counters.NextIdentifier(), c.Name));
+            Expression (c) => SQLiteExpression.Leaf(c.PropertyType, visitor.Counters.NextIdentifier(), prefix + c.Name));
+    }
 
-        visitor.MethodArguments[rowParameter] = columnExpressions;
-
+    private static string Finish(SQLVisitor visitor, Expression body)
+    {
         Expression result = visitor.Visit(body);
         if (result is not SQLiteExpression sqlExpr)
         {

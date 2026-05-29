@@ -265,6 +265,99 @@ public class UpsertTests
     }
 
     [Fact]
+    public void Upsert_DoUpdateAllWithGuard_EmitsExpectedSql()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdateAll().Where((current, excluded) => excluded.Price > current.Price));
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookId) DO UPDATE SET BookTitle = excluded.BookTitle, BookAuthorId = excluded.BookAuthorId, BookPrice = excluded.BookPrice WHERE excluded.BookPrice > BookPrice"),
+            N(sql));
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateWithExistingRowGuard_EmitsExpectedSql()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdate(b => b.Price).Where(current => current.AuthorId == 1));
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookId) DO UPDATE SET BookPrice = excluded.BookPrice WHERE BookAuthorId = 1"),
+            N(sql));
+    }
+
+    [Fact]
+    public void Upsert_PartialIndexWhereAndUpdateGuard_EmitsBothClauses()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        string sql = inspector.GetSql(c => c.OnConflict(b => b.Title).Where(b => b.AuthorId == 1).DoUpdate(b => b.Price).Where((current, excluded) => excluded.Price > current.Price));
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookTitle) WHERE BookAuthorId = 1 DO UPDATE SET BookPrice = excluded.BookPrice WHERE excluded.BookPrice > BookPrice"),
+            N(sql));
+    }
+
+    [Fact]
+    public void Upsert_LastWriteWins_KeepsExistingRowWhenGuardFails()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 10 });
+
+        int affected = db.Table<Book>().Upsert(
+            new Book { Id = 1, Title = "ignored", AuthorId = 2, Price = 5 },
+            c => c.OnConflict(b => b.Id).DoUpdateAll().Where((current, excluded) => excluded.Price > current.Price));
+
+        Book stored = db.Table<Book>().Single();
+        Assert.Equal(0, affected);
+        Assert.Equal("original", stored.Title);
+        Assert.Equal(10, stored.Price);
+    }
+
+    [Fact]
+    public void Upsert_LastWriteWins_UpdatesWhenGuardPasses()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 10 });
+
+        int affected = db.Table<Book>().Upsert(
+            new Book { Id = 1, Title = "updated", AuthorId = 2, Price = 20 },
+            c => c.OnConflict(b => b.Id).DoUpdateAll().Where((current, excluded) => excluded.Price > current.Price));
+
+        Book stored = db.Table<Book>().Single();
+        Assert.Equal(1, affected);
+        Assert.Equal("updated", stored.Title);
+        Assert.Equal(20, stored.Price);
+    }
+
+    [Fact]
+    public void Upsert_DoNothingWithGuard_Throws()
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            new UpsertConflictTarget<Book>(["BookId"]).DoNothing().Where(b => b.AuthorId == 1));
+
+        Assert.Equal("DO NOTHING has no WHERE clause. Use DoUpdate or DoUpdateAll to add a conditional guard.", ex.Message);
+    }
+
+    [Fact]
+    public void Upsert_UpdateGuardCalledTwice_Throws()
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            new UpsertConflictTarget<Book>(["BookId"]).DoUpdateAll().Where(b => b.AuthorId == 1).Where(b => b.Price > 0));
+
+        Assert.Equal("Where was already called for this Upsert action.", ex.Message);
+    }
+
+    [Fact]
     public void Upsert_WhereCalledTwice_Throws()
     {
         using TestDatabase db = new();
