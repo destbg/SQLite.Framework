@@ -1,25 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-    BrowserRouter,
-    Navigate,
-    Route,
-    Routes,
-    useLocation,
-} from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
-import MarkdownPage from "./components/MarkdownPage";
 import SearchModal from "./components/SearchModal";
 import TableOfContents from "./components/TableOfContents";
 import FloatingActions from "./components/FloatingActions";
-import { findPageBySlug } from "./pages";
-
-function CurrentPage() {
-    const { pathname } = useLocation();
-    const slug = decodeURIComponent(pathname.replace(/^\/+/, "")) || "Home";
-    const page = findPageBySlug(slug);
-    if (!page) return <Navigate to="/" replace />;
-    return <MarkdownPage page={page} />;
-}
+import CurrentPage from "./components/CurrentPage";
 
 export default function App() {
     const [searchOpen, setSearchOpen] = useState(false);

@@ -10,6 +10,7 @@ export default defineConfig({
             input: {
                 landing: resolve(__dirname, 'index.html'),
                 docs: resolve(__dirname, 'Docs/index.html'),
+                walkthrough: resolve(__dirname, 'Walkthrough/index.html'),
             },
         },
     },

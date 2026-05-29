@@ -8,18 +8,21 @@
         (function () {
             var l = window.location;
             var path = l.pathname.slice(1);
-            var docsPrefix = 'Docs/';
             var origin = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '');
-            if (path.indexOf(docsPrefix) === 0) {
-                var rest = path.slice(docsPrefix.length);
-                l.replace(
-                    origin + '/Docs/?p=' + encodeURIComponent(rest) +
-                    (l.search ? '&q=' + encodeURIComponent(l.search.slice(1)) : '') +
-                    l.hash
-                );
-            } else {
-                l.replace(origin + '/');
+            var spaPrefixes = ['Docs/', 'Walkthrough/'];
+            for (var i = 0; i < spaPrefixes.length; i++) {
+                var prefix = spaPrefixes[i];
+                if (path.indexOf(prefix) === 0) {
+                    var rest = path.slice(prefix.length);
+                    l.replace(
+                        origin + '/' + prefix + '?p=' + encodeURIComponent(rest) +
+                        (l.search ? '&q=' + encodeURIComponent(l.search.slice(1)) : '') +
+                        l.hash
+                    );
+                    return;
+                }
             }
+            l.replace(origin + '/');
         })();
     </script>
 </head>
