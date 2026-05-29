@@ -656,8 +656,21 @@ internal class SQLTranslator
 
             SQLiteParameter[]? innerParams = innerQuery.Parameters.Count == 0 ? null : innerQuery.Parameters.ToArray();
             Visitor.From = SQLiteExpression.Leaf(entityType, -1, $"({Environment.NewLine}{innerQuery.Sql}{Environment.NewLine}) AS {alias}", innerParams);
-            Visitor.TableColumns = entityType.GetProperties()
-                .ToDictionary(p => p.Name, Expression (p) => SQLiteExpression.Leaf(p.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{p.Name}"));
+
+            if (TypeHelpers.IsSimple(entityType, database.Options) && innerTranslator.Selects.Count == 1)
+            {
+                KeyValuePair<string, Expression> shape = innerTranslator.Visitor.TableColumns.First();
+                string columnName = innerTranslator.Selects[0].IdentifierText;
+                Visitor.TableColumns = new Dictionary<string, Expression>
+                {
+                    [shape.Key] = SQLiteExpression.Leaf(entityType, Visitor.Counters.NextIdentifier(), $"{alias}.\"{columnName}\"")
+                };
+            }
+            else
+            {
+                Visitor.TableColumns = entityType.GetProperties()
+                    .ToDictionary(p => p.Name, Expression (p) => SQLiteExpression.Leaf(p.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{p.Name}"));
+            }
 
             methodCalls.RemoveRange(wrapIdx + 1, methodCalls.Count - (wrapIdx + 1));
             wrappedAsSubquery = true;
@@ -830,23 +843,61 @@ internal class SQLTranslator
 
     private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls)
     {
-        for (int i = 0; i < methodCalls.Count; i++)
+        QueryLevelParts level = QueryLevelParts.None;
+        int boundary = -1;
+
+        for (int i = methodCalls.Count - 1; i >= 0; i--)
         {
-            if (!IsJoinLikeMethod(methodCalls[i].Method.Name))
+            string name = methodCalls[i].Method.Name;
+
+            if (ConflictsWithLevel(name, level))
             {
-                continue;
+                boundary = i;
+                level = QueryLevelParts.None;
             }
 
-            for (int j = i + 1; j < methodCalls.Count; j++)
-            {
-                if (IsStateAffectingMethod(methodCalls[j].Method.Name))
-                {
-                    return i;
-                }
-            }
+            level |= MethodParts(name);
         }
 
-        return -1;
+        return boundary;
+    }
+
+    private static bool ConflictsWithLevel(string name, QueryLevelParts level)
+    {
+        QueryLevelParts blockedBy = name switch
+        {
+            nameof(Queryable.Where) => QueryLevelParts.Limit,
+            nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
+                or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) => QueryLevelParts.Limit,
+            nameof(Queryable.Distinct) => QueryLevelParts.Limit,
+            nameof(Queryable.Select) => QueryLevelParts.Distinct,
+            nameof(Queryable.GroupBy) => QueryLevelParts.Limit | QueryLevelParts.Distinct,
+            _ when IsJoinLikeMethod(name) => QueryLevelParts.Where | QueryLevelParts.Projection
+                | QueryLevelParts.GroupBy | QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.Reverse,
+            _ => QueryLevelParts.None
+        };
+
+        return (level & blockedBy) != QueryLevelParts.None;
+    }
+
+    private static QueryLevelParts MethodParts(string name)
+    {
+        return name switch
+        {
+            nameof(Queryable.Where) => QueryLevelParts.Where,
+            nameof(Queryable.Select) => QueryLevelParts.Projection,
+            nameof(Queryable.GroupBy) => QueryLevelParts.GroupBy,
+            nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
+                or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) => QueryLevelParts.OrderBy,
+            nameof(Queryable.Distinct) => QueryLevelParts.Distinct,
+            nameof(Queryable.Take) or nameof(Queryable.Skip)
+                or nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)
+                or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault)
+                or nameof(Queryable.ElementAt) or nameof(Queryable.ElementAtOrDefault) => QueryLevelParts.Limit,
+            nameof(Queryable.Reverse) => QueryLevelParts.Reverse,
+            _ when IsJoinLikeMethod(name) => QueryLevelParts.Join,
+            _ => QueryLevelParts.None
+        };
     }
 
     private static bool IsJoinLikeMethod(string name)
@@ -858,17 +909,6 @@ internal class SQLTranslator
             || name == nameof(Queryable.RightJoin)
 #endif
             || name == nameof(Queryable.GroupJoin);
-    }
-
-    private static bool IsStateAffectingMethod(string name)
-    {
-        return name == nameof(Queryable.Select)
-            || name == nameof(Queryable.Where)
-            || name == nameof(Queryable.GroupBy)
-            || name == nameof(Queryable.Take)
-            || name == nameof(Queryable.Skip)
-            || name == nameof(Queryable.Distinct)
-            || name == nameof(Queryable.Reverse);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "We are checking the Queryable class")]

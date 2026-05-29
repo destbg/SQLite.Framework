@@ -4135,6 +4135,57 @@ public class QueryPatternGapTests
     }
 
     [Fact]
+    public void NestedTakeSource_WhereAppliesAfterLimit()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 3 },
+            new Book { Id = 4, Title = "D", AuthorId = 1, Price = 4 },
+        ]);
+
+        List<int> beyondWindow = (
+            from a in (from b in db.Table<Book>() where b.AuthorId == 1 orderby b.Id select b).Take(2)
+            where a.Id == 3
+            select a.Id
+        ).ToList();
+
+        List<int> insideWindow = (
+            from a in (from b in db.Table<Book>() where b.AuthorId == 1 orderby b.Id select b).Take(2)
+            where a.Id == 2
+            select a.Id
+        ).ToList();
+
+        Assert.Empty(beyondWindow);
+        Assert.Equal([2], insideWindow);
+    }
+
+    [Fact]
+    public void OrderBy_AfterTake_SortsWithinTakenWindow()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().AddRange([
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 30 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 10 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 20 },
+        ]);
+
+        List<int> result = db.Table<Book>()
+            .OrderBy(b => b.Id)
+            .Take(2)
+            .OrderBy(b => b.Price)
+            .Select(b => b.Id)
+            .ToList();
+
+        Assert.Equal([2, 1], result);
+    }
+
+    [Fact]
     public void Take_AfterTake_TakesTighterLimit()
     {
         using TestDatabase db = new();
