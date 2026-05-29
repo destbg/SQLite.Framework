@@ -212,6 +212,72 @@ public class UpsertTests
             inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdate(b => b.Price + 1)));
     }
 
+    [Fact]
+    public void Upsert_OnConflictWhere_EmitsPartialIndexTarget()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        string sql = inspector.GetSql(c => c.OnConflict(b => b.Title).Where(b => b.AuthorId == 1).DoUpdate(b => b.Price));
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookTitle) WHERE BookAuthorId = 1 DO UPDATE SET BookPrice = excluded.BookPrice"),
+            N(sql));
+    }
+
+    [Fact]
+    public void Upsert_OnConflictWhere_UpdatesConflictingRowInPartialIndex()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Execute("CREATE UNIQUE INDEX ux_books_title_author1 ON \"Books\" (BookTitle) WHERE BookAuthorId = 1");
+
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 5 });
+
+        int affected = db.Table<Book>().Upsert(
+            new Book { Id = 2, Title = "x", AuthorId = 1, Price = 99 },
+            c => c.OnConflict(b => b.Title).Where(b => b.AuthorId == 1).DoUpdate(b => b.Price));
+
+        List<Book> rows = db.Table<Book>().OrderBy(b => b.Id).ToList();
+        Assert.Equal(1, affected);
+        Assert.Single(rows);
+        Assert.Equal(1, rows[0].Id);
+        Assert.Equal(99, rows[0].Price);
+    }
+
+    [Fact]
+    public void Upsert_OnConflictWhere_InsertsWhenRowOutsidePartialIndex()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Execute("CREATE UNIQUE INDEX ux_books_title_author1 ON \"Books\" (BookTitle) WHERE BookAuthorId = 1");
+
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 5 });
+
+        db.Table<Book>().Upsert(
+            new Book { Id = 2, Title = "x", AuthorId = 2, Price = 99 },
+            c => c.OnConflict(b => b.Title).Where(b => b.AuthorId == 1).DoUpdate(b => b.Price));
+
+        List<Book> rows = db.Table<Book>().OrderBy(b => b.Id).ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(5, rows[0].Price);
+        Assert.Equal(99, rows[1].Price);
+    }
+
+    [Fact]
+    public void Upsert_WhereCalledTwice_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Table<Book>().Upsert(
+                new Book { Id = 1, Title = "a", AuthorId = 1, Price = 1 },
+                c => c.OnConflict(b => b.Title).Where(b => b.AuthorId == 1).Where(b => b.Price > 0).DoNothing()));
+
+        Assert.Equal("Where was already called for this OnConflict target.", ex.Message);
+    }
+
     private sealed class SqlInspectingTable : SQLiteTable<Book>
     {
         public SqlInspectingTable(SQLiteDatabase database, TableMapping table) : base(database, table) { }

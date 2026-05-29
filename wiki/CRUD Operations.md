@@ -218,6 +218,16 @@ db.Table<Book>().Upsert(book, c => c.OnConflict(b => b.Id).DoUpdate(b => b.Title
 db.Table<Book>().Upsert(book, c => c.OnConflict(b => new { b.AuthorId, b.Title }).DoUpdate(b => b.Price));
 ```
 
+When the unique index you want to target is a partial index (one created with a `WHERE` clause), add a matching `Where` after `OnConflict` so SQLite picks that index. The predicate must match the index's own `WHERE` clause, and is translated to SQL the same way a `Where` query clause is:
+
+```csharp
+// Targets a UNIQUE INDEX ... (BookTitle) WHERE BookAuthorId = 1
+db.Table<Book>().Upsert(book, c => c
+    .OnConflict(b => b.Title)
+    .Where(b => b.AuthorId == 1)
+    .DoUpdate(b => b.Price));
+```
+
 `UpsertRange` is the range version. There is also `UpsertAsync` and `UpsertRangeAsync`.
 
 ## Hooks

@@ -531,7 +531,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         UpsertBuilder<T> builder = new();
         configure(builder);
         UpsertConflictTarget<T> target = builder.Build();
-        return UpsertSqlBuilder.Build(Table, target, (c, p) => WrapParam(p, c));
+        return UpsertSqlBuilder.Build(Database, Table, target, (c, p) => WrapParam(p, c));
     }
 
     /// <summary>

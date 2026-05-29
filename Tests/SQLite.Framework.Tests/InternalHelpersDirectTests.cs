@@ -215,7 +215,7 @@ public class InternalHelpersDirectTests
             ConstructDoUpdateAction<Book>(new[] { "DoesNotExist" }));
 
         Assert.Throws<InvalidOperationException>(() =>
-            UpsertSqlBuilder.Build(mapping, target, (_, name) => name));
+            UpsertSqlBuilder.Build(db, mapping, target, (_, name) => name));
     }
 
     [Fact]
@@ -229,7 +229,7 @@ public class InternalHelpersDirectTests
             ConstructActionWithKind<Book>(999));
 
         Assert.Throws<InvalidOperationException>(() =>
-            UpsertSqlBuilder.Build(mapping, target, (_, name) => name));
+            UpsertSqlBuilder.Build(db, mapping, target, (_, name) => name));
     }
 
     private static UpsertConflictTarget<T> ConstructConflictTarget<T>(IReadOnlyList<string> conflictColumns, UpsertAction<T> action)

@@ -7,6 +7,7 @@ namespace SQLite.Framework.Models;
 public sealed class UpsertConflictTarget<T>
 {
     private UpsertAction<T>? action;
+    private Expression<Func<T, bool>>? wherePredicate;
 
     internal UpsertConflictTarget(IReadOnlyList<string> conflictColumns)
     {
@@ -15,8 +16,26 @@ public sealed class UpsertConflictTarget<T>
 
     internal IReadOnlyList<string> ConflictColumns { get; }
 
+    internal Expression<Func<T, bool>>? WherePredicate => wherePredicate;
+
     internal UpsertAction<T> ResolvedAction => action
         ?? throw new InvalidOperationException("Upsert configuration is missing a DoNothing(), DoUpdateAll(), or DoUpdate(...) call.");
+
+    /// <summary>
+    /// Targets a partial unique index by adding a <c>WHERE</c> clause to the conflict target, as in
+    /// <c>ON CONFLICT (col) WHERE pred</c>. The predicate must match the partial index's own
+    /// <c>WHERE</c> clause. It is translated to SQL the same way <c>Where</c> clauses are.
+    /// </summary>
+    public UpsertConflictTarget<T> Where(Expression<Func<T, bool>> predicate)
+    {
+        if (wherePredicate != null)
+        {
+            throw new InvalidOperationException("Where was already called for this OnConflict target.");
+        }
+
+        wherePredicate = predicate;
+        return this;
+    }
 
     /// <summary>
     /// <c>ON CONFLICT (...) DO NOTHING</c>. Keeps the existing row, drops the new one.

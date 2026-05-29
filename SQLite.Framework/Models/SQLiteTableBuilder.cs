@@ -484,26 +484,12 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
 
     private string TranslateBareSql(LambdaExpression lambda)
     {
-        return TranslateBareSql(lambda.Parameters[0], lambda.Body);
+        return BareSqlTranslator.Translate(database, mapping, lambda);
     }
 
     private string TranslateBareSql(ParameterExpression rowParameter, Expression body)
     {
-        SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
-
-        Dictionary<string, Expression> columnExpressions = mapping.Columns.ToDictionary(
-            c => c.PropertyInfo.Name,
-            Expression (c) => SQLiteExpression.Leaf(c.PropertyType, visitor.Counters.NextIdentifier(), c.Name));
-
-        visitor.MethodArguments[rowParameter] = columnExpressions;
-
-        Expression result = visitor.Visit(body);
-        if (result is not SQLiteExpression sqlExpr)
-        {
-            throw new ArgumentException($"Expression '{body}' could not be translated to SQL.", nameof(body));
-        }
-
-        return SqlLiteralHelper.InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters ?? []);
+        return BareSqlTranslator.Translate(database, mapping, rowParameter, body);
     }
 
     private static string[] ResolvePropertyNames(Expression body)

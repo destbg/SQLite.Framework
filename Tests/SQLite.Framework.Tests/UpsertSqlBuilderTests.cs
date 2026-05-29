@@ -18,7 +18,7 @@ public class UpsertSqlBuilderTests
         UpsertConflictTarget<Book> target = new(["BookId"]);
         target.DoNothing();
 
-        (TableColumn[] _, string sql) = UpsertSqlBuilder.Build(mapping, target, (_, p) => p);
+        (TableColumn[] _, string sql) = UpsertSqlBuilder.Build(db, mapping, target, (_, p) => p);
 
         Assert.Equal(
             N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookId) DO NOTHING"),
@@ -34,6 +34,6 @@ public class UpsertSqlBuilderTests
         UpsertConflictTarget<Book> target = new(["NotARealColumnOrProperty"]);
         target.DoNothing();
 
-        Assert.Throws<InvalidOperationException>(() => UpsertSqlBuilder.Build(mapping, target, (_, p) => p));
+        Assert.Throws<InvalidOperationException>(() => UpsertSqlBuilder.Build(db, mapping, target, (_, p) => p));
     }
 }

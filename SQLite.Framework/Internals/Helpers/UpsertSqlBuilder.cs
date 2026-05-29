@@ -6,7 +6,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class UpsertSqlBuilder
 {
-    public static (TableColumn[] Columns, string Sql) Build<T>(TableMapping table, UpsertConflictTarget<T> target, Func<TableColumn, string, string> wrapParam)
+    public static (TableColumn[] Columns, string Sql) Build<T>(SQLiteDatabase database, TableMapping table, UpsertConflictTarget<T> target, Func<TableColumn, string, string> wrapParam)
     {
         TableColumn[] insertColumns = table.Columns
             .Where(c => !c.IsPrimaryKey || !c.IsAutoIncrement)
@@ -27,6 +27,12 @@ internal static class UpsertSqlBuilder
         sb.Append(" ON CONFLICT (");
         sb.Append(string.Join(", ", target.ConflictColumns.Select(name => ResolveSqlName(table, name))));
         sb.Append(')');
+
+        if (target.WherePredicate != null)
+        {
+            sb.Append(" WHERE ");
+            sb.Append(BareSqlTranslator.Translate(database, table, target.WherePredicate));
+        }
 
         UpsertAction<T> action = target.ResolvedAction;
         switch (action.Kind)
