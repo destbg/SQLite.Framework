@@ -99,25 +99,31 @@ public readonly struct SQLiteWindow<T>
     }
 
     /// <summary>
-    /// Adds a <c>ROWS BETWEEN start AND end</c> frame clause to the window.
+    /// Adds a <c>ROWS BETWEEN start AND end</c> frame clause to the window. Pass
+    /// <paramref name="exclude" /> to leave rows near the current row out of the frame
+    /// (needs SQLite 3.28.0 for any value other than <see cref="SQLiteFrameExclude.NoOthers" />).
     /// </summary>
-    public SQLiteWindow<T> Rows(SQLiteFrameBoundary start, SQLiteFrameBoundary end)
+    public SQLiteWindow<T> Rows(SQLiteFrameBoundary start, SQLiteFrameBoundary end, SQLiteFrameExclude exclude = SQLiteFrameExclude.NoOthers)
     {
         throw new InvalidOperationException("SQLiteWindow<T> chain methods can only be used inside a LINQ query.");
     }
 
     /// <summary>
-    /// Adds a <c>RANGE BETWEEN start AND end</c> frame clause to the window.
+    /// Adds a <c>RANGE BETWEEN start AND end</c> frame clause to the window. Pass
+    /// <paramref name="exclude" /> to leave rows near the current row out of the frame
+    /// (needs SQLite 3.28.0 for any value other than <see cref="SQLiteFrameExclude.NoOthers" />).
     /// </summary>
-    public SQLiteWindow<T> Range(SQLiteFrameBoundary start, SQLiteFrameBoundary end)
+    public SQLiteWindow<T> Range(SQLiteFrameBoundary start, SQLiteFrameBoundary end, SQLiteFrameExclude exclude = SQLiteFrameExclude.NoOthers)
     {
         throw new InvalidOperationException("SQLiteWindow<T> chain methods can only be used inside a LINQ query.");
     }
 
     /// <summary>
-    /// Adds a <c>GROUPS BETWEEN start AND end</c> frame clause to the window.
+    /// Adds a <c>GROUPS BETWEEN start AND end</c> frame clause to the window. Pass
+    /// <paramref name="exclude" /> to leave rows near the current row out of the frame
+    /// (needs SQLite 3.28.0 for any value other than <see cref="SQLiteFrameExclude.NoOthers" />).
     /// </summary>
-    public SQLiteWindow<T> Groups(SQLiteFrameBoundary start, SQLiteFrameBoundary end)
+    public SQLiteWindow<T> Groups(SQLiteFrameBoundary start, SQLiteFrameBoundary end, SQLiteFrameExclude exclude = SQLiteFrameExclude.NoOthers)
     {
         throw new InvalidOperationException("SQLiteWindow<T> chain methods can only be used inside a LINQ query.");
     }

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Runtime.CompilerServices;
 using SQLite.Framework.Attributes;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
@@ -628,6 +629,146 @@ public class WindowFunctionTests
         Assert.Equal(100.0, results[0].RunningTotal);
         Assert.Equal(100.0, results[1].RunningTotal);
         Assert.Equal(400.0, results[2].RunningTotal);
+    }
+
+    [Fact]
+    public void Rows_ExcludeCurrentRow_ProducesCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Over()
+                    .OrderBy(o.Id)
+                    .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow(), SQLiteFrameExclude.CurrentRow)
+            })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            SUM(w0.Amount) OVER ( ORDER BY w0.Id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE CURRENT ROW) AS "RunningTotal"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Range_ExcludeGroup_ProducesCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Over()
+                    .OrderBy(o.Date)
+                    .Range(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow(), SQLiteFrameExclude.Group)
+            })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            SUM(w0.Amount) OVER ( ORDER BY w0.Date ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE GROUP) AS "RunningTotal"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Groups_ExcludeTies_ProducesCorrectSql()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Over()
+                    .OrderBy(o.Amount)
+                    .Groups(SQLiteFrameBoundary.Preceding(1), SQLiteFrameBoundary.Following(1), SQLiteFrameExclude.Ties)
+            })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            SUM(w0.Amount) OVER ( ORDER BY w0.Amount ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING EXCLUDE TIES) AS "RunningTotal"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Rows_ExcludeNoOthers_OmitsClause()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        SQLiteCommand command = db.Table<Order>()
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Over()
+                    .OrderBy(o.Id)
+                    .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow(), SQLiteFrameExclude.NoOthers)
+            })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT w0.Id AS "Id",
+                            SUM(w0.Amount) OVER ( ORDER BY w0.Id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
+                     FROM "Order" AS w0
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void Rows_ExcludeCurrentRow_ReturnsCorrectValues()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<OrderWithTotal> results = db.Table<Order>()
+            .Where(o => o.CustomerId == 1)
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Over()
+                    .PartitionBy(o.CustomerId)
+                    .OrderBy(o.Id)
+                    .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.UnboundedFollowing(), SQLiteFrameExclude.CurrentRow)
+            })
+            .OrderBy(r => r.Id)
+            .ToList();
+
+        Assert.Equal(3, results.Count);
+        Assert.Equal(500.0, results[0].RunningTotal);
+        Assert.Equal(400.0, results[1].RunningTotal);
+        Assert.Equal(300.0, results[2].RunningTotal);
+    }
+
+    [Fact]
+    public void Frame_UnknownExclude_Throws()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => db.Table<Order>()
+            .Select(o => new OrderWithTotal
+            {
+                Id = o.Id,
+                RunningTotal = SQLiteWindowFunctions.Sum(o.Amount)
+                    .Over()
+                    .OrderBy(o.Id)
+                    .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow(), (SQLiteFrameExclude)999)
+            })
+            .ToSqlCommand());
+
+        Assert.Contains("not translatable to SQL", ex.Message);
     }
 }
 

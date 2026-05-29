@@ -47,7 +47,11 @@ internal static class WindowFunctionsMemberVisitor
         List<ResolvedModel> arguments = node.Object != null
             ? new List<ResolvedModel> { visitor.ResolveExpression(node.Object) }
             : new List<ResolvedModel>();
-        arguments.AddRange(node.Arguments.Select(visitor.ResolveExpression));
+
+        IEnumerable<Expression> resolvable = IsFrameMethod(node.Method.Name)
+            ? node.Arguments.Take(node.Arguments.Count - 1)
+            : node.Arguments;
+        arguments.AddRange(resolvable.Select(visitor.ResolveExpression));
 
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(arguments
             .Select(a => a.SQLiteExpression)
@@ -89,9 +93,9 @@ internal static class WindowFunctionsMemberVisitor
             nameof(SQLiteWindow<>.OrderByDescending) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], " ORDER BY ", arguments[1], " DESC"), parameters),
             nameof(SQLiteWindow<>.ThenOrderBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], ", ", arguments[1], " ASC"), parameters),
             nameof(SQLiteWindow<>.ThenOrderByDescending) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], ", ", arguments[1], " DESC"), parameters),
-            nameof(SQLiteWindow<>.Rows) => SQLiteExpression.Lambda(t, id, sb => WriteFrame(sb, arguments[0], " ROWS BETWEEN ", arguments[1], arguments[2]), parameters),
-            nameof(SQLiteWindow<>.Range) => SQLiteExpression.Lambda(t, id, sb => WriteFrame(sb, arguments[0], " RANGE BETWEEN ", arguments[1], arguments[2]), parameters),
-            nameof(SQLiteWindow<>.Groups) => SQLiteExpression.Lambda(t, id, sb => WriteFrame(sb, arguments[0], " GROUPS BETWEEN ", arguments[1], arguments[2]), parameters),
+            nameof(SQLiteWindow<>.Rows) => Frame(visitor, t, id, arguments, " ROWS BETWEEN ", node, parameters),
+            nameof(SQLiteWindow<>.Range) => Frame(visitor, t, id, arguments, " RANGE BETWEEN ", node, parameters),
+            nameof(SQLiteWindow<>.Groups) => Frame(visitor, t, id, arguments, " GROUPS BETWEEN ", node, parameters),
             _ => throw new NotSupportedException($"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL."),
         };
     }
@@ -119,6 +123,46 @@ internal static class WindowFunctionsMemberVisitor
         return SQLiteExpression.Lambda(t, id, sb => WriteFilter(sb, prev, predicate), parameters);
     }
 
+    private static SQLiteExpression Frame(SQLVisitor visitor, Type t, int id, List<ResolvedModel> arguments, string keyword, MethodCallExpression node, SQLiteParameter[]? parameters)
+    {
+        string exclude = ExcludeKeyword(visitor, node);
+        ResolvedModel prev = arguments[0];
+        ResolvedModel start = arguments[1];
+        ResolvedModel end = arguments[2];
+        return SQLiteExpression.Lambda(t, id, sb => WriteFrame(sb, prev, keyword, start, end, exclude), parameters);
+    }
+
+    private static string ExcludeKeyword(SQLVisitor visitor, MethodCallExpression node)
+    {
+        SQLiteFrameExclude exclude = (SQLiteFrameExclude)ExpressionHelpers.GetConstantValue(node.Arguments[^1])!;
+        string keyword;
+        switch (exclude)
+        {
+            case SQLiteFrameExclude.NoOthers:
+                return "";
+            case SQLiteFrameExclude.CurrentRow:
+                keyword = " EXCLUDE CURRENT ROW";
+                break;
+            case SQLiteFrameExclude.Group:
+                keyword = " EXCLUDE GROUP";
+                break;
+            case SQLiteFrameExclude.Ties:
+                keyword = " EXCLUDE TIES";
+                break;
+            default:
+                throw new NotSupportedException($"SQLiteFrameExclude.{exclude} is not translatable to SQL.");
+        }
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_28, "EXCLUDE in window frames");
+#endif
+        return keyword;
+    }
+
+    private static bool IsFrameMethod(string name)
+    {
+        return name is nameof(SQLiteWindow<>.Rows) or nameof(SQLiteWindow<>.Range) or nameof(SQLiteWindow<>.Groups);
+    }
+
     private static void WriteOverChain(StringBuilder sb, ResolvedModel prev, string sep, ResolvedModel arg)
     {
         prev.SQLiteExpression!.WriteSqlTo(sb);
@@ -138,7 +182,7 @@ internal static class WindowFunctionsMemberVisitor
         sb.Append(')');
     }
 
-    private static void WriteFrame(StringBuilder sb, ResolvedModel prev, string keyword, ResolvedModel start, ResolvedModel end)
+    private static void WriteFrame(StringBuilder sb, ResolvedModel prev, string keyword, ResolvedModel start, ResolvedModel end, string exclude)
     {
         prev.SQLiteExpression!.WriteSqlTo(sb);
         sb.Length--;
@@ -146,6 +190,7 @@ internal static class WindowFunctionsMemberVisitor
         start.SQLiteExpression!.WriteSqlTo(sb);
         sb.Append(" AND ");
         end.SQLiteExpression!.WriteSqlTo(sb);
+        sb.Append(exclude);
         sb.Append(')');
     }
 

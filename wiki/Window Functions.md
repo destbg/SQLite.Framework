@@ -6,7 +6,7 @@ Window functions compute a value for each row based on a set of rows related to 
 >
 > If you need to support Android API 29 or earlier, or iOS 12 or earlier, use `SQLite.Framework.Bundled` or `SQLite.Framework.Cipher` instead of the default `SQLite.Framework` package. Both ship their own SQLite binary and work on any supported OS version.
 >
-> When you use `SQLite.Framework` (the OS-bundled flavor), `SQLiteWindowFunctions` and `FrameBoundary` carry `[SupportedOSPlatform("android30.0")]` and `[SupportedOSPlatform("ios13.0")]` so the .NET platform compatibility analyzer (CA1416) warns when you target a lower minimum. In a MAUI or multi-targeted csproj, raise the minimum once your supported floor is high enough:
+> When you use `SQLite.Framework` (the OS-bundled flavor), `SQLiteWindowFunctions` and `SQLiteFrameBoundary` carry `[SupportedOSPlatform("android30.0")]` and `[SupportedOSPlatform("ios13.0")]` so the .NET platform compatibility analyzer (CA1416) warns when you target a lower minimum. In a MAUI or multi-targeted csproj, raise the minimum once your supported floor is high enough:
 >
 > ```xml
 > <PropertyGroup>
@@ -83,22 +83,45 @@ SQLiteWindowFunctions.Rank()
 
 ### Frame
 
-By default SQLite uses a range from the start of the partition to the current row when an ORDER BY is present. You can set an explicit frame with `Rows`, `Range`, or `Groups`, using the `FrameBoundary` helpers to specify each end.
+By default SQLite uses a range from the start of the partition to the current row when an ORDER BY is present. You can set an explicit frame with `Rows`, `Range`, or `Groups`, using the `SQLiteFrameBoundary` helpers to specify each end.
 
 ```csharp
 SQLiteWindowFunctions.Sum(o.Amount)
     .Over()
     .OrderBy(o.Date)
-    .Rows(FrameBoundary.UnboundedPreceding(), FrameBoundary.CurrentRow())
+    .Rows(SQLiteFrameBoundary.UnboundedPreceding(), SQLiteFrameBoundary.CurrentRow())
 ```
 
 | Boundary | SQL produced |
 |---|---|
-| `FrameBoundary.UnboundedPreceding()` | `UNBOUNDED PRECEDING` |
-| `FrameBoundary.CurrentRow()` | `CURRENT ROW` |
-| `FrameBoundary.UnboundedFollowing()` | `UNBOUNDED FOLLOWING` |
-| `FrameBoundary.Preceding(n)` | `n PRECEDING` |
-| `FrameBoundary.Following(n)` | `n FOLLOWING` |
+| `SQLiteFrameBoundary.UnboundedPreceding()` | `UNBOUNDED PRECEDING` |
+| `SQLiteFrameBoundary.CurrentRow()` | `CURRENT ROW` |
+| `SQLiteFrameBoundary.UnboundedFollowing()` | `UNBOUNDED FOLLOWING` |
+| `SQLiteFrameBoundary.Preceding(n)` | `n PRECEDING` |
+| `SQLiteFrameBoundary.Following(n)` | `n FOLLOWING` |
+
+#### Excluding rows from the frame
+
+Pass a `SQLiteFrameExclude` as the last argument to `Rows`, `Range`, or `Groups` to drop rows near the current row from the frame the function sees. The default `NoOthers` keeps every row, so existing two-argument calls are unchanged. Any other value needs SQLite 3.28.0.
+
+```csharp
+SQLiteWindowFunctions.Sum(o.Amount)
+    .Over()
+    .OrderBy(o.Id)
+    .Rows(
+        SQLiteFrameBoundary.UnboundedPreceding(),
+        SQLiteFrameBoundary.UnboundedFollowing(),
+        SQLiteFrameExclude.CurrentRow)
+```
+
+| `SQLiteFrameExclude` | SQL produced |
+|---|---|
+| `NoOthers` | (no clause, the default) |
+| `CurrentRow` | `EXCLUDE CURRENT ROW` |
+| `Group` | `EXCLUDE GROUP` |
+| `Ties` | `EXCLUDE TIES` |
+
+`CurrentRow` leaves out the current row, `Group` also leaves out its peers (rows with the same ORDER BY value), and `Ties` leaves out the peers but keeps the current row.
 
 ## Aggregate functions
 
@@ -129,6 +152,27 @@ var results = await db.Table<Order>()
     })
     .ToListAsync();
 ```
+
+### Filtered aggregate
+
+Chain `Filter` to feed only the rows matching a predicate into the aggregate. It maps to `SUM(x) FILTER (WHERE pred) OVER (...)` and needs SQLite 3.30.0. This lets you compute several totals with different filters in a single pass. The chain order does not matter, because `FILTER` is always emitted before `OVER`.
+
+```csharp
+var results = await db.Table<Order>()
+    .Select(o => new
+    {
+        o.CustomerId,
+        BigOrderTotal = SQLiteWindowFunctions.Sum(o.Amount)
+            .Filter(o.Amount > 100)
+            .Over()
+            .PartitionBy(o.CustomerId)
+            .OrderBy(o.Date)
+            .AsValue(),
+    })
+    .ToListAsync();
+```
+
+`Filter` only applies to aggregate window functions (`Sum`, `Avg`, `Min`, `Max`, `Count`). SQLite rejects it on ranking functions such as `RowNumber`.
 
 ## Ranking functions
 
@@ -198,4 +242,4 @@ var results = await db.Table<Order>()
 
 ## Native AOT
 
-The framework keeps all public methods on `SQLiteWindowFunctions` and `FrameBoundary` rooted for the trimmer, so those marker methods are never removed from the output. No extra setup is needed.
+The framework keeps all public methods on `SQLiteWindowFunctions` and `SQLiteFrameBoundary` rooted for the trimmer, so those marker methods are never removed from the output. No extra setup is needed.
