@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace SQLite.Framework.Internals.Helpers;
 
 /// <summary>
@@ -13,11 +15,17 @@ internal static class SqlLiteralHelper
             return sql;
         }
 
-        foreach (SQLiteParameter parameter in parameters.OrderByDescending(p => p.Name.Length))
+        Dictionary<string, string> literals = new(parameters.Count);
+        foreach (SQLiteParameter parameter in parameters)
         {
-            sql = sql.Replace(parameter.Name, FormatLiteral(parameter.Value));
+            literals[parameter.Name] = FormatLiteral(parameter.Value);
         }
-        return sql;
+
+        string pattern = string.Join("|", literals.Keys
+            .OrderByDescending(name => name.Length)
+            .Select(Regex.Escape));
+
+        return Regex.Replace(sql, pattern, match => literals[match.Value]);
     }
 
     public static string FormatLiteral(object? value)

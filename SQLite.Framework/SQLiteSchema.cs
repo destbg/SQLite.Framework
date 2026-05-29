@@ -159,7 +159,7 @@ public class SQLiteSchema
         string indexName = name ?? $"idx_{mapping.TableName}_{columnName}";
         string uniqueClause = unique ? "UNIQUE " : string.Empty;
 
-        string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{indexName}\" ON \"{mapping.TableName}\" ({columnName})";
+        string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{indexName.Replace("\"", "\"\"")}\" ON \"{mapping.TableName}\" ({columnName})";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 

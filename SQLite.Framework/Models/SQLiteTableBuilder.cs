@@ -462,7 +462,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             string uniqueClause = index.Unique ? "UNIQUE " : string.Empty;
             string columnList = string.Join(", ", index.Columns.Select((c, i) => c + CollationHelper.Clause(index.Collations[i]) + IndexDirectionHelper.Clause(index.Directions[i])));
             string where = index.FilterSql == null ? string.Empty : $" WHERE {index.FilterSql}";
-            string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{index.Name}\" ON \"{mapping.TableName}\" ({columnList}){where}";
+            string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{index.Name.Replace("\"", "\"\"")}\" ON \"{mapping.TableName}\" ({columnList}){where}";
             count += database.CreateCommand(sql, []).ExecuteNonQuery();
         }
 

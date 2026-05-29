@@ -20,10 +20,25 @@ public class PragmaTests
     public void JournalMode_Roundtrip()
     {
         using TestDatabase db = new(useFile: true);
-        db.Pragmas.JournalMode = "WAL";
-        Assert.Equal("wal", db.Pragmas.JournalMode);
-        db.Pragmas.JournalMode = "DELETE";
-        Assert.Equal("delete", db.Pragmas.JournalMode);
+        db.Pragmas.JournalMode = SQLiteJournalMode.Delete;
+        Assert.Equal(SQLiteJournalMode.Delete, db.Pragmas.JournalMode);
+        db.Pragmas.JournalMode = SQLiteJournalMode.Truncate;
+        Assert.Equal(SQLiteJournalMode.Truncate, db.Pragmas.JournalMode);
+        db.Pragmas.JournalMode = SQLiteJournalMode.Persist;
+        Assert.Equal(SQLiteJournalMode.Persist, db.Pragmas.JournalMode);
+        db.Pragmas.JournalMode = SQLiteJournalMode.Memory;
+        Assert.Equal(SQLiteJournalMode.Memory, db.Pragmas.JournalMode);
+        db.Pragmas.JournalMode = SQLiteJournalMode.Off;
+        Assert.Equal(SQLiteJournalMode.Off, db.Pragmas.JournalMode);
+        db.Pragmas.JournalMode = SQLiteJournalMode.Wal;
+        Assert.Equal(SQLiteJournalMode.Wal, db.Pragmas.JournalMode);
+    }
+
+    [Fact]
+    public void JournalMode_InvalidEnum_Throws()
+    {
+        using TestDatabase db = new();
+        Assert.Throws<ArgumentOutOfRangeException>(() => db.Pragmas.JournalMode = (SQLiteJournalMode)999);
     }
 
     [Fact]
@@ -124,9 +139,9 @@ public class PragmaTests
     public async Task AsyncExtensions_RoundtripJournalMode()
     {
         using TestDatabase db = new(useFile: true);
-        await db.Pragmas.SetJournalModeAsync("WAL", TestContext.Current.CancellationToken);
-        string mode = await db.Pragmas.GetJournalModeAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("wal", mode);
+        await db.Pragmas.SetJournalModeAsync(SQLiteJournalMode.Wal, TestContext.Current.CancellationToken);
+        SQLiteJournalMode mode = await db.Pragmas.GetJournalModeAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(SQLiteJournalMode.Wal, mode);
     }
 
     [Fact]
@@ -273,7 +288,7 @@ public class PragmaTests
     public void WalAutoCheckpoint_Roundtrip()
     {
         using TestDatabase db = new(useFile: true);
-        db.Pragmas.JournalMode = "WAL";
+        db.Pragmas.JournalMode = SQLiteJournalMode.Wal;
         db.Pragmas.WalAutoCheckpoint = 500;
         Assert.Equal(500, db.Pragmas.WalAutoCheckpoint);
     }
@@ -282,7 +297,7 @@ public class PragmaTests
     public void WalCheckpoint_ReturnsTrueOnEmptyWal()
     {
         using TestDatabase db = new(useFile: true);
-        db.Pragmas.JournalMode = "WAL";
+        db.Pragmas.JournalMode = SQLiteJournalMode.Wal;
         Assert.True(db.Pragmas.WalCheckpoint());
         Assert.True(db.Pragmas.WalCheckpoint(SQLiteWalCheckpointMode.Full));
         Assert.True(db.Pragmas.WalCheckpoint(SQLiteWalCheckpointMode.Restart));
@@ -293,7 +308,7 @@ public class PragmaTests
     public void WalCheckpoint_InvalidEnum_Throws()
     {
         using TestDatabase db = new(useFile: true);
-        db.Pragmas.JournalMode = "WAL";
+        db.Pragmas.JournalMode = SQLiteJournalMode.Wal;
         Assert.Throws<ArgumentOutOfRangeException>(() => db.Pragmas.WalCheckpoint((SQLiteWalCheckpointMode)999));
     }
 
@@ -459,7 +474,7 @@ public class PragmaTests
     public async Task WalAutoCheckpointAsync_Roundtrip()
     {
         using TestDatabase db = new(useFile: true);
-        await db.Pragmas.SetJournalModeAsync("WAL");
+        await db.Pragmas.SetJournalModeAsync(SQLiteJournalMode.Wal);
         await db.Pragmas.SetWalAutoCheckpointAsync(800);
         Assert.Equal(800, await db.Pragmas.GetWalAutoCheckpointAsync());
     }
@@ -468,7 +483,7 @@ public class PragmaTests
     public async Task WalCheckpointAsync_ReturnsTrueOnEmptyWal()
     {
         using TestDatabase db = new(useFile: true);
-        await db.Pragmas.SetJournalModeAsync("WAL");
+        await db.Pragmas.SetJournalModeAsync(SQLiteJournalMode.Wal);
         Assert.True(await db.Pragmas.WalCheckpointAsync());
         Assert.True(await db.Pragmas.WalCheckpointAsync(SQLiteWalCheckpointMode.Truncate));
     }
@@ -586,6 +601,22 @@ public class PragmaTests
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
             () => SQLitePragmas.ParseLockingMode(null));
+        Assert.Contains("<null>", ex.Message);
+    }
+
+    [Fact]
+    public void ParseJournalMode_UnknownString_Throws()
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => SQLitePragmas.ParseJournalMode("garbage"));
+        Assert.Contains("garbage", ex.Message);
+    }
+
+    [Fact]
+    public void ParseJournalMode_Null_Throws()
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => SQLitePragmas.ParseJournalMode(null));
         Assert.Contains("<null>", ex.Message);
     }
 

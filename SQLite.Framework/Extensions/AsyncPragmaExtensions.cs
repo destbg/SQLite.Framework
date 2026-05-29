@@ -33,7 +33,7 @@ public static class AsyncPragmaExtensions
     /// <summary>
     /// Reads <c>PRAGMA journal_mode</c>.
     /// </summary>
-    public static Task<string> GetJournalModeAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
+    public static Task<SQLiteJournalMode> GetJournalModeAsync(this SQLitePragmas pragmas, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
         {
@@ -45,7 +45,7 @@ public static class AsyncPragmaExtensions
     /// <summary>
     /// Writes <c>PRAGMA journal_mode</c>.
     /// </summary>
-    public static Task SetJournalModeAsync(this SQLitePragmas pragmas, string value, CancellationToken ct = default)
+    public static Task SetJournalModeAsync(this SQLitePragmas pragmas, SQLiteJournalMode value, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
         {

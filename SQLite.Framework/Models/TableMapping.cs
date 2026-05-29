@@ -19,6 +19,7 @@ public class TableMapping
 
         Type = type;
         TableName = tableAttribute?.Name ?? type.Name;
+        IdentifierGuard.EnsureNoQuote(TableName, "Table");
         WithoutRowId = type.GetCustomAttribute<WithoutRowIdAttribute>() != null;
         Strict = type.GetCustomAttribute<StrictTableAttribute>() != null;
         bool hasFts = type.GetCustomAttribute<FullTextSearchAttribute>() != null;

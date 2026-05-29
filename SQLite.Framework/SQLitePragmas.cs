@@ -31,13 +31,21 @@ public class SQLitePragmas
     }
 
     /// <summary>
-    /// <c>PRAGMA journal_mode</c>. Possible values are <c>DELETE</c>, <c>WAL</c>, <c>MEMORY</c>,
-    /// <c>TRUNCATE</c>, <c>PERSIST</c>, <c>OFF</c>.
+    /// <c>PRAGMA journal_mode</c>. Controls how SQLite keeps the rollback journal.
     /// </summary>
-    public virtual string JournalMode
+    public virtual SQLiteJournalMode JournalMode
     {
-        get => Database.ExecuteScalar<string>("PRAGMA journal_mode")!;
-        set => Database.ExecuteScalar<string>($"PRAGMA journal_mode = {value}");
+        get => ParseJournalMode(Database.ExecuteScalar<string>("PRAGMA journal_mode"));
+        set => Database.ExecuteScalar<string>($"PRAGMA journal_mode = {value switch
+        {
+            SQLiteJournalMode.Delete => "DELETE",
+            SQLiteJournalMode.Truncate => "TRUNCATE",
+            SQLiteJournalMode.Persist => "PERSIST",
+            SQLiteJournalMode.Memory => "MEMORY",
+            SQLiteJournalMode.Wal => "WAL",
+            SQLiteJournalMode.Off => "OFF",
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, null),
+        }}");
     }
 
     /// <summary>
@@ -459,6 +467,20 @@ public class SQLitePragmas
             "normal" => SQLiteLockingMode.Normal,
             "exclusive" => SQLiteLockingMode.Exclusive,
             _ => throw new InvalidOperationException($"Unrecognized PRAGMA locking_mode value '{value ?? "<null>"}'."),
+        };
+    }
+
+    internal static SQLiteJournalMode ParseJournalMode(string? value)
+    {
+        return value switch
+        {
+            "delete" => SQLiteJournalMode.Delete,
+            "truncate" => SQLiteJournalMode.Truncate,
+            "persist" => SQLiteJournalMode.Persist,
+            "memory" => SQLiteJournalMode.Memory,
+            "wal" => SQLiteJournalMode.Wal,
+            "off" => SQLiteJournalMode.Off,
+            _ => throw new InvalidOperationException($"Unrecognized PRAGMA journal_mode value '{value ?? "<null>"}'."),
         };
     }
 }

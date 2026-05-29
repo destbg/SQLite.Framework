@@ -24,6 +24,7 @@ public class TableColumn
 
         PropertyInfo = property;
         Name = isFtsRowId ? "rowid" : columnAttribute?.Name ?? property.Name;
+        IdentifierGuard.EnsureNoQuote(Name, "Column");
         PropertyType = type;
         Indices = property.GetCustomAttributes<IndexedAttribute>().ToArray();
         IsPrimaryKey = keyProperty != null;

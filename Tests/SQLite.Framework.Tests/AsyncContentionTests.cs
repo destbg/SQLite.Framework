@@ -89,7 +89,7 @@ public class AsyncContentionTests
     [Fact] public Task GetForeignKeysAsync_Contended() => RunContended(db => db.Pragmas.GetForeignKeysAsync());
     [Fact] public Task SetForeignKeysAsync_Contended() => RunContended(db => db.Pragmas.SetForeignKeysAsync(true));
     [Fact] public Task GetJournalModeAsync_Contended() => RunContended(db => db.Pragmas.GetJournalModeAsync());
-    [Fact] public Task SetJournalModeAsync_Contended() => RunContended(db => db.Pragmas.SetJournalModeAsync("WAL"));
+    [Fact] public Task SetJournalModeAsync_Contended() => RunContended(db => db.Pragmas.SetJournalModeAsync(SQLiteJournalMode.Wal));
     [Fact] public Task GetCacheSizeAsync_Contended() => RunContended(db => db.Pragmas.GetCacheSizeAsync());
     [Fact] public Task SetCacheSizeAsync_Contended() => RunContended(db => db.Pragmas.SetCacheSizeAsync(-2000));
     [Fact] public Task GetSynchronousModeAsync_Contended() => RunContended(db => db.Pragmas.GetSynchronousModeAsync());

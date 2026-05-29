@@ -19,12 +19,65 @@ using TypeHelpers = SQLite.Framework.Internals.Helpers.TypeHelpers;
 using ParameterHelpers = SQLite.Framework.Internals.Helpers.ParameterHelpers;
 using FtsRenderState = SQLite.Framework.Internals.FTS5.FtsRenderState;
 using UpsertSqlBuilder = SQLite.Framework.Internals.Helpers.UpsertSqlBuilder;
+using SqlLiteralHelper = SQLite.Framework.Internals.Helpers.SqlLiteralHelper;
+using IdentifierGuard = SQLite.Framework.Internals.Helpers.IdentifierGuard;
 
 namespace SQLite.Framework.Tests;
 
 public class InternalHelpersDirectTests
 {
     private static readonly SQLiteOptions CompilerOptions = new SQLiteOptionsBuilder("compiler-internal-direct.db3").Build();
+
+    [Fact]
+    public void SqlLiteralHelper_InlineParameters_NoParameters_ReturnsSqlUnchanged()
+    {
+        string sql = "SELECT 1";
+        string result = SqlLiteralHelper.InlineParameters(sql, []);
+        Assert.Same(sql, result);
+    }
+
+    [Fact]
+    public void SqlLiteralHelper_InlineParameters_LongerNameWinsOverPrefix()
+    {
+        List<SQLiteParameter> parameters =
+        [
+            new() { Name = "@p1", Value = 1 },
+            new() { Name = "@p10", Value = 10 },
+        ];
+
+        string result = SqlLiteralHelper.InlineParameters("a = @p1 AND b = @p10", parameters);
+
+        Assert.Equal("a = 1 AND b = 10", result);
+    }
+
+    [Fact]
+    public void SqlLiteralHelper_InlineParameters_DoesNotRescanAlreadyInlinedLiteral()
+    {
+        List<SQLiteParameter> parameters =
+        [
+            new() { Name = "@p0", Value = "contains @p1 token" },
+            new() { Name = "@p1", Value = 42 },
+        ];
+
+        string result = SqlLiteralHelper.InlineParameters("x = @p0 AND y = @p1", parameters);
+
+        Assert.Equal("x = 'contains @p1 token' AND y = 42", result);
+    }
+
+    [Fact]
+    public void IdentifierGuard_EnsureNoQuote_PlainName_DoesNotThrow()
+    {
+        IdentifierGuard.EnsureNoQuote("PlainName", "Table");
+    }
+
+    [Fact]
+    public void IdentifierGuard_EnsureNoQuote_NameWithQuote_Throws()
+    {
+        ArgumentException ex = Assert.Throws<ArgumentException>(
+            () => IdentifierGuard.EnsureNoQuote("Bad\"Name", "Column"));
+        Assert.Contains("Column", ex.Message);
+        Assert.Contains("double-quote", ex.Message);
+    }
 
     [Fact]
     public void CommandHelpers_ReadColumnValue_UnknownColumnType_Throws()
