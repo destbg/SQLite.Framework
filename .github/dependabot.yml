@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
     groups:
       actions-non-major:
         patterns:
@@ -15,7 +15,7 @@ updates:
   - package-ecosystem: nuget
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
     open-pull-requests-limit: 10
     groups:
       nuget-non-major:
@@ -28,7 +28,7 @@ updates:
   - package-ecosystem: npm
     directory: /site
     schedule:
-      interval: weekly
+      interval: daily
     groups:
       npm-non-major:
         patterns:
