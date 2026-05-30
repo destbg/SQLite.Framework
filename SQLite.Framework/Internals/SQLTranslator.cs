@@ -908,6 +908,7 @@ internal class SQLTranslator
             || name == nameof(Queryable.LeftJoin)
             || name == nameof(Queryable.RightJoin)
 #endif
+            || name == nameof(QueryableExtensions.FullOuterJoin)
             || name == nameof(Queryable.GroupJoin);
     }
 

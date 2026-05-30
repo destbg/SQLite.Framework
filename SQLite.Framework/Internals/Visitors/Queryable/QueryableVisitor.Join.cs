@@ -6,6 +6,13 @@ internal partial class QueryableVisitor
     {
         ThrowIfSetOperations(node.Method.Name);
 
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        if (joinType == "FULL OUTER JOIN")
+        {
+            database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_39, "FULL OUTER JOIN");
+        }
+#endif
+
         (Dictionary<string, Expression> newTableColumns, Type entityType, SQLiteExpression sql) = ResolveTable(node.Arguments[1]);
 
         LambdaExpression outerKey = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[2]);

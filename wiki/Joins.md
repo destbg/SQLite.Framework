@@ -42,6 +42,20 @@ var results = await (
 
 The "from" must be always right after the join.
 
+## Full Outer Join
+
+Returns matched rows plus the unmatched rows from both sides. .NET has no built-in operator, so use the framework's `FullOuterJoin` method. The result selector gets the outer row (null when only an inner row matched) and the inner row (null when only an outer row matched). Requires SQLite 3.39 or newer.
+
+```csharp
+var results = await db.Table<Author>()
+    .FullOuterJoin(
+        db.Table<Book>(),
+        author => author.Id,
+        book => book.AuthorId,
+        (author, book) => new { Author = author == null ? null : author.Name, Book = book == null ? null : book.Title })
+    .ToListAsync();
+```
+
 ## Cross Join
 
 Returns every combination of rows from both tables.

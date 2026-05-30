@@ -305,6 +305,35 @@ public class MinimumSqliteVersionTests
     }
 
     [Fact]
+    public void LowFloor_BlocksFullOuterJoin()
+    {
+        using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_38));
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Schema.CreateTable();
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>()
+                .FullOuterJoin(db.Table<Author>(), b => b.AuthorId, a => a.Id, (b, a) => b!.Id)
+                .ToList());
+
+        Assert.Contains("FULL OUTER JOIN", ex.Message);
+        Assert.Contains("3.39", ex.Message);
+    }
+
+    [Fact]
+    public void LowFloor_BlocksNullsOrder()
+    {
+        using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_29));
+        db.Table<Book>().Schema.CreateTable();
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().OrderBy(b => b.Title, SQLiteNullsOrder.Last).ToList());
+
+        Assert.Contains("NULLS", ex.Message);
+        Assert.Contains("3.30", ex.Message);
+    }
+
+    [Fact]
     public void LowFloor_BlocksUpsert()
     {
         using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_22));

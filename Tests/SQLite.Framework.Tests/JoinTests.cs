@@ -77,6 +77,55 @@ public class JoinTests
     }
 
     [Fact]
+    public void FullOuterJoin_EmitsFullOuterJoinSql()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.Table<Book>()
+            .FullOuterJoin(
+                db.Table<Author>(),
+                b => b.AuthorId,
+                a => a.Id,
+                (b, a) => new { Title = b!.Title, Name = a!.Name })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT b0."BookTitle" AS "Title",
+                            a1."AuthorName" AS "Name"
+                     FROM "Books" AS b0
+                     FULL OUTER JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void FullOuterJoin_ReturnsUnmatchedRowsFromBothSides()
+    {
+        using TestDatabase db = new();
+        db.Table<Author>().Schema.CreateTable();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Add(new Author { Id = 1, Name = "Alice", Email = "a", BirthDate = default });
+        db.Table<Author>().Add(new Author { Id = 2, Name = "Bob", Email = "b", BirthDate = default });
+        db.Table<Book>().Add(new Book { Id = 1, Title = "Matched", AuthorId = 1, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "Orphan", AuthorId = 99, Price = 2 });
+
+        List<(string? Title, string? Name)> rows = db.Table<Book>()
+            .FullOuterJoin(
+                db.Table<Author>(),
+                b => b.AuthorId,
+                a => a.Id,
+                (b, a) => new { Title = b == null ? null : b.Title, Name = a == null ? null : a.Name })
+            .ToList()
+            .Select(r => (r.Title, r.Name))
+            .ToList();
+
+        Assert.Equal(3, rows.Count);
+        Assert.Contains(("Matched", "Alice"), rows);
+        Assert.Contains(("Orphan", (string?)null), rows);
+        Assert.Contains(((string?)null, "Bob"), rows);
+    }
+
+    [Fact]
     public void TwoJoins()
     {
         using TestDatabase db = new();

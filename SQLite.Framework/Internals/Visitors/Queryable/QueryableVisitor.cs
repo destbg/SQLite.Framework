@@ -57,6 +57,7 @@ internal partial class QueryableVisitor
 #endif
             nameof(System.Linq.Queryable.Join) => VisitJoin(node, "JOIN"),
             nameof(System.Linq.Queryable.GroupJoin) => VisitJoin(node, "LEFT JOIN"),
+            nameof(QueryableExtensions.FullOuterJoin) => VisitJoin(node, "FULL OUTER JOIN"),
             nameof(System.Linq.Queryable.SelectMany) => VisitSelectMany(node),
             nameof(System.Linq.Queryable.Take) => VisitTake(node),
             nameof(System.Linq.Queryable.Skip) => VisitSkip(node),
