@@ -43,6 +43,18 @@ internal partial class QueryableVisitor
             ? " ASC"
             : " DESC";
 
+        if (node.Arguments.Count == 3)
+        {
+            SQLiteNullsOrder nulls = (SQLiteNullsOrder)ExpressionHelpers.GetConstantValue(node.Arguments[2])!;
+            if (nulls != SQLiteNullsOrder.Default)
+            {
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+                database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_30, "NULLS FIRST/LAST in ORDER BY");
+#endif
+                order += nulls == SQLiteNullsOrder.First ? " NULLS FIRST" : " NULLS LAST";
+            }
+        }
+
         OrderBys.Add(SQLiteExpression.Wrap(node.Arguments[1].Type, visitor.Counters.NextIdentifier(), "", sqlExpression, order, sqlExpression.Parameters));
         return orderBy;
     }

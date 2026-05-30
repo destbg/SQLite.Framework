@@ -106,6 +106,15 @@ var sorted = await db.Table<Book>()
     .ToListAsync();
 ```
 
+Pass a `SQLiteNullsOrder` to control where nulls land, which emits `NULLS FIRST` or `NULLS LAST`. Requires SQLite 3.30 or newer.
+
+```csharp
+var sorted = await db.Table<Book>()
+    .OrderBy(b => b.PublishedAt, SQLiteNullsOrder.Last)
+    .ThenByDescending(b => b.Price, SQLiteNullsOrder.First)
+    .ToListAsync();
+```
+
 ## Pagination
 
 ```csharp

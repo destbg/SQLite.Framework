@@ -37,6 +37,85 @@ public static class QueryableExtensions
     }
 
     /// <summary>
+    /// Orders the rows by <paramref name="keySelector" /> ascending and places nulls according to
+    /// <paramref name="nulls" />, emitting <c>ORDER BY key ASC NULLS FIRST</c> or <c>... NULLS LAST</c>.
+    /// Use this instead of a <c>CASE</c> on the sort key. <c>NULLS FIRST</c>/<c>LAST</c> requires
+    /// SQLite 3.30.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public static IOrderedQueryable<T> OrderBy<T, TKey>(this IQueryable<T> source, Expression<Func<T, TKey>> keySelector, SQLiteNullsOrder nulls)
+    {
+        return ApplyOrderWithNulls(source, keySelector, nulls, new Func<IQueryable<T>, Expression<Func<T, TKey>>, SQLiteNullsOrder, IOrderedQueryable<T>>(OrderBy).Method);
+    }
+
+    /// <summary>
+    /// Orders the rows by <paramref name="keySelector" /> descending and places nulls according to
+    /// <paramref name="nulls" />, emitting <c>ORDER BY key DESC NULLS FIRST</c> or <c>... NULLS LAST</c>.
+    /// <c>NULLS FIRST</c>/<c>LAST</c> requires SQLite 3.30.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public static IOrderedQueryable<T> OrderByDescending<T, TKey>(this IQueryable<T> source, Expression<Func<T, TKey>> keySelector, SQLiteNullsOrder nulls)
+    {
+        return ApplyOrderWithNulls(source, keySelector, nulls, new Func<IQueryable<T>, Expression<Func<T, TKey>>, SQLiteNullsOrder, IOrderedQueryable<T>>(OrderByDescending).Method);
+    }
+
+    /// <summary>
+    /// Adds a secondary ascending sort key with the given null placement. Emits
+    /// <c>key ASC NULLS FIRST</c> or <c>... NULLS LAST</c>. <c>NULLS FIRST</c>/<c>LAST</c> requires
+    /// SQLite 3.30.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public static IOrderedQueryable<T> ThenBy<T, TKey>(this IOrderedQueryable<T> source, Expression<Func<T, TKey>> keySelector, SQLiteNullsOrder nulls)
+    {
+        return ApplyOrderWithNulls(source, keySelector, nulls, new Func<IOrderedQueryable<T>, Expression<Func<T, TKey>>, SQLiteNullsOrder, IOrderedQueryable<T>>(ThenBy).Method);
+    }
+
+    /// <summary>
+    /// Adds a secondary descending sort key with the given null placement. Emits
+    /// <c>key DESC NULLS FIRST</c> or <c>... NULLS LAST</c>. <c>NULLS FIRST</c>/<c>LAST</c> requires
+    /// SQLite 3.30.0 or newer.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android31.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios14.0")]
+#endif
+    public static IOrderedQueryable<T> ThenByDescending<T, TKey>(this IOrderedQueryable<T> source, Expression<Func<T, TKey>> keySelector, SQLiteNullsOrder nulls)
+    {
+        return ApplyOrderWithNulls(source, keySelector, nulls, new Func<IOrderedQueryable<T>, Expression<Func<T, TKey>>, SQLiteNullsOrder, IOrderedQueryable<T>>(ThenByDescending).Method);
+    }
+
+    private static IOrderedQueryable<T> ApplyOrderWithNulls<T, TKey>(IQueryable<T> source, Expression<Func<T, TKey>> keySelector, SQLiteNullsOrder nulls, MethodInfo method)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(keySelector);
+
+        return (IOrderedQueryable<T>)source.Provider.CreateQuery<T>(
+            Expression.Call(
+                null,
+                method,
+                source.Expression,
+                Expression.Quote(keySelector),
+                Expression.Constant(nulls)));
+    }
+
+    /// <summary>
     /// Executes the query and deletes the records from the database.
     /// </summary>
     public static int ExecuteDelete<T>(this IQueryable<T> source)

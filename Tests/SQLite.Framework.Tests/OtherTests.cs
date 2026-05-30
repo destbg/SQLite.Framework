@@ -101,6 +101,56 @@ public class OtherTests
     }
 
     [Fact]
+    public void OrderBy_NullsPlacement_EmitsNullsClause()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.Table<Book>()
+            .OrderBy(b => b.Title, SQLiteNullsOrder.Last)
+            .ThenByDescending(b => b.AuthorId, SQLiteNullsOrder.First)
+            .ToSqlCommand();
+
+        Assert.Contains(
+            "ORDER BY b0.\"BookTitle\" ASC NULLS LAST, b0.\"BookAuthorId\" DESC NULLS FIRST",
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void OrderBy_NullsDefault_EmitsNoNullsClause()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.Table<Book>()
+            .OrderBy(b => b.Title, SQLiteNullsOrder.Default)
+            .ToSqlCommand();
+
+        Assert.Contains("ORDER BY b0.\"BookTitle\" ASC", command.CommandText.Replace("\r\n", "\n"));
+        Assert.DoesNotContain("NULLS", command.CommandText);
+    }
+
+    [Fact]
+    public void OrderBy_NullsLast_PlacesNullsAtEnd()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableEntity>().Schema.CreateTable();
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Value = 2 });
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Value = null });
+        db.Table<NullableEntity>().Add(new NullableEntity { Id = 3, Value = 1 });
+
+        List<int> idsNullsLast = db.Table<NullableEntity>()
+            .OrderBy(e => e.Value, SQLiteNullsOrder.Last)
+            .Select(e => e.Id)
+            .ToList();
+        Assert.Equal([3, 1, 2], idsNullsLast);
+
+        List<int> idsNullsFirst = db.Table<NullableEntity>()
+            .OrderBy(e => e.Value, SQLiteNullsOrder.First)
+            .Select(e => e.Id)
+            .ToList();
+        Assert.Equal([2, 3, 1], idsNullsFirst);
+    }
+
+    [Fact]
     public void TakeSkip()
     {
         using TestDatabase db = new();
