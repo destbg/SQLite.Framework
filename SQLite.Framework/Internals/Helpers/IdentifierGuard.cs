@@ -18,11 +18,6 @@ internal static class IdentifierGuard
         }
     }
 
-    /// <summary>
-    /// Wraps a column or table name in double quotes so SQLite reads it as a single identifier even
-    /// when the name is a keyword or holds unusual characters. Any double-quote inside the name is
-    /// doubled, the standard SQLite escape.
-    /// </summary>
     public static string Quote(string name)
     {
         return $"\"{name.Replace("\"", "\"\"")}\"";
