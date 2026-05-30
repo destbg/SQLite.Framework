@@ -113,6 +113,8 @@
 </head>
 
 <body>
+    <div class="bg-grid"
+         aria-hidden="true"></div>
     <header class="site-header">
         <a class="brand"
            href="/"
@@ -200,19 +202,27 @@
     <main>
         <section class="hero">
             <div class="hero-glow"
-                 aria-hidden="true"></div>
+                 aria-hidden="true">
+                <span class="aurora aurora-1"></span>
+                <span class="aurora aurora-2"></span>
+                <span class="aurora aurora-3"></span>
+            </div>
             <div class="hero-inner">
-                <span class="hero-eyebrow">Lightweight ORM for SQLite on .NET</span>
-                <h1 class="hero-title">
+                <span class="hero-eyebrow hero-fade"
+                      style="--fade-delay: 0ms">Lightweight ORM for SQLite on .NET</span>
+                <h1 class="hero-title hero-fade"
+                    style="--fade-delay: 80ms">
                     Write <span class="accent">LINQ</span>.<br />
                     Query SQLite.<br />
                     <span class="muted">No dynamic code.</span>
                 </h1>
-                <p class="hero-subtitle">
+                <p class="hero-subtitle hero-fade"
+                   style="--fade-delay: 160ms">
                     SQLite.Framework gives you typed tables, async queries, and a familiar EF-style API,
                     built for MAUI, Avalonia, and Native AOT.
                 </p>
-                <div class="hero-cta">
+                <div class="hero-cta hero-fade"
+                     style="--fade-delay: 240ms">
                     <a href="/Docs/"
                        class="btn btn-primary">
                         Read the Docs
@@ -247,7 +257,8 @@
                         GitHub
                     </a>
                 </div>
-                <div class="hero-meta">
+                <div class="hero-meta hero-fade"
+                     style="--fade-delay: 320ms">
                     <span class="meta-item">.NET 8, 9, 10</span>
                     <span class="meta-dot"></span>
                     <span class="meta-item">Native AOT ready</span>
@@ -255,8 +266,10 @@
                     <span class="meta-item">MIT licensed</span>
                 </div>
             </div>
-            <div class="hero-code">
-                <div class="code-window">
+            <div class="hero-code hero-fade"
+                 style="--fade-delay: 200ms">
+                <div class="code-window"
+                     id="hero-code-window">
                     <div class="code-header">
                         <span class="code-dot code-dot-red"></span>
                         <span class="code-dot code-dot-yellow"></span>
@@ -287,13 +300,86 @@ var topAuthors = await (
             </div>
         </section>
 
+        <section class="translate">
+            <div class="section-head"
+                 data-reveal>
+                <h2>You write LINQ. It ships SQL.</h2>
+                <p>Your query is read at build time and turned into plain SQLite SQL. No reflection, no surprises.</p>
+            </div>
+            <div class="translate-flow">
+                <div class="translate-panel translate-linq"
+                     data-reveal>
+                    <div class="translate-label">
+                        <span class="translate-badge translate-badge-cs">C#</span>
+                        LINQ query
+                    </div>
+                    <pre class="code-block"><code class="language-csharp">var topAuthors = await (
+    from b in db.Table&lt;Book&gt;()
+    join a in db.Table&lt;Author&gt;()
+        on b.AuthorId equals a.Id
+    where b.Price &lt; 30
+    group b by a.Name into g
+    orderby g.Sum(b =&gt; b.Sales) descending
+    select new
+    {
+        Author = g.Key,
+        Titles = g.Count(),
+        Revenue = g.Sum(b =&gt; b.Sales),
+    }
+).Take(5).ToListAsync();</code></pre>
+                </div>
+                <div class="translate-arrow"
+                     data-reveal
+                     aria-hidden="true">
+                    <span class="translate-pill">compiles to</span>
+                    <svg class="translate-arrow-icon"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                        <line x1="5"
+                              y1="12"
+                              x2="19"
+                              y2="12" />
+                        <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                </div>
+                <div class="translate-panel translate-sql"
+                     data-reveal
+                     id="sql-panel">
+                    <div class="translate-label">
+                        <span class="translate-badge translate-badge-sql">SQL</span>
+                        Generated SQLite
+                    </div>
+                    <div class="sql-reveal">
+                        <pre class="code-block"><code class="language-sql">SELECT a."Name" AS "Author",
+       COUNT(*) AS "Titles",
+       SUM(b."Sales") AS "Revenue"
+FROM "Books" AS b
+INNER JOIN "Authors" AS a
+    ON b."AuthorId" = a."Id"
+WHERE b."Price" &lt; 30
+GROUP BY a."Name"
+ORDER BY SUM(b."Sales") DESC
+LIMIT 5;</code></pre>
+                        <span class="sql-scanline"
+                              aria-hidden="true"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="features">
-            <div class="section-head">
+            <div class="section-head"
+                 data-reveal>
                 <h2>Built for real apps</h2>
                 <p>Everything you expect from a modern ORM, sized for embedded SQLite.</p>
             </div>
             <div class="feature-grid">
-                <div class="feature-card">
+                <div class="feature-card"
+                     data-reveal>
                     <div class="feature-icon"
                          aria-hidden="true">
                         <svg viewBox="0 0 24 24"
@@ -310,7 +396,8 @@ var topAuthors = await (
                     <p>Full IQueryable support. Joins, group by, subqueries, window functions, and CTEs all translate to
                         SQL.</p>
                 </div>
-                <div class="feature-card">
+                <div class="feature-card"
+                     data-reveal>
                     <div class="feature-icon"
                          aria-hidden="true">
                         <svg viewBox="0 0 24 24"
@@ -327,7 +414,8 @@ var topAuthors = await (
                     <p>Every operation has an async sibling. ToListAsync, FirstOrDefaultAsync, ExecuteUpdateAsync, and
                         more.</p>
                 </div>
-                <div class="feature-card">
+                <div class="feature-card"
+                     data-reveal>
                     <div class="feature-icon"
                          aria-hidden="true">
                         <svg viewBox="0 0 24 24"
@@ -343,7 +431,8 @@ var topAuthors = await (
                     <p>The framework never generates code at runtime. An optional source generator emits materializers
                         at build time, so it ships clean under Native AOT.</p>
                 </div>
-                <div class="feature-card">
+                <div class="feature-card"
+                     data-reveal>
                     <div class="feature-icon"
                          aria-hidden="true">
                         <svg viewBox="0 0 24 24"
@@ -365,7 +454,8 @@ var topAuthors = await (
                     <p>First-class bindings for SQLite's full-text search and spatial modules. Type-safe, no raw SQL
                         needed.</p>
                 </div>
-                <div class="feature-card">
+                <div class="feature-card"
+                     data-reveal>
                     <div class="feature-icon"
                          aria-hidden="true">
                         <svg viewBox="0 0 24 24"
@@ -381,7 +471,8 @@ var topAuthors = await (
                     <h3>JSON and JSONB</h3>
                     <p>Query into JSON columns with LINQ. SQLite 3.45 JSONB is supported when your runtime has it.</p>
                 </div>
-                <div class="feature-card">
+                <div class="feature-card"
+                     data-reveal>
                     <div class="feature-icon"
                          aria-hidden="true">
                         <svg viewBox="0 0 24 24"
@@ -412,25 +503,30 @@ var topAuthors = await (
         </section>
 
         <section class="packages">
-            <div class="section-head">
+            <div class="section-head"
+                 data-reveal>
                 <h2>One API, four flavors</h2>
                 <p>Pick the package that matches how SQLite is shipped in your app.</p>
             </div>
             <div class="package-grid">
-                <div class="package-card">
+                <div class="package-card"
+                     data-reveal>
                     <h3 class="package-name">SQLite.Framework</h3>
                     <p>Uses the SQLite version that ships with the OS. The right default for most apps.</p>
                 </div>
-                <div class="package-card">
+                <div class="package-card"
+                     data-reveal>
                     <h3 class="package-name">SQLite.Framework.Bundled</h3>
                     <p>Ships its own SQLite binary. Use when the OS SQLite is too old or you want a pinned version.</p>
                 </div>
-                <div class="package-card">
+                <div class="package-card"
+                     data-reveal>
                     <h3 class="package-name">SQLite.Framework.Cipher</h3>
                     <p>Uses SQLCipher for encrypted databases. Call UseEncryptionKey on the options builder to enable.
                     </p>
                 </div>
-                <div class="package-card">
+                <div class="package-card"
+                     data-reveal>
                     <h3 class="package-name">SQLite.Framework.Base</h3>
                     <p>No provider included. Bring your own SQLitePCLRaw bundle and stay in control.</p>
                 </div>
@@ -438,7 +534,8 @@ var topAuthors = await (
         </section>
 
         <section class="cta">
-            <div class="cta-inner">
+            <div class="cta-inner"
+                 data-reveal>
                 <h2>Ready to try it?</h2>
                 <p>Pick the host you ship on and step through a guided setup. Console, MAUI, Avalonia, ASP.NET, or Blazor.</p>
                 <div class="hero-cta">
