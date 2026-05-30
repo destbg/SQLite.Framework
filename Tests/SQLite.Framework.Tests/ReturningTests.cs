@@ -723,6 +723,41 @@ public class ReturningTests
     }
 
     [Fact]
+    public async Task TableReturning_UpsertAsync_ReturnsWrittenRow()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningItem>().Schema.CreateTable();
+        db.Table<ReturningItem>().Add(new ReturningItem { Id = 1, Name = "old", Price = 1 });
+
+        ReturningItem? row = await db.Table<ReturningItem>()
+            .Returning()
+            .UpsertAsync(
+                new ReturningItem { Id = 1, Name = "new", Price = 9 },
+                c => c.OnConflict(x => x.Id).DoUpdateAll());
+
+        Assert.NotNull(row);
+        Assert.Equal("new", row!.Name);
+    }
+
+    [Fact]
+    public async Task TableReturning_UpsertRangeAsync_ReturnsWrittenRows()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningItem>().Schema.CreateTable();
+
+        List<ReturningItem> rows = await db.Table<ReturningItem>()
+            .Returning()
+            .UpsertRangeAsync(
+                [
+                    new() { Id = 1, Name = "a", Price = 1 },
+                    new() { Id = 2, Name = "b", Price = 2 },
+                ],
+                c => c.OnConflict(x => x.Id).DoUpdateAll());
+
+        Assert.Equal(2, rows.Count);
+    }
+
+    [Fact]
     public async Task QueryableReturning_ExecuteDeleteAsync_ReturnsDeletedRows()
     {
         using TestDatabase db = new();

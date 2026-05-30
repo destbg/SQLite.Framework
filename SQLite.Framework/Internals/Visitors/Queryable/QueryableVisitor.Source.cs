@@ -35,36 +35,50 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitValues(MethodCallExpression node)
     {
         Type genericType = node.Method.ReturnType.GetGenericArguments()[0];
-        object? value = ExpressionHelpers.GetConstantValue(node.Arguments[0]);
+        bool isSimple = TypeHelpers.IsSimple(genericType, database.Options);
 
         List<string> columnNames = [];
-        List<string> paramPlaceholders = [];
-        List<SQLiteParameter> sqlParams = [];
-
-        if (TypeHelpers.IsSimple(genericType, database.Options))
+        if (isSimple)
         {
-            string paramName = visitor.Counters.NextParamName();
             columnNames.Add("column__1");
-            paramPlaceholders.Add(paramName);
-            sqlParams.Add(new SQLiteParameter { Name = paramName, Value = value });
         }
         else
         {
             foreach (PropertyInfo prop in genericType.GetProperties())
             {
-                string paramName = visitor.Counters.NextParamName();
                 columnNames.Add(prop.Name);
-                paramPlaceholders.Add(paramName);
-                sqlParams.Add(new SQLiteParameter { Name = paramName, Value = prop.GetValue(value) });
             }
+        }
+
+        bool isMulti = node.Method.GetParameters()[0].ParameterType != genericType;
+        IEnumerable<object?> rows = isMulti
+            ? ((IEnumerable)ExpressionHelpers.GetConstantValue(node.Arguments[0])!).Cast<object?>()
+            : [ExpressionHelpers.GetConstantValue(node.Arguments[0])];
+
+        List<SQLiteParameter> sqlParams = [];
+        List<string> selects = [];
+        foreach (object? row in rows)
+        {
+            string[] cells = new string[columnNames.Count];
+            for (int c = 0; c < columnNames.Count; c++)
+            {
+                string paramName = visitor.Counters.NextParamName();
+                object? cellValue = isSimple ? row : genericType.GetProperty(columnNames[c])!.GetValue(row);
+                sqlParams.Add(new SQLiteParameter { Name = paramName, Value = cellValue });
+                cells[c] = selects.Count == 0 ? $"{paramName} AS \"{columnNames[c]}\"" : paramName;
+            }
+            selects.Add("SELECT " + string.Join(", ", cells));
         }
 
         char aliasChar = char.ToLowerInvariant(genericType.Name.FirstOrDefault(char.IsLetter, 'v'));
         string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
-        string selectList = string.Join(", ", paramPlaceholders.Select((p, i) => $"{p} AS \"{columnNames[i]}\""));
-        string valuesSql = $"(SELECT {selectList}) AS {alias}";
-        SQLiteExpression fromExpression = SQLiteExpression.Leaf(genericType, -1, valuesSql, sqlParams.ToArray());
+        string body = selects.Count == 0
+            ? "SELECT " + string.Join(", ", columnNames.Select(c => $"NULL AS \"{c}\"")) + " WHERE 0"
+            : string.Join(" UNION ALL ", selects);
+
+        string valuesSql = $"({body}) AS {alias}";
+        SQLiteExpression fromExpression = SQLiteExpression.Leaf(genericType, -1, valuesSql, sqlParams.Count == 0 ? null : sqlParams.ToArray());
         Dictionary<string, Expression> columns = columnNames
             .ToDictionary(
                 col => col == "column__1" ? string.Empty : col, Expression (col) => SQLiteExpression.Leaf(

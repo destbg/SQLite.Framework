@@ -128,7 +128,7 @@ public static class QueryableExtensions
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios16.0")]
 #endif
-    public static IQueryable<TResult> FullOuterJoin<TOuter, TInner, TKey, TResult>(this IQueryable<TOuter> outer, IEnumerable<TInner> inner, Expression<Func<TOuter, TKey>> outerKeySelector, Expression<Func<TInner, TKey>> innerKeySelector, Expression<Func<TOuter?, TInner?, TResult>> resultSelector)
+    public static IQueryable<TResult> FullOuterJoin<TOuter, TInner, TKey, TResult>(this IQueryable<TOuter> outer, IQueryable<TInner> inner, Expression<Func<TOuter, TKey>> outerKeySelector, Expression<Func<TInner, TKey>> innerKeySelector, Expression<Func<TOuter?, TInner?, TResult>> resultSelector)
     {
         ArgumentNullException.ThrowIfNull(outer);
         ArgumentNullException.ThrowIfNull(inner);
@@ -136,15 +136,14 @@ public static class QueryableExtensions
         ArgumentNullException.ThrowIfNull(innerKeySelector);
         ArgumentNullException.ThrowIfNull(resultSelector);
 
-        MethodInfo method = new Func<IQueryable<TOuter>, IEnumerable<TInner>, Expression<Func<TOuter, TKey>>, Expression<Func<TInner, TKey>>, Expression<Func<TOuter?, TInner?, TResult>>, IQueryable<TResult>>(FullOuterJoin).Method;
-        Expression innerExpression = inner is IQueryable<TInner> innerQuery ? innerQuery.Expression : Expression.Constant(inner);
+        MethodInfo method = new Func<IQueryable<TOuter>, IQueryable<TInner>, Expression<Func<TOuter, TKey>>, Expression<Func<TInner, TKey>>, Expression<Func<TOuter?, TInner?, TResult>>, IQueryable<TResult>>(FullOuterJoin).Method;
 
         return outer.Provider.CreateQuery<TResult>(
             Expression.Call(
                 null,
                 method,
                 outer.Expression,
-                innerExpression,
+                inner.Expression,
                 Expression.Quote(outerKeySelector),
                 Expression.Quote(innerKeySelector),
                 Expression.Quote(resultSelector)));

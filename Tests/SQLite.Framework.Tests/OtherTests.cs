@@ -116,6 +116,21 @@ public class OtherTests
     }
 
     [Fact]
+    public void OrderByDescending_ThenBy_NullsPlacement_EmitsNullsClause()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.Table<Book>()
+            .OrderByDescending(b => b.Title, SQLiteNullsOrder.First)
+            .ThenBy(b => b.AuthorId, SQLiteNullsOrder.Last)
+            .ToSqlCommand();
+
+        Assert.Contains(
+            "ORDER BY b0.\"BookTitle\" DESC NULLS FIRST, b0.\"BookAuthorId\" ASC NULLS LAST",
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
     public void OrderBy_NullsDefault_EmitsNoNullsClause()
     {
         using TestDatabase db = new();

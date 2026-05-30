@@ -70,6 +70,16 @@ IQueryable<Seed> seed = db.Values(new Seed { X = 0, Label = "start" });
 
 This generates `(SELECT @p0 AS "X", @p1 AS "Label") AS s0` as the FROM clause.
 
+Use `ValuesRange` to lift an in-memory list into a query without a temporary table. Each item becomes one row, so you can join or filter against it. An empty list yields no rows.
+
+```csharp
+var ids = new[] { 1, 2, 3 };
+var titles = (
+    from id in db.ValuesRange(ids)
+    join book in db.Table<Book>() on id equals book.Id
+    select book.Title).ToList();
+```
+
 ## Recursive CTEs
 
 Use `WithRecursive` when the query needs to reference itself. The lambda parameter is the self-reference.

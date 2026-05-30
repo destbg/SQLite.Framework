@@ -176,6 +176,72 @@ public class CteTests
     }
 
     [Fact]
+    public void ValuesRange_Scalars_GeneratesUnionAllAndReturnsRows()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.ValuesRange(new[] { 1, 2, 3 }).ToSqlCommand();
+        Assert.Equal(
+            N("""
+            SELECT i0."column__1" AS "2"
+            FROM (SELECT @p1 AS "column__1" UNION ALL SELECT @p2 UNION ALL SELECT @p3) AS i0
+            """), N(command.CommandText));
+
+        Assert.Equal([1, 2, 3], db.ValuesRange(new[] { 1, 2, 3 }).ToList());
+    }
+
+    [Fact]
+    public void ValuesRange_Objects_CanBeFilteredAndProjected()
+    {
+        using TestDatabase db = new();
+
+        List<string> names = db.ValuesRange(new[]
+            {
+                new { Id = 1, Name = "a" },
+                new { Id = 2, Name = "b" },
+                new { Id = 3, Name = "c" },
+            })
+            .Where(x => x.Id >= 2)
+            .Select(x => x.Name)
+            .ToList();
+
+        Assert.Equal(["b", "c"], names);
+    }
+
+    [Fact]
+    public void ValuesRange_JoinAgainstTable_MatchesRows()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 10, Price = 1 });
+        db.Table<Book>().Add(new Book { Id = 2, Title = "y", AuthorId = 20, Price = 2 });
+        db.Table<Book>().Add(new Book { Id = 3, Title = "z", AuthorId = 30, Price = 3 });
+
+        List<string> titles = (
+            from id in db.ValuesRange(new[] { 1, 3 })
+            join book in db.Table<Book>() on id equals book.Id
+            select book.Title).ToList();
+
+        Assert.Equal(["x", "z"], titles);
+    }
+
+    [Fact]
+    public void ValuesRange_Empty_ReturnsNoRows()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.ValuesRange(Array.Empty<int>()).ToSqlCommand();
+        Assert.Empty(command.Parameters);
+        Assert.Equal(
+            N("""
+            SELECT i0."column__1" AS "2"
+            FROM (SELECT NULL AS "column__1" WHERE 0) AS i0
+            """), N(command.CommandText));
+
+        Assert.Empty(db.ValuesRange(Array.Empty<int>()).ToList());
+    }
+
+    [Fact]
     public void With_ValuesQuery_GeneratesWithValues()
     {
         using TestDatabase db = new();

@@ -733,16 +733,30 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Wraps a single row of values into a queryable object using a VALUES clause.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The type should be part of the client assemblies.")]
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "The type should be part of the client assemblies.")]
     public IQueryable<T> Values<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(T value)
     {
+        return new Queryable<T>(this, Expression.Call(
+            Expression.Constant(this),
+            new Func<T, IQueryable<T>>(Values).Method,
+            Expression.Constant(value, typeof(T))
+        ));
+    }
+
+    /// <summary>
+    /// Wraps an in-memory list of rows into a queryable backed by an inline values source, so you
+    /// can join or filter against a small set without creating a temporary table. Each item becomes
+    /// one row. An empty list yields a source with no rows. Handy for batch lookups, parameterized
+    /// IN lists, and tests. Named <c>ValuesRange</c> rather than overloading <c>Values</c> because a
+    /// list argument would otherwise bind to the single-row <see cref="Values{T}(T)" />.
+    /// </summary>
+    public IQueryable<T> ValuesRange<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(IEnumerable<T> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
 
         return new Queryable<T>(this, Expression.Call(
             Expression.Constant(this),
-            typeof(SQLiteDatabase).GetMethod(nameof(Values), BindingFlags.Instance | BindingFlags.Public)!
-                .MakeGenericMethod(typeof(T)),
-            Expression.Constant(value, typeof(T))
+            new Func<IEnumerable<T>, IQueryable<T>>(ValuesRange).Method,
+            Expression.Constant(values, typeof(IEnumerable<T>))
         ));
     }
 
