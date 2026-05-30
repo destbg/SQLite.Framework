@@ -502,6 +502,44 @@ LIMIT 5;</code></pre>
             </div>
         </section>
 
+        <section class="pace"
+                 data-reveal>
+            <div class="pace-card">
+                <div class="pace-head">
+                    <div class="pace-intro">
+                        <h2 class="pace-title">Save Pace Stream</h2>
+                        <p class="pace-sub">Each dot is one save of 100 rows. The gap before the next dot is how
+                            long that save took. Times come from the
+                            BenchmarkDotNet.</p>
+                    </div>
+                    <div class="pace-legend">
+                        <div class="pace-chip pace-chip-ef">
+                            <span class="pace-chip-top">
+                                <span class="pace-key pace-key-ef"></span>
+                                EF Core 10
+                            </span>
+                            <span class="pace-chip-sub">AddRange + SaveChanges</span>
+                        </div>
+                        <div class="pace-chip pace-chip-fw">
+                            <span class="pace-chip-top">
+                                <span class="pace-key pace-key-fw"></span>
+                                SQLite.Framework
+                            </span>
+                            <span class="pace-chip-sub">AddRange</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="pace-stage">
+                    <span class="pace-time-label">TIME</span>
+                    <canvas class="pace-canvas"
+                            id="pace-canvas"></canvas>
+                    <span class="pace-lane-pill pace-lane-pill-ef">EF Core</span>
+                    <span class="pace-lane-pill pace-lane-pill-fw">SQLite.Framework</span>
+                    <span class="pace-badge">16x faster</span>
+                </div>
+            </div>
+        </section>
+
         <section class="packages">
             <div class="section-head"
                  data-reveal>
@@ -537,7 +575,8 @@ LIMIT 5;</code></pre>
             <div class="cta-inner"
                  data-reveal>
                 <h2>Ready to try it?</h2>
-                <p>Pick the host you ship on and step through a guided setup. Console, MAUI, Avalonia, ASP.NET, or Blazor.</p>
+                <p>Pick the host you ship on and step through a guided setup. Console, MAUI, Avalonia, ASP.NET, or
+                    Blazor.</p>
                 <div class="hero-cta">
                     <a href="/Walkthrough/"
                        class="btn btn-primary">Browse Walkthroughs</a>
