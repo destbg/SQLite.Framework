@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { slugify } from "../utils";
 import { highlight } from "../../highlight/highlighter";
+import CopyButton from "../../highlight/CopyButton";
 import { loadContent } from "../markdownFiles";
 import { findPageByLink, type Page } from "../pages";
 
@@ -27,17 +28,39 @@ export default function PageLayer({ page, onLinkClick }: Props) {
         <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-                code({ className, children }) {
-                    const match = /language-(\w+)/.exec(className ?? "");
-                    if (!match) {
-                        return <code className={className}>{children}</code>;
+                pre(props) {
+                    const node = (props as {
+                        node?: {
+                            children?: Array<{
+                                tagName?: string;
+                                properties?: { className?: unknown };
+                                children?: Array<{ value?: string }>;
+                            }>;
+                        };
+                    }).node;
+                    const codeNode = node?.children?.find((c) => c.tagName === "code");
+                    const classes = Array.isArray(codeNode?.properties?.className)
+                        ? (codeNode.properties.className as string[])
+                        : [];
+                    let lang = "";
+                    for (const cls of classes) {
+                        const m = /^language-(\w+)$/.exec(cls);
+                        if (m) {
+                            lang = m[1];
+                            break;
+                        }
                     }
-                    const text = String(children).replace(/\n$/, "");
+                    const text = (codeNode?.children ?? [])
+                        .map((c) => (typeof c.value === "string" ? c.value : ""))
+                        .join("");
                     return (
-                        <code
-                            className={className}
-                            dangerouslySetInnerHTML={{ __html: highlight(text, match[1]) }}
-                        />
+                        <pre>
+                            <CopyButton text={text} />
+                            <code
+                                className={lang ? `language-${lang}` : undefined}
+                                dangerouslySetInnerHTML={{ __html: highlight(text, lang) }}
+                            />
+                        </pre>
                     );
                 },
                 a({ href, children }) {

@@ -521,6 +521,7 @@ button {
 }
 
 .wt-code-window {
+    position: relative;
     background: var(--bg-elev-2);
     border: 1px solid var(--border);
     border-radius: 12px;

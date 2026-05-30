@@ -300,11 +300,144 @@ var topAuthors = await (
             </div>
         </section>
 
+        <section class="usedfor"
+                 data-reveal>
+            <p class="usedfor-label">Runs anywhere .NET runs</p>
+            <div class="usedfor-row">
+                <a class="usedfor-item"
+                   href="/Walkthrough/console">
+                    <svg viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="1.8"
+                         stroke-linecap="round"
+                         stroke-linejoin="round"
+                         aria-hidden="true">
+                        <polyline points="4 17 10 11 4 5" />
+                        <line x1="12"
+                              y1="19"
+                              x2="20"
+                              y2="19" />
+                    </svg>
+                    Console
+                </a>
+                <a class="usedfor-item"
+                   href="/Walkthrough/maui">
+                    <svg viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="1.8"
+                         stroke-linecap="round"
+                         stroke-linejoin="round"
+                         aria-hidden="true">
+                        <rect x="6"
+                              y="2"
+                              width="12"
+                              height="20"
+                              rx="2.5" />
+                        <line x1="11"
+                              y1="18"
+                              x2="13"
+                              y2="18" />
+                    </svg>
+                    MAUI
+                </a>
+                <a class="usedfor-item"
+                   href="/Walkthrough/avalonia">
+                    <svg viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="1.8"
+                         stroke-linecap="round"
+                         stroke-linejoin="round"
+                         aria-hidden="true">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                        <polyline points="2 17 12 22 22 17" />
+                        <polyline points="2 12 12 17 22 12" />
+                    </svg>
+                    Avalonia
+                </a>
+                <a class="usedfor-item"
+                   href="/Walkthrough/aspnet">
+                    <svg viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="1.8"
+                         stroke-linecap="round"
+                         stroke-linejoin="round"
+                         aria-hidden="true">
+                        <rect x="2"
+                              y="3"
+                              width="20"
+                              height="8"
+                              rx="2" />
+                        <rect x="2"
+                              y="13"
+                              width="20"
+                              height="8"
+                              rx="2" />
+                        <line x1="6"
+                              y1="7"
+                              x2="6.01"
+                              y2="7" />
+                        <line x1="6"
+                              y1="17"
+                              x2="6.01"
+                              y2="17" />
+                    </svg>
+                    ASP.NET
+                </a>
+                <a class="usedfor-item"
+                   href="/Walkthrough/blazor">
+                    <svg viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="1.8"
+                         stroke-linecap="round"
+                         stroke-linejoin="round"
+                         aria-hidden="true">
+                        <circle cx="12"
+                                cy="12"
+                                r="10" />
+                        <line x1="2"
+                              y1="12"
+                              x2="22"
+                              y2="12" />
+                        <path
+                              d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                    Blazor
+                </a>
+            </div>
+        </section>
+
         <section class="translate">
             <div class="section-head"
                  data-reveal>
                 <h2>You write LINQ. It ships SQL.</h2>
-                <p>Your query is read at build time and turned into plain SQLite SQL.</p>
+                <p>Your query is read and turned into plain SQLite SQL. Pick a feature to see the SQL it
+                    generates.</p>
+            </div>
+            <div class="tab-bar"
+                 data-reveal
+                 role="tablist"
+                 aria-label="Query examples">
+                <button class="tab-btn tab-btn--active"
+                        type="button"
+                        role="tab"
+                        data-example="group">Group by</button>
+                <button class="tab-btn"
+                        type="button"
+                        role="tab"
+                        data-example="join">Joins</button>
+                <button class="tab-btn"
+                        type="button"
+                        role="tab"
+                        data-example="subquery">Subqueries</button>
+                <button class="tab-btn"
+                        type="button"
+                        role="tab"
+                        data-example="cte">CTEs</button>
             </div>
             <div class="translate-flow">
                 <div class="translate-panel translate-linq"
@@ -313,7 +446,8 @@ var topAuthors = await (
                         <span class="translate-badge translate-badge-cs">C#</span>
                         LINQ query
                     </div>
-                    <pre class="code-block"><code class="language-csharp">var topAuthors = await (
+                    <pre class="code-block"><code class="language-csharp"
+      id="linq-code">var topAuthors = await (
     from b in db.Table&lt;Book&gt;()
     join a in db.Table&lt;Author&gt;()
         on b.AuthorId equals a.Id
@@ -354,15 +488,16 @@ var topAuthors = await (
                         Generated SQLite
                     </div>
                     <div class="sql-reveal">
-                        <pre class="code-block"><code class="language-sql">SELECT a."Name" AS "Author",
+                        <pre class="code-block"><code class="language-sql"
+      id="sql-code">SELECT a0."AuthorName" AS "Author",
        COUNT(*) AS "Titles",
-       SUM(b."Sales") AS "Revenue"
-FROM "Books" AS b
-INNER JOIN "Authors" AS a
-    ON b."AuthorId" = a."Id"
-WHERE b."Price" &lt; 30
-GROUP BY a."Name"
-ORDER BY SUM(b."Sales") DESC
+       SUM(b0."BookSales") AS "Revenue"
+FROM "Books" AS b0
+INNER JOIN "Authors" AS a0
+    ON b0."BookAuthorId" = a0."AuthorId"
+WHERE b0."BookPrice" &lt; @p0
+GROUP BY a0."AuthorName"
+ORDER BY SUM(b0."BookSales") DESC
 LIMIT 5;</code></pre>
                         <span class="sql-scanline"
                               aria-hidden="true"></span>
@@ -502,6 +637,85 @@ LIMIT 5;</code></pre>
             </div>
         </section>
 
+        <section class="how"
+                 data-reveal>
+            <div class="section-head">
+                <h2>No code generated at runtime</h2>
+                <p>How does a typed query work without emitting code at runtime?</p>
+            </div>
+            <div class="how-grid">
+                <ol class="how-steps">
+                    <li class="how-step">
+                        <span class="how-num">1</span>
+                        <div>
+                            <h3>You write LINQ</h3>
+                            <p>A normal query against a typed table. The C# compiler turns it into an expression
+                                tree.</p>
+                        </div>
+                    </li>
+                    <li class="how-step">
+                        <span class="how-num">2</span>
+                        <div>
+                            <h3>The tree becomes SQL</h3>
+                            <p>The framework walks that expression tree and writes plain SQLite SQL with bound
+                                parameters. No IL is emitted.</p>
+                        </div>
+                    </li>
+                    <li class="how-step">
+                        <span class="how-num">3</span>
+                        <div>
+                            <h3>SQLite returns rows</h3>
+                            <p>The SQL runs and SQLite hands back a row reader.</p>
+                        </div>
+                    </li>
+                    <li class="how-step">
+                        <span class="how-num">4</span>
+                        <div>
+                            <h3>A materializer fills your objects</h3>
+                            <p>A small reader maps each column to a property and builds your object using
+                                Method.Invoke and PropertyInfo.SetValue. No
+                                Reflection.Emit, no runtime code generation.</p>
+                        </div>
+                    </li>
+                </ol>
+                <div class="how-visual"
+                     aria-hidden="true">
+                    <div class="how-table">
+                        <div class="how-table-head">Books</div>
+                        <span class="how-row"></span>
+                        <span class="how-row"></span>
+                        <span class="how-row"></span>
+                        <span class="how-row"></span>
+                        <span class="how-row"></span>
+                    </div>
+                    <svg class="how-pipe"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
+                        <line x1="5"
+                              y1="12"
+                              x2="19"
+                              y2="12" />
+                        <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                    <div class="how-object">
+                        <span class="how-object-title">Book</span>
+                        <span class="how-object-line"></span>
+                        <span class="how-object-line"></span>
+                        <span class="how-object-line"></span>
+                    </div>
+                </div>
+            </div>
+            <p class="how-note">
+                Want the framework to be AOT safe? The optional source generator writes those materializers at build
+                time, so there is no reflection on your hot path and the trimmer keeps every type.
+                <a href="/Docs/Source%20Generator">Read about the source generator</a>.
+            </p>
+        </section>
+
         <section class="pace"
                  data-reveal>
             <div class="pace-card">
@@ -537,6 +751,138 @@ LIMIT 5;</code></pre>
                     <span class="pace-lane-pill pace-lane-pill-fw">SQLite.Framework</span>
                     <span class="pace-badge">16x faster</span>
                 </div>
+            </div>
+        </section>
+
+        <section class="compare">
+            <div class="section-head"
+                 data-reveal>
+                <h2>How it compares</h2>
+                <p>Where SQLite.Framework sits next to EF Core and sqlite-net-pcl. Based on the default setup of
+                    each library.</p>
+            </div>
+            <div class="compare-wrap"
+                 data-reveal>
+                <table class="compare-table">
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th class="compare-col-us">SQLite.Framework</th>
+                            <th>EF Core 10</th>
+                            <th>sqlite-net-pcl</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>LINQ IQueryable translation</td>
+                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-no">No</span></td>
+                        </tr>
+                        <tr>
+                            <td>Select projection to SQL</td>
+                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-no">No</span></td>
+                        </tr>
+                        <tr>
+                            <td>Async API</td>
+                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-yes">Yes</span></td>
+                        </tr>
+                        <tr>
+                            <td>Native AOT ready</td>
+                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-no">No</span></td>
+                            <td><span class="cmp cmp-partial">Partial</span></td>
+                        </tr>
+                        <tr>
+                            <td>Bulk update and delete by predicate</td>
+                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-no">No</span></td>
+                        </tr>
+                        <tr>
+                            <td>Full text search (FTS5)</td>
+                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-no">No</span></td>
+                            <td><span class="cmp cmp-partial">Partial</span></td>
+                        </tr>
+                        <tr>
+                            <td>JSON columns</td>
+                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-no">No</span></td>
+                        </tr>
+                        <tr>
+                            <td>Window functions and CTEs</td>
+                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-partial">Partial</span></td>
+                            <td><span class="cmp cmp-no">No</span></td>
+                        </tr>
+                        <tr>
+                            <td>Encryption (SQLCipher)</td>
+                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-no">No</span></td>
+                            <td><span class="cmp cmp-yes">Yes</span></td>
+                        </tr>
+                        <tr>
+                            <td>Change tracking and migrations</td>
+                            <td class="compare-col-us"><span class="cmp cmp-no">No</span></td>
+                            <td><span class="cmp cmp-yes">Yes</span></td>
+                            <td><span class="cmp cmp-no">No</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="faq">
+            <div class="section-head"
+                 data-reveal>
+                <h2>Questions</h2>
+                <p>The things people ask before they switch.</p>
+            </div>
+            <div class="faq-list"
+                 data-reveal>
+                <details class="faq-item">
+                    <summary>Does it support Native AOT?</summary>
+                    <p>Yes. The framework never generates code at runtime. Add the optional source generator and
+                        call UseGeneratedMaterializers, and queries run with no reflection on the materialization path,
+                        so the
+                        trimmer keeps every type. See <a href="/Docs/Native%20AOT">Native AOT</a>.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>Is it safe to use from multiple threads?</summary>
+                    <p>Yes. Create one SQLiteDatabase and share it across the app. Commands take a connection lock
+                        automatically. Turn on WAL mode so reads and writes do not block each other. See
+                        <a href="/Docs/Multi-threading">Multi-threading</a>.
+                    </p>
+                </details>
+                <details class="faq-item">
+                    <summary>Can I encrypt the database?</summary>
+                    <p>Yes. Use the SQLite.Framework.Cipher package, which ships SQLCipher, and call
+                        UseEncryptionKey on the options builder.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>Which .NET and SQLite versions are supported?</summary>
+                    <p>.NET 8, 9, and 10. It uses the SQLite that ships with your OS by default, and you can set a
+                        minimum version on the builder or ship a pinned binary with the Bundled package.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>Does it have a change tracker or migrations?</summary>
+                    <p>No, by design. There is no change tracker, unit of work, lazy loading, or migration engine.
+                        You get LINQ over SQLite and CRUD, which keeps the library small and easy to reason about.</p>
+                </details>
+                <details class="faq-item">
+                    <summary>How is it different from EF Core or sqlite-net-pcl?</summary>
+                    <p>It translates full LINQ, including Select projections, to SQL like EF Core, but stays light
+                        and AOT friendly. Unlike sqlite-net-pcl it does not read whole rows into memory to run a
+                        projection. See <a href="/Docs/Migrating%20from%20EF%20Core">Migrating from EF Core</a> and
+                        <a href="/Docs/Migrating%20from%20sqlite-net-pcl">Migrating from sqlite-net-pcl</a>.
+                    </p>
+                </details>
             </div>
         </section>
 

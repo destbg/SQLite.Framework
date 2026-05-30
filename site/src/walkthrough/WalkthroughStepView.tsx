@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { highlight } from "../highlight/highlighter";
+import CopyButton from "../highlight/CopyButton";
 import type { WalkthroughStep } from "./walkthroughs/types";
 
 interface Props {
@@ -33,6 +34,7 @@ export default function WalkthroughStepView({ step, index, total, phase, directi
                 </div>
                 {step.code && (
                     <div className="wt-code-window">
+                        <CopyButton text={step.code.text} />
                         <div className="wt-code-header">
                             <span className="wt-code-dot wt-code-dot--red" />
                             <span className="wt-code-dot wt-code-dot--yellow" />

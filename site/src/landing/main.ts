@@ -1,14 +1,19 @@
 import "./landing.css";
 import "../highlight/syntax.css";
 import { initSavePace } from "./savePace";
+import { initQueryTabs } from "./queryTabs";
 import { highlight } from "../highlight/highlighter";
+import { addCopyButtons } from "../highlight/copy";
 
 initSavePace();
+initQueryTabs();
 
 document.querySelectorAll<HTMLElement>("pre code").forEach((block) => {
     const match = /language-(\w+)/.exec(block.className);
     block.innerHTML = highlight(block.textContent ?? "", match ? match[1] : "");
 });
+
+addCopyButtons(document);
 
 const reduceMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)",
