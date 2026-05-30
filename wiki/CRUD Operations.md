@@ -134,7 +134,7 @@ Uses SQLite's `DELETE FROM ... WHERE ...` syntax to delete rows matching the pre
 
 ## Returning the Written Row
 
-`Returning` wraps the table so the next `Add`, `Update`, or `Remove` emits a `RETURNING` clause and hands the written row back. Requires SQLite 3.35 or later.
+`Returning` wraps the table so the next `Add`, `Update`, `Remove`, or `Upsert` emits a `RETURNING` clause and hands the written row back. Requires SQLite 3.35 or later.
 
 ```csharp
 Book? added = await db.Table<Book>()
@@ -152,11 +152,16 @@ Book? updated = await db.Table<Book>()
 string? removedTitle = await db.Table<Book>()
     .Returning(b => b.Title)
     .RemoveAsync(book);
+
+// Upsert takes the same ON CONFLICT builder as Table.Upsert and returns the written row.
+Book? merged = await db.Table<Book>()
+    .Returning()
+    .UpsertAsync(book, c => c.OnConflict(b => b.Id).DoUpdateAll());
 ```
 
-`Add`, `Update`, and `Remove` return `TResult?`. The result is `default` when no row matched or when an `OnAdd` / `OnUpdate` / `OnRemove` hook returned `false`.
+`Add`, `Update`, `Remove`, and `Upsert` return `TResult?`. The result is `default` when no row matched or when an `OnAdd` / `OnUpdate` / `OnRemove` / `OnAddOrUpdate` hook returned `false`. For `Upsert` it is also `default` when the conflict resolves to no write (a `DO NOTHING`, or a `DO UPDATE ... WHERE` guard that fails).
 
-`AddRange`, `UpdateRange`, and `RemoveRange` return `List<TResult>` with one entry per affected row. They run in a transaction by default. Each has an `Async` counterpart.
+`AddRange`, `UpdateRange`, `RemoveRange`, and `UpsertRange` return `List<TResult>` with one entry per written row. They run in a transaction by default. Each has an `Async` counterpart.
 
 See [Returning the Affected Rows](Bulk%20Operations#returning-the-affected-rows) for bulk `RETURNING` against a `Where`-filtered source.
 

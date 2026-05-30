@@ -89,8 +89,8 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Async wrapper for
-    /// <see cref="QueryableExtensions.ExecuteDelete{T, TResult}(SQLiteReturningQueryable{T, TResult})" />.
+    /// Runs <c>DELETE ... RETURNING</c> against the filtered source and returns the deleted rows,
+    /// each projected through the wrapper's projection. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
@@ -110,8 +110,9 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Async wrapper for
-    /// <see cref="QueryableExtensions.ExecuteUpdate{T, TResult}(SQLiteReturningQueryable{T, TResult}, Func{SQLitePropertyCalls{T}, SQLitePropertyCalls{T}})" />.
+    /// Applies <paramref name="setters" /> as an <c>UPDATE ... RETURNING</c> against the filtered
+    /// source and returns the updated rows, each projected through the wrapper's projection.
+    /// Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
@@ -132,7 +133,10 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.Add" />.
+    /// Inserts <paramref name="item" /> and returns the inserted row, projected through the
+    /// wrapper's projection. Returns <see langword="default" /> when an <c>OnAdd</c> hook cancels the
+    /// write, and copies an auto-increment primary key back to <paramref name="item" /> when the
+    /// projection materializes <typeparamref name="T" /> in full. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
@@ -152,7 +156,9 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.AddRange" />.
+    /// Inserts every item in <paramref name="collection" /> and returns the inserted rows, each
+    /// projected through the wrapper's projection. Runs inside a transaction by default. Requires
+    /// SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
@@ -172,7 +178,10 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.Update" />.
+    /// Updates the row identified by <paramref name="item" />'s primary key and returns the
+    /// post-update row, projected through the wrapper's projection. Returns
+    /// <see langword="default" /> when no row matched or an <c>OnUpdate</c> hook cancelled the write.
+    /// Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
@@ -192,7 +201,9 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.UpdateRange" />.
+    /// Updates every item in <paramref name="collection" /> by primary key and returns the
+    /// post-update rows, each projected through the wrapper's projection. Runs inside a transaction
+    /// by default. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
@@ -212,7 +223,9 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.Remove" />.
+    /// Deletes the row identified by <paramref name="item" />'s primary key and returns the deleted
+    /// row, projected through the wrapper's projection. Returns <see langword="default" /> when no
+    /// row matched or an <c>OnRemove</c> hook cancelled the write. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
@@ -232,7 +245,9 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Async wrapper for <see cref="SQLiteReturningTable{T, TResult}.RemoveRange" />.
+    /// Deletes every item in <paramref name="collection" /> by primary key and returns the deleted
+    /// rows, each projected through the wrapper's projection. Runs inside a transaction by default.
+    /// Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
@@ -248,6 +263,52 @@ public static class AsyncQueryableExtensions
         {
             using IDisposable _ = await returning.Database.LockAsync(ct);
             return returning.RemoveRange(collection, runInTransaction);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Runs an <c>INSERT ... ON CONFLICT (...) DO ...</c> upsert built through
+    /// <paramref name="configure" /> and returns the written row, projected through the wrapper's
+    /// projection. Returns <see langword="default" /> when the conflict resolves to no write (a
+    /// <c>DO NOTHING</c>, or a failed <c>DO UPDATE ... WHERE</c> guard) or an <c>OnAddOrUpdate</c>
+    /// hook cancels. Requires SQLite 3.35 or later.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<TResult?> UpsertAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, T item, Action<UpsertBuilder<T>> configure, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.Upsert(item, configure);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Runs the configured upsert for every item in <paramref name="collection" /> and returns the
+    /// written rows, each projected through the wrapper's projection. Rows whose conflict resolves to
+    /// no write contribute nothing. Runs inside a transaction by default. Requires SQLite 3.35 or later.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<List<TResult>> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(returning);
+
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await returning.Database.LockAsync(ct);
+            return returning.UpsertRange(collection, configure, runInTransaction);
         }, ct);
     }
 

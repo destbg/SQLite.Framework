@@ -179,6 +179,68 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             });
     }
 
+    /// <summary>
+    /// Performs an <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> upsert built through the
+    /// <see cref="UpsertBuilder{T}" /> DSL and returns the written row, projected. Returns
+    /// <see langword="default" /> when the conflict resolves to no write (a <c>DO NOTHING</c>, or a
+    /// <c>DO UPDATE ... WHERE</c> guard that fails), or when an <c>OnAddOrUpdate</c> hook cancels the write.
+    /// </summary>
+    public virtual TResult? Upsert(T item, Action<UpsertBuilder<T>> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+
+        if (!Source.RunHooksInternal(Database.Options.AddOrUpdateHooks, item))
+        {
+            return default;
+        }
+
+        (TableColumn[] columns, string sql) = Source.GetUpsertInfoInternal(configure);
+        TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
+
+        List<TResult> rows = ExecuteWithReturning(sql, parameters);
+        if (rows.Count == 0)
+        {
+            return default;
+        }
+
+        if (autoIncrement != null)
+        {
+            BackfillAutoIncrement(item, rows[0], autoIncrement);
+        }
+
+        return rows[0];
+    }
+
+    /// <summary>
+    /// Performs the configured upsert for every item in <paramref name="collection" /> and returns
+    /// the written rows, projected. Rows whose conflict resolves to no write contribute nothing to
+    /// the result. Runs inside a transaction by default.
+    /// </summary>
+    public virtual List<TResult> UpsertRange(IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true)
+    {
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        (TableColumn[] columns, string sql) = Source.GetUpsertInfoInternal(configure);
+        TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+
+        return RunRangeWithReturning(
+            collection,
+            Database.Options.AddOrUpdateHooks,
+            runInTransaction,
+            item =>
+            {
+                List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
+                List<TResult> projected = ExecuteWithReturning(sql, parameters);
+                if (autoIncrement != null && projected.Count > 0)
+                {
+                    BackfillAutoIncrement(item, projected[0], autoIncrement);
+                }
+                return projected;
+            });
+    }
+
     private List<TResult> ExecuteWithReturning(string entitySql, List<SQLiteParameter> entityParameters)
     {
 #if SQLITE_FRAMEWORK_VERSION_AWARE

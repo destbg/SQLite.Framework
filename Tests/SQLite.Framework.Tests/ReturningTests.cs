@@ -440,6 +440,167 @@ public class ReturningTests
     }
 
     [Fact]
+    public void TableReturning_Upsert_Insert_ReturnsInsertedRow()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningItem>().Schema.CreateTable();
+
+        ReturningItem? row = db.Table<ReturningItem>()
+            .Returning()
+            .Upsert(new ReturningItem { Id = 1, Name = "alpha", Price = 5 },
+                c => c.OnConflict(x => x.Id).DoUpdateAll());
+
+        Assert.NotNull(row);
+        Assert.Equal(1, row!.Id);
+        Assert.Equal("alpha", row.Name);
+        Assert.Equal(5.0, row.Price);
+    }
+
+    [Fact]
+    public void TableReturning_Upsert_Conflict_ReturnsUpdatedRow()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningItem>().Schema.CreateTable();
+        db.Table<ReturningItem>().Add(new ReturningItem { Id = 1, Name = "old", Price = 1 });
+
+        ReturningItem? row = db.Table<ReturningItem>()
+            .Returning()
+            .Upsert(new ReturningItem { Id = 1, Name = "new", Price = 9 },
+                c => c.OnConflict(x => x.Id).DoUpdateAll());
+
+        Assert.NotNull(row);
+        Assert.Equal("new", row!.Name);
+        Assert.Equal(9.0, row.Price);
+        Assert.Single(db.Table<ReturningItem>().ToList());
+    }
+
+    [Fact]
+    public void TableReturning_Upsert_DoNothing_NoWrite_ReturnsDefault()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningItem>().Schema.CreateTable();
+        db.Table<ReturningItem>().Add(new ReturningItem { Id = 1, Name = "keep", Price = 1 });
+
+        ReturningItem? row = db.Table<ReturningItem>()
+            .Returning()
+            .Upsert(new ReturningItem { Id = 1, Name = "ignored", Price = 9 },
+                c => c.OnConflict(x => x.Id).DoNothing());
+
+        Assert.Null(row);
+        Assert.Equal("keep", db.Table<ReturningItem>().Single().Name);
+    }
+
+    [Fact]
+    public void TableReturning_Upsert_ScalarProjection_ReturnsValue()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningItem>().Schema.CreateTable();
+        db.Table<ReturningItem>().Add(new ReturningItem { Id = 1, Name = "a", Price = 5 });
+
+        double price = db.Table<ReturningItem>()
+            .Returning(x => x.Price)
+            .Upsert(new ReturningItem { Id = 1, Name = "a", Price = 3 },
+                c => c.OnConflict(x => x.Id).DoUpdate(s => s.Set(x => x.Price, (current, excluded) => current.Price + excluded.Price)));
+
+        Assert.Equal(8.0, price);
+    }
+
+    [Fact]
+    public void TableReturning_Upsert_WithAutoIncrement_BackfillsId()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningAuto>().Schema.CreateTable();
+
+        ReturningAuto entity = new() { Name = "a" };
+        ReturningAuto? returned = db.Table<ReturningAuto>()
+            .Returning()
+            .Upsert(entity, c => c.OnConflict(x => x.Id).DoNothing());
+
+        Assert.NotNull(returned);
+        Assert.True(returned!.Id > 0);
+        Assert.Equal(returned.Id, entity.Id);
+    }
+
+    [Fact]
+    public void TableReturning_Upsert_HookCancels_ReturnsDefault()
+    {
+        using TestDatabase db = new(o => o.OnAddOrUpdate<ReturningItem>((_, item) => item.Price >= 0));
+        db.Table<ReturningItem>().Schema.CreateTable();
+
+        ReturningItem? row = db.Table<ReturningItem>()
+            .Returning()
+            .Upsert(new ReturningItem { Id = 1, Name = "bad", Price = -1 },
+                c => c.OnConflict(x => x.Id).DoUpdateAll());
+
+        Assert.Null(row);
+        Assert.Empty(db.Table<ReturningItem>().ToList());
+    }
+
+    [Fact]
+    public void TableReturning_UpsertRange_ReturnsWrittenRows()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningItem>().Schema.CreateTable();
+        db.Table<ReturningItem>().Add(new ReturningItem { Id = 1, Name = "old", Price = 1 });
+
+        ReturningItem[] items =
+        [
+            new() { Id = 1, Name = "upd", Price = 11 },
+            new() { Id = 2, Name = "ins", Price = 22 },
+        ];
+
+        List<ReturningItem> rows = db.Table<ReturningItem>()
+            .Returning()
+            .UpsertRange(items, c => c.OnConflict(x => x.Id).DoUpdateAll());
+
+        Assert.Equal(2, rows.Count);
+        Assert.Contains(rows, r => r.Id == 1 && r.Name == "upd" && r.Price == 11);
+        Assert.Contains(rows, r => r.Id == 2 && r.Name == "ins" && r.Price == 22);
+    }
+
+    [Fact]
+    public void TableReturning_UpsertRange_DoNothingRowsExcluded()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningItem>().Schema.CreateTable();
+        db.Table<ReturningItem>().Add(new ReturningItem { Id = 1, Name = "keep", Price = 1 });
+
+        ReturningItem[] items =
+        [
+            new() { Id = 1, Name = "ignored", Price = 9 },
+            new() { Id = 2, Name = "fresh", Price = 2 },
+        ];
+
+        List<int> ids = db.Table<ReturningItem>()
+            .Returning(x => x.Id)
+            .UpsertRange(items, c => c.OnConflict(x => x.Id).DoNothing(), runInTransaction: false);
+
+        Assert.Equal([2], ids);
+        Assert.Equal("keep", db.Table<ReturningItem>().Single(x => x.Id == 1).Name);
+    }
+
+    [Fact]
+    public void TableReturning_UpsertRange_WithAutoIncrement_BackfillsEveryEntity()
+    {
+        using TestDatabase db = new();
+        db.Table<ReturningAuto>().Schema.CreateTable();
+
+        ReturningAuto[] items =
+        [
+            new() { Name = "a" },
+            new() { Name = "b" },
+        ];
+
+        List<ReturningAuto> rows = db.Table<ReturningAuto>()
+            .Returning()
+            .UpsertRange(items, c => c.OnConflict(x => x.Id).DoNothing());
+
+        Assert.Equal(2, rows.Count);
+        Assert.All(items, item => Assert.True(item.Id > 0));
+        Assert.Equal(items.Select(i => i.Id).ToList(), rows.Select(r => r.Id).ToList());
+    }
+
+    [Fact]
     public void TableReturning_Returning_ProjectionWithLiteral_BindsRpPrefixedParam()
     {
         using TestDatabase db = new();

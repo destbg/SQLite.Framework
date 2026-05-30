@@ -360,6 +360,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     internal (TableColumn[] Columns, string Sql) GetAddInfoInternal() => GetAddInfo();
     internal (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfoInternal() => GetUpdateInfo();
     internal (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfoInternal() => GetRemoveInfo();
+    internal (TableColumn[] Columns, string Sql) GetUpsertInfoInternal(Action<UpsertBuilder<T>> configure) => GetUpsertInfo(configure);
     internal bool RunHooksInternal(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item) => RunHooks(hooks, item);
 
     /// <summary>
