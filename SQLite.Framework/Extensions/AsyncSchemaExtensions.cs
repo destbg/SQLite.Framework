@@ -375,6 +375,19 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
+    /// Creates a trigger on the table for <typeparamref name="T" /> from a LINQ-typed body. See
+    /// <see cref="SQLiteSchema.CreateTrigger{T}(string, SQLiteTriggerTiming, SQLiteTriggerEvent, Action{SQLiteTriggerBuilder{T}}, bool)" />.
+    /// </summary>
+    public static Task<int> CreateTriggerAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build, bool forEachRow = true, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.CreateTrigger<T>(name, timing, @event, build, forEachRow);
+        }, ct);
+    }
+
+    /// <summary>
     /// Drops the trigger with the given SQLite name.
     /// </summary>
     public static Task<int> DropTriggerAsync(this SQLiteSchema schema, string name, CancellationToken ct = default)

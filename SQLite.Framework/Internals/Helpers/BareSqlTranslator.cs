@@ -33,6 +33,23 @@ internal static class BareSqlTranslator
         return Finish(visitor, lambda.Body);
     }
 
+    /// <summary>
+    /// Translates one expression from a LINQ-typed trigger body. Each entry in
+    /// <paramref name="rows" /> binds a parameter to a table's columns with an optional prefix:
+    /// no prefix for the statement's target row (bare column names), <c>OLD.</c> and <c>NEW.</c> for
+    /// the trigger's old and new rows.
+    /// </summary>
+    public static string TranslateTrigger(SQLiteDatabase database, Expression body, (ParameterExpression Parameter, TableMapping Mapping, string? Prefix)[] rows)
+    {
+        SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
+        foreach ((ParameterExpression parameter, TableMapping mapping, string? prefix) in rows)
+        {
+            visitor.MethodArguments[parameter] = RowColumns(visitor, mapping, prefix);
+        }
+
+        return Finish(visitor, body);
+    }
+
     private static Dictionary<string, Expression> RowColumns(SQLVisitor visitor, TableMapping mapping, string? prefix)
     {
         return mapping.Columns.ToDictionary(

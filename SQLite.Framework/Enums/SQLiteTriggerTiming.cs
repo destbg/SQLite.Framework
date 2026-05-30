@@ -1,7 +1,8 @@
 namespace SQLite.Framework.Enums;
 
 /// <summary>
-/// When a trigger fires relative to the row change. Used by <see cref="SQLiteSchema.CreateTrigger{T}" />.
+/// When a trigger fires relative to the row change. Used by
+/// <see cref="SQLiteSchema.CreateTrigger{T}(string, SQLiteTriggerTiming, SQLiteTriggerEvent, string, string?, bool)" />.
 /// </summary>
 public enum SQLiteTriggerTiming
 {

@@ -1,5 +1,6 @@
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
+using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
@@ -268,6 +269,192 @@ public class ViewAndTriggerTests
     }
 
     [Fact]
+    public void TriggerBuilder_OldAndNew_ExposeMarkerRows()
+    {
+        using TestDatabase db = new();
+        SQLiteTriggerBuilder<Book> builder = new(db, db.TableMapping(typeof(Book)));
+
+        Assert.Null(builder.Old);
+        Assert.Null(builder.New);
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_Insert_FiresAndWritesAudit()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookHistory>().Schema.CreateTable();
+
+        db.Schema.CreateTrigger<Book>("trg_audit", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
+            .When(() => t.Old.Price != t.New.Price)
+            .Insert(db.Table<BookHistory>(), s => s
+                .Set(h => h.BookId, _ => t.New.Id)
+                .Set(h => h.OldPrice, _ => t.Old.Price)
+                .Set(h => h.NewPrice, _ => t.New.Price)));
+
+        Assert.Equal(
+            "CREATE TRIGGER \"trg_audit\" AFTER UPDATE ON \"Books\" FOR EACH ROW WHEN OLD.\"BookPrice\" <> NEW.\"BookPrice\" BEGIN INSERT INTO \"BookHistory\" (\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (NEW.\"BookId\", OLD.\"BookPrice\", NEW.\"BookPrice\"); END",
+            db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'trg_audit'"));
+
+        db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });
+        db.Table<Book>().Update(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 99 });
+
+        BookHistory entry = db.Table<BookHistory>().Single();
+        Assert.Equal(1, entry.BookId);
+        Assert.Equal(5, entry.OldPrice);
+        Assert.Equal(99, entry.NewPrice);
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_Update_MultiSetter_EmitsSql()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookHistory>().Schema.CreateTable();
+
+        db.Schema.CreateTrigger<Book>("trg_upd", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
+            .Update(db.Table<BookHistory>(),
+                h => h.BookId == t.New.Id,
+                s => s
+                    .Set(h => h.OldPrice, _ => t.Old.Price)
+                    .Set(h => h.NewPrice, _ => t.New.Price)));
+
+        Assert.Equal(
+            "CREATE TRIGGER \"trg_upd\" AFTER UPDATE ON \"Books\" FOR EACH ROW BEGIN UPDATE \"BookHistory\" SET \"OldPrice\" = OLD.\"BookPrice\", \"NewPrice\" = NEW.\"BookPrice\" WHERE \"BookId\" = NEW.\"BookId\"; END",
+            db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'trg_upd'"));
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_Delete_EmitsSql()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookHistory>().Schema.CreateTable();
+
+        db.Schema.CreateTrigger<Book>("trg_del", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Delete, t => t
+            .Delete(db.Table<BookHistory>(), h => h.BookId == t.Old.Id));
+
+        Assert.Equal(
+            "CREATE TRIGGER \"trg_del\" AFTER DELETE ON \"Books\" FOR EACH ROW BEGIN DELETE FROM \"BookHistory\" WHERE \"BookId\" = OLD.\"BookId\"; END",
+            db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'trg_del'"));
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_MultipleStatements_EmitsAll()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookHistory>().Schema.CreateTable();
+
+        db.Schema.CreateTrigger<Book>("trg_multi", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
+            .Delete(db.Table<BookHistory>(), h => h.BookId == t.New.Id)
+            .Insert(db.Table<BookHistory>(), s => s
+                .Set(h => h.BookId, _ => t.New.Id)
+                .Set(h => h.OldPrice, _ => t.Old.Price)
+                .Set(h => h.NewPrice, _ => t.New.Price)));
+
+        Assert.Equal(
+            "CREATE TRIGGER \"trg_multi\" AFTER UPDATE ON \"Books\" FOR EACH ROW BEGIN DELETE FROM \"BookHistory\" WHERE \"BookId\" = NEW.\"BookId\"; INSERT INTO \"BookHistory\" (\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (NEW.\"BookId\", OLD.\"BookPrice\", NEW.\"BookPrice\"); END",
+            db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'trg_multi'"));
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_CapturedValue_InlinesConstant()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookHistory>().Schema.CreateTable();
+
+        var limits = new { Threshold = 50.0 };
+        db.Schema.CreateTrigger<Book>("trg_cap", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
+            .Delete(db.Table<BookHistory>(), h => h.NewPrice > limits.Threshold && h.BookId == t.New.Id));
+
+        Assert.Equal(
+            "CREATE TRIGGER \"trg_cap\" AFTER UPDATE ON \"Books\" FOR EACH ROW BEGIN DELETE FROM \"BookHistory\" WHERE \"NewPrice\" > 50 AND \"BookId\" = NEW.\"BookId\"; END",
+            db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'trg_cap'"));
+    }
+
+    [Fact]
+    public async Task CreateTrigger_Linq_Async_RoundTrips()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookHistory>().Schema.CreateTable();
+
+        await db.Schema.CreateTriggerAsync<Book>("trg_lasync", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, t => t
+            .Insert(db.Table<BookHistory>(), s => s
+                .Set(h => h.BookId, _ => t.New.Id)
+                .Set(h => h.OldPrice, _ => 0.0)
+                .Set(h => h.NewPrice, _ => t.New.Price)), ct: TestContext.Current.CancellationToken);
+
+        db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });
+        Assert.Single(db.Table<BookHistory>().ToList());
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_EmptyBody_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.CreateTrigger<Book>("trg_empty", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, _ => { }));
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_WhenTwice_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookHistory>().Schema.CreateTable();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.CreateTrigger<Book>("trg_w2", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
+                .When(() => t.Old.Price != t.New.Price)
+                .When(() => t.Old.Title != t.New.Title)
+                .Delete(db.Table<BookHistory>(), h => h.BookId == t.New.Id)));
+
+        Assert.Equal("When was already called for this trigger.", ex.Message);
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_UpdateNoSetters_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookHistory>().Schema.CreateTable();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.CreateTrigger<Book>("trg_ns", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
+                .Update(db.Table<BookHistory>(), h => h.BookId == t.New.Id, _ => { })));
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_InsertNoSetters_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<BookHistory>().Schema.CreateTable();
+
+        Assert.Throws<ArgumentException>(() =>
+            db.Schema.CreateTrigger<Book>("trg_nsi", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, t => t
+                .Insert(db.Table<BookHistory>(), _ => { })));
+    }
+
+    [Fact]
+    public void CreateTrigger_Linq_UnmappedColumn_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.CreateTrigger<Book>("trg_um", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, t => t
+                .Insert(db.Table<EntityWithComputed>(), s => s.Set(e => e.FullName, _ => t.New.Title))));
+
+        Assert.Contains("not a mapped column", ex.Message);
+    }
+
+    [Fact]
     public void CreateTrigger_NullName_Throws()
     {
         using TestDatabase db = new();
@@ -284,7 +471,7 @@ public class ViewAndTriggerTests
         db.Table<Book>().Schema.CreateTable();
 
         Assert.Throws<ArgumentNullException>(() =>
-            db.Schema.CreateTrigger<Book>("trg_x", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, null!));
+            db.Schema.CreateTrigger<Book>("trg_x", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, (string)null!));
     }
 
     [Fact]

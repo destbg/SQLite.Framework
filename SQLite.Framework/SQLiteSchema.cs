@@ -599,6 +599,33 @@ public class SQLiteSchema
     }
 
     /// <summary>
+    /// Creates a trigger whose body is built from typed LINQ statements instead of a SQL string.
+    /// Use the builder's <c>Old</c> and <c>New</c> rows to reference the changed row, and add one or
+    /// more <c>Update</c>, <c>Insert</c>, or <c>Delete</c> statements. Issues <c>CREATE TRIGGER IF NOT EXISTS</c>.
+    /// </summary>
+    /// <param name="name">The trigger name.</param>
+    /// <param name="timing">When the trigger fires, relative to the row change.</param>
+    /// <param name="event">The row change that fires the trigger.</param>
+    /// <param name="build">Builds the body and the optional <c>When</c> guard.</param>
+    /// <param name="forEachRow">When <see langword="true" /> (the default), the trigger fires once
+    /// per row.</param>
+    public virtual int CreateTrigger<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build, bool forEachRow = true)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(build);
+
+        SQLiteTriggerBuilder<T> builder = new(Database, Database.TableMapping<T>());
+        build(builder);
+        if (builder.Statements.Count == 0)
+        {
+            throw new ArgumentException("The trigger body must contain at least one Update, Insert, or Delete statement.", nameof(build));
+        }
+
+        string body = string.Join("; ", builder.Statements);
+        return CreateTrigger<T>(name, timing, @event, body, builder.WhenSql, forEachRow);
+    }
+
+    /// <summary>
     /// Drops the trigger with the given SQLite name.
     /// </summary>
     public virtual int DropTrigger(string name)

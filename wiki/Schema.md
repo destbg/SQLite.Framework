@@ -202,6 +202,17 @@ db.Schema.DropTrigger("trg_book_history");
 
 `SQLiteTriggerTiming` is `Before`, `After`, or `InsteadOf`. `SQLiteTriggerEvent` is `Insert`, `Update`, or `Delete`. `InsteadOf` only works on views. The trigger runs once per row by default, pass `forEachRow: false` to run once per statement.
 
+There is also a typed overload that builds the body from LINQ instead of a SQL string. Use the builder's `Old` and `New` rows, and add `Update`, `Insert`, or `Delete` statements. Columns and the `When` guard are checked at compile time.
+
+```csharp
+db.Schema.CreateTrigger<Book>("trg_book_history", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
+    .When(() => t.Old.Price != t.New.Price)
+    .Insert(db.Table<BookHistory>(), s => s
+        .Set(h => h.BookId, _ => t.New.Id)
+        .Set(h => h.OldPrice, _ => t.Old.Price)
+        .Set(h => h.NewPrice, _ => t.New.Price)));
+```
+
 ## Async
 
 Every method has an async wrapper that runs on a background thread:
