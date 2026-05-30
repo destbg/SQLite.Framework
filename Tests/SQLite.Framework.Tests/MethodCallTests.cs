@@ -25,12 +25,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal(3, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId = @p1
+                     WHERE b0."BookId" = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -53,12 +53,12 @@ public class MethodCallTests
         Assert.Equal(2, command.Parameters[1].Value);
         Assert.Equal(3, command.Parameters[2].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId IN (@p1, @p2, @p3)
+                     WHERE b0."BookId" IN (@p1, @p2, @p3)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -82,15 +82,15 @@ public class MethodCallTests
         Assert.Equal("test", command.Parameters[0].Value);
         Assert.Equal("test", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      WHERE @p2 IN (
-                         SELECT b1.BookTitle AS "Title"
+                         SELECT b1."BookTitle" AS "Title"
                          FROM "Books" AS b1
-                         WHERE b1.BookTitle = @p0
+                         WHERE b1."BookTitle" = @p0
                      )
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -114,15 +114,15 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("test", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId = (
-                         SELECT MAX(b1.BookId) AS "11"
+                     WHERE b0."BookId" = (
+                         SELECT MAX(b1."BookId") AS "11"
                          FROM "Books" AS b1
-                         WHERE b1.BookTitle = @p0
+                         WHERE b1."BookTitle" = @p0
                      )
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -150,12 +150,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("%test%", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p1 ESCAPE '\'
+                     WHERE b0."BookTitle" LIKE @p1 ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -186,12 +186,12 @@ public class MethodCallTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE '%'||b0.BookTitle||'%' ESCAPE '\'
+                     WHERE b0."BookTitle" LIKE '%'||b0."BookTitle"||'%' ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -213,12 +213,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("%test%", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p2 ESCAPE '\' COLLATE NOCASE
+                     WHERE b0."BookTitle" LIKE @p2 ESCAPE '\' COLLATE NOCASE
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -245,12 +245,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("test%", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p1 ESCAPE '\'
+                     WHERE b0."BookTitle" LIKE @p1 ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -274,12 +274,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("%test\\%", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle LIKE @p1 ESCAPE '\'
+                     WHERE b0."BookTitle" LIKE @p1 ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -306,12 +306,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("Test", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle = @p0
+                     WHERE b0."BookTitle" = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -343,12 +343,12 @@ public class MethodCallTests
         Assert.Equal("test", command.Parameters[0].Value);
         Assert.Equal(1, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE INSTR(b0.BookTitle, @p0) - 1 = @p1
+                     WHERE INSTR(b0."BookTitle", @p0) - 1 = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -381,12 +381,12 @@ public class MethodCallTests
         Assert.Equal("b", command.Parameters[1].Value);
         Assert.Equal("be", command.Parameters[2].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE REPLACE(b0.BookTitle, @p0, @p1) = @p2
+                     WHERE REPLACE(b0."BookTitle", @p0, @p1) = @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -417,12 +417,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("be", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE TRIM(b0.BookTitle) = @p0
+                     WHERE TRIM(b0."BookTitle") = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -455,12 +455,12 @@ public class MethodCallTests
         Assert.Equal(' ', command.Parameters[0].Value);
         Assert.Equal("be", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE TRIM(b0.BookTitle, @p0) = @p1
+                     WHERE TRIM(b0."BookTitle", @p0) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -496,12 +496,12 @@ public class MethodCallTests
         Assert.Equal('c', command.Parameters[3].Value);
         Assert.Equal("e", command.Parameters[4].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE TRIM(b0.BookTitle, @p1 || @p2 || @p3 || @p4) = @p5
+                     WHERE TRIM(b0."BookTitle", @p1 || @p2 || @p3 || @p4) = @p5
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -533,12 +533,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("be", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE LTRIM(b0.BookTitle) = @p0
+                     WHERE LTRIM(b0."BookTitle") = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -570,12 +570,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("be", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE RTRIM(b0.BookTitle) = @p0
+                     WHERE RTRIM(b0."BookTitle") = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -608,12 +608,12 @@ public class MethodCallTests
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("be", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE SUBSTR(b0.BookTitle, @p0 + 1) = @p1
+                     WHERE SUBSTR(b0."BookTitle", @p0 + 1) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -648,12 +648,12 @@ public class MethodCallTests
         Assert.Equal(2, command.Parameters[1].Value);
         Assert.Equal("be", command.Parameters[2].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE SUBSTR(b0.BookTitle, @p0 + 1, @p1) = @p2
+                     WHERE SUBSTR(b0."BookTitle", @p0 + 1, @p1) = @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -686,12 +686,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("BE", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookTitle = @p0 COLLATE NOCASE)
+                     WHERE (b0."BookTitle" = @p0 COLLATE NOCASE)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -724,12 +724,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("be", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookTitle = @p0 COLLATE NOCASE)
+                     WHERE (b0."BookTitle" = @p0 COLLATE NOCASE)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -762,12 +762,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("be", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookTitle = @p0)
+                     WHERE (b0."BookTitle" = @p0)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -798,12 +798,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (CASE WHEN b0.BookId < b0.BookAuthorId THEN b0.BookId ELSE b0.BookAuthorId END) = @p0
+                     WHERE (CASE WHEN b0."BookId" < b0."BookAuthorId" THEN b0."BookId" ELSE b0."BookAuthorId" END) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -835,12 +835,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (CASE WHEN b0.BookId > b0.BookAuthorId THEN b0.BookId ELSE b0.BookAuthorId END) = @p0
+                     WHERE (CASE WHEN b0."BookId" > b0."BookAuthorId" THEN b0."BookId" ELSE b0."BookAuthorId" END) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -871,12 +871,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE ABS(b0.BookId) = @p0
+                     WHERE ABS(b0."BookId") = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -900,12 +900,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal(1d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE ROUND(CAST(b0.BookId AS REAL)) = @p0
+                     WHERE ROUND(CAST(b0."BookId" AS REAL)) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -932,12 +932,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal(1d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE CEIL(CAST(b0.BookId AS REAL)) = @p0
+                     WHERE CEIL(CAST(b0."BookId" AS REAL)) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -960,12 +960,12 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal(1d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE FLOOR(CAST(b0.BookId AS REAL)) = @p0
+                     WHERE FLOOR(CAST(b0."BookId" AS REAL)) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -1213,8 +1213,8 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("test", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            CASE WHEN LENGTH(@p0) = 0 THEN LENGTH(b0.BookTitle) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, b0.BookTitle UNION ALL SELECT pos + INSTR(rem, @p0), SUBSTR(rem, INSTR(rem, @p0) + 1) FROM find_pos WHERE INSTR(rem, @p0) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END AS "LastIndex"
+                     SELECT b0."BookId" AS "Id",
+                            CASE WHEN LENGTH(@p0) = 0 THEN LENGTH(b0."BookTitle") ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, b0."BookTitle" UNION ALL SELECT pos + INSTR(rem, @p0), SUBSTR(rem, INSTR(rem, @p0) + 1) FROM find_pos WHERE INSTR(rem, @p0) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END AS "LastIndex"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1242,8 +1242,8 @@ public class MethodCallTests
         Assert.Equal(2, command.Parameters[0].Value);
         Assert.Equal("XX", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            SUBSTR(b0.BookTitle, 1, @p0) || @p1 || SUBSTR(b0.BookTitle, @p0 + 1) AS "Inserted"
+                     SELECT b0."BookId" AS "Id",
+                            SUBSTR(b0."BookTitle", 1, @p0) || @p1 || SUBSTR(b0."BookTitle", @p0 + 1) AS "Inserted"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1270,8 +1270,8 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal(4, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            SUBSTR(b0.BookTitle, 1, @p0) AS "Removed"
+                     SELECT b0."BookId" AS "Id",
+                            SUBSTR(b0."BookTitle", 1, @p0) AS "Removed"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1299,8 +1299,8 @@ public class MethodCallTests
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal(3, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            SUBSTR(b0.BookTitle, 1, @p0) || SUBSTR(b0.BookTitle, @p0 + @p1 + 1) AS "Removed"
+                     SELECT b0."BookId" AS "Id",
+                            SUBSTR(b0."BookTitle", 1, @p0) || SUBSTR(b0."BookTitle", @p0 + @p1 + 1) AS "Removed"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1328,8 +1328,8 @@ public class MethodCallTests
         Assert.Equal(" - ", command.Parameters[0].Value);
         Assert.Equal("Book", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle || @p0 || @p1 AS "Concatenated"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" || @p0 || @p1 AS "Concatenated"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1357,8 +1357,8 @@ public class MethodCallTests
         Assert.Single(command.Parameters);
         Assert.Equal("Test", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            (CASE WHEN b0.BookTitle = @p0 THEN 0 WHEN b0.BookTitle < @p0 THEN -1 ELSE 1 END) AS "Comparison"
+                     SELECT b0."BookId" AS "Id",
+                            (CASE WHEN b0."BookTitle" = @p0 THEN 0 WHEN b0."BookTitle" < @p0 THEN -1 ELSE 1 END) AS "Comparison"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1387,8 +1387,8 @@ public class MethodCallTests
         Assert.Equal(8, command.Parameters[0].Value);
         Assert.Equal('x', command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            (CASE WHEN LENGTH(b0.BookTitle) >= @p0 THEN b0.BookTitle ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0.BookTitle))), '00', @p1), 1, @p0 - LENGTH(b0.BookTitle)) || b0.BookTitle) END) AS "Padded"
+                     SELECT b0."BookId" AS "Id",
+                            (CASE WHEN LENGTH(b0."BookTitle") >= @p0 THEN b0."BookTitle" ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0."BookTitle"))), '00', @p1), 1, @p0 - LENGTH(b0."BookTitle")) || b0."BookTitle") END) AS "Padded"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1416,8 +1416,8 @@ public class MethodCallTests
         Assert.Equal(8, command.Parameters[0].Value);
         Assert.Equal('x', command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            (CASE WHEN LENGTH(b0.BookTitle) >= @p0 THEN b0.BookTitle ELSE (b0.BookTitle || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0.BookTitle))), '00', @p1), 1, @p0 - LENGTH(b0.BookTitle)))) END) AS "Padded"
+                     SELECT b0."BookId" AS "Id",
+                            (CASE WHEN LENGTH(b0."BookTitle") >= @p0 THEN b0."BookTitle" ELSE (b0."BookTitle" || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0."BookTitle"))), '00', @p1), 1, @p0 - LENGTH(b0."BookTitle")))) END) AS "Padded"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1443,8 +1443,8 @@ public class MethodCallTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            UPPER(b0.BookTitle) AS "Upper"
+                     SELECT b0."BookId" AS "Id",
+                            UPPER(b0."BookTitle") AS "Upper"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1470,8 +1470,8 @@ public class MethodCallTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            LOWER(b0.BookTitle) AS "Lower"
+                     SELECT b0."BookId" AS "Id",
+                            LOWER(b0."BookTitle") AS "Lower"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1499,10 +1499,10 @@ public class MethodCallTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      WHERE 0 = 1
                      """.Replace("\r\n", "\n"),
@@ -1543,13 +1543,13 @@ public class MethodCallTests
         Assert.Equal(" - ", command.Parameters[0].Value);
         Assert.Equal("Book1 - John", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
-                     WHERE b0.BookTitle || @p0 || a1.AuthorName = @p1
+                     JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
+                     WHERE b0."BookTitle" || @p0 || a1."AuthorName" = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 

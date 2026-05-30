@@ -192,10 +192,10 @@ var revenue = (
 The SQL is:
 
 ```sql
-SELECT b0.BookAuthorId AS "AuthorId",
-       total(b0.BookPrice) AS "Revenue"
+SELECT b0."BookAuthorId" AS "AuthorId",
+       total(b0."BookPrice") AS "Revenue"
 FROM "Books" AS b0
-GROUP BY b0.BookAuthorId
+GROUP BY b0."BookAuthorId"
 ```
 
 `total` shines when the aggregated column has `NULL` values or when the projected input is empty. `sum` returns `NULL` in those cases. `total` returns `0.0` so callers do not need a special case for empty groups.

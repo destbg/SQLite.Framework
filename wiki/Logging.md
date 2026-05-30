@@ -15,7 +15,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
 A line looks like:
 
 ```
-(12ms, 3 rows) SELECT b0.BookId AS "Id", b0.BookTitle AS "Title" FROM "Books" AS b0 WHERE b0.BookAuthorId = @p0 | @p0=?
+(12ms, 3 rows) SELECT b0."BookId" AS "Id", b0."BookTitle" AS "Title" FROM "Books" AS b0 WHERE b0."BookAuthorId" = @p0 | @p0=?
 ```
 
 The numbers are the elapsed time and the number of rows the framework reported. For commands that read rows lazily through a data reader, the number of rows is omitted.

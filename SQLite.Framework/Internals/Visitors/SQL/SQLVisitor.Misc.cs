@@ -62,7 +62,7 @@ internal partial class SQLVisitor
         {
             From = SQLiteExpression.Leaf(elementType, -1, $"{cachedName} AS {alias}");
             TableColumns = elementType.GetProperties()
-                .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.{f.Name}"));
+                .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
             return;
         }
 
@@ -78,7 +78,7 @@ internal partial class SQLVisitor
             string placeholder = $"{aliasChar}__cte_self_{CteRegistry.Ctes.Count}__";
 
             Dictionary<string, Expression> selfColumns = elementType.GetProperties()
-                .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{placeholder}.{f.Name}"));
+                .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{placeholder}.{IdentifierGuard.Quote(f.Name)}"));
 
             CteParameters[selfParam] = (placeholder, selfColumns);
             MethodArguments[selfParam] = selfColumns;
@@ -105,7 +105,7 @@ internal partial class SQLVisitor
         From = SQLiteExpression.Leaf(elementType, -1, $"{cteName} AS {alias}");
 
         TableColumns = elementType.GetProperties()
-            .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.{f.Name}"));
+            .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
     }
 
     protected override Expression VisitConditional(ConditionalExpression node)
@@ -137,7 +137,7 @@ internal partial class SQLVisitor
                 .ToDictionary(kv => kv.Key, Expression (kv) => SQLiteExpression.Leaf(
                     ((SQLiteExpression)kv.Value).Type,
                     Counters.NextIdentifier(),
-                    $"{alias}.{kv.Key}"));
+                    $"{alias}.{IdentifierGuard.Quote(kv.Key)}"));
 
             return SQLiteExpression.Alias(node.Type, -1, From, null);
         }

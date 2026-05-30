@@ -12,7 +12,7 @@ internal static class UpsertSqlBuilder
             .Where(c => !c.IsPrimaryKey || !c.IsAutoIncrement)
             .ToArray();
 
-        string columnsList = string.Join(", ", insertColumns.Select(c => c.Name));
+        string columnsList = string.Join(", ", insertColumns.Select(c => IdentifierGuard.Quote(c.Name)));
         string parameters = string.Join(", ", insertColumns.Select((c, i) => wrapParam(c, $"@p{i}")));
 
         StringBuilder sb = new();
@@ -25,7 +25,7 @@ internal static class UpsertSqlBuilder
         sb.Append(')');
 
         sb.Append(" ON CONFLICT (");
-        sb.Append(string.Join(", ", target.ConflictColumns.Select(name => ResolveSqlName(table, name))));
+        sb.Append(string.Join(", ", target.ConflictColumns.Select(name => IdentifierGuard.Quote(ResolveSqlName(table, name)))));
         sb.Append(')');
 
         if (target.WherePredicate != null)
@@ -84,9 +84,10 @@ internal static class UpsertSqlBuilder
             {
                 sb.Append(", ");
             }
-            sb.Append(columns[i].Name);
+            string quoted = IdentifierGuard.Quote(columns[i].Name);
+            sb.Append(quoted);
             sb.Append(" = excluded.");
-            sb.Append(columns[i].Name);
+            sb.Append(quoted);
         }
 
         if (action.UpdateWhere != null)

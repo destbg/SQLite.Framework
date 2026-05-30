@@ -21,9 +21,9 @@ public class GroupConcatTests
 
         Assert.Equal("""
                      SELECT (
-                         SELECT group_concat(b2.BookTitle, @p1) AS "19"
+                         SELECT group_concat(b2."BookTitle", @p1) AS "19"
                          FROM "Books" AS b2
-                         WHERE b2.BookAuthorId = a0.AuthorId
+                         WHERE b2."BookAuthorId" = a0."AuthorId"
                      ) AS "21"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
@@ -178,9 +178,9 @@ public class GroupConcatTests
 
         Assert.Equal("""
                      SELECT (
-                         SELECT group_concat(b2.BookTitle, @p1 ORDER BY b2.BookTitle ASC) AS "21"
+                         SELECT group_concat(b2."BookTitle", @p1 ORDER BY b2."BookTitle" ASC) AS "21"
                          FROM "Books" AS b2
-                         WHERE b2.BookAuthorId = a0.AuthorId
+                         WHERE b2."BookAuthorId" = a0."AuthorId"
                      ) AS "23"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
@@ -204,9 +204,9 @@ public class GroupConcatTests
 
         Assert.Equal("""
                      SELECT (
-                         SELECT group_concat(b2.BookTitle, @p1 ORDER BY b2.BookPrice DESC, b2.BookId ASC) AS "23"
+                         SELECT group_concat(b2."BookTitle", @p1 ORDER BY b2."BookPrice" DESC, b2."BookId" ASC) AS "23"
                          FROM "Books" AS b2
-                         WHERE b2.BookAuthorId = a0.AuthorId
+                         WHERE b2."BookAuthorId" = a0."AuthorId"
                      ) AS "25"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),

@@ -256,8 +256,8 @@ public class SchemaTests
     {
         using TestDatabase db = new();
         db.Table<EvolvingTable>().Schema.CreateTable();
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
-        db.Execute("INSERT INTO Evolving (Id) VALUES (2)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (1)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (2)");
 
         db.Schema.AddColumn<EvolvingPlusRequiredCount>(nameof(EvolvingPlusRequiredCount.Count), defaultValue: 7);
 
@@ -307,7 +307,7 @@ public class SchemaTests
     {
         using TestDatabase db = new();
         db.Table<EvolvingTable>().Schema.CreateTable();
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (1)");
 
         db.Schema.AddColumn<EvolvingPlusRequiredCount>(e => e.Count, defaultValue: 5);
 
@@ -342,7 +342,7 @@ public class SchemaTests
     {
         using TestDatabase db = new();
         await db.Schema.CreateTableAsync<EvolvingTable>(TestContext.Current.CancellationToken);
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (1)");
 
         await db.Schema.AddColumnAsync<EvolvingPlusRequiredCount>(
             e => e.Count,
@@ -357,7 +357,7 @@ public class SchemaTests
     {
         using TestDatabase db = new();
         db.Table<EvolvingTable>().Schema.CreateTable();
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (1)");
 
         db.Schema.AddColumn<EvolvingTablePlusName>(nameof(EvolvingTablePlusName.Name));
 
@@ -369,7 +369,7 @@ public class SchemaTests
     {
         using TestDatabase db = new();
         await db.Schema.CreateTableAsync<EvolvingTable>(TestContext.Current.CancellationToken);
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (1)");
 
         await db.Schema.AddColumnAsync<EvolvingPlusRequiredCount>(
             nameof(EvolvingPlusRequiredCount.Count),
@@ -384,7 +384,7 @@ public class SchemaTests
     {
         using TestDatabase db = new();
         db.Table<EvolvingTable>().Schema.CreateTable();
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (1)");
 
         db.Schema.AddColumn<EvolvingPlusRequiredCount>(nameof(EvolvingPlusRequiredCount.Count), () => 10 + 5);
 
@@ -396,7 +396,7 @@ public class SchemaTests
     {
         using TestDatabase db = new();
         db.Table<EvolvingTable>().Schema.CreateTable();
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (1)");
 
         db.Schema.AddColumn<EvolvingPlusRequiredLabel>(e => e.Label, () => "hello " + "world");
 
@@ -422,7 +422,7 @@ public class SchemaTests
     {
         using TestDatabase db = new();
         await db.Schema.CreateTableAsync<EvolvingTable>(TestContext.Current.CancellationToken);
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (1)");
 
         await db.Schema.AddColumnAsync<EvolvingPlusRequiredCount>(
             e => e.Count,
@@ -713,7 +713,7 @@ public class SchemaTests
         db.Schema.CreateTable<StrictTableEntity>();
 
         Assert.ThrowsAny<Exception>(() =>
-            db.Execute("INSERT INTO StrictTableEntity (Id, Name) VALUES ('not-an-int', 'x')"));
+            db.Execute("INSERT INTO StrictTableEntity (\"Id\", \"Name\") VALUES ('not-an-int', 'x')"));
     }
 
     [Fact]
@@ -771,7 +771,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'IndexedCollationTable'");
-        Assert.Contains("Email COLLATE NOCASE", sql);
+        Assert.Equal("CREATE INDEX \"idx_Email_0\" ON \"IndexedCollationTable\" (\"Email\" COLLATE NOCASE)", sql);
     }
 
     [Fact]
@@ -782,7 +782,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Schema_MixedColl'");
-        Assert.Contains("LastName COLLATE NOCASE", sql);
+        Assert.Equal("CREATE INDEX \"IX_Schema_MixedColl\" ON \"CompositeIndexedCollationTable\" (\"LastName\" COLLATE NOCASE, \"FirstName\")", sql);
         Assert.Contains("FirstName", sql);
         Assert.DoesNotContain("FirstName COLLATE", sql);
     }
@@ -797,7 +797,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_Title_NoCase'");
-        Assert.Contains("Title COLLATE NOCASE", sql);
+        Assert.Equal("CREATE INDEX \"IX_Book_Title_NoCase\" ON \"Books\" (\"BookTitle\" COLLATE NOCASE)", sql);
     }
 
     [Fact]
@@ -810,7 +810,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_Title_Binary'");
-        Assert.Contains("Title COLLATE BINARY", sql);
+        Assert.Equal("CREATE INDEX \"IX_Book_Title_Binary\" ON \"Books\" (\"BookTitle\" COLLATE BINARY)", sql);
     }
 
     [Fact]
@@ -837,7 +837,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_TitleAuthor'");
-        Assert.Contains("Title COLLATE RTRIM", sql);
+        Assert.Equal("CREATE INDEX \"IX_Book_TitleAuthor\" ON \"Books\" (\"BookTitle\" COLLATE RTRIM, \"BookAuthorId\")", sql);
         Assert.DoesNotContain("AuthorId COLLATE", sql);
     }
 
@@ -1103,7 +1103,7 @@ public class SchemaTests
     {
         using TestDatabase db = new();
         await db.Schema.CreateTableAsync<EvolvingTable>(TestContext.Current.CancellationToken);
-        db.Execute("INSERT INTO Evolving (Id) VALUES (1)");
+        db.Execute("INSERT INTO Evolving (\"Id\") VALUES (1)");
 
         await db.Schema.AddColumnAsync<EvolvingPlusRequiredCount>(
             nameof(EvolvingPlusRequiredCount.Count),

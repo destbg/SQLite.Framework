@@ -152,7 +152,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             return SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), $"bm25(\"{mapping.TableName}\", {weights})");
         }
 
-        return SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), $"{alias}.rank");
+        return SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote("rank")}");
     }
 
     private static SQLiteExpression HandleFTS5Snippet(SQLVisitor visitor, MethodCallExpression node)

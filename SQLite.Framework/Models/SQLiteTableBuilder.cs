@@ -125,7 +125,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
                 {
                     TableColumn col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == mem.Member.Name)
                         ?? throw new ArgumentException($"Property '{mem.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
-                    items[i] = col.Name;
+                    items[i] = IdentifierGuard.Quote(col.Name);
                     memberNames[i] = col.Name;
                 }
                 else
@@ -143,7 +143,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         {
             TableColumn target = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == plainMember.Member.Name)
                 ?? throw new ArgumentException($"Property '{plainMember.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
-            items = [target.Name];
+            items = [IdentifierGuard.Quote(target.Name)];
             plainColumnNames = [target.Name];
         }
         else
@@ -374,7 +374,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
             ComputedColumnSpec? cc = computed.FirstOrDefault(c => c.Column.Name == col.Name);
             if (cc != null)
             {
-                sb.Append(col.Name);
+                sb.Append(IdentifierGuard.Quote(col.Name));
                 sb.Append(' ');
                 sb.Append(col.ColumnType.ToString().ToUpperInvariant());
                 sb.Append(" GENERATED ALWAYS AS (");
@@ -452,7 +452,7 @@ public sealed class SQLiteTableBuilder<[DynamicallyAccessedMembers(DynamicallyAc
         {
             var ordered = group.OrderBy(x => x.Order).ToArray();
             string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", ordered.Select(x => x.Column + CollationHelper.Clause(x.Collation) + IndexDirectionHelper.Clause(x.Direction)));
+            string columnList = string.Join(", ", ordered.Select(x => IdentifierGuard.Quote(x.Column) + CollationHelper.Clause(x.Collation) + IndexDirectionHelper.Clause(x.Direction)));
             string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
             count += database.CreateCommand(sql, []).ExecuteNonQuery();
         }

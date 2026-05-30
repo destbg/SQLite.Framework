@@ -31,7 +31,7 @@ public class ReflectionFallbackTests : IDisposable
         using SQLiteDatabase db = CreateDatabase(disableFallback: true);
 
         db.Table<Book>().Schema.CreateTable();
-        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
             db.Table<Book>().Select(b => new { b.Id, b.Title }).ToList());
@@ -46,7 +46,7 @@ public class ReflectionFallbackTests : IDisposable
         using SQLiteDatabase db = CreateDatabase(disableFallback: true);
 
         db.Table<Book>().Schema.CreateTable();
-        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
             db.Table<Book>().ToList());
@@ -60,7 +60,7 @@ public class ReflectionFallbackTests : IDisposable
         using SQLiteDatabase db = CreateDatabase(disableFallback: false);
 
         db.Table<Book>().Schema.CreateTable();
-        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
 
         List<Book> books = db.Table<Book>().ToList();
 
@@ -92,7 +92,7 @@ public class ReflectionFallbackTests : IDisposable
         using SQLiteDatabase db = CreateDatabase(disableFallback: true);
 
         db.Table<Book>().Schema.CreateTable();
-        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
             db.Table<Book>().GroupBy(b => b.AuthorId).ToList());
@@ -114,9 +114,9 @@ public class ReflectionFallbackTests : IDisposable
         using SQLiteDatabase db = new(options);
 
         db.Table<Book>().Schema.CreateTable();
-        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
-        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (2, 'B', 1, 20)");
-        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (3, 'C', 2, 30)");
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (2, 'B', 1, 20)");
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (3, 'C', 2, 30)");
 
         Dictionary<int, List<Book>> byAuthor = db.Table<Book>()
             .GroupBy(b => b.AuthorId)
@@ -134,7 +134,7 @@ public class ReflectionFallbackTests : IDisposable
         using SQLiteDatabase db = new(options);
 
         db.Table<Book>().Schema.CreateTable();
-        db.Execute("INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'A', 1, 10)");
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
 
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() => db.Table<Book>().GroupBy(b => b.AuthorId).ToList());
 

@@ -329,7 +329,7 @@ When you access a property on a JSON-stored object, the framework translates it 
 string city = db.Table<Contact>()
     .Select(c => c.HomeAddress.City)
     .First();
-// SQL: SELECT json_extract(t0.HomeAddress, '$.City') ...
+// SQL: SELECT json_extract(t0."HomeAddress", '$.City') ...
 
 // property access on the result of a collection method
 string street = db.Table<Order>()

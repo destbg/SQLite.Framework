@@ -69,7 +69,7 @@ internal partial class JsonCollectionVisitor
     {
         string selSql = VisitLambdaAliased(call.Arguments[1], elementType, "e");
         crossJoin = $", json_each({selSql}) n";
-        selectExpr = "n.value";
+        selectExpr = "n.\"value\"";
     }
 
     private void HandleSkip(MethodCallExpression call)
@@ -145,7 +145,7 @@ internal partial class JsonCollectionVisitor
     {
         string inner = call.Arguments.Count > 1
             ? VisitLambda(call.Arguments[1], elementType)
-            : "value";
+            : "\"value\"";
 
         selectExpr = $"{sqlFunc}({inner})";
         wrapInArray = false;
@@ -165,7 +165,7 @@ internal partial class JsonCollectionVisitor
     {
         if (orderBys.Count == 0)
         {
-            orderBys.Add("key DESC");
+            orderBys.Add("\"key\" DESC");
             return;
         }
 
@@ -190,7 +190,7 @@ internal partial class JsonCollectionVisitor
     {
         ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
         AddParameters(arg);
-        wheres.Add($"value = {arg.SQLiteExpression}");
+        wheres.Add($"\"value\" = {arg.SQLiteExpression}");
         existsWrapper = "EXISTS";
         selectExpr = "1";
         limit = "1";

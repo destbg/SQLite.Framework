@@ -176,7 +176,7 @@ public class TableColumn
         string autoIncrement = inlinePk && IsAutoIncrement ? "AUTOINCREMENT" : string.Empty;
 
         StringBuilder sb = new();
-        sb.Append(Name);
+        sb.Append(IdentifierGuard.Quote(Name));
         sb.Append(' ');
         sb.Append(columnType);
         if (nullability.Length > 0)

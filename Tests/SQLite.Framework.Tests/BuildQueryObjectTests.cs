@@ -64,7 +64,7 @@ public class BuildQueryObjectTests
     {
         using TestDatabase db = new();
         db.Table<Publisher>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO Publisher (Id, Name, Type) VALUES (1, 'Pub', 999)", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO Publisher (\"Id\", \"Name\", \"Type\") VALUES (1, 'Pub', 999)", []).ExecuteNonQuery();
 
         Publisher result = db.CreateCommand("SELECT * FROM Publisher", []).ExecuteQuery<Publisher>().First();
 

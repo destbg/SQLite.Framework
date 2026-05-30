@@ -192,7 +192,8 @@ internal partial class SQLVisitor : ExpressionVisitor
         return tableMapping.Columns
             .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
             {
-                string colSql = prefix != null ? $"{prefix}.{f.Name}" : f.Name;
+                string quotedName = IdentifierGuard.Quote(f.Name);
+                string colSql = prefix != null ? $"{prefix}.{quotedName}" : quotedName;
                 if (Database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? conv)
                     && conv.ColumnSqlExpression is { } colExpr)
                 {

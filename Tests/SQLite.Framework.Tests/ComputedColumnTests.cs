@@ -14,7 +14,7 @@ public class ComputedColumnTests
             .CreateTable();
 
         db.Execute(
-            "INSERT INTO ProductLines (Id, Price, Quantity) VALUES (1, 5.0, 3), (2, 2.5, 4)");
+            "INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\") VALUES (1, 5.0, 3), (2, 2.5, 4)");
 
         List<ProductLine> rows = db.Table<ProductLine>().OrderBy(p => p.Id).ToList();
         Assert.Equal(15.0m, rows[0].Total);
@@ -30,7 +30,7 @@ public class ComputedColumnTests
             .CreateTable();
 
         db.Execute(
-            "INSERT INTO ProductLines (Id, Price, Quantity) VALUES (1, 5.0, 3)");
+            "INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\") VALUES (1, 5.0, 3)");
 
         ProductLine row = db.Table<ProductLine>().Single();
         Assert.Equal(15.0m, row.Total);
@@ -45,7 +45,7 @@ public class ComputedColumnTests
             .CreateTable();
 
         Assert.ThrowsAny<Exception>(() =>
-            db.Execute("INSERT INTO ProductLines (Id, Price, Quantity, Total) VALUES (1, 1, 1, 99)"));
+            db.Execute("INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\", \"Total\") VALUES (1, 1, 1, 99)"));
     }
 
     [Fact]

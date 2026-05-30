@@ -58,7 +58,7 @@ public class CipherCoverageTests
 
         using (SQLiteTransaction tx = db.BeginTransaction())
         {
-            db.Execute("INSERT INTO T (Id) VALUES (1)");
+            db.Execute("INSERT INTO T (\"Id\") VALUES (1)");
             tx.Commit();
         }
 

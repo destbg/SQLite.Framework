@@ -35,8 +35,8 @@ public class LinqMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT a0.AuthorName AS "Name",
-                            b1.BookTitle AS "Title"
+                     SELECT a0."AuthorName" AS "Name",
+                            b1."BookTitle" AS "Title"
                      FROM "Authors" AS a0
                      CROSS JOIN "Books" AS b1
                      """.Replace("\r\n", "\n"),
@@ -68,12 +68,12 @@ public class LinqMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     ORDER BY b0.BookId ASC
+                     ORDER BY b0."BookId" ASC
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -283,7 +283,7 @@ public class LinqMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookPrice AS "4"
+                     SELECT b0."BookPrice" AS "4"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -364,10 +364,10 @@ public class LinqMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -397,12 +397,12 @@ public class LinqMethodTests
         Assert.Single(command.Parameters);
         Assert.Equal(15d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookPrice > @p0
+                     WHERE b0."BookPrice" > @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -518,13 +518,13 @@ public class LinqMethodTests
         Assert.Single(command.Parameters);
         Assert.Equal(20d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookPrice >= @p0
-                     ORDER BY b0.BookPrice DESC
+                     WHERE b0."BookPrice" >= @p0
+                     ORDER BY b0."BookPrice" DESC
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -558,9 +558,9 @@ public class LinqMethodTests
         Assert.Single(command.Parameters);
         Assert.Equal(0.9d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            (b0.BookPrice * @p0) AS "DiscountedPrice"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            (b0."BookPrice" * @p0) AS "DiscountedPrice"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

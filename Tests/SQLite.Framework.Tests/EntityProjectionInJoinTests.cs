@@ -18,16 +18,16 @@ public class EntityProjectionInJoinTests
         ).ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Book.Id",
-                            b0.BookTitle AS "Book.Title",
-                            b0.BookAuthorId AS "Book.AuthorId",
-                            b0.BookPrice AS "Book.Price",
-                            a1.AuthorId AS "Author.Id",
-                            a1.AuthorName AS "Author.Name",
-                            a1.AuthorEmail AS "Author.Email",
-                            a1.AuthorBirthDate AS "Author.BirthDate"
+                     SELECT b0."BookId" AS "Book.Id",
+                            b0."BookTitle" AS "Book.Title",
+                            b0."BookAuthorId" AS "Book.AuthorId",
+                            b0."BookPrice" AS "Book.Price",
+                            a1."AuthorId" AS "Author.Id",
+                            a1."AuthorName" AS "Author.Name",
+                            a1."AuthorEmail" AS "Author.Email",
+                            a1."AuthorBirthDate" AS "Author.BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

@@ -16,7 +16,7 @@ public class FullTextSearchTokenizerEscapingTests
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'TokenChars_Underscore_Search'");
 
         Assert.Equal(
-            """CREATE VIRTUAL TABLE "TokenChars_Underscore_Search" USING fts5(Body, tokenize='unicode61 remove_diacritics 2 tokenchars _')""",
+            """CREATE VIRTUAL TABLE "TokenChars_Underscore_Search" USING fts5("Body", tokenize='unicode61 remove_diacritics 2 tokenchars _')""",
             N(sql));
     }
 
@@ -29,7 +29,7 @@ public class FullTextSearchTokenizerEscapingTests
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'Separators_Punct_Search'");
 
         Assert.Equal(
-            """CREATE VIRTUAL TABLE "Separators_Punct_Search" USING fts5(Body, tokenize='unicode61 remove_diacritics 2 separators ''.,;''')""",
+            """CREATE VIRTUAL TABLE "Separators_Punct_Search" USING fts5("Body", tokenize='unicode61 remove_diacritics 2 separators ''.,;''')""",
             N(sql));
     }
 
@@ -42,7 +42,7 @@ public class FullTextSearchTokenizerEscapingTests
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'Categories_Letters_Search'");
 
         Assert.Equal(
-            """CREATE VIRTUAL TABLE "Categories_Letters_Search" USING fts5(Body, tokenize='unicode61 remove_diacritics 2 categories ''L* N* Co''')""",
+            """CREATE VIRTUAL TABLE "Categories_Letters_Search" USING fts5("Body", tokenize='unicode61 remove_diacritics 2 categories ''L* N* Co''')""",
             N(sql));
     }
 
@@ -51,7 +51,7 @@ public class FullTextSearchTokenizerEscapingTests
     {
         using TestDatabase db = new();
         db.Table<TokenChars_Underscore_Search>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO TokenChars_Underscore_Search(rowid, Body) VALUES (1, 'hello_world standalone')", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO TokenChars_Underscore_Search(\"rowid\", \"Body\") VALUES (1, 'hello_world standalone')", []).ExecuteNonQuery();
 
         long hits = db.Table<TokenChars_Underscore_Search>()
             .LongCount(c => SQLiteFTS5Functions.Match(c, f => f.Term("hello_world")));
@@ -64,7 +64,7 @@ public class FullTextSearchTokenizerEscapingTests
     {
         using TestDatabase db = new();
         db.Table<Separators_Punct_Search>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO Separators_Punct_Search(rowid, Body) VALUES (1, 'apple,banana;cherry')", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO Separators_Punct_Search(\"rowid\", \"Body\") VALUES (1, 'apple,banana;cherry')", []).ExecuteNonQuery();
 
         long hitsBanana = db.Table<Separators_Punct_Search>()
             .LongCount(c => SQLiteFTS5Functions.Match(c, f => f.Term("banana")));

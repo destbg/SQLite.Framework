@@ -61,7 +61,7 @@ public class SQLiteTableCoverageTests
 
         string? sql = db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'Article_Unindexed_Search'");
 
-        Assert.Contains("Tag UNINDEXED", N(sql));
+        Assert.Equal("CREATE VIRTUAL TABLE \"Article_Unindexed_Search\" USING fts5(\"Body\", \"Tag\" UNINDEXED, tokenize='unicode61 remove_diacritics 2')", N(sql));
     }
 
     [Fact]

@@ -17,17 +17,17 @@ Generated SQL:
 
 ```sql
 WITH cte0 AS (
-    SELECT b1.BookId AS "Id",
-       b1.BookTitle AS "Title",
-       b1.BookAuthorId AS "AuthorId",
-       b1.BookPrice AS "Price"
+    SELECT b1."BookId" AS "Id",
+       b1."BookTitle" AS "Title",
+       b1."BookAuthorId" AS "AuthorId",
+       b1."BookPrice" AS "Price"
     FROM "Books" AS b1
-    WHERE b1.BookPrice > @p0
+    WHERE b1."BookPrice" > @p0
 )
-SELECT b0.Id AS "Id",
-       b0.Title AS "Title",
-       b0.AuthorId AS "AuthorId",
-       b0.Price AS "Price"
+SELECT b0."Id" AS "Id",
+       b0."Title" AS "Title",
+       b0."AuthorId" AS "AuthorId",
+       b0."Price" AS "Price"
 FROM cte0 AS b0
 ```
 
@@ -94,13 +94,13 @@ WITH RECURSIVE cte0 AS (
     SELECT c1."X" AS "X"
     FROM (SELECT @p1 AS "X") AS c1
     UNION ALL
-        SELECT (c2.X + @p3) AS "X"
+        SELECT (c2."X" + @p3) AS "X"
     FROM cte0 AS c2
-    WHERE c2.X < @p2
+    WHERE c2."X" < @p2
 )
-SELECT c0.X AS "X"
+SELECT c0."X" AS "X"
 FROM cte0 AS c0
-ORDER BY c0.X ASC
+ORDER BY c0."X" ASC
 ```
 
 ### Fibonacci sequence
@@ -127,13 +127,13 @@ WITH RECURSIVE cte0 AS (
        f1."B" AS "B"
     FROM (SELECT @p2 AS "A", @p3 AS "B") AS f1
     UNION ALL
-        SELECT f2.B AS "A",
-       (f2.A + f2.B) AS "B"
+        SELECT f2."B" AS "A",
+       (f2."A" + f2."B") AS "B"
     FROM cte0 AS f2
-    WHERE f2.B < @p4
+    WHERE f2."B" < @p4
 )
-SELECT f0.A AS "A",
-       f0.B AS "B"
+SELECT f0."A" AS "A",
+       f0."B" AS "B"
 FROM cte0 AS f0
 ```
 
@@ -159,25 +159,25 @@ Generated SQL:
 
 ```sql
 WITH RECURSIVE cte0 AS (
-        SELECT o2.Name AS "Name",
-       o2.Boss AS "Boss"
+        SELECT o2."Name" AS "Name",
+       o2."Boss" AS "Boss"
         FROM "Org" AS o2
 ),
 cte1 AS (
-    SELECT o1.Name AS "Name",
+    SELECT o1."Name" AS "Name",
        @p1 AS "Level"
     FROM cte0 AS o1
-    WHERE o1.Boss IS NULL
+    WHERE o1."Boss" IS NULL
     UNION ALL
-        SELECT o3.Name AS "Name",
-       (o4.Level + @p2) AS "Level"
+        SELECT o3."Name" AS "Name",
+       (o4."Level" + @p2) AS "Level"
     FROM cte0 AS o3
-    JOIN cte1 AS o4 ON o3.Boss = o4.Name
+    JOIN cte1 AS o4 ON o3."Boss" = o4."Name"
 )
-SELECT o0.Name AS "Name",
-       o0.Level AS "Level"
+SELECT o0."Name" AS "Name",
+       o0."Level" AS "Level"
 FROM cte1 AS o0
-ORDER BY o0.Level ASC, o0.Name ASC
+ORDER BY o0."Level" ASC, o0."Name" ASC
 ```
 
 ### Works-for-Alice (UNION deduplication)
@@ -201,20 +201,20 @@ Generated SQL:
 
 ```sql
 WITH RECURSIVE cte0 AS (
-        SELECT o2.Name AS "Name",
-       o2.Boss AS "Boss"
+        SELECT o2."Name" AS "Name",
+       o2."Boss" AS "Boss"
         FROM "Org" AS o2
 ),
 cte1 AS (
-    SELECT o1.Name AS "Name"
+    SELECT o1."Name" AS "Name"
     FROM cte0 AS o1
-    WHERE o1.Name = @p0
+    WHERE o1."Name" = @p0
     UNION
-        SELECT o3.Name AS "Name"
+        SELECT o3."Name" AS "Name"
     FROM cte0 AS o3
-    JOIN cte1 AS w1 ON o3.Boss = w1.Name
+    JOIN cte1 AS w1 ON o3."Boss" = w1."Name"
 )
-SELECT w0.Name AS "Name"
+SELECT w0."Name" AS "Name"
 FROM cte1 AS w0
 ```
 

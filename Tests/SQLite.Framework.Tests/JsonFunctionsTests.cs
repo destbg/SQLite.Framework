@@ -1156,7 +1156,7 @@ public class JsonFunctionsTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT (SELECT json_group_array(value) FROM (SELECT value FROM json_each(l0.Tags) LIMIT @p1 OFFSET @p0)) AS "5"
+                     SELECT (SELECT json_group_array("value") FROM (SELECT "value" FROM json_each(l0."Tags") LIMIT @p1 OFFSET @p0)) AS "5"
                      FROM "ListRow" AS l0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1479,7 +1479,7 @@ public class JsonFunctionsTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT (SELECT json_group_array(value || @p0) FROM json_each(a0.Tags)) AS "5"
+                     SELECT (SELECT json_group_array("value" || @p0) FROM json_each(a0."Tags")) AS "5"
                      FROM "ArrayRow" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1553,9 +1553,9 @@ public class JsonFunctionsTests
 
         Assert.Equal("""
                      SELECT json_extract((
-                         SELECT value
-                         FROM json_each(a0.Addresses)
-                         ORDER BY json_extract(value, '$.City') ASC, json_extract(value, '$.Street') ASC
+                         SELECT "value"
+                         FROM json_each(a0."Addresses")
+                         ORDER BY json_extract("value", '$.City') ASC, json_extract("value", '$.Street') ASC
                          LIMIT 1
                      ), '$.Street') AS "Street"
                      FROM "AddressListRow" AS a0
@@ -1601,9 +1601,9 @@ public class JsonFunctionsTests
 
         Assert.Equal("""
                      SELECT json_extract((
-                         SELECT value
-                         FROM json_each(a0.Addresses)
-                         ORDER BY json_extract(value, '$.City') ASC, json_extract(value, '$.Street') DESC
+                         SELECT "value"
+                         FROM json_each(a0."Addresses")
+                         ORDER BY json_extract("value", '$.City') ASC, json_extract("value", '$.Street') DESC
                          LIMIT 1
                      ), '$.Street') AS "Street"
                      FROM "AddressListRow" AS a0
@@ -1670,8 +1670,8 @@ public class JsonFunctionsTests
         Assert.Equal("""
                      SELECT (
                          SELECT COUNT(*)
-                         FROM json_each(l0.Tags)
-                         WHERE LENGTH(value) > @p0
+                         FROM json_each(l0."Tags")
+                         WHERE LENGTH("value") > @p0
                      ) AS "6"
                      FROM "ListRow" AS l0
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
@@ -1699,11 +1699,11 @@ public class JsonFunctionsTests
 
         Assert.Equal("""
                      SELECT (
-                         SELECT json_group_array(value)
+                         SELECT json_group_array("value")
                          FROM (
-                             SELECT value
-                             FROM json_each(l0.Tags)
-                             ORDER BY value ASC
+                             SELECT "value"
+                             FROM json_each(l0."Tags")
+                             ORDER BY "value" ASC
                              LIMIT @p0
                          )
                      ) AS "4"
@@ -1752,8 +1752,8 @@ public class JsonFunctionsTests
 
         Assert.Equal("""
                      SELECT (
-                         SELECT json_group_array(n.value)
-                         FROM json_each(p0.People) e, json_each(json_extract(e.value, '$.Tags')) n
+                         SELECT json_group_array(n."value")
+                         FROM json_each(p0."People") e, json_each(json_extract(e."value", '$.Tags')) n
                      ) AS "3"
                      FROM "PersonWithTagsRow" AS p0
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
@@ -1782,8 +1782,8 @@ public class JsonFunctionsTests
         Assert.Equal("""
                      SELECT (
                          SELECT COUNT(*)
-                         FROM json_each(l0.Tags)
-                         GROUP BY value
+                         FROM json_each(l0."Tags")
+                         GROUP BY "value"
                      ) AS "3"
                      FROM "ListRow" AS l0
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
@@ -2465,7 +2465,7 @@ public class JsonFunctionsTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT (SELECT json_group_array(value) FROM json_each(a0.Addresses) WHERE json_extract(value, '$.City') = @p0) AS "5"
+                     SELECT (SELECT json_group_array("value") FROM json_each(a0."Addresses") WHERE json_extract("value", '$.City') = @p0) AS "5"
                      FROM "AddressListRow" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

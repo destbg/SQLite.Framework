@@ -19,10 +19,10 @@ var books = await db.Table<Book>()
 ```sql
 SELECT ...
 FROM "Books" AS b0
-WHERE b0.BookAuthorId IN (
-    SELECT b1.BookAuthorId AS "AuthorId"
+WHERE b0."BookAuthorId" IN (
+    SELECT b1."BookAuthorId" AS "AuthorId"
     FROM "Books" AS b1
-    WHERE b1.BookPrice < @p0
+    WHERE b1."BookPrice" < @p0
 )
 ```
 
@@ -59,10 +59,10 @@ var books = await (
 ```sql
 SELECT ...
 FROM "Books" AS b0
-WHERE b0.BookId IN (
-    SELECT b1.BookId AS "Id"
+WHERE b0."BookId" IN (
+    SELECT b1."BookId" AS "Id"
     FROM "Books" AS b1
-    WHERE b1.BookAuthorId = b0.BookAuthorId AND b1.BookPrice < @p0
+    WHERE b1."BookAuthorId" = b0."BookAuthorId" AND b1."BookPrice" < @p0
 )
 ```
 
@@ -93,9 +93,9 @@ var books = await (
 ```sql
 SELECT ...
 FROM "Books" AS b0
-WHERE b0.BookId = (
-    SELECT MAX(b1.BookId)
+WHERE b0."BookId" = (
+    SELECT MAX(b1."BookId")
     FROM "Books" AS b1
-    WHERE b1.BookTitle = @p0
+    WHERE b1."BookTitle" = @p0
 )
 ```

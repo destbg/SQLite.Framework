@@ -23,9 +23,9 @@ public class FullTextSearchTests
         Assert.Equal("native aot", command.Parameters[0].Value);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id",
-                   a0.Title AS "Title",
-                   a0.Body AS "Body"
+            SELECT a0."rowid" AS "Id",
+                   a0."Title" AS "Title",
+                   a0."Body" AS "Body"
             FROM "ArticleSearch" AS a0
             WHERE "ArticleSearch" MATCH @p0
             """), N(command.CommandText));
@@ -46,9 +46,9 @@ public class FullTextSearchTests
         Assert.Equal("native AND aot*", command.Parameters[0].Value);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id",
-                   a0.Title AS "Title",
-                   a0.Body AS "Body"
+            SELECT a0."rowid" AS "Id",
+                   a0."Title" AS "Title",
+                   a0."Body" AS "Body"
             FROM "ArticleSearch" AS a0
             WHERE "ArticleSearch" MATCH @p0
             """), N(command.CommandText));
@@ -69,9 +69,9 @@ public class FullTextSearchTests
         Assert.Equal("{Title} : native", command.Parameters[0].Value);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id",
-                   a0.Title AS "Title",
-                   a0.Body AS "Body"
+            SELECT a0."rowid" AS "Id",
+                   a0."Title" AS "Title",
+                   a0."Body" AS "Body"
             FROM "ArticleSearch" AS a0
             WHERE "ArticleSearch" MATCH @p0
             """), N(command.CommandText));
@@ -92,9 +92,9 @@ public class FullTextSearchTests
         Assert.Single(command.Parameters);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id",
-                   a0.Title AS "Title",
-                   a0.Body AS "Body"
+            SELECT a0."rowid" AS "Id",
+                   a0."Title" AS "Title",
+                   a0."Body" AS "Body"
             FROM "ArticleSearch" AS a0
             WHERE "ArticleSearch" MATCH @p0
             ORDER BY bm25("ArticleSearch", 10, 1) ASC
@@ -113,11 +113,11 @@ public class FullTextSearchTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT s0.rowid AS "Id",
-                            s0.Body AS "Body"
+                     SELECT s0."rowid" AS "Id",
+                            s0."Body" AS "Body"
                      FROM "SimpleSearchEntity" AS s0
                      WHERE "SimpleSearchEntity" MATCH @p0
-                     ORDER BY s0.rank ASC
+                     ORDER BY s0."rank" ASC
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
         Assert.DoesNotContain("bm25(", N(command.CommandText));
@@ -138,7 +138,7 @@ public class FullTextSearchTests
         Assert.Equal(5, command.Parameters.Count);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id",
+            SELECT a0."rowid" AS "Id",
                    snippet("ArticleSearch", 1, @p1, @p2, @p3, @p4) AS "Snip"
             FROM "ArticleSearch" AS a0
             WHERE "ArticleSearch" MATCH @p0
@@ -160,7 +160,7 @@ public class FullTextSearchTests
         Assert.Equal(3, command.Parameters.Count);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id",
+            SELECT a0."rowid" AS "Id",
                    highlight("ArticleSearch", 0, @p1, @p2) AS "Hl"
             FROM "ArticleSearch" AS a0
             WHERE "ArticleSearch" MATCH @p0
@@ -228,10 +228,10 @@ public class FullTextSearchTests
         Assert.Empty(command.Parameters);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id"
+            SELECT a0."rowid" AS "Id"
             FROM "ArticleSearch" AS a0
-            JOIN "Article" AS a1 ON a0.rowid = a1.Id
-            WHERE "ArticleSearch" MATCH (printf('"%w"', a1.Title))
+            JOIN "Article" AS a1 ON a0."rowid" = a1."Id"
+            WHERE "ArticleSearch" MATCH (printf('"%w"', a1."Title"))
             """), N(command.CommandText));
     }
 
@@ -241,7 +241,7 @@ public class FullTextSearchTests
         using TestDatabase db = new();
         db.Table<CategorisedSearch>().Schema.CreateTable();
 
-        db.CreateCommand("INSERT INTO CategorisedSearch(rowid, Body) VALUES (1, 'hello-world example_token 42')", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO CategorisedSearch(\"rowid\", \"Body\") VALUES (1, 'hello-world example_token 42')", []).ExecuteNonQuery();
 
         List<CategorisedSearch> hits = db.Table<CategorisedSearch>()
             .Where(c => SQLiteFTS5Functions.Match(c, f => f.Term("example_token")))
@@ -459,8 +459,8 @@ public class FullTextSearchTests
     {
         using TestDatabase db = new();
         db.Table<ArticleSearchInternal>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO ArticleSearchInternal(rowid, Code) VALUES (1, 'ExecuteUpdate')", []).ExecuteNonQuery();
-        db.CreateCommand("INSERT INTO ArticleSearchInternal(rowid, Code) VALUES (2, 'BatchInsert')", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO ArticleSearchInternal(\"rowid\", \"Code\") VALUES (1, 'ExecuteUpdate')", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO ArticleSearchInternal(\"rowid\", \"Code\") VALUES (2, 'BatchInsert')", []).ExecuteNonQuery();
 
         List<ArticleSearchInternal> hits = db.Table<ArticleSearchInternal>()
             .Where(a => SQLiteFTS5Functions.Match(a, "ecuteUpd"))

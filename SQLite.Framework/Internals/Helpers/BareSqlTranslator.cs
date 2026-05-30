@@ -37,7 +37,7 @@ internal static class BareSqlTranslator
     {
         return mapping.Columns.ToDictionary(
             c => c.PropertyInfo.Name,
-            Expression (c) => SQLiteExpression.Leaf(c.PropertyType, visitor.Counters.NextIdentifier(), prefix + c.Name));
+            Expression (c) => SQLiteExpression.Leaf(c.PropertyType, visitor.Counters.NextIdentifier(), prefix + IdentifierGuard.Quote(c.Name)));
     }
 
     private static string Finish(SQLVisitor visitor, Expression body)

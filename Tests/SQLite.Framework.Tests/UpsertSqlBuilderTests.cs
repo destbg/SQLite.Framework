@@ -21,7 +21,7 @@ public class UpsertSqlBuilderTests
         (TableColumn[] _, string sql) = UpsertSqlBuilder.Build(db, mapping, target, (_, p) => p);
 
         Assert.Equal(
-            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookId) DO NOTHING"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO NOTHING"),
             N(sql));
     }
 

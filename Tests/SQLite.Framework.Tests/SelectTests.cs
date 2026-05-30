@@ -19,10 +19,10 @@ public class SelectTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -37,10 +37,10 @@ public class SelectTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -64,10 +64,10 @@ public class SelectTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT a0.AuthorId AS "Id",
-                            a0.AuthorEmail AS "Email",
-                            a0.AuthorName AS "Name",
-                            a0.AuthorBirthDate AS "BirthDate"
+                     SELECT a0."AuthorId" AS "Id",
+                            a0."AuthorEmail" AS "Email",
+                            a0."AuthorName" AS "Name",
+                            a0."AuthorBirthDate" AS "BirthDate"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -91,10 +91,10 @@ public class SelectTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT DISTINCT a0.AuthorId AS "Id",
-                            a0.AuthorEmail AS "Email",
-                            a0.AuthorName AS "Name",
-                            a0.AuthorBirthDate AS "BirthDate"
+                     SELECT DISTINCT a0."AuthorId" AS "Id",
+                            a0."AuthorEmail" AS "Email",
+                            a0."AuthorName" AS "Name",
+                            a0."AuthorBirthDate" AS "BirthDate"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -124,14 +124,14 @@ public class SelectTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            a1.AuthorId AS "Author.Id",
-                            a1.AuthorEmail AS "Author.Email",
-                            a1.AuthorName AS "Author.Name",
-                            a1.AuthorBirthDate AS "Author.BirthDate"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            a1."AuthorId" AS "Author.Id",
+                            a1."AuthorEmail" AS "Author.Email",
+                            a1."AuthorName" AS "Author.Name",
+                            a1."AuthorBirthDate" AS "Author.BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -159,10 +159,10 @@ public class SelectTests
         Assert.Equal(5d, command.Parameters[3].Value);
         Assert.Equal(864000000000, command.Parameters[4].Value);
         Assert.Equal("""
-                     SELECT (a0.AuthorId + @p0) AS "Id",
-                            a0.AuthorEmail || @p1 AS "Email",
-                            a0.AuthorName || @p2 AS "Name",
-                            CAST(a0.AuthorBirthDate + (@p3 * @p4) AS 'INTEGER') AS "BirthDate"
+                     SELECT (a0."AuthorId" + @p0) AS "Id",
+                            a0."AuthorEmail" || @p1 AS "Email",
+                            a0."AuthorName" || @p2 AS "Name",
+                            CAST(a0."AuthorBirthDate" + (@p3 * @p4) AS 'INTEGER') AS "BirthDate"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -188,7 +188,7 @@ public class SelectTests
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal(1, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT ((a0.AuthorId + @p0) - @p5) AS "18"
+                     SELECT ((a0."AuthorId" + @p0) - @p5) AS "18"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

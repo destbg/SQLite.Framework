@@ -27,9 +27,9 @@ public class TotalAggregateTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT total(b0.BookPrice) AS "5"
+                     SELECT total(b0."BookPrice") AS "5"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -67,7 +67,7 @@ public class TotalAggregateTests
 
         db.Table<ProductLine>().Schema.CreateTable();
         db.Execute(
-            "INSERT INTO ProductLines (Id, Price, Quantity, Total) VALUES (1, 1.5, 2, 3.0), (2, 2.25, 1, 2.25), (3, 4.5, 1, 4.5)");
+            "INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\", \"Total\") VALUES (1, 1.5, 2, 3.0), (2, 2.25, 1, 2.25), (3, 4.5, 1, 4.5)");
 
         List<double> rows = (
             from p in db.Table<ProductLine>()
@@ -191,7 +191,7 @@ public class TotalAggregateTests
 
         db.Table<ProductLine>().Schema.CreateTable();
         db.Execute(
-            "INSERT INTO ProductLines (Id, Price, Quantity, Total) VALUES (1, 1.5, 2, 3.0), (2, 2.25, 1, 2.25)");
+            "INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\", \"Total\") VALUES (1, 1.5, 2, 3.0), (2, 2.25, 1, 2.25)");
 
         double total = db.Table<ProductLine>().Total(p => p.Price);
 
@@ -222,7 +222,7 @@ public class TotalAggregateTests
 
         db.Table<NumericType>().Schema.CreateTable();
         db.Execute(
-            "INSERT INTO NumericTypes (Id, IntValue, LongValue, ShortValue, ByteValue, SByteValue, UIntValue, ULongValue, UShortValue, DoubleValue, FloatValue, DecimalValue, CharValue) VALUES (1, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), (2, 0, 250, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)");
+            "INSERT INTO NumericTypes (\"Id\", \"IntValue\", \"LongValue\", \"ShortValue\", \"ByteValue\", \"SByteValue\", \"UIntValue\", \"ULongValue\", \"UShortValue\", \"DoubleValue\", \"FloatValue\", \"DecimalValue\", \"CharValue\") VALUES (1, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), (2, 0, 250, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)");
 
         double total = db.Table<NumericType>().Total(n => n.LongValue);
 
@@ -250,8 +250,7 @@ public class TotalAggregateTests
 
         db.Table<Book>().Total(b => b.Price);
 
-        Assert.Contains("total(b0.BookPrice)", capture.ExecutingTexts[0]);
-        Assert.Contains("FROM \"Books\" AS b0", capture.ExecutingTexts[0]);
+        Assert.Equal("SELECT total(b0.\"BookPrice\") AS \"4\"\nFROM \"Books\" AS b0", capture.ExecutingTexts[0].Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -361,7 +360,7 @@ public class TotalAggregateTests
         using TestDatabase db = new();
         db.Table<ProductLine>().Schema.CreateTable();
         db.Execute(
-            "INSERT INTO ProductLines (Id, Price, Quantity, Total) VALUES (1, 1.5, 2, 3.0), (2, 2.5, 1, 2.5)");
+            "INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\", \"Total\") VALUES (1, 1.5, 2, 3.0), (2, 2.5, 1, 2.5)");
 
         double total = await db.Table<ProductLine>().TotalAsync(p => p.Price, TestContext.Current.CancellationToken);
 
@@ -390,7 +389,7 @@ public class TotalAggregateTests
         using TestDatabase db = new();
         db.Table<NumericType>().Schema.CreateTable();
         db.Execute(
-            "INSERT INTO NumericTypes (Id, IntValue, LongValue, ShortValue, ByteValue, SByteValue, UIntValue, ULongValue, UShortValue, DoubleValue, FloatValue, DecimalValue, CharValue) VALUES (1, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)");
+            "INSERT INTO NumericTypes (\"Id\", \"IntValue\", \"LongValue\", \"ShortValue\", \"ByteValue\", \"SByteValue\", \"UIntValue\", \"ULongValue\", \"UShortValue\", \"DoubleValue\", \"FloatValue\", \"DecimalValue\", \"CharValue\") VALUES (1, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)");
 
         double total = await db.Table<NumericType>().TotalAsync(n => n.LongValue, TestContext.Current.CancellationToken);
 

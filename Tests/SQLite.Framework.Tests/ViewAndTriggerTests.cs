@@ -137,7 +137,7 @@ public class ViewAndTriggerTests
             name: "trg_book_history",
             timing: SQLiteTriggerTiming.After,
             @event: SQLiteTriggerEvent.Update,
-            body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.BookId, OLD.BookPrice, NEW.BookPrice)",
+            body: "INSERT INTO BookHistory(\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (NEW.BookId, OLD.BookPrice, NEW.BookPrice)",
             when: "OLD.BookPrice <> NEW.BookPrice");
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 1 });
@@ -182,7 +182,7 @@ public class ViewAndTriggerTests
             name: "trg_with_semi",
             timing: SQLiteTriggerTiming.After,
             @event: SQLiteTriggerEvent.Insert,
-            body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.BookId, 0, NEW.BookPrice);");
+            body: "INSERT INTO BookHistory(\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (NEW.BookId, 0, NEW.BookPrice);");
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });
 
@@ -200,7 +200,7 @@ public class ViewAndTriggerTests
             name: "trg_del",
             timing: SQLiteTriggerTiming.After,
             @event: SQLiteTriggerEvent.Delete,
-            body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (OLD.BookId, OLD.BookPrice, 0)");
+            body: "INSERT INTO BookHistory(\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (OLD.BookId, OLD.BookPrice, 0)");
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });
         db.Table<Book>().Remove(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });
@@ -219,7 +219,7 @@ public class ViewAndTriggerTests
             name: "trg_stmt",
             timing: SQLiteTriggerTiming.After,
             @event: SQLiteTriggerEvent.Insert,
-            body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (-1, 0, 0)",
+            body: "INSERT INTO BookHistory(\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (-1, 0, 0)",
             forEachRow: false);
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });
@@ -240,9 +240,9 @@ public class ViewAndTriggerTests
             name: "trg_view_io",
             timing: SQLiteTriggerTiming.InsteadOf,
             @event: SQLiteTriggerEvent.Insert,
-            body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.Id, 0, NEW.Price)");
+            body: "INSERT INTO BookHistory(\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (NEW.Id, 0, NEW.Price)");
 
-        db.Execute("INSERT INTO vBookSummary(Id, Title, Price) VALUES (1, 'T', 5)");
+        db.Execute("INSERT INTO vBookSummary(\"Id\", \"Title\", \"Price\") VALUES (1, 'T', 5)");
 
         Assert.Single(db.Table<BookHistory>().ToList());
     }
@@ -258,7 +258,7 @@ public class ViewAndTriggerTests
             "trg_async",
             SQLiteTriggerTiming.After,
             SQLiteTriggerEvent.Insert,
-            "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.BookId, 0, NEW.BookPrice)",
+            "INSERT INTO BookHistory(\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (NEW.BookId, 0, NEW.BookPrice)",
             ct: TestContext.Current.CancellationToken);
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });

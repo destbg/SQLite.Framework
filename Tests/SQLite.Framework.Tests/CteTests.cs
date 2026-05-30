@@ -23,16 +23,16 @@ public class CteTests
         Assert.Equal(
             N("""
             WITH cte0 AS (
-                SELECT b1.BookId AS "Id",
-                   b1.BookTitle AS "Title",
-                   b1.BookAuthorId AS "AuthorId",
-                   b1.BookPrice AS "Price"
+                SELECT b1."BookId" AS "Id",
+                   b1."BookTitle" AS "Title",
+                   b1."BookAuthorId" AS "AuthorId",
+                   b1."BookPrice" AS "Price"
                 FROM "Books" AS b1
             )
-            SELECT b0.Id AS "Id",
-                   b0.Title AS "Title",
-                   b0.AuthorId AS "AuthorId",
-                   b0.Price AS "Price"
+            SELECT b0."Id" AS "Id",
+                   b0."Title" AS "Title",
+                   b0."AuthorId" AS "AuthorId",
+                   b0."Price" AS "Price"
             FROM cte0 AS b0
             """), N(command.CommandText));
     }
@@ -51,17 +51,17 @@ public class CteTests
         Assert.Equal(
             N("""
             WITH cte0 AS (
-                SELECT b1.BookId AS "Id",
-                   b1.BookTitle AS "Title",
-                   b1.BookAuthorId AS "AuthorId",
-                   b1.BookPrice AS "Price"
+                SELECT b1."BookId" AS "Id",
+                   b1."BookTitle" AS "Title",
+                   b1."BookAuthorId" AS "AuthorId",
+                   b1."BookPrice" AS "Price"
                 FROM "Books" AS b1
-                WHERE b1.BookAuthorId = @p0
+                WHERE b1."BookAuthorId" = @p0
             )
-            SELECT b0.Id AS "Id",
-                   b0.Title AS "Title",
-                   b0.AuthorId AS "AuthorId",
-                   b0.Price AS "Price"
+            SELECT b0."Id" AS "Id",
+                   b0."Title" AS "Title",
+                   b0."AuthorId" AS "AuthorId",
+                   b0."Price" AS "Price"
             FROM cte0 AS b0
             """), N(command.CommandText));
     }
@@ -88,15 +88,15 @@ public class CteTests
         Assert.Equal(
             N("""
             WITH cte0 AS (
-                SELECT b1.BookId AS "Id",
-                   b1.BookTitle AS "Title",
-                   b1.BookAuthorId AS "AuthorId",
-                   b1.BookPrice AS "Price"
+                SELECT b1."BookId" AS "Id",
+                   b1."BookTitle" AS "Title",
+                   b1."BookAuthorId" AS "AuthorId",
+                   b1."BookPrice" AS "Price"
                 FROM "Books" AS b1
-                WHERE b1.BookPrice > @p0
+                WHERE b1."BookPrice" > @p0
             )
-            SELECT b0.Id AS "Id",
-                   b0.Title AS "Title"
+            SELECT b0."Id" AS "Id",
+                   b0."Title" AS "Title"
             FROM cte0 AS b0
             """), N(command.CommandText));
     }
@@ -123,17 +123,17 @@ public class CteTests
         Assert.Equal(
             N("""
             WITH cte0 AS (
-                SELECT b1.BookId AS "Id",
-                   b1.BookTitle AS "Title",
-                   b1.BookAuthorId AS "AuthorId",
-                   b1.BookPrice AS "Price"
+                SELECT b1."BookId" AS "Id",
+                   b1."BookTitle" AS "Title",
+                   b1."BookAuthorId" AS "AuthorId",
+                   b1."BookPrice" AS "Price"
                 FROM "Books" AS b1
-                WHERE b1.BookPrice > @p0
+                WHERE b1."BookPrice" > @p0
             )
-            SELECT b0.Title AS "Title",
-                   a1.AuthorName AS "AuthorName"
+            SELECT b0."Title" AS "Title",
+                   a1."AuthorName" AS "AuthorName"
             FROM cte0 AS b0
-            JOIN "Authors" AS a1 ON b0.AuthorId = a1.AuthorId
+            JOIN "Authors" AS a1 ON b0."AuthorId" = a1."AuthorId"
             """), N(command.CommandText));
     }
 
@@ -226,13 +226,13 @@ public class CteTests
                 SELECT c1."X" AS "X"
                 FROM (SELECT @p1 AS "X") AS c1
                 UNION ALL
-                    SELECT (c2.X + @p3) AS "X"
+                    SELECT (c2."X" + @p3) AS "X"
                 FROM cte0 AS c2
-                WHERE c2.X < @p2
+                WHERE c2."X" < @p2
             )
-            SELECT c0.X AS "X"
+            SELECT c0."X" AS "X"
             FROM cte0 AS c0
-            ORDER BY c0.X ASC
+            ORDER BY c0."X" ASC
             """), N(command.CommandText));
     }
 
@@ -268,13 +268,13 @@ public class CteTests
                    f1."B" AS "B"
                 FROM (SELECT @p2 AS "A", @p3 AS "B") AS f1
                 UNION ALL
-                    SELECT f2.B AS "A",
-                   (f2.A + f2.B) AS "B"
+                    SELECT f2."B" AS "A",
+                   (f2."A" + f2."B") AS "B"
                 FROM cte0 AS f2
-                WHERE f2.B < @p4
+                WHERE f2."B" < @p4
             )
-            SELECT f0.A AS "A",
-                   f0.B AS "B"
+            SELECT f0."A" AS "A",
+                   f0."B" AS "B"
             FROM cte0 AS f0
             """), N(command.CommandText));
     }
@@ -337,25 +337,25 @@ public class CteTests
         Assert.Equal(
             N("""
             WITH RECURSIVE cte0 AS (
-                    SELECT o2.Name AS "Name",
-                   o2.Boss AS "Boss"
+                    SELECT o2."Name" AS "Name",
+                   o2."Boss" AS "Boss"
                     FROM "Org" AS o2
             ),
             cte1 AS (
-                SELECT o1.Name AS "Name",
+                SELECT o1."Name" AS "Name",
                    @p1 AS "Level"
                 FROM cte0 AS o1
-                WHERE o1.Boss IS NULL
+                WHERE o1."Boss" IS NULL
                 UNION ALL
-                    SELECT o3.Name AS "Name",
-                   (o4.Level + @p2) AS "Level"
+                    SELECT o3."Name" AS "Name",
+                   (o4."Level" + @p2) AS "Level"
                 FROM cte0 AS o3
-                JOIN cte1 AS o4 ON o3.Boss = o4.Name
+                JOIN cte1 AS o4 ON o3."Boss" = o4."Name"
             )
-            SELECT o0.Name AS "Name",
-                   o0.Level AS "Level"
+            SELECT o0."Name" AS "Name",
+                   o0."Level" AS "Level"
             FROM cte1 AS o0
-            ORDER BY o0.Level ASC, o0.Name ASC
+            ORDER BY o0."Level" ASC, o0."Name" ASC
             """), N(command.CommandText));
     }
 
@@ -386,20 +386,20 @@ public class CteTests
         Assert.Equal(
             N("""
             WITH RECURSIVE cte0 AS (
-                    SELECT o2.Name AS "Name",
-                   o2.Boss AS "Boss"
+                    SELECT o2."Name" AS "Name",
+                   o2."Boss" AS "Boss"
                     FROM "Org" AS o2
             ),
             cte1 AS (
-                SELECT o1.Name AS "Name"
+                SELECT o1."Name" AS "Name"
                 FROM cte0 AS o1
-                WHERE o1.Name = @p0
+                WHERE o1."Name" = @p0
                 UNION
-                    SELECT o3.Name AS "Name"
+                    SELECT o3."Name" AS "Name"
                 FROM cte0 AS o3
-                JOIN cte1 AS w1 ON o3.Boss = w1.Name
+                JOIN cte1 AS w1 ON o3."Boss" = w1."Name"
             )
-            SELECT w0.Name AS "Name"
+            SELECT w0."Name" AS "Name"
             FROM cte1 AS w0
             """), N(command.CommandText));
     }
@@ -466,29 +466,29 @@ public class CteTests
                    s5."Lp" AS "Lp"
                     FROM (SELECT @p6 AS "Z", @p7 AS "Lp") AS s5
                     UNION ALL
-                            SELECT CAST((s6.Lp + @p9) AS TEXT) AS "Z",
-                   (s6.Lp + @p10) AS "Lp"
+                            SELECT CAST((s6."Lp" + @p9) AS TEXT) AS "Z",
+                   (s6."Lp" + @p10) AS "Lp"
                     FROM cte1 AS s6
-                    WHERE s6.Lp < @p8
+                    WHERE s6."Lp" < @p8
             ),
             cte2 AS (
-                SELECT s1.Sud AS "S",
-                   (INSTR(s1.Sud, @p2) - 1 + @p3) AS "Ind"
+                SELECT s1."Sud" AS "S",
+                   (INSTR(s1."Sud", @p2) - 1 + @p3) AS "Ind"
                 FROM cte0 AS s1
                 UNION ALL
-                    SELECT SUBSTR(s3.S, @p34 + 1, (s3.Ind - @p35)) || s4.Z || SUBSTR(s3.S, s3.Ind + 1) AS "S",
-                   (INSTR(SUBSTR(s3.S, @p37 + 1, (s3.Ind - @p38)) || s4.Z || SUBSTR(s3.S, s3.Ind + 1), @p36) - 1 + @p39) AS "Ind"
+                    SELECT SUBSTR(s3."S", @p34 + 1, (s3."Ind" - @p35)) || s4."Z" || SUBSTR(s3."S", s3."Ind" + 1) AS "S",
+                   (INSTR(SUBSTR(s3."S", @p37 + 1, (s3."Ind" - @p38)) || s4."Z" || SUBSTR(s3."S", s3."Ind" + 1), @p36) - 1 + @p39) AS "Ind"
                 FROM cte2 AS s3
                 CROSS JOIN cte1 AS s4
-                WHERE s3.Ind > @p11 AND NOT EXISTS (
+                WHERE s3."Ind" > @p11 AND NOT EXISTS (
                     SELECT 1
                     FROM cte1 AS s7
-                    WHERE s4.Z = SUBSTR(s3.S, (((((s3.Ind - @p12) / @p13) * @p14) + s7.Lp) - @p15) + 1, @p16) OR s4.Z = SUBSTR(s3.S, (((s3.Ind - @p17) % @p18) + ((s7.Lp - @p19) * @p20)) + 1, @p21) OR s4.Z = SUBSTR(s3.S, ((((((((s3.Ind - @p22) / @p23) % @p24) * @p25) + (((s3.Ind - @p26) / @p27) * @p28)) + s7.Lp) + (((s7.Lp - @p29) / @p30) * @p31)) - @p32) + 1, @p33)
+                    WHERE s4."Z" = SUBSTR(s3."S", (((((s3."Ind" - @p12) / @p13) * @p14) + s7."Lp") - @p15) + 1, @p16) OR s4."Z" = SUBSTR(s3."S", (((s3."Ind" - @p17) % @p18) + ((s7."Lp" - @p19) * @p20)) + 1, @p21) OR s4."Z" = SUBSTR(s3."S", ((((((((s3."Ind" - @p22) / @p23) % @p24) * @p25) + (((s3."Ind" - @p26) / @p27) * @p28)) + s7."Lp") + (((s7."Lp" - @p29) / @p30) * @p31)) - @p32) + 1, @p33)
             )
             )
-            SELECT s0.S AS "S"
+            SELECT s0."S" AS "S"
             FROM cte2 AS s0
-            WHERE s0.Ind = @p40
+            WHERE s0."Ind" = @p40
             """), N(command.CommandText));
     }
 
@@ -644,18 +644,18 @@ public class CteTests
         Assert.Equal(
             N("""
             WITH cte0 AS (
-                SELECT b1.BookId AS "Id",
-                   b1.BookTitle AS "Title",
-                   b1.BookAuthorId AS "AuthorId",
-                   b1.BookPrice AS "Price"
+                SELECT b1."BookId" AS "Id",
+                   b1."BookTitle" AS "Title",
+                   b1."BookAuthorId" AS "AuthorId",
+                   b1."BookPrice" AS "Price"
                 FROM "Books" AS b1
-                WHERE b1.BookPrice > @p0
+                WHERE b1."BookPrice" > @p0
             )
-            SELECT b0.Title AS "Title",
-                   b2.Title AS "Other"
+            SELECT b0."Title" AS "Title",
+                   b2."Title" AS "Other"
             FROM cte0 AS b0
             CROSS JOIN cte0 AS b2
-            WHERE b0.AuthorId = b2.AuthorId AND b0.Id <> b2.Id
+            WHERE b0."AuthorId" = b2."AuthorId" AND b0."Id" <> b2."Id"
             """), N(command.CommandText));
     }
 
@@ -681,17 +681,17 @@ public class CteTests
         Assert.Equal(
             N("""
             WITH cte0 AS (
-                SELECT b1.BookId AS "Id",
-                   b1.BookTitle AS "Title",
-                   b1.BookAuthorId AS "AuthorId",
-                   b1.BookPrice AS "Price"
+                SELECT b1."BookId" AS "Id",
+                   b1."BookTitle" AS "Title",
+                   b1."BookAuthorId" AS "AuthorId",
+                   b1."BookPrice" AS "Price"
                 FROM "Books" AS b1
             )
-            SELECT b0.Id AS "Id",
-                   b2.Title AS "Title"
+            SELECT b0."Id" AS "Id",
+                   b2."Title" AS "Title"
             FROM cte0 AS b0
-            JOIN cte0 AS b2 ON b0.AuthorId = b2.AuthorId
-            WHERE b0.Id <> b2.Id
+            JOIN cte0 AS b2 ON b0."AuthorId" = b2."AuthorId"
+            WHERE b0."Id" <> b2."Id"
             """), N(command.CommandText));
     }
 
@@ -713,22 +713,22 @@ public class CteTests
         Assert.Equal(
             N("""
             WITH cte0 AS (
-                SELECT b1.BookId AS "Id",
-                   b1.BookTitle AS "Title",
-                   b1.BookAuthorId AS "AuthorId",
-                   b1.BookPrice AS "Price"
+                SELECT b1."BookId" AS "Id",
+                   b1."BookTitle" AS "Title",
+                   b1."BookAuthorId" AS "AuthorId",
+                   b1."BookPrice" AS "Price"
                 FROM "Books" AS b1
-                WHERE b1.BookPrice > @p0
+                WHERE b1."BookPrice" > @p0
             )
-            SELECT b0.Id AS "Id",
-                   b0.Title AS "Title",
-                   b0.AuthorId AS "AuthorId",
-                   b0.Price AS "Price"
+            SELECT b0."Id" AS "Id",
+                   b0."Title" AS "Title",
+                   b0."AuthorId" AS "AuthorId",
+                   b0."Price" AS "Price"
             FROM cte0 AS b0
             WHERE EXISTS (
                 SELECT 1
                 FROM cte0 AS b2
-                WHERE b2.AuthorId = b0.AuthorId
+                WHERE b2."AuthorId" = b0."AuthorId"
             )
             """), N(command.CommandText));
     }
@@ -754,16 +754,16 @@ public class CteTests
 
         Assert.Equal("""
                      WITH cte0 AS MATERIALIZED (
-                         SELECT b1.BookId AS "Id",
-                            b1.BookTitle AS "Title",
-                            b1.BookAuthorId AS "AuthorId",
-                            b1.BookPrice AS "Price"
+                         SELECT b1."BookId" AS "Id",
+                            b1."BookTitle" AS "Title",
+                            b1."BookAuthorId" AS "AuthorId",
+                            b1."BookPrice" AS "Price"
                          FROM "Books" AS b1
                      )
-                     SELECT b0.Id AS "Id",
-                            b0.Title AS "Title",
-                            b0.AuthorId AS "AuthorId",
-                            b0.Price AS "Price"
+                     SELECT b0."Id" AS "Id",
+                            b0."Title" AS "Title",
+                            b0."AuthorId" AS "AuthorId",
+                            b0."Price" AS "Price"
                      FROM cte0 AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -780,16 +780,16 @@ public class CteTests
 
         Assert.Equal("""
                      WITH cte0 AS NOT MATERIALIZED (
-                         SELECT b1.BookId AS "Id",
-                            b1.BookTitle AS "Title",
-                            b1.BookAuthorId AS "AuthorId",
-                            b1.BookPrice AS "Price"
+                         SELECT b1."BookId" AS "Id",
+                            b1."BookTitle" AS "Title",
+                            b1."BookAuthorId" AS "AuthorId",
+                            b1."BookPrice" AS "Price"
                          FROM "Books" AS b1
                      )
-                     SELECT b0.Id AS "Id",
-                            b0.Title AS "Title",
-                            b0.AuthorId AS "AuthorId",
-                            b0.Price AS "Price"
+                     SELECT b0."Id" AS "Id",
+                            b0."Title" AS "Title",
+                            b0."AuthorId" AS "AuthorId",
+                            b0."Price" AS "Price"
                      FROM cte0 AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -823,16 +823,16 @@ public class CteTests
         SQLiteCommand command = (from b in simpleRecursive select b).ToSqlCommand();
         Assert.Equal("""
                      WITH RECURSIVE cte0 AS MATERIALIZED (
-                         SELECT b1.BookId AS "Id",
-                            b1.BookTitle AS "Title",
-                            b1.BookAuthorId AS "AuthorId",
-                            b1.BookPrice AS "Price"
+                         SELECT b1."BookId" AS "Id",
+                            b1."BookTitle" AS "Title",
+                            b1."BookAuthorId" AS "AuthorId",
+                            b1."BookPrice" AS "Price"
                          FROM "Books" AS b1
                      )
-                     SELECT b0.Id AS "Id",
-                            b0.Title AS "Title",
-                            b0.AuthorId AS "AuthorId",
-                            b0.Price AS "Price"
+                     SELECT b0."Id" AS "Id",
+                            b0."Title" AS "Title",
+                            b0."AuthorId" AS "AuthorId",
+                            b0."Price" AS "Price"
                      FROM cte0 AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

@@ -77,12 +77,12 @@ internal static class JsonMethodTranslator
                     $"CASE WHEN json_array_length({src}) > 0 THEN json_extract({src}, '$[' || (json_array_length({src}) - 1) || ']') ELSE NULL END",
                 nameof(Enumerable.Single) or nameof(Enumerable.SingleOrDefault) =>
                     $"CASE WHEN json_array_length({src}) = 1 THEN json_extract({src}, '$[0]') ELSE NULL END",
-                nameof(Enumerable.Min) => $"(SELECT MIN(value) FROM json_each({src}))",
-                nameof(Enumerable.Max) => $"(SELECT MAX(value) FROM json_each({src}))",
-                nameof(Enumerable.Sum) => $"(SELECT SUM(value) FROM json_each({src}))",
-                nameof(Enumerable.Average) => $"(SELECT AVG(value) FROM json_each({src}))",
-                nameof(Enumerable.Distinct) => $"(SELECT json_group_array(DISTINCT value) FROM json_each({src}))",
-                nameof(Enumerable.Reverse) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({src}) ORDER BY key DESC))",
+                nameof(Enumerable.Min) => $"(SELECT MIN(\"value\") FROM json_each({src}))",
+                nameof(Enumerable.Max) => $"(SELECT MAX(\"value\") FROM json_each({src}))",
+                nameof(Enumerable.Sum) => $"(SELECT SUM(\"value\") FROM json_each({src}))",
+                nameof(Enumerable.Average) => $"(SELECT AVG(\"value\") FROM json_each({src}))",
+                nameof(Enumerable.Distinct) => $"(SELECT json_group_array(DISTINCT \"value\") FROM json_each({src}))",
+                nameof(Enumerable.Reverse) => $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) ORDER BY \"key\" DESC))",
                 _ => null,
             };
 
@@ -99,10 +99,10 @@ internal static class JsonMethodTranslator
 
             string? sql = node.Method.Name switch
             {
-                nameof(Enumerable.Concat) => $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({src}) UNION ALL SELECT value FROM json_each({argSql})))",
-                nameof(Enumerable.Union) => $"(SELECT json_group_array(value) FROM (SELECT DISTINCT value FROM json_each({src}) UNION SELECT DISTINCT value FROM json_each({argSql})))",
-                nameof(Enumerable.Intersect) => $"(SELECT json_group_array(value) FROM json_each({src}) WHERE value IN (SELECT value FROM json_each({argSql})))",
-                nameof(Enumerable.Except) => $"(SELECT json_group_array(value) FROM json_each({src}) WHERE value NOT IN (SELECT value FROM json_each({argSql})))",
+                nameof(Enumerable.Concat) => $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.Union) => $"(SELECT json_group_array(\"value\") FROM (SELECT DISTINCT \"value\" FROM json_each({src}) UNION SELECT DISTINCT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.Intersect) => $"(SELECT json_group_array(\"value\") FROM json_each({src}) WHERE \"value\" IN (SELECT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.Except) => $"(SELECT json_group_array(\"value\") FROM json_each({src}) WHERE \"value\" NOT IN (SELECT \"value\" FROM json_each({argSql})))",
                 _ => null,
             };
 
@@ -127,7 +127,7 @@ internal static class JsonMethodTranslator
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
             return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                $"EXISTS (SELECT 1 FROM json_each({src}) WHERE value = {arg.SQLiteExpression})",
+                $"EXISTS (SELECT 1 FROM json_each({src}) WHERE \"value\" = {arg.SQLiteExpression})",
                 parameters)
                 .WithJsonSource();
         }
@@ -139,7 +139,7 @@ internal static class JsonMethodTranslator
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
             return SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT key FROM json_each({src}) WHERE value = {arg.SQLiteExpression} LIMIT 1), -1)",
+                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" = {arg.SQLiteExpression} LIMIT 1), -1)",
                 parameters)
                 .WithJsonSource();
         }
@@ -151,7 +151,7 @@ internal static class JsonMethodTranslator
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
             return SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT key FROM json_each({src}) WHERE value = {arg.SQLiteExpression} ORDER BY key DESC LIMIT 1), -1)",
+                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" = {arg.SQLiteExpression} ORDER BY \"key\" DESC LIMIT 1), -1)",
                 parameters)
                 .WithJsonSource();
         }
@@ -161,7 +161,7 @@ internal static class JsonMethodTranslator
             ResolvedModel idx = visitor.ResolveExpression(node.Arguments[0]);
             ResolvedModel cnt = visitor.ResolveExpression(node.Arguments[1]);
             return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({src}) LIMIT {cnt.SQLiteExpression} OFFSET {idx.SQLiteExpression}))",
+                $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) LIMIT {cnt.SQLiteExpression} OFFSET {idx.SQLiteExpression}))",
                 CombineAll(source.SQLiteExpression, idx.SQLiteExpression, cnt.SQLiteExpression))
                 .WithJsonSource();
         }
@@ -172,7 +172,7 @@ internal static class JsonMethodTranslator
             ResolvedModel idx = visitor.ResolveExpression(node.Arguments[0]);
             ResolvedModel cnt = visitor.ResolveExpression(node.Arguments[1]);
             return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT json_group_array(value) FROM (SELECT value FROM json_each({src}) LIMIT {cnt.SQLiteExpression} OFFSET {idx.SQLiteExpression}))",
+                $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) LIMIT {cnt.SQLiteExpression} OFFSET {idx.SQLiteExpression}))",
                 CombineAll(source.SQLiteExpression, idx.SQLiteExpression, cnt.SQLiteExpression))
                 .WithJsonSource();
         }
@@ -215,19 +215,19 @@ internal static class JsonMethodTranslator
                 $"EXISTS (SELECT 1 FROM json_each({src}) WHERE {predSql})", combined)
                 .WithJsonSource(),
             nameof(List<>.Find) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT value FROM json_each({src}) WHERE {predSql} ORDER BY key LIMIT 1)", combined)
+                $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1)", combined)
                 .WithJsonSource(),
             nameof(List<>.FindAll) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT json_group_array(value) FROM json_each({src}) WHERE {predSql})", combined)
+                $"(SELECT json_group_array(\"value\") FROM json_each({src}) WHERE {predSql})", combined)
                 .WithJsonSource(),
             nameof(List<>.FindIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT key FROM json_each({src}) WHERE {predSql} ORDER BY key LIMIT 1), -1)", combined)
+                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1), -1)", combined)
                 .WithJsonSource(),
             nameof(List<>.FindLast) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT value FROM json_each({src}) WHERE {predSql} ORDER BY key DESC LIMIT 1)", combined)
+                $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1)", combined)
                 .WithJsonSource(),
             nameof(List<>.FindLastIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT key FROM json_each({src}) WHERE {predSql} ORDER BY key DESC LIMIT 1), -1)", combined)
+                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1), -1)", combined)
                 .WithJsonSource(),
             _ => SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
                 $"NOT EXISTS (SELECT 1 FROM json_each({src}) WHERE NOT ({predSql}))", combined)
@@ -253,19 +253,19 @@ internal static class JsonMethodTranslator
                         $"EXISTS (SELECT 1 FROM json_each({src}) WHERE {predSql})", combined)
                         .WithJsonSource(),
                     nameof(Array.Find) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT value FROM json_each({src}) WHERE {predSql} ORDER BY key LIMIT 1)", combined)
+                        $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1)", combined)
                         .WithJsonSource(),
                     nameof(Array.FindAll) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT json_group_array(value) FROM json_each({src}) WHERE {predSql})", combined)
+                        $"(SELECT json_group_array(\"value\") FROM json_each({src}) WHERE {predSql})", combined)
                         .WithJsonSource(),
                     nameof(Array.FindIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                        $"COALESCE((SELECT key FROM json_each({src}) WHERE {predSql} ORDER BY key LIMIT 1), -1)", combined)
+                        $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1), -1)", combined)
                         .WithJsonSource(),
                     nameof(Array.FindLast) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT value FROM json_each({src}) WHERE {predSql} ORDER BY key DESC LIMIT 1)", combined)
+                        $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1)", combined)
                         .WithJsonSource(),
                     nameof(Array.FindLastIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                        $"COALESCE((SELECT key FROM json_each({src}) WHERE {predSql} ORDER BY key DESC LIMIT 1), -1)", combined)
+                        $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1), -1)", combined)
                         .WithJsonSource(),
                     nameof(Array.TrueForAll) => SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
                         $"NOT EXISTS (SELECT 1 FROM json_each({src}) WHERE NOT ({predSql}))", combined)
@@ -285,10 +285,10 @@ internal static class JsonMethodTranslator
             return node.Method.Name switch
             {
                 nameof(Array.IndexOf) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                    $"COALESCE((SELECT key FROM json_each({src}) WHERE value = {argSql} LIMIT 1), -1)", parameters)
+                    $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" = {argSql} LIMIT 1), -1)", parameters)
                     .WithJsonSource(),
                 nameof(Array.LastIndexOf) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                    $"COALESCE((SELECT key FROM json_each({src}) WHERE value = {argSql} ORDER BY key DESC LIMIT 1), -1)", parameters)
+                    $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" = {argSql} ORDER BY \"key\" DESC LIMIT 1), -1)", parameters)
                     .WithJsonSource(),
                 _ => null,
             };
@@ -305,13 +305,13 @@ internal static class JsonMethodTranslator
         Dictionary<string, Expression> bindings;
         if (TypeHelpers.IsSimple(elementType, visitor.Database.Options))
         {
-            SQLiteExpression valueExpr = SQLiteExpression.Leaf(elementType, -1, "value", (SQLiteParameter[]?)null);
+            SQLiteExpression valueExpr = SQLiteExpression.Leaf(elementType, -1, "\"value\"", (SQLiteParameter[]?)null);
             bindings = new Dictionary<string, Expression> { [""] = valueExpr };
         }
         else
         {
             bindings = new Dictionary<string, Expression>();
-            RegisterProperties(elementType, "value", bindings);
+            RegisterProperties(elementType, "\"value\"", bindings);
         }
 
         visitor.MethodArguments[param] = bindings;

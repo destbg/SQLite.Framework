@@ -22,22 +22,22 @@ public class CharMethodTests
         Assert.Single(command.Parameters);
         Assert.Equal(command.Parameters[0].Value, "a");
         Assert.Equal("""
-                     SELECT n0.Id AS "Id",
-                            n0.IntValue AS "IntValue",
-                            n0.LongValue AS "LongValue",
-                            n0.ShortValue AS "ShortValue",
-                            n0.ByteValue AS "ByteValue",
-                            n0.SByteValue AS "SByteValue",
-                            n0.UIntValue AS "UIntValue",
-                            n0.ULongValue AS "ULongValue",
-                            n0.UShortValue AS "UShortValue",
-                            n0.DoubleValue AS "DoubleValue",
-                            n0.FloatValue AS "FloatValue",
-                            n0.DecimalValue AS "DecimalValue",
-                            n0.CharValue AS "CharValue",
-                            n0.BlobValue AS "BlobValue"
+                     SELECT n0."Id" AS "Id",
+                            n0."IntValue" AS "IntValue",
+                            n0."LongValue" AS "LongValue",
+                            n0."ShortValue" AS "ShortValue",
+                            n0."ByteValue" AS "ByteValue",
+                            n0."SByteValue" AS "SByteValue",
+                            n0."UIntValue" AS "UIntValue",
+                            n0."ULongValue" AS "ULongValue",
+                            n0."UShortValue" AS "UShortValue",
+                            n0."DoubleValue" AS "DoubleValue",
+                            n0."FloatValue" AS "FloatValue",
+                            n0."DecimalValue" AS "DecimalValue",
+                            n0."CharValue" AS "CharValue",
+                            n0."BlobValue" AS "BlobValue"
                      FROM "NumericTypes" AS n0
-                     WHERE LOWER(n0.CharValue) = @p0
+                     WHERE LOWER(n0."CharValue") = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -61,22 +61,22 @@ public class CharMethodTests
         Assert.Single(command.Parameters);
         Assert.Equal(command.Parameters[0].Value, "Z");
         Assert.Equal("""
-                     SELECT n0.Id AS "Id",
-                            n0.IntValue AS "IntValue",
-                            n0.LongValue AS "LongValue",
-                            n0.ShortValue AS "ShortValue",
-                            n0.ByteValue AS "ByteValue",
-                            n0.SByteValue AS "SByteValue",
-                            n0.UIntValue AS "UIntValue",
-                            n0.ULongValue AS "ULongValue",
-                            n0.UShortValue AS "UShortValue",
-                            n0.DoubleValue AS "DoubleValue",
-                            n0.FloatValue AS "FloatValue",
-                            n0.DecimalValue AS "DecimalValue",
-                            n0.CharValue AS "CharValue",
-                            n0.BlobValue AS "BlobValue"
+                     SELECT n0."Id" AS "Id",
+                            n0."IntValue" AS "IntValue",
+                            n0."LongValue" AS "LongValue",
+                            n0."ShortValue" AS "ShortValue",
+                            n0."ByteValue" AS "ByteValue",
+                            n0."SByteValue" AS "SByteValue",
+                            n0."UIntValue" AS "UIntValue",
+                            n0."ULongValue" AS "ULongValue",
+                            n0."UShortValue" AS "UShortValue",
+                            n0."DoubleValue" AS "DoubleValue",
+                            n0."FloatValue" AS "FloatValue",
+                            n0."DecimalValue" AS "DecimalValue",
+                            n0."CharValue" AS "CharValue",
+                            n0."BlobValue" AS "BlobValue"
                      FROM "NumericTypes" AS n0
-                     WHERE UPPER(n0.CharValue) = @p0
+                     WHERE UPPER(n0."CharValue") = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -99,22 +99,22 @@ public class CharMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT n0.Id AS "Id",
-                            n0.IntValue AS "IntValue",
-                            n0.LongValue AS "LongValue",
-                            n0.ShortValue AS "ShortValue",
-                            n0.ByteValue AS "ByteValue",
-                            n0.SByteValue AS "SByteValue",
-                            n0.UIntValue AS "UIntValue",
-                            n0.ULongValue AS "ULongValue",
-                            n0.UShortValue AS "UShortValue",
-                            n0.DoubleValue AS "DoubleValue",
-                            n0.FloatValue AS "FloatValue",
-                            n0.DecimalValue AS "DecimalValue",
-                            n0.CharValue AS "CharValue",
-                            n0.BlobValue AS "BlobValue"
+                     SELECT n0."Id" AS "Id",
+                            n0."IntValue" AS "IntValue",
+                            n0."LongValue" AS "LongValue",
+                            n0."ShortValue" AS "ShortValue",
+                            n0."ByteValue" AS "ByteValue",
+                            n0."SByteValue" AS "SByteValue",
+                            n0."UIntValue" AS "UIntValue",
+                            n0."ULongValue" AS "ULongValue",
+                            n0."UShortValue" AS "UShortValue",
+                            n0."DoubleValue" AS "DoubleValue",
+                            n0."FloatValue" AS "FloatValue",
+                            n0."DecimalValue" AS "DecimalValue",
+                            n0."CharValue" AS "CharValue",
+                            n0."BlobValue" AS "BlobValue"
                      FROM "NumericTypes" AS n0
-                     WHERE TRIM(n0.CharValue) = ''
+                     WHERE TRIM(n0."CharValue") = ''
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -137,22 +137,22 @@ public class CharMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT n0.Id AS "Id",
-                            n0.IntValue AS "IntValue",
-                            n0.LongValue AS "LongValue",
-                            n0.ShortValue AS "ShortValue",
-                            n0.ByteValue AS "ByteValue",
-                            n0.SByteValue AS "SByteValue",
-                            n0.UIntValue AS "UIntValue",
-                            n0.ULongValue AS "ULongValue",
-                            n0.UShortValue AS "UShortValue",
-                            n0.DoubleValue AS "DoubleValue",
-                            n0.FloatValue AS "FloatValue",
-                            n0.DecimalValue AS "DecimalValue",
-                            n0.CharValue AS "CharValue",
-                            n0.BlobValue AS "BlobValue"
+                     SELECT n0."Id" AS "Id",
+                            n0."IntValue" AS "IntValue",
+                            n0."LongValue" AS "LongValue",
+                            n0."ShortValue" AS "ShortValue",
+                            n0."ByteValue" AS "ByteValue",
+                            n0."SByteValue" AS "SByteValue",
+                            n0."UIntValue" AS "UIntValue",
+                            n0."ULongValue" AS "ULongValue",
+                            n0."UShortValue" AS "UShortValue",
+                            n0."DoubleValue" AS "DoubleValue",
+                            n0."FloatValue" AS "FloatValue",
+                            n0."DecimalValue" AS "DecimalValue",
+                            n0."CharValue" AS "CharValue",
+                            n0."BlobValue" AS "BlobValue"
                      FROM "NumericTypes" AS n0
-                     WHERE (n0.CharValue >= '0' AND n0.CharValue <= '9')
+                     WHERE (n0."CharValue" >= '0' AND n0."CharValue" <= '9')
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -176,22 +176,22 @@ public class CharMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT n0.Id AS "Id",
-                            n0.IntValue AS "IntValue",
-                            n0.LongValue AS "LongValue",
-                            n0.ShortValue AS "ShortValue",
-                            n0.ByteValue AS "ByteValue",
-                            n0.SByteValue AS "SByteValue",
-                            n0.UIntValue AS "UIntValue",
-                            n0.ULongValue AS "ULongValue",
-                            n0.UShortValue AS "UShortValue",
-                            n0.DoubleValue AS "DoubleValue",
-                            n0.FloatValue AS "FloatValue",
-                            n0.DecimalValue AS "DecimalValue",
-                            n0.CharValue AS "CharValue",
-                            n0.BlobValue AS "BlobValue"
+                     SELECT n0."Id" AS "Id",
+                            n0."IntValue" AS "IntValue",
+                            n0."LongValue" AS "LongValue",
+                            n0."ShortValue" AS "ShortValue",
+                            n0."ByteValue" AS "ByteValue",
+                            n0."SByteValue" AS "SByteValue",
+                            n0."UIntValue" AS "UIntValue",
+                            n0."ULongValue" AS "ULongValue",
+                            n0."UShortValue" AS "UShortValue",
+                            n0."DoubleValue" AS "DoubleValue",
+                            n0."FloatValue" AS "FloatValue",
+                            n0."DecimalValue" AS "DecimalValue",
+                            n0."CharValue" AS "CharValue",
+                            n0."BlobValue" AS "BlobValue"
                      FROM "NumericTypes" AS n0
-                     WHERE ((n0.CharValue >= 'a' AND n0.CharValue <= 'z') OR (n0.CharValue >= 'A' AND n0.CharValue <= 'Z'))
+                     WHERE ((n0."CharValue" >= 'a' AND n0."CharValue" <= 'z') OR (n0."CharValue" >= 'A' AND n0."CharValue" <= 'Z'))
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -215,22 +215,22 @@ public class CharMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT n0.Id AS "Id",
-                            n0.IntValue AS "IntValue",
-                            n0.LongValue AS "LongValue",
-                            n0.ShortValue AS "ShortValue",
-                            n0.ByteValue AS "ByteValue",
-                            n0.SByteValue AS "SByteValue",
-                            n0.UIntValue AS "UIntValue",
-                            n0.ULongValue AS "ULongValue",
-                            n0.UShortValue AS "UShortValue",
-                            n0.DoubleValue AS "DoubleValue",
-                            n0.FloatValue AS "FloatValue",
-                            n0.DecimalValue AS "DecimalValue",
-                            n0.CharValue AS "CharValue",
-                            n0.BlobValue AS "BlobValue"
+                     SELECT n0."Id" AS "Id",
+                            n0."IntValue" AS "IntValue",
+                            n0."LongValue" AS "LongValue",
+                            n0."ShortValue" AS "ShortValue",
+                            n0."ByteValue" AS "ByteValue",
+                            n0."SByteValue" AS "SByteValue",
+                            n0."UIntValue" AS "UIntValue",
+                            n0."ULongValue" AS "ULongValue",
+                            n0."UShortValue" AS "UShortValue",
+                            n0."DoubleValue" AS "DoubleValue",
+                            n0."FloatValue" AS "FloatValue",
+                            n0."DecimalValue" AS "DecimalValue",
+                            n0."CharValue" AS "CharValue",
+                            n0."BlobValue" AS "BlobValue"
                      FROM "NumericTypes" AS n0
-                     WHERE ((n0.CharValue >= '0' AND n0.CharValue <= '9') OR (n0.CharValue >= 'a' AND n0.CharValue <= 'z') OR (n0.CharValue >= 'A' AND n0.CharValue <= 'Z'))
+                     WHERE ((n0."CharValue" >= '0' AND n0."CharValue" <= '9') OR (n0."CharValue" >= 'a' AND n0."CharValue" <= 'z') OR (n0."CharValue" >= 'A' AND n0."CharValue" <= 'Z'))
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -254,22 +254,22 @@ public class CharMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT n0.Id AS "Id",
-                            n0.IntValue AS "IntValue",
-                            n0.LongValue AS "LongValue",
-                            n0.ShortValue AS "ShortValue",
-                            n0.ByteValue AS "ByteValue",
-                            n0.SByteValue AS "SByteValue",
-                            n0.UIntValue AS "UIntValue",
-                            n0.ULongValue AS "ULongValue",
-                            n0.UShortValue AS "UShortValue",
-                            n0.DoubleValue AS "DoubleValue",
-                            n0.FloatValue AS "FloatValue",
-                            n0.DecimalValue AS "DecimalValue",
-                            n0.CharValue AS "CharValue",
-                            n0.BlobValue AS "BlobValue"
+                     SELECT n0."Id" AS "Id",
+                            n0."IntValue" AS "IntValue",
+                            n0."LongValue" AS "LongValue",
+                            n0."ShortValue" AS "ShortValue",
+                            n0."ByteValue" AS "ByteValue",
+                            n0."SByteValue" AS "SByteValue",
+                            n0."UIntValue" AS "UIntValue",
+                            n0."ULongValue" AS "ULongValue",
+                            n0."UShortValue" AS "UShortValue",
+                            n0."DoubleValue" AS "DoubleValue",
+                            n0."FloatValue" AS "FloatValue",
+                            n0."DecimalValue" AS "DecimalValue",
+                            n0."CharValue" AS "CharValue",
+                            n0."BlobValue" AS "BlobValue"
                      FROM "NumericTypes" AS n0
-                     WHERE (n0.CharValue >= 'a' AND n0.CharValue <= 'z')
+                     WHERE (n0."CharValue" >= 'a' AND n0."CharValue" <= 'z')
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -293,22 +293,22 @@ public class CharMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT n0.Id AS "Id",
-                            n0.IntValue AS "IntValue",
-                            n0.LongValue AS "LongValue",
-                            n0.ShortValue AS "ShortValue",
-                            n0.ByteValue AS "ByteValue",
-                            n0.SByteValue AS "SByteValue",
-                            n0.UIntValue AS "UIntValue",
-                            n0.ULongValue AS "ULongValue",
-                            n0.UShortValue AS "UShortValue",
-                            n0.DoubleValue AS "DoubleValue",
-                            n0.FloatValue AS "FloatValue",
-                            n0.DecimalValue AS "DecimalValue",
-                            n0.CharValue AS "CharValue",
-                            n0.BlobValue AS "BlobValue"
+                     SELECT n0."Id" AS "Id",
+                            n0."IntValue" AS "IntValue",
+                            n0."LongValue" AS "LongValue",
+                            n0."ShortValue" AS "ShortValue",
+                            n0."ByteValue" AS "ByteValue",
+                            n0."SByteValue" AS "SByteValue",
+                            n0."UIntValue" AS "UIntValue",
+                            n0."ULongValue" AS "ULongValue",
+                            n0."UShortValue" AS "UShortValue",
+                            n0."DoubleValue" AS "DoubleValue",
+                            n0."FloatValue" AS "FloatValue",
+                            n0."DecimalValue" AS "DecimalValue",
+                            n0."CharValue" AS "CharValue",
+                            n0."BlobValue" AS "BlobValue"
                      FROM "NumericTypes" AS n0
-                     WHERE (n0.CharValue >= 'A' AND n0.CharValue <= 'Z')
+                     WHERE (n0."CharValue" >= 'A' AND n0."CharValue" <= 'Z')
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -388,7 +388,7 @@ public class CharMethodTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT UNICODE(n0.CharValue) AS "15"
+                     SELECT UNICODE(n0."CharValue") AS "15"
                      FROM "NumericTypes" AS n0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -417,7 +417,7 @@ public class CharMethodTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT CHAR(n0.IntValue) AS "15"
+                     SELECT CHAR(n0."IntValue") AS "15"
                      FROM "NumericTypes" AS n0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

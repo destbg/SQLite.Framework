@@ -11,7 +11,7 @@ public class CommandHelpersCoverageTests
     {
         using TestDatabase db = new();
         db.Table<DateTimeRow>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO DateTimeRow (Id, Stamp) VALUES (1, 3.14)", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO DateTimeRow (\"Id\", \"Stamp\") VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<DateTimeRow>().First());
     }
@@ -21,7 +21,7 @@ public class CommandHelpersCoverageTests
     {
         using TestDatabase db = new();
         db.Table<DateTimeOffsetRow>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO DateTimeOffsetRow (Id, Stamp) VALUES (1, 3.14)", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO DateTimeOffsetRow (\"Id\", \"Stamp\") VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<DateTimeOffsetRow>().First());
     }
@@ -31,7 +31,7 @@ public class CommandHelpersCoverageTests
     {
         using TestDatabase db = new();
         db.Table<TimeSpanRow>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO TimeSpanRow (Id, Span) VALUES (1, 3.14)", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO TimeSpanRow (\"Id\", \"Span\") VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<TimeSpanRow>().First());
     }
@@ -41,7 +41,7 @@ public class CommandHelpersCoverageTests
     {
         using TestDatabase db = new();
         db.Table<DateOnlyRow>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO DateOnlyRow (Id, D) VALUES (1, 3.14)", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO DateOnlyRow (\"Id\", \"D\") VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<DateOnlyRow>().First());
     }
@@ -51,7 +51,7 @@ public class CommandHelpersCoverageTests
     {
         using TestDatabase db = new();
         db.Table<TimeOnlyRow>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO TimeOnlyRow (Id, T) VALUES (1, 3.14)", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO TimeOnlyRow (\"Id\", \"T\") VALUES (1, 3.14)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<TimeOnlyRow>().First());
     }
@@ -61,7 +61,7 @@ public class CommandHelpersCoverageTests
     {
         using TestDatabase db = new();
         db.Table<GuidRow>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO GuidRow (Id, Token) VALUES (1, 42)", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO GuidRow (\"Id\", \"Token\") VALUES (1, 42)", []).ExecuteNonQuery();
 
         Assert.ThrowsAny<Exception>(() => db.Table<GuidRow>().First());
     }
@@ -82,7 +82,7 @@ public class CommandHelpersCoverageTests
         db.Table<DateTimeRow>().Schema.CreateTable();
 
         SQLiteCommand cmd = db.CreateCommand(
-            "INSERT INTO DateTimeRow (Id, Stamp) VALUES (1, @p0)",
+            "INSERT INTO DateTimeRow (\"Id\", \"Stamp\") VALUES (1, @p0)",
             [new SQLiteParameter { Name = "@p0", Value = new System.Numerics.Vector3(1, 2, 3) }]);
 
         Assert.Throws<NotSupportedException>(() => cmd.ExecuteNonQuery());

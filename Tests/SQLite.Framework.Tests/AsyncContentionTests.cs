@@ -200,7 +200,7 @@ public class AsyncContentionTests
     [Fact]
     public Task ExecuteWithLastRowIdAsync_Contended() => RunContended(db =>
         db.CreateCommand(
-            "INSERT INTO Books (BookTitle, BookAuthorId, BookPrice) VALUES ('R', 1, 999)",
+            "INSERT INTO Books (\"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES ('R', 1, 999)",
             []).ExecuteWithLastRowIdAsync());
 
     [Fact]

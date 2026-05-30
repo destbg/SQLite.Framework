@@ -28,12 +28,12 @@ public class StringOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(5, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE LENGTH(b0.BookTitle) > @p0
+                     WHERE LENGTH(b0."BookTitle") > @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -66,12 +66,12 @@ public class StringOperationTests
         Assert.Equal(" - Book", command.Parameters[0].Value);
         Assert.Equal("Test - Book", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookTitle || @p0 = @p1
+                     WHERE b0."BookTitle" || @p0 = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -101,7 +101,7 @@ public class StringOperationTests
         Assert.Equal(" by ", command.Parameters[0].Value);
         Assert.Equal("Author", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookTitle || @p0 || @p1 AS "8"
+                     SELECT b0."BookTitle" || @p0 || @p1 AS "8"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -132,12 +132,12 @@ public class StringOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookTitle IS NULL OR b0.BookTitle = '')
+                     WHERE (b0."BookTitle" IS NULL OR b0."BookTitle" = '')
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -167,12 +167,12 @@ public class StringOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookTitle IS NULL OR TRIM(b0.BookTitle, ' ') = '')
+                     WHERE (b0."BookTitle" IS NULL OR TRIM(b0."BookTitle", ' ') = '')
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -198,12 +198,12 @@ public class StringOperationTests
         Assert.Equal(' ', command.Parameters[1].Value);
         Assert.Equal("    Test", command.Parameters[2].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (CASE WHEN LENGTH(b0.BookTitle) >= @p0 THEN b0.BookTitle ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0.BookTitle))), '00', @p1), 1, @p0 - LENGTH(b0.BookTitle)) || b0.BookTitle) END) = @p2
+                     WHERE (CASE WHEN LENGTH(b0."BookTitle") >= @p0 THEN b0."BookTitle" ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0."BookTitle"))), '00', @p1), 1, @p0 - LENGTH(b0."BookTitle")) || b0."BookTitle") END) = @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -224,12 +224,12 @@ public class StringOperationTests
         Assert.Equal(' ', command.Parameters[1].Value);
         Assert.Equal("Test    ", command.Parameters[2].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (CASE WHEN LENGTH(b0.BookTitle) >= @p0 THEN b0.BookTitle ELSE (b0.BookTitle || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0.BookTitle))), '00', @p1), 1, @p0 - LENGTH(b0.BookTitle)))) END) = @p2
+                     WHERE (CASE WHEN LENGTH(b0."BookTitle") >= @p0 THEN b0."BookTitle" ELSE (b0."BookTitle" || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(@p0 - LENGTH(b0."BookTitle"))), '00', @p1), 1, @p0 - LENGTH(b0."BookTitle")))) END) = @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -255,8 +255,8 @@ public class StringOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookTitle AS "Title",
-                            LENGTH(b0.BookTitle) AS "Length"
+                     SELECT b0."BookTitle" AS "Title",
+                            LENGTH(b0."BookTitle") AS "Length"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -288,7 +288,7 @@ public class StringOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT UPPER(b0.BookTitle) AS "5"
+                     SELECT UPPER(b0."BookTitle") AS "5"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -319,7 +319,7 @@ public class StringOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT LOWER(b0.BookTitle) AS "5"
+                     SELECT LOWER(b0."BookTitle") AS "5"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -352,7 +352,7 @@ public class StringOperationTests
         Assert.Equal("Test", command.Parameters[0].Value);
         Assert.Equal("Sample", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT REPLACE(b0.BookTitle, @p0, @p1) AS "7"
+                     SELECT REPLACE(b0."BookTitle", @p0, @p1) AS "7"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -385,7 +385,7 @@ public class StringOperationTests
         Assert.Equal(0, command.Parameters[0].Value);
         Assert.Equal(4, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT SUBSTR(b0.BookTitle, @p0 + 1, @p1) AS "7"
+                     SELECT SUBSTR(b0."BookTitle", @p0 + 1, @p1) AS "7"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -408,11 +408,11 @@ public class StringOperationTests
         Assert.Equal("", command.Parameters[0].Value);
         Assert.Equal(0, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.Id AS "Id",
-                            b0.Title AS "Title",
-                            b0.Notes AS "Notes"
+                     SELECT b0."Id" AS "Id",
+                            b0."Title" AS "Title",
+                            b0."Notes" AS "Notes"
                      FROM "BookWithNotes" AS b0
-                     WHERE LENGTH(COALESCE(b0.Notes, @p0)) > @p1
+                     WHERE LENGTH(COALESCE(b0."Notes", @p0)) > @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -430,11 +430,11 @@ public class StringOperationTests
         Assert.Equal("", command.Parameters[0].Value);
         Assert.Equal("Important%", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.Id AS "Id",
-                            b0.Title AS "Title",
-                            b0.Notes AS "Notes"
+                     SELECT b0."Id" AS "Id",
+                            b0."Title" AS "Title",
+                            b0."Notes" AS "Notes"
                      FROM "BookWithNotes" AS b0
-                     WHERE COALESCE(b0.Notes, @p1) LIKE @p2 ESCAPE '\'
+                     WHERE COALESCE(b0."Notes", @p1) LIKE @p2 ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -452,11 +452,11 @@ public class StringOperationTests
         Assert.Equal("Unknown", command.Parameters[0].Value);
         Assert.Equal("%test%", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.Id AS "Id",
-                            b0.Title AS "Title",
-                            b0.Notes AS "Notes"
+                     SELECT b0."Id" AS "Id",
+                            b0."Title" AS "Title",
+                            b0."Notes" AS "Notes"
                      FROM "BookWithNotes" AS b0
-                     WHERE COALESCE(b0.Notes, @p1) LIKE @p2 ESCAPE '\'
+                     WHERE COALESCE(b0."Notes", @p1) LIKE @p2 ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -488,8 +488,8 @@ public class StringOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal("No notes", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.Id AS "Id",
-                            COALESCE(b0.Notes, @p0) AS "NotesOrDefault"
+                     SELECT b0."Id" AS "Id",
+                            COALESCE(b0."Notes", @p0) AS "NotesOrDefault"
                      FROM "BookWithNotes" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -522,7 +522,7 @@ public class StringOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal("default", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT UPPER(COALESCE(b0.Notes, @p0)) AS "6"
+                     SELECT UPPER(COALESCE(b0."Notes", @p0)) AS "6"
                      FROM "BookWithNotes" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

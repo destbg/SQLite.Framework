@@ -257,7 +257,7 @@ public class QueryTests
         using TestDatabase db = SetupDatabase();
 
         int affected = db.Execute(
-            "INSERT INTO QueryItems (Id, Name, AuthorId, Price) VALUES (@id, @name, @authorId, @price)",
+            "INSERT INTO QueryItems (\"Id\", \"Name\", \"AuthorId\", \"Price\") VALUES (@id, @name, @authorId, @price)",
             new { id = 4, name = "Delta", authorId = 2, price = 40.0 }
         );
 

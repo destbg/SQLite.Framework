@@ -295,12 +295,12 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookTitle REGEXP @p0)
+                     WHERE (b0."BookTitle" REGEXP @p0)
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -317,9 +317,9 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT a0.rowid AS "Id",
-                            a0.Title AS "Title",
-                            a0.Body AS "Body"
+                     SELECT a0."rowid" AS "Id",
+                            a0."Title" AS "Title",
+                            a0."Body" AS "Body"
                      FROM "ArticleSearch" AS a0
                      WHERE "ArticleSearch" MATCH @p0
                      """.Replace("\r\n", "\n"),
@@ -412,12 +412,12 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE CAST(b0.BookAuthorId AS TEXT) = @p0
+                     WHERE CAST(b0."BookAuthorId" AS TEXT) = @p0
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -433,12 +433,12 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE CAST(b0.BookTitle AS INTEGER) > @p0
+                     WHERE CAST(b0."BookTitle" AS INTEGER) > @p0
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -454,12 +454,12 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE CAST(b0.BookPrice AS TEXT) = @p0
+                     WHERE CAST(b0."BookPrice" AS TEXT) = @p0
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -475,12 +475,12 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE CAST(b0.BookTitle AS REAL) > @p0
+                     WHERE CAST(b0."BookTitle" AS REAL) > @p0
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -561,11 +561,11 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT a0.rowid AS "Id",
-                            a0.Title AS "Title",
-                            a0.Body AS "Body"
+                     SELECT a0."rowid" AS "Id",
+                            a0."Title" AS "Title",
+                            a0."Body" AS "Body"
                      FROM "ArticleSearch" AS a0
-                     WHERE "ArticleSearch" MATCH (printf('"%w"', a0.Title) || @p0)
+                     WHERE "ArticleSearch" MATCH (printf('"%w"', a0."Title") || @p0)
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -581,11 +581,11 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT p0.Id AS "Id",
-                            p0.Name AS "Name",
-                            p0.Type AS "Type"
+                     SELECT p0."Id" AS "Id",
+                            p0."Name" AS "Name",
+                            p0."Type" AS "Type"
                      FROM "Publisher" AS p0
-                     WHERE p0.Type = CAST((CASE @p1 WHEN @p2 THEN 1 WHEN @p3 THEN 2 WHEN @p4 THEN 3 WHEN @p5 THEN 4 ELSE NULL END) AS INTEGER)
+                     WHERE p0."Type" = CAST((CASE @p1 WHEN @p2 THEN 1 WHEN @p3 THEN 2 WHEN @p4 THEN 3 WHEN @p5 THEN 4 ELSE NULL END) AS INTEGER)
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -625,11 +625,11 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT p0.Id AS "Id",
-                            p0.Name AS "Name",
-                            p0.Type AS "Type"
+                     SELECT p0."Id" AS "Id",
+                            p0."Name" AS "Name",
+                            p0."Type" AS "Type"
                      FROM "Publisher" AS p0
-                     WHERE (CASE p0.Type WHEN 1 THEN @p0 WHEN 2 THEN @p1 WHEN 3 THEN @p2 WHEN 4 THEN @p3 ELSE CAST(p0.Type AS TEXT) END) = @p4
+                     WHERE (CASE p0."Type" WHEN 1 THEN @p0 WHEN 2 THEN @p1 WHEN 3 THEN @p2 WHEN 4 THEN @p3 ELSE CAST(p0."Type" AS TEXT) END) = @p4
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -649,13 +649,13 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookAuthorId IN (
-                         SELECT a1.AuthorId AS "Id"
+                     WHERE b0."BookAuthorId" IN (
+                         SELECT a1."AuthorId" AS "Id"
                          FROM "Authors" AS a1
                      )
                      """.Replace("\r\n", "\n"),
@@ -674,15 +674,15 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      WHERE EXISTS (
                          SELECT 1
                          FROM "Authors" AS a1
-                         WHERE a1.AuthorId = b0.BookAuthorId
+                         WHERE a1."AuthorId" = b0."BookAuthorId"
                      )
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
@@ -700,12 +700,12 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE TRIM(b0.BookTitle, @p1 || @p2) = @p3
+                     WHERE TRIM(b0."BookTitle", @p1 || @p2) = @p3
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -894,11 +894,11 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT a0.rowid AS "Id",
-                            a0.Title AS "Title",
-                            a0.Body AS "Body"
+                     SELECT a0."rowid" AS "Id",
+                            a0."Title" AS "Title",
+                            a0."Body" AS "Body"
                      FROM "ArticleSearch" AS a0
-                     WHERE "ArticleSearch" MATCH (printf('"%w"', a0.Title || @p0))
+                     WHERE "ArticleSearch" MATCH (printf('"%w"', a0."Title" || @p0))
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
         Assert.True(cmd.Parameters.Count > 0);
@@ -921,11 +921,11 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT p0.Id AS "Id",
-                            p0.Name AS "Name",
-                            p0.Type AS "Type"
+                     SELECT p0."Id" AS "Id",
+                            p0."Name" AS "Name",
+                            p0."Type" AS "Type"
                      FROM "Publisher" AS p0
-                     WHERE ((p0.Type & @p0) = @p0)
+                     WHERE ((p0."Type" & @p0) = @p0)
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -1235,10 +1235,10 @@ public class CoverageGapTests
         ).ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT UPPER(b0.BookTitle) AS "UpperTitle",
-                            a1.AuthorName AS "AuthorName"
+                     SELECT UPPER(b0."BookTitle") AS "UpperTitle",
+                            a1."AuthorName" AS "AuthorName"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -1253,7 +1253,7 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookTitle AS "Title"
+                     SELECT b0."BookTitle" AS "Title"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1275,17 +1275,17 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookTitle AS "Title",
-                            a2.Name AS "Name"
+                     SELECT b0."BookTitle" AS "Title",
+                            a2."Name" AS "Name"
                      FROM "Books" AS b0
                      JOIN (
-                         SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                         SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                          FROM "Authors" AS a1
-                         WHERE a1.AuthorId > @p0
-                     ) AS a2 ON b0.BookAuthorId = a2.Id
+                         WHERE a1."AuthorId" > @p0
+                     ) AS a2 ON b0."BookAuthorId" = a2."Id"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -2062,7 +2062,7 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT CHAR(b0.BookId) AS "5"
+                     SELECT CHAR(b0."BookId") AS "5"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -2084,7 +2084,7 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT UNICODE(c0.Letter) AS "3"
+                     SELECT UNICODE(c0."Letter") AS "3"
                      FROM "CharEntity" AS c0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -2338,7 +2338,7 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT CAST(b0.BookPrice AS INTEGER) AS "5"
+                     SELECT CAST(b0."BookPrice" AS INTEGER) AS "5"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -2422,7 +2422,7 @@ public class CoverageGapTests
         db.Table<Book>().Schema.CreateTable();
 
         int rows = db.Execute(
-            "INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@id, 't', 0, 0)",
+            "INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@id, 't', 0, 0)",
             (object)new SQLiteParameter { Name = "@id", Value = 42 });
 
         Assert.Equal(1, rows);

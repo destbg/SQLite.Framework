@@ -63,15 +63,15 @@ public class OtherTests
         Assert.Equal("test", command.Parameters[0].Value);
         Assert.Equal("test 2", command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      WHERE @p2 IN (
-                         SELECT b1.BookTitle AS "Title"
+                         SELECT b1."BookTitle" AS "Title"
                          FROM "Books" AS b1
-                         WHERE b1.BookTitle = @p0 AND b0.BookAuthorId = b1.BookAuthorId
+                         WHERE b1."BookTitle" = @p0 AND b0."BookAuthorId" = b1."BookAuthorId"
                      )
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -90,12 +90,12 @@ public class OtherTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     ORDER BY b0.BookTitle ASC, b0.BookId DESC
+                     ORDER BY b0."BookTitle" ASC, b0."BookId" DESC
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -109,10 +109,10 @@ public class OtherTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      LIMIT 1
                      OFFSET 2
@@ -130,17 +130,17 @@ public class OtherTests
         Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId = @p0
+                     WHERE b0."BookId" = @p0
                      UNION
-                     SELECT b1.BookId AS "Id",
-                            b1.BookTitle AS "Title",
-                            b1.BookAuthorId AS "AuthorId",
-                            b1.BookPrice AS "Price"
+                     SELECT b1."BookId" AS "Id",
+                            b1."BookTitle" AS "Title",
+                            b1."BookAuthorId" AS "AuthorId",
+                            b1."BookPrice" AS "Price"
                      FROM "Books" AS b1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -156,17 +156,17 @@ public class OtherTests
         Assert.Single(command.Parameters);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId = @p0
+                     WHERE b0."BookId" = @p0
                      UNION ALL
-                     SELECT b1.BookId AS "Id",
-                            b1.BookTitle AS "Title",
-                            b1.BookAuthorId AS "AuthorId",
-                            b1.BookPrice AS "Price"
+                     SELECT b1."BookId" AS "Id",
+                            b1."BookTitle" AS "Title",
+                            b1."BookAuthorId" AS "AuthorId",
+                            b1."BookPrice" AS "Price"
                      FROM "Books" AS b1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -1194,12 +1194,12 @@ public class OtherTests
 
         SQLiteCommand command = table.ToSqlCommand();
         Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
+                      SELECT b0."BookId" AS "Id",
+                             b0."BookTitle" AS "Title",
+                             b0."BookAuthorId" AS "AuthorId",
+                             b0."BookPrice" AS "Price"
                       FROM ({sql}) AS b0
-                      WHERE b0.BookId = @p1
+                      WHERE b0."BookId" = @p1
                       """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal("@title", command.Parameters[0].Name);
@@ -1243,19 +1243,19 @@ public class OtherTests
 
         SQLiteCommand command = table.ToSqlCommand();
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      JOIN (
-                         SELECT b1.BookId AS "Id",
-                            b1.BookTitle AS "Title",
-                            b1.BookAuthorId AS "AuthorId",
-                            b1.BookPrice AS "Price"
+                         SELECT b1."BookId" AS "Id",
+                            b1."BookTitle" AS "Title",
+                            b1."BookAuthorId" AS "AuthorId",
+                            b1."BookPrice" AS "Price"
                          FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
-                     ) AS b2 ON b0.BookId = b2.Id
-                     WHERE b0.BookId = @p1
+                     ) AS b2 ON b0."BookId" = b2."Id"
+                     WHERE b0."BookId" = @p1
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal("@p1", command.Parameters[0].Name);
@@ -1298,13 +1298,13 @@ public class OtherTests
 
         SQLiteCommand command = table.ToSqlCommand();
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0.BookId IN (
-                         SELECT b1.BookId AS "Id"
+                     WHERE b0."BookId" IN (
+                         SELECT b1."BookId" AS "Id"
                          FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
                      )
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));

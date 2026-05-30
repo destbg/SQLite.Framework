@@ -13,8 +13,8 @@ public class GenericMaterializerTests
         using TestDatabase db = new();
         db.Table<GenericRepoEntityA>().Schema.CreateTable();
         db.Table<GenericRepoEntityB>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO GenericRepoEntityA (Id, Name) VALUES (1, 'alpha')", []).ExecuteNonQuery();
-        db.CreateCommand("INSERT INTO GenericRepoEntityB (Id, Description) VALUES (1, 'beta')", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO GenericRepoEntityA (\"Id\", \"Name\") VALUES (1, 'alpha')", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO GenericRepoEntityB (\"Id\", \"Description\") VALUES (1, 'beta')", []).ExecuteNonQuery();
 
         RepoA repoA = new(db);
         RepoB repoB = new(db);
@@ -57,8 +57,8 @@ public class GenericMaterializerTests
         using TestDatabase db = new();
         db.Table<GenericMethodEntityA>().Schema.CreateTable();
         db.Table<GenericMethodEntityB>().Schema.CreateTable();
-        db.CreateCommand("INSERT INTO GenericMethodEntityA (Id, Tag) VALUES (1, 'one')", []).ExecuteNonQuery();
-        db.CreateCommand("INSERT INTO GenericMethodEntityB (Id, Code) VALUES (2, 'two')", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO GenericMethodEntityA (\"Id\", \"Tag\") VALUES (1, 'one')", []).ExecuteNonQuery();
+        db.CreateCommand("INSERT INTO GenericMethodEntityB (\"Id\", \"Code\") VALUES (2, 'two')", []).ExecuteNonQuery();
 
         List<GenericMethodEntityA> aRows = RunQuery<GenericMethodEntityA>(db, "SELECT Id, Tag FROM GenericMethodEntityA");
         List<GenericMethodEntityB> bRows = RunQuery<GenericMethodEntityB>(db, "SELECT Id, Code FROM GenericMethodEntityB");

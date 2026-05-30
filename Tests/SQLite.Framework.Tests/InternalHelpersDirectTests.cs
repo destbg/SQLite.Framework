@@ -1666,10 +1666,10 @@ public class HandlerDispatchTests
                 .ToSqlCommand();
 
             Assert.Equal("""
-                         SELECT b0.Id AS "Id",
-                                b0.Value AS "Value"
+                         SELECT b0."Id" AS "Id",
+                                b0."Value" AS "Value"
                          FROM "BigEntity" AS b0
-                         WHERE FAKE_CMP(b0.Value, @p0) > @p1
+                         WHERE FAKE_CMP(b0."Value", @p0) > @p1
                          """.Replace("\r\n", "\n"),
                 command.CommandText.Replace("\r\n", "\n"));
         }

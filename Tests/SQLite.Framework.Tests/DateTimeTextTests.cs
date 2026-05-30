@@ -329,7 +329,7 @@ public class DateTimeTextTests
         TestDatabase db = new(methodName);
         db.Table<TestEntity>().Schema.CreateTable();
         string ticks = new DateTime(2000, 2, 3, 4, 5, 6, 7, 8).Ticks.ToString();
-        db.Execute("INSERT INTO TestEntity (Id, Date) VALUES (1, @date)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Date\") VALUES (1, @date)",
             new SQLiteParameter
             {
                 Name = "@date",
@@ -342,7 +342,7 @@ public class DateTimeTextTests
     {
         TestDatabase db = new(methodName);
         db.Table<TestEntity>().Schema.CreateTable();
-        db.Execute("INSERT INTO TestEntity (Id, Date) VALUES (1, @date)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Date\") VALUES (1, @date)",
             new SQLiteParameter
             {
                 Name = "@date",

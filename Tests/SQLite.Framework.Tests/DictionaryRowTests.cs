@@ -61,7 +61,7 @@ public class DictionaryRowTests
     {
         using TestDatabase db = new();
         db.Execute("CREATE TABLE Optional (Id INTEGER PRIMARY KEY, Name TEXT)");
-        db.Execute("INSERT INTO Optional (Id, Name) VALUES (1, NULL)");
+        db.Execute("INSERT INTO Optional (\"Id\", \"Name\") VALUES (1, NULL)");
 
         Dictionary<string, object?> row = db.Query<Dictionary<string, object?>>(
             "SELECT Id, Name FROM Optional WHERE Id = 1")[0];
@@ -75,7 +75,7 @@ public class DictionaryRowTests
     {
         using TestDatabase db = new();
         db.Execute("CREATE TABLE Blobs (Id INTEGER PRIMARY KEY, Data BLOB)");
-        db.Execute("INSERT INTO Blobs (Id, Data) VALUES (1, x'01020304')");
+        db.Execute("INSERT INTO Blobs (\"Id\", \"Data\") VALUES (1, x'01020304')");
 
         Dictionary<string, object?> row = db.Query<Dictionary<string, object?>>(
             "SELECT Data FROM Blobs WHERE Id = 1")[0];
@@ -104,7 +104,7 @@ public class DictionaryRowTests
         using TestDatabase db = new(b => b.AddTypeConverter<Dictionary<string, object>>(
             new RecordingDictConverter()));
         db.Execute("CREATE TABLE Docs (Id INTEGER PRIMARY KEY, Payload TEXT)");
-        db.Execute("INSERT INTO Docs (Id, Payload) VALUES (1, 'fake-payload')");
+        db.Execute("INSERT INTO Docs (\"Id\", \"Payload\") VALUES (1, 'fake-payload')");
 
         Dictionary<string, object> result = db.Query<Dictionary<string, object>>(
             "SELECT Payload FROM Docs WHERE Id = 1")[0];
@@ -118,7 +118,7 @@ public class DictionaryRowTests
         using TestDatabase db = new(b => b.AddTypeConverter<Dictionary<string, object>>(
             new RecordingDictConverter()));
         db.Execute("CREATE TABLE Docs (Id INTEGER PRIMARY KEY, Payload TEXT)");
-        db.Execute("INSERT INTO Docs (Id, Payload) VALUES (1, 'fake-payload')");
+        db.Execute("INSERT INTO Docs (\"Id\", \"Payload\") VALUES (1, 'fake-payload')");
 
         Dictionary<string, object> row = db.Query<Dictionary<string, object>>(
             "SELECT Id, Payload FROM Docs WHERE Id = 1")[0];

@@ -45,7 +45,7 @@ public class RTreeTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'RegionWithLabel'");
-        Assert.Contains("+Label", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"RegionWithLabel\" USING rtree(\"Id\", \"MinX\", \"MaxX\", \"MinY\", \"MaxY\", +\"Label\")", sql);
     }
 
     [Fact]

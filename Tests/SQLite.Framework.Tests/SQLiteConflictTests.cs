@@ -121,7 +121,7 @@ public class SQLiteConflictTests
 
         string sql = inspector.GetSqlForConflict(mode);
 
-        Assert.Equal(N($"INSERT {clause} INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3)"), N(sql));
+        Assert.Equal(N($"INSERT {clause} INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3)"), N(sql));
     }
 
     private sealed class SqlInspectingTable : SQLiteTable<Book>

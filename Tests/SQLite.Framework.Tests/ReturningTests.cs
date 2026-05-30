@@ -178,7 +178,7 @@ public class ReturningTests
             CREATE TRIGGER trg_returning_item_log AFTER INSERT ON ReturningItem
             FOR EACH ROW
             BEGIN
-                INSERT INTO ReturningChild (Id, ParentId) VALUES (NEW.Id, NEW.Id);
+                INSERT INTO ReturningChild ("Id", "ParentId") VALUES (NEW.Id, NEW.Id);
             END;
             """);
 

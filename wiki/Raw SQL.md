@@ -78,7 +78,7 @@ var results = await books.FromSql(
 catch (SQLiteException ex)
 {
     Console.WriteLine(ex.Message); // no such column: b0.Price
-    Console.WriteLine(ex.Sql);     // SELECT b0.Id AS "Id", b0.Title AS "Title", b0.Price AS "Price" ...
+    Console.WriteLine(ex.Sql);     // SELECT b0."Id" AS "Id", b0."Title" AS "Title", b0."Price" AS "Price" ...
 }
 ```
 

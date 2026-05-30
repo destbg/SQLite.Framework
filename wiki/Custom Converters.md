@@ -178,7 +178,7 @@ This produces SQL like:
 
 ```sql
 SELECT * FROM "Log" AS l0
-WHERE json_extract(l0.Data, '$.level') = 'error'
+WHERE json_extract(l0."Data", '$.level') = 'error'
 ```
 
 ### Example: instance method on a custom type

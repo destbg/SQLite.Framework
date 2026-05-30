@@ -108,7 +108,7 @@ public class RequestedProbeTests
         db.Table<ScoreRow>().Schema.CreateTable();
 
         Assert.Throws<SQLite.Framework.Exceptions.SQLiteException>(() =>
-            db.Execute("INSERT INTO ScoreRow (Id, Value) VALUES (1, NULL)"));
+            db.Execute("INSERT INTO ScoreRow (\"Id\", \"Value\") VALUES (1, NULL)"));
     }
 
     [Fact]
@@ -429,7 +429,7 @@ public class RequestedProbeTests
     {
         using TestDatabase db = new();
         db.Table<RecordWithEnum>().Schema.CreateTable();
-        db.Execute("INSERT INTO RecordWithEnum (Id, Status) VALUES (1, 999)");
+        db.Execute("INSERT INTO RecordWithEnum (\"Id\", \"Status\") VALUES (1, 999)");
 
         RecordWithEnum row = db.Table<RecordWithEnum>().First();
 
@@ -469,7 +469,7 @@ public class RequestedProbeTests
     {
         using TestDatabase db = new();
         db.Table<NoMatchingParametersEntity>().Schema.CreateTable();
-        db.Execute("INSERT INTO NoMatchingParametersEntity (Id, Name) VALUES (1, 'x')");
+        db.Execute("INSERT INTO NoMatchingParametersEntity (\"Id\", \"Name\") VALUES (1, 'x')");
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
             db.Table<NoMatchingParametersEntity>().ToList());

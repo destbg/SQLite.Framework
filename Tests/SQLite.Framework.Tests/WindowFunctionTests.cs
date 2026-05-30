@@ -26,8 +26,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            ROW_NUMBER() OVER ( ORDER BY w0.Id ASC) AS "RowNum"
+                     SELECT w0."Id" AS "Id",
+                            ROW_NUMBER() OVER ( ORDER BY w0."Id" ASC) AS "RowNum"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -50,8 +50,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            SUM(w0.Amount) OVER ( PARTITION BY w0.CustomerId ORDER BY w0.Date ASC) AS "RunningTotal"
+                     SELECT w0."Id" AS "Id",
+                            SUM(w0."Amount") OVER ( PARTITION BY w0."CustomerId" ORDER BY w0."Date" ASC) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -74,8 +74,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            RANK() OVER ( PARTITION BY w0.CustomerId ORDER BY w0.Amount DESC) AS "RowNum"
+                     SELECT w0."Id" AS "Id",
+                            RANK() OVER ( PARTITION BY w0."CustomerId" ORDER BY w0."Amount" DESC) AS "RowNum"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -97,8 +97,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            LAG(w0.Amount, @p0, @p1) OVER ( ORDER BY w0.Id ASC) AS "RunningTotal"
+                     SELECT w0."Id" AS "Id",
+                            LAG(w0."Amount", @p0, @p1) OVER ( ORDER BY w0."Id" ASC) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -121,8 +121,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            SUM(w0.Amount) OVER ( ORDER BY w0.Id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
+                     SELECT w0."Id" AS "Id",
+                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -146,8 +146,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            ROW_NUMBER() OVER ( PARTITION BY w0.CustomerId, w0.Amount ORDER BY w0.Id ASC) AS "RowNum"
+                     SELECT w0."Id" AS "Id",
+                            ROW_NUMBER() OVER ( PARTITION BY w0."CustomerId", w0."Amount" ORDER BY w0."Id" ASC) AS "RowNum"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -170,8 +170,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            ROW_NUMBER() OVER ( ORDER BY w0.CustomerId ASC, w0.Amount DESC) AS "RowNum"
+                     SELECT w0."Id" AS "Id",
+                            ROW_NUMBER() OVER ( ORDER BY w0."CustomerId" ASC, w0."Amount" DESC) AS "RowNum"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -333,12 +333,12 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            AVG(w0.Amount) OVER ( PARTITION BY w0.CustomerId) AS "Avg",
-                            MIN(w0.Amount) OVER ( PARTITION BY w0.CustomerId) AS "Min",
-                            MAX(w0.Amount) OVER ( PARTITION BY w0.CustomerId) AS "Max",
+                     SELECT w0."Id" AS "Id",
+                            AVG(w0."Amount") OVER ( PARTITION BY w0."CustomerId") AS "Avg",
+                            MIN(w0."Amount") OVER ( PARTITION BY w0."CustomerId") AS "Min",
+                            MAX(w0."Amount") OVER ( PARTITION BY w0."CustomerId") AS "Max",
                             COUNT(*) OVER () AS "CntAll",
-                            COUNT(w0.Amount) OVER () AS "CntCol"
+                            COUNT(w0."Amount") OVER () AS "CntCol"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -361,11 +361,11 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            PERCENT_RANK() OVER ( ORDER BY w0.Amount ASC) AS "Pr",
-                            CUME_DIST() OVER ( ORDER BY w0.Amount ASC) AS "Cd",
-                            NTILE(@p0) OVER ( ORDER BY w0.Amount ASC) AS "Nt",
-                            DENSE_RANK() OVER ( ORDER BY w0.Amount ASC) AS "Dr"
+                     SELECT w0."Id" AS "Id",
+                            PERCENT_RANK() OVER ( ORDER BY w0."Amount" ASC) AS "Pr",
+                            CUME_DIST() OVER ( ORDER BY w0."Amount" ASC) AS "Cd",
+                            NTILE(@p0) OVER ( ORDER BY w0."Amount" ASC) AS "Nt",
+                            DENSE_RANK() OVER ( ORDER BY w0."Amount" ASC) AS "Dr"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -390,13 +390,13 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            LEAD(w0.Amount) OVER ( ORDER BY w0.Id ASC) AS "Lead1",
-                            LEAD(w0.Amount, @p0) OVER ( ORDER BY w0.Id ASC) AS "Lead2",
-                            LEAD(w0.Amount, @p1, @p2) OVER ( ORDER BY w0.Id ASC) AS "Lead3",
-                            FIRST_VALUE(w0.Amount) OVER ( ORDER BY w0.Id ASC) AS "Fv",
-                            LAST_VALUE(w0.Amount) OVER ( ORDER BY w0.Id ASC) AS "Lv",
-                            NTH_VALUE(w0.Amount, @p3) OVER ( ORDER BY w0.Id ASC) AS "Nv"
+                     SELECT w0."Id" AS "Id",
+                            LEAD(w0."Amount") OVER ( ORDER BY w0."Id" ASC) AS "Lead1",
+                            LEAD(w0."Amount", @p0) OVER ( ORDER BY w0."Id" ASC) AS "Lead2",
+                            LEAD(w0."Amount", @p1, @p2) OVER ( ORDER BY w0."Id" ASC) AS "Lead3",
+                            FIRST_VALUE(w0."Amount") OVER ( ORDER BY w0."Id" ASC) AS "Fv",
+                            LAST_VALUE(w0."Amount") OVER ( ORDER BY w0."Id" ASC) AS "Lv",
+                            NTH_VALUE(w0."Amount", @p3) OVER ( ORDER BY w0."Id" ASC) AS "Nv"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -428,10 +428,10 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            SUM(w0.Amount) OVER ( PARTITION BY w0.CustomerId, w0.Date ORDER BY w0.Id ASC, w0.Date ASC, w0.Amount DESC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "R",
-                            SUM(w0.Amount) OVER ( ORDER BY w0.Id ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING) AS "G",
-                            SUM(w0.Amount) OVER ( ORDER BY w0.Id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS "Rw"
+                     SELECT w0."Id" AS "Id",
+                            SUM(w0."Amount") OVER ( PARTITION BY w0."CustomerId", w0."Date" ORDER BY w0."Id" ASC, w0."Date" ASC, w0."Amount" DESC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "R",
+                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING) AS "G",
+                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS "Rw"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -493,8 +493,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            ROW_NUMBER() OVER ( ORDER BY w0.Id ASC) AS "RowNum"
+                     SELECT w0."Id" AS "Id",
+                            ROW_NUMBER() OVER ( ORDER BY w0."Id" ASC) AS "RowNum"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -518,8 +518,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            SUM(w0.Amount) FILTER (WHERE w0.Amount > @p0) OVER ( PARTITION BY w0.CustomerId ORDER BY w0.Date ASC) AS "RunningTotal"
+                     SELECT w0."Id" AS "Id",
+                            SUM(w0."Amount") FILTER (WHERE w0."Amount" > @p0) OVER ( PARTITION BY w0."CustomerId" ORDER BY w0."Date" ASC) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -575,8 +575,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            SUM(w0.Amount) FILTER (WHERE w0.Amount > @p0) OVER ( ORDER BY w0.Id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
+                     SELECT w0."Id" AS "Id",
+                            SUM(w0."Amount") FILTER (WHERE w0."Amount" > @p0) OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -599,8 +599,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            COUNT(*) FILTER (WHERE w0.Amount > @p0) OVER ( PARTITION BY w0.CustomerId) AS "RowNum"
+                     SELECT w0."Id" AS "Id",
+                            COUNT(*) FILTER (WHERE w0."Amount" > @p0) OVER ( PARTITION BY w0."CustomerId") AS "RowNum"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -648,8 +648,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            SUM(w0.Amount) OVER ( ORDER BY w0.Id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE CURRENT ROW) AS "RunningTotal"
+                     SELECT w0."Id" AS "Id",
+                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE CURRENT ROW) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -672,8 +672,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            SUM(w0.Amount) OVER ( ORDER BY w0.Date ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE GROUP) AS "RunningTotal"
+                     SELECT w0."Id" AS "Id",
+                            SUM(w0."Amount") OVER ( ORDER BY w0."Date" ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE GROUP) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -696,8 +696,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            SUM(w0.Amount) OVER ( ORDER BY w0.Amount ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING EXCLUDE TIES) AS "RunningTotal"
+                     SELECT w0."Id" AS "Id",
+                            SUM(w0."Amount") OVER ( ORDER BY w0."Amount" ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING EXCLUDE TIES) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -720,8 +720,8 @@ public class WindowFunctionTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT w0.Id AS "Id",
-                            SUM(w0.Amount) OVER ( ORDER BY w0.Id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
+                     SELECT w0."Id" AS "Id",
+                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

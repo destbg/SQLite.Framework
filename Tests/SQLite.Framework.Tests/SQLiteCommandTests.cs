@@ -42,7 +42,7 @@ public class SQLiteCommandTests
     {
         using TestDatabase db = new();
 
-        SQLiteCommand cmd = db.CreateCommand("INSERT INTO NoSuchTable (X) VALUES (1)", []);
+        SQLiteCommand cmd = db.CreateCommand("INSERT INTO NoSuchTable (\"X\") VALUES (1)", []);
 
         Assert.Throws<SQLiteException>(() => cmd.ExecuteWithLastRowId());
     }
@@ -54,7 +54,7 @@ public class SQLiteCommandTests
         db.Schema.CreateTable<Article>();
 
         SQLiteCommand cmd = db.CreateCommand(
-            "INSERT INTO Article (Title, Body, PublishedAt) VALUES (@t, @b, @p)",
+            "INSERT INTO Article (\"Title\", \"Body\", \"PublishedAt\") VALUES (@t, @b, @p)",
             [
                 new SQLiteParameter { Name = "@t", Value = "title" },
                 new SQLiteParameter { Name = "@b", Value = "body" },
@@ -75,7 +75,7 @@ public class SQLiteCommandTests
         db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 0, Price = 1 });
 
         SQLiteCommand cmd = db.CreateCommand(
-            "INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (1, 'b', 0, 2)",
+            "INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'b', 0, 2)",
             []);
 
         Assert.Throws<SQLiteException>(() => cmd.ExecuteWithLastRowId());
@@ -88,7 +88,7 @@ public class SQLiteCommandTests
         db.Schema.CreateTable<Article>();
 
         SQLiteCommand cmd = new(db);
-        cmd.CommandText = "INSERT INTO Article (Title, Body, PublishedAt) VALUES (@t, @b, @p)";
+        cmd.CommandText = "INSERT INTO Article (\"Title\", \"Body\", \"PublishedAt\") VALUES (@t, @b, @p)";
         cmd.Parameters.Add(new SQLiteParameter { Name = "@t", Value = "x" });
         cmd.Parameters.Add(new SQLiteParameter { Name = "@b", Value = "y" });
         cmd.Parameters.Add(new SQLiteParameter { Name = "@p", Value = DateTime.UtcNow.Ticks });

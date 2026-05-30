@@ -168,7 +168,7 @@ public class TimeSpanTextTests
             configure?.Invoke(b);
         }, methodName);
         db.Table<TestEntity>().Schema.CreateTable();
-        db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (1, @time)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Time\") VALUES (1, @time)",
             new SQLiteParameter
             {
                 Name = "@time",
@@ -181,37 +181,37 @@ public class TimeSpanTextTests
     {
         TestDatabase db = new(configure, methodName);
         db.Table<TestEntity>().Schema.CreateTable();
-        db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (1, @time)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Time\") VALUES (1, @time)",
             new SQLiteParameter
             {
                 Name = "@time",
                 Value = new TimeSpan(2, 3, 4, 5, 6, 7).ToString("c")
             });
-        db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (2, @time)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Time\") VALUES (2, @time)",
             new SQLiteParameter
             {
                 Name = "@time",
                 Value = new TimeSpan(-1, -2, -3, -4, -5, -6).ToString("c")
             });
-        db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (3, @time)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Time\") VALUES (3, @time)",
             new SQLiteParameter
             {
                 Name = "@time",
                 Value = TimeSpan.Zero.ToString("c")
             });
-        db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (4, @time)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Time\") VALUES (4, @time)",
             new SQLiteParameter
             {
                 Name = "@time",
                 Value = TimeSpan.FromHours(5).ToString("c")
             });
-        db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (5, @time)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Time\") VALUES (5, @time)",
             new SQLiteParameter
             {
                 Name = "@time",
                 Value = TimeSpan.FromSeconds(90).ToString("c")
             });
-        db.Execute("INSERT INTO TestEntity (Id, Time) VALUES (6, @time)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Time\") VALUES (6, @time)",
             new SQLiteParameter
             {
                 Name = "@time",

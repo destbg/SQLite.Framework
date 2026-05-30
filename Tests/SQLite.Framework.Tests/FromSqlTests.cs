@@ -18,10 +18,10 @@ public class FromSqlTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
+                      SELECT b0."BookId" AS "Id",
+                             b0."BookTitle" AS "Title",
+                             b0."BookAuthorId" AS "AuthorId",
+                             b0."BookPrice" AS "Price"
                       FROM ({sql}) AS b0
                       """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -43,10 +43,10 @@ public class FromSqlTests
         Assert.Equal("@title", command.Parameters[0].Name);
         Assert.Equal("Test", command.Parameters[0].Value);
         Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
+                      SELECT b0."BookId" AS "Id",
+                             b0."BookTitle" AS "Title",
+                             b0."BookAuthorId" AS "AuthorId",
+                             b0."BookPrice" AS "Price"
                       FROM ({sql}) AS b0
                       """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -91,12 +91,12 @@ public class FromSqlTests
         Assert.Single(command.Parameters);
         Assert.Equal(30d, command.Parameters[0].Value);
         Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
+                      SELECT b0."BookId" AS "Id",
+                             b0."BookTitle" AS "Title",
+                             b0."BookAuthorId" AS "AuthorId",
+                             b0."BookPrice" AS "Price"
                       FROM ({sql}) AS b0
-                      WHERE b0.BookPrice < @p1
+                      WHERE b0."BookPrice" < @p1
                       """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -113,12 +113,12 @@ public class FromSqlTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
+                      SELECT b0."BookId" AS "Id",
+                             b0."BookTitle" AS "Title",
+                             b0."BookAuthorId" AS "AuthorId",
+                             b0."BookPrice" AS "Price"
                       FROM ({sql}) AS b0
-                      ORDER BY b0.BookTitle ASC
+                      ORDER BY b0."BookTitle" ASC
                       """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -135,10 +135,10 @@ public class FromSqlTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
+                      SELECT b0."BookId" AS "Id",
+                             b0."BookTitle" AS "Title",
+                             b0."BookAuthorId" AS "AuthorId",
+                             b0."BookPrice" AS "Price"
                       FROM ({sql}) AS b0
                       LIMIT 5
                       """.Replace("\r\n", "\n"),
@@ -157,10 +157,10 @@ public class FromSqlTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
+                      SELECT b0."BookId" AS "Id",
+                             b0."BookTitle" AS "Title",
+                             b0."BookAuthorId" AS "AuthorId",
+                             b0."BookPrice" AS "Price"
                       FROM ({sql}) AS b0
                       LIMIT -1
                       OFFSET 10
@@ -183,13 +183,13 @@ public class FromSqlTests
         Assert.Single(command.Parameters);
         Assert.Equal(30d, command.Parameters[0].Value);
         Assert.Equal($"""
-                      SELECT b0.BookId AS "Id",
-                             b0.BookTitle AS "Title",
-                             b0.BookAuthorId AS "AuthorId",
-                             b0.BookPrice AS "Price"
+                      SELECT b0."BookId" AS "Id",
+                             b0."BookTitle" AS "Title",
+                             b0."BookAuthorId" AS "AuthorId",
+                             b0."BookPrice" AS "Price"
                       FROM ({sql}) AS b0
-                      WHERE b0.BookPrice < @p1
-                      ORDER BY b0.BookTitle ASC
+                      WHERE b0."BookPrice" < @p1
+                      ORDER BY b0."BookTitle" ASC
                       LIMIT 10
                       """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -433,9 +433,9 @@ public class FromSqlTests
         Assert.Contains("no such column: s0.Author", ex.Message);
         Assert.Equal(N(
             """
-            SELECT s0.Id AS "Id",
-                   s0.Title AS "Title",
-                   s0.Author AS "Author"
+            SELECT s0."Id" AS "Id",
+                   s0."Title" AS "Title",
+                   s0."Author" AS "Author"
             FROM (SELECT Id, Title FROM "SimpleEntity") AS s0
             """), ex.Sql);
     }

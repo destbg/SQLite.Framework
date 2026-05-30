@@ -23,9 +23,9 @@ public class GroupByTests
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT COUNT(*) AS "Count",
-                            b0.BookAuthorId AS "Id"
+                            b0."BookAuthorId" AS "Id"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      HAVING COUNT(*) > @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -45,9 +45,9 @@ public class GroupByTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT SUM(b0.BookPrice) AS "5"
+                     SELECT SUM(b0."BookPrice") AS "5"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -66,9 +66,9 @@ public class GroupByTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT SUM(b0.BookPrice) AS "5"
+                     SELECT SUM(b0."BookPrice") AS "5"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -87,9 +87,9 @@ public class GroupByTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT SUM(b0.BookPrice) AS "5"
+                     SELECT SUM(b0."BookPrice") AS "5"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -108,9 +108,9 @@ public class GroupByTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT AVG(b0.BookPrice) AS "5"
+                     SELECT AVG(b0."BookPrice") AS "5"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -129,9 +129,9 @@ public class GroupByTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT MIN(b0.BookPrice) AS "5"
+                     SELECT MIN(b0."BookPrice") AS "5"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -150,9 +150,9 @@ public class GroupByTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT MAX(b0.BookPrice) AS "5"
+                     SELECT MAX(b0."BookPrice") AS "5"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -173,7 +173,7 @@ public class GroupByTests
         Assert.Equal("""
                      SELECT COUNT(*) AS "5"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -194,7 +194,7 @@ public class GroupByTests
         Assert.Equal("""
                      SELECT COUNT(*) AS "5"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -217,7 +217,7 @@ public class GroupByTests
         Assert.Equal("""
                      SELECT COUNT(*) AS "8"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      HAVING COUNT(*) > @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -247,7 +247,7 @@ public class GroupByTests
                      FROM (
                          SELECT @p0 AS "5"
                          FROM "Books" AS b0
-                         GROUP BY b0.BookAuthorId
+                         GROUP BY b0."BookAuthorId"
                      ) AS g1
                      """.Replace("\r\n", "\n"),
             capture.ExecutingTexts[0].Replace("\r\n", "\n"));
@@ -277,7 +277,7 @@ public class GroupByTests
                      FROM (
                          SELECT @p0 AS "5"
                          FROM "Books" AS b0
-                         GROUP BY b0.BookAuthorId
+                         GROUP BY b0."BookAuthorId"
                      ) AS g1
                      """.Replace("\r\n", "\n"),
             capture.ExecutingTexts[0].Replace("\r\n", "\n"));
@@ -309,7 +309,7 @@ public class GroupByTests
                      FROM (
                          SELECT @p1 AS "7"
                          FROM "Books" AS b0
-                         GROUP BY b0.BookAuthorId, b0.BookPrice < @p0
+                         GROUP BY b0."BookAuthorId", b0."BookPrice" < @p0
                      ) AS g1
                      """.Replace("\r\n", "\n"),
             capture.ExecutingTexts[0].Replace("\r\n", "\n"));
@@ -342,7 +342,7 @@ public class GroupByTests
                      FROM (
                          SELECT @p1 AS "8"
                          FROM "Books" AS b0
-                         GROUP BY b0.BookAuthorId
+                         GROUP BY b0."BookAuthorId"
                          HAVING COUNT(*) > @p0
                      ) AS g1
                      """.Replace("\r\n", "\n"),
@@ -375,8 +375,8 @@ public class GroupByTests
                      FROM (
                          SELECT @p1 AS "7"
                          FROM "Books" AS b0
-                         WHERE b0.BookPrice > @p0
-                         GROUP BY b0.BookAuthorId
+                         WHERE b0."BookPrice" > @p0
+                         GROUP BY b0."BookAuthorId"
                      ) AS g1
                      """.Replace("\r\n", "\n"),
             capture.ExecutingTexts[0].Replace("\r\n", "\n"));

@@ -10,19 +10,19 @@ public class EnumTextTests
     {
         TestDatabase db = new();
         db.Table<Publisher>().Schema.CreateTable();
-        db.Execute("INSERT INTO Publisher (Id, Name, Type) VALUES (1, 'Publisher 1', @type)",
+        db.Execute("INSERT INTO Publisher (\"Id\", \"Name\", \"Type\") VALUES (1, 'Publisher 1', @type)",
             new SQLiteParameter
             {
                 Name = "@type",
                 Value = "Book"
             });
-        db.Execute("INSERT INTO Publisher (Id, Name, Type) VALUES (2, 'Publisher 2', @type)",
+        db.Execute("INSERT INTO Publisher (\"Id\", \"Name\", \"Type\") VALUES (2, 'Publisher 2', @type)",
             new SQLiteParameter
             {
                 Name = "@type",
                 Value = "Magazine"
             });
-        db.Execute("INSERT INTO Publisher (Id, Name, Type) VALUES (3, 'Publisher 3', @type)",
+        db.Execute("INSERT INTO Publisher (\"Id\", \"Name\", \"Type\") VALUES (3, 'Publisher 3', @type)",
             new SQLiteParameter
             {
                 Name = "@type",
@@ -62,7 +62,7 @@ public class EnumTextTests
     {
         using TestDatabase db = new();
         db.Table<Publisher>().Schema.CreateTable();
-        db.Execute("INSERT INTO Publisher (Id, Name, Type) VALUES (1, 'Publisher 1', @type)",
+        db.Execute("INSERT INTO Publisher (\"Id\", \"Name\", \"Type\") VALUES (1, 'Publisher 1', @type)",
             new SQLiteParameter
             {
                 Name = "@type",

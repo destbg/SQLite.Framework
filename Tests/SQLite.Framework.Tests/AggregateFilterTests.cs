@@ -34,10 +34,10 @@ public class AggregateFilterTests
         Assert.Single(command.Parameters);
         Assert.Equal(10.0, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookAuthorId AS "AuthorId",
-                            SUM(b0.BookPrice) FILTER (WHERE b0.BookPrice >= @p0) AS "Pricey"
+                     SELECT b0."BookAuthorId" AS "AuthorId",
+                            SUM(b0."BookPrice") FILTER (WHERE b0."BookPrice" >= @p0) AS "Pricey"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId
+                     GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -337,7 +337,7 @@ public class AggregateFilterTests
 
         Assert.Single(command.Parameters);
         Assert.Equal(10.0, command.Parameters[0].Value);
-        Assert.Contains("total(b0.BookPrice) FILTER (WHERE", command.CommandText);
+        Assert.Equal("SELECT total(b0.\"BookPrice\") FILTER (WHERE b0.\"BookPrice\" >= @p0) AS \"7\"\nFROM \"Books\" AS b0\nGROUP BY b0.\"BookAuthorId\"", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

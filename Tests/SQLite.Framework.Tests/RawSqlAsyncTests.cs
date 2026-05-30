@@ -311,7 +311,7 @@ public class RawSqlAsyncTests
         using TestDatabase db = SetupDatabase();
 
         int affected = await db.ExecuteAsync(
-            "INSERT INTO QueryItems (Id, Name, Price, AuthorId) VALUES (@id, @name, @price, @authorId)",
+            "INSERT INTO QueryItems (\"Id\", \"Name\", \"Price\", \"AuthorId\") VALUES (@id, @name, @price, @authorId)",
             new[]
             {
                 new SQLiteParameter { Name = "@id", Value = 4 },

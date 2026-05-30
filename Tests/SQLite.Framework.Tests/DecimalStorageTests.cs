@@ -191,10 +191,10 @@ public class DecimalStorageTests
         SQLiteCommand command = db.Table<TestEntity>().Where(a => a.Price > 15.00m).ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT t0.Id AS "Id",
-                            t0.Price AS "Price"
+                     SELECT t0."Id" AS "Id",
+                            t0."Price" AS "Price"
                      FROM "TestEntity" AS t0
-                     WHERE CAST(t0.Price AS REAL) > @p0
+                     WHERE CAST(t0."Price" AS REAL) > @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -286,8 +286,8 @@ public class DecimalStorageTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT t0.Price IN (
-                         SELECT t1.Price AS "Price"
+                     SELECT t0."Price" IN (
+                         SELECT t1."Price" AS "Price"
                          FROM "TestEntity" AS t1
                      ) AS "7"
                      FROM "TestEntity" AS t0

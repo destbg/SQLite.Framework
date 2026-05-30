@@ -27,8 +27,8 @@ public class EnumTests
         Assert.Single(command.Parameters);
         Assert.Equal(PublisherType.Magazine, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT p0.Id AS "Id",
-                            ((p0.Type & @p0) = @p0) AS "HasMagazineFlag"
+                     SELECT p0."Id" AS "Id",
+                            ((p0."Type" & @p0) = @p0) AS "HasMagazineFlag"
                      FROM "Publisher" AS p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

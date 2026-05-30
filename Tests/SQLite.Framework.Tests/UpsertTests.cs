@@ -17,7 +17,7 @@ public class UpsertTests
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoNothing());
         Assert.Equal(
-            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookId) DO NOTHING"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO NOTHING"),
             N(sql));
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 5 });
@@ -40,7 +40,7 @@ public class UpsertTests
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdateAll());
         Assert.Equal(
-            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookId) DO UPDATE SET BookTitle = excluded.BookTitle, BookAuthorId = excluded.BookAuthorId, BookPrice = excluded.BookPrice"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookTitle\" = excluded.\"BookTitle\", \"BookAuthorId\" = excluded.\"BookAuthorId\", \"BookPrice\" = excluded.\"BookPrice\""),
             N(sql));
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 5 });
@@ -63,7 +63,7 @@ public class UpsertTests
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdate(b => b.Title, b => b.Price));
         Assert.Equal(
-            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookId) DO UPDATE SET BookTitle = excluded.BookTitle, BookPrice = excluded.BookPrice"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookTitle\" = excluded.\"BookTitle\", \"BookPrice\" = excluded.\"BookPrice\""),
             N(sql));
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 5 });
@@ -86,7 +86,7 @@ public class UpsertTests
 
         string sql = inspector.GetSql(c => c.OnConflict(b => new { b.AuthorId, b.Title }).DoUpdate(b => b.Price));
         Assert.Equal(
-            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookAuthorId, BookTitle) DO UPDATE SET BookPrice = excluded.BookPrice"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookAuthorId\", \"BookTitle\") DO UPDATE SET \"BookPrice\" = excluded.\"BookPrice\""),
             N(sql));
     }
 
@@ -221,7 +221,7 @@ public class UpsertTests
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Title).Where(b => b.AuthorId == 1).DoUpdate(b => b.Price));
         Assert.Equal(
-            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookTitle) WHERE BookAuthorId = 1 DO UPDATE SET BookPrice = excluded.BookPrice"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookTitle\") WHERE \"BookAuthorId\" = 1 DO UPDATE SET \"BookPrice\" = excluded.\"BookPrice\""),
             N(sql));
     }
 
@@ -273,7 +273,7 @@ public class UpsertTests
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdateAll().Where((current, excluded) => excluded.Price > current.Price));
         Assert.Equal(
-            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookId) DO UPDATE SET BookTitle = excluded.BookTitle, BookAuthorId = excluded.BookAuthorId, BookPrice = excluded.BookPrice WHERE excluded.BookPrice > BookPrice"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookTitle\" = excluded.\"BookTitle\", \"BookAuthorId\" = excluded.\"BookAuthorId\", \"BookPrice\" = excluded.\"BookPrice\" WHERE excluded.\"BookPrice\" > \"BookPrice\""),
             N(sql));
     }
 
@@ -286,7 +286,7 @@ public class UpsertTests
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Id).DoUpdate(b => b.Price).Where(current => current.AuthorId == 1));
         Assert.Equal(
-            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookId) DO UPDATE SET BookPrice = excluded.BookPrice WHERE BookAuthorId = 1"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookPrice\" = excluded.\"BookPrice\" WHERE \"BookAuthorId\" = 1"),
             N(sql));
     }
 
@@ -299,7 +299,7 @@ public class UpsertTests
 
         string sql = inspector.GetSql(c => c.OnConflict(b => b.Title).Where(b => b.AuthorId == 1).DoUpdate(b => b.Price).Where((current, excluded) => excluded.Price > current.Price));
         Assert.Equal(
-            N("INSERT INTO \"Books\" (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (BookTitle) WHERE BookAuthorId = 1 DO UPDATE SET BookPrice = excluded.BookPrice WHERE excluded.BookPrice > BookPrice"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookTitle\") WHERE \"BookAuthorId\" = 1 DO UPDATE SET \"BookPrice\" = excluded.\"BookPrice\" WHERE excluded.\"BookPrice\" > \"BookPrice\""),
             N(sql));
     }
 

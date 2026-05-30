@@ -450,7 +450,7 @@ internal class SQLTranslator
             for (int i = 0; i < SetProperties!.Count; i++)
             {
                 if (i > 0) sb.Append(", ");
-                sb.Append(SetProperties[i].Name);
+                sb.Append(IdentifierGuard.Quote(SetProperties[i].Name));
                 sb.Append(" = ");
                 SetProperties[i].Expression.WriteSqlTo(sb);
             }
@@ -669,7 +669,7 @@ internal class SQLTranslator
             else
             {
                 Visitor.TableColumns = entityType.GetProperties()
-                    .ToDictionary(p => p.Name, Expression (p) => SQLiteExpression.Leaf(p.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{p.Name}"));
+                    .ToDictionary(p => p.Name, Expression (p) => SQLiteExpression.Leaf(p.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(p.Name)}"));
             }
 
             methodCalls.RemoveRange(wrapIdx + 1, methodCalls.Count - (wrapIdx + 1));

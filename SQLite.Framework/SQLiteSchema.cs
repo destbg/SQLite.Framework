@@ -99,7 +99,7 @@ public class SQLiteSchema
         {
             var ordered = group.OrderBy(x => x.Order).ToArray();
             string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", ordered.Select(x => x.Column + CollationHelper.Clause(x.Collation) + IndexDirectionHelper.Clause(x.Direction)));
+            string columnList = string.Join(", ", ordered.Select(x => IdentifierGuard.Quote(x.Column) + CollationHelper.Clause(x.Collation) + IndexDirectionHelper.Clause(x.Direction)));
             string indexSql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
             count += Database.CreateCommand(indexSql, []).ExecuteNonQuery();
         }
@@ -159,7 +159,7 @@ public class SQLiteSchema
         string indexName = name ?? $"idx_{mapping.TableName}_{columnName}";
         string uniqueClause = unique ? "UNIQUE " : string.Empty;
 
-        string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{indexName.Replace("\"", "\"\"")}\" ON \"{mapping.TableName}\" ({columnName})";
+        string sql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{indexName.Replace("\"", "\"\"")}\" ON \"{mapping.TableName}\" ({IdentifierGuard.Quote(columnName)})";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -634,7 +634,7 @@ public class SQLiteSchema
             }
 
             first = false;
-            sb.Append(column.Name);
+            sb.Append(IdentifierGuard.Quote(column.Name));
             if (column.Unindexed)
             {
                 sb.Append(" UNINDEXED");
@@ -701,12 +701,12 @@ public class SQLiteSchema
         sb.Append(rtree.Storage == SQLiteRTreeStorage.Int32 ? "rtree_i32" : "rtree");
         sb.Append('(');
 
-        sb.Append(rtree.RowIdColumnName);
+        sb.Append(IdentifierGuard.Quote(rtree.RowIdColumnName));
 
         foreach (RTreeBoundsColumn bound in rtree.Bounds)
         {
             sb.Append(", ");
-            sb.Append(bound.ColumnName);
+            sb.Append(IdentifierGuard.Quote(bound.ColumnName));
         }
 
 #if SQLITE_FRAMEWORK_VERSION_AWARE
@@ -719,7 +719,7 @@ public class SQLiteSchema
         foreach (RTreeAuxiliaryColumn aux in rtree.Auxiliaries)
         {
             sb.Append(", +");
-            sb.Append(aux.ColumnName);
+            sb.Append(IdentifierGuard.Quote(aux.ColumnName));
         }
 
         sb.Append(')');
@@ -781,9 +781,9 @@ public class SQLiteSchema
         string sourceTable = ResolveContentTableName(fts);
         string sourceRowId = ResolveContentRowIdColumn(fts, mapping);
 
-        string columnList = string.Join(", ", fts.IndexedColumns.Select(c => c.Name));
-        string newValues = string.Join(", ", fts.IndexedColumns.Select(c => "new." + c.Name));
-        string oldValues = string.Join(", ", fts.IndexedColumns.Select(c => "old." + c.Name));
+        string columnList = string.Join(", ", fts.IndexedColumns.Select(c => IdentifierGuard.Quote(c.Name)));
+        string newValues = string.Join(", ", fts.IndexedColumns.Select(c => "new." + IdentifierGuard.Quote(c.Name)));
+        string oldValues = string.Join(", ", fts.IndexedColumns.Select(c => "old." + IdentifierGuard.Quote(c.Name)));
 
         (string ai, string ad, string au) = TriggerNamesTuple(mapping);
 

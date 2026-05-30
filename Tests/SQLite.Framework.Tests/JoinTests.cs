@@ -19,10 +19,10 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                     SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
                      CROSS JOIN "Authors" AS a1
                      """.Replace("\r\n", "\n"),
@@ -42,12 +42,12 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                     SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -66,12 +66,12 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                     SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     LEFT JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     LEFT JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -90,13 +90,13 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                     SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
-                     JOIN "Authors" AS a2 ON b0.BookAuthorId = a2.AuthorId
+                     JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
+                     JOIN "Authors" AS a2 ON b0."BookAuthorId" = a2."AuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -116,13 +116,13 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                     SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
-                     LEFT JOIN "Authors" AS a2 ON b0.BookAuthorId = a2.AuthorId
+                     JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
+                     LEFT JOIN "Authors" AS a2 ON b0."BookAuthorId" = a2."AuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -139,12 +139,12 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                     SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -165,19 +165,19 @@ public class JoinTests
         Assert.Single(command.Parameters);
         Assert.Equal("John Doe", command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT a2.Id AS "Id",
-                            a2.Name AS "Name",
-                            a2.Email AS "Email",
-                            a2.BirthDate AS "BirthDate"
+                     SELECT a2."Id" AS "Id",
+                            a2."Name" AS "Name",
+                            a2."Email" AS "Email",
+                            a2."BirthDate" AS "BirthDate"
                      FROM "Books" AS b0
                      JOIN (
-                         SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                         SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                          FROM "Authors" AS a1
-                         WHERE a1.AuthorName = @p0
-                     ) AS a2 ON b0.BookAuthorId = a2.Id
+                         WHERE a1."AuthorName" = @p0
+                     ) AS a2 ON b0."BookAuthorId" = a2."Id"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -196,12 +196,12 @@ public class JoinTests
         Assert.Single(command.Parameters);
         Assert.Equal(0d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                     SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON a1.AuthorId = b0.BookAuthorId AND @p0 = b0.BookPrice
+                     JOIN "Authors" AS a1 ON a1."AuthorId" = b0."BookAuthorId" AND @p0 = b0."BookPrice"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -221,12 +221,12 @@ public class JoinTests
         Assert.Single(command.Parameters);
         Assert.Equal(true, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                     SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON a1.AuthorId = b0.BookAuthorId AND a1.AuthorEmail IS NOT NULL = @p1
+                     JOIN "Authors" AS a1 ON a1."AuthorId" = b0."BookAuthorId" AND a1."AuthorEmail" IS NOT NULL = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -245,12 +245,12 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT a1.AuthorId AS "Id",
-                            a1.AuthorName AS "Name",
-                            a1.AuthorEmail AS "Email",
-                            a1.AuthorBirthDate AS "BirthDate"
+                     SELECT a1."AuthorId" AS "Id",
+                            a1."AuthorName" AS "Name",
+                            a1."AuthorEmail" AS "Email",
+                            a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON a1.AuthorId = b0.BookAuthorId AND a1.AuthorEmail IS NOT NULL = b0.BookTitle IS NOT NULL
+                     JOIN "Authors" AS a1 ON a1."AuthorId" = b0."BookAuthorId" AND a1."AuthorEmail" IS NOT NULL = b0."BookTitle" IS NOT NULL
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -269,10 +269,10 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookTitle AS "Book",
-                            a1.AuthorId IS NOT NULL AS "HasAuthor"
+                     SELECT b0."BookTitle" AS "Book",
+                            a1."AuthorId" IS NOT NULL AS "HasAuthor"
                      FROM "Books" AS b0
-                     LEFT JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
+                     LEFT JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -292,13 +292,13 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     LEFT JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
-                     WHERE a1.AuthorId IS NOT NULL
+                     LEFT JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
+                     WHERE a1."AuthorId" IS NOT NULL
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -318,13 +318,13 @@ public class JoinTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     LEFT JOIN "Authors" AS a1 ON b0.BookAuthorId = a1.AuthorId
-                     WHERE a1.AuthorId IS NULL
+                     LEFT JOIN "Authors" AS a1 ON b0."BookAuthorId" = a1."AuthorId"
+                     WHERE a1."AuthorId" IS NULL
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

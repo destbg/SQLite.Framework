@@ -21,12 +21,12 @@ public class MathOperationTests
         Assert.Equal(10d, command.Parameters[0].Value);
         Assert.Equal(1d, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE ABS((b0.BookPrice - @p0)) < @p1
+                     WHERE ABS((b0."BookPrice" - @p0)) < @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -45,12 +45,12 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(10d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE ROUND(b0.BookPrice) = @p0
+                     WHERE ROUND(b0."BookPrice") = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -70,12 +70,12 @@ public class MathOperationTests
         Assert.Equal(2, command.Parameters[0].Value);
         Assert.Equal(10.50d, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE ROUND(b0.BookPrice, @p0) = @p1
+                     WHERE ROUND(b0."BookPrice", @p0) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -95,12 +95,12 @@ public class MathOperationTests
         Assert.Equal(2d, command.Parameters[0].Value);
         Assert.Equal(4d, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE POWER(CAST(b0.BookId AS REAL), @p0) = @p1
+                     WHERE POWER(CAST(b0."BookId" AS REAL), @p0) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -119,12 +119,12 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(10d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE FLOOR(b0.BookPrice) = @p0
+                     WHERE FLOOR(b0."BookPrice") = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -143,12 +143,12 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(11d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE CEIL(b0.BookPrice) = @p0
+                     WHERE CEIL(b0."BookPrice") = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -174,8 +174,8 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(8d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            (CASE WHEN b0.BookPrice > @p0 THEN b0.BookPrice ELSE @p0 END) AS "MaxPrice"
+                     SELECT b0."BookId" AS "Id",
+                            (CASE WHEN b0."BookPrice" > @p0 THEN b0."BookPrice" ELSE @p0 END) AS "MaxPrice"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -209,8 +209,8 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(8d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            (CASE WHEN b0.BookPrice < @p0 THEN b0.BookPrice ELSE @p0 END) AS "MinPrice"
+                     SELECT b0."BookId" AS "Id",
+                            (CASE WHEN b0."BookPrice" < @p0 THEN b0."BookPrice" ELSE @p0 END) AS "MinPrice"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -236,7 +236,7 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(5d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT (b0.BookPrice + @p0) AS "6"
+                     SELECT (b0."BookPrice" + @p0) AS "6"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -255,7 +255,7 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(5d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT (b0.BookPrice - @p0) AS "6"
+                     SELECT (b0."BookPrice" - @p0) AS "6"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -274,7 +274,7 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(1.1d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT (b0.BookPrice * @p0) AS "6"
+                     SELECT (b0."BookPrice" * @p0) AS "6"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -293,7 +293,7 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(2d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT (b0.BookPrice / @p0) AS "6"
+                     SELECT (b0."BookPrice" / @p0) AS "6"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -314,12 +314,12 @@ public class MathOperationTests
         Assert.Equal(2, command.Parameters[0].Value);
         Assert.Equal(0, command.Parameters[1].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookId % @p0) = @p1
+                     WHERE (b0."BookId" % @p0) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -340,12 +340,12 @@ public class MathOperationTests
         Assert.Equal(5d, command.Parameters[1].Value);
         Assert.Equal(20d, command.Parameters[2].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE ((b0.BookPrice * @p0) + @p1) > @p2
+                     WHERE ((b0."BookPrice" * @p0) + @p1) > @p2
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -369,8 +369,8 @@ public class MathOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            (CASE WHEN b0.BookPrice > 0 THEN 1 WHEN b0.BookPrice < 0 THEN -1 ELSE 0 END) AS "Sign"
+                     SELECT b0."BookId" AS "Id",
+                            (CASE WHEN b0."BookPrice" > 0 THEN 1 WHEN b0."BookPrice" < 0 THEN -1 ELSE 0 END) AS "Sign"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -401,8 +401,8 @@ public class MathOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            SQRT(b0.BookPrice) AS "Sqrt"
+                     SELECT b0."BookId" AS "Id",
+                            SQRT(b0."BookPrice") AS "Sqrt"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -432,8 +432,8 @@ public class MathOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            EXP(b0.BookPrice) AS "Exp"
+                     SELECT b0."BookId" AS "Id",
+                            EXP(b0."BookPrice") AS "Exp"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -462,8 +462,8 @@ public class MathOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            LOG(b0.BookPrice) AS "Log"
+                     SELECT b0."BookId" AS "Id",
+                            LOG(b0."BookPrice") AS "Log"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -493,8 +493,8 @@ public class MathOperationTests
         Assert.Single(command.Parameters);
         Assert.Equal(2d, command.Parameters[0].Value);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            (LOG(b0.BookPrice) / LOG(@p0)) AS "Log"
+                     SELECT b0."BookId" AS "Id",
+                            (LOG(b0."BookPrice") / LOG(@p0)) AS "Log"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -524,8 +524,8 @@ public class MathOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            LOG10(b0.BookPrice) AS "Log10"
+                     SELECT b0."BookId" AS "Id",
+                            LOG10(b0."BookPrice") AS "Log10"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -556,8 +556,8 @@ public class MathOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            RADIANS(b0.BookPrice) AS "Radians"
+                     SELECT b0."BookId" AS "Id",
+                            RADIANS(b0."BookPrice") AS "Radians"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -588,8 +588,8 @@ public class MathOperationTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            DEGREES(b0.BookPrice) AS "Degrees"
+                     SELECT b0."BookId" AS "Id",
+                            DEGREES(b0."BookPrice") AS "Degrees"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

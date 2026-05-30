@@ -29,7 +29,7 @@ public class AsyncCommandTests
         db.Table<Book>().Schema.CreateTable();
 
         SQLiteCommand cmd = db.CreateCommand(
-            "INSERT INTO Books (BookId, BookTitle, BookAuthorId, BookPrice) VALUES (@id, @title, @authorId, @price)",
+            "INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@id, @title, @authorId, @price)",
             [
                 new SQLiteParameter { Name = "@id", Value = 1 },
                 new SQLiteParameter { Name = "@title", Value = "A" },
@@ -49,7 +49,7 @@ public class AsyncCommandTests
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        SQLiteCommand cmd = db.CreateCommand("INSERT INTO Books (BookId) VALUES (NULL)", []);
+        SQLiteCommand cmd = db.CreateCommand("INSERT INTO Books (\"BookId\") VALUES (NULL)", []);
 
         await Assert.ThrowsAsync<SQLiteException>(async () =>
             await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken));
@@ -62,7 +62,7 @@ public class AsyncCommandTests
         db.Table<Book>().Schema.CreateTable();
 
         SQLiteCommand cmd = db.CreateCommand(
-            "INSERT INTO Books (BookTitle, BookAuthorId, BookPrice) VALUES (@title, @authorId, @price)",
+            "INSERT INTO Books (\"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@title, @authorId, @price)",
             [
                 new SQLiteParameter { Name = "@title", Value = "A" },
                 new SQLiteParameter { Name = "@authorId", Value = 1 },
@@ -81,7 +81,7 @@ public class AsyncCommandTests
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        SQLiteCommand cmd = db.CreateCommand("INSERT INTO Books (BookId) VALUES (NULL)", []);
+        SQLiteCommand cmd = db.CreateCommand("INSERT INTO Books (\"BookId\") VALUES (NULL)", []);
 
         await Assert.ThrowsAsync<SQLiteException>(async () =>
             await cmd.ExecuteWithLastRowIdAsync(TestContext.Current.CancellationToken));

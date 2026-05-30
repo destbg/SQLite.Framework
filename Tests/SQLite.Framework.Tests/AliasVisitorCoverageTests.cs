@@ -17,11 +17,11 @@ public class AliasVisitorCoverageTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookAuthorId AS "Key.AuthorId",
-                            b0.BookTitle AS "Key.Title",
+                     SELECT b0."BookAuthorId" AS "Key.AuthorId",
+                            b0."BookTitle" AS "Key.Title",
                             COUNT(*) AS "Count"
                      FROM "Books" AS b0
-                     GROUP BY b0.BookAuthorId, b0.BookTitle
+                     GROUP BY b0."BookAuthorId", b0."BookTitle"
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
         Assert.DoesNotContain("\"Key.Id\"", command.CommandText);

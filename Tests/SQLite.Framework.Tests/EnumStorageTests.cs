@@ -194,7 +194,7 @@ public class EnumStorageTests
         {
             b.EnumStorage = EnumStorageMode.Text;
         });
-        db.Execute("INSERT INTO TestEntity (Id, Status) VALUES (1, @status)",
+        db.Execute("INSERT INTO TestEntity (\"Id\", \"Status\") VALUES (1, @status)",
             new SQLiteParameter
             {
                 Name = "@status",

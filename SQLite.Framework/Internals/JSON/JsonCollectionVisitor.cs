@@ -48,7 +48,7 @@ internal partial class JsonCollectionVisitor
     private readonly List<string> orderBys = [];
     private readonly List<string> groupBys = [];
     private readonly List<SQLiteParameter> parameters = [];
-    private string selectExpr = "value";
+    private string selectExpr = "\"value\"";
     private string? limit;
     private string? offset;
     private bool distinct;
@@ -106,7 +106,7 @@ internal partial class JsonCollectionVisitor
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
         ParameterExpression param = lambda.Parameters[0];
 
-        BindParameter(param, elementType, "value");
+        BindParameter(param, elementType, "\"value\"");
 
         Expression result = visitor.Visit(lambda.Body);
         visitor.MethodArguments.Remove(param);
@@ -129,7 +129,7 @@ internal partial class JsonCollectionVisitor
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
         ParameterExpression param = lambda.Parameters[0];
 
-        BindParameter(param, elementType, $"{alias}.value");
+        BindParameter(param, elementType, $"{alias}.\"value\"");
 
         Expression result = visitor.Visit(lambda.Body);
         visitor.MethodArguments.Remove(param);

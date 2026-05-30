@@ -272,11 +272,11 @@ public class CoverageGap3Tests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT p0.Id AS "Id",
-                            p0.Name AS "Name",
-                            p0.Type AS "Type"
+                     SELECT p0."Id" AS "Id",
+                            p0."Name" AS "Name",
+                            p0."Type" AS "Type"
                      FROM "Publisher" AS p0
-                     WHERE p0.Type = @p0
+                     WHERE p0."Type" = @p0
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -293,11 +293,11 @@ public class CoverageGap3Tests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT p0.Id AS "Id",
-                            p0.Name AS "Name",
-                            p0.Type AS "Type"
+                     SELECT p0."Id" AS "Id",
+                            p0."Name" AS "Name",
+                            p0."Type" AS "Type"
                      FROM "Publisher" AS p0
-                     WHERE @p0 = p0.Type
+                     WHERE @p0 = p0."Type"
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -961,15 +961,15 @@ public class CoverageGap3Tests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
                      WHERE EXISTS (
                          SELECT 1
                          FROM "Books" AS b1
-                         WHERE NOT (b1.BookPrice > @p0)
+                         WHERE NOT (b1."BookPrice" > @p0)
                      )
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));

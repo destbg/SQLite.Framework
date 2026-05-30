@@ -69,7 +69,7 @@ internal partial class JsonCollectionVisitor
             if (needsSubquery)
             {
                 string innerSelect2 = string.Join(nl + sp2, clauses);
-                return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}value){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
+                return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}\"value\"){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
             }
 
             clauses[0] = $"SELECT json_group_array({distinctKeyword}{selectExpr})";

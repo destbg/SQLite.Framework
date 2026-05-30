@@ -340,7 +340,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         SQLTranslator translator = new(Database);
         SQLQuery sourceQuery = translator.Translate(source.Expression);
 
-        string columnList = string.Join(", ", Table.Columns.Select(c => c.Name));
+        string columnList = string.Join(", ", Table.Columns.Select(c => IdentifierGuard.Quote(c.Name)));
         string sql = $"INSERT INTO \"{Table.TableName}\" ({columnList}){Environment.NewLine}{sourceQuery.Sql}";
 
         return Database.CreateCommand(sql, sourceQuery.Parameters).ExecuteNonQuery();
@@ -468,9 +468,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .Where(f => f.IsPrimaryKey)
             .ToArray();
 
-        string setClause = string.Join(", ", columns.Select((c, i) => $"{c.Name} = {WrapParam($"@p{i}", c)}"));
+        string setClause = string.Join(", ", columns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = {WrapParam($"@p{i}", c)}"));
         string primaryKeyClause = string.Join(" AND ",
-            primaryKeyColumns.Select((c, i) => $"{c.Name} = @p{i + columns.Length}")
+            primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = @p{i + columns.Length}")
         );
         string sql = $"UPDATE \"{Table.TableName}\" SET {setClause} WHERE {primaryKeyClause}";
 
@@ -495,7 +495,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         string primaryKeyClause = string.Join(" AND ",
-            primaryKeyColumns.Select((c, i) => $"{c.Name} = @p{i}")
+            primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = @p{i}")
         );
         string sql = $"DELETE FROM \"{Table.TableName}\" WHERE {primaryKeyClause}";
 
@@ -847,7 +847,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     private string BuildAddSql(TableColumn[] columns)
     {
-        string columnList = string.Join(", ", columns.Select(c => c.Name));
+        string columnList = string.Join(", ", columns.Select(c => IdentifierGuard.Quote(c.Name)));
         string paramList = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
         return $"INSERT INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
     }
@@ -863,7 +863,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             SQLiteConflict.Rollback => "OR ROLLBACK ",
             _ => "OR REPLACE ",
         };
-        string columnList = string.Join(", ", columns.Select(c => c.Name));
+        string columnList = string.Join(", ", columns.Select(c => IdentifierGuard.Quote(c.Name)));
         string paramList = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
         return $"INSERT {action}INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
     }

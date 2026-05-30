@@ -18,12 +18,12 @@ public class MethodVisitorCoverageTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0.BookTitle = @p0)
+                     WHERE (b0."BookTitle" = @p0)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
         Assert.DoesNotContain("COLLATE NOCASE", command.CommandText);
@@ -153,7 +153,7 @@ public class MethodVisitorCoverageTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT CAST(b0.BookPrice AS TEXT) AS "5"
+                     SELECT CAST(b0."BookPrice" AS TEXT) AS "5"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -169,12 +169,12 @@ public class MethodVisitorCoverageTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE CAST(b0.BookTitle AS REAL) > @p0
+                     WHERE CAST(b0."BookTitle" AS REAL) > @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

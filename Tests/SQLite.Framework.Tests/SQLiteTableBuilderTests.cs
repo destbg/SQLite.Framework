@@ -24,13 +24,13 @@ public class SQLiteTableBuilderTests
         Assert.True(db.Schema.TableExists<ProductLine>());
         Assert.True(db.Schema.IndexExists("IX_Price"));
 
-        db.Execute("INSERT INTO ProductLines (Id, Price, Quantity) VALUES (1, 4.0, 2)");
+        db.Execute("INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\") VALUES (1, 4.0, 2)");
 
         ProductLine row = db.Table<ProductLine>().Single();
         Assert.Equal(8.0m, row.Total);
 
         Assert.ThrowsAny<Exception>(() =>
-            db.Execute("INSERT INTO ProductLines (Id, Price, Quantity) VALUES (2, 1.0, -5)"));
+            db.Execute("INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\") VALUES (2, 1.0, -5)"));
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class SQLiteTableBuilderTests
         Assert.True(db.Schema.TableExists<WithoutRowIdEntity>());
 
         db.Execute(
-            "INSERT INTO WithoutRowIdEntity (Code, Name) VALUES ('a', 'first')");
+            "INSERT INTO WithoutRowIdEntity (\"Code\", \"Name\") VALUES ('a', 'first')");
         WithoutRowIdEntity row = db.Table<WithoutRowIdEntity>().Single();
         Assert.Equal("a", row.Code);
     }
@@ -547,7 +547,7 @@ public class SQLiteTableBuilderTests
 
         string indexSql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorExplicitAsc'");
-        Assert.Contains("BookAuthorId ASC", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_BookArchive_AuthorExplicitAsc\" ON \"BooksArchive\" (\"BookAuthorId\" ASC)", indexSql);
     }
 
     [Fact]
@@ -561,7 +561,7 @@ public class SQLiteTableBuilderTests
 
         string indexSql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorDesc'");
-        Assert.Contains("BookAuthorId DESC", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_BookArchive_AuthorDesc\" ON \"BooksArchive\" (\"BookAuthorId\" DESC)", indexSql);
     }
 
     [Fact]
@@ -577,8 +577,7 @@ public class SQLiteTableBuilderTests
 
         string indexSql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorAndTitleDesc'");
-        Assert.Contains("BookAuthorId DESC", indexSql);
-        Assert.Contains("BookTitle DESC", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_BookArchive_AuthorAndTitleDesc\" ON \"BooksArchive\" (\"BookAuthorId\" DESC, \"BookTitle\" DESC)", indexSql);
     }
 
     [Fact]
@@ -594,8 +593,7 @@ public class SQLiteTableBuilderTests
 
         string indexSql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_AuthorAscTitleDesc'");
-        Assert.Contains("BookAuthorId ASC", indexSql);
-        Assert.Contains("BookTitle DESC", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_BookArchive_AuthorAscTitleDesc\" ON \"BooksArchive\" (\"BookAuthorId\" ASC, \"BookTitle\" DESC)", indexSql);
     }
 
     [Fact]
@@ -612,7 +610,7 @@ public class SQLiteTableBuilderTests
 
         string indexSql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_BookArchive_TitleNoCaseDesc'");
-        Assert.Contains("BookTitle COLLATE NOCASE DESC", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_BookArchive_TitleNoCaseDesc\" ON \"BooksArchive\" (\"BookTitle\" COLLATE NOCASE DESC)", indexSql);
     }
 
     [Fact]
@@ -672,7 +670,7 @@ public class SQLiteTableBuilderTests
 
         string indexSql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_IndexAttrDirEntity_NameDesc'");
-        Assert.Contains("Name DESC", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_IndexAttrDirEntity_NameDesc\" ON \"IndexAttrDirectionEntity\" (\"Name\" DESC)", indexSql);
     }
 
     [Fact]

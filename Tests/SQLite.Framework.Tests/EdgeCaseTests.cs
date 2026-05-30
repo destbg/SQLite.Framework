@@ -414,12 +414,12 @@ public class EdgeCaseTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT b0.BookId AS "Id",
-                            b0.BookTitle AS "Title",
-                            b0.BookAuthorId AS "AuthorId",
-                            b0.BookPrice AS "Price"
+                     SELECT b0."BookId" AS "Id",
+                            b0."BookTitle" AS "Title",
+                            b0."BookAuthorId" AS "AuthorId",
+                            b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     ORDER BY b0.BookPrice ASC, b0.BookId ASC
+                     ORDER BY b0."BookPrice" ASC, b0."BookId" ASC
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

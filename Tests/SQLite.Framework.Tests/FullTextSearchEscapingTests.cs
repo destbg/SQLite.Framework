@@ -586,10 +586,10 @@ public class FullTextSearchEscapingTests
         Assert.Equal("native AND ", cmd.Parameters[0].Value);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id"
+            SELECT a0."rowid" AS "Id"
             FROM "ArticleSearch" AS a0
-            JOIN "Article" AS a1 ON a0.rowid = a1.Id
-            WHERE "ArticleSearch" MATCH (@p0 || printf('"%w"', a1.Title))
+            JOIN "Article" AS a1 ON a0."rowid" = a1."Id"
+            WHERE "ArticleSearch" MATCH (@p0 || printf('"%w"', a1."Title"))
             """), N(cmd.CommandText));
 
         long matches = (
@@ -616,10 +616,10 @@ public class FullTextSearchEscapingTests
         Assert.Equal("*", cmd.Parameters[0].Value);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id"
+            SELECT a0."rowid" AS "Id"
             FROM "ArticleSearch" AS a0
-            JOIN "Article" AS a1 ON a0.rowid = a1.Id
-            WHERE "ArticleSearch" MATCH (printf('"%w"', a1.Title) || @p0)
+            JOIN "Article" AS a1 ON a0."rowid" = a1."Id"
+            WHERE "ArticleSearch" MATCH (printf('"%w"', a1."Title") || @p0)
             """), N(cmd.CommandText));
 
         long matches = (
@@ -645,10 +645,10 @@ public class FullTextSearchEscapingTests
         Assert.Empty(cmd.Parameters);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id"
+            SELECT a0."rowid" AS "Id"
             FROM "ArticleSearch" AS a0
-            JOIN "Article" AS a1 ON a0.rowid = a1.Id
-            WHERE "ArticleSearch" MATCH (printf('"%w"', a1.Title))
+            JOIN "Article" AS a1 ON a0."rowid" = a1."Id"
+            WHERE "ArticleSearch" MATCH (printf('"%w"', a1."Title"))
             """), N(cmd.CommandText));
 
         long matches = (
@@ -676,10 +676,10 @@ public class FullTextSearchEscapingTests
         Assert.Equal(" static, 2)", cmd.Parameters[1].Value);
         Assert.Equal(
             N("""
-            SELECT a0.rowid AS "Id"
+            SELECT a0."rowid" AS "Id"
             FROM "ArticleSearch" AS a0
-            JOIN "Article" AS a1 ON a0.rowid = a1.Id
-            WHERE "ArticleSearch" MATCH (@p0 || printf('"%w"', a1.Title) || @p1)
+            JOIN "Article" AS a1 ON a0."rowid" = a1."Id"
+            WHERE "ArticleSearch" MATCH (@p0 || printf('"%w"', a1."Title") || @p1)
             """), N(cmd.CommandText));
 
         long matches = (
