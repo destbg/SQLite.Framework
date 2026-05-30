@@ -42,88 +42,14 @@
     --blockquote-text: #3a6aa0;
     --blockquote-border: #0969da;
     --code-block-bg: #f6f8fa;
+
+    --sidebar-bg: #f6f8fa;
+    --sidebar-border: #d0d7de;
+    --sidebar-text: #57606a;
+    --sidebar-text-hover: #1f2328;
+    --sidebar-active-bg: #eaeef2;
+    --sidebar-accent: #0969da;
     color-scheme: light;
-}
-
-:root[data-theme="light"] .hljs {
-    color: #24292e;
-}
-
-:root[data-theme="light"] .hljs-doctag,
-:root[data-theme="light"] .hljs-keyword,
-:root[data-theme="light"] .hljs-meta .hljs-keyword,
-:root[data-theme="light"] .hljs-template-tag,
-:root[data-theme="light"] .hljs-template-variable,
-:root[data-theme="light"] .hljs-type,
-:root[data-theme="light"] .hljs-variable.language_ {
-    color: #d73a49;
-}
-
-:root[data-theme="light"] .hljs-title,
-:root[data-theme="light"] .hljs-title.class_,
-:root[data-theme="light"] .hljs-title.class_.inherited__,
-:root[data-theme="light"] .hljs-title.function_ {
-    color: #6f42c1;
-}
-
-:root[data-theme="light"] .hljs-attr,
-:root[data-theme="light"] .hljs-attribute,
-:root[data-theme="light"] .hljs-literal,
-:root[data-theme="light"] .hljs-meta,
-:root[data-theme="light"] .hljs-number,
-:root[data-theme="light"] .hljs-operator,
-:root[data-theme="light"] .hljs-variable,
-:root[data-theme="light"] .hljs-selector-attr,
-:root[data-theme="light"] .hljs-selector-class,
-:root[data-theme="light"] .hljs-selector-id {
-    color: #005cc5;
-}
-
-:root[data-theme="light"] .hljs-regexp,
-:root[data-theme="light"] .hljs-string,
-:root[data-theme="light"] .hljs-meta .hljs-string {
-    color: #032f62;
-}
-
-:root[data-theme="light"] .hljs-built_in,
-:root[data-theme="light"] .hljs-symbol {
-    color: #e36209;
-}
-
-:root[data-theme="light"] .hljs-comment,
-:root[data-theme="light"] .hljs-code,
-:root[data-theme="light"] .hljs-formula {
-    color: #6a737d;
-}
-
-:root[data-theme="light"] .hljs-name,
-:root[data-theme="light"] .hljs-quote,
-:root[data-theme="light"] .hljs-selector-tag,
-:root[data-theme="light"] .hljs-selector-pseudo {
-    color: #22863a;
-}
-
-:root[data-theme="light"] .hljs-subst {
-    color: #24292e;
-}
-
-:root[data-theme="light"] .hljs-section {
-    color: #005cc5;
-    font-weight: bold;
-}
-
-:root[data-theme="light"] .hljs-bullet {
-    color: #735c0f;
-}
-
-:root[data-theme="light"] .hljs-emphasis {
-    color: #24292e;
-    font-style: italic;
-}
-
-:root[data-theme="light"] .hljs-strong {
-    color: #24292e;
-    font-weight: bold;
 }
 
 *,
@@ -162,7 +88,8 @@ body {
 
 .sidebar {
     width: var(--sidebar-width);
-    background: var(--sidebar-bg);
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--sidebar-accent) 7%, var(--sidebar-bg)), var(--sidebar-bg) 220px);
     position: fixed;
     top: 0;
     left: 0;
@@ -188,7 +115,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
-    color: #e6edf3;
+    color: var(--sidebar-text-hover);
     font-size: 0.9375rem;
     font-weight: 600;
     text-decoration: none;
@@ -196,7 +123,7 @@ body {
 }
 
 .sidebar-title:hover {
-    color: #ffffff;
+    color: var(--heading);
 }
 
 .sidebar-logo {
@@ -207,48 +134,53 @@ body {
 }
 
 .sidebar-subtitle {
-    color: var(--sidebar-text);
-    font-size: 0.75rem;
-    letter-spacing: 0.02em;
-    margin-top: 0.15rem;
+    color: var(--sidebar-accent);
+    background: color-mix(in srgb, var(--sidebar-accent) 14%, transparent);
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 7px;
+    border-radius: 999px;
 }
 
 .sidebar-nav {
     flex: 1;
-    padding: 10px 0;
+    padding: 12px 10px;
     overflow-y: auto;
 }
 
 .nav-item {
     display: block;
-    padding: 7px 20px;
+    padding: 7px 12px;
+    margin: 1px 0;
+    border-radius: 7px;
     color: var(--sidebar-text);
     text-decoration: none;
     font-size: 0.875rem;
     transition:
-        background 0.1s,
-        color 0.1s;
-    border-left: 2px solid transparent;
+        background 0.12s ease,
+        color 0.12s ease;
     line-height: 1.4;
 }
 
 .nav-item:hover {
     color: var(--sidebar-text-hover);
-    background: #161b22;
+    background: var(--sidebar-active-bg);
 }
 
 .nav-item--active {
     color: var(--sidebar-accent);
-    border-left-color: var(--sidebar-accent);
-    background: var(--sidebar-active-bg);
+    font-weight: 600;
+    background: color-mix(in srgb, var(--sidebar-accent) 15%, transparent);
 }
 
 .nav-item--indented {
-    padding-left: 28px;
+    padding-left: 22px;
 }
 
 .nav-section {
-    margin-top: 4px;
+    margin-top: 6px;
 }
 
 .nav-section-header {
@@ -256,9 +188,10 @@ body {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    padding: 6px 20px;
+    padding: 6px 12px;
     background: none;
     border: none;
+    border-radius: 7px;
     cursor: pointer;
     color: var(--sidebar-text);
     font-size: 0.6875rem;
@@ -352,7 +285,7 @@ body {
 .mobile-menu-btn span {
     display: block;
     height: 2px;
-    background: #e6edf3;
+    background: var(--sidebar-text-hover);
     border-radius: 2px;
     transition: transform 0.2s;
 }
@@ -488,10 +421,44 @@ body {
 .markdown-content a {
     color: var(--link);
     text-decoration: none;
+    text-underline-offset: 2px;
+    transition: color 0.12s ease;
 }
 
 .markdown-content a:hover {
     text-decoration: underline;
+    text-decoration-thickness: 1px;
+}
+
+.markdown-content h2,
+.markdown-content h3 {
+    position: relative;
+    scroll-margin-top: 80px;
+}
+
+.heading-anchor {
+    position: absolute;
+    left: -1.05em;
+    top: 0;
+    display: inline-flex;
+    color: var(--text-muted);
+    font-weight: 400;
+    opacity: 0;
+    text-decoration: none;
+    transition:
+        opacity 0.12s ease,
+        color 0.12s ease;
+}
+
+.markdown-content h2:hover .heading-anchor,
+.markdown-content h3:hover .heading-anchor {
+    opacity: 0.5;
+}
+
+.heading-anchor:hover {
+    opacity: 1;
+    color: var(--link);
+    text-decoration: none;
 }
 
 .markdown-content :not(pre)>code {
@@ -507,12 +474,23 @@ body {
 }
 
 .markdown-content pre {
+    position: relative;
     margin: 20px 0;
-    border-radius: var(--radius);
+    border-radius: 8px;
     overflow: hidden;
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.12),
-        0 0 0 1px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 28px -20px rgba(0, 0, 0, 0.55);
+}
+
+.markdown-content pre::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--link) 55%, transparent), transparent);
+    z-index: 1;
 }
 
 .markdown-content pre code {
@@ -528,7 +506,7 @@ body {
     line-height: 1.65;
 }
 
-.markdown-content pre>code.hljs {
+.markdown-content pre>code {
     display: block;
     padding: 10px 12px;
     overflow-x: auto;
@@ -537,16 +515,16 @@ body {
     scrollbar-color: var(--border) transparent;
 }
 
-.markdown-content pre>code.hljs::-webkit-scrollbar {
+.markdown-content pre>code::-webkit-scrollbar {
     height: 8px;
 }
 
-.markdown-content pre>code.hljs::-webkit-scrollbar-thumb {
+.markdown-content pre>code::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 4px;
 }
 
-.markdown-content pre>code.hljs::-webkit-scrollbar-track {
+.markdown-content pre>code::-webkit-scrollbar-track {
     background: transparent;
 }
 
@@ -572,7 +550,7 @@ body {
     background: transparent;
 }
 
-.table-wrap>table {
+.markdown-content .table-wrap>table {
     margin: 0;
     border: none;
     border-radius: 0;
@@ -855,21 +833,25 @@ body {
     gap: 12px;
     padding: 14px 16px;
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 10px;
     color: var(--text);
     text-decoration: none;
     background: var(--bg);
     transition:
         border-color 0.15s ease,
         background 0.15s ease,
-        color 0.15s ease;
+        color 0.15s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
     min-width: 0;
 }
 
 .page-nav-link:hover {
-    border-color: var(--link);
+    border-color: color-mix(in srgb, var(--link) 55%, var(--border));
     background: var(--bg-subtle);
     text-decoration: none;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px -22px color-mix(in srgb, var(--link) 70%, transparent);
 }
 
 .page-nav-link--next {
@@ -916,7 +898,7 @@ body {
     color: var(--link);
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1140px) {
     .toc {
         display: none;
     }
@@ -951,6 +933,10 @@ body {
     .content {
         margin-left: 0;
         padding: 64px 16px 48px;
+    }
+
+    .heading-anchor {
+        display: none;
     }
 
     .markdown-content h1 {

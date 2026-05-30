@@ -573,7 +573,7 @@ button {
 }
 
 .wt-code-block code,
-.wt-code-block code.hljs {
+.wt-code-block code {
     background: none;
     padding: 0;
     color: inherit;
@@ -673,59 +673,6 @@ button {
     background: var(--accent);
     width: 22px;
     border-radius: 999px;
-}
-
-:root[data-theme="light"] .hljs {
-    color: #24292e;
-    background: transparent;
-}
-
-:root[data-theme="light"] .hljs-doctag,
-:root[data-theme="light"] .hljs-keyword,
-:root[data-theme="light"] .hljs-meta .hljs-keyword,
-:root[data-theme="light"] .hljs-template-tag,
-:root[data-theme="light"] .hljs-template-variable,
-:root[data-theme="light"] .hljs-type,
-:root[data-theme="light"] .hljs-variable.language_ {
-    color: #d73a49;
-}
-
-:root[data-theme="light"] .hljs-title,
-:root[data-theme="light"] .hljs-title.class_,
-:root[data-theme="light"] .hljs-title.function_ {
-    color: #6f42c1;
-}
-
-:root[data-theme="light"] .hljs-attr,
-:root[data-theme="light"] .hljs-attribute,
-:root[data-theme="light"] .hljs-literal,
-:root[data-theme="light"] .hljs-meta,
-:root[data-theme="light"] .hljs-number,
-:root[data-theme="light"] .hljs-operator,
-:root[data-theme="light"] .hljs-variable {
-    color: #005cc5;
-}
-
-:root[data-theme="light"] .hljs-regexp,
-:root[data-theme="light"] .hljs-string,
-:root[data-theme="light"] .hljs-meta .hljs-string {
-    color: #032f62;
-}
-
-:root[data-theme="light"] .hljs-built_in,
-:root[data-theme="light"] .hljs-symbol {
-    color: #e36209;
-}
-
-:root[data-theme="light"] .hljs-comment,
-:root[data-theme="light"] .hljs-code {
-    color: #6a737d;
-}
-
-:root[data-theme="light"] .hljs-name,
-:root[data-theme="light"] .hljs-quote,
-:root[data-theme="light"] .hljs-selector-tag {
-    color: #22863a;
 }
 
 @media (max-width: 900px) {

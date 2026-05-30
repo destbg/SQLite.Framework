@@ -1,17 +1,13 @@
-import hljs from "highlight.js/lib/core";
-import csharp from "highlight.js/lib/languages/csharp";
-import sql from "highlight.js/lib/languages/sql";
-import "highlight.js/styles/github-dark.css";
 import "./landing.css";
+import "../highlight/syntax.css";
 import { initSavePace } from "./savePace";
-
-hljs.registerLanguage("csharp", csharp);
-hljs.registerLanguage("sql", sql);
+import { highlight } from "../highlight/highlighter";
 
 initSavePace();
 
 document.querySelectorAll<HTMLElement>("pre code").forEach((block) => {
-    hljs.highlightElement(block);
+    const match = /language-(\w+)/.exec(block.className);
+    block.innerHTML = highlight(block.textContent ?? "", match ? match[1] : "");
 });
 
 const reduceMotion = window.matchMedia(

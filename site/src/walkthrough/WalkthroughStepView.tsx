@@ -1,14 +1,6 @@
 import { useEffect, useRef } from "react";
-import hljs from "highlight.js/lib/core";
-import csharp from "highlight.js/lib/languages/csharp";
-import xml from "highlight.js/lib/languages/xml";
-import bash from "highlight.js/lib/languages/bash";
-import "highlight.js/styles/github-dark.css";
+import { highlight } from "../highlight/highlighter";
 import type { WalkthroughStep } from "./walkthroughs/types";
-
-hljs.registerLanguage("csharp", csharp);
-hljs.registerLanguage("xml", xml);
-hljs.registerLanguage("bash", bash);
 
 interface Props {
     step: WalkthroughStep;
@@ -23,10 +15,7 @@ export default function WalkthroughStepView({ step, index, total, phase, directi
 
     useEffect(() => {
         if (!codeRef.current || !step.code) return;
-        const lang = step.code.language;
-        const known = hljs.getLanguage(lang) ? lang : "plaintext";
-        const html = hljs.highlight(step.code.text, { language: known }).value;
-        codeRef.current.innerHTML = html;
+        codeRef.current.innerHTML = highlight(step.code.text, step.code.language);
     }, [step]);
 
     const stageClass = `wt-step wt-step--${phase} wt-step--dir-${direction > 0 ? "forward" : "back"}`;
@@ -52,7 +41,7 @@ export default function WalkthroughStepView({ step, index, total, phase, directi
                                 <span className="wt-code-filename">{step.code.filename}</span>
                             )}
                         </div>
-                        <pre className="wt-code-block"><code ref={codeRef} className={`hljs language-${step.code.language}`} /></pre>
+                        <pre className="wt-code-block"><code ref={codeRef} className={`language-${step.code.language}`} /></pre>
                     </div>
                 )}
             </div>

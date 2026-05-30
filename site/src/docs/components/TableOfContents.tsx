@@ -2,14 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { parseHeadings } from "../utils";
 import { findPageBySlug } from "../pages";
+import { loadContent } from "../markdownFiles";
 import OpenInButton from "./OpenInButton";
-
-// @ts-expect-error
-const markdownFiles = import.meta.glob("../../*.md", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-}) as Record<string, string>;
 
 export default function TableOfContents() {
     const location = useLocation();
@@ -17,7 +11,7 @@ export default function TableOfContents() {
         location.pathname === "/" ? "Home" : location.pathname.slice(1),
     );
     const page = findPageBySlug(slug);
-    const content = page ? markdownFiles[`../../${page.title}.md`] ?? "" : "";
+    const content = page ? loadContent(page.title) : "";
     const headings = parseHeadings(content);
     const [activeId, setActiveId] = useState("");
 

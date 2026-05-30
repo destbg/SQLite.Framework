@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
-import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
 import { slugify } from "../utils";
+import { highlight } from "../../highlight/highlighter";
 import { loadContent } from "../markdownFiles";
 import { findPageByLink, type Page } from "../pages";
 
@@ -26,8 +26,20 @@ export default function PageLayer({ page, onLinkClick }: Props) {
     return (
         <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeHighlight]}
             components={{
+                code({ className, children }) {
+                    const match = /language-(\w+)/.exec(className ?? "");
+                    if (!match) {
+                        return <code className={className}>{children}</code>;
+                    }
+                    const text = String(children).replace(/\n$/, "");
+                    return (
+                        <code
+                            className={className}
+                            dangerouslySetInnerHTML={{ __html: highlight(text, match[1]) }}
+                        />
+                    );
+                },
                 a({ href, children }) {
                     if (href && !href.startsWith("http") && !href.startsWith("#")) {
                         const target = findPageByLink(href);
@@ -52,11 +64,21 @@ export default function PageLayer({ page, onLinkClick }: Props) {
                 },
                 h2({ children }) {
                     const id = slugify(childrenToText(children));
-                    return <h2 id={id}>{children}</h2>;
+                    return (
+                        <h2 id={id}>
+                            <a href={`#${id}`} className="heading-anchor" aria-label="Link to this section">#</a>
+                            {children}
+                        </h2>
+                    );
                 },
                 h3({ children }) {
                     const id = slugify(childrenToText(children));
-                    return <h3 id={id}>{children}</h3>;
+                    return (
+                        <h3 id={id}>
+                            <a href={`#${id}`} className="heading-anchor" aria-label="Link to this section">#</a>
+                            {children}
+                        </h3>
+                    );
                 },
                 table({ children }) {
                     return (

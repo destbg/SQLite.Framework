@@ -1,0 +1,58 @@
+.tok-keyword {
+    color: #ff7b72;
+}
+
+.tok-literal,
+.tok-number {
+    color: #79c0ff;
+}
+
+.tok-string {
+    color: #a5d6ff;
+}
+
+.tok-comment {
+    color: #8b949e;
+    font-style: italic;
+}
+
+.tok-type {
+    color: #ffa657;
+}
+
+.tok-method {
+    color: #d2a8ff;
+}
+
+.tok-param {
+    color: #56d4dd;
+}
+
+:root[data-theme="light"] .tok-keyword {
+    color: #cf222e;
+}
+
+:root[data-theme="light"] .tok-literal,
+:root[data-theme="light"] .tok-number {
+    color: #0550ae;
+}
+
+:root[data-theme="light"] .tok-string {
+    color: #0a3069;
+}
+
+:root[data-theme="light"] .tok-comment {
+    color: #6e7781;
+}
+
+:root[data-theme="light"] .tok-type {
+    color: #953800;
+}
+
+:root[data-theme="light"] .tok-method {
+    color: #8250df;
+}
+
+:root[data-theme="light"] .tok-param {
+    color: #0e7490;
+}
