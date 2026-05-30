@@ -16,19 +16,7 @@ When you have a .NET type that does not map to a simple SQLite column, you can s
 
 `SQLiteJsonbConverter<T>` stores the value in a BLOB column using SQLite's built-in `jsonb()` and `json()` functions. JSONB is more compact than text and lets SQLite parse it without scanning for quotes or escape sequences, which can make JSON function calls faster.
 
-> **Platform compatibility.** JSONB support was added in [SQLite 3.45.0](https://sqlite.org/jsonb.html). As of Android 15 (API level 35) the bundled SQLite is 3.44.3, so JSONB requires Android 16 (API level 36) or later. iOS 16 and earlier ship with SQLite 3.39.5 or older, so no listed iOS version includes JSONB support out of the box.
->
-> If you are targeting mobile devices and need JSONB, use `SQLite.Framework.Bundled` or `SQLite.Framework.Cipher` instead of the default `SQLite.Framework` package. Both ship their own SQLite binary and can be updated independently of the OS. With those packages you can use `SQLiteJsonbConverter<T>` on any supported OS version. If you must use the default package on older devices, use `SQLiteJsonConverter<T>` for plain TEXT storage instead.
->
-> When you use `SQLite.Framework` (the OS-bundled flavor), the JSONB types carry `[SupportedOSPlatform("android36.0")]` so the .NET platform compatibility analyzer (CA1416) warns when you target a lower Android API level. In a MAUI or multi-targeted csproj, raise the minimum once your supported floor is high enough:
->
-> ```xml
-> <PropertyGroup>
->     <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'android'">36.0</SupportedOSPlatformVersion>
-> </PropertyGroup>
-> ```
->
-> The `SQLite.Framework.Bundled` and `SQLite.Framework.Cipher` packages do not carry the attribute and never trigger the warning.
+> **Platform compatibility.** JSONB needs SQLite 3.45 or newer, which most stock mobile OS builds do not ship yet, so use `SQLite.Framework.Bundled` or `SQLite.Framework.Cipher` to get `SQLiteJsonbConverter<T>` on any device, or fall back to `SQLiteJsonConverter<T>` (TEXT) on the default package.
 
 Both converters take a `JsonTypeInfo<T>` from a source-generated `JsonSerializerContext`, which keeps them compatible with Native AOT and trimming.
 
