@@ -103,6 +103,19 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
+    /// Compares the model for <typeparamref name="T" /> against the live database and reports any
+    /// drift. See <see cref="SQLiteSchema.ValidateModel{T}()" />.
+    /// </summary>
+    public static Task<SQLiteModelValidationResult> ValidateModelAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.ValidateModel<T>();
+        }, ct);
+    }
+
+    /// <summary>
     /// Returns whether an index with the given name exists.
     /// </summary>
     public static Task<bool> IndexExistsAsync(this SQLiteSchema schema, string indexName, CancellationToken ct = default)

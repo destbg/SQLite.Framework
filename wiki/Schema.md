@@ -128,6 +128,23 @@ foreach (SchemaColumnInfo col in columns)
 }
 ```
 
+## Validate the model
+
+`ValidateModel<T>()` compares the model against the live database and returns the issues found.
+
+```csharp
+SQLiteModelValidationResult result = db.Schema.ValidateModel<Book>();
+if (!result.IsValid)
+{
+    foreach (string issue in result.Issues)
+    {
+        Console.WriteLine(issue);
+    }
+}
+```
+
+Virtual tables (FTS5, R-Tree) only have their existence checked.
+
 ## Altering tables
 
 ```csharp

@@ -635,6 +635,28 @@ public class SQLiteSchema
     }
 
     /// <summary>
+    /// Compares the model for <typeparamref name="T" /> against the live database and reports any
+    /// drift: a missing table, missing or extra columns, mismatched column types, primary-key or
+    /// nullability differences, missing indexes, and missing foreign keys. Returns the findings
+    /// instead of throwing, so the caller decides what to do. Lets you catch schema drift at startup
+    /// rather than at query time.
+    /// </summary>
+    public virtual SQLiteModelValidationResult ValidateModel<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    {
+        return ValidateModel(typeof(T));
+    }
+
+    /// <summary>
+    /// Compares the model for <paramref name="type" /> against the live database. See
+    /// <see cref="ValidateModel{T}()" />.
+    /// </summary>
+    public virtual SQLiteModelValidationResult ValidateModel([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    {
+        TableMapping mapping = Database.TableMapping(type);
+        return new SQLiteModelValidationResult(ModelValidator.Validate(Database, mapping));
+    }
+
+    /// <summary>
     /// Emits the <c>CREATE VIRTUAL TABLE ... USING fts5(...)</c> statement plus any
     /// <c>AFTER</c> sync triggers when <see cref="FtsTableInfo.AutoSync" /> is set to
     /// <see cref="FtsAutoSync.Triggers" />. Override to change how an FTS5 table is created
