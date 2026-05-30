@@ -56,7 +56,7 @@ export default function OpenInButton({ fileName, markdown }: Props) {
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1500);
         } catch {
-            // ignore clipboard errors (insecure context, blocked, etc.)
+            setCopied(false);
         }
     };
 

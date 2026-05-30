@@ -66,20 +66,46 @@ button {
     font-family: inherit;
 }
 
-/* Walkthrough index page */
-
 .index {
+    position: relative;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    background:
+        radial-gradient(circle at 15% 12%, rgba(88, 166, 255, 0.12), transparent 45%),
+        radial-gradient(circle at 85% 8%, rgba(63, 185, 80, 0.08), transparent 45%),
+        var(--bg);
+}
+
+.index-grid-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(to right, var(--border-soft) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--border-soft) 1px, transparent 1px);
+    background-size: 56px 56px;
+    opacity: 0.35;
+    -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 0%, #000 20%, transparent 70%);
+    mask-image: radial-gradient(ellipse 70% 50% at 50% 0%, #000 20%, transparent 70%);
 }
 
 .index-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 14px 32px;
     border-bottom: 1px solid var(--border-soft);
+    background: rgba(13, 17, 23, 0.8);
+    backdrop-filter: blur(12px);
+}
+
+:root[data-theme="light"] .index-header {
+    background: rgba(255, 255, 255, 0.8);
 }
 
 .index-brand {
@@ -103,64 +129,152 @@ button {
 .index-exit {
     color: var(--text-muted);
     font-size: 0.95rem;
+    transition: color 120ms ease;
+}
+
+.index-exit:hover {
+    color: var(--text);
+    text-decoration: none;
 }
 
 .index-main {
+    position: relative;
+    z-index: 1;
     flex: 1;
     max-width: 1320px;
     margin: 0 auto;
-    padding: 40px 32px 48px;
+    padding: 56px 32px 64px;
     width: 100%;
+}
+
+.index-hero {
+    margin-bottom: 36px;
+}
+
+.index-eyebrow {
+    display: inline-block;
+    padding: 5px 12px;
+    margin-bottom: 16px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
 }
 
 .index-title {
     margin: 0;
-    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    font-size: clamp(2.2rem, 4vw, 3rem);
     font-weight: 700;
     letter-spacing: -0.02em;
 }
 
 .index-sub {
-    margin: 10px 0 28px;
+    margin: 14px 0 0;
+    max-width: 560px;
     color: var(--text-muted);
-    font-size: 1rem;
+    font-size: 1.05rem;
 }
 
 .index-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 18px;
 }
 
 .index-card {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     background: var(--bg-elev);
     border: 1px solid var(--border-soft);
-    border-radius: var(--radius);
-    padding: 20px;
+    border-radius: 14px;
+    padding: 22px;
     color: var(--text);
-    transition: border-color 120ms ease, transform 120ms ease, background 120ms ease;
+    overflow: hidden;
+    transition: border-color 160ms ease, transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    animation: index-card-rise 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(var(--card-index, 0) * 70ms);
+}
+
+.index-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--card-accent), transparent);
+    opacity: 0;
+    transition: opacity 160ms ease;
 }
 
 .index-card:hover {
     text-decoration: none;
-    border-color: var(--accent);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--card-accent) 55%, var(--border));
     background: var(--bg-elev-2);
+    box-shadow: 0 18px 40px -24px color-mix(in srgb, var(--card-accent) 60%, transparent);
 }
 
-.index-card-eyebrow {
-    color: var(--accent);
-    font-size: 0.8rem;
+.index-card:hover::before {
+    opacity: 1;
+}
+
+@keyframes index-card-rise {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.index-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.index-card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    color: var(--card-accent);
+    background: color-mix(in srgb, var(--card-accent) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--card-accent) 26%, transparent);
+    transition: transform 160ms ease;
+}
+
+.index-card:hover .index-card-icon {
+    transform: scale(1.06);
+}
+
+.index-card-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.index-card-steps {
+    color: var(--text-faint);
+    font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-soft);
 }
 
 .index-card-title {
-    margin: 0;
+    margin: 4px 0 0;
     font-size: 1.15rem;
     font-weight: 700;
 }
@@ -173,19 +287,29 @@ button {
 
 .index-card-cta {
     margin-top: auto;
+    padding-top: 4px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: var(--accent);
+    color: var(--card-accent);
     font-weight: 600;
 }
 
 .index-card-cta svg {
     width: 16px;
     height: 16px;
+    transition: transform 160ms ease;
 }
 
-/* Walkthrough player */
+.index-card:hover .index-card-cta svg {
+    transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .index-card {
+        animation: none;
+    }
+}
 
 .wt {
     height: 100vh;
@@ -458,8 +582,6 @@ button {
     display: block;
 }
 
-/* Footer controls */
-
 .wt-controls {
     display: flex;
     align-items: center;
@@ -553,8 +675,6 @@ button {
     border-radius: 999px;
 }
 
-/* Light-theme highlight overrides reused from the docs */
-
 :root[data-theme="light"] .hljs {
     color: #24292e;
     background: transparent;
@@ -607,8 +727,6 @@ button {
 :root[data-theme="light"] .hljs-selector-tag {
     color: #22863a;
 }
-
-/* Responsive */
 
 @media (max-width: 900px) {
     .wt-header {
