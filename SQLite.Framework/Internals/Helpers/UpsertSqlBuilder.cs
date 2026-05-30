@@ -61,6 +61,12 @@ internal static class UpsertSqlBuilder
                 break;
             }
 
+            case UpsertActionKind.DoUpdateSet:
+            {
+                AppendUpdateSet(sb, database, table, action);
+                break;
+            }
+
             default:
                 throw new InvalidOperationException($"Unknown UpsertActionKind: {action.Kind}");
         }
@@ -90,10 +96,36 @@ internal static class UpsertSqlBuilder
             sb.Append(quoted);
         }
 
+        AppendUpdateWhere(sb, database, table, action);
+    }
+
+    private static void AppendUpdateSet<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, UpsertAction<T> action)
+    {
+        sb.Append(" DO UPDATE SET ");
+        IReadOnlyList<(string Column, LambdaExpression Rhs)> setters = action.Setters!;
+        for (int i = 0; i < setters.Count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+            (string columnProperty, LambdaExpression rhs) = setters[i];
+            TableColumn column = table.Columns.FirstOrDefault(c => c.PropertyInfo.Name == columnProperty)
+                ?? throw new InvalidOperationException($"Upsert.DoUpdate references property '{columnProperty}' which is not a mapped column on '{table.TableName}'.");
+            sb.Append(IdentifierGuard.Quote(column.Name));
+            sb.Append(" = ");
+            sb.Append(BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs));
+        }
+
+        AppendUpdateWhere(sb, database, table, action);
+    }
+
+    private static void AppendUpdateWhere<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, UpsertAction<T> action)
+    {
         if (action.UpdateWhere != null)
         {
             sb.Append(" WHERE ");
-            sb.Append(BareSqlTranslator.TranslateUpdateWhere(database, table, action.UpdateWhere));
+            sb.Append(BareSqlTranslator.TranslateUpdateRowExpression(database, table, action.UpdateWhere));
         }
     }
 

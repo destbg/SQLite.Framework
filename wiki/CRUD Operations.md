@@ -248,6 +248,17 @@ db.Table<Book>().Upsert(book, c => c
     .Where((current, excluded) => excluded.Price > current.Price));
 ```
 
+When the new value is not just a copy of the incoming column, pass a setter lambda to `DoUpdate`. Each `Set` assigns one column to an expression. The expression can read the existing row and the incoming `excluded` row, so this is the shape for counters and merges. It reads the same way as `ExecuteUpdate`:
+
+```csharp
+// Counter: add the incoming Price to the stored Price. Merge: keep the later title.
+db.Table<Book>().Upsert(book, c => c
+    .OnConflict(b => b.Id)
+    .DoUpdate(s => s
+        .Set(b => b.Price, (current, excluded) => current.Price + excluded.Price)
+        .Set(b => b.Title, (current, excluded) => excluded.Title)));
+```
+
 `UpsertRange` is the range version. There is also `UpsertAsync` and `UpsertRangeAsync`.
 
 ## Hooks

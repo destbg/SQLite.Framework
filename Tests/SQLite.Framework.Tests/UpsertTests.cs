@@ -340,6 +340,125 @@ public class UpsertTests
     }
 
     [Fact]
+    public void Upsert_DoUpdateSet_Counter_EmitsExpressionSql()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        string sql = inspector.GetSql(c => c.OnConflict(b => b.Id)
+            .DoUpdate(s => s.Set(b => b.Price, (current, excluded) => current.Price + excluded.Price)));
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookPrice\" = (\"BookPrice\" + excluded.\"BookPrice\")"),
+            N(sql));
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateSet_CurrentOnly_EmitsExpressionSql()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        string sql = inspector.GetSql(c => c.OnConflict(b => b.Id)
+            .DoUpdate(s => s.Set(b => b.AuthorId, current => current.AuthorId + 1)));
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookAuthorId\" = (\"BookAuthorId\" + 1)"),
+            N(sql));
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateSet_Constant_EmitsLiteralSql()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        string sql = inspector.GetSql(c => c.OnConflict(b => b.Id)
+            .DoUpdate(s => s.Set(b => b.Title, "merged")));
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookTitle\" = 'merged'"),
+            N(sql));
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateSet_MultipleSetters_EmitsInOrder()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        string sql = inspector.GetSql(c => c.OnConflict(b => b.Id)
+            .DoUpdate(s => s
+                .Set(b => b.Price, (current, excluded) => current.Price + excluded.Price)
+                .Set(b => b.Title, (current, excluded) => excluded.Title)));
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookPrice\" = (\"BookPrice\" + excluded.\"BookPrice\"), \"BookTitle\" = excluded.\"BookTitle\""),
+            N(sql));
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateSet_WithGuard_EmitsBothClauses()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        SqlInspectingTable inspector = new(db, db.TableMapping(typeof(Book)));
+
+        string sql = inspector.GetSql(c => c.OnConflict(b => b.Id)
+            .DoUpdate(s => s.Set(b => b.Price, (current, excluded) => current.Price + excluded.Price))
+            .Where((current, excluded) => excluded.Price > 0));
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookPrice\" = (\"BookPrice\" + excluded.\"BookPrice\") WHERE excluded.\"BookPrice\" > 0"),
+            N(sql));
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateSet_CounterIncrementsOnConflict()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 5 });
+
+        db.Table<Book>().Upsert(
+            new Book { Id = 1, Title = "a", AuthorId = 1, Price = 3 },
+            c => c.OnConflict(b => b.Id).DoUpdate(s => s.Set(b => b.Price, (current, excluded) => current.Price + excluded.Price)));
+
+        Assert.Equal(8, db.Table<Book>().Single().Price);
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateSet_NoSetters_Throws()
+    {
+        ArgumentException ex = Assert.Throws<ArgumentException>(() =>
+            new UpsertConflictTarget<Book>(["BookId"]).DoUpdate(s => { }));
+
+        Assert.Contains("at least one Set", ex.Message);
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateSet_NonMemberColumn_Throws()
+    {
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            new UpsertConflictTarget<Book>(["BookId"]).DoUpdate(s => s.Set(b => 5, 0)));
+
+        Assert.Contains("property reference", ex.Message);
+    }
+
+    [Fact]
+    public void Upsert_DoUpdateSet_UnmappedColumn_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<EntityWithComputed>().Schema.CreateTable();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Table<EntityWithComputed>().Upsert(
+                new EntityWithComputed { Id = 1, FirstName = "a", LastName = "b" },
+                c => c.OnConflict(b => b.Id).DoUpdate(s => s.Set(b => b.FullName, "x"))));
+
+        Assert.Contains("not a mapped column", ex.Message);
+    }
+
+    [Fact]
     public void Upsert_DoNothingWithGuard_Throws()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>

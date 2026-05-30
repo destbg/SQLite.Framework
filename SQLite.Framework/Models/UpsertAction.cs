@@ -2,9 +2,10 @@ namespace SQLite.Framework.Models;
 
 /// <summary>
 /// Terminal node of <see cref="UpsertBuilder{T}" />. Represents one of <c>DO NOTHING</c>,
-/// <c>DO UPDATE SET ...</c> with a fixed list of columns, or <c>DO UPDATE SET</c> for every
-/// non-conflict column. An optional <see cref="Where(Expression{Func{T, T, bool}})" /> guard turns
-/// it into a conditional <c>DO UPDATE ... WHERE</c>.
+/// <c>DO UPDATE SET col = excluded.col</c> for a fixed or full column list, or
+/// <c>DO UPDATE SET col = expression</c> built from a setter lambda. An optional
+/// <see cref="Where(Expression{Func{T, T, bool}})" /> guard turns it into a conditional
+/// <c>DO UPDATE ... WHERE</c>.
 /// </summary>
 public sealed class UpsertAction<T>
 {
@@ -17,6 +18,8 @@ public sealed class UpsertAction<T>
     internal UpsertActionKind Kind { get; }
 
     internal IReadOnlyList<string>? Columns { get; }
+
+    internal IReadOnlyList<(string Column, LambdaExpression Rhs)>? Setters { get; private init; }
 
     internal LambdaExpression? UpdateWhere { get; private set; }
 
@@ -75,5 +78,10 @@ public sealed class UpsertAction<T>
     internal static UpsertAction<T> DoUpdate(IReadOnlyList<string> columns)
     {
         return new UpsertAction<T>(UpsertActionKind.DoUpdate, columns);
+    }
+
+    internal static UpsertAction<T> DoUpdateSet(IReadOnlyList<(string Column, LambdaExpression Rhs)> setters)
+    {
+        return new UpsertAction<T>(UpsertActionKind.DoUpdateSet, null) { Setters = setters };
     }
 }

@@ -7,7 +7,6 @@ namespace SQLite.Framework.Models;
 public sealed class UpsertConflictTarget<T>
 {
     private UpsertAction<T>? action;
-    private Expression<Func<T, bool>>? wherePredicate;
 
     internal UpsertConflictTarget(IReadOnlyList<string> conflictColumns)
     {
@@ -16,7 +15,7 @@ public sealed class UpsertConflictTarget<T>
 
     internal IReadOnlyList<string> ConflictColumns { get; }
 
-    internal Expression<Func<T, bool>>? WherePredicate => wherePredicate;
+    internal Expression<Func<T, bool>>? WherePredicate { get; private set; }
 
     internal UpsertAction<T> ResolvedAction => action
         ?? throw new InvalidOperationException("Upsert configuration is missing a DoNothing(), DoUpdateAll(), or DoUpdate(...) call.");
@@ -28,12 +27,12 @@ public sealed class UpsertConflictTarget<T>
     /// </summary>
     public UpsertConflictTarget<T> Where(Expression<Func<T, bool>> predicate)
     {
-        if (wherePredicate != null)
+        if (WherePredicate != null)
         {
             throw new InvalidOperationException("Where was already called for this OnConflict target.");
         }
 
-        wherePredicate = predicate;
+        WherePredicate = predicate;
         return this;
     }
 
@@ -65,6 +64,24 @@ public sealed class UpsertConflictTarget<T>
 
         IReadOnlyList<string> names = UpsertExpressionParser.ResolveColumnList(columns);
         return Set(UpsertAction<T>.DoUpdate(names));
+    }
+
+    /// <summary>
+    /// Each <c>Set</c> call on the builder assigns one column to an expression that can read
+    /// the existing row and the incoming <c>excluded</c> row, as in
+    /// <c>DoUpdate(s =&gt; s.Set(b =&gt; b.Count, (current, excluded) =&gt; current.Count + excluded.Count))</c>.
+    /// </summary>
+    public UpsertAction<T> DoUpdate(Action<UpsertSetBuilder<T>> configure)
+    {
+        UpsertSetBuilder<T> builder = new();
+        configure(builder);
+
+        if (builder.Setters.Count == 0)
+        {
+            throw new ArgumentException("DoUpdate requires at least one Set(...) call. Use DoUpdateAll for every column or DoNothing to keep the existing row.", nameof(configure));
+        }
+
+        return Set(UpsertAction<T>.DoUpdateSet(builder.Setters));
     }
 
     private UpsertAction<T> Set(UpsertAction<T> next)

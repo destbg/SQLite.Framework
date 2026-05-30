@@ -35,6 +35,16 @@ internal static class UpsertExpressionParser
         throw new NotSupportedException($"OnConflict expects a property reference like b.Id or new {{ b.A, b.B }}. Got: {body}.");
     }
 
+    public static string ResolveMemberName<T, TValue>(Expression<Func<T, TValue>> column)
+    {
+        Expression body = StripConvert(column.Body);
+        if (body is not MemberExpression me)
+        {
+            throw new NotSupportedException($"Set expects a property reference on the left, like b.Count. Got: {body}.");
+        }
+        return me.Member.Name;
+    }
+
     public static IReadOnlyList<string> ResolveColumnList<T>(Expression<Func<T, object?>>[] columns)
     {
         string[] names = new string[columns.Length];
