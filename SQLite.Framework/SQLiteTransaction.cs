@@ -65,6 +65,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         disposed = true;
 
         Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
+        Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
 
         if (ownsLock)
         {
@@ -85,6 +86,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         disposed = true;
 
         Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
+        Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
 
         if (ownsLock)
         {
