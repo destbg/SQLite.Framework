@@ -4,7 +4,7 @@ A short tour of `SQLite.Framework` on one page. Each section links to a deeper g
 
 ## What it is
 
-A small ORM that lets you use LINQ on a SQLite database. If you have used Entity Framework Core before, most things will feel familiar. The main difference is that this library does not have a change tracker, navigation properties, or migrations. It is built to be fast and to work with Native AOT.
+A small ORM that lets you use LINQ on a SQLite database. If you have used Entity Framework Core before, most things will feel familiar. The main difference is that this library has no automatic change tracker and no navigation properties. The heavier features have lightweight stand-ins. Write hooks cover before-save logic, and schema versioning uses `db.Pragmas.UserVersion` with `Migrate`.
 
 `db.Table<T>()` returns a `SQLiteTable<T>`. That class implements `IQueryable<T>`, so any LINQ method works on it.
 

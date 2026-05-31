@@ -290,6 +290,26 @@ Two flavours per verb:
 
 The same shape works for `OnUpdate`, `OnRemove`, and `OnAddOrUpdate`. The `OnAddOrUpdate` hooks fire for both `AddOrUpdate` and `Upsert`. Hooks for the Range methods fire per row, so if a hook returns `false` for one row that row is skipped and the rest still run.
 
+`OnAdd` and `OnUpdate` have a third flavour that also hands the hook a `columns` collector, so the same hook can set a column that has no CLR property (a shadow column declared with `.Column(...)` in `OnModelCreating`). The collected values are written in the same INSERT or UPDATE, bound as parameters, so any value type works.
+
+```csharp
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .OnAdd<Book>((db, book, columns) =>
+    {
+        book.Title = book.Title.Trim();
+        columns["CreatedAt"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        return true;
+    })
+    .OnUpdate<Book>((db, book, columns) =>
+    {
+        columns["UpdatedAt"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        return true;
+    })
+    .Build();
+```
+
+A value keyed by a mapped column name replaces the one taken from the entity. These hooks apply to `Add`, `AddRange`, `Update`, and `UpdateRange`.
+
 Hooks run before any subclass override of the protected helpers, so the two compose: a hook on `OnAdd<Book>` mutates the entity, then a subclass override of `AddOrRemoveItem` sees the mutated entity.
 
 ## Cross-cutting action hooks

@@ -556,6 +556,18 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Registers a function that runs before every <c>Add</c> for <typeparamref name="T" />. The
+    /// <c>columns</c> dictionary collects values for columns that have no CLR property (shadow
+    /// columns declared with <see cref="SQLiteEntityTypeBuilder{T}.Column" />); they are written in
+    /// the same INSERT. Return <see langword="false" /> to skip the default INSERT.
+    /// </summary>
+    public SQLiteOptionsBuilder OnAdd<T>(Func<SQLiteDatabase, T, IDictionary<string, object?>, bool> hook)
+    {
+        AppendHook(AddHooks, typeof(T), hook);
+        return this;
+    }
+
+    /// <summary>
     /// Registers an action that runs before every <c>Update</c> for <typeparamref name="T" />.
     /// </summary>
     public SQLiteOptionsBuilder OnUpdate<T>(Action<T> hook)
@@ -572,6 +584,18 @@ public sealed class SQLiteOptionsBuilder
     /// Return <see langword="false" /> to skip the default UPDATE.
     /// </summary>
     public SQLiteOptionsBuilder OnUpdate<T>(Func<SQLiteDatabase, T, bool> hook)
+    {
+        AppendHook(UpdateHooks, typeof(T), hook);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a function that runs before every <c>Update</c> for <typeparamref name="T" />. The
+    /// <c>columns</c> dictionary collects values for columns that have no CLR property (shadow
+    /// columns declared with <see cref="SQLiteEntityTypeBuilder{T}.Column" />); they are written in
+    /// the same UPDATE. Return <see langword="false" /> to skip the default UPDATE.
+    /// </summary>
+    public SQLiteOptionsBuilder OnUpdate<T>(Func<SQLiteDatabase, T, IDictionary<string, object?>, bool> hook)
     {
         AppendHook(UpdateHooks, typeof(T), hook);
         return this;

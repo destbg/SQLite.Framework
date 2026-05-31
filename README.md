@@ -35,7 +35,7 @@ That whole expression is one SQL query. The framework keeps the generated SQL cl
 
 | You're using | What you'll like here | What you'll lose |
 |---|---|---|
-| **EF Core** | Same `IQueryable` shape, smaller dependency, AOT works with minimal setup, no migrations or change tracker overhead. | EF's full mapping model (owned types, complex inheritance and such). |
+| **EF Core** | Same `IQueryable` shape, smaller dependency, AOT works with minimal setup. Lightweight stand-ins for the heavy parts. Write hooks for audit and interception, and schema versioning with `db.Pragmas.UserVersion` plus `Migrate`. | EF's full mapping model (owned types, complex inheritance), the automatic change tracker (identity map, change detection, navigation fix-up), and generated migration files. |
 | **sqlite-net-pcl** | Real LINQ joins, group-by, subqueries, projections, FTS5, JSON, window functions all translate to SQL. AOT-friendly with the source generator. | Nothing meaningful, the API is similar where it overlaps. |
 
 See the [Migrating from sqlite-net-pcl](https://sqlite-framework.net/Docs/Migrating-from-sqlite-net-pcl) or [Migrating from EF Core](https://sqlite-framework.net/Docs/Migrating-from-EF-Core) page if that's your starting point.

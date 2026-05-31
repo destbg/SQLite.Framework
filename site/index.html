@@ -829,7 +829,7 @@ LIMIT 5;</code></pre>
                         </tr>
                         <tr>
                             <td>Change tracking and migrations</td>
-                            <td class="compare-col-us"><span class="cmp cmp-no">No</span></td>
+                            <td class="compare-col-us"><span class="cmp cmp-partial">Partial</span></td>
                             <td><span class="cmp cmp-yes">Yes</span></td>
                             <td><span class="cmp cmp-no">No</span></td>
                         </tr>
@@ -872,8 +872,11 @@ LIMIT 5;</code></pre>
                 </details>
                 <details class="faq-item">
                     <summary>Does it have a change tracker or migrations?</summary>
-                    <p>No, by design. There is no change tracker, unit of work, lazy loading, or migration engine.
-                        You get LINQ over SQLite and CRUD, which keeps the library small and easy to reason about.</p>
+                    <p>It does not have a change tracker like EF Core, and it's by design, it has lightweight
+                        stand-ins. Write hooks
+                        (<code>OnAdd</code>/<code>OnUpdate</code>) run before a save for audit and derived values,
+                        and <code>Migrate</code> with the <code>db.Pragmas.UserVersion</code> pragma reconciles and
+                        versions the schema. There is no automatic change tracker, unit of work, or lazy loading.</p>
                 </details>
                 <details class="faq-item">
                     <summary>How is it different from EF Core or sqlite-net-pcl?</summary>
