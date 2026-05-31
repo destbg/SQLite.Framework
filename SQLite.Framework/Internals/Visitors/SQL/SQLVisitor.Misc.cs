@@ -29,6 +29,108 @@ internal partial class SQLVisitor
         return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), value);
     }
 
+    protected override Expression VisitConditional(ConditionalExpression node)
+    {
+        ResolvedModel test = ResolveExpression(node.Test);
+        ResolvedModel ifTrue = ResolveExpression(node.IfTrue);
+        ResolvedModel ifFalse = ResolveExpression(node.IfFalse);
+
+        if (test.SQLiteExpression == null || ifTrue.SQLiteExpression == null || ifFalse.SQLiteExpression == null)
+        {
+            return Expression.Condition(test.Expression, ifTrue.Expression, ifFalse.Expression);
+        }
+
+        SQLiteParameter[]? allParameters =
+            ParameterHelpers.CombineParameters(test.SQLiteExpression, ifTrue.SQLiteExpression, ifFalse.SQLiteExpression);
+
+        return SQLiteExpression.Trinary(node.Type, Counters.NextIdentifier(), "(CASE WHEN ", test.SQLiteExpression!, " THEN ", ifTrue.SQLiteExpression!, " ELSE ", ifFalse.SQLiteExpression!, " END)", allParameters);
+    }
+
+    protected override Expression VisitParameter(ParameterExpression node)
+    {
+        if (CteParameters.TryGetValue(node, out (string Alias, Dictionary<string, Expression> Columns) cteRef))
+        {
+            char aliasChar = cteRef.Alias[0];
+            string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
+
+            From = SQLiteExpression.Leaf(node.Type, -1, $"{cteRef.Alias} AS {alias}");
+            TableColumns = cteRef.Columns
+                .ToDictionary(kv => kv.Key, Expression (kv) => SQLiteExpression.Leaf(
+                    ((SQLiteExpression)kv.Value).Type,
+                    Counters.NextIdentifier(),
+                    $"{alias}.{IdentifierGuard.Quote(kv.Key)}"));
+
+            return SQLiteExpression.Alias(node.Type, -1, From, null);
+        }
+
+        return ResolveMember(node);
+    }
+
+    protected override Expression VisitUnary(UnaryExpression node)
+    {
+        ResolvedModel resolved = ResolveExpression(node.Operand);
+
+        if (resolved.SQLiteExpression == null)
+        {
+            if (node is { NodeType: ExpressionType.Convert, Operand: ParameterExpression })
+            {
+                return node.Operand;
+            }
+
+            return Expression.MakeUnary(node.NodeType, resolved.Expression, node.Type);
+        }
+
+        if (resolved.IsConstant)
+        {
+            return resolved.SQLiteExpression!;
+        }
+
+        if (node.NodeType == ExpressionType.Convert)
+        {
+            if (node.Type == typeof(object))
+            {
+                return resolved.SQLiteExpression;
+            }
+            else if (resolved.SQLiteExpression.Type.IsGenericType
+                && resolved.SQLiteExpression.Type.GetGenericTypeDefinition() == typeof(SQLiteWindow<>)
+                && resolved.SQLiteExpression.Type.GetGenericArguments()[0] == node.Type)
+            {
+                return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
+            }
+            else if (node.Type == typeof(char) && resolved.SQLiteExpression.Type == typeof(int))
+            {
+                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
+            }
+            else if (node.Type == typeof(int) && resolved.SQLiteExpression.Type == typeof(char))
+            {
+                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "UNICODE(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
+            }
+            else if (resolved.SQLiteExpression.Type.IsEnum && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == Enum.GetUnderlyingType(resolved.SQLiteExpression.Type))
+            {
+                return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
+            }
+            else
+            {
+                string sqliteType = TypeHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
+                SQLiteExpression inner = resolved.SQLiteExpression;
+                return SQLiteExpression.Wrap(node.Type,
+                    Counters.NextIdentifier(),
+                    "CAST(", inner, $" AS {sqliteType})",
+                    resolved.SQLiteExpression.Parameters
+                );
+            }
+        }
+
+        SQLiteExpression operand = resolved.SQLiteExpression;
+        return node.NodeType switch
+        {
+            ExpressionType.Negate => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "-", operand, "", operand.Parameters),
+            ExpressionType.Not when node.Type == typeof(bool) => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "NOT ", operand, "", operand.Parameters),
+            ExpressionType.Not => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "~", operand, "", operand.Parameters),
+            _ => throw new NotSupportedException($"Unsupported unary op {node.NodeType}")
+        };
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Pragma entity types are referenced by user code, so their public properties are rooted by the user.")]
     private void AssignPragma(IPragmaTableSource pragma)
     {
@@ -108,123 +210,4 @@ internal partial class SQLVisitor
             .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
     }
 
-    protected override Expression VisitConditional(ConditionalExpression node)
-    {
-        ResolvedModel test = ResolveExpression(node.Test);
-        ResolvedModel ifTrue = ResolveExpression(node.IfTrue);
-        ResolvedModel ifFalse = ResolveExpression(node.IfFalse);
-
-        if (test.SQLiteExpression == null || ifTrue.SQLiteExpression == null || ifFalse.SQLiteExpression == null)
-        {
-            return Expression.Condition(test.Expression, ifTrue.Expression, ifFalse.Expression);
-        }
-
-        SQLiteParameter[]? allParameters =
-            ParameterHelpers.CombineParameters(test.SQLiteExpression, ifTrue.SQLiteExpression, ifFalse.SQLiteExpression);
-
-        return SQLiteExpression.Trinary(node.Type, Counters.NextIdentifier(), "(CASE WHEN ", test.SQLiteExpression!, " THEN ", ifTrue.SQLiteExpression!, " ELSE ", ifFalse.SQLiteExpression!, " END)", allParameters);
-    }
-
-    protected override Expression VisitParameter(ParameterExpression node)
-    {
-        if (CteParameters.TryGetValue(node, out (string Alias, Dictionary<string, Expression> Columns) cteRef))
-        {
-            char aliasChar = cteRef.Alias[0];
-            string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
-
-            From = SQLiteExpression.Leaf(node.Type, -1, $"{cteRef.Alias} AS {alias}");
-            TableColumns = cteRef.Columns
-                .ToDictionary(kv => kv.Key, Expression (kv) => SQLiteExpression.Leaf(
-                    ((SQLiteExpression)kv.Value).Type,
-                    Counters.NextIdentifier(),
-                    $"{alias}.{IdentifierGuard.Quote(kv.Key)}"));
-
-            return SQLiteExpression.Alias(node.Type, -1, From, null);
-        }
-
-        return ResolveMember(node);
-    }
-
-    protected override Expression VisitUnary(UnaryExpression node)
-    {
-        ResolvedModel resolved = ResolveExpression(node.Operand);
-
-        if (resolved.SQLiteExpression == null)
-        {
-            if (node is { NodeType: ExpressionType.Convert, Operand: ParameterExpression })
-            {
-                return node.Operand;
-            }
-
-            return Expression.MakeUnary(node.NodeType, resolved.Expression, node.Type);
-        }
-
-        if (resolved.IsConstant)
-        {
-            return ResolvedUnary(node, resolved);
-        }
-
-        if (node.NodeType == ExpressionType.Convert)
-        {
-            if (node.Type == typeof(object))
-            {
-                return resolved.SQLiteExpression;
-            }
-            else if (resolved.SQLiteExpression.Type.IsGenericType
-                && resolved.SQLiteExpression.Type.GetGenericTypeDefinition() == typeof(SQLiteWindow<>)
-                && resolved.SQLiteExpression.Type.GetGenericArguments()[0] == node.Type)
-            {
-                return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
-            }
-            else if (node.Type == typeof(char) && resolved.SQLiteExpression.Type == typeof(int))
-            {
-                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
-            }
-            else if (node.Type == typeof(int) && resolved.SQLiteExpression.Type == typeof(char))
-            {
-                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "UNICODE(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
-            }
-            else if (resolved.SQLiteExpression.Type.IsEnum && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == Enum.GetUnderlyingType(resolved.SQLiteExpression.Type))
-            {
-                return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
-            }
-            else
-            {
-                string sqliteType = TypeHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
-                SQLiteExpression inner = resolved.SQLiteExpression;
-                return SQLiteExpression.Wrap(node.Type,
-                    Counters.NextIdentifier(),
-                    "CAST(", inner, $" AS {sqliteType})",
-                    resolved.SQLiteExpression.Parameters
-                );
-            }
-        }
-
-        SQLiteExpression operand = resolved.SQLiteExpression;
-        return node.NodeType switch
-        {
-            ExpressionType.Negate => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "-", operand, "", operand.Parameters),
-            ExpressionType.Not when node.Type == typeof(bool) => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "NOT ", operand, "", operand.Parameters),
-            ExpressionType.Not => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "~", operand, "", operand.Parameters),
-            _ => throw new NotSupportedException($"Unsupported unary op {node.NodeType}")
-        };
-    }
-
-    [ExcludeFromCodeCoverage(Justification = "In theory we should never enter here")]
-    private SQLiteExpression ResolvedUnary(UnaryExpression node, ResolvedModel resolved)
-    {
-        if (node.NodeType == ExpressionType.Convert)
-        {
-            object? value = resolved.Constant;
-            Type targetType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
-            if (value?.GetType().IsEnum == true && targetType == Enum.GetUnderlyingType(value.GetType()))
-            {
-                return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), value);
-            }
-
-            return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), Convert.ChangeType(value, targetType));
-        }
-
-        return resolved.SQLiteExpression!;
-    }
 }

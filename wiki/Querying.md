@@ -24,7 +24,7 @@ var byAuthor = await db.Table<Book>()
 
 ## Mix AND and OR with WhereBuilder
 
-Chained `Where` calls always combine with `AND`. When you need `OR` between predicates, or when a filter comes from a search object whose fields are optional, use `WhereBuilder`. It collects `And` and `Or` calls on a small builder and emits one `WHERE` clause with just the active predicates.
+Chained `Where` calls always combine with `AND`. `WhereBuilder` collects `And` and `Or` calls on a small builder and emits one `WHERE` clause with just the active predicates.
 
 The common case is a filter object with several nullable fields. Each field is added to the builder only when it is set:
 
@@ -210,7 +210,7 @@ var results = await db.Table<Book>()
 
 ## Global Query Filters
 
-Register a predicate on the options builder and the framework injects it into every query against that entity. Useful for soft delete or row-level scoping, so the user code does not have to repeat the filter on every call site.
+Register a predicate on the options builder and the framework injects it into every query against that entity, so the filter is not repeated on each call site.
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
@@ -218,11 +218,11 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
     .Build();
 
 // The filter is applied automatically.
-List<Book> books = db.Table<Book>().ToList();
+List<Book> books = await db.Table<Book>().ToListAsync();
 
 // Composes with the user's Where, ExecuteUpdate, and ExecuteDelete.
-db.Table<Book>().Where(b => b.Price > 10).ToList();
-db.Table<Book>().ExecuteDelete();
+await db.Table<Book>().Where(b => b.Price > 10).ToListAsync();
+await db.Table<Book>().ExecuteDeleteAsync();
 ```
 
 The registration type can be an interface, in which case the filter applies to every entity that implements it. One registration covers all matching entities, no per-entity hookup needed.
@@ -239,7 +239,7 @@ builder.AddQueryFilter<ISoftDelete>(e => !e.IsDeleted);
 Multiple filters per type are AND-combined. To opt out of every registered filter for a single query, call `IgnoreQueryFilters`:
 
 ```csharp
-List<Book> all = db.Table<Book>().IgnoreQueryFilters().ToList();
+List<Book> all = await db.Table<Book>().IgnoreQueryFilters().ToListAsync();
 ```
 
 The opt-out covers the whole query, including joined tables. Filters compose with `Join`, `GroupJoin`, `Count`, `Any`, `ExecuteUpdate`, and `ExecuteDelete`.

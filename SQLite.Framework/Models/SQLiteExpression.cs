@@ -79,6 +79,14 @@ public abstract class SQLiteExpression : Expression
     public abstract void WriteSqlTo(StringBuilder sb);
 
     /// <inheritdoc/>
+    public override string ToString()
+    {
+        StringBuilder sb = StringBuilderPool.Rent();
+        WriteSqlTo(sb);
+        return StringBuilderPool.ToStringAndReturn(sb);
+    }
+
+    /// <inheritdoc/>
     protected override Expression Accept(ExpressionVisitor visitor)
     {
         if (visitor is SelectVisitor selectVisitor)
@@ -91,14 +99,6 @@ public abstract class SQLiteExpression : Expression
         }
 
         return this;
-    }
-
-    /// <inheritdoc/>
-    public override string ToString()
-    {
-        StringBuilder sb = StringBuilderPool.Rent();
-        WriteSqlTo(sb);
-        return StringBuilderPool.ToStringAndReturn(sb);
     }
 
     /// <summary>

@@ -2,11 +2,11 @@ namespace SQLite.Framework.Internals.Helpers;
 
 /// <summary>
 /// Renders an <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> statement for an
-/// <see cref="UpsertConflictTarget{T}" />.
+/// <see cref="SQLiteUpsertConflictTarget{T}" />.
 /// </summary>
 internal static class UpsertSqlBuilder
 {
-    public static (TableColumn[] Columns, string Sql) Build<T>(SQLiteDatabase database, TableMapping table, UpsertConflictTarget<T> target, Func<TableColumn, string, string> wrapParam)
+    public static (TableColumn[] Columns, string Sql) Build<T>(SQLiteDatabase database, TableMapping table, SQLiteUpsertConflictTarget<T> target, Func<TableColumn, string, string> wrapParam)
     {
         TableColumn[] insertColumns = table.Columns
             .Where(c => !c.IsPrimaryKey || !c.IsAutoIncrement)
@@ -34,7 +34,7 @@ internal static class UpsertSqlBuilder
             sb.Append(BareSqlTranslator.Translate(database, table, target.WherePredicate));
         }
 
-        UpsertAction<T> action = target.ResolvedAction;
+        SQLiteUpsertAction<T> action = target.ResolvedAction;
         switch (action.Kind)
         {
             case UpsertActionKind.DoNothing:
@@ -74,7 +74,7 @@ internal static class UpsertSqlBuilder
         return (insertColumns, sb.ToString());
     }
 
-    private static void AppendUpdate<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, IEnumerable<TableColumn> setColumns, UpsertAction<T> action)
+    private static void AppendUpdate<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, IEnumerable<TableColumn> setColumns, SQLiteUpsertAction<T> action)
     {
         TableColumn[] columns = setColumns.ToArray();
         if (columns.Length == 0)
@@ -99,7 +99,7 @@ internal static class UpsertSqlBuilder
         AppendUpdateWhere(sb, database, table, action);
     }
 
-    private static void AppendUpdateSet<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, UpsertAction<T> action)
+    private static void AppendUpdateSet<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, SQLiteUpsertAction<T> action)
     {
         sb.Append(" DO UPDATE SET ");
         IReadOnlyList<(string Column, LambdaExpression Rhs)> setters = action.Setters!;
@@ -120,7 +120,7 @@ internal static class UpsertSqlBuilder
         AppendUpdateWhere(sb, database, table, action);
     }
 
-    private static void AppendUpdateWhere<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, UpsertAction<T> action)
+    private static void AppendUpdateWhere<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, SQLiteUpsertAction<T> action)
     {
         if (action.UpdateWhere != null)
         {

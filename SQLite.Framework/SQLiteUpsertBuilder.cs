@@ -1,14 +1,14 @@
-namespace SQLite.Framework.Models;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Entry point for building an <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> statement.
 /// Returned by <c>SQLiteTable&lt;T&gt;.Upsert</c> and <c>UpsertRange</c>.
 /// </summary>
-public sealed class UpsertBuilder<T>
+public sealed class SQLiteUpsertBuilder<T>
 {
-    private UpsertConflictTarget<T>? target;
+    private SQLiteUpsertConflictTarget<T>? target;
 
-    internal UpsertBuilder()
+    internal SQLiteUpsertBuilder()
     {
     }
 
@@ -17,7 +17,7 @@ public sealed class UpsertBuilder<T>
     /// anonymous type for a composite. For example:
     /// <c>OnConflict(b =&gt; b.Id)</c> or <c>OnConflict(b =&gt; new { b.AuthorId, b.Title })</c>.
     /// </summary>
-    public UpsertConflictTarget<T> OnConflict<TKey>(Expression<Func<T, TKey>> conflictTarget)
+    public SQLiteUpsertConflictTarget<T> OnConflict<TKey>(Expression<Func<T, TKey>> conflictTarget)
     {
         if (target != null)
         {
@@ -25,11 +25,11 @@ public sealed class UpsertBuilder<T>
         }
 
         IReadOnlyList<string> columnPaths = UpsertExpressionParser.ResolveConflictColumns(conflictTarget);
-        target = new UpsertConflictTarget<T>(columnPaths);
+        target = new SQLiteUpsertConflictTarget<T>(columnPaths);
         return target;
     }
 
-    internal UpsertConflictTarget<T> Build()
+    internal SQLiteUpsertConflictTarget<T> Build()
     {
         if (target == null)
         {

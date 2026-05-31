@@ -28,10 +28,7 @@ public partial class ProjectsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLoading;
 
-    public ProjectsViewModel(
-        ProjectRepository projects,
-        TaskRepository tasks,
-        CategoryRepository categories)
+    public ProjectsViewModel(ProjectRepository projects, TaskRepository tasks, CategoryRepository categories)
     {
         _projects = projects;
         _tasks = tasks;

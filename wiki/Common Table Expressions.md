@@ -10,7 +10,7 @@ Use `With` to define a CTE from any LINQ query:
 SQLiteCte<Book> expensiveBooks = db.With(() =>
     db.Table<Book>().Where(b => b.Price > 30));
 
-List<Book> results = (from b in expensiveBooks select b).ToList();
+List<Book> results = await (from b in expensiveBooks select b).ToListAsync();
 ```
 
 Generated SQL:
@@ -53,11 +53,11 @@ A CTE can be used on either side of a join:
 SQLiteCte<Book> cheapBooks = db.With(() =>
     db.Table<Book>().Where(b => b.Price < 20));
 
-var results = (
+var results = await (
     from b in cheapBooks
     join a in db.Table<Author>() on b.AuthorId equals a.Id
     select new { b.Title, AuthorName = a.Name }
-).ToList();
+).ToListAsync();
 ```
 
 ## Values
@@ -74,10 +74,10 @@ Use `ValuesRange` to lift an in-memory list into a query without a temporary tab
 
 ```csharp
 var ids = new[] { 1, 2, 3 };
-var titles = (
+var titles = await (
     from id in db.ValuesRange(ids)
     join book in db.Table<Book>() on id equals book.Id
-    select book.Title).ToList();
+    select book.Title).ToListAsync();
 ```
 
 ## Recursive CTEs
@@ -93,7 +93,7 @@ SQLiteCte<Cnt> counter = db.WithRecursive<Cnt>(self =>
     db.Values(new Cnt { X = 1 })
       .Concat(from c in self where c.X < 10 select new Cnt { X = c.X + 1 }));
 
-List<Cnt> rows = (from c in counter select c).ToList();
+List<Cnt> rows = await (from c in counter select c).ToListAsync();
 // rows = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 ```
 
@@ -124,7 +124,7 @@ SQLiteCte<Fib> fib = db.WithRecursive<Fib>(self =>
     db.Values(new Fib { A = 0, B = 1 })
       .Concat(from f in self where f.B < 100 select new Fib { A = f.B, B = f.A + f.B }));
 
-List<Fib> results = (from f in fib select f).ToList();
+List<Fib> results = await (from f in fib select f).ToListAsync();
 // results[0] = { A = 0, B = 1 }
 // results[11] = { A = 89, B = 144 }
 ```
@@ -162,7 +162,7 @@ SQLiteCte<OrgLevel> hierarchy = db.WithRecursive<OrgLevel>(self =>
             join p in self on o.Boss equals p.Name
             select new OrgLevel { Name = o.Name, Level = p.Level + 1 }));
 
-List<OrgLevel> result = (from n in hierarchy orderby n.Level, n.Name select n).ToList();
+List<OrgLevel> result = await (from n in hierarchy orderby n.Level, n.Name select n).ToListAsync();
 ```
 
 Generated SQL:
@@ -204,7 +204,7 @@ SQLiteCte<WorksFor> worksFor = db.WithRecursive<WorksFor>(self =>
            join w in self on o.Boss equals w.Name
            select new WorksFor { Name = o.Name }));
 
-List<WorksFor> result = (from w in worksFor select w).ToList();
+List<WorksFor> result = await (from w in worksFor select w).ToListAsync();
 ```
 
 Generated SQL:
@@ -265,7 +265,7 @@ SQLiteCte<SudX> x = db.WithRecursive<SudX>(self =>
         }
     ));
 
-string solution = (from xr in x where xr.Ind == 0 select xr.S).First();
+string solution = await (from xr in x where xr.Ind == 0 select xr.S).FirstAsync();
 // solution = "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
 ```
 
@@ -288,5 +288,5 @@ SQLiteCte<Category> tree = db.WithRecursive<Category>(self =>
           join p in self on c.ParentId equals p.Id
           select c));
 
-List<Category> allNodes = (from c in tree select c).ToList();
+List<Category> allNodes = await (from c in tree select c).ToListAsync();
 ```

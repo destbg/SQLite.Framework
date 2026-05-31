@@ -243,69 +243,69 @@ When you store a `List<T>` or `T[]` as JSON, the framework also routes many stan
 
 ```csharp
 // simple list queries
-bool hasTag = db.Table<Product>()
+bool hasTag = await db.Table<Product>()
     .Where(p => p.Tags.Contains("electronics"))
-    .Any();
+    .AnyAsync();
 
-int tagCount = db.Table<Product>()
+int tagCount = await db.Table<Product>()
     .Select(p => p.Tags.Count())
-    .First();
+    .FirstAsync();
 
 // predicate on simple types
-List<Product> filtered = db.Table<Product>()
+List<Product> filtered = await db.Table<Product>()
     .Where(p => p.Tags.Any(t => t.StartsWith("elec")))
-    .ToList();
+    .ToListAsync();
 
 // predicate on complex types
-List<Order> orders = db.Table<Order>()
+List<Order> orders = await db.Table<Order>()
     .Where(o => o.Items.Any(i => i.Price > 100 && i.Category == "Books"))
-    .ToList();
+    .ToListAsync();
 
 // nested property access works too
-bool hasLocal = db.Table<Company>()
+bool hasLocal = await db.Table<Company>()
     .Select(c => c.Offices.Any(o => o.Address.City == "Springfield"))
-    .First();
+    .FirstAsync();
 
 // aggregate with selector
-decimal maxPrice = db.Table<Order>()
+decimal maxPrice = await db.Table<Order>()
     .Select(o => o.Items.Max(i => i.Price))
-    .First();
+    .FirstAsync();
 
 // collection results
-List<string> sorted = db.Table<Product>()
+List<string> sorted = await db.Table<Product>()
     .Select(p => p.Tags.OrderBy(t => t).Take(3))
-    .First();
+    .FirstAsync();
 
 // chaining works, methods are combined into a single SQL subquery
-string firstSorted = db.Table<Product>()
+string firstSorted = await db.Table<Product>()
     .Select(p => p.Tags.OrderBy(t => t).First())
-    .First();
+    .FirstAsync();
 
 // secondary sorting with ThenBy
-string result = db.Table<Order>()
+string result = await db.Table<Order>()
     .Select(o => o.Items
         .OrderBy(i => i.Category)
         .ThenByDescending(i => i.Price)
         .First().Name)
-    .First();
+    .FirstAsync();
 
 // multiple chained operations become one query
-int count = db.Table<Product>()
+int count = await db.Table<Product>()
     .Select(p => p.Tags
         .Where(t => t.Length > 3)
         .OrderBy(t => t)
         .Count())
-    .First();
+    .FirstAsync();
 
 // flatten nested collections with SelectMany
-List<string> allTags = db.Table<Company>()
+List<string> allTags = await db.Table<Company>()
     .Select(c => c.Departments.SelectMany(d => d.Tags))
-    .First();
+    .FirstAsync();
 
 // group by and count
-int distinctGroups = db.Table<Product>()
+int distinctGroups = await db.Table<Product>()
     .Select(p => p.Tags.GroupBy(t => t).Count())
-    .First();
+    .FirstAsync();
 ```
 
 ### Property access on JSON columns
@@ -314,15 +314,15 @@ When you access a property on a JSON-stored object, the framework translates it 
 
 ```csharp
 // property access on a single JSON object
-string city = db.Table<Contact>()
+string city = await db.Table<Contact>()
     .Select(c => c.HomeAddress.City)
-    .First();
+    .FirstAsync();
 // SQL: SELECT json_extract(t0."HomeAddress", '$.City') ...
 
 // property access on the result of a collection method
-string street = db.Table<Order>()
+string street = await db.Table<Order>()
     .Select(o => o.Items.First(i => i.Price > 50).Name)
-    .First();
+    .FirstAsync();
 ```
 
 ### Method chaining

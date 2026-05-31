@@ -16,18 +16,18 @@ internal static class BareSqlTranslator
     public static string Translate(SQLiteDatabase database, TableMapping mapping, ParameterExpression rowParameter, Expression body)
     {
         SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
-        visitor.MethodArguments[rowParameter] = RowColumns(visitor, mapping, null);
+        visitor.MethodArguments[rowParameter] = RowColumns(visitor, rowParameter, mapping, null);
         return Finish(visitor, body);
     }
 
     public static string TranslateUpdateRowExpression(SQLiteDatabase database, TableMapping mapping, LambdaExpression lambda)
     {
         SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
-        visitor.MethodArguments[lambda.Parameters[0]] = RowColumns(visitor, mapping, null);
+        visitor.MethodArguments[lambda.Parameters[0]] = RowColumns(visitor, lambda.Parameters[0], mapping, null);
 
         if (lambda.Parameters.Count > 1)
         {
-            visitor.MethodArguments[lambda.Parameters[1]] = RowColumns(visitor, mapping, "excluded.");
+            visitor.MethodArguments[lambda.Parameters[1]] = RowColumns(visitor, lambda.Parameters[1], mapping, "excluded.");
         }
 
         return Finish(visitor, lambda.Body);
@@ -44,14 +44,15 @@ internal static class BareSqlTranslator
         SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
         foreach ((ParameterExpression parameter, TableMapping mapping, string? prefix) in rows)
         {
-            visitor.MethodArguments[parameter] = RowColumns(visitor, mapping, prefix);
+            visitor.MethodArguments[parameter] = RowColumns(visitor, parameter, mapping, prefix);
         }
 
         return Finish(visitor, body);
     }
 
-    private static Dictionary<string, Expression> RowColumns(SQLVisitor visitor, TableMapping mapping, string? prefix)
+    private static Dictionary<string, Expression> RowColumns(SQLVisitor visitor, ParameterExpression parameter, TableMapping mapping, string? prefix)
     {
+        visitor.RowColumnPrefixes[parameter] = prefix;
         return mapping.Columns.ToDictionary(
             c => c.PropertyInfo.Name,
             Expression (c) => SQLiteExpression.Leaf(c.PropertyType, visitor.Counters.NextIdentifier(), prefix + IdentifierGuard.Quote(c.Name)));

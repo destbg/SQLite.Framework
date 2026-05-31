@@ -77,13 +77,13 @@ await db.Table<Book>()
 
 ## Update from a Joined Table
 
-`ExecuteUpdate` (and its async variant) accept a `Join` chain so you can pull values from another table into the update. SQLite emits this as `UPDATE target SET ... FROM source WHERE ...`. Requires SQLite 3.33 or later.
+`ExecuteUpdate` accepts a `Join` chain so you can pull values from another table into the update. SQLite emits this as `UPDATE target SET ... FROM source WHERE ...`. Requires SQLite 3.33 or later.
 
 ```csharp
-db.Table<Book>()
+await db.Table<Book>()
     .Join(db.Table<Author>(), b => b.AuthorId, a => a.Id, (b, a) => new { b, a })
     .Where(x => x.a.Country == "US")
-    .ExecuteUpdate(s => s.Set(x => x.b.Title, x => x.a.Name + " - bestseller"));
+    .ExecuteUpdateAsync(s => s.Set(x => x.b.Title, x => x.a.Name + " - bestseller"));
 ```
 
 The `Set` left value must point at the target table (the first `Table<T>` in the chain). The right value can read any column from the joined sources. Chaining more `Join` calls produces a comma-separated `FROM` list.
@@ -94,7 +94,7 @@ The `Set` left value must point at the target table (the first `Table<T>` in the
 
 ```csharp
 // Copy all out of stock books into the archive table
-db.Table<BookArchive>().InsertFromQuery(
+await db.Table<BookArchive>().InsertFromQueryAsync(
     db.Table<Book>()
         .Where(b => b.InStock == false)
         .Select(b => new BookArchive
@@ -107,13 +107,6 @@ db.Table<BookArchive>().InsertFromQuery(
 ```
 
 The source must be a query from the same database. The columns are inserted in the table's column order, so primary keys from the source are preserved. `OnAdd` hooks do not fire for the inserted rows, the same as `ExecuteUpdate` and `ExecuteDelete`.
-
-The async version is `InsertFromQueryAsync`:
-
-```csharp
-await db.Table<BookArchive>().InsertFromQueryAsync(
-    db.Table<Book>().Where(b => b.InStock == false).Select(b => new BookArchive { ... }));
-```
 
 ## Returning the Affected Rows
 
@@ -137,21 +130,3 @@ List<decimal> newPrices = await db.Table<Book>()
 ```
 
 The `RETURNING` clause can only reference columns from the table being modified. If the projection touches a joined entity, SQLite rejects the statement.
-
-## Sync Versions
-
-All of the above have synchronous versions:
-
-```csharp
-db.Table<Book>().ExecuteDelete();
-db.Table<Book>().ExecuteDelete(b => b.InStock == false);
-
-db.Table<Book>()
-    .Where(b => b.Price < 5)
-    .ExecuteUpdate(s => s.Set(b => b.InStock, false));
-
-db.Table<Book>()
-    .Where(b => b.InStock == false)
-    .Returning()
-    .ExecuteDelete();
-```

@@ -63,44 +63,6 @@ internal partial class JsonCollectionVisitor
         this.options = options;
     }
 
-    public static Expression? TryHandle(MethodCallExpression node, SQLVisitor sqlVisitor)
-    {
-        if (!IsChainedCollectionMethod(node))
-        {
-            return null;
-        }
-
-        List<MethodCallExpression> chain = [];
-        Expression source = UnwindChain(node, chain);
-
-        ResolvedModel sourceModel = sqlVisitor.ResolveExpression(source);
-        if (sourceModel.SQLiteExpression == null)
-        {
-            return null;
-        }
-
-        if (!IsJsonCollectionExpression(sourceModel.SQLiteExpression, sqlVisitor.Database.Options))
-        {
-            return null;
-        }
-
-        JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
-        jcv.parameters.AddRange(sourceModel.SQLiteExpression.Parameters ?? []);
-
-        Type resultType = node.Type;
-        foreach (MethodCallExpression call in chain)
-        {
-            jcv.ProcessMethod(call, sourceModel.SQLiteExpression.Type);
-            resultType = call.Type;
-        }
-
-        string sql = jcv.BuildSql(sourceModel.SQLiteExpression.ToString());
-        Type coercedType = CoerceType(resultType, sourceModel.SQLiteExpression.Type);
-        return SQLiteExpression.Leaf(coercedType, sqlVisitor.Counters.NextIdentifier(), sql,
-            jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null)
-            .WithJsonSource();
-    }
-
     private string VisitLambda(Expression arg, Type elementType)
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
@@ -188,6 +150,44 @@ internal partial class JsonCollectionVisitor
         {
             parameters.AddRange(model.SQLiteExpression.Parameters);
         }
+    }
+
+    public static Expression? TryHandle(MethodCallExpression node, SQLVisitor sqlVisitor)
+    {
+        if (!IsChainedCollectionMethod(node))
+        {
+            return null;
+        }
+
+        List<MethodCallExpression> chain = [];
+        Expression source = UnwindChain(node, chain);
+
+        ResolvedModel sourceModel = sqlVisitor.ResolveExpression(source);
+        if (sourceModel.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        if (!IsJsonCollectionExpression(sourceModel.SQLiteExpression, sqlVisitor.Database.Options))
+        {
+            return null;
+        }
+
+        JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
+        jcv.parameters.AddRange(sourceModel.SQLiteExpression.Parameters ?? []);
+
+        Type resultType = node.Type;
+        foreach (MethodCallExpression call in chain)
+        {
+            jcv.ProcessMethod(call, sourceModel.SQLiteExpression.Type);
+            resultType = call.Type;
+        }
+
+        string sql = jcv.BuildSql(sourceModel.SQLiteExpression.ToString());
+        Type coercedType = CoerceType(resultType, sourceModel.SQLiteExpression.Type);
+        return SQLiteExpression.Leaf(coercedType, sqlVisitor.Counters.NextIdentifier(), sql,
+            jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null)
+            .WithJsonSource();
     }
 
     private static bool IsChainedCollectionMethod(MethodCallExpression node)

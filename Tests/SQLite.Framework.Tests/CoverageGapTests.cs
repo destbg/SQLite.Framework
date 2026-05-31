@@ -194,7 +194,7 @@ public class CoverageGapTests
         Assert.Throws<InvalidOperationException>(() =>
             db.Table<Book>().Upsert(book, c =>
             {
-                UpsertConflictTarget<Book> conflict = c.OnConflict(b => b.Id);
+                SQLiteUpsertConflictTarget<Book> conflict = c.OnConflict(b => b.Id);
                 conflict.DoNothing();
                 conflict.DoUpdateAll();
             }));
@@ -934,7 +934,7 @@ public class CoverageGapTests
     private sealed class SqlInspector : SQLiteTable<Book>
     {
         public SqlInspector(SQLiteDatabase database, TableMapping table) : base(database, table) { }
-        public string GetSql(Action<UpsertBuilder<Book>> configure) => GetUpsertInfo(configure).Sql;
+        public string GetSql(Action<SQLiteUpsertBuilder<Book>> configure) => GetUpsertInfo(configure).Sql;
     }
 
     [Fact]

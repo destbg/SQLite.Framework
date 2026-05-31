@@ -100,17 +100,6 @@ internal static class ExpressionHelpers
         };
     }
 
-    private static object? ConvertConstant(object? value, Type targetType)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        Type underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        return value.GetType() == underlying ? value : Convert.ChangeType(value, underlying);
-    }
-
     public static Expression StripQuotes(Expression node)
     {
         while (node.NodeType == ExpressionType.Quote)
@@ -134,6 +123,17 @@ internal static class ExpressionHelpers
         return node.RequiresBrackets
             ? SQLiteExpression.Wrap(node.Type, node.Identifier, "(", node, ")", node.Parameters)
             : node;
+    }
+
+    private static object? ConvertConstant(object? value, Type targetType)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        Type underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        return value.GetType() == underlying ? value : Convert.ChangeType(value, underlying);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of user assembly")]

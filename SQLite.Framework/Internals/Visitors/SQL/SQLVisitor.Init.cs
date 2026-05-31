@@ -51,7 +51,6 @@ internal partial class SQLVisitor
         return node.Update(bindings);
     }
 
-    [ExcludeFromCodeCoverage(Justification = "I really hope no one is doing new Dto { Collection = { item1, item2 } } inside a Where clause")]
     protected override MemberListBinding VisitMemberListBinding(MemberListBinding node)
     {
         List<ElementInit> initializers = node.Initializers.Select(VisitElementInit).ToList();

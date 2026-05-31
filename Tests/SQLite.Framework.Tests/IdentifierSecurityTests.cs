@@ -32,9 +32,9 @@ public class IdentifierSecurityTests
     [Fact]
     public void TableBuilderIndex_NameWithDoubleQuote_IsEscapedAndCreated()
     {
-        using TestDatabase db = new();
+        using ModelTestDatabase db = new(model => model.Entity<Book>().Index(b => b.Title, name: "tb\"idx"));
 
-        db.Schema.Table<Book>().Index(b => b.Title, name: "tb\"idx").CreateTable();
+        db.Schema.CreateTable<Book>();
 
         Assert.True(db.Schema.IndexExists("tb\"idx"));
     }

@@ -179,25 +179,26 @@ Pass a column name to target a non-primary-key column.
 public string CountryCode { get; set; }
 ```
 
-The framework also reads `[System.ComponentModel.DataAnnotations.Schema.ForeignKey("Author")]`. It takes `Name` as the target class name and infers the primary key with `NoAction` defaults. Prefer `[ReferencesTable]` when you need an action other than `NoAction`, deferred enforcement, or refactor-safe `typeof` targeting. The two attributes cannot be combined on the same property.
+The framework also reads `[System.ComponentModel.DataAnnotations.Schema.ForeignKey("Author")]`. It takes `Name` as the target class name and infers the primary key with `NoAction` defaults. `[ReferencesTable]` also supports actions other than `NoAction`, deferred enforcement, and refactor-safe `typeof` targeting. The two attributes cannot be combined on the same property.
 
-For composite keys use the fluent builder.
+For composite keys, declare the foreign key in `OnModelCreating`.
 
 ```csharp
-db.Schema.Table<OrderLine>()
-    .ForeignKey<Order>(
-        l => new { l.OrderId, l.OrderVersion },
-        o => new { o.Id, o.Version },
-        onDelete: SQLiteForeignKeyAction.Cascade)
-    .CreateTable();
+protected override void OnModelCreating(SQLiteModelBuilder builder)
+{
+    builder.Entity<OrderLine>()
+        .ForeignKey<Order>(
+            l => new { l.OrderId, l.OrderVersion },
+            o => new { o.Id, o.Version },
+            onDelete: SQLiteForeignKeyAction.Cascade);
+}
 ```
 
-The single-column overload also lives on the builder for runtime decisions.
+The single-column overload is available there too.
 
 ```csharp
-db.Schema.Table<Book>()
-    .ForeignKey<Author>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.Cascade)
-    .CreateTable();
+builder.Entity<Book>()
+    .ForeignKey<Author>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.Cascade);
 ```
 
 Enforcement is on by default. The framework runs `PRAGMA foreign_keys = ON` on every connection open. Pass `UseForeignKeys(false)` to the builder to opt out, or flip it at runtime with `db.Pragmas.ForeignKeys = false`.

@@ -1,14 +1,14 @@
-namespace SQLite.Framework.Models;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Picks what happens when an INSERT conflicts on the chosen target column or columns.
-/// Returned by <see cref="UpsertBuilder{T}.OnConflict{TKey}" />.
+/// Returned by <see cref="SQLiteUpsertBuilder{T}.OnConflict{TKey}" />.
 /// </summary>
-public sealed class UpsertConflictTarget<T>
+public sealed class SQLiteUpsertConflictTarget<T>
 {
-    private UpsertAction<T>? action;
+    private SQLiteUpsertAction<T>? action;
 
-    internal UpsertConflictTarget(IReadOnlyList<string> conflictColumns)
+    internal SQLiteUpsertConflictTarget(IReadOnlyList<string> conflictColumns)
     {
         ConflictColumns = conflictColumns;
     }
@@ -17,7 +17,7 @@ public sealed class UpsertConflictTarget<T>
 
     internal Expression<Func<T, bool>>? WherePredicate { get; private set; }
 
-    internal UpsertAction<T> ResolvedAction => action
+    internal SQLiteUpsertAction<T> ResolvedAction => action
         ?? throw new InvalidOperationException("Upsert configuration is missing a DoNothing(), DoUpdateAll(), or DoUpdate(...) call.");
 
     /// <summary>
@@ -25,7 +25,7 @@ public sealed class UpsertConflictTarget<T>
     /// <c>ON CONFLICT (col) WHERE pred</c>. The predicate must match the partial index's own
     /// <c>WHERE</c> clause. It is translated to SQL the same way <c>Where</c> clauses are.
     /// </summary>
-    public UpsertConflictTarget<T> Where(Expression<Func<T, bool>> predicate)
+    public SQLiteUpsertConflictTarget<T> Where(Expression<Func<T, bool>> predicate)
     {
         if (WherePredicate != null)
         {
@@ -39,23 +39,23 @@ public sealed class UpsertConflictTarget<T>
     /// <summary>
     /// <c>ON CONFLICT (...) DO NOTHING</c>. Keeps the existing row, drops the new one.
     /// </summary>
-    public UpsertAction<T> DoNothing()
+    public SQLiteUpsertAction<T> DoNothing()
     {
-        return Set(UpsertAction<T>.DoNothing());
+        return Set(SQLiteUpsertAction<T>.DoNothing());
     }
 
     /// <summary>
     /// <c>ON CONFLICT (...) DO UPDATE SET col = excluded.col</c> for every non-conflict column.
     /// </summary>
-    public UpsertAction<T> DoUpdateAll()
+    public SQLiteUpsertAction<T> DoUpdateAll()
     {
-        return Set(UpsertAction<T>.DoUpdateAll());
+        return Set(SQLiteUpsertAction<T>.DoUpdateAll());
     }
 
     /// <summary>
     /// <c>ON CONFLICT (...) DO UPDATE SET col = excluded.col</c> for the listed columns only.
     /// </summary>
-    public UpsertAction<T> DoUpdate(params Expression<Func<T, object?>>[] columns)
+    public SQLiteUpsertAction<T> DoUpdate(params Expression<Func<T, object?>>[] columns)
     {
         if (columns.Length == 0)
         {
@@ -63,7 +63,7 @@ public sealed class UpsertConflictTarget<T>
         }
 
         IReadOnlyList<string> names = UpsertExpressionParser.ResolveColumnList(columns);
-        return Set(UpsertAction<T>.DoUpdate(names));
+        return Set(SQLiteUpsertAction<T>.DoUpdate(names));
     }
 
     /// <summary>
@@ -71,9 +71,9 @@ public sealed class UpsertConflictTarget<T>
     /// the existing row and the incoming <c>excluded</c> row, as in
     /// <c>DoUpdate(s =&gt; s.Set(b =&gt; b.Count, (current, excluded) =&gt; current.Count + excluded.Count))</c>.
     /// </summary>
-    public UpsertAction<T> DoUpdate(Action<UpsertSetBuilder<T>> configure)
+    public SQLiteUpsertAction<T> DoUpdate(Action<SQLiteUpsertSetBuilder<T>> configure)
     {
-        UpsertSetBuilder<T> builder = new();
+        SQLiteUpsertSetBuilder<T> builder = new();
         configure(builder);
 
         if (builder.Setters.Count == 0)
@@ -81,10 +81,10 @@ public sealed class UpsertConflictTarget<T>
             throw new ArgumentException("DoUpdate requires at least one Set(...) call. Use DoUpdateAll for every column or DoNothing to keep the existing row.", nameof(configure));
         }
 
-        return Set(UpsertAction<T>.DoUpdateSet(builder.Setters));
+        return Set(SQLiteUpsertAction<T>.DoUpdateSet(builder.Setters));
     }
 
-    private UpsertAction<T> Set(UpsertAction<T> next)
+    private SQLiteUpsertAction<T> Set(SQLiteUpsertAction<T> next)
     {
         if (action != null)
         {

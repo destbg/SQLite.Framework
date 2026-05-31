@@ -18,13 +18,13 @@ var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 
 ## Packages
 
-| Package | When to use |
+| Package | What it offers |
 |---|---|
 | `SQLite.Framework` | Default. Uses the SQLite version that ships with the OS. Works on all major platforms. |
-| `SQLite.Framework.Bundled` | Ships its own SQLite binary. Use this when the OS-provided SQLite is too old or you need a specific version. |
+| `SQLite.Framework.Bundled` | Ships its own SQLite binary, independent of the OS-provided SQLite. |
 | `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. Call `UseEncryptionKey` on the options builder to enable encryption. |
-| `SQLite.Framework.Base` | No SQLite provider included. Use this when you want to supply your own SQLitePCLRaw provider. You are responsible for calling `SQLitePCL.Batteries_V2.Init()` before creating a database. |
-| `SQLite.Framework.DependencyInjection` | `AddSQLiteDatabase` helpers for `Microsoft.Extensions.DependencyInjection`. Use it to register a `SQLiteDatabase` (or a subclass) into an `IServiceCollection`. |
+| `SQLite.Framework.Base` | No SQLite provider included. You supply your own SQLitePCLRaw provider and call `SQLitePCL.Batteries_V2.Init()` before creating a database. |
+| `SQLite.Framework.DependencyInjection` | `AddSQLiteDatabase` helpers that register a `SQLiteDatabase` (or a subclass) into an `IServiceCollection` for `Microsoft.Extensions.DependencyInjection`. |
 | `SQLite.Framework.SourceGenerator` | Build-time source generator that writes materializers for your entities and `Select` projections. Recommended for Native AOT builds, where it removes the reflection-driven materializer path. |
 
 All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose the same API and assembly name, so you can swap between them without changing any code. The other packages layer optional features on top.

@@ -47,8 +47,6 @@ The full set of built-in accessors:
 | `DataVersion` | `data_version` | Read-only. Increases when another connection modifies the database. |
 | `SchemaVersion` | `schema_version` | Read-only. Increases when the schema changes. |
 
-Each accessor also has an async wrapper, for example `GetBusyTimeoutAsync` and `SetBusyTimeoutAsync`, or `IntegrityCheckAsync`, in `AsyncPragmaExtensions`.
-
 ## SQLCipher pragmas
 
 On the `SQLite.Framework.Cipher` package the same accessor adds the `cipher_*` family. These are only visible when the `SQLITECIPHER` compile symbol is defined (the Cipher package sets it):
@@ -72,10 +70,10 @@ The cipher set-only properties (compatibility, page size, HMAC, KDF iterations, 
 `db.Pragmas.Master` and `db.Pragmas.Sequence` are LINQ-queryable views over `sqlite_master` and `sqlite_sequence`.
 
 ```csharp
-List<string> tables = db.Pragmas.Master
+List<string> tables = await db.Pragmas.Master
     .Where(m => m.Type == "table")
     .Select(m => m.Name)
-    .ToList();
+    .ToListAsync();
 ```
 
 `sqlite_sequence` only exists after the first `[AutoIncrement]` table is created.
@@ -85,12 +83,12 @@ List<string> tables = db.Pragmas.Master
 `db.Pragmas.TableInfo(name)`, `IndexList(name)`, and `ForeignKeyList(name)` wrap the SQLite pragma TVFs and return `IQueryable<T>`. The argument can be a column from an outer query, in which case the framework emits a single correlated SQL statement.
 
 ```csharp
-var rows = (
+var rows = await (
     from m in db.Pragmas.Master
     from p in db.Pragmas.TableInfo(m.Name)
     where m.Type == "table" && !m.Name.StartsWith("sqlite_")
     select new { Table = m.Name, Column = p.Name, Type = p.Type }
-).ToList();
+).ToListAsync();
 ```
 
 ## Adding more pragmas

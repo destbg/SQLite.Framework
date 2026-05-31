@@ -609,7 +609,7 @@ public class SchemaTests
     public async Task TableBuilder_CreateTableAsync_RoundTrips()
     {
         using TestDatabase db = new();
-        SQLiteTableBuilder<Book> builder = db.Schema.Table<Book>();
+        SQLiteTableSchema<Book> builder = db.Schema.Table<Book>();
         await builder.CreateTableAsync(TestContext.Current.CancellationToken);
         Assert.True(await db.Schema.TableExistsAsync<Book>(TestContext.Current.CancellationToken));
     }
@@ -730,8 +730,8 @@ public class SchemaTests
     [Fact]
     public void CreateTable_BuilderStrict_AppendsClause()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<Book>().Strict().CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<Book>().Strict());
+        db.Schema.CreateTable<Book>();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Books'");
@@ -741,8 +741,8 @@ public class SchemaTests
     [Fact]
     public void CreateTable_BuilderStrictAndAttributeWithoutRowId_CombinesClauses()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<WithoutRowIdEntity>().Strict().CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<WithoutRowIdEntity>().Strict());
+        db.Schema.CreateTable<WithoutRowIdEntity>();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'WithoutRowIdEntity'");
@@ -790,10 +790,9 @@ public class SchemaTests
     [Fact]
     public void CreateTable_BuilderIndexCollation_EmitsCollateClause()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<Book>()
-            .Index(b => b.Title, name: "IX_Book_Title_NoCase", collation: SQLiteCollation.NoCase)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<Book>()
+            .Index(b => b.Title, name: "IX_Book_Title_NoCase", collation: SQLiteCollation.NoCase));
+        db.Schema.CreateTable<Book>();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_Title_NoCase'");
@@ -803,10 +802,9 @@ public class SchemaTests
     [Fact]
     public void CreateTable_BuilderIndexCollationBinary_EmitsBinaryClause()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<Book>()
-            .Index(b => b.Title, name: "IX_Book_Title_Binary", collation: SQLiteCollation.Binary)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<Book>()
+            .Index(b => b.Title, name: "IX_Book_Title_Binary", collation: SQLiteCollation.Binary));
+        db.Schema.CreateTable<Book>();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_Title_Binary'");
@@ -816,10 +814,9 @@ public class SchemaTests
     [Fact]
     public void CreateTable_BuilderIndexNoCollation_EmitsNoClause()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<Book>()
-            .Index(b => b.Title, name: "IX_Book_Title_Plain")
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<Book>()
+            .Index(b => b.Title, name: "IX_Book_Title_Plain"));
+        db.Schema.CreateTable<Book>();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_Title_Plain'");
@@ -829,11 +826,10 @@ public class SchemaTests
     [Fact]
     public void CreateTable_BuilderIndexPerColumnCollations_EmitsPerColumn()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<Book>()
+        using ModelTestDatabase db = new(model => model.Entity<Book>()
             .Index(b => new { b.Title, b.AuthorId }, name: "IX_Book_TitleAuthor",
-                collations: [SQLiteCollation.Rtrim, SQLiteCollation.Inherit])
-            .CreateTable();
+                collations: [SQLiteCollation.Rtrim, SQLiteCollation.Inherit]));
+        db.Schema.CreateTable<Book>();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_TitleAuthor'");
@@ -844,13 +840,12 @@ public class SchemaTests
     [Fact]
     public void CreateTable_BuilderIndexCollationsWrongLength_Throws()
     {
-        using TestDatabase db = new();
-        SQLiteTableBuilder<Book> builder = db.Schema.Table<Book>();
-
-        Assert.Throws<ArgumentException>(() => builder.Index(
+        using ModelTestDatabase db = new(model => model.Entity<Book>().Index(
             b => new { b.Title, b.AuthorId },
             name: "IX_BadLen",
             collations: [SQLiteCollation.NoCase]));
+
+        Assert.Throws<ArgumentException>(() => db.Schema.CreateTable<Book>());
     }
 
     [Fact]
@@ -1019,10 +1014,9 @@ public class SchemaTests
     [Fact]
     public void CreateTable_BuilderDefaultLiteral_EmitsDefaultClause()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookWithBuilderDefault>()
-            .Default(b => b.Rating, 25)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookWithBuilderDefault>()
+            .Default(b => b.Rating, 25));
+        db.Schema.CreateTable<BookWithBuilderDefault>();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithBuilderDefault'");
@@ -1032,10 +1026,9 @@ public class SchemaTests
     [Fact]
     public void Add_BuilderDefaultLiteral_OmitsColumnWhenClrDefault()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookWithBuilderDefault>()
-            .Default(b => b.Rating, 25)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookWithBuilderDefault>()
+            .Default(b => b.Rating, 25));
+        db.Schema.CreateTable<BookWithBuilderDefault>();
 
         SQLiteTable<BookWithBuilderDefault> table = db.Table<BookWithBuilderDefault>();
         table.Add(new BookWithBuilderDefault { Title = "Hello" });
@@ -1047,10 +1040,9 @@ public class SchemaTests
     [Fact]
     public void CreateTable_BuilderDefaultExpression_EmitsParenthesizedClause()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookWithBuilderDefault>()
-            .Default(b => b.Rating, () => 6 * 7)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookWithBuilderDefault>()
+            .Default(b => b.Rating, () => 6 * 7));
+        db.Schema.CreateTable<BookWithBuilderDefault>();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithBuilderDefault'");
@@ -1061,10 +1053,9 @@ public class SchemaTests
     [Fact]
     public void Add_BuilderDefaultExpression_AppliesDatabaseDefault()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookWithBuilderDefault>()
-            .Default(b => b.Rating, () => 6 * 7)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookWithBuilderDefault>()
+            .Default(b => b.Rating, () => 6 * 7));
+        db.Schema.CreateTable<BookWithBuilderDefault>();
 
         SQLiteTable<BookWithBuilderDefault> table = db.Table<BookWithBuilderDefault>();
         table.Add(new BookWithBuilderDefault { Title = "Hello" });
@@ -1076,10 +1067,9 @@ public class SchemaTests
     [Fact]
     public void Add_BuilderDefault_StringColumn_OmitsColumnWhenNull()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookWithStringDefault>()
-            .Default(b => b.Label, "from-db")
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookWithStringDefault>()
+            .Default(b => b.Label, "from-db"));
+        db.Schema.CreateTable<BookWithStringDefault>();
 
         SQLiteTable<BookWithStringDefault> table = db.Table<BookWithStringDefault>();
         table.Add(new BookWithStringDefault { Title = "Hello" });
@@ -1130,19 +1120,17 @@ public class SchemaTests
     [Fact]
     public void BuilderDefault_UntranslatableExpression_Throws()
     {
-        using TestDatabase db = new();
-        Assert.Throws<ArgumentException>(() =>
-            db.Schema.Table<BookWithBuilderTimestamp>()
-                .Default(b => b.CreatedAt, () => new string('a', 3)));
+        using ModelTestDatabase db = new(model => model.Entity<BookWithBuilderTimestamp>()
+            .Default(b => b.CreatedAt, () => new string('a', 3)));
+        Assert.Throws<ArgumentException>(() => db.Schema.CreateTable<BookWithBuilderTimestamp>());
     }
 
     [Fact]
     public void BuilderDefault_ParameterlessSqlFunction_TranslatesWithoutParameters()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookWithBuilderTimestamp>()
-            .Default(b => b.CreatedAt, () => SQLiteFunctions.SqliteVersion())
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookWithBuilderTimestamp>()
+            .Default(b => b.CreatedAt, () => SQLiteFunctions.SqliteVersion()));
+        db.Schema.CreateTable<BookWithBuilderTimestamp>();
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithBuilderTimestamp'");

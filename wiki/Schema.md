@@ -8,25 +8,25 @@ In earlier versions, `CreateTable` and `DropTable` lived on `db.Table<T>()`. The
 
 ```csharp
 // New
-db.Table<Book>().Schema.CreateTable(); // Uses fluent builder
+await db.Table<Book>().Schema.CreateTableAsync(); // table action handle
 // Or
-db.Schema.CreateTable<Book>();
+await db.Schema.CreateTableAsync<Book>();
 
 // Old (still works, gives an obsolete warning)
-db.Table<Book>().CreateTable();
+await db.Table<Book>().CreateTableAsync();
 ```
 
 ## Create and drop
 
 ```csharp
-db.Table<Book>().Schema.CreateTable();
+await db.Table<Book>().Schema.CreateTableAsync();
 // Or
-db.Schema.CreateTable<Book>();
+await db.Schema.CreateTableAsync<Book>();
 
-db.Schema.DropTable<Book>();
+await db.Schema.DropTableAsync<Book>();
 
 // By table name when you do not have an entity class anymore
-db.Schema.DropTable("OldBooks");
+await db.Schema.DropTableAsync("OldBooks");
 ```
 
 `CreateTable` is idempotent. It uses `CREATE TABLE IF NOT EXISTS` and creates any indexes you marked with `[Indexed]`.
@@ -34,36 +34,69 @@ db.Schema.DropTable("OldBooks");
 ## Indexes
 
 ```csharp
-db.Schema.CreateIndex<Book>(b => b.Title);
-db.Schema.CreateIndex<Book>(b => b.AuthorId, name: "IX_Book_Author", unique: true);
-db.Schema.DropIndex("IX_Book_Author");
+await db.Schema.CreateIndexAsync<Book>(b => b.Title);
+await db.Schema.CreateIndexAsync<Book>(b => b.AuthorId, name: "IX_Book_Author", unique: true);
+await db.Schema.DropIndexAsync("IX_Book_Author");
 ```
 
 The default index name is `idx_{TableName}_{ColumnName}`.
 
-## Fluent table builder
+## Defining the model
 
-When you want to set up computed columns, CHECK constraints, or partial indexes alongside the table itself, use the fluent builder. Reach it with `db.Table<T>().Schema`. It records each option you chain, then issues all of the DDL when you call `CreateTable()`.
+Computed columns, CHECK constraints, indexes, foreign keys, defaults, triggers, and the rest of the schema are declared once, in one place. Override `OnModelCreating` on your `SQLiteDatabase` subclass and configure each entity with `builder.Entity<T>()`. The framework calls `OnModelCreating` a single time, before any table is used, so create, migrate, and validate all read the same definition.
 
 ```csharp
-db.Table<Book>().Schema
-    .Computed(b => b.Total, b => b.Price * b.Quantity)
-    .Computed(b => b.PriceWithTax, b => b.Price * 1.21m, stored: true)
-    .Check(b => b.Price > 0, name: "CK_Price_Positive")
-    .Check(b => b.Title.Length > 0)
-    .Default(b => b.Rating, 0)
-    .Default(b => b.Slug, () => SQLiteFunctions.SqliteVersion())
-    .Index(b => b.Title)
-    .Index(b => b.AuthorId, unique: true)
-    .Index(b => b.CategoryId, filter: b => !b.Deleted)
-    .Index(b => new { b.AuthorId, b.Genre }, name: "IX_AuthorGenre")
-    .Strict()
-    .CreateTable();
+public class AppDatabase : SQLiteDatabase
+{
+    public AppDatabase(SQLiteOptions options) : base(options) { }
+
+    protected override void OnModelCreating(SQLiteModelBuilder builder)
+    {
+        builder.Entity<Book>()
+            .ToTable("Books")
+            .HasKey(b => b.Id)
+            .AutoIncrement(b => b.Id)
+            .HasColumnName(b => b.Title, "title")
+            .HasColumnType(b => b.Price, SQLiteColumnType.Real)
+            .IsRequired(b => b.Title)
+            .Ignore(b => b.Scratch)
+            .Computed(b => b.Total, b => b.Price * b.Quantity)
+            .Computed(b => b.PriceWithTax, b => b.Price * 1.21m, stored: true)
+            .Check(b => b.Price > 0, name: "CK_Price_Positive")
+            .Default(b => b.Rating, 0)
+            .Index(b => b.AuthorId)
+            .Index(b => new { b.AuthorId, b.Genre }, name: "IX_AuthorGenre")
+            .ForeignKey<Author>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.Cascade)
+            .Column("RowVersion", SQLiteColumnType.Integer, nullable: false, defaultSql: "0")
+            .Strict()
+            .Trigger("trg_Book_Audit", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, t => t
+                .Insert(Table<AuditLog>(), set => set.Set(a => a.BookId, _ => t.New.Id)));
+    }
+}
 ```
+
+Everything the mapping attributes can do is available here too, so you can keep entities as plain classes and put all the schema in `OnModelCreating`, or mix attributes and the builder.
+
+Table-level configuration:
+
+* `ToTable(name)` sets the table name, same as the `[Table]` attribute.
+* `HasKey(b => b.Id)` or `HasKey(b => new { b.A, b.B })` sets the primary key, same as `[Key]`. It replaces any key already declared on the columns.
+* `WithoutRowId()` marks the table WITHOUT ROWID, same as `[WithoutRowId]`.
+* `Strict()` marks the table as a SQLite STRICT table, same as `[StrictTable]`. Requires SQLite 3.37.0 or newer.
+
+Column-level configuration:
+
+* `HasColumnName(b => b.Title, "title")` sets the column name, same as `[Column]`.
+* `HasColumnType(b => b.Price, SQLiteColumnType.Real)` overrides the storage type.
+* `IsRequired(b => b.Title)` makes the column NOT NULL, same as `[Required]`. Pass `required: false` to allow NULL.
+* `AutoIncrement(b => b.Id)` marks an auto-incrementing primary key, same as `[AutoIncrement]`.
+* `Ignore(b => b.Scratch)` drops the property from the model, same as `[NotMapped]`.
 
 `Computed(target, sql, stored)` adds a generated column. The default is virtual (computed on every read). Pass `stored: true` to store the value on disk.
 
 `Check(predicate, name)` adds a table-level CHECK constraint. The predicate is translated to SQL the same way `Where` clauses are.
+
+`ForeignKey<TParent>(column, ...)` declares a foreign key, same as `[ReferencesTable]`. Pass a target selector for non-key targets or composite keys. See [Defining Models](Defining%20Models) for the full foreign key options.
 
 `Default(column, ...)` sets the column's `DEFAULT` clause. Two overloads:
 
@@ -94,24 +127,30 @@ Expression indexes accept any translatable expression, and a composite index can
 
 Use `direction` to store every slot of the index in descending order, or pass `directions` as an array for per-slot control on a composite index. The default `SQLiteIndexDirection.Inherit` emits no clause, `Ascending` emits `ASC`, and `Descending` emits `DESC`. Sorting a slot in `DESC` lets the planner skip the extra sort step for matching `ORDER BY x DESC` queries. The `[Indexed]` attribute has a `Direction` property with the same effect.
 
-```csharp
-.Index(b => b.PublishedAt, name: "IX_Book_PublishedDesc",
-    direction: SQLiteIndexDirection.Descending)
-.Index(b => new { b.AuthorId, b.PublishedAt },
-    name: "IX_Book_AuthorAndPublishedMixed",
-    directions: [SQLiteIndexDirection.Ascending, SQLiteIndexDirection.Descending])
-```
+`Column(name, type, nullable, defaultSql)` adds a column that has no CLR property. The framework creates it and keeps it across a migrate rebuild, but never reads or writes it.
 
-`Strict()` marks the table as a SQLite STRICT table. Same effect as the `[StrictTable]` attribute (see [Defining Models](Defining%20Models)). Requires SQLite 3.37.0 or newer.
+`Trigger(name, timing, event, build, forEachRow)` declares a trigger whose body is built from typed LINQ statements. The trigger becomes part of the model, so create and migrate manage it. Reference target tables through the database's own `Table<TTarget>()`, which is in scope inside `OnModelCreating`. See [Triggers](#triggers) below.
 
 Constants in computed, CHECK, default, and partial-index expressions are inlined as SQL literals because CREATE TABLE / CREATE INDEX cannot bind parameters. Only simple types (numbers, strings, bool) are supported as constants. For exotic types, use raw SQL through `db.Execute`.
+
+### Running the schema actions
+
+Configuration lives only in `OnModelCreating`. To act on a table, reach its action handle with `db.Schema.Table<T>()` or `db.Table<T>().Schema`, which expose `CreateTable()`, `Migrate()`, and `ValidateModel()`. `db.Schema.CreateTable<T>()` is the same as `db.Schema.Table<T>().CreateTable()`.
+
+```csharp
+await db.Schema.CreateTableAsync<Book>();          // create with all declared indexes and triggers
+await db.Schema.Table<Book>().MigrateAsync();      // reconcile the live table with the model
+await db.Table<Book>().Schema.ValidateModelAsync();
+```
+
+Earlier versions configured the schema at the call site, like `db.Schema.Table<Book>().Index(...).CreateTable()`. That is gone. Move those calls into `OnModelCreating` and call the action by itself.
 
 ## Existence checks
 
 ```csharp
-bool hasBooks = db.Schema.TableExists<Book>();
-bool hasIndex = db.Schema.IndexExists("IX_Book_Author");
-bool hasTitle = db.Schema.ColumnExists<Book>("BookTitle");
+bool hasBooks = await db.Schema.TableExistsAsync<Book>();
+bool hasIndex = await db.Schema.IndexExistsAsync("IX_Book_Author");
+bool hasTitle = await db.Schema.ColumnExistsAsync<Book>("BookTitle");
 ```
 
 ## Inspection
@@ -121,7 +160,7 @@ IReadOnlyList<string> tables = db.Schema.ListTables();
 IReadOnlyList<string> indexes = db.Schema.ListIndexes();
 IReadOnlyList<string> bookIndexes = db.Schema.ListIndexes("Books");
 
-IReadOnlyList<SchemaColumnInfo> columns = db.Schema.ListColumns<Book>();
+IReadOnlyList<SchemaColumnInfo> columns = await db.Schema.ListColumnsAsync<Book>();
 foreach (SchemaColumnInfo col in columns)
 {
     Console.WriteLine($"{col.Name} {col.Type} nullable={col.IsNullable} pk={col.IsPrimaryKey}");
@@ -130,10 +169,10 @@ foreach (SchemaColumnInfo col in columns)
 
 ## Validate the model
 
-`ValidateModel<T>()` compares the model against the live database and returns the issues found.
+`ValidateModel<T>()` compares the model against the live database and returns the issues found. It is also reachable on the table action handle as `db.Schema.Table<T>().ValidateModel()` and `db.Table<T>().Schema.ValidateModel()`.
 
 ```csharp
-SQLiteModelValidationResult result = db.Schema.ValidateModel<Book>();
+SQLiteModelValidationResult result = await db.Schema.ValidateModelAsync<Book>();
 if (!result.IsValid)
 {
     foreach (string issue in result.Issues)
@@ -143,15 +182,57 @@ if (!result.IsValid)
 }
 ```
 
-Virtual tables (FTS5, R-Tree) only have their existence checked.
+It checks columns (missing, extra, type, primary key, nullability), declared indexes, foreign keys, and declared triggers. Columns declared with `Column(...)` that have no CLR property are expected, not flagged as extra. Virtual tables (FTS5, R-Tree) only have their existence checked.
+
+## Migrate
+
+`Migrate()` reconciles the live table with the model. Reach it with `db.Schema.Table<T>().Migrate()` or `db.Table<T>().Schema.Migrate()`.
+
+```csharp
+await db.Schema.Table<Book>().MigrateAsync();
+```
+
+What it does:
+
+* Creates the table when it does not exist.
+* When the table definition has drifted from the model, it rebuilds the table the way SQLite recommends: create a new table from the model, copy the rows, drop the old table, rename the new one. This works on any SQLite version and never needs the version-gated `DROP COLUMN`.
+* Preserves the rows for every column the model keeps. A removed column loses its data, a new column gets NULL or its default, and a type change keeps the values.
+* Creates or recreates declared indexes and triggers, and drops indexes that are no longer declared. Triggers that are not declared on the model are left alone and are preserved across a rebuild.
+
+The rebuild runs inside a transaction with foreign keys turned off for the duration, as SQLite requires, then restored. If the copy fails (for example a new CHECK rejects an existing row), the whole migrate rolls back and the old table and its data stay intact.
+
+FTS5 and R-Tree tables are only ensured to exist.
+
+### Filling new columns
+
+A new `NOT NULL` column with no default cannot be filled by copying old rows. If the table has rows, `Migrate()` stops with a clear error that names the column before it tries the rebuild. You have three ways to fix it: give the column a default in `OnModelCreating`, make it nullable, or pass values to `Migrate`.
+
+`Migrate(m => m.Set(...))` lets you fill or override columns during the rebuild. Each value is read from the old row.
+
+```csharp
+await db.Schema.Table<Book>().MigrateAsync(m => m
+    .Set(b => b.Status, "active")          // constant for every row
+    .Set(b => b.Slug, b => b.Title));      // expression over the old row
+```
+
+The expression form is translated to SQL and runs over the old row, the same way CHECK and computed columns are. To read or write a column that has no CLR property, use `row.Column<T>("Name")`:
+
+```csharp
+await db.Schema.Table<Book>().MigrateAsync(m => m
+    .Set(b => b.Column<string>("Slug"), b => b.Title));
+```
+
+A column you do not set is copied across unchanged when it still exists. Migrate with `Set` always rebuilds the table even when nothing has drifted, so the values are applied.
+
+`Migrate` reconciles structure. It does not run arbitrary data fixups. For one-off column changes on a live table, see the next section.
 
 ## Altering tables
 
 ```csharp
-db.Schema.AddColumn<Book>("Subtitle");     // adds the Subtitle column from the entity
-db.Schema.RenameColumn<Book>("BookTitle", "Title");
-db.Schema.DropColumn<Book>("BookTitle");
-db.Schema.RenameTable<Book>("RenamedBooks");
+await db.Schema.AddColumnAsync<Book>("Subtitle");     // adds the Subtitle column from the entity
+await db.Schema.RenameColumnAsync<Book>("BookTitle", "Title");
+await db.Schema.DropColumnAsync<Book>("BookTitle");
+await db.Schema.RenameTableAsync<Book>("RenamedBooks");
 ```
 
 `AddColumn` takes a property name on the entity. The framework reads the type, nullability, and primary-key flags from your model and emits the right `ALTER TABLE ADD COLUMN` SQL.
@@ -159,14 +240,14 @@ db.Schema.RenameTable<Book>("RenamedBooks");
 A property selector overload is also available:
 
 ```csharp
-db.Schema.AddColumn<Book>(b => b.Subtitle);
+await db.Schema.AddColumnAsync<Book>(b => b.Subtitle);
 ```
 
 Pass `defaultValue` to emit a `DEFAULT` clause. You need this when you add a `NOT NULL` column to a table that already has rows. SQLite then uses the default to backfill existing rows.
 
 ```csharp
-db.Schema.AddColumn<Book>(b => b.Pages, defaultValue: 0);
-db.Schema.AddColumn<Book>(b => b.Genre, defaultValue: "Unknown");
+await db.Schema.AddColumnAsync<Book>(b => b.Pages, defaultValue: 0);
+await db.Schema.AddColumnAsync<Book>(b => b.Genre, defaultValue: "Unknown");
 ```
 
 SQLite does not let you use parameters inside DDL statements like `ALTER TABLE`. The framework writes `defaultValue` straight into the SQL text. Only numbers, `bool`, and `string` are accepted. Single quotes inside strings are doubled, so a value with quotes in it cannot escape from the string and run other SQL.
@@ -174,7 +255,7 @@ SQLite does not let you use parameters inside DDL statements like `ALTER TABLE`.
 A second overload takes a translated SQL expression:
 
 ```csharp
-db.Schema.AddColumn<Book>(b => b.Rating, () => 7 * 6);
+await db.Schema.AddColumnAsync<Book>(b => b.Rating, () => 7 * 6);
 ```
 
 Requires SQLite 3.31.0 or newer. SQLite also rejects non-constant defaults on `ADD COLUMN` when the table already has rows. Use them only on empty tables.
@@ -186,16 +267,16 @@ Requires SQLite 3.31.0 or newer. SQLite also rejects non-constant defaults on `A
 `db.Schema.CreateView<T>(...)` creates a SQL view from a LINQ expression. The view name comes from the `[Table("...")]` attribute on the entity, the body is the SQL produced by translating the lambda.
 
 ```csharp
-db.Schema.CreateView<BookSummary>(() =>
+await db.Schema.CreateViewAsync<BookSummary>(() =>
     from b in db.Table<Book>()
     where b.Price > 0
     select new BookSummary { Id = b.Id, Title = b.Title, Price = b.Price });
 
-bool exists = db.Schema.ViewExists<BookSummary>();
+bool exists = await db.Schema.ViewExistsAsync<BookSummary>();
 IReadOnlyList<string> views = db.Schema.ListViews();
 
-db.Schema.DropView<BookSummary>();
-db.Schema.DropView("vBookSummary");
+await db.Schema.DropViewAsync<BookSummary>();
+await db.Schema.DropViewAsync("vBookSummary");
 ```
 
 The DDL uses `CREATE VIEW IF NOT EXISTS`, so calling `CreateView` twice is safe. Pair the view with `db.ReadOnlyTable<T>()` to query it.
@@ -207,14 +288,14 @@ SQLite does not allow placeholders inside view bodies, so any constants in the l
 `db.Schema.CreateTrigger<T>(...)` creates a trigger on the table for `T`. The body and the optional `WHEN` predicate are raw SQL strings. Use `OLD` and `NEW` to refer to the row.
 
 ```csharp
-db.Schema.CreateTrigger<Book>(
+await db.Schema.CreateTriggerAsync<Book>(
     name: "trg_book_history",
     timing: SQLiteTriggerTiming.After,
     @event: SQLiteTriggerEvent.Update,
     body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.Id, OLD.BookPrice, NEW.BookPrice)",
     when: "OLD.BookPrice <> NEW.BookPrice");
 
-db.Schema.DropTrigger("trg_book_history");
+await db.Schema.DropTriggerAsync("trg_book_history");
 ```
 
 `SQLiteTriggerTiming` is `Before`, `After`, or `InsteadOf`. `SQLiteTriggerEvent` is `Insert`, `Update`, or `Delete`. `InsteadOf` only works on views. The trigger runs once per row by default, pass `forEachRow: false` to run once per statement.
@@ -222,7 +303,7 @@ db.Schema.DropTrigger("trg_book_history");
 There is also a typed overload that builds the body from LINQ instead of a SQL string. Use the builder's `Old` and `New` rows, and add `Update`, `Insert`, or `Delete` statements. Columns and the `When` guard are checked at compile time.
 
 ```csharp
-db.Schema.CreateTrigger<Book>("trg_book_history", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
+await db.Schema.CreateTriggerAsync<Book>("trg_book_history", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
     .When(() => t.Old.Price != t.New.Price)
     .Insert(db.Table<BookHistory>(), s => s
         .Set(h => h.BookId, _ => t.New.Id)
@@ -230,19 +311,7 @@ db.Schema.CreateTrigger<Book>("trg_book_history", SQLiteTriggerTiming.After, SQL
         .Set(h => h.NewPrice, _ => t.New.Price)));
 ```
 
-## Async
-
-Every method has an async wrapper that runs on a background thread:
-
-```csharp
-await db.Schema.CreateTableAsync<Book>();
-await db.Schema.DropTableAsync<Book>();
-await db.Schema.CreateIndexAsync<Book>(b => b.Title);
-bool exists = await db.Schema.TableExistsAsync<Book>();
-IReadOnlyList<SchemaColumnInfo> cols = await db.Schema.ListColumnsAsync<Book>();
-await db.Schema.CreateViewAsync<BookSummary>(() => from b in db.Table<Book>() select new BookSummary { ... });
-await db.Schema.CreateTriggerAsync<Book>("trg_x", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Insert, "...");
-```
+`CreateTrigger` creates the trigger right away and is not tracked by the model. To make a trigger part of the model, declare it with `Trigger(...)` in `OnModelCreating` (see [Defining the model](#defining-the-model)). Model triggers are created by `CreateTable`, and `Migrate` creates them when missing and recreates them when their body changes. Inside `OnModelCreating` reach the target table through the database's own `Table<TTarget>()`.
 
 ## Customizing schema generation
 
@@ -262,7 +331,7 @@ public sealed class MySchema : SQLiteSchema
 builder.UseSchema(db => new MySchema(db));
 ```
 
-The protected `virtual` methods on `SQLiteSchema` cover the FTS5 trigger generation paths. Override them when you want custom trigger shapes or naming conventions.
+The protected `virtual` methods on `SQLiteSchema` cover the FTS5 trigger generation paths. Override them to change the trigger shapes or naming conventions.
 
 ## Custom table types
 

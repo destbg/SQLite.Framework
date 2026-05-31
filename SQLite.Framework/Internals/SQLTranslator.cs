@@ -594,20 +594,6 @@ internal class SQLTranslator
         }
     }
 
-    private static void AppendSpacingNewline(StringBuilder sb, string spacing, ref bool first)
-    {
-        if (first)
-        {
-            sb.Append(spacing);
-            first = false;
-        }
-        else
-        {
-            sb.Append(Environment.NewLine);
-            sb.Append(spacing);
-        }
-    }
-
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "We are checking the Queryable class")]
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "Entity types come from user-rooted IQueryable<T> so their public properties are preserved.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "We are calling the Queryable.Select method on user-rooted IQueryable<T>.")]
@@ -809,6 +795,20 @@ internal class SQLTranslator
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(selectMethod.Arguments[1]);
         return lambda.Body;
+    }
+
+    private static void AppendSpacingNewline(StringBuilder sb, string spacing, ref bool first)
+    {
+        if (first)
+        {
+            sb.Append(spacing);
+            first = false;
+        }
+        else
+        {
+            sb.Append(Environment.NewLine);
+            sb.Append(spacing);
+        }
     }
 
     private static bool IsTerminalCountOverGroupBy(List<MethodCallExpression> methodCalls)

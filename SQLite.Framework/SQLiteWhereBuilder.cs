@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Models;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Builds a single <c>WHERE</c> predicate by composing smaller predicates with <c>AND</c>

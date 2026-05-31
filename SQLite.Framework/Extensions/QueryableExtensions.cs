@@ -101,20 +101,6 @@ public static class QueryableExtensions
         return ApplyOrderWithNulls(source, keySelector, nulls, new Func<IOrderedQueryable<T>, Expression<Func<T, TKey>>, SQLiteNullsOrder, IOrderedQueryable<T>>(ThenByDescending).Method);
     }
 
-    private static IOrderedQueryable<T> ApplyOrderWithNulls<T, TKey>(IQueryable<T> source, Expression<Func<T, TKey>> keySelector, SQLiteNullsOrder nulls, MethodInfo method)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(keySelector);
-
-        return (IOrderedQueryable<T>)source.Provider.CreateQuery<T>(
-            Expression.Call(
-                null,
-                method,
-                source.Expression,
-                Expression.Quote(keySelector),
-                Expression.Constant(nulls)));
-    }
-
     /// <summary>
     /// Joins <paramref name="outer" /> and <paramref name="inner" /> on matching keys and keeps the
     /// unmatched rows from both sides, emitting a <c>FULL OUTER JOIN</c>. The
@@ -382,38 +368,6 @@ public static class QueryableExtensions
         return BuildPlan(rows);
     }
 
-    private static SQLiteQueryPlan BuildPlan(List<(int Id, int ParentId, string Detail)> rows)
-    {
-        Dictionary<int, List<SQLiteQueryPlanNode>> childrenById = [];
-        foreach ((int id, int _, string _) in rows)
-        {
-            childrenById[id] = [];
-        }
-
-        List<SQLiteQueryPlanNode> roots = [];
-        foreach ((int id, int parentId, string detail) in rows)
-        {
-            SQLiteQueryPlanNode node = new()
-            {
-                Id = id,
-                ParentId = parentId,
-                Detail = detail,
-                Children = childrenById[id],
-            };
-
-            if (parentId == 0 || !childrenById.TryGetValue(parentId, out List<SQLiteQueryPlanNode>? siblings))
-            {
-                roots.Add(node);
-            }
-            else
-            {
-                siblings.Add(node);
-            }
-        }
-
-        return new SQLiteQueryPlan { Roots = roots };
-    }
-
     /// <summary>
     /// Concatenates the projected values of <paramref name="source" /> into one string, separated
     /// by <paramref name="separator" />. Emits a single
@@ -437,20 +391,6 @@ public static class QueryableExtensions
         Expression callExpression = Expression.Call(marker, source.Expression, Expression.Constant(separator));
 
         return sqliteSource.Provider.Execute<string?>(callExpression) ?? string.Empty;
-    }
-
-    /// <summary>
-    /// Marker method that the SQL translator rewrites into SQLite's <c>group_concat</c> aggregate.
-    /// Invoked indirectly when <see cref="string.Join(string, IEnumerable{string})" /> is called
-    /// with an <see cref="IQueryable{T}" /> as the source inside a query expression, or by
-    /// <see cref="StringJoin{T}" /> at the root. Throws <see cref="InvalidOperationException" />
-    /// when called directly.
-    /// </summary>
-    internal static string GroupConcatMarker<T>(IQueryable<T> source, string separator)
-    {
-        throw new InvalidOperationException(
-            "GroupConcatMarker is a marker for the SQL translator. " +
-            "Use string.Join(separator, queryable) inside a query expression, or call queryable.StringJoin(separator).");
     }
 
     /// <summary>
@@ -500,6 +440,20 @@ public static class QueryableExtensions
     }
 
     /// <summary>
+    /// Marker method that the SQL translator rewrites into SQLite's <c>group_concat</c> aggregate.
+    /// Invoked indirectly when <see cref="string.Join(string, IEnumerable{string})" /> is called
+    /// with an <see cref="IQueryable{T}" /> as the source inside a query expression, or by
+    /// <see cref="StringJoin{T}" /> at the root. Throws <see cref="InvalidOperationException" />
+    /// when called directly.
+    /// </summary>
+    internal static string GroupConcatMarker<T>(IQueryable<T> source, string separator)
+    {
+        throw new InvalidOperationException(
+            "GroupConcatMarker is a marker for the SQL translator. " +
+            "Use string.Join(separator, queryable) inside a query expression, or call queryable.StringJoin(separator).");
+    }
+
+    /// <summary>
     /// Marker method that the SQL translator rewrites into SQLite's <c>total</c> aggregate. Invoked
     /// indirectly by <see cref="Total{TSource}(IQueryable{TSource}, Expression{Func{TSource, double}})" />
     /// and its overloads. Throws <see cref="InvalidOperationException" /> when called directly.
@@ -509,6 +463,52 @@ public static class QueryableExtensions
         throw new InvalidOperationException(
             "TotalMarker is a marker for the SQL translator. " +
             "Call queryable.Total(selector) instead.");
+    }
+
+    private static IOrderedQueryable<T> ApplyOrderWithNulls<T, TKey>(IQueryable<T> source, Expression<Func<T, TKey>> keySelector, SQLiteNullsOrder nulls, MethodInfo method)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(keySelector);
+
+        return (IOrderedQueryable<T>)source.Provider.CreateQuery<T>(
+            Expression.Call(
+                null,
+                method,
+                source.Expression,
+                Expression.Quote(keySelector),
+                Expression.Constant(nulls)));
+    }
+
+    private static SQLiteQueryPlan BuildPlan(List<(int Id, int ParentId, string Detail)> rows)
+    {
+        Dictionary<int, List<SQLiteQueryPlanNode>> childrenById = [];
+        foreach ((int id, int _, string _) in rows)
+        {
+            childrenById[id] = [];
+        }
+
+        List<SQLiteQueryPlanNode> roots = [];
+        foreach ((int id, int parentId, string detail) in rows)
+        {
+            SQLiteQueryPlanNode node = new()
+            {
+                Id = id,
+                ParentId = parentId,
+                Detail = detail,
+                Children = childrenById[id],
+            };
+
+            if (parentId == 0 || !childrenById.TryGetValue(parentId, out List<SQLiteQueryPlanNode>? siblings))
+            {
+                roots.Add(node);
+            }
+            else
+            {
+                siblings.Add(node);
+            }
+        }
+
+        return new SQLiteQueryPlan { Roots = roots };
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]

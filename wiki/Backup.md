@@ -6,7 +6,7 @@
 
 ```csharp
 using SQLiteDatabase source = new(new SQLiteOptionsBuilder("app.db").Build());
-source.BackupTo("backup.db");
+await source.BackupToAsync("backup.db");
 ```
 
 The destination path is opened, written, and closed for you. If the file exists, it is overwritten.
@@ -16,10 +16,10 @@ The destination path is opened, written, and closed for you. If the file exists,
 ```csharp
 using SQLiteDatabase source = new(new SQLiteOptionsBuilder("app.db").Build());
 using SQLiteDatabase destination = new(new SQLiteOptionsBuilder("backup.db").Build());
-source.BackupTo(destination);
+await source.BackupToAsync(destination);
 ```
 
-Use this overload when you want to keep using the destination after the backup. For example, to run a check on the copy.
+This overload leaves the destination open after the backup, so you can keep using the copy.
 
 ## In-memory and file copies
 
@@ -29,9 +29,9 @@ You can load a file into memory at startup for fast reads, then save it back to 
 SQLiteDatabase memory = new(new SQLiteOptionsBuilder(":memory:").Build());
 SQLiteDatabase file = new(new SQLiteOptionsBuilder("disk.db").Build());
 
-file.BackupTo(memory);
+await file.BackupToAsync(memory);
 
-memory.BackupTo(file);
+await memory.BackupToAsync(file);
 ```
 
 ## Attached databases
@@ -39,7 +39,7 @@ memory.BackupTo(file);
 The two optional schema name parameters let you back up an attached database instead of `main`:
 
 ```csharp
-source.BackupTo(destination, sourceName: "aux", destName: "main");
+await source.BackupToAsync(destination, sourceName: "aux", destName: "main");
 ```
 
 ## Concurrency
@@ -51,9 +51,6 @@ Both the source and the destination connections are locked while the copy runs. 
 `Vacuum()` rebuilds the database file to reclaim free space and defragment pages. `VacuumInto(path)` writes a clean copy of the database to a separate file, similar to `BackupTo` but in a single SQL statement.
 
 ```csharp
-db.Vacuum();
-db.VacuumInto("clean-copy.db");
-
 await db.VacuumAsync();
 await db.VacuumIntoAsync("clean-copy.db");
 ```
@@ -61,9 +58,9 @@ await db.VacuumIntoAsync("clean-copy.db");
 Pass an attached schema name to operate on that schema instead of `main`:
 
 ```csharp
-db.AttachDatabase("aux.db", "aux");
-db.Vacuum("aux");
-db.VacuumInto("aux-copy.db", "aux");
+await db.AttachDatabaseAsync("aux.db", "aux");
+await db.VacuumAsync("aux");
+await db.VacuumIntoAsync("aux-copy.db", "aux");
 ```
 
 `VACUUM` cannot run inside a transaction. `VACUUM INTO` requires SQLite 3.27.0 or newer; the `SQLite.Framework.Bundled` package always satisfies that, the OS-provided SQLite needs Android 30 (API level) or iOS 13.
@@ -75,9 +72,7 @@ db.VacuumInto("aux-copy.db", "aux");
 `Reindex()` rebuilds indexes. Without an argument, every index in every attached database is rebuilt. Pass a table name to rebuild every index on that table, an index name to rebuild that single index, or a collation name to rebuild every index that uses the collation.
 
 ```csharp
-db.Reindex();
-db.Reindex("Books");
-db.Reindex("NOCASE");
-
 await db.ReindexAsync();
+await db.ReindexAsync("Books");
+await db.ReindexAsync("NOCASE");
 ```

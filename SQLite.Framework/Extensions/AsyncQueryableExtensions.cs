@@ -279,7 +279,7 @@ public static class AsyncQueryableExtensions
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
-    public static Task<TResult?> UpsertAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, T item, Action<UpsertBuilder<T>> configure, CancellationToken ct = default)
+    public static Task<TResult?> UpsertAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, T item, Action<SQLiteUpsertBuilder<T>> configure, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(returning);
 
@@ -301,7 +301,7 @@ public static class AsyncQueryableExtensions
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
-    public static Task<List<TResult>> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, CancellationToken ct = default)
+    public static Task<List<TResult>> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningTable<T, TResult> returning, IEnumerable<T> collection, Action<SQLiteUpsertBuilder<T>> configure, bool runInTransaction = true, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(returning);
 

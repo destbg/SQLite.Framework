@@ -52,15 +52,15 @@ public class ArticleSearch
 Create the table the normal way:
 
 ```csharp
-db.Table<Article>().Schema.CreateTable();
-db.Table<ArticleSearch>().Schema.CreateTable();
+await db.Table<Article>().Schema.CreateTableAsync();
+await db.Table<ArticleSearch>().Schema.CreateTableAsync();
 ```
 
 ## Content modes
 
 `ContentMode` decides where the indexed values come from.
 
-| Mode | When to use |
+| Mode | What it does |
 |---|---|
 | `Internal` (default) | The FTS table stores the values. You insert into the FTS table directly. |
 | `External` | The FTS table reads values from a normal table. Set `ContentTable = typeof(...)`. The source's `[Key]` property is the row id link. |
@@ -99,7 +99,7 @@ public class CustomSearch { ... }
 |---|---|
 | `Unicode61Tokenizer` | The default. Splits on Unicode word boundaries. Folds case. Optionally strips diacritics. |
 | `PorterTokenizer` | Wraps another tokenizer with the Porter English stemmer. "running" matches "ran" and "runs". |
-| `TrigramTokenizer` | Indexes 3-character substrings, so "sqli" matches "sqlite". Good for code or substring search. Larger index. |
+| `TrigramTokenizer` | Indexes 3-character substrings, so "sqli" matches "sqlite". Larger index. |
 | `AsciiTokenizer` | Faster than `unicode61` but only handles ASCII. |
 | `CustomTokenizer` | Use a tokenizer you registered through SQLite's C API. |
 
@@ -110,9 +110,9 @@ Match is a marker method that lives on `SQLiteFunctions`. It works inside `Where
 ### String form
 
 ```csharp
-List<ArticleSearch> hits = db.Table<ArticleSearch>()
+List<ArticleSearch> hits = await db.Table<ArticleSearch>()
     .Where(a => SQLiteFunctions.Match(a, "native AND aot"))
-    .ToList();
+    .ToListAsync();
 ```
 
 The string is the raw FTS5 query, see the [FTS5 query syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax) docs.
@@ -153,11 +153,11 @@ To mix a column scope with other terms, use `f.Column` inside the builder lambda
 `SQLiteFunctions.Rank(entity)` returns the BM25 score of the row. Use it inside `OrderBy`. The per-column weights from `[FullTextIndexed(Weight = ...)]` are applied automatically.
 
 ```csharp
-db.Table<ArticleSearch>()
+await db.Table<ArticleSearch>()
     .Where(a => SQLiteFunctions.Match(a, "native"))
     .OrderBy(a => SQLiteFunctions.Rank(a))
     .Take(20)
-    .ToList();
+    .ToListAsync();
 ```
 
 ## Snippets and highlights
@@ -165,7 +165,7 @@ db.Table<ArticleSearch>()
 Project a column with the matching tokens wrapped in markers:
 
 ```csharp
-var hits = db.Table<ArticleSearch>()
+var hits = await db.Table<ArticleSearch>()
     .Where(a => SQLiteFunctions.Match(a, "native"))
     .OrderBy(a => SQLiteFunctions.Rank(a))
     .Select(a => new
@@ -174,7 +174,7 @@ var hits = db.Table<ArticleSearch>()
         Title = SQLiteFunctions.Highlight(a, a.Title, "<b>", "</b>"),
         Body = SQLiteFunctions.Snippet(a, a.Body, "<b>", "</b>", "...", 32),
     })
-    .ToList();
+    .ToListAsync();
 ```
 
 `Highlight` wraps every matching token. `Snippet` returns a short window of text around the matches, with the `ellipsis` marker on either side when the snippet is truncated.
@@ -184,14 +184,14 @@ var hits = db.Table<ArticleSearch>()
 When `ContentMode = External`, the FTS rowid is the same as the source table's primary key, so a normal LINQ join works:
 
 ```csharp
-var hits = (
+var hits = await (
     from s in db.Table<ArticleSearch>()
     join a in db.Table<Article>() on s.Id equals a.Id
     where SQLiteFunctions.Match(s, "native aot")
     orderby SQLiteFunctions.Rank(s)
     select new { a.Id, a.Title, a.PublishedAt })
     .Take(20)
-    .ToList();
+    .ToListAsync();
 ```
 
 ## Multiple FTS tables on the same source

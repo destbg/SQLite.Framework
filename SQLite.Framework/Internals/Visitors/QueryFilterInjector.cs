@@ -17,17 +17,6 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
         this.options = options;
     }
 
-    public static Expression Inject(Expression source, SQLiteOptions options)
-    {
-        if (options.QueryFilters.Count == 0)
-        {
-            return source;
-        }
-
-        QueryFilterInjector injector = new(options);
-        return injector.Visit(source);
-    }
-
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The element type comes from a SQLiteTable<T> instance whose type was preserved via DynamicallyAccessedMembers.")]
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Queryable.Where is rooted by user code that already calls Where.")]
     protected override Expression VisitConstant(ConstantExpression node)
@@ -79,6 +68,17 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
         }
 
         return base.VisitMethodCall(node);
+    }
+
+    public static Expression Inject(Expression source, SQLiteOptions options)
+    {
+        if (options.QueryFilters.Count == 0)
+        {
+            return source;
+        }
+
+        QueryFilterInjector injector = new(options);
+        return injector.Visit(source);
     }
 
     private static bool IsIgnoreQueryFiltersCall(MethodCallExpression node)

@@ -1019,11 +1019,10 @@ public class CoverageGap3Tests
     [Fact]
     public void Default_TypedLambda_WithNonConvertUnaryBody_IsHandled()
     {
-        using TestDatabase db = new();
         int captured = 5;
-        db.Schema.Table<DateEntity>()
-            .Default(b => b.Id, () => -captured)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<DateEntity>()
+            .Default(b => b.Id, () => -captured));
+        db.Schema.CreateTable<DateEntity>();
 
         Assert.True(db.Schema.TableExists<DateEntity>());
     }
@@ -1037,6 +1036,32 @@ public class CoverageGap3Tests
 
         System.Text.StringBuilder another = SQLite.Framework.Internals.Helpers.StringBuilderPool.Rent();
         Assert.NotSame(sb, another);
+    }
+
+    [Fact]
+    public void Queryable_ElementType_ReturnsEntityType()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        IQueryable query = db.Table<Book>().Where(b => b.Id > 0);
+        Assert.Equal(typeof(Book), query.ElementType);
+    }
+
+    [Fact]
+    public void ConvertConstantUnary_EnumAndChangeType_Translate()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 3, Price = 1 });
+
+        int small = 1;
+        DayOfWeek day = (DayOfWeek)3;
+        List<Book> rows = db.Table<Book>()
+            .Where(b => b.Id == (long)small && b.AuthorId == (int)day)
+            .ToList();
+
+        Assert.Single(rows);
     }
 
     public class JsonRowWithStringList

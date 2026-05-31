@@ -61,17 +61,17 @@ The default `SQLiteRTreeStorage.Float` uses `rtree` and accepts `float`, `double
 R-Tree tables support the same LINQ surface as normal tables. The query planner will use the spatial index when the `Where` clause restricts every dimension with `min <= ? AND max >= ?` (or `BETWEEN`).
 
 ```csharp
-List<Region> hits = db.Table<Region>()
+List<Region> hits = await db.Table<Region>()
     .Where(r => r.MinX <= 5 && r.MaxX >= 5 && r.MinY <= 5 && r.MaxY >= 5)
-    .ToList();
+    .ToListAsync();
 ```
 
 You can also filter by an auxiliary column. The framework emits a regular `WHERE` clause for those, which SQLite applies after the R-Tree lookup.
 
 ```csharp
-List<Region> hits = db.Table<Region>()
+List<Region> hits = await db.Table<Region>()
     .Where(r => r.MinX <= 5 && r.MaxX >= 5 && r.Label == "downtown")
-    .ToList();
+    .ToListAsync();
 ```
 
 ## Inserting, updating, removing
@@ -79,7 +79,7 @@ List<Region> hits = db.Table<Region>()
 `Add`, `AddRange`, `Update`, `UpdateRange`, `Remove`, and `RemoveRange` work just like with a normal table. The framework binds the rowid, the bounding-box columns, and any auxiliary columns from the entity.
 
 ```csharp
-db.Table<Region>().Add(new Region
+await db.Table<Region>().AddAsync(new Region
 {
     Id = 1,
     MinX = 0, MaxX = 10,
@@ -87,12 +87,12 @@ db.Table<Region>().Add(new Region
     Label = "downtown",
 });
 
-Region row = db.Table<Region>().First();
+Region row = await db.Table<Region>().FirstAsync();
 row.MaxX = 50;
 row.MaxY = 50;
-db.Table<Region>().Update(row);
+await db.Table<Region>().UpdateAsync(row);
 
-db.Table<Region>().Remove(row);
+await db.Table<Region>().RemoveAsync(row);
 ```
 
 ## Limits

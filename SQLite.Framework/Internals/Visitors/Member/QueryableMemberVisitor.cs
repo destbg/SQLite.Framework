@@ -215,6 +215,29 @@ internal static class QueryableMemberVisitor
         return newTableColumns;
     }
 
+    public static bool CheckConstantMethod<T>(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, [MaybeNullWhen(false)] out Expression expression)
+    {
+        if (arguments.Any(f => f.SQLiteExpression == null))
+        {
+            expression = Expression.Call(node.Method, arguments.Select(f => f.Expression));
+            return true;
+        }
+
+        Type type = typeof(T);
+
+        if (node.Method.ReturnType.IsAssignableTo(type) && arguments.All(f => f.IsConstant))
+        {
+            object? result = node.Method.Invoke(null, arguments.Select(f => f.Constant).ToArray());
+
+            string pName = visitor.Counters.NextParamName();
+            expression = SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), pName, result);
+            return true;
+        }
+
+        expression = null;
+        return false;
+    }
+
     private static SQLiteExpression BuildCountExpression(SQLVisitor visitor, MethodCallExpression node, SQLiteExpression? filterExpression)
     {
         if (filterExpression == null)
@@ -267,28 +290,5 @@ internal static class QueryableMemberVisitor
             filterExpression,
             ")",
             ParameterHelpers.CombineParameters(target, filterExpression));
-    }
-
-    public static bool CheckConstantMethod<T>(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, [MaybeNullWhen(false)] out Expression expression)
-    {
-        if (arguments.Any(f => f.SQLiteExpression == null))
-        {
-            expression = Expression.Call(node.Method, arguments.Select(f => f.Expression));
-            return true;
-        }
-
-        Type type = typeof(T);
-
-        if (node.Method.ReturnType.IsAssignableTo(type) && arguments.All(f => f.IsConstant))
-        {
-            object? result = node.Method.Invoke(null, arguments.Select(f => f.Constant).ToArray());
-
-            string pName = visitor.Counters.NextParamName();
-            expression = SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), pName, result);
-            return true;
-        }
-
-        expression = null;
-        return false;
     }
 }

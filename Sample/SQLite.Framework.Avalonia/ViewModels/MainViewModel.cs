@@ -11,10 +11,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int _selectedTabIndex;
 
-    public MainViewModel(
-        ProjectsViewModel projects,
-        CategoriesViewModel categories,
-        TagsViewModel tags)
+    public MainViewModel(ProjectsViewModel projects, CategoriesViewModel categories, TagsViewModel tags)
     {
         Projects = projects;
         Categories = categories;

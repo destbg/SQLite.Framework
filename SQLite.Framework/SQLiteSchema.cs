@@ -43,6 +43,12 @@ public class SQLiteSchema
 
         if (mapping.IsFullTextSearch)
         {
+            if (mapping.ComputedColumns.Count > 0 || mapping.Checks.Count > 0 || mapping.Indexes.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"FTS5 entity '{mapping.Type.Name}' does not support computed columns, checks, or indexes declared on the model. Remove them.");
+            }
+
             return CreateFullTextSearchTable(mapping);
         }
 
@@ -51,59 +57,80 @@ public class SQLiteSchema
             return CreateRTreeTable(mapping);
         }
 
-        TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
-        bool hasCompositePrimaryKey = primaryKeyColumns.Length > 1;
+        int count = Database.CreateCommand(
+            SchemaSqlBuilder.BuildCreateTable(Database, mapping, mapping.TableName, ifNotExists: true), []).ExecuteNonQuery();
 
-        string columns = string.Join(", ", mapping.Columns.Select(c => c.GetCreateColumnSql(!hasCompositePrimaryKey)));
-        if (hasCompositePrimaryKey)
+        foreach ((string _, string indexSql) in SchemaSqlBuilder.BuildIndexes(mapping, mapping.TableName, ifNotExists: true))
         {
-            string pkList = string.Join(", ", primaryKeyColumns.Select(c => $"\"{c.Name}\""));
-            columns += $", PRIMARY KEY ({pkList})";
-        }
-
-        foreach (ForeignKeyInfo composite in mapping.CompositeForeignKeys)
-        {
-            StringBuilder fkSb = new();
-            composite.WriteSql(fkSb, inline: false);
-            columns += $", {fkSb}";
-        }
-
-        string sql = $"CREATE TABLE IF NOT EXISTS \"{mapping.TableName}\" ({columns})";
-
-        if (mapping.WithoutRowId)
-        {
-            sql += " WITHOUT ROWID";
-        }
-
-        if (mapping.Strict)
-        {
-#if SQLITE_FRAMEWORK_VERSION_AWARE
-            Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_37, "STRICT tables");
-#endif
-            sql += mapping.WithoutRowId ? ", STRICT" : " STRICT";
-        }
-
-        int count = Database.CreateCommand(sql, []).ExecuteNonQuery();
-
-        var indexGroups = mapping.Columns
-            .SelectMany(col => col.Indices.Select(idx => (
-                Name: idx.Name ?? ("idx_" + col.Name + "_" + idx.Order),
-                Column: col.Name,
-                Order: idx.Order,
-                IsUnique: idx.IsUnique,
-                Collation: idx.Collation,
-                Direction: idx.Direction)))
-            .GroupBy(x => x.Name);
-
-        foreach (var group in indexGroups)
-        {
-            var ordered = group.OrderBy(x => x.Order).ToArray();
-            string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", ordered.Select(x => IdentifierGuard.Quote(x.Column) + CollationHelper.Clause(x.Collation) + IndexDirectionHelper.Clause(x.Direction)));
-            string indexSql = $"CREATE {uniqueClause}INDEX IF NOT EXISTS \"{group.Key}\" ON \"{mapping.TableName}\" ({columnList})";
             count += Database.CreateCommand(indexSql, []).ExecuteNonQuery();
         }
 
+        foreach ((string _, string triggerSql) in SchemaSqlBuilder.BuildTriggers(mapping, mapping.TableName, ifNotExists: true))
+        {
+            count += Database.CreateCommand(triggerSql, []).ExecuteNonQuery();
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Reconciles the live table for <typeparamref name="T" /> with the model.
+    /// </summary>
+    public virtual int Migrate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    {
+        return Migrate(typeof(T));
+    }
+
+    /// <summary>
+    /// Reconciles the live table for <typeparamref name="T" /> with the model, filling or overriding
+    /// columns during a rebuild from the values declared with <paramref name="fill" />. Use this to
+    /// give a new <c>NOT NULL</c> column a value, or to recompute a column from the old row. Returns
+    /// the number of statements run.
+    /// </summary>
+    public virtual int Migrate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill)
+    {
+        TableMapping mapping = Database.TableMapping<T>();
+        SQLiteMigrationBuilder<T> builder = new(Database, mapping);
+        fill(builder);
+        return MigrateCore(mapping, builder.Sets);
+    }
+
+    /// <summary>
+    /// Reconciles the live table for <paramref name="type" /> with the model. Creates the table when
+    /// it is missing. When the table definition has drifted, it rebuilds the table the way SQLite
+    /// recommends (create a new table, copy rows, drop the old one, rename), so it never needs the
+    /// version-gated <c>DROP COLUMN</c> and works on any SQLite version. Rows in columns the model
+    /// keeps are preserved. Changed or missing indexes and triggers are dropped and recreated.
+    /// Triggers that are not declared on the model are left alone. FTS5 and R-Tree tables are only
+    /// ensured to exist. Returns the number of statements run.
+    /// </summary>
+    public virtual int Migrate([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    {
+        return MigrateCore(Database.TableMapping(type), []);
+    }
+
+    private int MigrateCore(TableMapping mapping, IReadOnlyList<(string Column, string ValueSql)> sets)
+    {
+        if (mapping.IsFullTextSearch || mapping.IsRTree)
+        {
+            return CreateTable(mapping.Type);
+        }
+
+        if (!TableExists(mapping.TableName))
+        {
+            return CreateTable(mapping.Type);
+        }
+
+        int count = 0;
+        string intended = SchemaSqlBuilder.BuildCreateTable(Database, mapping, mapping.TableName, ifNotExists: false);
+        string? live = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}'");
+        if (!string.Equals(intended, live, StringComparison.Ordinal) || sets.Count > 0)
+        {
+            count += RebuildTable(mapping, sets);
+        }
+
+        count += ReconcileIndexes(mapping);
+        count += ReconcileTriggers(mapping);
         return count;
     }
 
@@ -318,7 +345,7 @@ public class SQLiteSchema
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
 
         string? defaultOverride = defaultValue == null ? null : SqlLiteralHelper.FormatLiteral(defaultValue);
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {column.GetCreateColumnSql(defaultOverride: defaultOverride)}";
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: defaultOverride)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -371,7 +398,7 @@ public class SQLiteSchema
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
 
         string defaultSql = TranslateDefaultExpression(defaultExpression);
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {column.GetCreateColumnSql(defaultOverride: $"({defaultSql})")}";
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: $"({defaultSql})")}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -446,9 +473,9 @@ public class SQLiteSchema
     /// with computed columns, CHECK constraints, and indexes. Call <c>.Create()</c> when done
     /// chaining to issue the DDL.
     /// </summary>
-    public virtual SQLiteTableBuilder<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    public virtual SQLiteTableSchema<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
     {
-        return new SQLiteTableBuilder<T>(this);
+        return new SQLiteTableSchema<T>(this);
     }
 
     /// <summary>
@@ -556,46 +583,8 @@ public class SQLiteSchema
         ArgumentException.ThrowIfNullOrEmpty(body);
 
         string tableName = Database.TableMapping<T>().TableName;
-        StringBuilder sb = new();
-        sb.Append("CREATE TRIGGER IF NOT EXISTS \"");
-        sb.Append(name.Replace("\"", "\"\""));
-        sb.Append("\" ");
-        sb.Append(timing switch
-        {
-            SQLiteTriggerTiming.Before => "BEFORE",
-            SQLiteTriggerTiming.After => "AFTER",
-            SQLiteTriggerTiming.InsteadOf => "INSTEAD OF",
-            _ => throw new ArgumentOutOfRangeException(nameof(timing)),
-        });
-        sb.Append(' ');
-        sb.Append(@event switch
-        {
-            SQLiteTriggerEvent.Insert => "INSERT",
-            SQLiteTriggerEvent.Update => "UPDATE",
-            SQLiteTriggerEvent.Delete => "DELETE",
-            _ => throw new ArgumentOutOfRangeException(nameof(@event)),
-        });
-        sb.Append(" ON \"");
-        sb.Append(tableName);
-        sb.Append('"');
-        if (forEachRow)
-        {
-            sb.Append(" FOR EACH ROW");
-        }
-        if (!string.IsNullOrEmpty(when))
-        {
-            sb.Append(" WHEN ");
-            sb.Append(when);
-        }
-        sb.Append(" BEGIN ");
-        sb.Append(body);
-        if (!body.TrimEnd().EndsWith(';'))
-        {
-            sb.Append(';');
-        }
-        sb.Append(" END");
-
-        return Database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
+        string sql = SchemaSqlBuilder.BuildCreateTrigger(tableName, name, timing, @event, forEachRow, when, body, ifNotExists: true);
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
     /// <summary>
@@ -873,6 +862,123 @@ public class SQLiteSchema
     private string TranslateDefaultExpression(Expression<Func<object?>> defaultExpression)
     {
         return DefaultExpressionTranslator.Translate(Database, defaultExpression, nameof(defaultExpression));
+    }
+
+    private int RebuildTable(TableMapping mapping, IReadOnlyList<(string Column, string ValueSql)> sets)
+    {
+        string table = mapping.TableName;
+        string temp = table + "__sqlitefw_migrate";
+
+        HashSet<string> liveColumns = Database.Pragmas.TableInfo(table).Select(c => c.Name).ToHashSet();
+        HashSet<string> setColumns = sets.Select(s => s.Column).ToHashSet();
+        HashSet<string> computedColumns = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet();
+
+        EnsureNoUnfilledNotNull(mapping, table, liveColumns, computedColumns, setColumns);
+
+        List<string> copyColumns = mapping.Columns
+            .Where(c => !computedColumns.Contains(c.Name))
+            .Select(c => c.Name)
+            .Concat(mapping.ShadowColumns.Select(s => s.Name))
+            .Where(name => liveColumns.Contains(name) && !setColumns.Contains(name))
+            .ToList();
+
+        List<string> insertColumns = copyColumns.Concat(sets.Select(s => s.Column)).Select(IdentifierGuard.Quote).ToList();
+        List<string> selectExpressions = copyColumns.Select(IdentifierGuard.Quote).Concat(sets.Select(s => s.ValueSql)).ToList();
+
+        IReadOnlyList<string> liveTriggers = Database.Query<string>(
+            $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{table.Replace("'", "''")}' AND sql IS NOT NULL");
+
+        long foreignKeys = Database.ExecuteScalar<long>("PRAGMA foreign_keys");
+        Database.Execute("PRAGMA foreign_keys = OFF");
+        try
+        {
+            using SQLiteTransaction transaction = Database.BeginTransaction();
+            int count = Database.CreateCommand(SchemaSqlBuilder.BuildCreateTable(Database, mapping, temp, ifNotExists: false), []).ExecuteNonQuery();
+            if (insertColumns.Count > 0)
+            {
+                Database.Execute($"INSERT INTO \"{temp}\" ({string.Join(", ", insertColumns)}) SELECT {string.Join(", ", selectExpressions)} FROM \"{table}\"");
+            }
+            Database.Execute($"DROP TABLE \"{table}\"");
+            Database.Execute($"ALTER TABLE \"{temp}\" RENAME TO \"{table}\"");
+            foreach (string trigger in liveTriggers)
+            {
+                Database.Execute(trigger);
+            }
+            transaction.Commit();
+            return count;
+        }
+        finally
+        {
+            Database.Execute($"PRAGMA foreign_keys = {foreignKeys}");
+        }
+    }
+
+    private void EnsureNoUnfilledNotNull(TableMapping mapping, string table, HashSet<string> liveColumns, HashSet<string> computedColumns, HashSet<string> setColumns)
+    {
+        List<(string Name, bool Nullable, bool HasDefault)> required = mapping.Columns
+            .Where(c => !computedColumns.Contains(c.Name))
+            .Select(c => (c.Name, c.IsNullable, c.DefaultSql != null))
+            .Concat(mapping.ShadowColumns.Select(s => (s.Name, s.IsNullable, s.DefaultSql != null)))
+            .Where(c => !c.Item2 && !c.Item3 && !liveColumns.Contains(c.Item1) && !setColumns.Contains(c.Item1))
+            .ToList();
+
+        if (required.Count == 0)
+        {
+            return;
+        }
+
+        if (Database.ExecuteScalar<long>($"SELECT COUNT(*) FROM \"{table}\"") == 0)
+        {
+            return;
+        }
+
+        (string name, _, _) = required[0];
+        throw new InvalidOperationException(
+            $"Cannot migrate table '{table}'. Column '{name}' is new and NOT NULL with no default, but the table has rows. " +
+            "Give it a default in OnModelCreating, set a value with Migrate(m => m.Set(...)), or make it nullable.");
+    }
+
+    private int ReconcileIndexes(TableMapping mapping)
+    {
+        int count = 0;
+        List<(string Name, string Sql)> declared = SchemaSqlBuilder.BuildIndexes(mapping, mapping.TableName, ifNotExists: false);
+        HashSet<string> declaredNames = declared.Select(d => d.Name).ToHashSet();
+
+        foreach (PragmaIndexList live in Database.Pragmas.IndexList(mapping.TableName).ToList())
+        {
+            if (live.Origin == "c" && !declaredNames.Contains(live.Name))
+            {
+                count += Database.Execute($"DROP INDEX IF EXISTS {IdentifierGuard.Quote(live.Name)}");
+            }
+        }
+
+        foreach ((string name, string sql) in declared)
+        {
+            string? liveSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'index' AND name = '{name.Replace("'", "''")}'");
+            if (!string.Equals(sql, liveSql, StringComparison.Ordinal))
+            {
+                Database.Execute($"DROP INDEX IF EXISTS {IdentifierGuard.Quote(name)}");
+                count += Database.CreateCommand(sql, []).ExecuteNonQuery();
+            }
+        }
+
+        return count;
+    }
+
+    private int ReconcileTriggers(TableMapping mapping)
+    {
+        int count = 0;
+        foreach ((string name, string sql) in SchemaSqlBuilder.BuildTriggers(mapping, mapping.TableName, ifNotExists: false))
+        {
+            string? liveSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = '{name.Replace("'", "''")}'");
+            if (!string.Equals(sql, liveSql, StringComparison.Ordinal))
+            {
+                Database.Execute($"DROP TRIGGER IF EXISTS {IdentifierGuard.Quote(name)}");
+                count += Database.CreateCommand(sql, []).ExecuteNonQuery();
+            }
+        }
+
+        return count;
     }
 
     private static string ResolvePropertyName<T>(Expression<Func<T, object?>> property)

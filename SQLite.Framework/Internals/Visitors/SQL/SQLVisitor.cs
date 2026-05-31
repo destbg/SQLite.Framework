@@ -30,28 +30,28 @@ internal partial class SQLVisitor : ExpressionVisitor
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
     public CteRegistry? CteRegistry { get; set; }
     public Dictionary<ParameterExpression, (string Alias, Dictionary<string, Expression> Columns)> CteParameters { get; set; } = [];
-
-    private Dictionary<SQLiteExpression, SQLiteExpression>? decimalCastIntern;
-    private Dictionary<(SQLiteExpression Source, string Member), SQLiteExpression>? jsonExtractIntern;
+    public Dictionary<SQLiteExpression, SQLiteExpression>? DecimalCastIntern { get; set; }
+    public Dictionary<(SQLiteExpression Source, string Member), SQLiteExpression>? JsonExtractIntern { get; set; }
+    public Dictionary<ParameterExpression, string?> RowColumnPrefixes { get; } = [];
 
     public SQLiteExpression InternDecimalCast(SQLiteExpression source)
     {
-        decimalCastIntern ??= new();
-        if (decimalCastIntern.TryGetValue(source, out SQLiteExpression? cached))
+        DecimalCastIntern ??= new();
+        if (DecimalCastIntern.TryGetValue(source, out SQLiteExpression? cached))
         {
             return cached;
         }
 
         SQLiteExpression cast = SQLiteExpression.Wrap(source.Type, Counters.NextIdentifier(), "CAST(", source, " AS REAL)", source.Parameters);
-        decimalCastIntern[source] = cast;
+        DecimalCastIntern[source] = cast;
         return cast;
     }
 
     public SQLiteExpression InternJsonExtract(SQLiteExpression source, string memberName, Type resultType)
     {
-        jsonExtractIntern ??= new();
+        JsonExtractIntern ??= new();
         (SQLiteExpression Source, string Member) key = (source, memberName);
-        if (jsonExtractIntern.TryGetValue(key, out SQLiteExpression? cached))
+        if (JsonExtractIntern.TryGetValue(key, out SQLiteExpression? cached))
         {
             return cached;
         }
@@ -60,7 +60,7 @@ internal partial class SQLVisitor : ExpressionVisitor
             "json_extract(", source, $", '$.{memberName}')",
             source.Parameters)
         .WithJsonSource();
-        jsonExtractIntern[key] = extracted;
+        JsonExtractIntern[key] = extracted;
         return extracted;
     }
 

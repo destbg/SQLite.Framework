@@ -6,16 +6,16 @@ A short tour of `SQLite.Framework` on one page. Each section links to a deeper g
 
 A small ORM that lets you use LINQ on a SQLite database. If you have used Entity Framework Core before, most things will feel familiar. The main difference is that this library does not have a change tracker, navigation properties, or migrations. It is built to be fast and to work with Native AOT.
 
-`db.Table<T>()` returns a `SQLiteTable<T>`. That class implements `IQueryable<T>`, so any LINQ method works on it. Every method has an async version. Drop the `Async` suffix when you want the sync version.
+`db.Table<T>()` returns a `SQLiteTable<T>`. That class implements `IQueryable<T>`, so any LINQ method works on it.
 
 The framework keeps the generated SQL close to the shape of the LINQ query you wrote. It does not wrap the query in an extra subquery or rewrite it behind your back just to make a LINQ method work. If a method cannot be mapped to SQL cleanly, you get a clear `NotSupportedException` instead of a silently wrong result or a surprising query plan.
 
 ## Packages
 
-| Package | When to use |
+| Package | What it offers |
 |---|---|
 | `SQLite.Framework` | Default. Uses the SQLite that ships with the operating system. |
-| `SQLite.Framework.Bundled` | Ships its own SQLite binary. Use it when the OS version is too old. |
+| `SQLite.Framework.Bundled` | Ships its own SQLite binary, independent of the OS version. |
 | `SQLite.Framework.Cipher` | SQLCipher for encrypted databases. |
 | `SQLite.Framework.Base` | No SQLite provider included. You bring your own. |
 | `SQLite.Framework.DependencyInjection` | `AddSQLiteDatabase` for `IServiceCollection`. |
@@ -55,7 +55,7 @@ services.AddSQLiteDatabase<AppDatabase>(b =>
 
 The default lifetime is `Singleton`, which is the right choice for desktop and mobile apps. See [Dependency Injection](Dependency%20Injection) for more.
 
-A custom subclass keeps your tables in one place and gives you an async hook for schema setup. Use the async versions so the UI thread does not block on disk I/O at startup:
+A custom subclass keeps your tables in one place and gives you a hook for schema setup:
 
 ```csharp
 public class AppDatabase : SQLiteDatabase
@@ -100,13 +100,13 @@ Keep entity classes to the columns of the table. There are no navigation propert
 
 The most common attributes:
 
-- `[Key]` plus `[AutoIncrement]`. SQLite assigns the id and writes it back to the entity after `AddAsync`.
+- `[Key]` plus `[AutoIncrement]`. SQLite assigns the id and writes it back to the entity after `Add`.
 - `[Required]`. The column is `NOT NULL`. Nullable types like `string?` or `int?` map to nullable columns.
 - `[Indexed]`. Creates an index. You can make it unique, give it a name, or make it composite by using the same name on more than one column.
 - `[Column("...")]` and `[Table("...")]`. Rename a column or a table.
 - `[WithoutRowId]`. A class-level attribute. The primary key must not be `[AutoIncrement]`.
 - `[StrictTable]`. A class-level attribute. SQLite enforces declared column types on every write. Requires SQLite 3.37.0 or newer.
-- `[NotMapped]`. Leave a property out of the database. Useful for the rare case where you need a derived value on the class itself.
+- `[NotMapped]`. Leaves a property out of the database. The property stays on the class but maps to no column.
 
 Schema setup is safe to call on every startup because it uses `CREATE TABLE IF NOT EXISTS`. Track migrations through `db.Pragmas.UserVersion`. See [Defining Models](Defining%20Models) for the full list.
 
@@ -128,15 +128,17 @@ public class Book
 
 Set `OnDelete`, `OnUpdate`, or `Deferred` for richer behavior. `SetNull` requires the column to be nullable. Pass a column name to target a non-primary-key column: `[ReferencesTable(typeof(Country), nameof(Country.Code))]`.
 
-For composite keys, or for a runtime decision, use the fluent builder:
+For composite keys, declare the foreign key in `OnModelCreating`:
 
 ```csharp
-db.Schema.Table<OrderLine>()
-    .ForeignKey<Order>(
-        l => new { l.OrderId, l.OrderVersion },
-        o => new { o.Id, o.Version },
-        onDelete: SQLiteForeignKeyAction.Cascade)
-    .CreateTable();
+protected override void OnModelCreating(SQLiteModelBuilder builder)
+{
+    builder.Entity<OrderLine>()
+        .ForeignKey<Order>(
+            l => new { l.OrderId, l.OrderVersion },
+            o => new { o.Id, o.Version },
+            onDelete: SQLiteForeignKeyAction.Cascade);
+}
 ```
 
 ## Data types
@@ -182,15 +184,15 @@ await projects.Where(p => p.CategoryId == 5)
 Upsert with `ON CONFLICT`:
 
 ```csharp
-projects.Upsert(p, c => c.OnConflict(x => x.Id).DoUpdateAll());
-projects.Upsert(p, c => c.OnConflict(x => new { x.Id, x.CategoryId }).DoUpdate(x => x.Name));
-projects.Upsert(p, c => c.OnConflict(x => x.Id).DoNothing());
+await projects.UpsertAsync(p, c => c.OnConflict(x => x.Id).DoUpdateAll());
+await projects.UpsertAsync(p, c => c.OnConflict(x => new { x.Id, x.CategoryId }).DoUpdate(x => x.Name));
+await projects.UpsertAsync(p, c => c.OnConflict(x => x.Id).DoNothing());
 ```
 
 Insert from another query:
 
 ```csharp
-db.Table<ProjectArchive>().InsertFromQuery(
+await db.Table<ProjectArchive>().InsertFromQueryAsync(
     db.Table<Project>()
         .Where(p => !p.IsActive)
         .Select(p => new ProjectArchive { Id = p.Id, Name = p.Name }));
@@ -304,15 +306,15 @@ var rows = await db.FromSql<Project>(
 ).ToListAsync();
 
 // Direct execution, no wrapping. Column names must match property names. Alias them in the SQL if they do not.
-var dtos = db.Query<MyDto>(
+var dtos = await db.QueryAsync<MyDto>(
     "SELECT Name AS Title, Id FROM Project WHERE CategoryId = @cat",
     new { cat = 5 });
 
 int affected = await db.ExecuteAsync("DELETE FROM Project WHERE Id = @id", new { id = 5 });
-int count = db.ExecuteScalar<int>("SELECT COUNT(*) FROM Project")!;
+int count = (await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Project"))!;
 ```
 
-The direct methods are `Query`, `QueryFirst`, `QueryFirstOrDefault`, `QuerySingle`, `QuerySingleOrDefault`, `ExecuteScalar`, and `Execute`. Each one has an async version.
+The direct methods are `Query`, `QueryFirst`, `QueryFirstOrDefault`, `QuerySingle`, `QuerySingleOrDefault`, `ExecuteScalar`, and `Execute`.
 
 You can also see the SQL that LINQ would produce:
 

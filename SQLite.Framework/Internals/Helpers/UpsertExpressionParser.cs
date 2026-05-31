@@ -1,7 +1,7 @@
 namespace SQLite.Framework.Internals.Helpers;
 
 /// <summary>
-/// Parses the lambda expressions used by <see cref="UpsertBuilder{T}" /> down to the .NET
+/// Parses the lambda expressions used by <see cref="SQLiteUpsertBuilder{T}" /> down to the .NET
 /// property names of the chosen columns. The mapping from property name to the SQL column name
 /// happens later, in <see cref="UpsertSqlBuilder" />, using the entity's
 /// <see cref="TableMapping" />.

@@ -8,10 +8,9 @@ public class CheckConstraintTests
     [Fact]
     public void Check_AllowsValuesThatSatisfyConstraint()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookArchive>()
-            .Check(b => b.Price > 0, name: "CK_Price_Positive")
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookArchive>()
+            .Check(b => b.Price > 0, name: "CK_Price_Positive"));
+        db.Schema.CreateTable<BookArchive>();
 
         db.Table<BookArchive>().Add(new BookArchive
         {
@@ -27,10 +26,9 @@ public class CheckConstraintTests
     [Fact]
     public void Check_RejectsValuesThatViolateConstraint()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookArchive>()
-            .Check(b => b.Price > 0, name: "CK_Price_Positive")
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookArchive>()
+            .Check(b => b.Price > 0, name: "CK_Price_Positive"));
+        db.Schema.CreateTable<BookArchive>();
 
         Assert.ThrowsAny<Exception>(() => db.Table<BookArchive>().Add(new BookArchive
         {
@@ -44,10 +42,9 @@ public class CheckConstraintTests
     [Fact]
     public void Check_NoName_StillEnforced()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookArchive>()
-            .Check(b => b.Price > 0)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookArchive>()
+            .Check(b => b.Price > 0));
+        db.Schema.CreateTable<BookArchive>();
 
         Assert.ThrowsAny<Exception>(() => db.Table<BookArchive>().Add(new BookArchive
         {
@@ -61,11 +58,10 @@ public class CheckConstraintTests
     [Fact]
     public void Check_MultipleConstraintsAllEnforced()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookArchive>()
+        using ModelTestDatabase db = new(model => model.Entity<BookArchive>()
             .Check(b => b.Price > 0, name: "CK_Price")
-            .Check(b => b.AuthorId > 0, name: "CK_Author")
-            .CreateTable();
+            .Check(b => b.AuthorId > 0, name: "CK_Author"));
+        db.Schema.CreateTable<BookArchive>();
 
         Assert.ThrowsAny<Exception>(() => db.Table<BookArchive>().Add(new BookArchive
         {

@@ -10,7 +10,7 @@ This page covers some of the key differences between `sqlite-net-pcl` and `SQLit
 
 ```csharp
 // sqlite-net-pcl reads all columns, then picks Title and Price in memory
-var summaries = db.Table<Book>().Select(b => new { b.Title, b.Price }).ToList();
+var summaries = await db.Table<Book>().Select(b => new { b.Title, b.Price }).ToListAsync();
 
 // SQLite.Framework generates SELECT BookTitle, BookPrice FROM Books
 var summaries = await db.Table<Book>()
@@ -40,7 +40,7 @@ var result = await db.FromSql<BookSummary>(
 
 ```csharp
 // Missing columns on the model are null/default instead of throwing
-List<Book> books = db.Query<Book>(
+List<Book> books = await db.QueryAsync<Book>(
     "SELECT BookId AS Id, BookTitle AS Title FROM Books"
 );
 ```

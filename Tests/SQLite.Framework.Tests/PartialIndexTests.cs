@@ -8,10 +8,9 @@ public class PartialIndexTests
     [Fact]
     public void Index_WithoutFilter_CreatesPlainIndex()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookArchive>()
-            .Index(b => b.Title, name: "IX_Title")
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookArchive>()
+            .Index(b => b.Title, name: "IX_Title"));
+        db.Schema.CreateTable<BookArchive>();
 
         Assert.True(db.Schema.IndexExists("IX_Title"));
     }
@@ -19,10 +18,9 @@ public class PartialIndexTests
     [Fact]
     public void Index_Unique_RejectsDuplicates()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookArchive>()
-            .Index(b => b.Title, name: "IX_Title_Unique", unique: true)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookArchive>()
+            .Index(b => b.Title, name: "IX_Title_Unique", unique: true));
+        db.Schema.CreateTable<BookArchive>();
 
         db.Table<BookArchive>().Add(new BookArchive { Id = 1, Title = "same", AuthorId = 1, Price = 1 });
 
@@ -33,10 +31,9 @@ public class PartialIndexTests
     [Fact]
     public void Index_WithFilter_CreatesPartialIndex()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookArchive>()
-            .Index(b => b.Title, name: "IX_Title_Active", filter: b => b.Price > 0)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookArchive>()
+            .Index(b => b.Title, name: "IX_Title_Active", filter: b => b.Price > 0));
+        db.Schema.CreateTable<BookArchive>();
 
         Assert.True(db.Schema.IndexExists("IX_Title_Active"));
 
@@ -49,10 +46,9 @@ public class PartialIndexTests
     [Fact]
     public void Index_DefaultName_FollowsConvention()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookArchive>()
-            .Index(b => b.Title)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookArchive>()
+            .Index(b => b.Title));
+        db.Schema.CreateTable<BookArchive>();
 
         Assert.Contains("idx_BooksArchive_BookTitle", db.Schema.ListIndexes("BooksArchive"));
     }
@@ -60,10 +56,9 @@ public class PartialIndexTests
     [Fact]
     public void Index_PartialUnique_AllowsDuplicateOutsideFilter()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<BookArchive>()
-            .Index(b => b.Title, name: "IX_ActiveTitleUnique", unique: true, filter: b => b.AuthorId > 0)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<BookArchive>()
+            .Index(b => b.Title, name: "IX_ActiveTitleUnique", unique: true, filter: b => b.AuthorId > 0));
+        db.Schema.CreateTable<BookArchive>();
 
         db.Table<BookArchive>().Add(new BookArchive { Id = 1, Title = "same", AuthorId = 0, Price = 1 });
         db.Table<BookArchive>().Add(new BookArchive { Id = 2, Title = "same", AuthorId = 0, Price = 2 });

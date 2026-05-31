@@ -174,21 +174,14 @@ await db.Schema.CreateTableAsync<Book>();
 
 if (db.Pragmas.UserVersion == 1)
 {
-    db.Execute("ALTER TABLE Books ADD COLUMN BookGenre TEXT");
+    await db.ExecuteAsync("ALTER TABLE Books ADD COLUMN BookGenre TEXT");
     db.Pragmas.UserVersion = 2;
 }
 if (db.Pragmas.UserVersion == 2)
 {
-    db.Execute("ALTER TABLE Books ADD COLUMN BookInStock INTEGER NOT NULL DEFAULT 0");
+    await db.ExecuteAsync("ALTER TABLE Books ADD COLUMN BookInStock INTEGER NOT NULL DEFAULT 0");
     db.Pragmas.UserVersion = 3;
 }
 ```
 
 Each block runs only once. On the next launch `UserVersion` is already at the latest number, so the blocks are skipped.
-
-There are the async versions:
-
-```csharp
-int version = await db.Pragmas.GetUserVersionAsync();
-await db.Pragmas.SetUserVersionAsync(2);
-```

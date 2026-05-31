@@ -11,15 +11,9 @@ The source generator solves both. It reads your code at build time and writes pl
 
 Reflection is still used in two narrow cases: when a `Select` or entity target is a `private` or `internal` type that the generated code cannot name, and when a `Select` body calls a private method. In those cases the generator falls back to `MethodInfo.Invoke` / `Activator.CreateInstance` on types and members that are captured at query-build time. If you want the reflected path off your hot path entirely, keep the types and methods that appear in your `Select` projections `public` or `internal` with `InternalsVisibleTo`.
 
-## When to use it
+## What it provides
 
-Use the source generator when any of these apply:
-
-- You ship with Native AOT (`PublishAot`). This is the main reason it exists.
-- You want faster cold-start queries (for example in a mobile app or a short-lived CLI).
-- You want to skip the reflected materializer path for every public type and method the generator can see, and keep the trimmer happy on every shape the generator covers.
-
-If you do not need any of these, you can skip it. The runtime path still works.
+The source generator is what makes Native AOT (`PublishAot`) work without the reflected materializer path. It also lowers cold-start query cost and keeps the trimmer happy on every shape it covers. Without it the runtime path still works through reflection.
 
 ## Performance
 
@@ -96,7 +90,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
 
 With this set, any query that would otherwise use the runtime reflection path throws an `InvalidOperationException` at the moment the query runs. This covers both entity materialization (for example when `db.Table<T>()` hits a type the generator did not cover) and `Select` projections (shapes the generator skipped).
 
-Run your test suite with this flag on to catch unsupported shapes before you ship. Leave it off during local experimentation when you want the runtime fallback to just work.
+With the flag on, unsupported shapes fail in your test suite instead of falling back. With it off, they fall back to the runtime path.
 
 ## One generator output per project
 
@@ -154,14 +148,14 @@ The generator records `new Repo<Book>()` and `new Repo<Author>()`, then walks `R
 **A generic method projecting through `Select`:**
 
 ```csharp
-private static TResult ProjectFirst<T, TResult>(IQueryable<T> query)
+private static Task<TResult> ProjectFirst<T, TResult>(IQueryable<T> query)
     where T : INomenclature
     where TResult : NomenclatureDtoBase, new()
-    => query.Select(f => new TResult { Id = f.Id, Name = f.Name }).First();
+    => query.Select(f => new TResult { Id = f.Id, Name = f.Name }).FirstAsync();
 
 // Callers:
-DtoA aDto = ProjectFirst<NomenclatureA, DtoA>(db.Table<NomenclatureA>());
-DtoB bDto = ProjectFirst<NomenclatureB, DtoB>(db.Table<NomenclatureB>());
+DtoA aDto = await ProjectFirst<NomenclatureA, DtoA>(db.Table<NomenclatureA>());
+DtoB bDto = await ProjectFirst<NomenclatureB, DtoB>(db.Table<NomenclatureB>());
 ```
 
 The generator records each closed call (`<NomenclatureA, DtoA>`, `<NomenclatureB, DtoB>`), substitutes the type parameters into the lambda body, and emits one Select materializer per concrete `TResult`.

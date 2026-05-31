@@ -11,6 +11,12 @@ internal class Queryable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         Expression = expression;
     }
 
+    public override Type ElementType => typeof(T);
+
+    public override Expression Expression { get; }
+
+    public override IQueryProvider Provider => Database;
+
     public override IEnumerator<T> GetEnumerator()
     {
         return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
@@ -20,9 +26,4 @@ internal class Queryable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     {
         return GetEnumerator();
     }
-
-    [ExcludeFromCodeCoverage(Justification = "We never use the ElementType property, but it is required by the IOrderedQueryable interface.")]
-    public override Type ElementType => typeof(T);
-    public override Expression Expression { get; }
-    public override IQueryProvider Provider => Database;
 }

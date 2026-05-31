@@ -17,28 +17,6 @@ public sealed class SQLiteQueryPlan
     /// </summary>
     public override string ToString()
     {
-        StringBuilder sb = new();
-        sb.Append("QUERY PLAN");
-        foreach (SQLiteQueryPlanNode root in Roots)
-        {
-            AppendNode(sb, root, depth: 0);
-        }
-        return sb.ToString();
-    }
-
-    private static void AppendNode(StringBuilder sb, SQLiteQueryPlanNode node, int depth)
-    {
-        sb.Append(Environment.NewLine);
-        for (int i = 0; i < depth; i++)
-        {
-            sb.Append("  ");
-        }
-        sb.Append("> ");
-        sb.Append(node.Detail);
-
-        foreach (SQLiteQueryPlanNode child in node.Children)
-        {
-            AppendNode(sb, child, depth + 1);
-        }
+        return QueryPlanFormatter.Format(this);
     }
 }

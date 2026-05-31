@@ -79,9 +79,9 @@ When you write a query that projects into an anonymous type or uses object initi
 For example:
 
 ```csharp
-var result = db.Table<Product>()
+var result = await db.Table<Product>()
     .Select(p => new { p.Id, p.Name })
-    .ToList();
+    .ToListAsync();
 ```
 
 Because the types involved are directly referenced in your code, the trimmer will not actually remove them, so the warning is safe to suppress. Add `[UnconditionalSuppressMessage]` to any method that contains queries like this:
@@ -91,11 +91,11 @@ using System.Diagnostics.CodeAnalysis;
 
 [UnconditionalSuppressMessage("AOT", "IL2026",
     Justification = "All types used in expression trees are referenced directly and will not be trimmed.")]
-private static void MyQueryMethod(SQLiteDatabase db)
+private static async Task MyQueryMethod(SQLiteDatabase db)
 {
-    var result = db.Table<Product>()
+    var result = await db.Table<Product>()
         .Select(p => new { p.Id, p.Name })
-        .ToList();
+        .ToListAsync();
 }
 ```
 

@@ -4,6 +4,7 @@ using System.Text;
 using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Exceptions;
+using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Helpers;
 
@@ -233,11 +234,10 @@ public class ForeignKeyTests
     [Fact]
     public void Fluent_SingleColumn_InferredPk_EmitsInlineReferences()
     {
-        using TestDatabase db = new();
+        using ModelTestDatabase db = new(model => model.Entity<FkBookFluent>()
+            .ForeignKey<FkAuthor>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.Cascade));
         db.Schema.CreateTable<FkAuthor>();
-        db.Schema.Table<FkBookFluent>()
-            .ForeignKey<FkAuthor>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.Cascade)
-            .CreateTable();
+        db.Schema.CreateTable<FkBookFluent>();
 
         TableColumn fkColumn = db.TableMapping<FkBookFluent>().Columns.First(c => c.Name == "AuthorId");
         Assert.NotNull(fkColumn.ForeignKey);
@@ -252,11 +252,10 @@ public class ForeignKeyTests
     [Fact]
     public void Fluent_NamedTarget_ResolvesByName()
     {
-        using TestDatabase db = new();
+        using ModelTestDatabase db = new(model => model.Entity<FkBookFluentNamed>()
+            .ForeignKey<FkAuthor>(b => b.AuthorId, a => a.Id));
         db.Schema.CreateTable<FkAuthor>();
-        db.Schema.Table<FkBookFluentNamed>()
-            .ForeignKey<FkAuthor>(b => b.AuthorId, a => a.Id)
-            .CreateTable();
+        db.Schema.CreateTable<FkBookFluentNamed>();
 
         TableColumn fkColumn = db.TableMapping<FkBookFluentNamed>().Columns.First(c => c.Name == "AuthorId");
         Assert.Equal(["Id"], fkColumn.ForeignKey!.TargetColumns);
@@ -265,14 +264,13 @@ public class ForeignKeyTests
     [Fact]
     public void Fluent_Composite_EmitsTableLevelConstraint()
     {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<FkOrder>();
-        db.Schema.Table<FkOrderLine>()
+        using ModelTestDatabase db = new(model => model.Entity<FkOrderLine>()
             .ForeignKey<FkOrder>(
                 l => new { l.OrderId, l.OrderVersion },
                 o => new { o.Id, o.Version },
-                onDelete: SQLiteForeignKeyAction.Cascade)
-            .CreateTable();
+                onDelete: SQLiteForeignKeyAction.Cascade));
+        db.Schema.CreateTable<FkOrder>();
+        db.Schema.CreateTable<FkOrderLine>();
 
         db.Table<FkOrder>().Add(new FkOrder { Id = 1, Version = 1, Name = "o" });
         db.Table<FkOrderLine>().Add(new FkOrderLine { Id = 1, OrderId = 1, OrderVersion = 1, Sku = "a" });
@@ -286,90 +284,75 @@ public class ForeignKeyTests
     [Fact]
     public void Fluent_DuplicateOnSameColumn_Throws()
     {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<FkAuthor>();
+        using ModelTestDatabase db = new(model => model.Entity<FkBook>()
+            .ForeignKey<FkAuthor>(b => b.AuthorId));
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.Table<FkBook>()
-                .ForeignKey<FkAuthor>(b => b.AuthorId)
-                .CreateTable());
+            db.Schema.CreateTable<FkBook>());
         Assert.Contains("already has a foreign key", ex.Message);
     }
 
     [Fact]
     public void Fluent_UnknownLocalProperty_Throws()
     {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<FkAuthor>();
+        using ModelTestDatabase db = new(model => model.Entity<FkBookFluentBad>()
+            .ForeignKey<FkAuthor>(b => b.MissingProp));
 
-        Assert.Throws<ArgumentException>(() =>
-            db.Schema.Table<FkBookFluentBad>()
-                .ForeignKey<FkAuthor>(b => b.MissingProp)
-                .CreateTable());
+        Assert.Throws<ArgumentException>(() => db.Schema.CreateTable<FkBookFluentBad>());
     }
 
     [Fact]
     public void Fluent_NonMemberExpression_Throws()
     {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<FkAuthor>();
+        using ModelTestDatabase db = new(model => model.Entity<FkBookFluentNamed>()
+            .ForeignKey<FkAuthor>(b => b.AuthorId + 1));
 
-        Assert.Throws<ArgumentException>(() =>
-            db.Schema.Table<FkBookFluentNamed>()
-                .ForeignKey<FkAuthor>(b => b.AuthorId + 1)
-                .CreateTable());
+        Assert.Throws<ArgumentException>(() => db.Schema.CreateTable<FkBookFluentNamed>());
     }
 
     [Fact]
     public void Fluent_CompositeArityMismatch_Throws()
     {
-        using TestDatabase db = new();
+        using ModelTestDatabase db = new(model => model.Entity<FkOrderLine>()
+            .ForeignKey<FkOrder>(
+                l => new { l.OrderId, l.OrderVersion },
+                o => o.Id));
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.Table<FkOrderLine>()
-                .ForeignKey<FkOrder>(
-                    l => new { l.OrderId, l.OrderVersion },
-                    o => o.Id)
-                .CreateTable());
+            db.Schema.CreateTable<FkOrderLine>());
         Assert.Contains("Local and target column counts must match", ex.Message);
     }
 
     [Fact]
     public void Fluent_CompositeWithNonMemberArg_Throws()
     {
-        using TestDatabase db = new();
+        using ModelTestDatabase db = new(model => model.Entity<FkOrderLine>()
+            .ForeignKey<FkOrder>(
+                l => new { Bad = l.OrderId + 1, l.OrderVersion },
+                o => new { o.Id, o.Version }));
 
-        Assert.Throws<ArgumentException>(() =>
-            db.Schema.Table<FkOrderLine>()
-                .ForeignKey<FkOrder>(
-                    l => new { Bad = l.OrderId + 1, l.OrderVersion },
-                    o => new { o.Id, o.Version })
-                .CreateTable());
+        Assert.Throws<ArgumentException>(() => db.Schema.CreateTable<FkOrderLine>());
     }
 
     [Fact]
     public void Fluent_SetNullOnNonNullable_Throws()
     {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<FkAuthor>();
+        using ModelTestDatabase db = new(model => model.Entity<FkBookFluentNamed>()
+            .ForeignKey<FkAuthor>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.SetNull));
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.Table<FkBookFluentNamed>()
-                .ForeignKey<FkAuthor>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.SetNull)
-                .CreateTable());
+            db.Schema.CreateTable<FkBookFluentNamed>());
         Assert.Contains("ON DELETE SET NULL", ex.Message);
     }
 
     [Fact]
     public void Fluent_OnUpdateSetNullOnNonNullable_Throws()
     {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<FkAuthor>();
+        using ModelTestDatabase db = new(model => model.Entity<FkBookFluentNamed>()
+            .ForeignKey<FkAuthor>(b => b.AuthorId, onUpdate: SQLiteForeignKeyAction.SetNull));
 
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            db.Schema.Table<FkBookFluentNamed>()
-                .ForeignKey<FkAuthor>(b => b.AuthorId, onUpdate: SQLiteForeignKeyAction.SetNull)
-                .CreateTable());
+            db.Schema.CreateTable<FkBookFluentNamed>());
         Assert.Contains("ON UPDATE SET NULL", ex.Message);
     }
 
@@ -384,7 +367,7 @@ public class ForeignKeyTests
             onUpdate: SQLiteForeignKeyAction.SetDefault,
             deferred: true);
         StringBuilder sb = new();
-        info.WriteSql(sb, inline: true);
+        ForeignKeySql.WriteSql(info, sb, inline: true);
         string sql = sb.ToString();
         Assert.Contains("ON DELETE RESTRICT", sql);
         Assert.Contains("ON UPDATE SET DEFAULT", sql);
@@ -402,7 +385,7 @@ public class ForeignKeyTests
             onUpdate: SQLiteForeignKeyAction.NoAction,
             deferred: false);
         StringBuilder sb = new();
-        info.WriteSql(sb, inline: false);
+        ForeignKeySql.WriteSql(info, sb, inline: false);
         string sql = sb.ToString();
         Assert.DoesNotContain("ON DELETE", sql);
         Assert.DoesNotContain("ON UPDATE", sql);
@@ -420,7 +403,7 @@ public class ForeignKeyTests
             onUpdate: SQLiteForeignKeyAction.SetNull,
             deferred: false);
         StringBuilder sb = new();
-        info.WriteSql(sb, inline: true);
+        ForeignKeySql.WriteSql(info, sb, inline: true);
         string sql = sb.ToString();
         Assert.Contains("ON DELETE CASCADE", sql);
         Assert.Contains("ON UPDATE SET NULL", sql);
@@ -465,20 +448,19 @@ public class ForeignKeyTests
             deferred: false);
         StringBuilder sb = new();
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
-            () => info.WriteSql(sb, inline: true));
+            () => ForeignKeySql.WriteSql(info, sb, inline: true));
         Assert.Contains("Unknown foreign key action", ex.Message);
     }
 
     [Fact]
     public void Fluent_CompositeWithConvertWrappedMember_Unwraps()
     {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<FkOrder>();
-        db.Schema.Table<FkOrderLine>()
+        using ModelTestDatabase db = new(model => model.Entity<FkOrderLine>()
             .ForeignKey<FkOrder>(
                 l => new { Wrapped = (long)l.OrderId, l.OrderVersion },
-                o => new { o.Id, o.Version })
-            .CreateTable();
+                o => new { o.Id, o.Version }));
+        db.Schema.CreateTable<FkOrder>();
+        db.Schema.CreateTable<FkOrderLine>();
 
         Assert.Single(db.TableMapping<FkOrderLine>().CompositeForeignKeys);
     }
@@ -486,14 +468,11 @@ public class ForeignKeyTests
     [Fact]
     public void Schema_CreateTable_EmitsCompositeForeignKeyOnMapping()
     {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<FkOrder>();
-
-        db.Schema.Table<FkOrderLine>()
+        using ModelTestDatabase db = new(model => model.Entity<FkOrderLine>()
             .ForeignKey<FkOrder>(
                 l => new { l.OrderId, l.OrderVersion },
-                o => new { o.Id, o.Version });
-
+                o => new { o.Id, o.Version }));
+        db.Schema.CreateTable<FkOrder>();
         db.Schema.CreateTable<FkOrderLine>();
 
         db.Table<FkOrder>().Add(new FkOrder { Id = 1, Version = 1, Name = "o" });

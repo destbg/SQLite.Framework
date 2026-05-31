@@ -17,22 +17,6 @@ internal sealed class QueryFilterRebinder : ExpressionVisitor
         this.newParameter = newParameter;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Func<TEntity, bool> is constructed for entity types preserved by the user's Table<T>() reference.")]
-    public static LambdaExpression Rebind(LambdaExpression source, Type entityType)
-    {
-        ParameterExpression oldP = source.Parameters[0];
-        if (oldP.Type == entityType)
-        {
-            return source;
-        }
-
-        ParameterExpression newP = Expression.Parameter(entityType, oldP.Name);
-        QueryFilterRebinder visitor = new(oldP, newP);
-        Expression body = visitor.Visit(source.Body)!;
-        Type funcType = typeof(Func<,>).MakeGenericType(entityType, typeof(bool));
-        return Expression.Lambda(funcType, body, newP);
-    }
-
     protected override Expression VisitParameter(ParameterExpression node)
     {
         if (node == oldParameter)
@@ -62,6 +46,22 @@ internal sealed class QueryFilterRebinder : ExpressionVisitor
         }
 
         return node.Update(expression);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Func<TEntity, bool> is constructed for entity types preserved by the user's Table<T>() reference.")]
+    public static LambdaExpression Rebind(LambdaExpression source, Type entityType)
+    {
+        ParameterExpression oldP = source.Parameters[0];
+        if (oldP.Type == entityType)
+        {
+            return source;
+        }
+
+        ParameterExpression newP = Expression.Parameter(entityType, oldP.Name);
+        QueryFilterRebinder visitor = new(oldP, newP);
+        Expression body = visitor.Visit(source.Body)!;
+        Type funcType = typeof(Func<,>).MakeGenericType(entityType, typeof(bool));
+        return Expression.Lambda(funcType, body, newP);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Entity types are preserved via DynamicallyAccessedMembers on Table<T>().")]

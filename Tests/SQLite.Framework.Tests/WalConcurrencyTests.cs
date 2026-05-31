@@ -1289,10 +1289,7 @@ file sealed class WalWriteHoldingDatabase : TestDatabase
     private readonly ManualResetEventSlim releaseWrite;
     private int armed;
 
-    public WalWriteHoldingDatabase(
-        ManualResetEventSlim writeAcquired,
-        ManualResetEventSlim releaseWrite,
-        [CallerMemberName] string? methodName = null)
+    public WalWriteHoldingDatabase(ManualResetEventSlim writeAcquired, ManualResetEventSlim releaseWrite, [CallerMemberName] string? methodName = null)
         : base(b => b.UseWalMode(), methodName)
     {
         this.writeAcquired = writeAcquired;
@@ -1329,10 +1326,7 @@ file sealed class HoldableReadDatabase : TestDatabase
     private readonly ManualResetEventSlim readStarted;
     private readonly ManualResetEventSlim releaseRead;
 
-    public HoldableReadDatabase(
-        ManualResetEventSlim readStarted,
-        ManualResetEventSlim releaseRead,
-        [CallerMemberName] string? methodName = null)
+    public HoldableReadDatabase(ManualResetEventSlim readStarted, ManualResetEventSlim releaseRead, [CallerMemberName] string? methodName = null)
         : base(b => b.UseWalMode(), methodName)
     {
         this.readStarted = readStarted;

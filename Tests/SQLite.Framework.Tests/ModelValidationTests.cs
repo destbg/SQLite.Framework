@@ -140,14 +140,13 @@ public class ModelValidationTests
     [Fact]
     public void ValidateModel_CompositeForeignKeyPresent_IsValid()
     {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<FkOrder>();
-        db.Schema.Table<FkOrderLine>()
+        using ModelTestDatabase db = new(model => model.Entity<FkOrderLine>()
             .ForeignKey<FkOrder>(
                 l => new { l.OrderId, l.OrderVersion },
                 o => new { o.Id, o.Version },
-                onDelete: SQLiteForeignKeyAction.Cascade)
-            .CreateTable();
+                onDelete: SQLiteForeignKeyAction.Cascade));
+        db.Schema.CreateTable<FkOrder>();
+        db.Schema.CreateTable<FkOrderLine>();
 
         Assert.True(db.Schema.ValidateModel<FkOrderLine>().IsValid);
     }

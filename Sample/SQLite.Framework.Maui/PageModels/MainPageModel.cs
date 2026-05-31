@@ -43,8 +43,7 @@ public partial class MainPageModel : ObservableObject, IProjectTaskPageModel
     public bool HasCompletedTasks
         => Tasks?.Any(t => t.IsCompleted) ?? false;
 
-    public MainPageModel(SeedDataService seedDataService, ProjectRepository projectRepository,
-        TaskRepository taskRepository, CategoryRepository categoryRepository, AppDatabase db, ModalErrorHandler errorHandler)
+    public MainPageModel(SeedDataService seedDataService, ProjectRepository projectRepository, TaskRepository taskRepository, CategoryRepository categoryRepository, AppDatabase db, ModalErrorHandler errorHandler)
     {
         _projectRepository = projectRepository;
         _taskRepository = taskRepository;

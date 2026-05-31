@@ -210,7 +210,7 @@ public class InternalHelpersDirectTests
         using TestDatabase db = new();
         TableMapping mapping = db.TableMapping<Book>();
 
-        UpsertConflictTarget<Book> target = ConstructConflictTarget<Book>(
+        SQLiteUpsertConflictTarget<Book> target = ConstructConflictTarget<Book>(
             new[] { "Id" },
             ConstructDoUpdateAction<Book>(new[] { "DoesNotExist" }));
 
@@ -224,7 +224,7 @@ public class InternalHelpersDirectTests
         using TestDatabase db = new();
         TableMapping mapping = db.TableMapping<Book>();
 
-        UpsertConflictTarget<Book> target = ConstructConflictTarget<Book>(
+        SQLiteUpsertConflictTarget<Book> target = ConstructConflictTarget<Book>(
             new[] { "Id" },
             ConstructActionWithKind<Book>(999));
 
@@ -232,34 +232,34 @@ public class InternalHelpersDirectTests
             UpsertSqlBuilder.Build(db, mapping, target, (_, name) => name));
     }
 
-    private static UpsertConflictTarget<T> ConstructConflictTarget<T>(IReadOnlyList<string> conflictColumns, UpsertAction<T> action)
+    private static SQLiteUpsertConflictTarget<T> ConstructConflictTarget<T>(IReadOnlyList<string> conflictColumns, SQLiteUpsertAction<T> action)
     {
-        ConstructorInfo ctor = typeof(UpsertConflictTarget<T>).GetConstructor(
+        ConstructorInfo ctor = typeof(SQLiteUpsertConflictTarget<T>).GetConstructor(
             BindingFlags.Instance | BindingFlags.NonPublic,
             binder: null,
             new[] { typeof(IReadOnlyList<string>) },
             modifiers: null)!;
-        UpsertConflictTarget<T> target = (UpsertConflictTarget<T>)ctor.Invoke(new object[] { conflictColumns });
+        SQLiteUpsertConflictTarget<T> target = (SQLiteUpsertConflictTarget<T>)ctor.Invoke(new object[] { conflictColumns });
 
-        FieldInfo actionField = typeof(UpsertConflictTarget<T>).GetField("action", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        FieldInfo actionField = typeof(SQLiteUpsertConflictTarget<T>).GetField("action", BindingFlags.Instance | BindingFlags.NonPublic)!;
         actionField.SetValue(target, action);
         return target;
     }
 
-    private static UpsertAction<T> ConstructDoUpdateAction<T>(IReadOnlyList<string> columns)
+    private static SQLiteUpsertAction<T> ConstructDoUpdateAction<T>(IReadOnlyList<string> columns)
     {
-        ConstructorInfo ctor = typeof(UpsertAction<T>).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
-        Type kindType = typeof(UpsertAction<T>).Assembly.GetType("SQLite.Framework.Internals.Enums.UpsertActionKind", throwOnError: true)!;
+        ConstructorInfo ctor = typeof(SQLiteUpsertAction<T>).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
+        Type kindType = typeof(SQLiteUpsertAction<T>).Assembly.GetType("SQLite.Framework.Internals.Enums.UpsertActionKind", throwOnError: true)!;
         object doUpdateKind = Enum.ToObject(kindType, 1);
-        return (UpsertAction<T>)ctor.Invoke(new object?[] { doUpdateKind, columns });
+        return (SQLiteUpsertAction<T>)ctor.Invoke(new object?[] { doUpdateKind, columns });
     }
 
-    private static UpsertAction<T> ConstructActionWithKind<T>(int kindValue)
+    private static SQLiteUpsertAction<T> ConstructActionWithKind<T>(int kindValue)
     {
-        ConstructorInfo ctor = typeof(UpsertAction<T>).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
-        Type kindType = typeof(UpsertAction<T>).Assembly.GetType("SQLite.Framework.Internals.Enums.UpsertActionKind", throwOnError: true)!;
+        ConstructorInfo ctor = typeof(SQLiteUpsertAction<T>).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
+        Type kindType = typeof(SQLiteUpsertAction<T>).Assembly.GetType("SQLite.Framework.Internals.Enums.UpsertActionKind", throwOnError: true)!;
         object kind = Enum.ToObject(kindType, kindValue);
-        return (UpsertAction<T>)ctor.Invoke(new object?[] { kind, null });
+        return (SQLiteUpsertAction<T>)ctor.Invoke(new object?[] { kind, null });
     }
 
     [Fact]

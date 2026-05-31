@@ -211,10 +211,12 @@ public class MinimumSqliteVersionTests
     [Fact]
     public void LowFloor_BlocksComputedColumns()
     {
-        using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_22));
+        using ModelTestDatabase db = new(
+            model => model.Entity<Book>().Computed(b => b.Price, b => b.AuthorId * 10),
+            b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_22));
 
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Schema.Computed(b => b.Price, b => b.AuthorId * 10).CreateTable());
+            db.Schema.CreateTable<Book>());
 
         Assert.Contains("Computed", ex.Message);
         Assert.Contains("3.31", ex.Message);
@@ -223,10 +225,12 @@ public class MinimumSqliteVersionTests
     [Fact]
     public void LowFloor_BlocksExpressionIndex()
     {
-        using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_8));
+        using ModelTestDatabase db = new(
+            model => model.Entity<Book>().Index(b => b.Title.ToLower(), name: "ix_low"),
+            b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_8));
 
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Schema.Index(b => b.Title.ToLower(), name: "ix_low").CreateTable());
+            db.Schema.CreateTable<Book>());
 
         Assert.Contains("Expression indexes", ex.Message);
         Assert.Contains("3.9", ex.Message);
@@ -498,10 +502,12 @@ public class MinimumSqliteVersionTests
     [Fact]
     public void LowFloor_BlocksExpressionDefaultOnTableBuilder()
     {
-        using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_22));
+        using ModelTestDatabase db = new(
+            model => model.Entity<Book>().Default(b => b.Price, () => SQLiteFunctions.Random()),
+            b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_22));
 
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Schema.Default(b => b.Price, () => SQLiteFunctions.Random()).CreateTable());
+            db.Schema.CreateTable<Book>());
 
         Assert.Contains("Column DEFAULT with computed expression", ex.Message);
         Assert.Contains("3.31", ex.Message);

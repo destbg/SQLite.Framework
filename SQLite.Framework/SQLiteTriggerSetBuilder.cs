@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Models;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Collects the column assignments for an <c>UPDATE</c> or <c>INSERT</c> statement inside a

@@ -155,7 +155,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 |---|---|---|
 | `ExplicitAutoIncrementKeysPreserved` | `bool` | `false` |
 
-Controls how the `Add` family of methods (`Add`, `AddAsync`, `AddRange`, `AddRangeAsync`) handles the value already set on an `[AutoIncrement]` primary key.
+Controls how the `Add` family of methods (`Add` and `AddRange`) handles the value already set on an `[AutoIncrement]` primary key.
 
 | Value | Behavior |
 |---|---|

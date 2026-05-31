@@ -117,9 +117,9 @@ public static class AsyncSQLiteTableExtensions
 
     /// <summary>
     /// Performs an <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> upsert built through the
-    /// <see cref="UpsertBuilder{T}" /> DSL.
+    /// <see cref="SQLiteUpsertBuilder{T}" /> DSL.
     /// </summary>
-    public static Task<int> UpsertAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, Action<UpsertBuilder<T>> configure, CancellationToken ct = default)
+    public static Task<int> UpsertAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, T item, Action<SQLiteUpsertBuilder<T>> configure, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
         {
@@ -129,9 +129,9 @@ public static class AsyncSQLiteTableExtensions
     }
 
     /// <summary>
-    /// Range version of <see cref="UpsertAsync{T}(SQLiteTable{T}, T, Action{UpsertBuilder{T}}, CancellationToken)" />.
+    /// Range version of <see cref="UpsertAsync{T}(SQLiteTable{T}, T, Action{SQLiteUpsertBuilder{T}}, CancellationToken)" />.
     /// </summary>
-    public static Task<int> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true, CancellationToken ct = default)
+    public static Task<int> UpsertRangeAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteTable<T> source, IEnumerable<T> collection, Action<SQLiteUpsertBuilder<T>> configure, bool runInTransaction = true, CancellationToken ct = default)
     {
         return RunRangeAsync(source, collection, runInTransaction,
             (c, t) => source.UpsertRange(c, configure, t), ct);

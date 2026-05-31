@@ -1,6 +1,6 @@
 # Raw SQL
 
-`FromSql` lets you write a SQL query by hand and get back a typed result. Use it when the LINQ API does not cover what you need.
+`FromSql` lets you write a SQL query by hand and get back a typed result.
 
 ## Basic Query
 
@@ -93,7 +93,7 @@ For cases where you just want to run SQL and get results back without the subque
 Pass parameters as an anonymous object:
 
 ```csharp
-var books = db.Query<BookSummary>(
+var books = await db.QueryAsync<BookSummary>(
     "SELECT BookTitle AS Title, BookPrice AS Price FROM Books WHERE BookPrice < @price",
     new { price = 30.0 }
 );
@@ -102,7 +102,7 @@ var books = db.Query<BookSummary>(
 Or pass explicit `SQLiteParameter` objects:
 
 ```csharp
-var books = db.Query<BookSummary>(
+var books = await db.QueryAsync<BookSummary>(
     "SELECT BookTitle AS Title, BookPrice AS Price FROM Books WHERE BookAuthorId = @authorId AND BookPrice < @price",
     new SQLiteParameter { Name = "@authorId", Value = 5 },
     new SQLiteParameter { Name = "@price", Value = 30.0 }
@@ -114,7 +114,7 @@ var books = db.Query<BookSummary>(
 Pass `Dictionary<string, object?>` (or `Dictionary<string, object>`) as the type to get each row as a column-name to value map. Values come back in their SQLite native form: `long` for INTEGER, `double` for REAL, `string` for TEXT, `byte[]` for BLOB, `null` for NULL.
 
 ```csharp
-List<Dictionary<string, object?>> rows = db.Query<Dictionary<string, object?>>(
+List<Dictionary<string, object?>> rows = await db.QueryAsync<Dictionary<string, object?>>(
     "SELECT Id, Name FROM Books");
 
 // Same shape on a raw SQLiteCommand
@@ -123,7 +123,7 @@ var moreRows = db.CreateCommand("SELECT * FROM Books", [])
     .ToList();
 ```
 
-Use this when the schema is dynamic or you do not want to declare a type.
+This returns each row as a `Dictionary<string, object?>` keyed by column name, with no declared type.
 
 ### Column Mapping
 
@@ -131,7 +131,7 @@ Use this when the schema is dynamic or you do not want to declare a type.
 
 ```csharp
 // BookTitle is the column name, Title is the property name
-var books = db.Query<BookSummary>(
+var books = await db.QueryAsync<BookSummary>(
     "SELECT BookTitle AS Title, BookPrice AS Price FROM Books"
 );
 ```
@@ -150,10 +150,8 @@ var books = db.Query<BookSummary>(
 | `ExecuteScalar<T>(sql, params)` | First column of the first row, null if no rows |
 | `Execute(sql, params)` | Number of rows affected |
 
-All methods have async versions: `QueryAsync`, `QueryFirstAsync`, `QueryFirstOrDefaultAsync`, `QuerySingleAsync`, `QuerySingleOrDefaultAsync`, `ExecuteScalarAsync`, `ExecuteAsync`.
-
 ```csharp
-int count = db.ExecuteScalar<int>("SELECT COUNT(*) FROM Books")!;
+int count = (await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Books"))!;
 
 int affected = await db.ExecuteAsync(
     "DELETE FROM Books WHERE BookAuthorId = @authorId",
@@ -163,7 +161,7 @@ int affected = await db.ExecuteAsync(
 
 ## Inspecting Generated SQL
 
-Use `ToSql()` to see what SQL a LINQ query produces. Useful for debugging.
+`ToSql()` returns the SQL a LINQ query produces.
 
 ```csharp
 string sql = db.Table<Book>()

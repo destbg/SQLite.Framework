@@ -77,12 +77,12 @@ var revenueByAuthor = await (
 ).ToListAsync();
 ```
 
-At the root of a query, call `Total` (or `TotalAsync`) directly on the queryable.
+At the root of a query, call `Total` directly on the queryable.
 
 ```csharp
-double revenue = db.Table<Book>()
+double revenue = await db.Table<Book>()
     .Where(b => b.AuthorId == 1)
-    .Total(b => b.Price);
+    .TotalAsync(b => b.Price);
 ```
 
 ## Concatenating Strings Across Rows
@@ -107,18 +107,13 @@ var titlesPerAuthor = await (
 For a single SQL roundtrip at the root of a query, call `StringJoin` on the queryable directly.
 
 ```csharp
-string allTitles = db.Table<Book>()
-    .OrderBy(b => b.Id)
-    .Select(b => b.Title)
-    .StringJoin(", ");
-
-string allTitlesAsync = await db.Table<Book>()
+string allTitles = await db.Table<Book>()
     .OrderBy(b => b.Id)
     .Select(b => b.Title)
     .StringJoinAsync(", ");
 ```
 
-A plain `string.Join(sep, queryable)` at the root, without `StringJoin`, still works but does not get `group_concat`. The runtime enumerates every row first and concatenates them in memory. Use `StringJoin` when you want the aggregation to happen in SQL.
+A plain `string.Join(sep, queryable)` at the root, without `StringJoin`, still works but does not get `group_concat`. The runtime enumerates every row first and concatenates them in memory. `StringJoin` runs the aggregation in SQL.
 
 ## Filtering Inside an Aggregate
 
@@ -175,37 +170,3 @@ var authorStats = await (
     select new { Author = g.Key, BookCount = g.Count(), AvgPrice = g.Average(b => b.Price) }
 ).ToListAsync();
 ```
-
-## Materializing Groupings
-
-You can also turn a `GroupBy` straight into a list or dictionary of `IGrouping<TKey, TElement>`:
-
-```csharp
-var byAuthor = db.Table<Book>()
-    .GroupBy(b => b.AuthorId)
-    .ToDictionary(g => g.Key, g => g.ToList());
-
-foreach (IGrouping<int, Book> group in db.Table<Book>().GroupBy(b => b.AuthorId))
-{
-    Console.WriteLine($"Author {group.Key}");
-    foreach (Book book in group)
-    {
-        Console.WriteLine($"  {book.Title}");
-    }
-}
-```
-
-The SQL asks for every matching row. There is no `GROUP BY` in the SQL. The groups are built in memory after the rows come back. The key selector runs once per row in .NET.
-
-When you install `SQLite.Framework.SourceGenerator`, the generator writes a small method for each key selector shape it can see. Those methods do not use reflection, so this query works even with `DisableReflectionFallback` set. Without the generator, the framework uses reflection at run time to read the key from each row. In strict mode without the generator, the query throws with a clear error.
-
-The generator writes code for the common shapes:
-
-- `b => b.Id`, a simple property access.
-- `b => new { b.X, b.Y }`, an anonymous type key.
-- `b => b.X > 0`, a simple boolean or numeric check.
-- `b => b.X + b.Y`, simple arithmetic.
-
-Shapes the generator cannot write code for include calls to your own methods and casts to types the generator does not know. For those, either change the key to one of the shapes above, or fetch the rows with `ToListAsync()` first and call LINQ `GroupBy` on the result.
-
-Only a direct `GroupBy(keySelector)` call works here. If you need to filter or order the groups, do it after the `ToDictionary` or `ToList`.

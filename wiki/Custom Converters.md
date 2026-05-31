@@ -79,7 +79,7 @@ The converter is called transparently when binding parameters and when reading r
 ## Method translators
 
 A method translator maps a .NET method to a SQL expression.
-This is useful for SQL functions that have no .NET match, such as the JSON functions built into SQLite.
+It covers SQL functions that have no .NET match, such as the JSON functions built into SQLite.
 
 Add a translator on the builder by calling `AddMethodTranslator`. Pass the `MethodInfo` as the key and a `SQLiteMemberTranslator` delegate as the value:
 

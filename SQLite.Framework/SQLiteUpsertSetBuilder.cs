@@ -1,17 +1,17 @@
-namespace SQLite.Framework.Models;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Collects the column assignments for an <c>ON CONFLICT (...) DO UPDATE SET</c> built from expressions.
-/// Passed to the lambda given to <see cref="UpsertConflictTarget{T}.DoUpdate(Action{UpsertSetBuilder{T}})" />.
+/// Passed to the lambda given to <see cref="SQLiteUpsertConflictTarget{T}.DoUpdate(Action{SQLiteUpsertSetBuilder{T}})" />.
 /// Each <see cref="Set{TValue}(Expression{Func{T, TValue}}, Expression{Func{T, T, TValue}})" /> adds
 /// one <c>col = expression</c> pair. The expression can read the existing row and the incoming
 /// <c>excluded</c> row, which is the everyday shape for counters and merges.
 /// </summary>
-public sealed class UpsertSetBuilder<T>
+public sealed class SQLiteUpsertSetBuilder<T>
 {
     private readonly List<(string Column, LambdaExpression Rhs)> setters = [];
 
-    internal UpsertSetBuilder()
+    internal SQLiteUpsertSetBuilder()
     {
     }
 
@@ -23,7 +23,7 @@ public sealed class UpsertSetBuilder<T>
     /// first setter parameter is the row already stored in the table. The second is the incoming row
     /// that failed to insert, mapped to SQLite's <c>excluded</c> row.
     /// </summary>
-    public UpsertSetBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, T, TValue>> setter)
+    public SQLiteUpsertSetBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, T, TValue>> setter)
     {
         return Add(column, setter);
     }
@@ -33,7 +33,7 @@ public sealed class UpsertSetBuilder<T>
     /// <c>Set(b =&gt; b.Version, current =&gt; current.Version + 1)</c>. The parameter is the row
     /// already stored in the table.
     /// </summary>
-    public UpsertSetBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, TValue>> setter)
+    public SQLiteUpsertSetBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, TValue>> setter)
     {
         return Add(column, setter);
     }
@@ -42,13 +42,13 @@ public sealed class UpsertSetBuilder<T>
     /// Assigns <paramref name="column" /> to a constant value, as in
     /// <c>Set(b =&gt; b.Status, "merged")</c>.
     /// </summary>
-    public UpsertSetBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, TValue value)
+    public SQLiteUpsertSetBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, TValue value)
     {
         Expression<Func<T, TValue>> setter = _ => value;
         return Add(column, setter);
     }
 
-    private UpsertSetBuilder<T> Add<TValue>(Expression<Func<T, TValue>> column, LambdaExpression setter)
+    private SQLiteUpsertSetBuilder<T> Add<TValue>(Expression<Func<T, TValue>> column, LambdaExpression setter)
     {
         string name = UpsertExpressionParser.ResolveMemberName(column);
         setters.Add((name, setter));

@@ -11,8 +11,6 @@ public sealed class SQLiteCallerContext
         Node = node;
     }
 
-    internal SQLVisitor Visitor { get; }
-
     /// <summary>
     /// The current expression being translated. For built-in handlers this is the
     /// <see cref="MethodCallExpression" /> being dispatched.
@@ -48,6 +46,11 @@ public sealed class SQLiteCallerContext
     /// Gets or sets the table columns for the current context.
     /// </summary>
     public Dictionary<string, Expression> TableColumns => Visitor.TableColumns;
+
+    /// <summary>
+    /// The visitor that owns this context.
+    /// </summary>
+    internal SQLVisitor Visitor { get; }
 
     /// <summary>
     /// Visits the given expression with the current visitor, returning the translated tree.

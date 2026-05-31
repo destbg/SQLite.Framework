@@ -42,21 +42,6 @@ In WAL mode multiple writes share the lock concurrently. A non-separate-connecti
 This means you can freely share one `SQLiteDatabase` across threads:
 
 ```csharp
-Task[] tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
-{
-    db.Table<Book>().Add(new Book { Id = i + 1, Title = $"Book {i}", Price = i + 1 });
-
-    var book = db.Table<Book>().First(b => b.Id == i + 1);
-    book.Title = $"Updated {i}";
-    db.Table<Book>().Update(book);
-})).ToArray();
-
-await Task.WhenAll(tasks);
-```
-
-Async operations run the sync operation on a thread-pool worker. The wait for the connection lock is asynchronous, so the worker thread is not blocked while the lock is held by another caller. Once the lock is acquired, the worker runs the SQL synchronously inside it, just like the sync version.
-
-```csharp
 Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
 {
     await db.Table<Book>().AddAsync(new Book { Id = i + 1, Title = $"Book {i}", Price = i + 1 });
@@ -69,28 +54,13 @@ Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
 await Task.WhenAll(tasks);
 ```
 
+Each operation runs on a thread-pool worker. The worker thread is not blocked while another caller holds the connection lock. Once it acquires the lock, the worker runs the SQL inside it.
+
 Between individual operations the lock is released, so other callers can run. If you need a block of operations to stay together without anything else getting in, use a transaction.
 
 ## Transactions hold the lock
 
 When you open a transaction, it holds the connection lock for its entire lifetime. No other write can run until the transaction commits or rolls back.
-
-```csharp
-using SQLiteTransaction tx = db.BeginTransaction();
-
-db.Table<Book>().Add(new Book { Title = "A", Price = 1 });
-db.Table<Book>().Add(new Book { Title = "B", Price = 2 });
-
-tx.Commit();
-```
-
-Every read and write inside the transaction sees a consistent view of the data, and nothing from another thread can get in between.
-
-Reads from other threads still run in parallel. If you want them to wait until the transaction is done, set `BlockReadsDuringTransaction` on the options. See the [Transactions](Transactions#block-reads-during-a-transaction) page for details.
-
-## Async transactions
-
-Use `BeginTransactionAsync` when you are in an async method. It waits for the lock without blocking a thread.
 
 ```csharp
 await using SQLiteTransaction tx = await db.BeginTransactionAsync();
@@ -104,7 +74,9 @@ await db.Table<Book>().AddAsync(new Book { Title = "B", Price = 2 });
 await tx.CommitAsync();
 ```
 
-Awaited queries inside an async transaction work correctly. Once `BeginTransactionAsync` completes, the lock is held for the rest of the async method, so every subsequent operation like `ToListAsync`, `AddAsync`, and `UpdateAsync` goes straight through without queuing.
+Every read and write inside the transaction sees a consistent view of the data, and nothing from another thread can get in between. Once the transaction starts, the lock is held for the rest of the method, so every later operation goes straight through without queuing.
+
+Reads from other threads still run in parallel. If you want them to wait until the transaction is done, set `BlockReadsDuringTransaction` on the options. See the [Transactions](Transactions#block-reads-during-a-transaction) page for details.
 
 ## Running transactions in parallel
 

@@ -430,7 +430,7 @@ public class UpsertTests
     public void Upsert_DoUpdateSet_NoSetters_Throws()
     {
         ArgumentException ex = Assert.Throws<ArgumentException>(() =>
-            new UpsertConflictTarget<Book>(["BookId"]).DoUpdate(s => { }));
+            new SQLiteUpsertConflictTarget<Book>(["BookId"]).DoUpdate(s => { }));
 
         Assert.Contains("at least one Set", ex.Message);
     }
@@ -439,7 +439,7 @@ public class UpsertTests
     public void Upsert_DoUpdateSet_NonMemberColumn_Throws()
     {
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            new UpsertConflictTarget<Book>(["BookId"]).DoUpdate(s => s.Set(b => 5, 0)));
+            new SQLiteUpsertConflictTarget<Book>(["BookId"]).DoUpdate(s => s.Set(b => 5, 0)));
 
         Assert.Contains("property reference", ex.Message);
     }
@@ -462,7 +462,7 @@ public class UpsertTests
     public void Upsert_DoNothingWithGuard_Throws()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            new UpsertConflictTarget<Book>(["BookId"]).DoNothing().Where(b => b.AuthorId == 1));
+            new SQLiteUpsertConflictTarget<Book>(["BookId"]).DoNothing().Where(b => b.AuthorId == 1));
 
         Assert.Equal("DO NOTHING has no WHERE clause. Use DoUpdate or DoUpdateAll to add a conditional guard.", ex.Message);
     }
@@ -471,7 +471,7 @@ public class UpsertTests
     public void Upsert_UpdateGuardCalledTwice_Throws()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
-            new UpsertConflictTarget<Book>(["BookId"]).DoUpdateAll().Where(b => b.AuthorId == 1).Where(b => b.Price > 0));
+            new SQLiteUpsertConflictTarget<Book>(["BookId"]).DoUpdateAll().Where(b => b.AuthorId == 1).Where(b => b.Price > 0));
 
         Assert.Equal("Where was already called for this Upsert action.", ex.Message);
     }
@@ -494,6 +494,6 @@ public class UpsertTests
     {
         public SqlInspectingTable(SQLiteDatabase database, TableMapping table) : base(database, table) { }
 
-        public string GetSql(Action<UpsertBuilder<Book>> configure) => GetUpsertInfo(configure).Sql;
+        public string GetSql(Action<SQLiteUpsertBuilder<Book>> configure) => GetUpsertInfo(configure).Sql;
     }
 }

@@ -495,8 +495,7 @@ file sealed class HoldableReadDatabase : TestDatabase
     private readonly ManualResetEventSlim readStarted;
     private readonly ManualResetEventSlim releaseRead;
 
-    public HoldableReadDatabase(ManualResetEventSlim readStarted, ManualResetEventSlim releaseRead,
-        [System.Runtime.CompilerServices.CallerMemberName] string? methodName = null)
+    public HoldableReadDatabase(ManualResetEventSlim readStarted, ManualResetEventSlim releaseRead, [System.Runtime.CompilerServices.CallerMemberName] string? methodName = null)
         : base(methodName)
     {
         this.readStarted = readStarted;

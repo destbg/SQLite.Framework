@@ -147,9 +147,9 @@ If a table is mostly looked up by primary key and rarely scanned in order, `[Wit
 `IQueryable<T>.ExplainQueryPlan()` runs `EXPLAIN QUERY PLAN` on the query and returns the result as a tree of `SQLiteQueryPlanNode`.
 
 ```csharp
-SQLiteQueryPlan plan = db.Table<Book>()
+SQLiteQueryPlan plan = await db.Table<Book>()
     .Where(b => b.AuthorId == 1)
-    .ExplainQueryPlan();
+    .ExplainQueryPlanAsync();
 
 Console.WriteLine(plan);
 ```
@@ -161,6 +161,6 @@ QUERY PLAN
 > SEARCH b0 USING INDEX IX_Book_AuthorId (BookAuthorId=?)
 ```
 
-`SQLiteQueryPlan.ToString()` renders the tree as ASCII text. To inspect the tree directly, walk `plan.Roots` and `node.Children`. The async path is `ExplainQueryPlanAsync`.
+`SQLiteQueryPlan.ToString()` renders the tree as ASCII text. To inspect the tree directly, walk `plan.Roots` and `node.Children`.
 
 A non-indexed predicate gives a `SCAN` instead of a `SEARCH`.

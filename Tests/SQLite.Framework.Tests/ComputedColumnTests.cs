@@ -8,10 +8,9 @@ public class ComputedColumnTests
     [Fact]
     public void Computed_Virtual_ProducesValueOnRead()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<ProductLine>()
-            .Computed(p => p.Total, p => p.Price * p.Quantity)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<ProductLine>()
+            .Computed(p => p.Total, p => p.Price * p.Quantity));
+        db.Schema.CreateTable<ProductLine>();
 
         db.Execute(
             "INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\") VALUES (1, 5.0, 3), (2, 2.5, 4)");
@@ -24,10 +23,9 @@ public class ComputedColumnTests
     [Fact]
     public void Computed_Stored_ProducesValueOnRead()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<ProductLine>()
-            .Computed(p => p.Total, p => p.Price * p.Quantity, stored: true)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<ProductLine>()
+            .Computed(p => p.Total, p => p.Price * p.Quantity, stored: true));
+        db.Schema.CreateTable<ProductLine>();
 
         db.Execute(
             "INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\") VALUES (1, 5.0, 3)");
@@ -39,10 +37,9 @@ public class ComputedColumnTests
     [Fact]
     public void Computed_DoesNotAcceptDirectWrites()
     {
-        using TestDatabase db = new();
-        db.Schema.Table<ProductLine>()
-            .Computed(p => p.Total, p => p.Price * p.Quantity)
-            .CreateTable();
+        using ModelTestDatabase db = new(model => model.Entity<ProductLine>()
+            .Computed(p => p.Total, p => p.Price * p.Quantity));
+        db.Schema.CreateTable<ProductLine>();
 
         Assert.ThrowsAny<Exception>(() =>
             db.Execute("INSERT INTO ProductLines (\"Id\", \"Price\", \"Quantity\", \"Total\") VALUES (1, 1, 1, 99)"));
@@ -51,9 +48,9 @@ public class ComputedColumnTests
     [Fact]
     public void Computed_NotAPropertyExpression_Throws()
     {
-        using TestDatabase db = new();
-        Assert.Throws<ArgumentException>(() =>
-            db.Schema.Table<ProductLine>()
-                .Computed(p => p.Price + 1, p => p.Price));
+        using ModelTestDatabase db = new(model => model.Entity<ProductLine>()
+            .Computed(p => p.Price + 1, p => p.Price));
+
+        Assert.Throws<ArgumentException>(() => db.Schema.CreateTable<ProductLine>());
     }
 }

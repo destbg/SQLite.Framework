@@ -1,4 +1,4 @@
-# SQLite.Framework — AI Quick Reference
+# SQLite.Framework - AI Quick Reference
 
 A compact reference for an AI assistant working with SQLite.Framework in this project.
 
@@ -8,12 +8,12 @@ A LINQ-to-SQLite ORM for .NET. Familiar if you know EF Core: `db.Table<T>()` ret
 
 ## Packages
 
-- `SQLite.Framework` — default; uses the OS-bundled SQLite.
-- `SQLite.Framework.Bundled` — ships its own SQLite binary.
-- `SQLite.Framework.Cipher` — SQLCipher for encrypted databases.
-- `SQLite.Framework.Base` — bring your own `SQLitePCLRaw` provider.
-- `SQLite.Framework.DependencyInjection` — `AddSQLiteDatabase` for `IServiceCollection`.
-- `SQLite.Framework.SourceGenerator` — build-time materializers; required for AOT.
+- `SQLite.Framework` - default; uses the OS-bundled SQLite.
+- `SQLite.Framework.Bundled` - ships its own SQLite binary.
+- `SQLite.Framework.Cipher` - SQLCipher for encrypted databases.
+- `SQLite.Framework.Base` - bring your own `SQLitePCLRaw` provider.
+- `SQLite.Framework.DependencyInjection` - `AddSQLiteDatabase` for `IServiceCollection`.
+- `SQLite.Framework.SourceGenerator` - build-time materializers; required for AOT.
 
 The first four expose the same API and assembly name; swap freely. The version of the added packages must all match.
 
@@ -85,13 +85,13 @@ public class Project
 }
 ```
 
-Keep entities to the columns of the table. There are no navigation properties — to load related rows, query them explicitly or build a DTO via a `Select` / join projection.
+Keep entities to the columns of the table. There are no navigation properties - to load related rows, query them explicitly or build a DTO via a `Select` / join projection.
 
-- `[Key]` + `[AutoIncrement]` — SQLite assigns the id and writes it back to the entity after `AddAsync`.
-- `[Required]` — NOT NULL. Nullable reference types (`string?`) map automatically.
-- `[Indexed]` — single, unique (`IsUnique = true`), named, or composite (same `Name`, different `Order`).
-- `[Column("…")]`, `[Table("…")]` — override names.
-- `[WithoutRowId]` — class-level; primary key must not be `[AutoIncrement]`.
+- `[Key]` + `[AutoIncrement]` - SQLite assigns the id and writes it back to the entity after `AddAsync`.
+- `[Required]` - NOT NULL. Nullable reference types (`string?`) map automatically.
+- `[Indexed]` - single, unique (`IsUnique = true`), named, or composite (same `Name`, different `Order`).
+- `[Column("…")]`, `[Table("…")]` - override names.
+- `[WithoutRowId]` - class-level; primary key must not be `[AutoIncrement]`.
 - `[NotMapped]` exists for the rare case you need a non-column member on the class (a derived value used by validation, etc.), but prefer keeping such logic outside the entity.
 
 Schema setup is idempotent (`CREATE TABLE IF NOT EXISTS`), so calling `Schema.CreateTable<T>()` on every startup is safe. Track migrations through `db.Pragmas.UserVersion`.
@@ -140,7 +140,7 @@ Enforcement is on by default (`PRAGMA foreign_keys = ON` on every connection ope
 - TEXT: `string`, `char`, `Guid` (lowercase hyphenated).
 - BLOB: `byte[]`.
 
-All work as nullable. `DateTimeOffset` does not preserve offset — store offset in a separate column if you need it.
+All work as nullable. `DateTimeOffset` does not preserve offset - store offset in a separate column if you need it.
 
 ## CRUD
 
@@ -222,7 +222,7 @@ await projects.Where(p => ids.Contains(p.Id)).ToListAsync();
 
 ## Joins
 
-No navigation properties — write joins explicitly:
+No navigation properties - write joins explicitly:
 
 ```csharp
 var rows = await (
@@ -275,7 +275,7 @@ await tx.CommitAsync();
 // no Commit -> auto rollback on dispose
 ```
 
-Nested transactions use SQLite savepoints. Pass `separateConnection: true` for a dedicated-connection transaction (file DB only). Keep them short — they hold the write lock.
+Nested transactions use SQLite savepoints. Pass `separateConnection: true` for a dedicated-connection transaction (file DB only). Keep them short - they hold the write lock.
 
 ## Raw SQL
 
@@ -319,7 +319,7 @@ Configured on the options builder:
 
 ## Multi-threading
 
-A single shared `SQLiteDatabase` is thread-safe — every command acquires an internal connection lock. With WAL mode on, reads never block writers and concurrent writers can run in parallel. Do not pass a `SQLiteTransaction` between threads; it belongs to the async flow that opened it.
+A single shared `SQLiteDatabase` is thread-safe - every command acquires an internal connection lock. With WAL mode on, reads never block writers and concurrent writers can run in parallel. Do not pass a `SQLiteTransaction` between threads; it belongs to the async flow that opened it.
 
 ## AOT and the source generator
 
@@ -335,7 +335,7 @@ The generator runs per-project; each project that builds queries needs its own r
 ## Common pitfalls
 
 - `AddAsync` always lets SQLite assign an `[AutoIncrement]` id; any value you set is overwritten. Use `AddOrUpdateAsync` to insert at a specific id.
-- `[NotMapped]` collections are not loaded by queries — fill them explicitly.
+- `[NotMapped]` collections are not loaded by queries - fill them explicitly.
 - `decimal` loses precision past ~15 digits (stored as `double`). For exact arithmetic, store as string.
 - `DateTimeOffset` round-trip drops the offset.
 - Passing a `SQLiteTransaction` across threads is unsupported.

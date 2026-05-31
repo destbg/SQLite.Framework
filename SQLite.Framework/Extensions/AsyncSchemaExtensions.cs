@@ -1,7 +1,7 @@
 namespace SQLite.Framework.Extensions;
 
 /// <summary>
-/// Async wrappers for <see cref="SQLiteSchema" /> and <see cref="SQLiteTableBuilder{T}" />.
+/// Async wrappers for <see cref="SQLiteSchema" /> and <see cref="SQLiteTableSchema{T}" />.
 /// Each method takes the connection lock and runs the sync version inside it.
 /// </summary>
 public static class AsyncSchemaExtensions
@@ -413,14 +413,43 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
-    /// Issues the <c>CREATE TABLE IF NOT EXISTS</c> built up by the fluent builder, plus its indexes.
+    /// Creates the table if it does not exist, along with the indexes and triggers declared on the
+    /// model. Takes the database lock for the duration so it is safe to call from async code.
     /// </summary>
-    public static Task<int> CreateTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableBuilder<T> builder, CancellationToken ct = default)
+    public static Task<int> CreateTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableSchema<T> builder, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await builder.Database.LockAsync(ct);
             return builder.CreateTable();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reconciles the live table with the model: creates it when missing, rebuilds it on drift
+    /// preserving rows, and reconciles indexes and triggers. Takes the database lock for the
+    /// duration so it is safe to call from async code.
+    /// </summary>
+    public static Task<int> MigrateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableSchema<T> builder, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await builder.Database.LockAsync(ct);
+            return builder.Migrate();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reconciles the live table with the model, filling or overriding columns during a rebuild from
+    /// the values declared with <paramref name="fill" />. Takes the database lock for the duration so
+    /// it is safe to call from async code.
+    /// </summary>
+    public static Task<int> MigrateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableSchema<T> builder, Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await builder.Database.LockAsync(ct);
+            return builder.Migrate(fill);
         }, ct);
     }
 }

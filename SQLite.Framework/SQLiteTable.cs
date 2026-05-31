@@ -59,7 +59,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Initializes a table builder for creating the table.
     /// </summary>
-    public virtual SQLiteTableBuilder<T> Schema => Database.Schema.Table<T>();
+    public virtual SQLiteTableSchema<T> Schema => Database.Schema.Table<T>();
 
     /// <summary>
     /// Wraps the provided SQL query and parameters into a queryable object.
@@ -217,7 +217,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     /// <summary>
     /// Performs an <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> upsert built through the
-    /// <see cref="UpsertBuilder{T}" /> DSL. Use this when <c>AddOrUpdate</c> with an
+    /// <see cref="SQLiteUpsertBuilder{T}" /> DSL. Use this when <c>AddOrUpdate</c> with an
     /// <see cref="SQLiteConflict" /> value is not enough, for example to update only some
     /// columns or to do nothing on conflict. Requires SQLite 3.24.0 or newer.
     /// </summary>
@@ -227,7 +227,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios12.0")]
 #endif
-    public virtual int Upsert(T item, Action<UpsertBuilder<T>> configure)
+    public virtual int Upsert(T item, Action<SQLiteUpsertBuilder<T>> configure)
     {
         if (!RunHooks(Database.Options.AddOrUpdateHooks, item))
         {
@@ -252,7 +252,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios12.0")]
 #endif
-    public virtual int UpsertRange(IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true)
+    public virtual int UpsertRange(IEnumerable<T> collection, Action<SQLiteUpsertBuilder<T>> configure, bool runInTransaction = true)
     {
         if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(InsertItem)))
         {
@@ -360,7 +360,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     internal (TableColumn[] Columns, string Sql) GetAddInfoInternal() => GetAddInfo();
     internal (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfoInternal() => GetUpdateInfo();
     internal (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfoInternal() => GetRemoveInfo();
-    internal (TableColumn[] Columns, string Sql) GetUpsertInfoInternal(Action<UpsertBuilder<T>> configure) => GetUpsertInfo(configure);
+    internal (TableColumn[] Columns, string Sql) GetUpsertInfoInternal(Action<SQLiteUpsertBuilder<T>> configure) => GetUpsertInfo(configure);
     internal bool RunHooksInternal(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item) => RunHooks(hooks, item);
 
     /// <summary>
@@ -521,17 +521,17 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     /// <summary>
     /// Returns the columns to bind and the <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> SQL
-    /// produced by configuring an <see cref="UpsertBuilder{T}" />. Override to change the SQL shape
+    /// produced by configuring an <see cref="SQLiteUpsertBuilder{T}" />. Override to change the SQL shape
     /// produced by <see cref="Upsert" /> and <see cref="UpsertRange" />.
     /// </summary>
-    protected virtual (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<UpsertBuilder<T>> configure)
+    protected virtual (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<T>> configure)
     {
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_24, "UPSERT (INSERT ... ON CONFLICT ... DO ...)");
 #endif
-        UpsertBuilder<T> builder = new();
+        SQLiteUpsertBuilder<T> builder = new();
         configure(builder);
-        UpsertConflictTarget<T> target = builder.Build();
+        SQLiteUpsertConflictTarget<T> target = builder.Build();
         return UpsertSqlBuilder.Build(Database, Table, target, (c, p) => WrapParam(p, c));
     }
 
@@ -690,7 +690,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <c>UpsertRange</c> when the action hook chain leaves the action as
     /// <see cref="SQLiteAction.AddOrUpdate" /> so the configured <c>ON CONFLICT</c> shape is preserved.
     /// </summary>
-    protected virtual int DefaultUpsert(T item, Action<UpsertBuilder<T>> configure)
+    protected virtual int DefaultUpsert(T item, Action<SQLiteUpsertBuilder<T>> configure)
     {
         (TableColumn[] columns, string sql) = GetUpsertInfo(configure);
         return InsertItem(columns, sql, item);
@@ -826,7 +826,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         for (int i = 0; i < baseColumns.Length; i++)
         {
             TableColumn col = baseColumns[i];
-            bool skip = col.HasDatabaseDefault && col.IsClrDefaultValue(col.PropertyInfo.GetValue(item));
+            bool skip = col.HasDatabaseDefault && Equals(col.ClrDefaultBox, col.PropertyInfo.GetValue(item));
             if (!skip)
             {
                 filtered?.Add(col);

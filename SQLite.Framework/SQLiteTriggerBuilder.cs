@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Models;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Builds the body of a LINQ-typed trigger. Reference the row that fired the trigger through

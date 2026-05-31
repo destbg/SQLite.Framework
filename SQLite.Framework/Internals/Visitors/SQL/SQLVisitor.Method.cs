@@ -22,6 +22,11 @@ internal partial class SQLVisitor
         Type? declaringType = node.Method.DeclaringType;
         SQLiteCallerContext ctx = new(this, node);
 
+        if (declaringType == typeof(SQLiteColumnExtensions))
+        {
+            return ResolveColumnReference(node);
+        }
+
         if (declaringType == typeof(SQLiteFunctions)
             || declaringType == typeof(SQLiteDateFunctions)
             || declaringType == typeof(SQLiteFTS5Functions)
@@ -120,6 +125,20 @@ internal partial class SQLVisitor
         }
 
         return node;
+    }
+
+    private SQLiteExpression ResolveColumnReference(MethodCallExpression node)
+    {
+        if (node.Arguments[0] is not ParameterExpression parameter
+            || !RowColumnPrefixes.TryGetValue(parameter, out string? prefix))
+        {
+            throw new NotSupportedException(
+                "Column<TValue>(name) is only supported inside CHECK, computed column, index filter, " +
+                "UPSERT, and Migrate expressions. Query support is not available yet.");
+        }
+
+        string name = (string)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+        return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), prefix + IdentifierGuard.Quote(name));
     }
 
     private static IEnumerable? TryGetImplicitlyConvertedConstantCollection(Expression expr)

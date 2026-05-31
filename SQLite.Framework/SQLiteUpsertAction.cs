@@ -1,15 +1,15 @@
-namespace SQLite.Framework.Models;
+namespace SQLite.Framework;
 
 /// <summary>
-/// Terminal node of <see cref="UpsertBuilder{T}" />. Represents one of <c>DO NOTHING</c>,
+/// Terminal node of <see cref="SQLiteUpsertBuilder{T}" />. Represents one of <c>DO NOTHING</c>,
 /// <c>DO UPDATE SET col = excluded.col</c> for a fixed or full column list, or
 /// <c>DO UPDATE SET col = expression</c> built from a setter lambda. An optional
 /// <see cref="Where(Expression{Func{T, T, bool}})" /> guard turns it into a conditional
 /// <c>DO UPDATE ... WHERE</c>.
 /// </summary>
-public sealed class UpsertAction<T>
+public sealed class SQLiteUpsertAction<T>
 {
-    private UpsertAction(UpsertActionKind kind, IReadOnlyList<string>? columns)
+    private SQLiteUpsertAction(UpsertActionKind kind, IReadOnlyList<string>? columns)
     {
         Kind = kind;
         Columns = columns;
@@ -29,7 +29,7 @@ public sealed class UpsertAction<T>
     /// row is then dropped, just like <c>DO NOTHING</c>. The parameter is the row already stored in
     /// the table. The predicate is translated to SQL the same way <c>Where</c> clauses are.
     /// </summary>
-    public UpsertAction<T> Where(Expression<Func<T, bool>> predicate)
+    public SQLiteUpsertAction<T> Where(Expression<Func<T, bool>> predicate)
     {
         return SetWhere(predicate);
     }
@@ -44,12 +44,12 @@ public sealed class UpsertAction<T>
     /// is skipped when the guard is false. The predicate is translated to SQL the same way
     /// <c>Where</c> clauses are.
     /// </summary>
-    public UpsertAction<T> Where(Expression<Func<T, T, bool>> predicate)
+    public SQLiteUpsertAction<T> Where(Expression<Func<T, T, bool>> predicate)
     {
         return SetWhere(predicate);
     }
 
-    private UpsertAction<T> SetWhere(LambdaExpression predicate)
+    private SQLiteUpsertAction<T> SetWhere(LambdaExpression predicate)
     {
         if (Kind == UpsertActionKind.DoNothing)
         {
@@ -65,23 +65,23 @@ public sealed class UpsertAction<T>
         return this;
     }
 
-    internal static UpsertAction<T> DoNothing()
+    internal static SQLiteUpsertAction<T> DoNothing()
     {
-        return new UpsertAction<T>(UpsertActionKind.DoNothing, null);
+        return new SQLiteUpsertAction<T>(UpsertActionKind.DoNothing, null);
     }
 
-    internal static UpsertAction<T> DoUpdateAll()
+    internal static SQLiteUpsertAction<T> DoUpdateAll()
     {
-        return new UpsertAction<T>(UpsertActionKind.DoUpdateAll, null);
+        return new SQLiteUpsertAction<T>(UpsertActionKind.DoUpdateAll, null);
     }
 
-    internal static UpsertAction<T> DoUpdate(IReadOnlyList<string> columns)
+    internal static SQLiteUpsertAction<T> DoUpdate(IReadOnlyList<string> columns)
     {
-        return new UpsertAction<T>(UpsertActionKind.DoUpdate, columns);
+        return new SQLiteUpsertAction<T>(UpsertActionKind.DoUpdate, columns);
     }
 
-    internal static UpsertAction<T> DoUpdateSet(IReadOnlyList<(string Column, LambdaExpression Rhs)> setters)
+    internal static SQLiteUpsertAction<T> DoUpdateSet(IReadOnlyList<(string Column, LambdaExpression Rhs)> setters)
     {
-        return new UpsertAction<T>(UpsertActionKind.DoUpdateSet, null) { Setters = setters };
+        return new SQLiteUpsertAction<T>(UpsertActionKind.DoUpdateSet, null) { Setters = setters };
     }
 }

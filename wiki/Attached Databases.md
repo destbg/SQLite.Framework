@@ -5,9 +5,9 @@
 ## Attach a file
 
 ```csharp
-db.AttachDatabase("other.db", "aux");
+await db.AttachDatabaseAsync("other.db", "aux");
 
-List<Book> rows = db.Query<Book>(
+List<Book> rows = await db.QueryAsync<Book>(
     "SELECT BookId AS Id, BookTitle AS Title, BookAuthorId AS AuthorId, BookPrice AS Price FROM aux.Books");
 ```
 
@@ -18,7 +18,7 @@ The schema name has to be a plain identifier. Letters, digits, and underscores. 
 ## Detach when you are done
 
 ```csharp
-db.DetachDatabase("aux");
+await db.DetachDatabaseAsync("aux");
 ```
 
 After detach, queries against `aux.Books` will fail.
@@ -27,4 +27,3 @@ After detach, queries against `aux.Books` will fail.
 
 - Use the typed `db.Table<T>()` API only on the main database. Attached tables are read with raw SQL through `db.Query<T>(...)`, `db.QueryFirst<T>(...)`, and friends.
 - The path can have an apostrophe in it. The framework escapes the path for you.
-- `AttachDatabaseAsync` and `DetachDatabaseAsync` run the same calls on a background thread.

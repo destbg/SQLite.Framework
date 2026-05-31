@@ -7,7 +7,13 @@ namespace SQLite.Framework.Models;
 /// </summary>
 public class TableMapping
 {
+    private readonly List<TableColumn> columns = [];
     private readonly List<ForeignKeyInfo> compositeForeignKeys = [];
+    private readonly List<ComputedColumnSpec> computedColumns = [];
+    private readonly List<CheckConstraintSpec> checks = [];
+    private readonly List<IndexSpec> indexes = [];
+    private readonly List<TriggerSpec> triggers = [];
+    private readonly List<ShadowColumnSpec> shadowColumns = [];
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TableMapping"/> class.
@@ -31,12 +37,11 @@ public class TableMapping
         }
         FullTextSearch = FtsMappingReader.TryRead(type);
         RTree = RTreeMappingReader.TryRead(type);
-        Columns = properties
+        columns.AddRange(properties
             .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
             .Where(p => FullTextSearch == null || IsFtsColumn(p))
             .Where(p => RTree == null || IsRTreeColumn(p))
-            .Select(p => new TableColumn(p, options, IsFtsRowIdProperty(p)))
-            .ToArray();
+            .Select(p => new TableColumn(p, options, IsFtsRowIdProperty(p))));
 
         foreach (TableColumn column in Columns)
         {
@@ -54,22 +59,23 @@ public class TableMapping
     /// <summary>
     /// The type of the class that maps to the database table.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)]
     public Type Type { get; }
 
     /// <summary>
     /// The name of the database table.
     /// </summary>
-    public string TableName { get; }
+    public string TableName { get; internal set; }
 
     /// <summary>
     /// The columns of the database table.
     /// </summary>
-    public IReadOnlyList<TableColumn> Columns { get; }
+    public IReadOnlyList<TableColumn> Columns => columns;
 
     /// <summary>
     /// Indicates that a table does not have a RowId within the table.
     /// </summary>
-    public bool WithoutRowId { get; }
+    public bool WithoutRowId { get; internal set; }
 
     /// <summary>
     /// Indicates that the table is a SQLite <c>STRICT</c> table. SQLite enforces declared column
@@ -105,9 +111,67 @@ public class TableMapping
     /// </summary>
     public IReadOnlyList<ForeignKeyInfo> CompositeForeignKeys => compositeForeignKeys;
 
+    /// <summary>
+    /// Computed (generated) columns declared on this table through the model. This is the single
+    /// source of truth, so create, migrate, and validate all agree.
+    /// </summary>
+    internal IReadOnlyList<ComputedColumnSpec> ComputedColumns => computedColumns;
+
+    /// <summary>
+    /// Table-level CHECK constraints declared on this table through the model.
+    /// </summary>
+    internal IReadOnlyList<CheckConstraintSpec> Checks => checks;
+
+    /// <summary>
+    /// Indexes declared on this table through the model. Column-level <c>[Indexed]</c> indexes are
+    /// read from the columns instead.
+    /// </summary>
+    internal IReadOnlyList<IndexSpec> Indexes => indexes;
+
+    /// <summary>
+    /// Triggers declared on this table through the model.
+    /// </summary>
+    internal IReadOnlyList<TriggerSpec> Triggers => triggers;
+
+    /// <summary>
+    /// Columns declared on this table through the model that have no CLR property. The framework
+    /// creates and keeps them, but never reads or writes them.
+    /// </summary>
+    internal IReadOnlyList<ShadowColumnSpec> ShadowColumns => shadowColumns;
+
     internal void AddCompositeForeignKey(ForeignKeyInfo info)
     {
         compositeForeignKeys.Add(info);
+    }
+
+    internal void RemoveColumn(TableColumn column)
+    {
+        columns.Remove(column);
+    }
+
+    internal void AddComputedColumn(ComputedColumnSpec spec)
+    {
+        computedColumns.Add(spec);
+    }
+
+    internal void AddCheck(CheckConstraintSpec spec)
+    {
+        checks.Add(spec);
+    }
+
+    internal void AddIndex(IndexSpec spec)
+    {
+        indexes.Add(spec);
+    }
+
+    internal void AddTrigger(TriggerSpec spec)
+    {
+        triggers.Add(spec);
+    }
+
+    internal void AddShadowColumn(ShadowColumnSpec spec)
+    {
+        shadowColumns.Add(spec);
     }
 
     private bool IsFtsRowIdProperty(PropertyInfo property)

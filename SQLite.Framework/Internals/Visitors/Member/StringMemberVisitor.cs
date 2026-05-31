@@ -298,6 +298,15 @@ internal static class StringMemberVisitor
         }
     }
 
+    public static Expression HandleStringProperty(SQLVisitor visitor, string propertyName, Type type, SQLiteExpression node)
+    {
+        return propertyName switch
+        {
+            nameof(string.Length) => SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "LENGTH(", node, ")", node.Parameters),
+            _ => node
+        };
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
     private static Expression RewriteJoinAsGroupConcat(SQLVisitor visitor, MethodCallExpression node)
     {
@@ -395,14 +404,5 @@ internal static class StringMemberVisitor
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj, arguments[0].SQLiteExpression!);
             return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{trimType}(", obj, ", ", arguments[0].SQLiteExpression!, ")", parameters);
         }
-    }
-
-    public static Expression HandleStringProperty(SQLVisitor visitor, string propertyName, Type type, SQLiteExpression node)
-    {
-        return propertyName switch
-        {
-            nameof(string.Length) => SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "LENGTH(", node, ")", node.Parameters),
-            _ => node
-        };
     }
 }

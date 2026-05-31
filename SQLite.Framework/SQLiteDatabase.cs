@@ -17,6 +17,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly AsyncLocal<bool> holdsConnectionLock = new();
     private readonly SemaphoreSlim walWriterGate = new(1, 1);
     private readonly Dictionary<Type, TableMapping> tableMappings = [];
+    private bool modelCreated;
     private int walWriterCount;
     private int activeTransactionCount;
     private TaskCompletionSource? readGateTcs;
@@ -225,6 +226,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public virtual TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
     {
+        EnsureModelCreated();
         lock (tableMappingsLock)
         {
             if (!tableMappings.TryGetValue(type, out TableMapping? table))
@@ -242,6 +244,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public virtual TableMapping TableMapping<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
     {
+        EnsureModelCreated();
         lock (tableMappingsLock)
         {
             if (!tableMappings.TryGetValue(typeof(T), out TableMapping? table))
@@ -681,11 +684,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return new LockObject(connectionSemaphore, holdsConnectionLock);
     }
 
-    internal Task WaitConnectionSemaphoreAsync(CancellationToken cancellationToken)
-    {
-        return connectionSemaphore.WaitAsync(cancellationToken);
-    }
-
     /// <summary>
     /// Returns a disposable that represents a read operation against the database.
     /// </summary>
@@ -942,6 +940,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return CreateCommand(sql, ToParameterList(parameters)).ExecuteNonQuery();
     }
 
+    internal Task WaitConnectionSemaphoreAsync(CancellationToken cancellationToken)
+    {
+        return connectionSemaphore.WaitAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Returns the shared connection handle for the current async context.
     /// </summary>
@@ -1119,6 +1122,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return name;
     }
 
+    /// <summary>
+    /// Override to declare the database model in one place. The framework calls this once, before
+    /// any table mapping is used. Use <paramref name="builder" /> to declare each entity's columns,
+    /// keys, computed columns, checks, indexes, foreign keys, defaults, STRICT, WITHOUT ROWID, and
+    /// triggers, so create, migrate, and validate all read the same definition. The base method does nothing.
+    /// </summary>
+    /// <param name="builder">Builds the model.</param>
+    protected virtual void OnModelCreating(SQLiteModelBuilder builder)
+    {
+    }
+
     private Task? TryGetReadGate()
     {
         if (!Options.BlockReadsDuringTransaction)
@@ -1203,6 +1217,28 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         foreach (TKey key in order)
         {
             yield return new Grouping<TKey, TElement>(key, groups[key]);
+        }
+    }
+
+    private void EnsureModelCreated()
+    {
+        lock (tableMappingsLock)
+        {
+            if (modelCreated)
+            {
+                return;
+            }
+
+            modelCreated = true;
+            try
+            {
+                OnModelCreating(new SQLiteModelBuilder(this));
+            }
+            catch
+            {
+                modelCreated = false;
+                throw;
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 # SQLite Functions
 
-`SQLiteFunctions` is a static class with helpers for SQLite functions that have no plain C# equivalent. Use these inside a LINQ query. The framework swaps them for the right SQL.
+`SQLiteFunctions` is a static class with helpers for SQLite functions that have no plain C# equivalent. They work inside a LINQ query, and the framework swaps them for the right SQL.
 
 The class also holds the FTS5 helpers (`Match`, `Rank`, `Snippet`, `Highlight`). Those have their own page in [Full Text Search](Full%20Text%20Search).
 
@@ -40,14 +40,14 @@ The class also holds the FTS5 helpers (`Match`, `Rank`, `Snippet`, `Highlight`).
 ## Random and random blob
 
 ```csharp
-List<Book> randomFive = db.Table<Book>()
+List<Book> randomFive = await db.Table<Book>()
     .OrderBy(b => SQLiteFunctions.Random())
     .Take(5)
-    .ToList();
+    .ToListAsync();
 
-byte[] sessionToken = db.Table<Book>()
+byte[] sessionToken = await db.Table<Book>()
     .Select(b => SQLiteFunctions.RandomBlob(16))
-    .First();
+    .FirstAsync();
 ```
 
 ## GLOB matching
@@ -55,9 +55,9 @@ byte[] sessionToken = db.Table<Book>()
 `Glob` is like `LIKE` but uses Unix shell wildcards. `*` matches any string, `?` matches one character.
 
 ```csharp
-List<Book> rows = db.Table<Book>()
+List<Book> rows = await db.Table<Book>()
     .Where(b => SQLiteFunctions.Glob("Clean*", b.Title))
-    .ToList();
+    .ToListAsync();
 ```
 
 The order is `Glob(pattern, value)`. The SQL is `value GLOB pattern`.
@@ -65,19 +65,19 @@ The order is `Glob(pattern, value)`. The SQL is `value GLOB pattern`.
 ## Unix timestamps
 
 ```csharp
-long now = db.Table<Book>().Select(b => SQLiteFunctions.UnixEpoch()).First();
+long now = await db.Table<Book>().Select(b => SQLiteFunctions.UnixEpoch()).FirstAsync();
 
-long y2024 = db.Table<Book>()
+long y2024 = await db.Table<Book>()
     .Select(b => SQLiteFunctions.UnixEpoch("2024-01-01"))
-    .First();
+    .FirstAsync();
 ```
 
 ## Printf formatting
 
 ```csharp
-string formatted = db.Table<Book>()
+string formatted = await db.Table<Book>()
     .Select(b => SQLiteFunctions.Printf("Book %d: %s", b.Id, b.Title))
-    .First();
+    .FirstAsync();
 ```
 
 ## Regular expressions
@@ -85,9 +85,9 @@ string formatted = db.Table<Book>()
 `Regexp` only works when the SQLite build has a regex extension loaded. The default builds do not include one.
 
 ```csharp
-List<Book> rows = db.Table<Book>()
+List<Book> rows = await db.Table<Book>()
     .Where(b => SQLiteFunctions.Regexp(b.Title, "^[A-Z]"))
-    .ToList();
+    .ToListAsync();
 ```
 
 ## Between
@@ -95,13 +95,13 @@ List<Book> rows = db.Table<Book>()
 `Between(value, low, high)` is the same as `value >= low && value <= high`, but emits SQLite's `BETWEEN` operator. Both ends are inclusive. To get `NOT BETWEEN`, wrap the call with `!`.
 
 ```csharp
-List<Book> rows = db.Table<Book>()
+List<Book> rows = await db.Table<Book>()
     .Where(b => SQLiteFunctions.Between(b.Id, 2, 4))
-    .ToList();
+    .ToListAsync();
 
-List<Book> outside = db.Table<Book>()
+List<Book> outside = await db.Table<Book>()
     .Where(b => !SQLiteFunctions.Between(b.Id, 2, 4))
-    .ToList();
+    .ToListAsync();
 ```
 
 ## In
@@ -109,18 +109,18 @@ List<Book> outside = db.Table<Book>()
 `In(value, v0, v1, ...)` checks whether `value` matches any of the listed values. The list can be a `params` argument list or a captured array.
 
 ```csharp
-List<Book> picked = db.Table<Book>()
+List<Book> picked = await db.Table<Book>()
     .Where(b => SQLiteFunctions.In(b.Id, 1, 3, 5))
-    .ToList();
+    .ToListAsync();
 
 int[] wanted = [1, 3, 5];
-List<Book> sameThing = db.Table<Book>()
+List<Book> sameThing = await db.Table<Book>()
     .Where(b => SQLiteFunctions.In(b.Id, wanted))
-    .ToList();
+    .ToListAsync();
 
-List<Book> excluded = db.Table<Book>()
+List<Book> excluded = await db.Table<Book>()
     .Where(b => !SQLiteFunctions.In(b.Id, 1, 3, 5))
-    .ToList();
+    .ToListAsync();
 ```
 
 ## Coalesce and nullif
@@ -128,13 +128,13 @@ List<Book> excluded = db.Table<Book>()
 `Coalesce` picks the first non-null value. `Nullif(a, b)` returns null when `a == b`, otherwise `a`.
 
 ```csharp
-string title = db.Table<Book>()
+string title = await db.Table<Book>()
     .Select(b => SQLiteFunctions.Coalesce(b.Title, "(untitled)"))
-    .First();
+    .FirstAsync();
 
-string? trimmed = db.Table<Book>()
+string? trimmed = await db.Table<Book>()
     .Select(b => SQLiteFunctions.Nullif(b.Title, ""))
-    .First();
+    .FirstAsync();
 ```
 
 ## Type and encoding helpers
@@ -142,13 +142,13 @@ string? trimmed = db.Table<Book>()
 `Typeof` returns the SQLite storage class as a lowercase string (`"null"`, `"integer"`, `"real"`, `"text"`, `"blob"`). `Hex` returns the upper-case hex of a blob. `Quote` returns the SQL literal form of a value. `Zeroblob(n)` returns a blob of `n` zero bytes.
 
 ```csharp
-string kind = db.Table<Book>().Select(b => SQLiteFunctions.Typeof(b.Price)).First();
+string kind = await db.Table<Book>().Select(b => SQLiteFunctions.Typeof(b.Price)).FirstAsync();
 
 byte[] data = [0xDE, 0xAD];
-string hex = db.Table<Book>().Select(b => SQLiteFunctions.Hex(data)).First();
+string hex = await db.Table<Book>().Select(b => SQLiteFunctions.Hex(data)).FirstAsync();
 
-string literal = db.Table<Book>().Select(b => SQLiteFunctions.Quote(b.Title)).First();
-byte[] padding = db.Table<Book>().Select(b => SQLiteFunctions.Zeroblob(16)).First();
+string literal = await db.Table<Book>().Select(b => SQLiteFunctions.Quote(b.Title)).FirstAsync();
+byte[] padding = await db.Table<Book>().Select(b => SQLiteFunctions.Zeroblob(16)).FirstAsync();
 ```
 
 ## Instr
@@ -156,9 +156,9 @@ byte[] padding = db.Table<Book>().Select(b => SQLiteFunctions.Zeroblob(16)).Firs
 `Instr(haystack, needle)` returns the 1-based index of `needle` inside `haystack`, or `0` if not found.
 
 ```csharp
-List<Book> withLph = db.Table<Book>()
+List<Book> withLph = await db.Table<Book>()
     .Where(b => SQLiteFunctions.Instr(b.Title, "lph") > 0)
-    .ToList();
+    .ToListAsync();
 ```
 
 ## Per-row min and max
@@ -166,9 +166,9 @@ List<Book> withLph = db.Table<Book>()
 `Min` and `Max` here are the scalar form: they return the smallest or largest of their arguments **for each row**.
 
 ```csharp
-List<int> floors = db.Table<Book>()
+List<int> floors = await db.Table<Book>()
     .Select(b => SQLiteFunctions.Min(b.Id, b.AuthorId))
-    .ToList();
+    .ToListAsync();
 ```
 
 > **Always pass two or more values.** Calling `SQLiteFunctions.Min(x)` or `SQLiteFunctions.Max(x)` with a single value compiles fine but is wrong. SQLite reads `min(x)` and `max(x)` as the aggregate forms, so the surrounding query silently turns into an aggregate query and returns one row instead of one per input row. For aggregates over a column, use LINQ's own `Queryable.Min` / `Queryable.Max` instead.
@@ -178,7 +178,7 @@ List<int> floors = db.Table<Book>()
 `Total` translates to SQLite's `total(X)` aggregate. It is like `Queryable.Sum` but always returns a `REAL` value and returns `0.0` for an empty input set instead of `NULL`. Pass a `Select` projection over a grouping enumerable.
 
 ```csharp
-var revenue = (
+var revenue = await (
     from b in db.Table<Book>()
     group b by b.AuthorId into g
     select new
@@ -186,7 +186,7 @@ var revenue = (
         AuthorId = g.Key,
         Revenue = SQLiteFunctions.Total(g.Select(x => x.Price))
     }
-).ToList();
+).ToListAsync();
 ```
 
 The SQL is:
@@ -203,15 +203,15 @@ GROUP BY b0."BookAuthorId"
 ## Last insert rowid and SQLite version
 
 ```csharp
-long newId = db.Table<Book>().Select(b => SQLiteFunctions.LastInsertRowId()).First();
-string version = db.Table<Book>().Select(b => SQLiteFunctions.SqliteVersion()).First();
+long newId = await db.Table<Book>().Select(b => SQLiteFunctions.LastInsertRowId()).FirstAsync();
+string version = await db.Table<Book>().Select(b => SQLiteFunctions.SqliteVersion()).FirstAsync();
 ```
 
 ## Changes counters
 
 ```csharp
-long sinceLastWrite = db.Table<Book>().Select(b => SQLiteFunctions.Changes()).First();
-long sinceConnectionOpen = db.Table<Book>().Select(b => SQLiteFunctions.TotalChanges()).First();
+long sinceLastWrite = await db.Table<Book>().Select(b => SQLiteFunctions.Changes()).FirstAsync();
+long sinceConnectionOpen = await db.Table<Book>().Select(b => SQLiteFunctions.TotalChanges()).FirstAsync();
 ```
 
 ## Date and time functions
@@ -232,13 +232,13 @@ long sinceConnectionOpen = db.Table<Book>().Select(b => SQLiteFunctions.TotalCha
 | `Timediff(when1, when2)` | `timediff(when1, when2)` (SQLite 3.43+, not available in SQLCipher) |
 
 ```csharp
-string thisMonth = db.Table<Book>()
+string thisMonth = await db.Table<Book>()
     .Select(b => SQLiteDateFunctions.Strftime("%Y-%m", b.CreatedAt))
-    .First();
+    .FirstAsync();
 
-string nextWeek = db.Table<Book>()
+string nextWeek = await db.Table<Book>()
     .Select(b => SQLiteDateFunctions.Date(b.CreatedAt, "+7 days"))
-    .First();
+    .FirstAsync();
 ```
 
 ## Calling outside a query

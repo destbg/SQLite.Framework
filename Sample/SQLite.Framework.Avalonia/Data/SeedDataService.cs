@@ -20,12 +20,7 @@ public class SeedDataService
     private readonly TagRepository _tags;
     private readonly CategoryRepository _categories;
 
-    public SeedDataService(
-        AppDatabase db,
-        ProjectRepository projects,
-        TaskRepository tasks,
-        TagRepository tags,
-        CategoryRepository categories)
+    public SeedDataService(AppDatabase db, ProjectRepository projects, TaskRepository tasks, TagRepository tags, CategoryRepository categories)
     {
         _db = db;
         _projects = projects;

@@ -35,13 +35,6 @@ public abstract class SQLiteCte : BaseSQLiteQueryable
 
     /// <inheritdoc />
     public override IQueryProvider Provider => Database;
-
-    /// <inheritdoc />
-    [ExcludeFromCodeCoverage(Justification = "SQLiteCte<T> overrides this method")]
-    public override IEnumerator GetEnumerator()
-    {
-        return Provider.Execute<IEnumerable>(Expression).GetEnumerator();
-    }
 }
 
 /// <summary>

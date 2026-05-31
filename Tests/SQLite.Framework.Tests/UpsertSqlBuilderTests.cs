@@ -15,7 +15,7 @@ public class UpsertSqlBuilderTests
         using TestDatabase db = new();
         TableMapping mapping = db.TableMapping(typeof(Book));
 
-        UpsertConflictTarget<Book> target = new(["BookId"]);
+        SQLiteUpsertConflictTarget<Book> target = new(["BookId"]);
         target.DoNothing();
 
         (TableColumn[] _, string sql) = UpsertSqlBuilder.Build(db, mapping, target, (_, p) => p);
@@ -31,7 +31,7 @@ public class UpsertSqlBuilderTests
         using TestDatabase db = new();
         TableMapping mapping = db.TableMapping(typeof(Book));
 
-        UpsertConflictTarget<Book> target = new(["NotARealColumnOrProperty"]);
+        SQLiteUpsertConflictTarget<Book> target = new(["NotARealColumnOrProperty"]);
         target.DoNothing();
 
         Assert.Throws<InvalidOperationException>(() => UpsertSqlBuilder.Build(db, mapping, target, (_, p) => p));

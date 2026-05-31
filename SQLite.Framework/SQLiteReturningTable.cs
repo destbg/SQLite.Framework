@@ -181,11 +181,11 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
 
     /// <summary>
     /// Performs an <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> upsert built through the
-    /// <see cref="UpsertBuilder{T}" /> DSL and returns the written row, projected. Returns
+    /// <see cref="SQLiteUpsertBuilder{T}" /> DSL and returns the written row, projected. Returns
     /// <see langword="default" /> when the conflict resolves to no write (a <c>DO NOTHING</c>, or a
     /// <c>DO UPDATE ... WHERE</c> guard that fails), or when an <c>OnAddOrUpdate</c> hook cancels the write.
     /// </summary>
-    public virtual TResult? Upsert(T item, Action<UpsertBuilder<T>> configure)
+    public virtual TResult? Upsert(T item, Action<SQLiteUpsertBuilder<T>> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
 
@@ -217,7 +217,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     /// the written rows, projected. Rows whose conflict resolves to no write contribute nothing to
     /// the result. Runs inside a transaction by default.
     /// </summary>
-    public virtual List<TResult> UpsertRange(IEnumerable<T> collection, Action<UpsertBuilder<T>> configure, bool runInTransaction = true)
+    public virtual List<TResult> UpsertRange(IEnumerable<T> collection, Action<SQLiteUpsertBuilder<T>> configure, bool runInTransaction = true)
     {
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(configure);
@@ -309,14 +309,6 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         };
     }
 
-    private static void BackfillAutoIncrement(T item, TResult row, TableColumn autoIncrement)
-    {
-        if (row is T projectedEntity)
-        {
-            autoIncrement.PropertyInfo.SetValue(item, autoIncrement.PropertyInfo.GetValue(projectedEntity));
-        }
-    }
-
     private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, Func<T, List<TResult>> writeOne)
     {
         List<TResult> results = [];
@@ -344,6 +336,14 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
                 }
                 results.AddRange(writeOne(item));
             }
+        }
+    }
+
+    private static void BackfillAutoIncrement(T item, TResult row, TableColumn autoIncrement)
+    {
+        if (row is T projectedEntity)
+        {
+            autoIncrement.PropertyInfo.SetValue(item, autoIncrement.PropertyInfo.GetValue(projectedEntity));
         }
     }
 

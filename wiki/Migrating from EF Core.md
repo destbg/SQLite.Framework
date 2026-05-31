@@ -162,9 +162,9 @@ await db.SaveChangesAsync();
 await tx.CommitAsync();
 
 // SQLite.Framework
-using SQLiteTransaction tx = db.BeginTransaction();
+await using SQLiteTransaction tx = await db.BeginTransactionAsync();
 await db.Books.AddAsync(book);
-tx.Commit();
+await tx.CommitAsync();
 ```
 
 If you forget to call `Commit`, the transaction is rolled back when it is disposed. See [Transactions](Transactions) for more details.
@@ -178,15 +178,19 @@ await db.Schema.CreateTableAsync<Book>();
 await db.Schema.CreateIndexAsync<Book>(b => b.AuthorId);
 ```
 
-For things you cannot express with attributes, like indexes, computed columns, partial indexes, and CHECK constraints, `db.Schema.Table<T>()` returns a fluent builder. Chain the calls and finish with `CreateTable`. This is the closest thing to EF Core's `OnModelCreating`, just scoped to the schema.
+For things you cannot express with attributes, like indexes, computed columns, partial indexes, and CHECK constraints, override `OnModelCreating` on your `SQLiteDatabase` subclass and configure each entity with `builder.Entity<T>()`. This works just like EF Core's `OnModelCreating`.
 
 ```csharp
-db.Schema.Table<Book>()
-    .Index(b => b.AuthorId)
-    .Index(b => b.Title, unique: true)
-    .Check(b => b.Price >= 0, name: "ck_book_price_non_negative")
-    .CreateTable();
+protected override void OnModelCreating(SQLiteModelBuilder builder)
+{
+    builder.Entity<Book>()
+        .Index(b => b.AuthorId)
+        .Index(b => b.Title, unique: true)
+        .Check(b => b.Price >= 0, name: "ck_book_price_non_negative");
+}
 ```
+
+Then create the table with `db.Schema.CreateTable<Book>()`.
 
 If you need to change a column or rename a table, you have to write it in SQL or use one of the helper methods on `Schema`. See [Schema](Schema) for what is built in.
 
