@@ -31,6 +31,7 @@ internal partial class QueryableVisitor
     public int? Skip { get; private set; }
     public bool IsAny { get; private set; }
     public bool IsAll { get; private set; }
+    public SQLiteExpression? AllPredicate { get; private set; }
     public bool Reverse { get; private set; }
     public bool IsDistinct { get; private set; }
     public bool ThrowOnEmpty { get; private set; }

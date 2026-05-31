@@ -149,7 +149,15 @@ public class SQLiteCommand
             throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), CommandText);
         }
 
-        BindParameters(stmt);
+        try
+        {
+            BindParameters(stmt);
+        }
+        catch
+        {
+            raw.sqlite3_finalize(stmt);
+            throw;
+        }
 
         return stmt;
     }
@@ -163,7 +171,7 @@ public class SQLiteCommand
         }
     }
 
-    private void NotifyExecuting()
+    internal void NotifyExecuting()
     {
         IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
         if (interceptors.Count == 0)
@@ -177,7 +185,7 @@ public class SQLiteCommand
         }
     }
 
-    private void NotifyExecuted(int? rowsAffected)
+    internal void NotifyExecuted(int? rowsAffected)
     {
         IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
         if (interceptors.Count == 0)
@@ -191,7 +199,7 @@ public class SQLiteCommand
         }
     }
 
-    private void NotifyFailed(Exception exception)
+    internal void NotifyFailed(Exception exception)
     {
         IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
         if (interceptors.Count == 0)

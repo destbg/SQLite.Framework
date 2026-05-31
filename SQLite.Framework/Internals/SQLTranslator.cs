@@ -148,6 +148,11 @@ internal class SQLTranslator
             VisitSQLExpression(sqlExpression);
         }
 
+        if (queryableMethodVisitor.AllPredicate != null)
+        {
+            VisitSQLExpression(queryableMethodVisitor.AllPredicate);
+        }
+
         foreach (JoinInfo join in queryableMethodVisitor.Joins)
         {
             VisitSQLExpression(join.Sql);
@@ -483,27 +488,24 @@ internal class SQLTranslator
             }
         }
 
-        if (wheres.Count > 0)
+        if (wheres.Count > 0 || q.AllPredicate != null)
         {
             AppendSpacingNewline(sb, spacing, ref first);
             sb.Append("WHERE ");
-            if (q.IsAll)
+            bool needAnd = false;
+            for (int i = 0; i < wheres.Count; i++)
             {
-                sb.Append("NOT (");
-                for (int i = 0; i < wheres.Count; i++)
-                {
-                    if (i > 0) sb.Append(" AND ");
-                    wheres[i].WriteSqlTo(sb);
-                }
-                sb.Append(')');
+                if (needAnd) sb.Append(" AND ");
+                wheres[i].WriteSqlTo(sb);
+                needAnd = true;
             }
-            else
+
+            if (q.AllPredicate != null)
             {
-                for (int i = 0; i < wheres.Count; i++)
-                {
-                    if (i > 0) sb.Append(" AND ");
-                    wheres[i].WriteSqlTo(sb);
-                }
+                if (needAnd) sb.Append(" AND ");
+                sb.Append("NOT (");
+                q.AllPredicate.WriteSqlTo(sb);
+                sb.Append(')');
             }
         }
 

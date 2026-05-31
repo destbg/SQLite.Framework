@@ -125,6 +125,15 @@ public sealed class SQLiteOptions
     public required EnumStorageMode EnumStorage { get; init; }
 
     /// <summary>
+    /// When set, <c>string.Contains</c>, <c>string.StartsWith</c>, and <c>string.EndsWith</c>
+    /// translate to case-sensitive SQL (<c>instr</c> / <c>substr</c>) instead of the
+    /// case-insensitive <c>LIKE</c>. This matches .NET in-memory LINQ and the EF Core SQLite
+    /// provider. The <c>StringComparison.OrdinalIgnoreCase</c> overloads stay case-insensitive.
+    /// Defaults to <see langword="false" />.
+    /// </summary>
+    public bool CaseSensitiveStringComparison { get; init; }
+
+    /// <summary>
     /// Custom type converters that define how specific .NET types are stored in and read from SQLite.
     /// </summary>
     public required IReadOnlyDictionary<Type, ISQLiteTypeConverter> TypeConverters { get; init; }

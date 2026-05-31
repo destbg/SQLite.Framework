@@ -731,7 +731,7 @@ public class MethodVisitorCoverageTests
     }
 
     [Fact]
-    public void StringContains_CharArgument_BindsCharAsParameter()
+    public void StringContains_CharArgument_BindsWildcardWrappedCharAsParameter()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
@@ -740,7 +740,7 @@ public class MethodVisitorCoverageTests
             .Where(b => b.Title.Contains('b'))
             .ToSqlCommand();
 
-        Assert.Equal('b', cmd.Parameters[0].Value);
+        Assert.Equal("%b%", cmd.Parameters[0].Value);
     }
 
     [Fact]

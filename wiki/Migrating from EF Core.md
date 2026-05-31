@@ -123,6 +123,18 @@ List<string> titles = await db.Books
 
 For more complex queries, see [Querying](Querying), [Joins](Joins), [Subqueries](Subqueries), [Grouping and Aggregates](Grouping%20and%20Aggregates), and [Window Functions](Window%20Functions).
 
+## Case-Sensitive String Matching
+
+By default `string.Contains`, `string.StartsWith`, and `string.EndsWith` translate to SQLite `LIKE`, which is case-insensitive for ASCII. EF Core's SQLite provider instead translates `Contains` to `instr`, which is case-sensitive. To match EF Core, turn on the option:
+
+```csharp
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .UseCaseSensitiveStringComparison()
+    .Build();
+```
+
+With this on, `Contains` becomes `instr(x, value) > 0` and `StartsWith` / `EndsWith` become `substr(...) = value`, all case-sensitive like .NET and EF Core. The `StringComparison.OrdinalIgnoreCase` overloads stay case-insensitive. Note that case-sensitive `StartsWith` no longer uses a `LIKE 'prefix%'` index scan.
+
 ## No Navigation Properties or Include
 
 EF Core lets you define navigation properties (a `Book` has an `Author`, a `User` has a list of `Orders`), and load them with `Include`. `SQLite.Framework` does not do this.

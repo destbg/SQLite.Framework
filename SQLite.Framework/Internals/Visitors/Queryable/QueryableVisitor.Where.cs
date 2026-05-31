@@ -93,9 +93,32 @@ internal partial class QueryableVisitor
 
     private MethodCallExpression VisitBoolean(MethodCallExpression node)
     {
-        CheckWhereArgument(node);
         IsAny = node.Method.Name == nameof(System.Linq.Queryable.Any);
         IsAll = node.Method.Name == nameof(System.Linq.Queryable.All);
+
+        if (IsAll && node.Arguments.Count >= 2)
+        {
+            // source.Where(c).All(p) translates to NOT EXISTS(... WHERE c AND NOT(p)).
+            // The All predicate is kept apart from the prior filters so only it is negated.
+            ThrowIfSetOperations(node.Method.Name);
+
+            Expression stripped = ExpressionHelpers.StripQuotes(node.Arguments[1]);
+            if (stripped is LambdaExpression lambda)
+            {
+                Expression result = visitor.Visit(lambda.Body);
+
+                if (result is not SQLiteExpression sqlExpression)
+                {
+                    throw new NotSupportedException($"Unsupported WHERE expression {lambda.Body}");
+                }
+
+                AllPredicate = sqlExpression;
+            }
+        }
+        else
+        {
+            CheckWhereArgument(node);
+        }
 
         return node;
     }

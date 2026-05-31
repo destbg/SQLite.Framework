@@ -46,6 +46,7 @@ internal static class SqlLiteralHelper
             float f => f.ToString("R", CultureInfo.InvariantCulture),
             double d => d.ToString("R", CultureInfo.InvariantCulture),
             decimal m => m.ToString(CultureInfo.InvariantCulture),
+            Enum e => FormatLiteral(Convert.ChangeType(e, Enum.GetUnderlyingType(e.GetType()), CultureInfo.InvariantCulture)),
             _ => throw new NotSupportedException(
                 $"Cannot inline value of type {value.GetType().Name} as a SQL literal. Use a simple constant in CHECK / Computed / partial-index / view / trigger expressions, or build the DDL with raw SQL."),
         };

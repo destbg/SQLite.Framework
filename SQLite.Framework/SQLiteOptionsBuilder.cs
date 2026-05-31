@@ -200,6 +200,13 @@ public sealed class SQLiteOptionsBuilder
     public bool BlockReadsDuringTransaction { get; set; }
 
     /// <summary>
+    /// When set, <c>string.Contains</c>, <c>string.StartsWith</c>, and <c>string.EndsWith</c>
+    /// translate to case-sensitive SQL instead of the case-insensitive <c>LIKE</c>.
+    /// Defaults to <see langword="false" />.
+    /// </summary>
+    public bool CaseSensitiveStringComparison { get; set; }
+
+    /// <summary>
     /// Per-entity hooks that fire before <c>Add</c>. Mutate the entity here for things like an
     /// audit timestamp.
     /// </summary>
@@ -455,6 +462,11 @@ public sealed class SQLiteOptionsBuilder
         ArgumentNullException.ThrowIfNull(context);
         foreach (JsonTypeInfo root in EnumerateContextRoots(context))
         {
+            if (IsSimpleJsonLeaf(root.Type))
+            {
+                continue;
+            }
+
             if (!TypeConverters.ContainsKey(root.Type))
             {
                 TypeConverters[root.Type] = new SQLiteJsonObjectConverter(root, isJsonb: false);
@@ -487,6 +499,11 @@ public sealed class SQLiteOptionsBuilder
         ArgumentNullException.ThrowIfNull(context);
         foreach (JsonTypeInfo root in EnumerateContextRoots(context))
         {
+            if (IsSimpleJsonLeaf(root.Type))
+            {
+                continue;
+            }
+
             if (!TypeConverters.ContainsKey(root.Type))
             {
                 TypeConverters[root.Type] = new SQLiteJsonObjectConverter(root, isJsonb: true);
@@ -682,6 +699,18 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Makes <c>string.Contains</c>, <c>string.StartsWith</c>, and <c>string.EndsWith</c> translate
+    /// to case-sensitive SQL (<c>instr</c> / <c>substr</c>) instead of the default case-insensitive
+    /// <c>LIKE</c>, matching .NET in-memory LINQ and the EF Core SQLite provider. The
+    /// <c>StringComparison.OrdinalIgnoreCase</c> overloads stay case-insensitive.
+    /// </summary>
+    public SQLiteOptionsBuilder UseCaseSensitiveStringComparison(bool enabled = true)
+    {
+        CaseSensitiveStringComparison = enabled;
+        return this;
+    }
+
+    /// <summary>
     /// Adds a hook that observes every <see cref="SQLiteCommand" /> the framework runs.
     /// Multiple interceptors are supported and are called in registration order.
     /// </summary>
@@ -763,6 +792,7 @@ public sealed class SQLiteOptionsBuilder
             DecimalStorage = DecimalStorage,
             DecimalFormat = DecimalFormat,
             EnumStorage = EnumStorage,
+            CaseSensitiveStringComparison = CaseSensitiveStringComparison,
             TypeConverters = new Dictionary<Type, ISQLiteTypeConverter>(TypeConverters),
             MemberTranslators = new Dictionary<MemberInfo, SQLiteMemberTranslator>(MemberTranslators),
             PropertyTranslators = [.. PropertyTranslators],

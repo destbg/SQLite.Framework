@@ -36,8 +36,27 @@ internal static class StringMemberVisitor
                 }
                 case nameof(string.IndexOf):
                 {
-                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "INSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, ") - 1", parameters);
+                    if (arguments.Count == 1)
+                    {
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
+                        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "INSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, ") - 1", parameters);
+                    }
+
+                    if (arguments.Count == 2 && node.Arguments[1].Type == typeof(int))
+                    {
+                        SQLiteExpression objExpr = obj.SQLiteExpression!;
+                        SQLiteExpression needle = arguments[0].SQLiteExpression!;
+                        SQLiteExpression start = arguments[1].SQLiteExpression!;
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, needle, start);
+                        return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                            ["CASE WHEN INSTR(SUBSTR(", ", ", " + 1), ", ") = 0 THEN -1 ELSE INSTR(SUBSTR(", ", ", " + 1), ", ") - 1 + ", " END"],
+                            [objExpr, start, needle, objExpr, start, needle, start],
+                            parameters);
+                    }
+
+                    throw new NotSupportedException(
+                        "string.IndexOf is only translatable with a single value argument or a value plus a start index. " +
+                        "StringComparison and count overloads are not supported.");
                 }
                 case nameof(string.LastIndexOf):
                 {
@@ -324,15 +343,19 @@ internal static class StringMemberVisitor
 
     private static SQLiteExpression ResolveLike(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, Func<object?, string> selectParameter, Func<SQLiteExpression, string> selectValue)
     {
-        string rest = "ESCAPE '\\'";
+        bool ignoreCase = false;
         if (arguments.Count == 2)
         {
             StringComparison comparison = (StringComparison)arguments[1].Constant!;
-            if (comparison is StringComparison.OrdinalIgnoreCase or StringComparison.CurrentCultureIgnoreCase or StringComparison.InvariantCultureIgnoreCase)
-            {
-                rest += " COLLATE NOCASE";
-            }
+            ignoreCase = comparison is StringComparison.OrdinalIgnoreCase or StringComparison.CurrentCultureIgnoreCase or StringComparison.InvariantCultureIgnoreCase;
         }
+
+        if (visitor.Database.Options.CaseSensitiveStringComparison && !ignoreCase)
+        {
+            return ResolveCaseSensitiveSearch(visitor, method, obj, arguments);
+        }
+
+        string rest = ignoreCase ? "ESCAPE '\\' COLLATE NOCASE" : "ESCAPE '\\'";
 
         if (arguments[0].IsConstant)
         {
@@ -341,11 +364,10 @@ internal static class StringMemberVisitor
             {
                 Name = pName,
                 Value = arguments[0].Constant is string likeText
-                    ? selectParameter(likeText
-                        .Replace("\\", "\\\\")
-                        .Replace("%", "\\%")
-                        .Replace("_", "\\_"))
-                    : arguments[0].Constant
+                    ? selectParameter(EscapeLikePattern(likeText))
+                    : arguments[0].Constant is char likeChar
+                        ? selectParameter(EscapeLikePattern(likeChar.ToString()))
+                        : arguments[0].Constant
             };
 
             SQLiteParameter[] parameters = obj.Parameters == null
@@ -361,6 +383,43 @@ internal static class StringMemberVisitor
 
             return SQLiteExpression.Wrap(method.ReturnType, visitor.Counters.NextIdentifier(), "", obj, $" LIKE {valueSql} {rest}", parameters);
         }
+    }
+
+    private static string EscapeLikePattern(string value)
+    {
+        return value
+            .Replace("\\", "\\\\")
+            .Replace("%", "\\%")
+            .Replace("_", "\\_");
+    }
+
+    private static SQLiteExpression ResolveCaseSensitiveSearch(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments)
+    {
+        SQLiteExpression valueExpr;
+        if (arguments[0].IsConstant)
+        {
+            string pName = visitor.Counters.NextParamName();
+            object? raw = arguments[0].Constant is char c ? c.ToString() : arguments[0].Constant;
+            valueExpr = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), pName, raw);
+        }
+        else
+        {
+            valueExpr = arguments[0].SQLiteExpression!;
+        }
+
+        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj, valueExpr);
+        int id = visitor.Counters.NextIdentifier();
+
+        return method.Name switch
+        {
+            nameof(string.Contains) => SQLiteExpression.Binary(method.ReturnType, id,
+                "INSTR(", obj, ", ", valueExpr, ") > 0", parameters),
+            nameof(string.StartsWith) => SQLiteExpression.Multi(method.ReturnType, id,
+                ["SUBSTR(", ", 1, LENGTH(", ")) = ", ""], [obj, valueExpr, valueExpr], parameters),
+            nameof(string.EndsWith) => SQLiteExpression.Multi(method.ReturnType, id,
+                ["(LENGTH(", ") = 0 OR SUBSTR(", ", -LENGTH(", ")) = ", ")"], [valueExpr, obj, valueExpr, valueExpr], parameters),
+            _ => throw new NotSupportedException($"string.{method.Name} is not translatable to case-sensitive SQL.")
+        };
     }
 
     private static Expression ResolveTrim(SQLVisitor visitor, MethodCallExpression node, SQLiteExpression obj, List<ResolvedModel> arguments, string trimType)

@@ -87,6 +87,7 @@ var rounded = await db.Table<Book>()
 | `s.Substring(start, length)` | `SUBSTR(s, start + 1, length)` |
 | `s[index]` | `SUBSTR(s, index + 1, 1)` |
 | `s.IndexOf(value)` | `INSTR(s, value) - 1` |
+| `s.IndexOf(value, startIndex)` | `INSTR(SUBSTR(s, startIndex + 1), value)` adjusted back to a 0-based absolute index, or `-1` |
 | `s.LastIndexOf(value)` | `CASE WHEN LENGTH(value) = 0 THEN LENGTH(s) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, s UNION ALL SELECT pos + INSTR(rem, value), SUBSTR(rem, INSTR(rem, value) + 1) FROM find_pos WHERE INSTR(rem, value) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END` |
 | `s.Insert(index, value)` | `SUBSTR(s, 1, index) \|\| value \|\| SUBSTR(s, index + 1)` |
 | `s.Remove(start)` | `SUBSTR(s, 1, start)` |
@@ -103,7 +104,9 @@ var rounded = await db.Table<Book>()
 | `string.IsNullOrEmpty(s)` | `(s IS NULL OR s = '')` |
 | `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, ' ') = '')` |
 
-Pass `StringComparison.OrdinalIgnoreCase` to `Contains`, `StartsWith`, or `EndsWith` to make the match case insensitive:
+`Contains`, `StartsWith`, and `EndsWith` use `LIKE`, which is case-insensitive for ASCII by default. To make them case-sensitive, build the database with `UseCaseSensitiveStringComparison()`. They then translate to `INSTR` / `SUBSTR` instead of `LIKE`. See [Storage Options](Storage%20Options).
+
+Pass `StringComparison.OrdinalIgnoreCase` to `Contains`, `StartsWith`, or `EndsWith` to force a case-insensitive match regardless of that option:
 
 ```csharp
 var results = await db.Table<Book>()

@@ -149,6 +149,29 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 
 ---
 
+## String Comparison
+
+| Property | Type | Default |
+|---|---|---|
+| `CaseSensitiveStringComparison` | `bool` | `false` |
+
+Controls how `string.Contains`, `string.StartsWith`, and `string.EndsWith` translate to SQL.
+
+| Value | Behavior |
+|---|---|
+| `false` (default) | Translates to `LIKE`, which is case-insensitive for ASCII. |
+| `true` | Translates to `instr` / `substr`, which are case-sensitive. This matches .NET in-memory LINQ and the EF Core SQLite provider. |
+
+```csharp
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .UseCaseSensitiveStringComparison()
+    .Build();
+```
+
+The `StringComparison.OrdinalIgnoreCase` overloads stay case-insensitive regardless of this option. Note that case-sensitive `StartsWith` cannot use a `LIKE 'prefix%'` index scan.
+
+---
+
 ## Auto-Increment Primary Keys
 
 | Property | Type | Default |

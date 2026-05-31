@@ -1091,6 +1091,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     internal void ReleaseWalWrite()
     {
+        holdsConnectionLock.Value = false;
         walWriterGate.Wait();
         walWriterCount--;
         if (walWriterCount == 0)

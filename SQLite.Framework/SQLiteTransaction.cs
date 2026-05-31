@@ -42,12 +42,17 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         completed = true;
         disposed = true;
 
-        Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
-
-        if (ownsLock)
+        try
         {
-            Database.ReleaseLock();
-            Database.NotifyTransactionEnded();
+            Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+        }
+        finally
+        {
+            if (ownsLock)
+            {
+                Database.ReleaseLock();
+                Database.NotifyTransactionEnded();
+            }
         }
     }
 
@@ -64,13 +69,18 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         completed = true;
         disposed = true;
 
-        Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
-        Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
-
-        if (ownsLock)
+        try
         {
-            Database.ReleaseLock();
-            Database.NotifyTransactionEnded();
+            Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
+            Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+        }
+        finally
+        {
+            if (ownsLock)
+            {
+                Database.ReleaseLock();
+                Database.NotifyTransactionEnded();
+            }
         }
     }
 
@@ -85,13 +95,18 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         completed = true;
         disposed = true;
 
-        Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
-        Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
-
-        if (ownsLock)
+        try
         {
-            Database.ReleaseLock();
-            Database.NotifyTransactionEnded();
+            Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
+            Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+        }
+        finally
+        {
+            if (ownsLock)
+            {
+                Database.ReleaseLock();
+                Database.NotifyTransactionEnded();
+            }
         }
     }
 

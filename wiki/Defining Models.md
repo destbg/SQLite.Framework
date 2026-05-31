@@ -74,7 +74,7 @@ public string Genre { get; set; }
 
 For columns marked this way, `Add` and `AddRange` also omit the column from the INSERT when its CLR value equals `default(T)`, so SQLite applies the default. Use `int?` / `string?` if you need to insert `0` or `""` explicitly.
 
-Only literal values are supported in the attribute. For `CURRENT_TIMESTAMP` and translated SQL expressions, see [Schema](Schema).
+Literal values are supported in the attribute, including `enum` members. For `CURRENT_TIMESTAMP` and translated SQL expressions, see [Schema](Schema).
 
 ## Excluding Properties
 

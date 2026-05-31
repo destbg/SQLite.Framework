@@ -123,13 +123,13 @@ internal static class EntityColumnWriterEmitter
                 if (isNullableValueType)
                 {
                     sb.Append("            if (").Append(accessExpr).AppendLine(".HasValue)");
-                    sb.Append("                global::SQLitePCL.raw.sqlite3_bind_int(stmt, idx, (int)").Append(accessExpr).AppendLine(".Value);");
+                    sb.Append("                global::SQLitePCL.raw.sqlite3_bind_int64(stmt, idx, (long)").Append(accessExpr).AppendLine(".Value);");
                     sb.AppendLine("            else");
                     sb.AppendLine("                global::SQLitePCL.raw.sqlite3_bind_null(stmt, idx);");
                 }
                 else
                 {
-                    sb.Append("            global::SQLitePCL.raw.sqlite3_bind_int(stmt, idx, (int)").Append(accessExpr).AppendLine(");");
+                    sb.Append("            global::SQLitePCL.raw.sqlite3_bind_int64(stmt, idx, (long)").Append(accessExpr).AppendLine(");");
                 }
                 return true;
             case SpecialType.System_Int64:

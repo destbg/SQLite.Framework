@@ -54,7 +54,7 @@ internal static class CommandHelpers
                     return new DateTime(parsedTicks);
                 }
 
-                return DateTime.Parse(dateString);
+                return DateTime.Parse(dateString, CultureInfo.InvariantCulture);
             }
         }
         else if (type == typeof(DateTimeOffset))
@@ -65,7 +65,7 @@ internal static class CommandHelpers
             }
             else if (value is string dateString)
             {
-                return DateTimeOffset.Parse(dateString);
+                return DateTimeOffset.Parse(dateString, CultureInfo.InvariantCulture);
             }
         }
         else if (type == typeof(TimeSpan))
@@ -76,7 +76,7 @@ internal static class CommandHelpers
             }
             else if (value is string timeString)
             {
-                return TimeSpan.Parse(timeString);
+                return TimeSpan.Parse(timeString, CultureInfo.InvariantCulture);
             }
         }
         else if (type == typeof(DateOnly))
@@ -87,7 +87,7 @@ internal static class CommandHelpers
             }
             else if (value is string dateOnlyString)
             {
-                return DateOnly.Parse(dateOnlyString);
+                return DateOnly.Parse(dateOnlyString, CultureInfo.InvariantCulture);
             }
         }
         else if (type == typeof(TimeOnly))
@@ -98,12 +98,26 @@ internal static class CommandHelpers
             }
             else if (value is string timeOnlyString)
             {
-                return TimeOnly.Parse(timeOnlyString);
+                return TimeOnly.Parse(timeOnlyString, CultureInfo.InvariantCulture);
+            }
+        }
+        else if (type == typeof(uint))
+        {
+            if (value is long uintValue)
+            {
+                return unchecked((uint)uintValue);
+            }
+        }
+        else if (type == typeof(ulong))
+        {
+            if (value is long ulongValue)
+            {
+                return unchecked((ulong)ulongValue);
             }
         }
         else if (type == typeof(decimal))
         {
-            return Convert.ToDecimal(value);
+            return Convert.ToDecimal(value, CultureInfo.InvariantCulture);
         }
         else if (type == typeof(Guid))
         {
@@ -158,7 +172,7 @@ internal static class CommandHelpers
             short s => raw.sqlite3_bind_int(statement, index, s),
             ushort us => raw.sqlite3_bind_int(statement, index, us),
             int i => raw.sqlite3_bind_int(statement, index, i),
-            uint ui => raw.sqlite3_bind_int(statement, index, (int)ui),
+            uint ui => raw.sqlite3_bind_int64(statement, index, ui),
             long l => raw.sqlite3_bind_int64(statement, index, l),
             ulong ul => raw.sqlite3_bind_int64(statement, index, (long)ul),
             double d => raw.sqlite3_bind_double(statement, index, d),
@@ -169,32 +183,32 @@ internal static class CommandHelpers
             bool b => raw.sqlite3_bind_int(statement, index, b ? 1 : 0),
             DateTime dt => options.DateTimeStorage switch
             {
-                DateTimeStorageMode.TextTicks => raw.sqlite3_bind_text(statement, index, dt.Ticks.ToString()),
-                DateTimeStorageMode.TextFormatted => raw.sqlite3_bind_text(statement, index, dt.ToString(options.DateTimeFormat)),
+                DateTimeStorageMode.TextTicks => raw.sqlite3_bind_text(statement, index, dt.Ticks.ToString(CultureInfo.InvariantCulture)),
+                DateTimeStorageMode.TextFormatted => raw.sqlite3_bind_text(statement, index, dt.ToString(options.DateTimeFormat, CultureInfo.InvariantCulture)),
                 _ => raw.sqlite3_bind_int64(statement, index, dt.Ticks)
             },
             DateTimeOffset dto => options.DateTimeOffsetStorage switch
             {
                 DateTimeOffsetStorageMode.UtcTicks => raw.sqlite3_bind_int64(statement, index, dto.UtcTicks),
-                DateTimeOffsetStorageMode.TextFormatted => raw.sqlite3_bind_text(statement, index, dto.ToString(options.DateTimeOffsetFormat)),
+                DateTimeOffsetStorageMode.TextFormatted => raw.sqlite3_bind_text(statement, index, dto.ToString(options.DateTimeOffsetFormat, CultureInfo.InvariantCulture)),
                 _ => raw.sqlite3_bind_int64(statement, index, dto.Ticks)
             },
             Guid g => raw.sqlite3_bind_text(statement, index, g.ToString()),
             TimeSpan ts => options.TimeSpanStorage == TimeSpanStorageMode.Text
-                ? raw.sqlite3_bind_text(statement, index, ts.ToString(options.TimeSpanFormat))
+                ? raw.sqlite3_bind_text(statement, index, ts.ToString(options.TimeSpanFormat, CultureInfo.InvariantCulture))
                 : raw.sqlite3_bind_int64(statement, index, ts.Ticks),
             DateOnly d => options.DateOnlyStorage == DateOnlyStorageMode.Text
-                ? raw.sqlite3_bind_text(statement, index, d.ToString(options.DateOnlyFormat))
+                ? raw.sqlite3_bind_text(statement, index, d.ToString(options.DateOnlyFormat, CultureInfo.InvariantCulture))
                 : raw.sqlite3_bind_int64(statement, index, d.ToDateTime(default).Ticks),
             TimeOnly t => options.TimeOnlyStorage == TimeOnlyStorageMode.Text
-                ? raw.sqlite3_bind_text(statement, index, t.ToString(options.TimeOnlyFormat))
+                ? raw.sqlite3_bind_text(statement, index, t.ToString(options.TimeOnlyFormat, CultureInfo.InvariantCulture))
                 : raw.sqlite3_bind_int64(statement, index, t.Ticks),
             decimal dec => options.DecimalStorage == DecimalStorageMode.Text
-                ? raw.sqlite3_bind_text(statement, index, dec.ToString(options.DecimalFormat))
+                ? raw.sqlite3_bind_text(statement, index, dec.ToString(options.DecimalFormat, CultureInfo.InvariantCulture))
                 : raw.sqlite3_bind_double(statement, index, (double)dec),
             _ when value.GetType().IsEnum => options.EnumStorage == EnumStorageMode.Text
                 ? raw.sqlite3_bind_text(statement, index, value.ToString()!)
-                : raw.sqlite3_bind_int(statement, index, Convert.ToInt32(value)),
+                : raw.sqlite3_bind_int64(statement, index, EnumToInt64(value)),
             _ => throw new NotSupportedException($"Type {value.GetType()} is not supported.")
         };
     }
@@ -208,5 +222,13 @@ internal static class CommandHelpers
         }
 
         return index;
+    }
+
+    private static long EnumToInt64(object value)
+    {
+        Type underlying = Enum.GetUnderlyingType(value.GetType());
+        return underlying == typeof(ulong)
+            ? unchecked((long)Convert.ToUInt64(value, CultureInfo.InvariantCulture))
+            : Convert.ToInt64(value, CultureInfo.InvariantCulture);
     }
 }

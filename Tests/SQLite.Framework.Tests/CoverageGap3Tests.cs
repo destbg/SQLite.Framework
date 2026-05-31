@@ -950,7 +950,7 @@ public class CoverageGap3Tests
     }
 
     [Fact]
-    public void Where_SubqueryAll_EmitsExists()
+    public void Where_SubqueryAll_EmitsNotExists()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
@@ -966,7 +966,7 @@ public class CoverageGap3Tests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE EXISTS (
+                     WHERE NOT EXISTS (
                          SELECT 1
                          FROM "Books" AS b1
                          WHERE NOT (b1."BookPrice" > @p0)

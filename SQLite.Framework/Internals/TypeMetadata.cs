@@ -16,9 +16,16 @@ internal static class TypeMetadata
             return false;
         }
 
+        type = Nullable.GetUnderlyingType(type) ?? type;
+
         if (!options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter))
         {
             return false;
+        }
+
+        if (converter is SQLiteJsonObjectConverter)
+        {
+            return true;
         }
 
         Type ct = converter.GetType();

@@ -15,9 +15,14 @@ internal static class QueryableMemberVisitor
             ? query.Parameters.ToArray()
             : null;
 
-        if (node.Method.Name is nameof(System.Linq.Queryable.Any) or nameof(System.Linq.Queryable.All))
+        if (node.Method.Name == nameof(System.Linq.Queryable.Any))
         {
             return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"EXISTS ({Environment.NewLine}{querySql}{Environment.NewLine})", queryParams);
+        }
+
+        if (node.Method.Name == nameof(System.Linq.Queryable.All))
+        {
+            return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"NOT EXISTS ({Environment.NewLine}{querySql}{Environment.NewLine})", queryParams);
         }
 
         if (node.Arguments.Count == 1 || node.Method.Name != nameof(System.Linq.Queryable.Contains))
