@@ -372,4 +372,4 @@ The generator runs once per project. Each project that builds queries needs its 
 
 ## Working with an AI agent
 
-If you write code with an AI coding agent, see [AI Assistance](AI%20Assistance) for a ready-made cheat sheet you can drop into your project.
+If you write code with an AI coding agent, give it this Overview page as a reference. See [AI Assistance](AI%20Assistance) for how to wire it into Claude Code, Cursor, Copilot, and other agents.
