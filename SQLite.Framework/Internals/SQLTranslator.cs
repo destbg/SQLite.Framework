@@ -643,6 +643,13 @@ internal class SQLTranslator
             SQLTranslator innerTranslator = Visitor.CloneDeeper(level + 1);
             SQLQuery innerQuery = innerTranslator.Translate(innerExpr);
 
+            if (innerQuery.Reverse)
+            {
+                throw new NotSupportedException(
+                    "Reverse() is not supported before an operator that needs a subquery, such as " +
+                    "SelectMany, Join, Distinct, or GroupBy. Apply Reverse() last in the chain instead.");
+            }
+
             Type entityType = innerExpr.Type.GetGenericArguments()[0];
             char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
             string alias = $"{aliasChar}{Visitor.Counters.NextTableIndex(aliasChar)}";

@@ -53,6 +53,11 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
 
         string tableName = ResolveFTS5TableName(visitor, entityType);
 
+        if (columnName != null)
+        {
+            columnName = ResolveFTS5ColumnName(visitor, entityType, columnName);
+        }
+
         if (second.Type == typeof(string))
         {
             string queryString = (string)ExpressionHelpers.GetConstantValue(second)!;
@@ -239,6 +244,28 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         }
 
         throw new NotSupportedException($"SQLiteFTS5 method requires a direct entity reference; got {entity}.");
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Entity type is referenced by user code via the LINQ expression.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Entity type is referenced by user code.")]
+    private static string ResolveFTS5ColumnName(SQLVisitor visitor, Type entityType, string columnName)
+    {
+        TableMapping mapping = visitor.Database.TableMapping(entityType);
+        if (mapping.FullTextSearch == null)
+        {
+            throw new NotSupportedException($"SQLiteFTS5 method requires an entity with [FullTextSearch]; '{entityType.Name}' does not.");
+        }
+
+        foreach (FtsIndexedColumn indexed in mapping.FullTextSearch.IndexedColumns)
+        {
+            if (indexed.Name == columnName || indexed.Property.Name == columnName)
+            {
+                return indexed.Name;
+            }
+        }
+
+        throw new NotSupportedException($"SQLiteFTS5 column '{columnName}' is not declared on FTS entity '{entityType.Name}'.");
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]

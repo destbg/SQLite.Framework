@@ -7,9 +7,9 @@ internal partial class QueryableVisitor
         ThrowIfSetOperations(node.Method.Name);
 
 #if SQLITE_FRAMEWORK_VERSION_AWARE
-        if (joinType == "FULL OUTER JOIN")
+        if (joinType == "FULL OUTER JOIN" || joinType == "RIGHT JOIN")
         {
-            database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_39, "FULL OUTER JOIN");
+            database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_39, joinType);
         }
 #endif
 

@@ -287,6 +287,11 @@ internal partial class QueryableVisitor
 
         if (groupByExpression is NewExpression keyNew && keyNew.Members != null)
         {
+            foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
+            {
+                newTableColumns[Constants.GroupingElementPrefix + tableColumn.Key] = tableColumn.Value;
+            }
+
             for (int i = 0; i < keyNew.Members.Count; i++)
             {
                 string keyName = nameof(IGrouping<,>.Key) + "." + keyNew.Members[i].Name;

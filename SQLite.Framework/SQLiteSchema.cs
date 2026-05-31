@@ -817,7 +817,7 @@ public class SQLiteSchema
     {
         string ftsName = mapping.TableName;
         string sourceTable = ResolveContentTableName(fts);
-        string sourceRowId = ResolveContentRowIdColumn(fts, mapping);
+        string sourceRowId = IdentifierGuard.Quote(ResolveContentRowIdColumn(fts, mapping));
 
         string columnList = string.Join(", ", fts.IndexedColumns.Select(c => IdentifierGuard.Quote(c.Name)));
         string newValues = string.Join(", ", fts.IndexedColumns.Select(c => "new." + IdentifierGuard.Quote(c.Name)));

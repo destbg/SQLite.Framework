@@ -54,7 +54,7 @@ internal static class MathMemberVisitor
             nameof(Math.Sqrt) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "SQRT(", a0, ")", parameters),
             nameof(Math.Exp) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "EXP(", a0, ")", parameters),
             nameof(Math.Log) when arguments.Count == 2 => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(LOG(", a0, ") / LOG(", a1, "))", parameters),
-            nameof(Math.Log) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOG(", a0, ")", parameters),
+            nameof(Math.Log) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LN(", a0, ")", parameters),
             nameof(Math.Log10) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOG10(", a0, ")", parameters),
             nameof(Math.Sin) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "SIN(", a0, ")", parameters),
             nameof(Math.Cos) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "COS(", a0, ")", parameters),

@@ -54,7 +54,7 @@ internal partial class QueryableVisitor
             nameof(System.Linq.Queryable.Where) => VisitWhere(node),
 #if NET10_0_OR_GREATER
             nameof(System.Linq.Queryable.LeftJoin) => VisitJoin(node, "LEFT JOIN"),
-            nameof(System.Linq.Queryable.RightJoin) => VisitJoin(node, "JOIN"),
+            nameof(System.Linq.Queryable.RightJoin) => VisitJoin(node, "RIGHT JOIN"),
 #endif
             nameof(System.Linq.Queryable.Join) => VisitJoin(node, "JOIN"),
             nameof(System.Linq.Queryable.GroupJoin) => VisitJoin(node, "LEFT JOIN"),

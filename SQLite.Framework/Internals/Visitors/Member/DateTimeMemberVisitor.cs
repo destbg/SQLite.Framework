@@ -384,36 +384,44 @@ internal static class DateTimeMemberVisitor
     {
         (SQLiteParameter tickParameter, SQLiteParameter tickToSecondParameter) = CreateHelperDateParameters(visitor);
 
+        string tick = tickParameter.Name;
+        string toSec = tickToSecondParameter.Name;
+
         if (arguments[0].IsConstant)
         {
             SQLiteParameter parameter = new()
             {
                 Name = visitor.Counters.NextParamName(),
-                Value = $"+{arguments[0].Constant} {addType}"
+                Value = $"{arguments[0].Constant} {addType}"
             };
 
             SQLiteParameter[] parameters = [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter, parameter];
 
-            return SQLiteExpression.Wrap(
+            return SQLiteExpression.Multi(
                 method.ReturnType,
                 visitor.Counters.NextIdentifier(),
-                "CAST(STRFTIME('%s',DATETIME((",
-                obj,
-                $" - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', {parameter.Name})) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}",
+                [
+                    "CAST(STRFTIME('%s',DATETIME((",
+                    $" - {tick}) / {toSec}, 'unixepoch', {parameter.Name})) AS INTEGER) * {toSec} + {tick} + ((",
+                    $" - {tick}) % {toSec})"
+                ],
+                [obj, obj],
                 parameters);
         }
         else
         {
             SQLiteParameter[] parameters = [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], tickParameter, tickToSecondParameter];
 
-            return SQLiteExpression.Binary(
+            return SQLiteExpression.Multi(
                 method.ReturnType,
                 visitor.Counters.NextIdentifier(),
-                "CAST(STRFTIME('%s',DATETIME((",
-                obj,
-                $" - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch', '+'||",
-                arguments[0].SQLiteExpression!,
-                $"||' {addType}')) AS INTEGER) * {tickToSecondParameter.Name} + {tickParameter.Name}",
+                [
+                    "CAST(STRFTIME('%s',DATETIME((",
+                    $" - {tick}) / {toSec}, 'unixepoch', ",
+                    $"||' {addType}')) AS INTEGER) * {toSec} + {tick} + ((",
+                    $" - {tick}) % {toSec})"
+                ],
+                [obj, arguments[0].SQLiteExpression!, obj],
                 parameters
             );
         }

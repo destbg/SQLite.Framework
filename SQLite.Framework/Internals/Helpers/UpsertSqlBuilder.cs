@@ -57,7 +57,7 @@ internal static class UpsertSqlBuilder
 
             case UpsertActionKind.DoUpdateAll:
             {
-                IEnumerable<TableColumn> setColumns = insertColumns.Where(c => !target.ConflictColumns.Contains(c.PropertyInfo.Name) && !target.ConflictColumns.Contains(c.Name));
+                IEnumerable<TableColumn> setColumns = insertColumns.Where(c => !c.IsPrimaryKey && !target.ConflictColumns.Contains(c.PropertyInfo.Name) && !target.ConflictColumns.Contains(c.Name));
                 AppendUpdate(sb, database, table, setColumns, action);
                 break;
             }

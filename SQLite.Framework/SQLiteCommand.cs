@@ -134,6 +134,37 @@ public class SQLiteCommand
         }
     }
 
+    internal (int Changes, long RowId, bool Inserted) ExecuteWithInsertDetection()
+    {
+        using IDisposable _ = Database.Lock();
+
+        NotifyExecuting();
+        try
+        {
+            long before = raw.sqlite3_last_insert_rowid(Database.GetActiveHandle());
+
+            sqlite3_stmt statement = CreateStatement();
+            SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
+            raw.sqlite3_finalize(statement);
+
+            if (result != SQLiteResult.Done)
+            {
+                throw new SQLiteException(result, raw.sqlite3_errmsg(Database.GetActiveHandle()).utf8_to_string(), CommandText);
+            }
+
+            sqlite3 handle = Database.GetActiveHandle();
+            int changes = raw.sqlite3_changes(handle);
+            long rowId = raw.sqlite3_last_insert_rowid(handle);
+            NotifyExecuted(changes);
+            return (changes, rowId, rowId != before);
+        }
+        catch (Exception exception)
+        {
+            NotifyFailed(exception);
+            throw;
+        }
+    }
+
     internal sqlite3_stmt CreateStatement()
     {
         sqlite3 handle = Database.GetActiveHandle();

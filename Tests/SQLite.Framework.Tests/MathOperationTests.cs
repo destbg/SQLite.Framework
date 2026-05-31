@@ -463,15 +463,15 @@ public class MathOperationTests
         Assert.Empty(command.Parameters);
         Assert.Equal("""
                      SELECT b0."BookId" AS "Id",
-                            LOG(b0."BookPrice") AS "Log"
+                            LN(b0."BookPrice") AS "Log"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
         var results = query.ToList();
         Assert.Equal(2, results.Count);
-        Assert.Equal(0, results[0].Log, 5);
-        Assert.Equal(1, results[1].Log, 5);
+        Assert.Equal(Math.Log(1), results[0].Log, 5);
+        Assert.Equal(Math.Log(10), results[1].Log, 5);
     }
 
     [Fact]

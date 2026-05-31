@@ -8,12 +8,16 @@ namespace SQLite.Framework;
 internal sealed class SQLiteWriteColumnsTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T> : SQLiteTable<T>
 {
     private readonly IReadOnlyList<(string Column, string ValueSql)> extraColumns;
+    private readonly bool referencesRow;
 
-    internal SQLiteWriteColumnsTable(SQLiteDatabase database, TableMapping table, IReadOnlyList<(string Column, string ValueSql)> extraColumns)
+    internal SQLiteWriteColumnsTable(SQLiteDatabase database, TableMapping table, IReadOnlyList<(string Column, string ValueSql)> extraColumns, bool referencesRow)
         : base(database, table)
     {
         this.extraColumns = extraColumns;
+        this.referencesRow = referencesRow;
     }
 
     internal override IReadOnlyList<(string Column, string ValueSql)> ExtraWriteColumns => extraColumns;
+
+    internal override bool ExtraWriteColumnsReferenceRow => referencesRow;
 }

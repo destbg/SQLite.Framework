@@ -69,6 +69,12 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     internal virtual IReadOnlyList<(string Column, string ValueSql)> ExtraWriteColumns => [];
 
     /// <summary>
+    /// True when a <see cref="WithColumns" /> value expression reads a column of the row, which is
+    /// only valid on an <c>Update</c>. Used to reject such a value on an insert.
+    /// </summary>
+    internal virtual bool ExtraWriteColumnsReferenceRow => false;
+
+    /// <summary>
     /// Wraps the provided SQL query and parameters into a queryable object.
     /// </summary>
     public virtual IQueryable<T> FromSql(string sql, params SQLiteParameter[] parameters)
@@ -372,7 +378,18 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         ArgumentNullException.ThrowIfNull(build);
         SQLiteWriteColumnsBuilder<T> builder = new(Database, Table);
         build(builder);
-        return new SQLiteWriteColumnsTable<T>(Database, Table, builder.Columns);
+        return new SQLiteWriteColumnsTable<T>(Database, Table, builder.Columns, builder.ReferencesRow);
+    }
+
+    private void ThrowIfExtraWriteColumnsReferenceRowOnInsert()
+    {
+        if (ExtraWriteColumnsReferenceRow)
+        {
+            throw new NotSupportedException(
+                "A WithColumns value expression reads a column of the row, which an Add cannot do " +
+                "because the row does not exist yet. Use a constant or a function such as " +
+                "'_ => SQLiteFunctions.UnixEpoch()', or set the value on an Update instead.");
+        }
     }
 
     /// <summary>
@@ -469,6 +486,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                         continue;
                     }
 
+                    long beforeRowId = autoIncrement != null ? raw.sqlite3_last_insert_rowid(handle) : 0;
+
                     bindRow(stmt, item);
 
                     SQLiteResult stepResult = (SQLiteResult)raw.sqlite3_step(stmt);
@@ -483,7 +502,10 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                     if (autoIncrement != null && changes > 0)
                     {
                         long rowId = raw.sqlite3_last_insert_rowid(handle);
-                        autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
+                        if (rowId != beforeRowId)
+                        {
+                            autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
+                        }
                     }
 
                     raw.sqlite3_reset(stmt);
@@ -602,6 +624,10 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         SQLiteUpsertBuilder<T> builder = new();
         configure(builder);
         SQLiteUpsertConflictTarget<T> target = builder.Build();
+        if (ExtraWriteColumns.Count > 0)
+        {
+            ThrowIfExtraWriteColumnsReferenceRowOnInsert();
+        }
         return UpsertSqlBuilder.Build(Database, Table, target, (c, p) => WrapParam(p, c), ExtraWriteColumns);
     }
 
@@ -825,8 +851,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
         }
 
-        (int changes, long rowId) = Database.CreateCommand(sql, parameters).ExecuteWithLastRowId();
-        if (changes > 0)
+        (int changes, long rowId, bool inserted) = Database.CreateCommand(sql, parameters).ExecuteWithInsertDetection();
+        if (inserted)
         {
             autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
         }
@@ -948,6 +974,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         IReadOnlyList<(string Column, string ValueSql)> extra = ExtraWriteColumns;
         if (extra.Count > 0)
         {
+            ThrowIfExtraWriteColumnsReferenceRowOnInsert();
             names = names.Concat(extra.Select(e => IdentifierGuard.Quote(e.Column)));
             values = values.Concat(extra.Select(e => e.ValueSql));
         }
@@ -1054,6 +1081,22 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             placeholders.Add(placeholder);
         }
 
+        IReadOnlyList<(string Column, string ValueSql)> withColumns = ExtraWriteColumns;
+        if (withColumns.Count > 0)
+        {
+            ThrowIfExtraWriteColumnsReferenceRowOnInsert();
+            foreach ((string column, string valueSql) in withColumns)
+            {
+                if (overridden.Contains(column))
+                {
+                    continue;
+                }
+
+                names.Add(IdentifierGuard.Quote(column));
+                placeholders.Add(valueSql);
+            }
+        }
+
         string sql = $"INSERT INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
 
         if (autoIncrement == null)
@@ -1089,6 +1132,16 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             string placeholder = $"@p{next++}";
             parameters.Add(new SQLiteParameter { Name = placeholder, Value = entry.Value });
             setClauses.Add($"{IdentifierGuard.Quote(entry.Key)} = {placeholder}");
+        }
+
+        foreach ((string column, string valueSql) in ExtraWriteColumns)
+        {
+            if (overridden.Contains(column))
+            {
+                continue;
+            }
+
+            setClauses.Add($"{IdentifierGuard.Quote(column)} = {valueSql}");
         }
 
         List<string> primaryKeyClauses = [];

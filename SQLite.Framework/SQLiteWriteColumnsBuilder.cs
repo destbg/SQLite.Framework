@@ -21,6 +21,12 @@ public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(Dynami
     internal IReadOnlyList<(string Column, string ValueSql)> Columns => columns;
 
     /// <summary>
+    /// True when any value expression reads a column of the row. Such a value cannot run on an
+    /// <c>Add</c> (or the inserted side of an <c>Upsert</c>), where the row does not exist yet.
+    /// </summary>
+    internal bool ReferencesRow { get; private set; }
+
+    /// <summary>
     /// Sets the target column to a constant value. The target is a property on
     /// <typeparamref name="T" /> or <c>SQLiteColumn.Of&lt;TValue&gt;(row, "Name")</c> for a column
     /// with no CLR property.
@@ -39,6 +45,11 @@ public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(Dynami
     /// </summary>
     public SQLiteWriteColumnsBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, TValue>> value)
     {
+        if (ParameterUsageFinder.Uses(value))
+        {
+            ReferencesRow = true;
+        }
+
         columns.Add((ColumnTargetResolver.Resolve(mapping, column), BareSqlTranslator.Translate(database, mapping, value)));
         return this;
     }

@@ -205,6 +205,12 @@ internal static class QueryableMemberVisitor
 
         foreach (KeyValuePair<string, Expression> kvp in visitor.MethodArguments[pe])
         {
+            if (kvp.Key.StartsWith(Constants.GroupingElementPrefix, StringComparison.Ordinal))
+            {
+                newTableColumns[kvp.Key[Constants.GroupingElementPrefix.Length..]] = kvp.Value;
+                continue;
+            }
+
             if (kvp.Key.StartsWith(path))
             {
                 // +1 for the dot between the path and the key

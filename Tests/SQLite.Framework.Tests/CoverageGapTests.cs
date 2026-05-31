@@ -2491,7 +2491,7 @@ public class CoverageGapTests
     }
 
     [Fact]
-    public void Queryable_RightJoin_TranslatesToJoin()
+    public void Queryable_RightJoin_TranslatesToRightJoin()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();

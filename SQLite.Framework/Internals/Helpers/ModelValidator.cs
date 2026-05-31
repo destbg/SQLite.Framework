@@ -27,15 +27,22 @@ internal static class ModelValidator
         ValidateColumns(table, mapping, dbColumns, issues);
         ValidateIndexes(database, table, mapping, issues);
         ValidateForeignKeys(database, table, mapping, issues);
+        ValidateTriggers(database, table, mapping, issues);
         return issues;
     }
 
     private static void ValidateColumns(string table, TableMapping mapping, List<PragmaTableInfo> dbColumns, List<string> issues)
     {
         Dictionary<string, PragmaTableInfo> byName = dbColumns.ToDictionary(c => c.Name);
+        HashSet<string> computedNames = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet();
 
         foreach (TableColumn column in mapping.Columns)
         {
+            if (computedNames.Contains(column.Name))
+            {
+                continue;
+            }
+
             if (!byName.TryGetValue(column.Name, out PragmaTableInfo? dbColumn))
             {
                 issues.Add($"Column '{table}'.'{column.Name}' is missing in the database.");
@@ -61,7 +68,8 @@ internal static class ModelValidator
 
         foreach (PragmaTableInfo dbColumn in dbColumns)
         {
-            if (mapping.Columns.All(c => c.Name != dbColumn.Name))
+            if (mapping.Columns.All(c => c.Name != dbColumn.Name)
+                && mapping.ShadowColumns.All(s => s.Name != dbColumn.Name))
             {
                 issues.Add($"Column '{table}'.'{dbColumn.Name}' exists in the database but not in the model.");
             }
@@ -74,6 +82,7 @@ internal static class ModelValidator
 
         IEnumerable<string> expected = mapping.Columns
             .SelectMany(col => col.Indices.Select(idx => idx.Name ?? $"idx_{col.Name}_{idx.Order}"))
+            .Concat(mapping.Indexes.Select(idx => idx.Name))
             .Distinct();
 
         foreach (string name in expected)
@@ -111,10 +120,53 @@ internal static class ModelValidator
             string to = foreignKey.TargetColumns[i];
             string target = foreignKey.TargetTable;
 
-            if (!dbForeignKeys.Any(d => d.FromColumn == from && d.ToColumn == to && d.ReferencedTable == target))
+            PragmaForeignKey? match = dbForeignKeys.FirstOrDefault(d => d.FromColumn == from && d.ToColumn == to && d.ReferencedTable == target);
+            if (match == null)
             {
                 issues.Add($"Foreign key '{table}'.'{from}' -> '{target}'.'{to}' is missing in the database.");
+                continue;
+            }
+
+            if (i == 0)
+            {
+                string expectedOnDelete = ForeignKeyActionToSql(foreignKey.OnDelete);
+                if (!string.Equals(match.OnDelete, expectedOnDelete, StringComparison.OrdinalIgnoreCase))
+                {
+                    issues.Add($"Foreign key '{table}'.'{from}' -> '{target}' ON DELETE action is '{match.OnDelete}' but the model expects '{expectedOnDelete}'.");
+                }
+
+                string expectedOnUpdate = ForeignKeyActionToSql(foreignKey.OnUpdate);
+                if (!string.Equals(match.OnUpdate, expectedOnUpdate, StringComparison.OrdinalIgnoreCase))
+                {
+                    issues.Add($"Foreign key '{table}'.'{from}' -> '{target}' ON UPDATE action is '{match.OnUpdate}' but the model expects '{expectedOnUpdate}'.");
+                }
             }
         }
+    }
+
+    private static void ValidateTriggers(SQLiteDatabase database, string table, TableMapping mapping, List<string> issues)
+    {
+        foreach (TriggerSpec trigger in mapping.Triggers)
+        {
+            string escaped = trigger.Name.Replace("'", "''");
+            string? live = database.ExecuteScalar<string?>(
+                $"SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = '{escaped}'");
+            if (live == null)
+            {
+                issues.Add($"Trigger '{trigger.Name}' on table '{table}' is missing in the database.");
+            }
+        }
+    }
+
+    private static string ForeignKeyActionToSql(SQLiteForeignKeyAction action)
+    {
+        return action switch
+        {
+            SQLiteForeignKeyAction.Cascade => "CASCADE",
+            SQLiteForeignKeyAction.Restrict => "RESTRICT",
+            SQLiteForeignKeyAction.SetNull => "SET NULL",
+            SQLiteForeignKeyAction.SetDefault => "SET DEFAULT",
+            _ => "NO ACTION"
+        };
     }
 }
