@@ -247,7 +247,7 @@ internal static class StringMemberVisitor
             case nameof(string.IsNullOrWhiteSpace):
             {
                 SQLiteExpression a = arguments[0].SQLiteExpression!;
-                return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", a, " IS NULL OR TRIM(", a, ", ' ') = '')", arguments[0].Parameters);
+                return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", a, " IS NULL OR TRIM(", a, ", CHAR(9, 10, 11, 12, 13, 32)) = '')", arguments[0].Parameters);
             }
             case nameof(string.Concat):
             {
@@ -292,8 +292,15 @@ internal static class StringMemberVisitor
             {
                 SQLiteExpression a0 = arguments[0].SQLiteExpression!;
                 SQLiteExpression a1 = arguments[1].SQLiteExpression!;
+                bool ignoreCase = arguments.Count == 3 && (
+                    (arguments[2].Constant is StringComparison c
+                        && c is StringComparison.OrdinalIgnoreCase
+                            or StringComparison.CurrentCultureIgnoreCase
+                            or StringComparison.InvariantCultureIgnoreCase)
+                    || (arguments[2].Constant is bool b && b));
+                string collate = ignoreCase ? " COLLATE NOCASE" : "";
                 return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                    ["(CASE WHEN ", " = ", " THEN 0 WHEN ", " < ", " THEN -1 ELSE 1 END)"],
+                    ["(CASE WHEN ", " = ", $"{collate} THEN 0 WHEN ", " < ", $"{collate} THEN -1 ELSE 1 END)"],
                     [a0, a1, a0, a1],
                     ParameterHelpers.CombineParameters(a0, a1));
             }
@@ -365,9 +372,7 @@ internal static class StringMemberVisitor
                 Name = pName,
                 Value = arguments[0].Constant is string likeText
                     ? selectParameter(EscapeLikePattern(likeText))
-                    : arguments[0].Constant is char likeChar
-                        ? selectParameter(EscapeLikePattern(likeChar.ToString()))
-                        : arguments[0].Constant
+                    : selectParameter(EscapeLikePattern(((char)arguments[0].Constant!).ToString()))
             };
 
             SQLiteParameter[] parameters = obj.Parameters == null
@@ -416,9 +421,8 @@ internal static class StringMemberVisitor
                 "INSTR(", obj, ", ", valueExpr, ") > 0", parameters),
             nameof(string.StartsWith) => SQLiteExpression.Multi(method.ReturnType, id,
                 ["SUBSTR(", ", 1, LENGTH(", ")) = ", ""], [obj, valueExpr, valueExpr], parameters),
-            nameof(string.EndsWith) => SQLiteExpression.Multi(method.ReturnType, id,
-                ["(LENGTH(", ") = 0 OR SUBSTR(", ", -LENGTH(", ")) = ", ")"], [valueExpr, obj, valueExpr, valueExpr], parameters),
-            _ => throw new NotSupportedException($"string.{method.Name} is not translatable to case-sensitive SQL.")
+            _ => SQLiteExpression.Multi(method.ReturnType, id,
+                ["(LENGTH(", ") = 0 OR SUBSTR(", ", -LENGTH(", ")) = ", ")"], [valueExpr, obj, valueExpr, valueExpr], parameters)
         };
     }
 
@@ -431,6 +435,22 @@ internal static class StringMemberVisitor
 
         if (node.Arguments[0] is NewArrayExpression expression)
         {
+            bool isEmptyTrimSet = expression.Expressions.Count == 0
+                || (expression.NodeType == ExpressionType.NewArrayBounds
+                    && expression.Expressions.Count == 1
+                    && ExpressionHelpers.IsConstant(expression.Expressions[0])
+                    && Equals(ExpressionHelpers.GetConstantValue(expression.Expressions[0]), 0));
+
+            if (isEmptyTrimSet)
+            {
+                return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{trimType}(", obj, ")", obj.Parameters);
+            }
+
+            if (expression.NodeType == ExpressionType.NewArrayBounds)
+            {
+                return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{trimType}(", obj, ", CHAR(0))", obj.Parameters);
+            }
+
             ResolvedModel[] args = expression.Expressions
                 .Select(visitor.ResolveExpression)
                 .ToArray();

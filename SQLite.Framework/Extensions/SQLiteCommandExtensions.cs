@@ -49,7 +49,7 @@ public static class SQLiteCommandExtensions
 
             do
             {
-                yield return (T)materializer(context)!;
+                yield return materializer(context) is { } value ? (T)value : default!;
             } while (reader.Read());
         }
     }

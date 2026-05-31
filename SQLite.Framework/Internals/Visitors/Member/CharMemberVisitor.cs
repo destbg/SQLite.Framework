@@ -23,7 +23,7 @@ internal static class CharMemberVisitor
                 case nameof(char.ToUpper):
                     return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UPPER(", a0, ")", parameters);
                 case nameof(char.IsWhiteSpace):
-                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TRIM(", a0, ") = ''", parameters);
+                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TRIM(", a0, ", CHAR(9, 10, 11, 12, 13, 32)) = ''", parameters);
                 case nameof(char.IsAsciiDigit):
                     return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(", a0, " >= '0' AND ", a0, " <= '9')", parameters);
                 case nameof(char.IsAsciiLetter):

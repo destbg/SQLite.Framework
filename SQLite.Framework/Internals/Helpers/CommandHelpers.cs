@@ -49,6 +49,11 @@ internal static class CommandHelpers
             }
             else if (value is string dateString)
             {
+                if (options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
+                {
+                    return DateTime.ParseExact(dateString, options.DateTimeFormat, CultureInfo.InvariantCulture);
+                }
+
                 if (long.TryParse(dateString, out long parsedTicks))
                 {
                     return new DateTime(parsedTicks);
@@ -65,7 +70,9 @@ internal static class CommandHelpers
             }
             else if (value is string dateString)
             {
-                return DateTimeOffset.Parse(dateString, CultureInfo.InvariantCulture);
+                return options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted
+                    ? DateTimeOffset.ParseExact(dateString, options.DateTimeOffsetFormat, CultureInfo.InvariantCulture)
+                    : DateTimeOffset.Parse(dateString, CultureInfo.InvariantCulture);
             }
         }
         else if (type == typeof(TimeSpan))
@@ -76,7 +83,7 @@ internal static class CommandHelpers
             }
             else if (value is string timeString)
             {
-                return TimeSpan.Parse(timeString, CultureInfo.InvariantCulture);
+                return TimeSpan.ParseExact(timeString, options.TimeSpanFormat, CultureInfo.InvariantCulture);
             }
         }
         else if (type == typeof(DateOnly))
@@ -87,7 +94,7 @@ internal static class CommandHelpers
             }
             else if (value is string dateOnlyString)
             {
-                return DateOnly.Parse(dateOnlyString, CultureInfo.InvariantCulture);
+                return DateOnly.ParseExact(dateOnlyString, options.DateOnlyFormat, CultureInfo.InvariantCulture);
             }
         }
         else if (type == typeof(TimeOnly))
@@ -98,7 +105,7 @@ internal static class CommandHelpers
             }
             else if (value is string timeOnlyString)
             {
-                return TimeOnly.Parse(timeOnlyString, CultureInfo.InvariantCulture);
+                return TimeOnly.ParseExact(timeOnlyString, options.TimeOnlyFormat, CultureInfo.InvariantCulture);
             }
         }
         else if (type == typeof(uint))
@@ -117,6 +124,11 @@ internal static class CommandHelpers
         }
         else if (type == typeof(decimal))
         {
+            if (value is string decimalString)
+            {
+                return decimal.Parse(decimalString, NumberStyles.Any, CultureInfo.InvariantCulture);
+            }
+
             return Convert.ToDecimal(value, CultureInfo.InvariantCulture);
         }
         else if (type == typeof(Guid))
@@ -130,6 +142,10 @@ internal static class CommandHelpers
         {
             return Convert.ToBoolean(value);
         }
+        else if (options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter))
+        {
+            return converter.FromDatabase(value);
+        }
         else if (type.IsEnum)
         {
             if (value is string enumString)
@@ -138,10 +154,6 @@ internal static class CommandHelpers
             }
 
             return Enum.ToObject(type, value);
-        }
-        else if (options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter))
-        {
-            return converter.FromDatabase(value);
         }
         else if (type == typeof(string) && value is byte[] blobBytes)
         {

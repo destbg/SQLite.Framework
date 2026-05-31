@@ -906,7 +906,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return default;
         }
 
-        return (T?)reader.GetValue(0, reader.GetColumnType(0), typeof(T));
+        object? scalar = reader.GetValue(0, reader.GetColumnType(0), typeof(T));
+        return scalar is null ? default : (T?)scalar;
     }
 
     /// <summary>
@@ -921,7 +922,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return default;
         }
 
-        return (T?)reader.GetValue(0, reader.GetColumnType(0), typeof(T));
+        object? scalar = reader.GetValue(0, reader.GetColumnType(0), typeof(T));
+        return scalar is null ? default : (T?)scalar;
     }
 
     /// <summary>
@@ -1198,6 +1200,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
 
         Dictionary<TKey, List<TElement>> groups = new();
+        List<TElement>? nullKeyGroup = null;
         List<TKey> order = new();
         foreach (TElement row in command.ExecuteQueryInternal<TElement>(query))
         {
@@ -1205,6 +1208,19 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             TKey key = keyExtractor != null
                 ? (TKey)keyExtractor(keyContext)!
                 : (TKey)compiledKey!.Call(keyContext)!;
+
+            if (key is null)
+            {
+                if (nullKeyGroup == null)
+                {
+                    nullKeyGroup = new List<TElement>();
+                    order.Add(key!);
+                }
+
+                nullKeyGroup.Add(row);
+                continue;
+            }
+
             if (!groups.TryGetValue(key, out List<TElement>? list))
             {
                 list = new List<TElement>();
@@ -1217,7 +1233,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         foreach (TKey key in order)
         {
-            yield return new Grouping<TKey, TElement>(key, groups[key]);
+            yield return new Grouping<TKey, TElement>(key, key is null ? nullKeyGroup! : groups[key]);
         }
     }
 

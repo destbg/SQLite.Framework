@@ -425,7 +425,7 @@ public class RequestedProbeTests
     public record RecordWithEnum([property: Key] int Id, RecordStatus Status);
 
     [Fact]
-    public void PositionalRecord_WithUndefinedEnumValue_ReturnsDefault()
+    public void PositionalRecord_WithUndefinedEnumValue_KeepsRawValue()
     {
         using TestDatabase db = new();
         db.Table<RecordWithEnum>().Schema.CreateTable();
@@ -434,7 +434,7 @@ public class RequestedProbeTests
         RecordWithEnum row = db.Table<RecordWithEnum>().First();
 
         Assert.Equal(1, row.Id);
-        Assert.Equal(default(RecordStatus), row.Status);
+        Assert.Equal((RecordStatus)999, row.Status);
     }
 
     [Fact]

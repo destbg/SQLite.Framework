@@ -237,8 +237,8 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                     ? node.Method.Invoke(null, [operandValue])
                     : InvokeUnaryOperator(BinaryNegationOperator, operandValue!, options),
                 ExpressionType.Not => !(bool)operandValue!,
-                ExpressionType.Convert => Convert.ChangeType(operandValue, node.Type),
-                ExpressionType.ConvertChecked => Convert.ChangeType(operandValue, node.Type),
+                ExpressionType.Convert => ConvertOperand(operandValue, node.Type),
+                ExpressionType.ConvertChecked => ConvertOperand(operandValue, node.Type),
                 _ => throw new NotSupportedException($"The unary operator '{node.NodeType}' is not supported.")
             };
         });
@@ -686,5 +686,16 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         where T : IUnaryNegationOperators<T, T>
     {
         return -operand;
+    }
+
+    private static object? ConvertOperand(object? value, Type targetType)
+    {
+        if (value == null)
+        {
+            return null;
+        }
+
+        Type underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        return underlying.IsInstanceOfType(value) ? value : Convert.ChangeType(value, underlying);
     }
 }

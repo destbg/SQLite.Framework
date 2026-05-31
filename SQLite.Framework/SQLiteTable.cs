@@ -418,7 +418,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         SQLTranslator translator = new(Database);
         SQLQuery sourceQuery = translator.Translate(source.Expression);
 
-        string columnList = string.Join(", ", Table.Columns.Select(c => IdentifierGuard.Quote(c.Name)));
+        IReadOnlyList<SQLiteExpression> selects = translator.Selects;
+        IEnumerable<string> targetColumns = selects.Select(s =>
+        {
+            TableColumn column = Table.Columns.First(c => c.PropertyInfo.Name == s.IdentifierText);
+            return IdentifierGuard.Quote(column.Name);
+        });
+
+        string columnList = string.Join(", ", targetColumns);
         string sql = $"INSERT INTO \"{Table.TableName}\" ({columnList}){Environment.NewLine}{sourceQuery.Sql}";
 
         return Database.CreateCommand(sql, sourceQuery.Parameters).ExecuteNonQuery();
@@ -435,7 +442,18 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return ((IEnumerable<T>)this).GetEnumerator();
     }
 
-    internal (TableColumn[] Columns, string Sql) GetAddInfoInternal() => GetAddInfo();
+    internal (TableColumn[] Columns, string Sql) GetAddInfoForItemInternal(T item)
+    {
+        (TableColumn[] columns, string sql) = GetAddInfo();
+        if (!IsItemMethodOverridden(nameof(GetAddInfo)))
+        {
+            columns = FilterColumnsForDefaults(columns, item);
+            sql = BuildAddSql(columns);
+        }
+
+        return (columns, sql);
+    }
+
     internal (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfoInternal() => GetUpdateInfo();
     internal (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfoInternal() => GetRemoveInfo();
     internal (TableColumn[] Columns, string Sql) GetUpsertInfoInternal(Action<SQLiteUpsertBuilder<T>> configure) => GetUpsertInfo(configure);
@@ -554,6 +572,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .Where(f => f.IsPrimaryKey)
             .ToArray();
 
+        if (primaryKeyColumns.Length == 0)
+        {
+            throw new NotSupportedException("Cannot perform an update operation without a primary key, use ExecuteUpdate instead.");
+        }
+
         string setClause = string.Join(", ", columns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = {WrapParam($"@p{i}", c)}"));
 
         IReadOnlyList<(string Column, string ValueSql)> extra = ExtraWriteColumns;
@@ -584,7 +607,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         if (primaryKeyColumns.Length == 0)
         {
-            throw new Exception("Cannot perform a delete operation without a primary key.");
+            throw new NotSupportedException("Cannot perform a delete operation without a primary key, use ExecuteDelete instead.");
         }
 
         string primaryKeyClause = string.Join(" AND ",
@@ -968,13 +991,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     private (string ColumnList, string ValueList) BuildWriteLists(TableColumn[] columns)
     {
+        ThrowIfExtraWriteColumnsReferenceRowOnInsert();
+
         IEnumerable<string> names = columns.Select(c => IdentifierGuard.Quote(c.Name));
         IEnumerable<string> values = columns.Select((c, i) => WrapParam($"@p{i}", c));
 
         IReadOnlyList<(string Column, string ValueSql)> extra = ExtraWriteColumns;
         if (extra.Count > 0)
         {
-            ThrowIfExtraWriteColumnsReferenceRowOnInsert();
             names = names.Concat(extra.Select(e => IdentifierGuard.Quote(e.Column)));
             values = values.Concat(extra.Select(e => e.ValueSql));
         }

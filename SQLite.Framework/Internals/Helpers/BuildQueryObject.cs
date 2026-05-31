@@ -284,9 +284,7 @@ internal static class BuildQueryObject
                         if (s.IsEnum)
                         {
                             object underlyingType = Convert.ChangeType(value, s.EnumUnderlyingType!);
-                            args[i] = Enum.IsDefined(s.TargetType, underlyingType)
-                                ? Enum.ToObject(s.TargetType, underlyingType)
-                                : null;
+                            args[i] = Enum.ToObject(s.TargetType, underlyingType);
                         }
                         else
                         {
@@ -377,9 +375,7 @@ internal static class BuildQueryObject
                             if (slot.IsEnum)
                             {
                                 object underlyingType = Convert.ChangeType(val, slot.EnumUnderlyingType!);
-                                convertedValue = Enum.IsDefined(slot.TargetType, underlyingType)
-                                    ? Enum.ToObject(slot.TargetType, underlyingType)
-                                    : null;
+                                convertedValue = Enum.ToObject(slot.TargetType, underlyingType);
                             }
                             else
                             {

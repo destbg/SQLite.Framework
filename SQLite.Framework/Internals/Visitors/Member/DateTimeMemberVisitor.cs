@@ -222,9 +222,9 @@ internal static class DateTimeMemberVisitor
 
             return node.Method.Name switch
             {
-                nameof(TimeOnly.Add) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
-                nameof(TimeOnly.AddHours) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerHour),
-                nameof(TimeOnly.AddMinutes) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerMinute),
+                nameof(TimeOnly.Add) => ResolveTimeOnlyAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
+                nameof(TimeOnly.AddHours) => ResolveTimeOnlyAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerHour),
+                nameof(TimeOnly.AddMinutes) => ResolveTimeOnlyAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerMinute),
                 _ => throw new NotSupportedException($"TimeOnly.{node.Method.Name} is not translatable to SQL.")
             };
         }
@@ -366,6 +366,23 @@ internal static class DateTimeMemberVisitor
             method.ReturnType,
             visitor.Counters.NextIdentifier(),
             "CAST(", obj, " + (", arguments[0].SQLiteExpression!, $" * {parameter.Name}) AS 'INTEGER')",
+            [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter]
+        );
+    }
+
+    private static SQLiteExpression ResolveTimeOnlyAdd(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, long multiplyBy)
+    {
+        SQLiteParameter parameter = new()
+        {
+            Name = visitor.Counters.NextParamName(),
+            Value = multiplyBy
+        };
+
+        long day = TimeSpan.TicksPerDay;
+        return SQLiteExpression.Binary(
+            method.ReturnType,
+            visitor.Counters.NextIdentifier(),
+            "CAST(((", obj, " + (", arguments[0].SQLiteExpression!, $" * {parameter.Name})) % {day} + {day}) % {day} AS 'INTEGER')",
             [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter]
         );
     }

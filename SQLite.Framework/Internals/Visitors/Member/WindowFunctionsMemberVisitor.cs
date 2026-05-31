@@ -125,6 +125,12 @@ internal static class WindowFunctionsMemberVisitor
 
     private static SQLiteExpression Frame(SQLVisitor visitor, Type t, int id, List<ResolvedModel> arguments, string keyword, MethodCallExpression node, SQLiteParameter[]? parameters)
     {
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        if (keyword.Contains("GROUPS"))
+        {
+            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_28, "GROUPS frame type");
+        }
+#endif
         string exclude = ExcludeKeyword(visitor, node);
         ResolvedModel prev = arguments[0];
         ResolvedModel start = arguments[1];

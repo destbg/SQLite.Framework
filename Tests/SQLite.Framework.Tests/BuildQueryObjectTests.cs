@@ -60,7 +60,7 @@ public class BuildQueryObjectTests
     }
 
     [Fact]
-    public void ExecuteQuery_OutOfRangeEnumInteger_LeavesPropertyAtDefault()
+    public void ExecuteQuery_OutOfRangeEnumInteger_KeepsRawValue()
     {
         using TestDatabase db = new();
         db.Table<Publisher>().Schema.CreateTable();
@@ -68,7 +68,7 @@ public class BuildQueryObjectTests
 
         Publisher result = db.CreateCommand("SELECT * FROM Publisher", []).ExecuteQuery<Publisher>().First();
 
-        Assert.Equal(default(PublisherType), result.Type);
+        Assert.Equal((PublisherType)999, result.Type);
         Assert.Equal(1, result.Id);
     }
 

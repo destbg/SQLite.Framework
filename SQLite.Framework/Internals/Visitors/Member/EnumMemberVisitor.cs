@@ -32,6 +32,7 @@ internal static class EnumMemberVisitor
                 case nameof(Enum.ToString):
                 {
                     Type enumType = node.Object!.Type;
+                    Type enumUnderlying = Enum.GetUnderlyingType(enumType);
                     Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
                     string[] enumNames = Enum.GetNames(enumType);
 
@@ -40,7 +41,7 @@ internal static class EnumMemberVisitor
                     for (int i = 0; i < enumValuesArray.Length; i++)
                     {
                         object enumValue = enumValuesArray.GetValue(i)!;
-                        long numericValue = Convert.ToInt64(enumValue);
+                        long numericValue = ToSignedNumeric(enumValue, enumUnderlying);
                         string enumName = enumNames[i];
 
                         SQLiteParameter nameParam = new()
@@ -93,6 +94,7 @@ internal static class EnumMemberVisitor
                 }
             }
 
+            Type enumUnderlying = Enum.GetUnderlyingType(enumType);
             Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
             string[] enumNames = Enum.GetNames(enumType);
 
@@ -102,7 +104,7 @@ internal static class EnumMemberVisitor
             for (int i = 0; i < enumValuesArray.Length; i++)
             {
                 object enumValue = enumValuesArray.GetValue(i)!;
-                long numericValue = Convert.ToInt64(enumValue);
+                long numericValue = ToSignedNumeric(enumValue, enumUnderlying);
                 string enumName = enumNames[i];
 
                 SQLiteParameter nameParam = new()
@@ -126,5 +128,12 @@ internal static class EnumMemberVisitor
         }
 
         throw new NotSupportedException($"Enum.{node.Method.Name} is not translatable to SQL.");
+    }
+
+    private static long ToSignedNumeric(object enumValue, Type enumUnderlying)
+    {
+        return enumUnderlying == typeof(ulong)
+            ? unchecked((long)(ulong)enumValue)
+            : Convert.ToInt64(enumValue);
     }
 }

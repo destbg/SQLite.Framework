@@ -75,12 +75,12 @@ internal partial class QueryableVisitor
 
         if (node.Method.Name is nameof(System.Linq.Queryable.Single) or nameof(System.Linq.Queryable.SingleOrDefault))
         {
-            Take = 2;
+            Take = Take.HasValue ? Math.Min(Take.Value, 2) : 2;
             ThrowOnMoreThanOne = true;
         }
         else
         {
-            Take = 1;
+            Take = Take.HasValue ? Math.Min(Take.Value, 1) : 1;
         }
 
         if (node.Method.Name is nameof(System.Linq.Queryable.First) or nameof(System.Linq.Queryable.Single))
@@ -98,22 +98,17 @@ internal partial class QueryableVisitor
 
         if (IsAll && node.Arguments.Count >= 2)
         {
-            // source.Where(c).All(p) translates to NOT EXISTS(... WHERE c AND NOT(p)).
-            // The All predicate is kept apart from the prior filters so only it is negated.
             ThrowIfSetOperations(node.Method.Name);
 
-            Expression stripped = ExpressionHelpers.StripQuotes(node.Arguments[1]);
-            if (stripped is LambdaExpression lambda)
+            LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+            Expression result = visitor.Visit(lambda.Body);
+
+            if (result is not SQLiteExpression sqlExpression)
             {
-                Expression result = visitor.Visit(lambda.Body);
-
-                if (result is not SQLiteExpression sqlExpression)
-                {
-                    throw new NotSupportedException($"Unsupported WHERE expression {lambda.Body}");
-                }
-
-                AllPredicate = sqlExpression;
+                throw new NotSupportedException($"Unsupported WHERE expression {lambda.Body}");
             }
+
+            AllPredicate = sqlExpression;
         }
         else
         {

@@ -90,7 +90,7 @@ internal partial class QueryableVisitor
         };
 
         Skip = (Skip ?? 0) + n;
-        Take = 1;
+        Take = Take.HasValue ? Math.Min(Math.Max(0, Take.Value - n), 1) : 1;
         if (throwOnEmpty)
         {
             ThrowOnEmpty = true;

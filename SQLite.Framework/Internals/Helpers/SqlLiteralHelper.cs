@@ -51,4 +51,42 @@ internal static class SqlLiteralHelper
                 $"Cannot inline value of type {value.GetType().Name} as a SQL literal. Use a simple constant in CHECK / Computed / partial-index / view / trigger expressions, or build the DDL with raw SQL."),
         };
     }
+
+    public static string FormatLiteral(object? value, SQLiteOptions options)
+    {
+        return value switch
+        {
+            DateTime dt => options.DateTimeStorage switch
+            {
+                DateTimeStorageMode.TextTicks => FormatLiteral(dt.Ticks.ToString(CultureInfo.InvariantCulture)),
+                DateTimeStorageMode.TextFormatted => FormatLiteral(dt.ToString(options.DateTimeFormat, CultureInfo.InvariantCulture)),
+                _ => FormatLiteral(dt.Ticks)
+            },
+            DateTimeOffset dto => options.DateTimeOffsetStorage switch
+            {
+                DateTimeOffsetStorageMode.UtcTicks => FormatLiteral(dto.UtcTicks),
+                DateTimeOffsetStorageMode.TextFormatted => FormatLiteral(dto.ToString(options.DateTimeOffsetFormat, CultureInfo.InvariantCulture)),
+                _ => FormatLiteral(dto.Ticks)
+            },
+            TimeSpan ts => options.TimeSpanStorage == TimeSpanStorageMode.Text
+                ? FormatLiteral(ts.ToString(options.TimeSpanFormat, CultureInfo.InvariantCulture))
+                : FormatLiteral(ts.Ticks),
+            DateOnly d => options.DateOnlyStorage == DateOnlyStorageMode.Text
+                ? FormatLiteral(d.ToString(options.DateOnlyFormat, CultureInfo.InvariantCulture))
+                : FormatLiteral(d.ToDateTime(default).Ticks),
+            TimeOnly t => options.TimeOnlyStorage == TimeOnlyStorageMode.Text
+                ? FormatLiteral(t.ToString(options.TimeOnlyFormat, CultureInfo.InvariantCulture))
+                : FormatLiteral(t.Ticks),
+            decimal dec => options.DecimalStorage == DecimalStorageMode.Text
+                ? FormatLiteral(dec.ToString(options.DecimalFormat, CultureInfo.InvariantCulture))
+                : FormatLiteral((double)dec),
+            Enum e => options.EnumStorage == EnumStorageMode.Text
+                ? FormatLiteral(e.ToString())
+                : FormatLiteral(Convert.ChangeType(e, Enum.GetUnderlyingType(e.GetType()), CultureInfo.InvariantCulture)),
+            Guid g => FormatLiteral(g.ToString()),
+            char c => FormatLiteral(c.ToString()),
+            byte[] bytes => "X'" + Convert.ToHexString(bytes) + "'",
+            _ => FormatLiteral(value)
+        };
+    }
 }

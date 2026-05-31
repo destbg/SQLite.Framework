@@ -123,7 +123,7 @@ internal static class SchemaSqlBuilder
             var ordered = group.OrderBy(x => x.Order).ToArray();
             string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
             string columnList = string.Join(", ", ordered.Select(x => IdentifierGuard.Quote(x.Column) + CollationHelper.Clause(x.Collation) + IndexDirectionHelper.Clause(x.Direction)));
-            statements.Add((group.Key, $"CREATE {uniqueClause}INDEX {existsClause}\"{group.Key}\" ON \"{tableName}\" ({columnList})"));
+            statements.Add((group.Key, $"CREATE {uniqueClause}INDEX {existsClause}\"{group.Key.Replace("\"", "\"\"")}\" ON \"{tableName}\" ({columnList})"));
         }
 
         foreach (IndexSpec index in mapping.Indexes)

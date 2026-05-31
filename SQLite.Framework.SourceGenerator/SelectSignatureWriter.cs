@@ -1,3 +1,5 @@
+using System;
+using System.Globalization;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -146,8 +148,8 @@ internal static class SelectSignatureWriter
                 AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedMember).Type ?? type, ctx);
                 return true;
 
-            case LiteralExpressionSyntax:
-                AppendConstant(sb, type, ctx);
+            case LiteralExpressionSyntax literal:
+                AppendConstant(sb, literal, type, ctx);
                 return true;
 
             case CastExpressionSyntax cast:
@@ -1031,9 +1033,57 @@ internal static class SelectSignatureWriter
         return true;
     }
 
-    private static void AppendConstant(StringBuilder sb, ITypeSymbol? type, SelectSignatureCtx ctx)
+    private static void AppendConstant(StringBuilder sb, ExpressionSyntax node, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        sb.Append("(Constant ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(')');
+        sb.Append("(Constant ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatConstant(GetConstantValue(node, type, ctx))).Append(')');
+    }
+
+    private static object? GetConstantValue(ExpressionSyntax node, ITypeSymbol? type, SelectSignatureCtx ctx)
+    {
+        Optional<object?> constant = ctx.Model.GetConstantValue(node);
+        return CoerceConstant(constant.HasValue ? constant.Value : null, type);
+    }
+
+    private static object? CoerceConstant(object? value, ITypeSymbol? type)
+    {
+        if (value is null || type is null)
+        {
+            return value;
+        }
+
+        try
+        {
+            return type.SpecialType switch
+            {
+                SpecialType.System_Double => Convert.ToDouble(value, CultureInfo.InvariantCulture),
+                SpecialType.System_Single => Convert.ToSingle(value, CultureInfo.InvariantCulture),
+                SpecialType.System_Decimal => Convert.ToDecimal(value, CultureInfo.InvariantCulture),
+                SpecialType.System_Int64 => Convert.ToInt64(value, CultureInfo.InvariantCulture),
+                SpecialType.System_UInt64 => Convert.ToUInt64(value, CultureInfo.InvariantCulture),
+                SpecialType.System_Int32 => Convert.ToInt32(value, CultureInfo.InvariantCulture),
+                SpecialType.System_UInt32 => Convert.ToUInt32(value, CultureInfo.InvariantCulture),
+                SpecialType.System_Int16 => Convert.ToInt16(value, CultureInfo.InvariantCulture),
+                SpecialType.System_UInt16 => Convert.ToUInt16(value, CultureInfo.InvariantCulture),
+                SpecialType.System_Byte => Convert.ToByte(value, CultureInfo.InvariantCulture),
+                SpecialType.System_SByte => Convert.ToSByte(value, CultureInfo.InvariantCulture),
+                _ => value
+            };
+        }
+        catch
+        {
+            return value;
+        }
+    }
+
+    private static string FormatConstant(object? value)
+    {
+        return value switch
+        {
+            null => "null",
+            string s => "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"",
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? ""
+        };
     }
 
     private static bool AppendCast(StringBuilder sb, CastExpressionSyntax cast, ITypeSymbol? type, SelectSignatureCtx ctx)

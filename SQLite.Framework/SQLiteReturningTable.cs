@@ -54,7 +54,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             return default;
         }
 
-        (TableColumn[] columns, string sql) = Source.GetAddInfoInternal();
+        (TableColumn[] columns, string sql) = Source.GetAddInfoForItemInternal(item);
         TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
         List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
 
@@ -80,7 +80,6 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     {
         ArgumentNullException.ThrowIfNull(collection);
 
-        (TableColumn[] columns, string sql) = Source.GetAddInfoInternal();
         TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
 
         return RunRangeWithReturning(
@@ -89,6 +88,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             runInTransaction,
             item =>
             {
+                (TableColumn[] columns, string sql) = Source.GetAddInfoForItemInternal(item);
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
                 List<TResult> projected = ExecuteWithReturning(sql, parameters);
                 if (autoIncrement != null)

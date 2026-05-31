@@ -252,12 +252,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
     private static string ResolveFTS5ColumnName(SQLVisitor visitor, Type entityType, string columnName)
     {
         TableMapping mapping = visitor.Database.TableMapping(entityType);
-        if (mapping.FullTextSearch == null)
-        {
-            throw new NotSupportedException($"SQLiteFTS5 method requires an entity with [FullTextSearch]; '{entityType.Name}' does not.");
-        }
-
-        foreach (FtsIndexedColumn indexed in mapping.FullTextSearch.IndexedColumns)
+        foreach (FtsIndexedColumn indexed in mapping.FullTextSearch!.IndexedColumns)
         {
             if (indexed.Name == columnName || indexed.Property.Name == columnName)
             {

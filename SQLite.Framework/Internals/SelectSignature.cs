@@ -105,7 +105,8 @@ internal static class SelectSignature
             case ParameterExpression pe:
                 sb.Append(' ').Append(FormatType(pe.Type));
                 break;
-            case ConstantExpression:
+            case ConstantExpression constant:
+                sb.Append(' ').Append(FormatConstant(constant.Value));
                 break;
             case NewArrayExpression nae:
                 foreach (Expression arg in nae.Expressions)
@@ -208,5 +209,16 @@ internal static class SelectSignature
 
         return type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
             || type.Name.StartsWith("<>h__TransparentIdentifier", StringComparison.Ordinal);
+    }
+
+    private static string? FormatConstant(object? value)
+    {
+        return value switch
+        {
+            null => "null",
+            string s => "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"",
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value.ToString()
+        };
     }
 }

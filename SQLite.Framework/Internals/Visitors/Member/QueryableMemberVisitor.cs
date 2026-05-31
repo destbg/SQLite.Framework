@@ -118,6 +118,14 @@ internal static class QueryableMemberVisitor
         Expression receiver = node.Arguments[0];
         LambdaExpression? filterLambda = TryPeelWhereFilter(ref receiver);
 
+        bool countWithPredicate = filterLambda == null
+            && node.Method.Name is nameof(Enumerable.Count) or nameof(Enumerable.LongCount)
+            && node.Arguments.Count == 2;
+        if (countWithPredicate)
+        {
+            filterLambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+        }
+
         Dictionary<string, Expression>? newTableColumns = null;
         SQLiteExpression? sqlExpression = null;
 

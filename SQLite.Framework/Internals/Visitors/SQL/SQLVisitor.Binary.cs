@@ -90,8 +90,17 @@ internal partial class SQLVisitor
         if (node.NodeType is ExpressionType.AndAlso or ExpressionType.OrElse
             || (node.Type == typeof(bool) && node.NodeType is ExpressionType.And or ExpressionType.Or))
         {
-            string spacedOp = node.NodeType is ExpressionType.AndAlso or ExpressionType.And ? " AND " : " OR ";
-            return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", left, spacedOp, right, "", bothParameters);
+            bool isAnd = node.NodeType is ExpressionType.AndAlso or ExpressionType.And;
+            string spacedOp = isAnd ? " AND " : " OR ";
+
+            SQLiteExpression boolLeft = isAnd ? BracketBooleanOr(leftNode, resolvedLeft.SQLiteExpression!) : resolvedLeft.SQLiteExpression!;
+            SQLiteExpression boolRight = isAnd ? BracketBooleanOr(rightNode, resolvedRight.SQLiteExpression!) : resolvedRight.SQLiteExpression!;
+            SQLiteParameter[]? boolParameters = ParameterHelpers.CombineParameters(boolLeft, boolRight);
+
+            SQLiteExpression boolResult = SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", boolLeft, spacedOp, boolRight, "", boolParameters);
+
+            boolResult.RequiresBrackets = !isAnd;
+            return boolResult;
         }
 
         if (node.NodeType is ExpressionType.ExclusiveOr)
@@ -128,6 +137,18 @@ internal partial class SQLVisitor
             return SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "", left, nullOp, left.Parameters);
         }
 
+        if (node.NodeType is ExpressionType.Modulo)
+        {
+            Type modType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
+            if (modType == typeof(double) || modType == typeof(float))
+            {
+                return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+                    ["(", " - ", " * CAST(", " / ", " AS INTEGER))"],
+                    [left, right, left, right],
+                    bothParameters);
+            }
+        }
+
         (string sqlOp, bool parenthesis) = node.NodeType switch
         {
             ExpressionType.Equal => (" = ", false),
@@ -154,5 +175,24 @@ internal partial class SQLVisitor
         }
 
         return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", left, sqlOp, right, "", bothParameters);
+    }
+
+    private static SQLiteExpression BracketBooleanOr(Expression node, SQLiteExpression expr)
+    {
+        Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
+        bool isOr = stripped.NodeType is ExpressionType.OrElse or ExpressionType.Or;
+        return isOr
+            ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
+            : expr;
+    }
+
+    private static SQLiteExpression BracketBooleanCompound(Expression node, SQLiteExpression expr)
+    {
+        Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
+        bool isCompound = stripped.NodeType is ExpressionType.OrElse or ExpressionType.AndAlso
+            or ExpressionType.Or or ExpressionType.And;
+        return isCompound
+            ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
+            : expr;
     }
 }

@@ -93,6 +93,14 @@ internal partial class SQLVisitor
     {
         if (Nullable.GetUnderlyingType(node.Expression!.Type) != null)
         {
+            if (node.Member.Name == nameof(Nullable<int>.Value)
+                && Nullable.GetUnderlyingType(node.Expression.Type) == typeof(decimal)
+                && Database.Options.DecimalStorage == DecimalStorageMode.Text
+                && !IsInSelectProjection)
+            {
+                return InternDecimalCast(sqlExpression);
+            }
+
             return NullableMemberVisitor.HandleNullableProperty(this, node.Member.Name, node.Type, sqlExpression);
         }
 

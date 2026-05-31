@@ -482,9 +482,13 @@ internal class SQLTranslator
         List<SQLiteExpression> wheres = q.Wheres.ToList();
         if (isUpdateFrom)
         {
-            for (int i = 0; i < q.Joins.Count; i++)
+            int insertAt = 0;
+            foreach (JoinInfo join in q.Joins)
             {
-                wheres.Insert(i, q.Joins[i].OnClause!);
+                if (join.OnClause != null)
+                {
+                    wheres.Insert(insertAt++, join.OnClause);
+                }
             }
         }
 
@@ -492,11 +496,13 @@ internal class SQLTranslator
         {
             AppendSpacingNewline(sb, spacing, ref first);
             sb.Append("WHERE ");
+            int termCount = wheres.Count + (q.AllPredicate != null ? 1 : 0);
             bool needAnd = false;
             for (int i = 0; i < wheres.Count; i++)
             {
                 if (needAnd) sb.Append(" AND ");
-                wheres[i].WriteSqlTo(sb);
+                SQLiteExpression where = termCount > 1 ? ExpressionHelpers.BracketIfNeeded(wheres[i]) : wheres[i];
+                where.WriteSqlTo(sb);
                 needAnd = true;
             }
 

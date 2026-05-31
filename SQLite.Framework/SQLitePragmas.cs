@@ -112,7 +112,7 @@ public class SQLitePragmas
     /// </summary>
     public virtual bool SecureDelete
     {
-        get => Database.ExecuteScalar<int>("PRAGMA secure_delete") == 1;
+        get => Database.ExecuteScalar<int>("PRAGMA secure_delete") != 0;
         set => Database.ExecuteScalar<int>($"PRAGMA secure_delete = {(value ? 1 : 0)}");
     }
 

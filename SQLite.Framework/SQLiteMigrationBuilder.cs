@@ -27,7 +27,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
     /// </summary>
     public SQLiteMigrationBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, TValue value)
     {
-        sets.Add((ColumnTargetResolver.Resolve(mapping, column), SqlLiteralHelper.FormatLiteral(value)));
+        sets.Add((ColumnTargetResolver.Resolve(mapping, column), SqlLiteralHelper.FormatLiteral(value, database.Options)));
         return this;
     }
 

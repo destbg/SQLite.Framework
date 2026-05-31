@@ -72,11 +72,6 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
 
     public static Expression Inject(Expression source, SQLiteOptions options)
     {
-        if (options.QueryFilters.Count == 0)
-        {
-            return source;
-        }
-
         QueryFilterInjector injector = new(options);
         return injector.Visit(source);
     }

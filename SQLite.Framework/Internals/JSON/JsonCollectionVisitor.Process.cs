@@ -119,7 +119,8 @@ internal partial class JsonCollectionVisitor
     private void HandleCount(MethodCallExpression call, Type elementType)
     {
         AddOptionalPredicate(call, elementType);
-        selectExpr = "COUNT(*)";
+        selectExpr = distinct ? $"COUNT(DISTINCT {selectExpr})" : "COUNT(*)";
+        distinct = false;
         wrapInArray = false;
     }
 
@@ -145,9 +146,10 @@ internal partial class JsonCollectionVisitor
     {
         string inner = call.Arguments.Count > 1
             ? VisitLambda(call.Arguments[1], elementType)
-            : "\"value\"";
+            : selectExpr;
 
-        selectExpr = $"{sqlFunc}({inner})";
+        selectExpr = distinct ? $"{sqlFunc}(DISTINCT {inner})" : $"{sqlFunc}({inner})";
+        distinct = false;
         wrapInArray = false;
     }
 

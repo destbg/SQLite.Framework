@@ -172,7 +172,7 @@ public class StringOperationTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE (b0."BookTitle" IS NULL OR TRIM(b0."BookTitle", ' ') = '')
+                     WHERE (b0."BookTitle" IS NULL OR TRIM(b0."BookTitle", CHAR(9, 10, 11, 12, 13, 32)) = '')
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
