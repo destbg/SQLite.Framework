@@ -22,47 +22,24 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
 
     /// <summary>
     /// Sets the target column to a constant value. The target is a property on
-    /// <typeparamref name="T" /> or <c>row.Column&lt;TValue&gt;("Name")</c> for a column with no CLR
-    /// property.
+    /// <typeparamref name="T" /> or <c>SQLiteColumn.Of&lt;TValue&gt;(row, "Name")</c> for a column
+    /// with no CLR property.
     /// </summary>
     public SQLiteMigrationBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, TValue value)
     {
-        sets.Add((ResolveTarget(column), SqlLiteralHelper.FormatLiteral(value)));
+        sets.Add((ColumnTargetResolver.Resolve(mapping, column), SqlLiteralHelper.FormatLiteral(value)));
         return this;
     }
 
     /// <summary>
     /// Sets the target column to an expression evaluated over the old row. The target is a property
-    /// on <typeparamref name="T" /> or <c>row.Column&lt;TValue&gt;("Name")</c>. The value expression
-    /// may read any column of the old row, including ones with no CLR property through
-    /// <c>row.Column&lt;TValue&gt;("Name")</c>.
+    /// on <typeparamref name="T" /> or <c>SQLiteColumn.Of&lt;TValue&gt;(row, "Name")</c>. The value
+    /// expression may read any column of the old row, including ones with no CLR property through
+    /// <c>SQLiteColumn.Of&lt;TValue&gt;(row, "Name")</c>.
     /// </summary>
     public SQLiteMigrationBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, TValue>> value)
     {
-        sets.Add((ResolveTarget(column), BareSqlTranslator.Translate(database, mapping, value)));
+        sets.Add((ColumnTargetResolver.Resolve(mapping, column), BareSqlTranslator.Translate(database, mapping, value)));
         return this;
-    }
-
-    private string ResolveTarget<TValue>(Expression<Func<T, TValue>> column)
-    {
-        Expression body = column.Body;
-        if (body.NodeType == ExpressionType.Convert)
-        {
-            body = ((UnaryExpression)body).Operand;
-        }
-
-        if (body is MethodCallExpression call && call.Method.DeclaringType == typeof(SQLiteColumnExtensions))
-        {
-            return (string)ExpressionHelpers.GetConstantValue(call.Arguments[1])!;
-        }
-
-        if (body is MemberExpression member
-            && mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name) is { } mapped)
-        {
-            return mapped.Name;
-        }
-
-        throw new ArgumentException(
-            "The Set target must be a property on the entity or row.Column<TValue>(\"Name\").", nameof(column));
     }
 }

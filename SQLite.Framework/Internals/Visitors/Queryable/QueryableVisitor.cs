@@ -126,6 +126,7 @@ internal partial class QueryableVisitor
             TableMapping pragmaMapping = database.TableMapping(entityType);
             newTableColumns = pragmaMapping.Columns
                 .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.\"{f.Name}\""));
+            visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
 
             SQLiteExpression[] argExprs = new SQLiteExpression[pragmaCall.Arguments.Count];
             for (int i = 0; i < pragmaCall.Arguments.Count; i++)
@@ -150,6 +151,7 @@ internal partial class QueryableVisitor
             TableMapping tableMapping = database.TableMapping(entityType);
             newTableColumns = tableMapping.Columns
                 .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+            visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
             sql = SQLiteExpression.Leaf(body.Type, -1, $"\"{tableMapping.TableName}\" AS {alias}");
         }
         else if (ExpressionHelpers.IsConstant(body))
@@ -211,6 +213,7 @@ internal partial class QueryableVisitor
                 entityType = cteElementType;
                 newTableColumns = cteElementType.GetProperties()
                     .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{cteAlias}.{IdentifierGuard.Quote(f.Name)}"));
+                visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = cteAlias };
                 sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteName} AS {cteAlias}");
             }
             else if (innerValue is BaseSQLiteTable table)
@@ -222,6 +225,7 @@ internal partial class QueryableVisitor
                 TableMapping tableMapping = database.TableMapping(entityType);
                 newTableColumns = tableMapping.Columns
                     .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+                visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
                 sql = SQLiteExpression.Leaf(body.Type, -1, $"\"{table.Table.TableName}\" AS {alias}");
             }
             else
@@ -240,6 +244,7 @@ internal partial class QueryableVisitor
                     ((SQLiteExpression)kv.Value).Type,
                     visitor.Counters.NextIdentifier(),
                     $"{alias}.{IdentifierGuard.Quote(kv.Key)}"));
+            visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
             sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteParamRef.Alias} AS {alias}");
         }
         else if (body.Type.IsGenericType && body.Type.GetGenericTypeDefinition() == typeof(IQueryable<>))
@@ -253,6 +258,7 @@ internal partial class QueryableVisitor
 
             newTableColumns = entityType.GetProperties()
                 .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+            visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
             sql = SQLiteExpression.Leaf(
                 body.Type,
                 -1,

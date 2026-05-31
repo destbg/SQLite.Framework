@@ -22,7 +22,7 @@ internal partial class SQLVisitor
         Type? declaringType = node.Method.DeclaringType;
         SQLiteCallerContext ctx = new(this, node);
 
-        if (declaringType == typeof(SQLiteColumnExtensions))
+        if (declaringType == typeof(SQLiteColumn))
         {
             return ResolveColumnReference(node);
         }
@@ -129,16 +129,42 @@ internal partial class SQLVisitor
 
     private SQLiteExpression ResolveColumnReference(MethodCallExpression node)
     {
-        if (node.Arguments[0] is not ParameterExpression parameter
-            || !RowColumnPrefixes.TryGetValue(parameter, out string? prefix))
+        string name = (string)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+        Expression receiver = node.Arguments[0];
+
+        if (receiver is ParameterExpression bareParameter && RowColumnPrefixes.TryGetValue(bareParameter, out string? barePrefix))
         {
-            throw new NotSupportedException(
-                "Column<TValue>(name) is only supported inside CHECK, computed column, index filter, " +
-                "UPSERT, and Migrate expressions. Query support is not available yet.");
+            return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), barePrefix + IdentifierGuard.Quote(name));
         }
 
-        string name = (string)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
-        return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), prefix + IdentifierGuard.Quote(name));
+        (string path, ParameterExpression? parameter) = ExpressionHelpers.ResolveNullableParameterPath(receiver);
+        if (parameter != null
+            && TableColumnPrefixes.TryGetValue(MethodArguments[parameter], out Dictionary<string, string?>? prefixes)
+            && prefixes.TryGetValue(path, out string? aliasPrefix))
+        {
+            return BuildShadowColumnLeaf(node.Type, aliasPrefix, name);
+        }
+
+        throw new NotSupportedException(
+            $"SQLiteColumn.Of<{node.Type.Name}>(row, \"{name}\") could not be bound to a column. It must be called on a " +
+            "row of a query (Where, Select, OrderBy, GroupBy, Join), CHECK, computed column, index filter, UPSERT, or " +
+            "Migrate expression.");
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The value type is the generic argument of SQLiteColumn.Of, which the caller declares.")]
+    private SQLiteExpression BuildShadowColumnLeaf(Type type, string? aliasPrefix, string name)
+    {
+        string colSql = aliasPrefix != null
+            ? $"{aliasPrefix}.{IdentifierGuard.Quote(name)}"
+            : IdentifierGuard.Quote(name);
+
+        if (Database.Options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter)
+            && converter.ColumnSqlExpression is { } columnExpr)
+        {
+            colSql = string.Format(columnExpr, colSql);
+        }
+
+        return SQLiteExpression.Leaf(type, Counters.NextIdentifier(), colSql);
     }
 
     private static IEnumerable? TryGetImplicitlyConvertedConstantCollection(Expression expr)

@@ -69,6 +69,11 @@ internal class SQLTranslator
         init => Visitor.CteParameters = value;
     }
 
+    public Dictionary<Dictionary<string, Expression>, Dictionary<string, string?>> TableColumnPrefixes
+    {
+        init => Visitor.TableColumnPrefixes = value;
+    }
+
     public QueryType QueryType { get; init; }
 
     public bool EmitReturning { get; init; }

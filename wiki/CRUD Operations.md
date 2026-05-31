@@ -106,6 +106,22 @@ await db.Table<Book>()
 
 Uses SQLite's `UPDATE ... SET ... WHERE ...` syntax to update rows matching the predicate without loading them into memory. The lambda specifies how to update each row, with access to the current values.
 
+## Writing extra columns
+
+`WithColumns` adds column writes to the next `Add` or `Update`. Use it for a column that has no CLR property, such as a shadow column declared with `.Column(...)` in `OnModelCreating`, or to override a mapped column with a database expression. Reference a column that has no CLR property through `SQLiteColumn.Of<T>(row, "Name")`.
+
+```csharp
+await db.Table<Book>()
+    .WithColumns(c => c
+        .Set(b => SQLiteColumn.Of<long>(b, "UpdatedAt"), _ => SQLiteFunctions.UnixEpoch()) // SQL expression
+        .Set(b => SQLiteColumn.Of<string>(b, "Tag"), "manual"))                            // literal value
+    .UpdateAsync(book);
+```
+
+On an `Update` a value expression may read the row's other columns. On an `Add` use a constant or a function, because SQLite cannot read another column of the row being inserted. When a target names a mapped column, the extra value replaces the one taken from the entity.
+
+For the conflict branch of an `Upsert` (the `DO UPDATE SET`), set the columns in the upsert builder itself with `DoUpdate`. `WithColumns` only fills the inserted row.
+
 ## Remove
 
 ```csharp

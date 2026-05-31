@@ -111,7 +111,6 @@ public class MigrateTests
         db.Schema.CreateTable<MigSimple>();
         db.Execute("DELETE FROM \"MigSimple\"");
 
-        // Live table currently has no CHECK because it was created before drift; recreate without it.
         db.Execute("DROP TABLE \"MigSimple\"");
         db.Execute("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER)");
 
@@ -442,7 +441,7 @@ public class MigrateTests
         db.Execute("CREATE TABLE \"MigFill\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Status\" TEXT NOT NULL, \"Doubled\" INTEGER NOT NULL)");
         db.Execute("INSERT INTO \"MigFill\" (\"Id\", \"Name\", \"Status\", \"Doubled\") VALUES (1, 'a', 's', 2)");
 
-        db.Table<MigFill>().Schema.Migrate(m => m.Set(x => x.Column<string>("Tag"), x => x.Name));
+        db.Table<MigFill>().Schema.Migrate(m => m.Set(x => SQLiteColumn.Of<string>(x, "Tag"), x => x.Name));
 
         Assert.Equal("a", db.ExecuteScalar<string>("SELECT \"Tag\" FROM \"MigFill\""));
     }
@@ -455,7 +454,7 @@ public class MigrateTests
         db.Execute("CREATE TABLE \"MigFill\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Status\" TEXT NOT NULL, \"Doubled\" INTEGER NOT NULL, \"Tag\" TEXT)");
         db.Execute("INSERT INTO \"MigFill\" (\"Id\", \"Name\", \"Status\", \"Doubled\", \"Tag\") VALUES (1, 'a', 's', 2, 'hello')");
 
-        db.Table<MigFill>().Schema.Migrate(m => m.Set(x => x.Status, x => x.Column<string>("Tag")));
+        db.Table<MigFill>().Schema.Migrate(m => m.Set(x => x.Status, x => SQLiteColumn.Of<string>(x, "Tag")));
 
         Assert.Equal("hello", db.ExecuteScalar<string>("SELECT \"Status\" FROM \"MigFill\""));
     }
@@ -479,25 +478,7 @@ public class MigrateTests
     [Fact]
     public void Column_DirectCall_Throws()
     {
-        Assert.Throws<InvalidOperationException>(() => new object().Column<int>("X"));
-    }
-
-    [Fact]
-    public void Column_InQuery_Throws()
-    {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<MigFill>();
-
-        Assert.Throws<NotSupportedException>(() => db.Table<MigFill>().Where(x => x.Column<int>("Doubled") > 0).ToList());
-    }
-
-    [Fact]
-    public void Column_NonParameterReceiver_Throws()
-    {
-        using TestDatabase db = new();
-        db.Schema.CreateTable<MigFill>();
-
-        Assert.Throws<NotSupportedException>(() => db.Table<MigFill>().Where(x => x.Name.Column<int>("Y") > 0).ToList());
+        Assert.Throws<InvalidOperationException>(() => SQLiteColumn.Of<int>(new object(), "X"));
     }
 
     [Fact]

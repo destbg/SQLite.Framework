@@ -6,14 +6,28 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class UpsertSqlBuilder
 {
-    public static (TableColumn[] Columns, string Sql) Build<T>(SQLiteDatabase database, TableMapping table, SQLiteUpsertConflictTarget<T> target, Func<TableColumn, string, string> wrapParam)
+    public static (TableColumn[] Columns, string Sql) Build<T>(SQLiteDatabase database, TableMapping table, SQLiteUpsertConflictTarget<T> target, Func<TableColumn, string, string> wrapParam, IReadOnlyList<(string Column, string ValueSql)>? extraColumns = null)
     {
         TableColumn[] insertColumns = table.Columns
             .Where(c => !c.IsPrimaryKey || !c.IsAutoIncrement)
             .ToArray();
 
-        string columnsList = string.Join(", ", insertColumns.Select(c => IdentifierGuard.Quote(c.Name)));
-        string parameters = string.Join(", ", insertColumns.Select((c, i) => wrapParam(c, $"@p{i}")));
+        if (extraColumns is { Count: > 0 })
+        {
+            HashSet<string> overridden = extraColumns.Select(e => e.Column).ToHashSet();
+            insertColumns = insertColumns.Where(c => !overridden.Contains(c.Name)).ToArray();
+        }
+
+        IEnumerable<string> names = insertColumns.Select(c => IdentifierGuard.Quote(c.Name));
+        IEnumerable<string> values = insertColumns.Select((c, i) => wrapParam(c, $"@p{i}"));
+        if (extraColumns is { Count: > 0 })
+        {
+            names = names.Concat(extraColumns.Select(e => IdentifierGuard.Quote(e.Column)));
+            values = values.Concat(extraColumns.Select(e => e.ValueSql));
+        }
+
+        string columnsList = string.Join(", ", names);
+        string parameters = string.Join(", ", values);
 
         StringBuilder sb = new();
         sb.Append("INSERT INTO \"");

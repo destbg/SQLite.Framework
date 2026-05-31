@@ -127,7 +127,20 @@ Expression indexes accept any translatable expression, and a composite index can
 
 Use `direction` to store every slot of the index in descending order, or pass `directions` as an array for per-slot control on a composite index. The default `SQLiteIndexDirection.Inherit` emits no clause, `Ascending` emits `ASC`, and `Descending` emits `DESC`. Sorting a slot in `DESC` lets the planner skip the extra sort step for matching `ORDER BY x DESC` queries. The `[Indexed]` attribute has a `Direction` property with the same effect.
 
-`Column(name, type, nullable, defaultSql)` adds a column that has no CLR property. The framework creates it and keeps it across a migrate rebuild, but never reads or writes it.
+`Column(name, type, nullable, defaultSql)` adds a column that has no CLR property. The framework creates it and keeps it across a migrate rebuild, but never reads or writes it on its own. To read it in a query or write it on a save, reference it with `SQLiteColumn.Of<T>(row, "Name")`:
+
+```csharp
+// Read in a query (Where, Select, OrderBy, GroupBy):
+var recent = await db.Table<Book>()
+    .Where(b => SQLiteColumn.Of<long>(b, "UpdatedAt") > cutoff)
+    .OrderByDescending(b => SQLiteColumn.Of<long>(b, "UpdatedAt"))
+    .ToListAsync();
+
+// Write on Add or Update (see WithColumns in CRUD Operations):
+await db.Table<Book>()
+    .WithColumns(c => c.Set(b => SQLiteColumn.Of<long>(b, "UpdatedAt"), _ => SQLiteFunctions.UnixEpoch()))
+    .UpdateAsync(book);
+```
 
 `Trigger(name, timing, event, build, forEachRow)` declares a trigger whose body is built from typed LINQ statements. The trigger becomes part of the model, so create and migrate manage it. Reference target tables through the database's own `Table<TTarget>()`, which is in scope inside `OnModelCreating`. See [Triggers](#triggers) below.
 
@@ -215,11 +228,11 @@ await db.Schema.Table<Book>().MigrateAsync(m => m
     .Set(b => b.Slug, b => b.Title));      // expression over the old row
 ```
 
-The expression form is translated to SQL and runs over the old row, the same way CHECK and computed columns are. To read or write a column that has no CLR property, use `row.Column<T>("Name")`:
+The expression form is translated to SQL and runs over the old row, the same way CHECK and computed columns are. To read or write a column that has no CLR property, use `SQLiteColumn.Of<T>(row, "Name")`:
 
 ```csharp
 await db.Schema.Table<Book>().MigrateAsync(m => m
-    .Set(b => b.Column<string>("Slug"), b => b.Title));
+    .Set(b => SQLiteColumn.Of<string>(b, "Slug"), b => b.Title));
 ```
 
 A column you do not set is copied across unchanged when it still exists. Migrate with `Set` always rebuilds the table even when nothing has drifted, so the values are applied.

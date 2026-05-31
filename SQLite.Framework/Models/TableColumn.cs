@@ -110,10 +110,7 @@ public class TableColumn
     public ReferencesTableAttribute? ReferencesTableAttribute { get; }
 
     /// <summary>
-    /// The EF-style
-    /// <see cref="System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute" /> on the
-    /// property, if any. The framework reads <c>Name</c> as the target class name and infers the
-    /// primary key.
+    /// The framework reads <c>Name</c> as the target class name and infers the primary key.
     /// </summary>
     public ForeignKeyAttribute? ForeignKeyAttribute { get; }
 

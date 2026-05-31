@@ -33,6 +33,7 @@ internal partial class SQLVisitor : ExpressionVisitor
     public Dictionary<SQLiteExpression, SQLiteExpression>? DecimalCastIntern { get; set; }
     public Dictionary<(SQLiteExpression Source, string Member), SQLiteExpression>? JsonExtractIntern { get; set; }
     public Dictionary<ParameterExpression, string?> RowColumnPrefixes { get; } = [];
+    public Dictionary<Dictionary<string, Expression>, Dictionary<string, string?>> TableColumnPrefixes { get; set; } = [];
 
     public SQLiteExpression InternDecimalCast(SQLiteExpression source)
     {
@@ -100,7 +101,8 @@ internal partial class SQLVisitor : ExpressionVisitor
         {
             MethodArguments = MethodArguments,
             CteRegistry = CteRegistry,
-            CteParameters = CteParameters
+            CteParameters = CteParameters,
+            TableColumnPrefixes = TableColumnPrefixes
         };
     }
 
@@ -189,7 +191,7 @@ internal partial class SQLVisitor : ExpressionVisitor
 
     private Dictionary<string, Expression> BuildTableColumns(TableMapping tableMapping, string? prefix)
     {
-        return tableMapping.Columns
+        Dictionary<string, Expression> columns = tableMapping.Columns
             .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
             {
                 string quotedName = IdentifierGuard.Quote(f.Name);
@@ -201,5 +203,8 @@ internal partial class SQLVisitor : ExpressionVisitor
                 }
                 return SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), colSql);
             });
+
+        TableColumnPrefixes[columns] = new Dictionary<string, string?> { [string.Empty] = prefix };
+        return columns;
     }
 }

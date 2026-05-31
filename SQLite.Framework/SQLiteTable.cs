@@ -62,6 +62,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public virtual SQLiteTableSchema<T> Schema => Database.Schema.Table<T>();
 
     /// <summary>
+    /// Extra columns written into the generated <c>INSERT</c> and <c>UPDATE</c>, as
+    /// (column name, inlined value SQL) pairs. Empty by default. Set through
+    /// <see cref="WithColumns" />, which returns a view that overrides this.
+    /// </summary>
+    internal virtual IReadOnlyList<(string Column, string ValueSql)> ExtraWriteColumns => [];
+
+    /// <summary>
     /// Wraps the provided SQL query and parameters into a queryable object.
     /// </summary>
     public virtual IQueryable<T> FromSql(string sql, params SQLiteParameter[] parameters)
@@ -315,6 +322,22 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     }
 
     /// <summary>
+    /// Wraps this table so the next write also writes the columns declared in <paramref name="build" />.
+    /// This covers <c>Add</c>, <c>AddRange</c>, <c>Update</c>, <c>UpdateRange</c>, <c>AddOrUpdate</c>,
+    /// <c>Upsert</c> (the inserted row), and the same writes through <see cref="Returning()" />. Use it
+    /// to fill a column that has no CLR property, such as a shadow column declared with
+    /// <see cref="SQLiteEntityTypeBuilder{T}.Column" />, or to override a mapped column with a database
+    /// expression. The values are inlined into the generated SQL.
+    /// </summary>
+    public virtual SQLiteTable<T> WithColumns(Action<SQLiteWriteColumnsBuilder<T>> build)
+    {
+        ArgumentNullException.ThrowIfNull(build);
+        SQLiteWriteColumnsBuilder<T> builder = new(Database, Table);
+        build(builder);
+        return new SQLiteWriteColumnsTable<T>(Database, Table, builder.Columns);
+    }
+
+    /// <summary>
     /// Copies rows from <paramref name="source" /> into this table using a single
     /// <c>INSERT INTO ... SELECT</c> statement, so the data never round-trips through your code.
     /// The source must be a queryable from the same database (a table or a LINQ chain over one).
@@ -449,6 +472,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         TableColumn[] columns = Database.Options.ExplicitAutoIncrementKeysPreserved
             ? Table.Columns.ToArray()
             : Table.Columns.Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement).ToArray();
+        columns = ExcludeOverriddenColumns(columns);
 
         return (columns, BuildAddSql(columns));
     }
@@ -464,12 +488,20 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         TableColumn[] columns = Table.Columns
             .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
             .ToArray();
+        columns = ExcludeOverriddenColumns(columns);
 
         TableColumn[] primaryKeyColumns = Table.Columns
             .Where(f => f.IsPrimaryKey)
             .ToArray();
 
         string setClause = string.Join(", ", columns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = {WrapParam($"@p{i}", c)}"));
+
+        IReadOnlyList<(string Column, string ValueSql)> extra = ExtraWriteColumns;
+        if (extra.Count > 0)
+        {
+            setClause += ", " + string.Join(", ", extra.Select(e => $"{IdentifierGuard.Quote(e.Column)} = {e.ValueSql}"));
+        }
+
         string primaryKeyClause = string.Join(" AND ",
             primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = @p{i + columns.Length}")
         );
@@ -513,7 +545,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
     {
-        TableColumn[] columns = Table.Columns.ToArray();
+        TableColumn[] columns = ExcludeOverriddenColumns(Table.Columns.ToArray());
         string sql = BuildAddOrUpdateSql(columns, conflict);
 
         return (columns, sql);
@@ -532,7 +564,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         SQLiteUpsertBuilder<T> builder = new();
         configure(builder);
         SQLiteUpsertConflictTarget<T> target = builder.Build();
-        return UpsertSqlBuilder.Build(Database, Table, target, (c, p) => WrapParam(p, c));
+        return UpsertSqlBuilder.Build(Database, Table, target, (c, p) => WrapParam(p, c), ExtraWriteColumns);
     }
 
     /// <summary>
@@ -846,10 +878,36 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return filtered?.ToArray() ?? baseColumns;
     }
 
+    private TableColumn[] ExcludeOverriddenColumns(TableColumn[] columns)
+    {
+        IReadOnlyList<(string Column, string ValueSql)> extra = ExtraWriteColumns;
+        if (extra.Count == 0)
+        {
+            return columns;
+        }
+
+        HashSet<string> overridden = extra.Select(e => e.Column).ToHashSet();
+        return columns.Where(c => !overridden.Contains(c.Name)).ToArray();
+    }
+
+    private (string ColumnList, string ValueList) BuildWriteLists(TableColumn[] columns)
+    {
+        IEnumerable<string> names = columns.Select(c => IdentifierGuard.Quote(c.Name));
+        IEnumerable<string> values = columns.Select((c, i) => WrapParam($"@p{i}", c));
+
+        IReadOnlyList<(string Column, string ValueSql)> extra = ExtraWriteColumns;
+        if (extra.Count > 0)
+        {
+            names = names.Concat(extra.Select(e => IdentifierGuard.Quote(e.Column)));
+            values = values.Concat(extra.Select(e => e.ValueSql));
+        }
+
+        return (string.Join(", ", names), string.Join(", ", values));
+    }
+
     private string BuildAddSql(TableColumn[] columns)
     {
-        string columnList = string.Join(", ", columns.Select(c => IdentifierGuard.Quote(c.Name)));
-        string paramList = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
+        (string columnList, string paramList) = BuildWriteLists(columns);
         return $"INSERT INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
     }
 
@@ -864,8 +922,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             SQLiteConflict.Rollback => "OR ROLLBACK ",
             _ => "OR REPLACE ",
         };
-        string columnList = string.Join(", ", columns.Select(c => IdentifierGuard.Quote(c.Name)));
-        string paramList = string.Join(", ", columns.Select((c, i) => WrapParam($"@p{i}", c)));
+        (string columnList, string paramList) = BuildWriteLists(columns);
         return $"INSERT {action}INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
     }
 

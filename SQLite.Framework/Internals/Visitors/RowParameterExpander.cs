@@ -91,6 +91,7 @@ internal sealed class RowParameterExpander : ExpressionVisitor
 
         return declaringType == typeof(System.Linq.Queryable)
             || declaringType == typeof(Enumerable)
+            || declaringType == typeof(SQLiteColumn)
             || declaringType.Namespace == "SQLite.Framework.Extensions";
     }
 

@@ -9,20 +9,41 @@ internal class AliasVisitor
     private readonly SQLiteDatabase database;
     private readonly SQLVisitor visitor;
     private Dictionary<string, Expression> result;
+    private Dictionary<string, string?> resultPrefixes;
 
     public AliasVisitor(SQLiteDatabase database, SQLVisitor visitor)
     {
         this.database = database;
         this.visitor = visitor;
         result = [];
+        resultPrefixes = [];
     }
 
     public Dictionary<string, Expression> ResolveResultAlias(LambdaExpression resultSelector)
     {
         ResolveResultAlias(resultSelector, resultSelector.Body, string.Empty);
         Dictionary<string, Expression> newResult = result;
+        if (resultPrefixes.Count > 0)
+        {
+            visitor.TableColumnPrefixes[newResult] = resultPrefixes;
+        }
         result = [];
+        resultPrefixes = [];
         return newResult;
+    }
+
+    private void CarrySubPaths(string alias, Dictionary<string, Expression> sourceColumns)
+    {
+        if (!visitor.TableColumnPrefixes.TryGetValue(sourceColumns, out Dictionary<string, string?>? sourcePrefixes))
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<string, string?> sourcePrefix in sourcePrefixes)
+        {
+            string subPath = sourcePrefix.Key.Length == 0 ? alias : $"{alias}.{sourcePrefix.Key}";
+            resultPrefixes[subPath] = sourcePrefix.Value;
+        }
     }
 
     private void ResolveResultAlias(LambdaExpression resultSelector, Expression body, string prefix)
@@ -76,6 +97,8 @@ internal class AliasVisitor
                     {
                         result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
                     }
+
+                    CarrySubPaths(alias, parameterTableColumns);
                 }
                 else if (argument is MemberExpression memberExpression
                     && !TypeHelpers.IsSimple(memberExpression.Type, database.Options))
@@ -99,7 +122,8 @@ internal class AliasVisitor
                     string alias = CheckPrefix(prefix, parameter.Name!);
                     SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
                     {
-                        MethodArguments = visitor.MethodArguments
+                        MethodArguments = visitor.MethodArguments,
+                        TableColumnPrefixes = visitor.TableColumnPrefixes
                     };
                     Expression expression = innerVisitor.Visit(argument);
 
@@ -147,6 +171,8 @@ internal class AliasVisitor
                     {
                         result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
                     }
+
+                    CarrySubPaths(alias, parameterTableColumns);
                 }
             }
             else if (memberAssignment.Expression is MemberExpression)
@@ -182,7 +208,8 @@ internal class AliasVisitor
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
                 SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
                 {
-                    MethodArguments = visitor.MethodArguments
+                    MethodArguments = visitor.MethodArguments,
+                    TableColumnPrefixes = visitor.TableColumnPrefixes
                 };
                 Expression expression = innerVisitor.Visit(memberAssignment.Expression);
                 result.Add(alias, expression);
@@ -232,7 +259,8 @@ internal class AliasVisitor
     {
         SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
         {
-            MethodArguments = visitor.MethodArguments
+            MethodArguments = visitor.MethodArguments,
+            TableColumnPrefixes = visitor.TableColumnPrefixes
         };
         Expression expression = innerVisitor.Visit(body);
         result.Add(prefix, expression);
