@@ -260,14 +260,18 @@
                     Why did we have to deal with any of this in the first place?
                 </blockquote>
                 <p data-reveal>
-                    This all happened in the middle of 2024. That is when I started building SQLite.Framework. Half a
-                    year later I released it on NuGet, so other people with the same problems could find a solution.
+                    This all happened in the middle of 2024. That is when I started building SQLite.Framework on the
+                    side as a hobby, the main idea at the time was to have something similar to sqlite-net-pcl, but
+                    with full IQueryable support.
                 </p>
                 <p data-reveal>
-                    Those two pains shaped the whole design. I let the framework run as little code as possible and let
-                    the database handle the heavy lifting. I made it resilient enough that it even works with
-                    PublishAot, while also supporting features like JSON, JSONB, FTS5, R-Tree, window functions and
-                    more.
+                    Half a year later I had a working solution and released it on NuGet, so other people could give
+                    their feedback.
+                </p>
+                <p data-reveal>
+                    I decided to let the framework run as little code as possible and let the database handle the heavy
+                    lifting. I made it resilient enough that it even works with PublishAot, while also supporting
+                    features like JSON, JSONB, FTS5, R-Tree, window functions and more.
                 </p>
                 <p data-reveal>
                     The work paid off. With SQLite.Framework, the login that once took over 30 minutes now takes about
