@@ -1,0 +1,125 @@
+.story {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 72px 32px 96px;
+}
+
+.story-title {
+    margin: 22px 0 20px;
+    font-size: clamp(2.2rem, 4vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.story-lead {
+    margin-top: 4px;
+    color: var(--text);
+    font-size: clamp(1.25rem, 2.4vw, 1.55rem);
+    font-weight: 500;
+    line-height: 1.5;
+    max-width: 680px;
+}
+
+.story-body {
+    margin-top: 40px;
+}
+
+.story-body p {
+    margin-top: 22px;
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: var(--text);
+}
+
+.story-body p:first-child {
+    margin-top: 0;
+}
+
+.story-aside {
+    color: var(--text-muted);
+}
+
+.story-quote {
+    margin: 36px 0;
+    padding: 6px 0 6px 24px;
+    border-left: 3px solid var(--accent);
+    font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    color: var(--text);
+}
+
+.story-quote-cite {
+    display: block;
+    margin-top: 12px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    font-style: normal;
+    color: var(--text-muted);
+}
+
+.story-stat {
+    margin: 40px 0 16px;
+    padding: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    flex-wrap: wrap;
+    text-align: center;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    background: var(--bg-elev);
+}
+
+.story-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.story-stat-num {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+.story-stat-num.before {
+    color: var(--text-faint);
+}
+
+.story-stat-num.after {
+    color: var(--accent);
+}
+
+.story-stat-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.story-stat-arrow {
+    width: 28px;
+    height: 28px;
+    color: var(--text-faint);
+    flex-shrink: 0;
+}
+
+.story-stat-note {
+    margin-top: 0;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.story-cta {
+    margin-top: 48px;
+    padding-top: 40px;
+    border-top: 1px solid var(--border-soft);
+}
+
+@media (max-width: 640px) {
+    .story {
+        padding: 48px 20px 72px;
+    }
+}

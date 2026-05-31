@@ -43,6 +43,7 @@ export default defineConfig({
                 landing: resolve(__dirname, 'index.html'),
                 docs: resolve(__dirname, 'Docs/index.html'),
                 walkthrough: resolve(__dirname, 'Walkthrough/index.html'),
+                why: resolve(__dirname, 'Why/index.html'),
             },
         },
     },
