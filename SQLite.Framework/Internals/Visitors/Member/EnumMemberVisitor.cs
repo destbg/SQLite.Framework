@@ -154,65 +154,73 @@ internal static class EnumMemberVisitor
         string[] enumNames = Enum.GetNames(enumType);
 
         string? zeroName = null;
-        List<(long Bit, string Name)> singleBits = new();
+        List<(ulong Order, long Value, string Name)> namedValues = new();
         for (int i = 0; i < enumValuesArray.Length; i++)
         {
             long numericValue = ToSignedNumeric(enumValuesArray.GetValue(i)!, enumUnderlying);
             if (numericValue == 0)
             {
-                zeroName ??= enumNames[i];
+                zeroName = enumNames[i];
             }
-            else if ((numericValue & (numericValue - 1)) == 0)
+            else
             {
-                singleBits.Add((numericValue, enumNames[i]));
+                namedValues.Add((unchecked((ulong)numericValue), numericValue, enumNames[i]));
             }
         }
 
-        if (singleBits.Count == 0)
+        if (namedValues.Count == 0)
         {
             return null;
         }
 
-        singleBits.Sort((a, b) => a.Bit.CompareTo(b.Bit));
-
-        long allBits = 0;
-        foreach ((long bit, string _) in singleBits)
-        {
-            allBits |= bit;
-        }
+        namedValues.Sort((a, b) => b.Order.CompareTo(a.Order));
 
         SQLiteExpression objExpr = obj.SQLiteExpression!;
         string column = objExpr.ToString();
         List<SQLiteParameter> nameParams = new();
 
-        StringBuilder sb = new();
-        sb.Append("(CASE WHEN ").Append(column).Append(" = 0 THEN ");
-        if (zeroName != null)
+        StringBuilder valuesList = new();
+        for (int i = 0; i < namedValues.Count; i++)
         {
-            SQLiteParameter zeroParam = new() { Name = visitor.Counters.NextParamName(), Value = zeroName };
-            nameParams.Add(zeroParam);
-            sb.Append(zeroParam.Name);
-        }
-        else
-        {
-            sb.Append("'0'");
-        }
-
-        sb.Append(" WHEN (").Append(column).Append(" & ").Append(~allBits).Append(") <> 0 THEN CAST(").Append(column).Append(" AS TEXT) ELSE RTRIM(");
-        for (int i = 0; i < singleBits.Count; i++)
-        {
-            (long bit, string name) = singleBits[i];
+            (ulong _, long value, string name) = namedValues[i];
             SQLiteParameter nameParam = new() { Name = visitor.Counters.NextParamName(), Value = name };
             nameParams.Add(nameParam);
             if (i > 0)
             {
-                sb.Append(" || ");
+                valuesList.Append(", ");
             }
 
-            sb.Append("(CASE WHEN (").Append(column).Append(" & ").Append(bit).Append(") = ").Append(bit).Append(" THEN ").Append(nameParam.Name).Append(" || ', ' ELSE '' END)");
+            valuesList.Append('(').Append(i).Append(", ").Append(value).Append(", ").Append(nameParam.Name).Append(')');
         }
 
-        sb.Append(", ', ') END)");
+        string zeroText;
+        if (zeroName != null)
+        {
+            SQLiteParameter zeroParam = new() { Name = visitor.Counters.NextParamName(), Value = zeroName };
+            nameParams.Add(zeroParam);
+            zeroText = zeroParam.Name;
+        }
+        else
+        {
+            zeroText = "'0'";
+        }
+
+        // Reproduce the .NET flags ToString algorithm in SQL. Walk the named values from the
+        // largest to the smallest. Whenever the still-uncleared bits contain a value, take its
+        // name and clear those bits. This makes a combined member like ReadWrite win over its
+        // single bits, exactly like Enum.ToString does. The walk runs in a recursive CTE so the
+        // SQL grows with the member count, not exponentially.
+        StringBuilder sb = new();
+        sb.Append("(CASE WHEN ").Append(column).Append(" = 0 THEN ").Append(zeroText);
+        sb.Append(" ELSE COALESCE((SELECT CASE WHEN remaining = 0 THEN acc ELSE NULL END FROM (");
+        sb.Append("WITH RECURSIVE vals(i, val, nm) AS (VALUES ").Append(valuesList).Append("), ");
+        sb.Append("walk(i, remaining, acc) AS (SELECT 0, ").Append(column).Append(", '' UNION ALL ");
+        sb.Append("SELECT vv.i + 1, ");
+        sb.Append("CASE WHEN (w.remaining & vv.val) = vv.val THEN w.remaining & ~vv.val ELSE w.remaining END, ");
+        sb.Append("CASE WHEN (w.remaining & vv.val) = vv.val THEN vv.nm || (CASE WHEN w.acc = '' THEN '' ELSE ', ' END) || w.acc ELSE w.acc END ");
+        sb.Append("FROM walk w JOIN vals vv ON vv.i = w.i) ");
+        sb.Append("SELECT remaining, acc FROM walk ORDER BY i DESC LIMIT 1)), ");
+        sb.Append("CAST(").Append(column).Append(" AS TEXT)) END)");
 
         SQLiteParameter[] parameters = objExpr.Parameters == null
             ? [.. nameParams]

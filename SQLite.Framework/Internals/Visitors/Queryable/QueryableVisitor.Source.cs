@@ -14,6 +14,14 @@ internal partial class QueryableVisitor
         SQLTranslator sqlTranslator = visitor.CloneDeeper(visitor.Level);
         SQLQuery query = sqlTranslator.Translate(node.Arguments[1]);
 
+        if (sqlTranslator.HasTopLevelOrderingOrPaging)
+        {
+            throw new NotSupportedException(
+                $"{node.Method.Name} with an OrderBy, Take, or Skip on the combined operand is not supported because " +
+                "its ORDER BY or LIMIT would apply to the whole combined result, not just that operand. " +
+                "Materialize the ordered or paged operand into a list before combining.");
+        }
+
         SQLiteExpression sqlExpression = SQLiteExpression.Leaf(
             node.Arguments[1].Type,
             visitor.Counters.NextIdentifier(),

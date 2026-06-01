@@ -54,6 +54,11 @@ internal class SQLTranslator
 
     public IReadOnlyList<SQLiteExpression> Selects => queryableMethodVisitor.Selects;
 
+    public bool HasTopLevelOrderingOrPaging =>
+        queryableMethodVisitor.OrderBys.Count > 0
+        || queryableMethodVisitor.Take != null
+        || queryableMethodVisitor.Skip != null;
+
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
     {
         init => Visitor.MethodArguments = value;
