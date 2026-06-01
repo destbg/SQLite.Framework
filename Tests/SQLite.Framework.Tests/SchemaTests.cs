@@ -771,7 +771,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'IndexedCollationTable'");
-        Assert.Equal("CREATE INDEX \"idx_Email_0\" ON \"IndexedCollationTable\" (\"Email\" COLLATE NOCASE)", sql);
+        Assert.Equal("CREATE INDEX \"idx_IndexedCollationTable_Email\" ON \"IndexedCollationTable\" (\"Email\" COLLATE NOCASE)", sql);
     }
 
     [Fact]

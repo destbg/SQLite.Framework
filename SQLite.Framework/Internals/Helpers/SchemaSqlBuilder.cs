@@ -110,7 +110,7 @@ internal static class SchemaSqlBuilder
 
         var indexGroups = mapping.Columns
             .SelectMany(col => col.Indices.Select(idx => (
-                Name: idx.Name ?? ("idx_" + col.Name + "_" + idx.Order),
+                Name: idx.Name ?? ("idx_" + tableName + "_" + col.Name),
                 Column: col.Name,
                 Order: idx.Order,
                 IsUnique: idx.IsUnique,

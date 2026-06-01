@@ -81,7 +81,7 @@ internal static class ModelValidator
         HashSet<string> dbIndexes = database.Pragmas.IndexList(table).Select(i => i.Name).ToHashSet();
 
         IEnumerable<string> expected = mapping.Columns
-            .SelectMany(col => col.Indices.Select(idx => idx.Name ?? $"idx_{col.Name}_{idx.Order}"))
+            .SelectMany(col => col.Indices.Select(idx => idx.Name ?? $"idx_{table}_{col.Name}"))
             .Concat(mapping.Indexes.Select(idx => idx.Name))
             .Distinct();
 
