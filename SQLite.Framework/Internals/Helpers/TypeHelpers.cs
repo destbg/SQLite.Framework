@@ -58,7 +58,7 @@ internal static class TypeHelpers
             _ when type == typeof(string) => SQLiteColumnType.Text,
             _ when type == typeof(byte[]) => SQLiteColumnType.Blob,
             _ when type == typeof(bool) => SQLiteColumnType.Integer,
-            _ when type == typeof(char) => SQLiteColumnType.Text,
+            _ when type == typeof(char) => options.CharStorage == CharStorageMode.Integer ? SQLiteColumnType.Integer : SQLiteColumnType.Text,
             _ when type == typeof(DateTime) && options.DateTimeStorage != DateTimeStorageMode.Integer => SQLiteColumnType.Text,
             _ when type == typeof(DateTime) => SQLiteColumnType.Integer,
             _ when type == typeof(DateTimeOffset) && options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted => SQLiteColumnType.Text,

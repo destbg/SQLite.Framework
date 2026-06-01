@@ -181,13 +181,31 @@ internal static class EntityColumnWriterEmitter
                 if (isNullableValueType)
                 {
                     sb.Append("            if (").Append(accessExpr).AppendLine(".HasValue)");
-                    sb.Append("                global::SQLitePCL.raw.sqlite3_bind_text(stmt, idx, ").Append(accessExpr).AppendLine(".Value.ToString());");
+                    sb.AppendLine("            {");
+                    sb.AppendLine("                switch (options.CharStorage)");
+                    sb.AppendLine("                {");
+                    sb.AppendLine("                    case global::SQLite.Framework.Enums.CharStorageMode.Integer:");
+                    sb.Append("                        global::SQLitePCL.raw.sqlite3_bind_int(stmt, idx, ").Append(accessExpr).AppendLine(".Value);");
+                    sb.AppendLine("                        break;");
+                    sb.AppendLine("                    default:");
+                    sb.Append("                        global::SQLitePCL.raw.sqlite3_bind_text(stmt, idx, ").Append(accessExpr).AppendLine(".Value.ToString());");
+                    sb.AppendLine("                        break;");
+                    sb.AppendLine("                }");
+                    sb.AppendLine("            }");
                     sb.AppendLine("            else");
                     sb.AppendLine("                global::SQLitePCL.raw.sqlite3_bind_null(stmt, idx);");
                 }
                 else
                 {
-                    sb.Append("            global::SQLitePCL.raw.sqlite3_bind_text(stmt, idx, ").Append(accessExpr).AppendLine(".ToString());");
+                    sb.AppendLine("            switch (options.CharStorage)");
+                    sb.AppendLine("            {");
+                    sb.AppendLine("                case global::SQLite.Framework.Enums.CharStorageMode.Integer:");
+                    sb.Append("                    global::SQLitePCL.raw.sqlite3_bind_int(stmt, idx, ").Append(accessExpr).AppendLine(");");
+                    sb.AppendLine("                    break;");
+                    sb.AppendLine("                default:");
+                    sb.Append("                    global::SQLitePCL.raw.sqlite3_bind_text(stmt, idx, ").Append(accessExpr).AppendLine(".ToString());");
+                    sb.AppendLine("                    break;");
+                    sb.AppendLine("            }");
                 }
                 return true;
         }

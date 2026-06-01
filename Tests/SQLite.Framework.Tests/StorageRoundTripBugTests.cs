@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
@@ -50,9 +51,9 @@ public class StorageRoundTripBugTests
     }
 
     [Fact]
-    public void LoneSurrogateCharRoundTrips()
+    public void LoneSurrogateCharRoundTripsUnderIntegerStorage()
     {
-        using TestDatabase db = new();
+        using TestDatabase db = new(b => b.UseCharStorage(CharStorageMode.Integer));
         db.Table<CharRow>().Schema.CreateTable();
         char original = '\uD83D';
         db.Table<CharRow>().Add(new CharRow { Id = 1, Value = original });

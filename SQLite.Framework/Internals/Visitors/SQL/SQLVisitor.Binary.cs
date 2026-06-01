@@ -36,7 +36,7 @@ internal partial class SQLVisitor
             }
         }
 
-        if (rightNode.Type == typeof(int) && leftNode is UnaryExpression leftUnary && leftUnary.Operand.Type == typeof(char))
+        if (Database.Options.CharStorage != CharStorageMode.Integer && rightNode.Type == typeof(int) && leftNode is UnaryExpression leftUnary && leftUnary.Operand.Type == typeof(char))
         {
             leftNode = leftUnary.Operand;
 
@@ -50,7 +50,7 @@ internal partial class SQLVisitor
                 rightNode = Expression.MakeUnary(ExpressionType.Convert, rightNode, typeof(char));
             }
         }
-        else if (leftNode.Type == typeof(int) && rightNode is UnaryExpression rightUnary && rightUnary.Operand.Type == typeof(char))
+        else if (Database.Options.CharStorage != CharStorageMode.Integer && leftNode.Type == typeof(int) && rightNode is UnaryExpression rightUnary && rightUnary.Operand.Type == typeof(char))
         {
             rightNode = rightUnary.Operand;
 

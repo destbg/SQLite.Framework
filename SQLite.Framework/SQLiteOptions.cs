@@ -125,6 +125,11 @@ public sealed class SQLiteOptions
     public required EnumStorageMode EnumStorage { get; init; }
 
     /// <summary>
+    /// Controls how char values are stored. Defaults to <see cref="CharStorageMode.Text" />.
+    /// </summary>
+    public required CharStorageMode CharStorage { get; init; }
+
+    /// <summary>
     /// When set, <c>string.Contains</c>, <c>string.StartsWith</c>, and <c>string.EndsWith</c>
     /// translate to case-sensitive SQL (<c>instr</c> / <c>substr</c>) instead of the
     /// case-insensitive <c>LIKE</c>. This matches .NET in-memory LINQ and the EF Core SQLite

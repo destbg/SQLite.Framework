@@ -84,7 +84,7 @@ internal static class SqlLiteralHelper
                 ? FormatLiteral(e.ToString())
                 : FormatLiteral(Convert.ChangeType(e, Enum.GetUnderlyingType(e.GetType()), CultureInfo.InvariantCulture)),
             Guid g => FormatLiteral(g.ToString()),
-            char c => FormatLiteral(c.ToString()),
+            char c => options.CharStorage == CharStorageMode.Integer ? FormatLiteral((int)c) : FormatLiteral(c.ToString()),
             byte[] bytes => "X'" + Convert.ToHexString(bytes) + "'",
             _ => FormatLiteral(value)
         };

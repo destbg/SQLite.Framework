@@ -125,6 +125,11 @@ public sealed class SQLiteOptionsBuilder
     public EnumStorageMode EnumStorage { get; set; } = EnumStorageMode.Integer;
 
     /// <summary>
+    /// Controls how char values are stored. Defaults to <see cref="CharStorageMode.Text" />.
+    /// </summary>
+    public CharStorageMode CharStorage { get; set; } = CharStorageMode.Text;
+
+    /// <summary>
     /// Custom type converters that define how specific .NET types are stored in and read from SQLite.
     /// </summary>
     public Dictionary<Type, ISQLiteTypeConverter> TypeConverters { get; } = [];
@@ -442,6 +447,16 @@ public sealed class SQLiteOptionsBuilder
     public SQLiteOptionsBuilder UseEnumStorage(EnumStorageMode mode)
     {
         EnumStorage = mode;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the char storage mode. <see cref="CharStorageMode.Integer" /> round-trips every char
+    /// value exactly, including lone UTF-16 surrogates.
+    /// </summary>
+    public SQLiteOptionsBuilder UseCharStorage(CharStorageMode mode)
+    {
+        CharStorage = mode;
         return this;
     }
 
@@ -792,6 +807,7 @@ public sealed class SQLiteOptionsBuilder
             DecimalStorage = DecimalStorage,
             DecimalFormat = DecimalFormat,
             EnumStorage = EnumStorage,
+            CharStorage = CharStorage,
             CaseSensitiveStringComparison = CaseSensitiveStringComparison,
             TypeConverters = new Dictionary<Type, ISQLiteTypeConverter>(TypeConverters),
             MemberTranslators = new Dictionary<MemberInfo, SQLiteMemberTranslator>(MemberTranslators),

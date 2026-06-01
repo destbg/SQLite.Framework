@@ -125,11 +125,15 @@ internal partial class SQLVisitor
             }
             else if (node.Type == typeof(char) && resolved.SQLiteExpression.Type == typeof(int))
             {
-                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
+                return Database.Options.CharStorage == CharStorageMode.Integer
+                    ? SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters)
+                    : SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
             }
             else if (node.Type == typeof(int) && resolved.SQLiteExpression.Type == typeof(char))
             {
-                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "UNICODE(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
+                return Database.Options.CharStorage == CharStorageMode.Integer
+                    ? SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters)
+                    : SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "UNICODE(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
             }
             else if (resolved.SQLiteExpression.Type.IsEnum && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == Enum.GetUnderlyingType(resolved.SQLiteExpression.Type))
             {
