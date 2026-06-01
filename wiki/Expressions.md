@@ -22,7 +22,7 @@ var evens = await db.Table<Book>()
 
 Supported operators: `+`, `-`, `*`, `/`, `%`.
 
-Some arithmetic and comparison cases follow SQLite rather than .NET, such as division by zero, floating-point domain errors, and order comparisons on a nullable column. See [Limitations](Limitations).
+A few arithmetic and comparison cases have SQLite-specific behavior, such as division by zero, floating-point domain errors, and order comparisons on a nullable column. See [Limitations](Limitations).
 
 ## Math Functions
 
@@ -111,7 +111,7 @@ var rounded = await db.Table<Book>()
 
 In `+`, `string.Concat`, and `string.Join`, a nullable string column is wrapped in `COALESCE(col, '')`, so a `NULL` value becomes an empty string. This matches .NET, where `string.Concat` and `string.Join` treat a `null` argument as empty.
 
-String length, comparison, ordering, and `Substring` bounds follow SQLite rather than .NET. See [Limitations](Limitations).
+String length, comparison, ordering, and `Substring` bounds have SQLite-specific behavior. See [Limitations](Limitations).
 
 `Contains`, `StartsWith`, and `EndsWith` use `LIKE`, which is case-insensitive for ASCII by default. To make them case-sensitive, build the database with `UseCaseSensitiveStringComparison()`. They then translate to `INSTR` / `SUBSTR` instead of `LIKE`. See [Storage Options](Storage%20Options).
 
