@@ -4,6 +4,13 @@ internal partial class QueryableVisitor
 {
     private SQLiteExpression VisitSetOperation(MethodCallExpression node, string setType)
     {
+        if (OrderBys.Count > 0 || Take != null || Skip != null)
+        {
+            throw new NotSupportedException(
+                $"{node.Method.Name} after OrderBy, Take, or Skip is not supported because it would require wrapping the operand in a subquery. " +
+                "Materialize the ordered or paged operand into a list before combining.");
+        }
+
         SQLTranslator sqlTranslator = visitor.CloneDeeper(visitor.Level);
         SQLQuery query = sqlTranslator.Translate(node.Arguments[1]);
 

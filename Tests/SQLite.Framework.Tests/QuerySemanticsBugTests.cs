@@ -7,57 +7,29 @@ namespace SQLite.Framework.Tests;
 public class QuerySemanticsBugTests
 {
     [Fact]
-    public void TakeBeforeConcatLimitsOnlyTheFirstOperand()
+    public void TakeBeforeConcatIsRejected()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
-        List<Book> data = new();
-        for (int i = 1; i <= 5; i++)
-        {
-            Book b = new() { Id = i, Title = "T" + i, AuthorId = 1, Price = i };
-            data.Add(b);
-            db.Table<Book>().Add(b);
-        }
+        db.Table<Book>().Add(new Book { Id = 1, Title = "T1", AuthorId = 1, Price = 1 });
 
-        List<int> expected = data.OrderBy(b => b.Price).Take(3)
-            .Concat(data)
-            .Select(b => b.Id)
-            .OrderBy(id => id)
-            .ToList();
-
-        List<int> actual = db.Table<Book>().OrderBy(b => b.Price).Take(3)
-            .Concat(db.Table<Book>())
-            .ToList()
-            .Select(b => b.Id)
-            .OrderBy(id => id)
-            .ToList();
-
-        Assert.Equal(expected, actual);
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().OrderBy(b => b.Price).Take(3)
+                .Concat(db.Table<Book>())
+                .ToList());
     }
 
     [Fact]
-    public void TakeBeforeUnionLimitsOnlyTheFirstOperand()
+    public void TakeBeforeUnionIsRejected()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
-        List<Book> data = new();
-        for (int i = 1; i <= 5; i++)
-        {
-            Book b = new() { Id = i, Title = "T" + i, AuthorId = 1, Price = i };
-            data.Add(b);
-            db.Table<Book>().Add(b);
-        }
+        db.Table<Book>().Add(new Book { Id = 1, Title = "T1", AuthorId = 1, Price = 1 });
 
-        int expectedCount = data.OrderBy(b => b.Price).Take(2)
-            .Union(data.Where(b => b.Id > 3))
-            .Count();
-
-        int actualCount = db.Table<Book>().OrderBy(b => b.Price).Take(2)
-            .Union(db.Table<Book>().Where(b => b.Id > 3))
-            .ToList()
-            .Count;
-
-        Assert.Equal(expectedCount, actualCount);
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().OrderBy(b => b.Price).Take(2)
+                .Union(db.Table<Book>().Where(b => b.Id > 3))
+                .ToList());
     }
 
     [Fact]
