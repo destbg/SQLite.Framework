@@ -191,7 +191,7 @@ public class MethodCallTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0."BookTitle" LIKE '%'||b0."BookTitle"||'%' ESCAPE '\'
+                     WHERE b0."BookTitle" LIKE '%'||REPLACE(REPLACE(REPLACE(b0."BookTitle", '\', '\\'), '%', '\%'), '_', '\_')||'%' ESCAPE '\'
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 

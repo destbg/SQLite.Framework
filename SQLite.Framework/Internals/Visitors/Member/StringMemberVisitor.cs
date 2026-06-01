@@ -24,15 +24,15 @@ internal static class StringMemberVisitor
             {
                 case nameof(string.Contains):
                 {
-                    return ResolveLike(visitor, node.Method, obj.SQLiteExpression, arguments, value => $"%{value}%", valueSql => $"'%'||{valueSql}||'%'");
+                    return ResolveLike(visitor, node.Method, obj.SQLiteExpression, arguments, value => $"%{value}%", valueSql => $"'%'||{EscapeLikeValueSql(valueSql)}||'%'");
                 }
                 case nameof(string.StartsWith):
                 {
-                    return ResolveLike(visitor, node.Method, obj.SQLiteExpression, arguments, value => $"{value}%", valueSql => $"{valueSql}||'%'");
+                    return ResolveLike(visitor, node.Method, obj.SQLiteExpression, arguments, value => $"{value}%", valueSql => $"{EscapeLikeValueSql(valueSql)}||'%'");
                 }
                 case nameof(string.EndsWith):
                 {
-                    return ResolveLike(visitor, node.Method, obj.SQLiteExpression, arguments, value => $"%{value}", valueSql => $"'%'||{valueSql}");
+                    return ResolveLike(visitor, node.Method, obj.SQLiteExpression, arguments, value => $"%{value}", valueSql => $"'%'||{EscapeLikeValueSql(valueSql)}");
                 }
                 case nameof(string.IndexOf):
                 {
@@ -403,6 +403,11 @@ internal static class StringMemberVisitor
             .Replace("\\", "\\\\")
             .Replace("%", "\\%")
             .Replace("_", "\\_");
+    }
+
+    private static string EscapeLikeValueSql(SQLiteExpression value)
+    {
+        return $"REPLACE(REPLACE(REPLACE({value}, '\\', '\\\\'), '%', '\\%'), '_', '\\_')";
     }
 
     private static SQLiteExpression ResolveCaseSensitiveSearch(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments)
