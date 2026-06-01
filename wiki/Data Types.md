@@ -41,6 +41,8 @@ All of these also work as nullable, for example `int?`, `string?`, `DateTime?`.
 
 **enum** values are stored as their underlying integer. The mapping is stable as long as you do not reorder the enum members.
 
+A `[Flags]` enum stores and reads back fine. Calling `ToString` on a `[Flags]` enum inside a query is not supported and throws a `NotSupportedException`. Its result needs a value decomposition that SQLite cannot reproduce faithfully.
+
 ## Example
 
 ```csharp

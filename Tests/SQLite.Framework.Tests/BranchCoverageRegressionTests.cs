@@ -1,27 +1,7 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
-
-[Flags]
-file enum Permission
-{
-    None = 0,
-    Read = 1,
-    Write = 2,
-    ReadWrite = 3
-}
-
-[Table("PermissionRows")]
-file sealed class PermissionRow
-{
-    [Key]
-    public int Id { get; set; }
-
-    public Permission Access { get; set; }
-}
 
 public class BranchCoverageRegressionTests
 {
@@ -62,14 +42,24 @@ public class BranchCoverageRegressionTests
     }
 
     [Fact]
-    public void FlagsEnumWithSingleAndCombinedMembersToStrings()
+    public void NullableCapturedConstantComparedToColumnKeepsNullSafeSemantics()
     {
         using TestDatabase db = new();
-        db.Table<PermissionRow>().Schema.CreateTable();
-        db.Table<PermissionRow>().Add(new PermissionRow { Id = 1, Access = Permission.ReadWrite });
+        db.Table<NullableEntity>().Schema.CreateTable();
+        db.CreateCommand("INSERT INTO NullableEntity (\"Id\",\"Value\") VALUES (1,NULL),(2,5),(3,7)", []).ExecuteNonQuery();
 
-        string actual = db.Table<PermissionRow>().Select(p => p.Access.ToString()).Single();
+        int? threshold = 5;
+        List<NullableEntity> oracle =
+        [
+            new() { Id = 1, Value = null },
+            new() { Id = 2, Value = 5 },
+            new() { Id = 3, Value = 7 }
+        ];
 
-        Assert.Equal(Permission.ReadWrite.ToString(), actual);
+        List<int> constantOnLeft = db.Table<NullableEntity>().Where(x => threshold == x.Value).Select(x => x.Id).ToList();
+        List<int> constantOnRight = db.Table<NullableEntity>().Where(x => x.Id == threshold).Select(x => x.Id).ToList();
+
+        Assert.Equal(oracle.Where(x => threshold == x.Value).Select(x => x.Id).ToList(), constantOnLeft);
+        Assert.Equal(oracle.Where(x => x.Id == threshold).Select(x => x.Id).ToList(), constantOnRight);
     }
 }

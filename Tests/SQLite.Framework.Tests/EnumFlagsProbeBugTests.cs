@@ -19,19 +19,6 @@ file enum BigEnum : ulong
     Max = ulong.MaxValue
 }
 
-[Flags]
-file enum NoZeroAccess
-{
-    Read = 1,
-    Write = 2
-}
-
-[Flags]
-file enum CompositeOnlyAccess
-{
-    All = 3
-}
-
 [Table("AccessDocs")]
 file sealed class AccessDoc
 {
@@ -39,10 +26,6 @@ file sealed class AccessDoc
     public int Id { get; set; }
 
     public Access Perms { get; set; }
-
-    public NoZeroAccess NoZeroPerms { get; set; }
-
-    public CompositeOnlyAccess CompositePerms { get; set; }
 }
 
 [Table("BigEnumRows")]
@@ -68,60 +51,15 @@ public class EnumFlagsProbeBugTests
         Assert.Equal(Access.Read | Access.Write, back.Perms);
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(2)]
-    [InlineData(3)]
-    [InlineData(5)]
-    public void FlagsToStringMatchesDotNet(int raw)
-    {
-        Access value = (Access)raw;
-        using TestDatabase db = new();
-        db.Table<AccessDoc>().Schema.CreateTable();
-        db.Table<AccessDoc>().Add(new AccessDoc { Id = 1, Perms = value });
-
-        string actual = db.Table<AccessDoc>().Select(x => x.Perms.ToString()).First();
-
-        Assert.Equal(value.ToString(), actual);
-    }
-
     [Fact]
-    public void FlagsToStringWithoutZeroMemberMatchesDotNet()
+    public void FlagsEnumToStringInQueryThrows()
     {
         using TestDatabase db = new();
         db.Table<AccessDoc>().Schema.CreateTable();
-        db.Table<AccessDoc>().Add(new AccessDoc { Id = 1, NoZeroPerms = 0 });
-        db.Table<AccessDoc>().Add(new AccessDoc { Id = 2, NoZeroPerms = NoZeroAccess.Read | NoZeroAccess.Write });
+        db.Table<AccessDoc>().Add(new AccessDoc { Id = 1, Perms = Access.Read | Access.Write });
 
-        List<string> actual = db.Table<AccessDoc>().OrderBy(x => x.Id).Select(x => x.NoZeroPerms.ToString()).ToList();
-        List<string> oracle = [((NoZeroAccess)0).ToString(), (NoZeroAccess.Read | NoZeroAccess.Write).ToString()];
-
-        Assert.Equal(oracle, actual);
-    }
-
-    [Fact]
-    public void CompositeOnlyFlagsToStringMatchesDotNet()
-    {
-        using TestDatabase db = new();
-        db.Table<AccessDoc>().Schema.CreateTable();
-        db.Table<AccessDoc>().Add(new AccessDoc { Id = 1, CompositePerms = CompositeOnlyAccess.All });
-
-        string actual = db.Table<AccessDoc>().Select(x => x.CompositePerms.ToString()).First();
-
-        Assert.Equal(CompositeOnlyAccess.All.ToString(), actual);
-    }
-
-    [Fact]
-    public void FlagsToStringOnComputedValueMatchesDotNet()
-    {
-        using TestDatabase db = new();
-        db.Table<AccessDoc>().Schema.CreateTable();
-        db.Table<AccessDoc>().Add(new AccessDoc { Id = 1, Perms = Access.Write });
-
-        string actual = db.Table<AccessDoc>().Select(x => (x.Perms | Access.Read).ToString()).First();
-
-        Assert.Equal((Access.Write | Access.Read).ToString(), actual);
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<AccessDoc>().Select(x => x.Perms.ToString()).First());
     }
 
     [Fact]
