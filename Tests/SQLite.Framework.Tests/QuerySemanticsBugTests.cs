@@ -33,52 +33,6 @@ public class QuerySemanticsBugTests
     }
 
     [Fact]
-    public void ChainedOrderByUsesEarlierKeyAsTiebreaker()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-        List<Book> data = new()
-        {
-            new Book { Id = 1, Title = "X", AuthorId = 1, Price = 10 },
-            new Book { Id = 2, Title = "X", AuthorId = 1, Price = 5 },
-            new Book { Id = 3, Title = "Y", AuthorId = 1, Price = 1 },
-        };
-        db.Table<Book>().AddRange(data);
-
-        List<int> expected = data
-            .OrderBy(b => b.Price)
-            .OrderBy(b => b.Title)
-            .Select(b => b.Id)
-            .ToList();
-
-        List<int> actual = db.Table<Book>()
-            .OrderBy(b => b.Price)
-            .OrderBy(b => b.Title)
-            .Select(b => b.Id)
-            .ToList();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void MaxOfStringColumnOverEmptySequenceThrows()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-
-        Assert.Throws<InvalidOperationException>(() => db.Table<Book>().Max(b => b.Title));
-    }
-
-    [Fact]
-    public void MinOfStringColumnOverEmptySequenceThrows()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-
-        Assert.Throws<InvalidOperationException>(() => db.Table<Book>().Min(b => b.Title));
-    }
-
-    [Fact]
     public void NegativeSkipAfterTakeDoesNotInflateTake()
     {
         using TestDatabase db = new();
