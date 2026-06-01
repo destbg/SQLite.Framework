@@ -344,6 +344,14 @@ public class SQLiteSchema
         TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
 
+        if (column.IsPrimaryKey)
+        {
+            throw new InvalidOperationException(
+                $"Cannot add the primary key column '{propertyName}' to the existing table '{mapping.TableName}'. " +
+                "SQLite does not allow ALTER TABLE ADD COLUMN to add a PRIMARY KEY or AUTOINCREMENT column. " +
+                "Recreate the table with the new schema instead.");
+        }
+
         string? defaultOverride = defaultValue == null ? null : SqlLiteralHelper.FormatLiteral(defaultValue, Database.Options);
         string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: defaultOverride)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
@@ -396,6 +404,14 @@ public class SQLiteSchema
         TableMapping mapping = Database.TableMapping<T>();
         TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
+
+        if (column.IsPrimaryKey)
+        {
+            throw new InvalidOperationException(
+                $"Cannot add the primary key column '{propertyName}' to the existing table '{mapping.TableName}'. " +
+                "SQLite does not allow ALTER TABLE ADD COLUMN to add a PRIMARY KEY or AUTOINCREMENT column. " +
+                "Recreate the table with the new schema instead.");
+        }
 
         string defaultSql = TranslateDefaultExpression(defaultExpression);
         string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: $"({defaultSql})")}";

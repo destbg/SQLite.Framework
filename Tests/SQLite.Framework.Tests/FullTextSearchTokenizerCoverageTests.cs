@@ -339,14 +339,25 @@ public class FullTextSearchTokenizerCoverageTests
 
 #if !SQLITECIPHER
     [Fact]
-    public void Trigram_CaseSensitiveAndNoRemoveDiacritics_RendersOpposingFlags()
+    public void Trigram_CaseSensitive_RendersOnlyCaseSensitiveFlag()
     {
         using TestDatabase db = new();
         db.Table<Trigram_CaseSensitive_Search>().Schema.CreateTable();
 
         Assert.Equal(
-            """CREATE VIRTUAL TABLE "Trigram_CaseSensitive_Search" USING fts5("Code", tokenize='trigram case_sensitive 1 remove_diacritics 0')""",
+            """CREATE VIRTUAL TABLE "Trigram_CaseSensitive_Search" USING fts5("Code", tokenize='trigram case_sensitive 1')""",
             ReadSchema(db, "Trigram_CaseSensitive_Search"));
+    }
+
+    [Fact]
+    public void Trigram_RemoveDiacritics_RendersOnlyRemoveDiacriticsFlag()
+    {
+        using TestDatabase db = new();
+        db.Table<Trigram_RemoveDiacritics_Search>().Schema.CreateTable();
+
+        Assert.Equal(
+            """CREATE VIRTUAL TABLE "Trigram_RemoveDiacritics_Search" USING fts5("Body", tokenize='trigram remove_diacritics 1')""",
+            ReadSchema(db, "Trigram_RemoveDiacritics_Search"));
     }
 #endif
 }

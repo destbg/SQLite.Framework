@@ -2381,19 +2381,17 @@ public class CoverageGapTests
 
 
     [Fact]
-    public void SQLiteDatabase_OpenConnection_WhenAlreadyConnecting_WaitsForLock()
+    public void SQLiteDatabase_OpenConnection_CalledTwice_DoesNotReopen()
     {
         using TestDatabase db = new();
         db.OpenConnection();
-
-        PropertyInfo isConnectingProp = typeof(SQLiteDatabase).GetProperty(nameof(SQLiteDatabase.IsConnecting))!;
-        isConnectingProp.SetValue(db, true);
+        object firstHandle = db.Handle!;
 
         db.OpenConnection();
 
-        Assert.True(db.IsConnecting);
-
-        isConnectingProp.SetValue(db, false);
+        Assert.Same(firstHandle, db.Handle);
+        Assert.True(db.IsConnected);
+        Assert.False(db.IsConnecting);
     }
 
     [Fact]

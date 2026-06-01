@@ -326,81 +326,74 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public virtual void OpenConnection()
     {
-        if (IsConnecting)
+        lock (connectionOpenLock)
         {
-            lock (connectionOpenLock)
+            if (IsConnected)
             {
-                // Wait for the connection to be opened
+                return;
             }
-        }
-        else if (!IsConnected)
-        {
-            lock (connectionOpenLock)
+
+            IsConnecting = true;
+
+            SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
+                Options.DatabasePath,
+                out sqlite3 handle,
+                (int)Options.OpenFlags,
+                null
+            );
+
+            if (result != SQLiteResult.OK)
             {
-                IsConnecting = true;
+                throw new SQLiteException(result, "Unable to open database", null);
+            }
 
-                SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
-                    Options.DatabasePath,
-                    out sqlite3 handle,
-                    (int)Options.OpenFlags,
-                    null
-                );
-
-                if (result != SQLiteResult.OK)
-                {
-                    throw new SQLiteException(result, "Unable to open database", null);
-                }
-
-                Handle = handle;
+            Handle = handle;
 
 #if SQLITECIPHER
-                if (!string.IsNullOrEmpty(Options.EncryptionKey))
-                {
-                    raw.sqlite3_prepare_v2(Handle, $"PRAGMA key = '{Options.EncryptionKey.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
-                    raw.sqlite3_step(keyStmt);
-                    raw.sqlite3_finalize(keyStmt);
-                }
+            if (!string.IsNullOrEmpty(Options.EncryptionKey))
+            {
+                raw.sqlite3_prepare_v2(Handle, $"PRAGMA key = '{Options.EncryptionKey.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
+                raw.sqlite3_step(keyStmt);
+                raw.sqlite3_finalize(keyStmt);
+            }
 #endif
 
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-                if (Options.MinimumSqliteVersion != SQLiteMinimumVersion.Unspecified)
+            if (Options.MinimumSqliteVersion != SQLiteMinimumVersion.Unspecified)
+            {
+                int loadedVersion = raw.sqlite3_libversion_number();
+                if (loadedVersion < (int)Options.MinimumSqliteVersion)
                 {
-                    int loadedVersion = raw.sqlite3_libversion_number();
-                    if (loadedVersion < (int)Options.MinimumSqliteVersion)
-                    {
-                        raw.sqlite3_close(Handle);
-                        Handle = null;
-                        IsConnecting = false;
-                        throw new NotSupportedException(
-                            $"The loaded SQLite version {SQLiteVersionFormatter.Format(loadedVersion)} " +
-                            $"is below the configured minimum {SQLiteVersionFormatter.Format((int)Options.MinimumSqliteVersion)}. " +
-                            $"Use the SQLite.Framework.Bundled package to ship a known SQLite version, " +
-                            $"or lower the value passed to UseMinimumSqliteVersion (and retest your queries)."
-                        );
-                    }
+                    raw.sqlite3_close(Handle);
+                    Handle = null;
+                    IsConnecting = false;
+                    throw new NotSupportedException(
+                        $"The loaded SQLite version {SQLiteVersionFormatter.Format(loadedVersion)} " +
+                        $"is below the configured minimum {SQLiteVersionFormatter.Format((int)Options.MinimumSqliteVersion)}. " +
+                        $"Use the SQLite.Framework.Bundled package to ship a known SQLite version, " +
+                        $"or lower the value passed to UseMinimumSqliteVersion (and retest your queries)."
+                    );
                 }
+            }
 #endif
 
-                IsConnected = true;
+            IsConnected = true;
 
-                if (Options.IsWalMode)
-                {
-                    raw.sqlite3_prepare_v2(Handle, "PRAGMA journal_mode = WAL", out sqlite3_stmt walStmt);
-                    raw.sqlite3_step(walStmt);
-                    raw.sqlite3_finalize(walStmt);
-                }
-
-                // Forced so behaviour is the same across SQLite builds. Some builds compile in
-                // SQLITE_DEFAULT_FOREIGN_KEYS=1 and would otherwise ignore the opt-out.
-                string fkPragma = Options.IsForeignKeysEnabled
-                    ? "PRAGMA foreign_keys = ON"
-                    : "PRAGMA foreign_keys = OFF";
-                raw.sqlite3_prepare_v2(Handle, fkPragma, out sqlite3_stmt fkStmt);
-                raw.sqlite3_step(fkStmt);
-                raw.sqlite3_finalize(fkStmt);
-
-                IsConnecting = false;
+            if (Options.IsWalMode)
+            {
+                raw.sqlite3_prepare_v2(Handle, "PRAGMA journal_mode = WAL", out sqlite3_stmt walStmt);
+                raw.sqlite3_step(walStmt);
+                raw.sqlite3_finalize(walStmt);
             }
+
+            string fkPragma = Options.IsForeignKeysEnabled
+                ? "PRAGMA foreign_keys = ON"
+                : "PRAGMA foreign_keys = OFF";
+            raw.sqlite3_prepare_v2(Handle, fkPragma, out sqlite3_stmt fkStmt);
+            raw.sqlite3_step(fkStmt);
+            raw.sqlite3_finalize(fkStmt);
+
+            IsConnecting = false;
         }
     }
 

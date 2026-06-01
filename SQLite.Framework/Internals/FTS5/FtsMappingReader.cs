@@ -97,7 +97,18 @@ internal static class FtsMappingReader
 #if !SQLITECIPHER
         if (trigram != null)
         {
-            return Render("trigram", "case_sensitive", trigram.CaseSensitive ? "1" : "0", "remove_diacritics", trigram.RemoveDiacritics ? "1" : "0");
+            List<string> trigramArgs = [];
+            if (trigram.CaseSensitive)
+            {
+                trigramArgs.Add("case_sensitive");
+                trigramArgs.Add("1");
+            }
+            if (trigram.RemoveDiacritics)
+            {
+                trigramArgs.Add("remove_diacritics");
+                trigramArgs.Add("1");
+            }
+            return Render("trigram", [.. trigramArgs]);
         }
 #endif
 

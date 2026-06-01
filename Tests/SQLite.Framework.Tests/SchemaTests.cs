@@ -442,6 +442,30 @@ public class SchemaTests
     }
 
     [Fact]
+    public void AddColumn_PrimaryKeyColumn_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<EvolvingTable>().Schema.CreateTable();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.AddColumn<EvolvingTable>(nameof(EvolvingTable.Id)));
+
+        Assert.Contains("primary key", ex.Message);
+    }
+
+    [Fact]
+    public void AddColumn_PrimaryKeyColumn_ExpressionDefault_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<EvolvingTable>().Schema.CreateTable();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
+            db.Schema.AddColumn<EvolvingTable>(nameof(EvolvingTable.Id), () => 1));
+
+        Assert.Contains("primary key", ex.Message);
+    }
+
+    [Fact]
     public void RenameColumn_RenamesInDatabase()
     {
         using TestDatabase db = new();

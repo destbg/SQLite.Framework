@@ -22,7 +22,11 @@ public sealed class TrigramTokenizerAttribute : Attribute
     public bool CaseSensitive { get; set; }
 
     /// <summary>
-    /// When <see langword="true" />, diacritics are removed before indexing. Defaults to <see langword="true" />.
+    /// When <see langword="true" />, diacritics are removed before indexing. Defaults to
+    /// <see langword="false" />, which is SQLite's own trigram default. The trigram tokenizer
+    /// only learned this option in SQLite 3.45.0, so setting it to <see langword="true" />
+    /// requires SQLite 3.45.0 or newer. Leaving it at the default keeps the table portable to
+    /// SQLite 3.34 and newer.
     /// </summary>
-    public bool RemoveDiacritics { get; set; } = true;
+    public bool RemoveDiacritics { get; set; }
 }

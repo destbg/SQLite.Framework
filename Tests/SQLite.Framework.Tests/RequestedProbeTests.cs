@@ -19,7 +19,9 @@ public class RequestedProbeTests
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = @n",
             [new SQLiteParameter { Name = "@n", Value = "Trigram_Default_Search" }])!;
 
-        Assert.Contains("trigram", sql);
+        Assert.Contains("tokenize='trigram'", sql);
+        Assert.DoesNotContain("case_sensitive", sql);
+        Assert.DoesNotContain("remove_diacritics", sql);
     }
 
     [Fact]
