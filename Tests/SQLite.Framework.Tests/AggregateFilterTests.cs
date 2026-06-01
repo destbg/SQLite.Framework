@@ -35,7 +35,7 @@ public class AggregateFilterTests
         Assert.Equal(10.0, command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0."BookAuthorId" AS "AuthorId",
-                            SUM(b0."BookPrice") FILTER (WHERE b0."BookPrice" >= @p0) AS "Pricey"
+                            COALESCE(SUM(b0."BookPrice") FILTER (WHERE b0."BookPrice" >= @p0), 0) AS "Pricey"
                      FROM "Books" AS b0
                      GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
@@ -206,7 +206,7 @@ public class AggregateFilterTests
     }
 
     [Fact]
-    public void GroupBySum_FilterMatchesNoRows_ReturnsNull()
+    public void GroupBySum_FilterMatchesNoRows_ReturnsZero()
     {
         using TestDatabase db = new();
 
@@ -224,7 +224,7 @@ public class AggregateFilterTests
             select g.Where(x => x.Price > 10000).Sum(x => (double?)x.Price)
         ).Single();
 
-        Assert.Null(filteredSum);
+        Assert.Equal(0.0, filteredSum);
     }
 
     [Fact]

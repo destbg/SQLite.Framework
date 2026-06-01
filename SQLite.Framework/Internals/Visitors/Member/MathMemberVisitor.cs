@@ -80,7 +80,7 @@ internal static class MathMemberVisitor
     {
         if (arguments.Count == 1)
         {
-            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ROUND(", arguments[0].SQLiteExpression!, ")", parameters);
+            return BuildRound(visitor, node, arguments[0], digits: null, MidpointRounding.ToEven);
         }
 
         if (arguments.Count == 3)
@@ -93,16 +93,17 @@ internal static class MathMemberVisitor
             return BuildRound(visitor, node, arguments[0], digits: null, mode2);
         }
 
-        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ROUND(", arguments[0].SQLiteExpression!, ", ", arguments[1].SQLiteExpression!, ")", parameters);
+        return BuildRound(visitor, node, arguments[0], arguments[1], MidpointRounding.ToEven);
     }
 
     private static SQLiteExpression BuildRound(SQLVisitor visitor, MethodCallExpression node, ResolvedModel value, ResolvedModel? digits, MidpointRounding mode)
     {
-        if (mode != MidpointRounding.AwayFromZero)
+        if (mode is not (MidpointRounding.AwayFromZero or MidpointRounding.ToEven))
         {
             throw new NotSupportedException(
                 $"Math.Round with MidpointRounding.{mode} is not translatable to SQL. " +
-                "SQLite's ROUND uses round-half-away-from-zero, so only MidpointRounding.AwayFromZero is supported.");
+                "SQLite supports round-half-away-from-zero (MidpointRounding.AwayFromZero) " +
+                "and round-half-to-even (MidpointRounding.ToEven, the .NET default).");
         }
 
         SQLiteParameter[]? parameters = digits is null
@@ -111,9 +112,20 @@ internal static class MathMemberVisitor
 
         SQLiteExpression valueExpr = value.SQLiteExpression!;
         SQLiteExpression? digitsExpr = digits?.SQLiteExpression;
+        Type returnType = node.Method.ReturnType;
 
-        return digitsExpr is null
-            ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ROUND(", valueExpr, ")", parameters)
-            : SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ROUND(", valueExpr, ", ", digitsExpr, ")", parameters);
+        if (mode == MidpointRounding.AwayFromZero)
+        {
+            return digitsExpr is null
+                ? SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ROUND(", valueExpr, ")", parameters)
+                : SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "ROUND(", valueExpr, ", ", digitsExpr, ")", parameters);
+        }
+
+        string v = valueExpr.ToString();
+        string scaled = digitsExpr is null ? v : $"({v} * POWER(10, {digitsExpr}))";
+        string toEven = $"(CASE WHEN ABS({scaled} - ROUND({scaled})) = 0.5 THEN 2 * ROUND({scaled} / 2) ELSE ROUND({scaled}) END)";
+        string sql = digitsExpr is null ? toEven : $"({toEven} / POWER(10, {digitsExpr}))";
+
+        return SQLiteExpression.Leaf(returnType, visitor.Counters.NextIdentifier(), sql, parameters);
     }
 }

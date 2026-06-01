@@ -77,6 +77,23 @@ internal partial class SQLVisitor
             return Visit(Expression.MakeBinary(flipped, comparison.Left, comparison.Right));
         }
 
+        if (node.NodeType == ExpressionType.Not
+            && node.Operand is BinaryExpression
+            {
+                NodeType: ExpressionType.GreaterThan or ExpressionType.LessThan
+                    or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual
+            } relational
+            && (MayBeNull(relational.Left) || MayBeNull(relational.Right)))
+        {
+            ResolvedModel inner = ResolveExpression(relational);
+            if (inner.SQLiteExpression != null)
+            {
+                string cmp = inner.SQLiteExpression.ToString();
+                SQLiteParameter[]? cmpParameters = inner.SQLiteExpression.Parameters;
+                return SQLiteExpression.Leaf(typeof(bool), Counters.NextIdentifier(), $"(NOT ({cmp}) OR ({cmp}) IS NULL)", cmpParameters);
+            }
+        }
+
         ResolvedModel resolved = ResolveExpression(node.Operand);
 
         if (resolved.SQLiteExpression == null)

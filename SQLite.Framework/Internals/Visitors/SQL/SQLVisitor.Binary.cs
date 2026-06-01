@@ -140,7 +140,7 @@ internal partial class SQLVisitor
         if (node.NodeType is ExpressionType.Modulo)
         {
             Type modType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
-            if (modType == typeof(double) || modType == typeof(float))
+            if (modType == typeof(double) || modType == typeof(float) || modType == typeof(decimal))
             {
                 return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
                     ["(", " - ", " * CAST(", " / ", " AS INTEGER))"],
@@ -149,17 +149,39 @@ internal partial class SQLVisitor
             }
         }
 
-        bool eitherOperandMayBeNull = MayBeNull(leftNode) || MayBeNull(rightNode);
+        bool leftMayBeNull = MayBeNull(leftNode);
+        bool rightMayBeNull = MayBeNull(rightNode);
+        bool eitherOperandMayBeNull = leftMayBeNull || rightMayBeNull;
+        bool bothOperandsMayBeNull = leftMayBeNull && rightMayBeNull;
+
+        if (node.NodeType is ExpressionType.Add && node.Type == typeof(string))
+        {
+            SQLiteExpression concatLeft = IsNullableStringColumn(leftNode)
+                ? SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(), "COALESCE(", left, ", '')", left.Parameters)
+                : left;
+            SQLiteExpression concatRight = IsNullableStringColumn(rightNode)
+                ? SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(), "COALESCE(", right, ", '')", right.Parameters)
+                : right;
+
+            return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", concatLeft, " || ", concatRight, "", ParameterHelpers.CombineParameters(concatLeft, concatRight));
+        }
+
+        if (leftNode.Type == typeof(ulong) && rightNode.Type == typeof(ulong)
+            && node.NodeType is ExpressionType.GreaterThan or ExpressionType.LessThan
+                or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual)
+        {
+            return BuildUnsignedComparison(node.NodeType, left, right, bothParameters);
+        }
 
         (string sqlOp, bool parenthesis) = node.NodeType switch
         {
-            ExpressionType.Equal => (" = ", false),
+            ExpressionType.Equal => (bothOperandsMayBeNull ? " IS " : " = ", false),
             ExpressionType.NotEqual => (eitherOperandMayBeNull ? " IS NOT " : " <> ", false),
             ExpressionType.GreaterThan => (" > ", false),
             ExpressionType.LessThan => (" < ", false),
             ExpressionType.GreaterThanOrEqual => (" >= ", false),
             ExpressionType.LessThanOrEqual => (" <= ", false),
-            ExpressionType.Add => (node.Type == typeof(string) ? " || " : " + ", node.Type != typeof(string)),
+            ExpressionType.Add => (" + ", true),
             ExpressionType.Subtract => (" - ", true),
             ExpressionType.Multiply => (" * ", true),
             ExpressionType.Divide => (" / ", true),
@@ -177,6 +199,26 @@ internal partial class SQLVisitor
         }
 
         return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", left, sqlOp, right, "", bothParameters);
+    }
+
+    private SQLiteExpression BuildUnsignedComparison(ExpressionType nodeType, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)
+    {
+        string signedOp = nodeType switch
+        {
+            ExpressionType.GreaterThan => " > ",
+            ExpressionType.LessThan => " < ",
+            ExpressionType.GreaterThanOrEqual => " >= ",
+            _ => " <= "
+        };
+
+        SQLiteExpression elseOperand = nodeType is ExpressionType.GreaterThan or ExpressionType.GreaterThanOrEqual ? a : b;
+
+        return SQLiteExpression.Multi(
+            typeof(bool),
+            Counters.NextIdentifier(),
+            ["(CASE WHEN ((", " < 0) = (", " < 0)) THEN ", signedOp, " ELSE ", " < 0 END)"],
+            [a, b, a, b, elseOperand],
+            parameters);
     }
 
     private static SQLiteExpression BracketBooleanOr(Expression node, SQLiteExpression expr)
@@ -218,5 +260,18 @@ internal partial class SQLVisitor
                 new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
             _ => true
         };
+    }
+
+    private static bool IsNullableStringColumn(Expression operand)
+    {
+        Expression stripped = operand;
+        while (stripped is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
+        {
+            stripped = convert.Operand;
+        }
+
+        return stripped is MemberExpression { Member: PropertyInfo property }
+            && property.PropertyType == typeof(string)
+            && new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable;
     }
 }

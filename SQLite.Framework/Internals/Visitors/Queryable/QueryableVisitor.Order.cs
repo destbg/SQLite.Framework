@@ -39,9 +39,10 @@ internal partial class QueryableVisitor
             OrderBys.Clear();
         }
 
-        string order = node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.ThenBy)
+        string baseDirection = node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.ThenBy)
             ? " ASC"
             : " DESC";
+        string order = baseDirection;
 
         if (node.Arguments.Count == 3)
         {
@@ -53,6 +54,11 @@ internal partial class QueryableVisitor
 #endif
                 order += nulls == SQLiteNullsOrder.First ? " NULLS FIRST" : " NULLS LAST";
             }
+        }
+
+        if (sqlExpression.Type == typeof(ulong))
+        {
+            OrderBys.Add(SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", sqlExpression, ") < 0" + baseDirection, sqlExpression.Parameters));
         }
 
         OrderBys.Add(SQLiteExpression.Wrap(node.Arguments[1].Type, visitor.Counters.NextIdentifier(), "", sqlExpression, order, sqlExpression.Parameters));

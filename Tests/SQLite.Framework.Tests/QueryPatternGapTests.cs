@@ -1638,7 +1638,7 @@ public class QueryPatternGapTests
 
 
     [Fact]
-    public void Math_Round_NonAwayFromZeroMode_IsNotSupported()
+    public void Math_Round_ToZeroMode_IsNotSupported()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
@@ -1647,7 +1647,7 @@ public class QueryPatternGapTests
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
-                .Select(b => Math.Round(b.Price, 1, MidpointRounding.ToEven))
+                .Select(b => Math.Round(b.Price, 1, MidpointRounding.ToZero))
                 .ToList());
     }
 

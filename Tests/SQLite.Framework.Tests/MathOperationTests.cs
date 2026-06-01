@@ -50,7 +50,7 @@ public class MathOperationTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE ROUND(b0."BookPrice") = @p0
+                     WHERE (CASE WHEN ABS(b0."BookPrice" - ROUND(b0."BookPrice")) = 0.5 THEN 2 * ROUND(b0."BookPrice" / 2) ELSE ROUND(b0."BookPrice") END) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -75,7 +75,7 @@ public class MathOperationTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE ROUND(b0."BookPrice", @p0) = @p1
+                     WHERE ((CASE WHEN ABS((b0."BookPrice" * POWER(10, @p0)) - ROUND((b0."BookPrice" * POWER(10, @p0)))) = 0.5 THEN 2 * ROUND((b0."BookPrice" * POWER(10, @p0)) / 2) ELSE ROUND((b0."BookPrice" * POWER(10, @p0))) END) / POWER(10, @p0)) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

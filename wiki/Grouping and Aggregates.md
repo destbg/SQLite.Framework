@@ -61,9 +61,9 @@ var statsByGenre = await (
 
 ## Sum vs Total
 
-`g.Sum(b => b.Price)` emits SQLite's `SUM(...)` and returns `NULL` when every aggregated row is `NULL` or when the projected input is empty. LINQ then coerces the `NULL` to the default value of the numeric type, but the underlying SQL still produces `NULL`.
+`g.Sum(b => b.Price)` emits `COALESCE(SUM(...), 0)`, matching `Enumerable.Sum`. An empty or all-`NULL` input returns `0`, and the result keeps the numeric type you projected. The nullable overloads (`Sum(b => (int?)b.X)`) also return `0`, never `null`.
 
-`SQLiteFunctions.Total(g.Select(b => b.Price))` emits SQLite's `total(...)` and always returns a `REAL` value. An empty input returns `0.0` instead of `NULL`.
+`SQLiteFunctions.Total(g.Select(b => b.Price))` emits SQLite's `total(...)` and always returns a `REAL` (`double`) value, `0.0` for empty input. Reach for it when you want a `double` result regardless of the projected column type.
 
 ```csharp
 var revenueByAuthor = await (

@@ -295,19 +295,23 @@ internal static class QueryableMemberVisitor
             target = sql;
         }
 
+        bool coalesce = aggregateFunction == "SUM";
+
         if (filterExpression == null)
         {
-            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{aggregateFunction}(", target, ")", target.Parameters);
+            return coalesce
+                ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"COALESCE({aggregateFunction}(", target, "), 0)", target.Parameters)
+                : SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{aggregateFunction}(", target, ")", target.Parameters);
         }
 
         return SQLiteExpression.Binary(
             node.Method.ReturnType,
             visitor.Counters.NextIdentifier(),
-            $"{aggregateFunction}(",
+            coalesce ? $"COALESCE({aggregateFunction}(" : $"{aggregateFunction}(",
             target,
             ") FILTER (WHERE ",
             filterExpression,
-            ")",
+            coalesce ? "), 0)" : ")",
             ParameterHelpers.CombineParameters(target, filterExpression));
     }
 }

@@ -45,7 +45,7 @@ public class GroupByTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT SUM(b0."BookPrice") AS "5"
+                     SELECT COALESCE(SUM(b0."BookPrice"), 0) AS "5"
                      FROM "Books" AS b0
                      GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
@@ -66,7 +66,7 @@ public class GroupByTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT SUM(b0."BookPrice") AS "5"
+                     SELECT COALESCE(SUM(b0."BookPrice"), 0) AS "5"
                      FROM "Books" AS b0
                      GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),
@@ -87,7 +87,7 @@ public class GroupByTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT SUM(b0."BookPrice") AS "5"
+                     SELECT COALESCE(SUM(b0."BookPrice"), 0) AS "5"
                      FROM "Books" AS b0
                      GROUP BY b0."BookAuthorId"
                      """.Replace("\r\n", "\n"),

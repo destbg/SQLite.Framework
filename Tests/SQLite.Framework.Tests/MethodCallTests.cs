@@ -905,7 +905,7 @@ public class MethodCallTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE ROUND(CAST(b0."BookId" AS REAL)) = @p0
+                     WHERE (CASE WHEN ABS(CAST(b0."BookId" AS REAL) - ROUND(CAST(b0."BookId" AS REAL))) = 0.5 THEN 2 * ROUND(CAST(b0."BookId" AS REAL) / 2) ELSE ROUND(CAST(b0."BookId" AS REAL)) END) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

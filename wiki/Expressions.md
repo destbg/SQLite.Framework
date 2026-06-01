@@ -22,14 +22,19 @@ var evens = await db.Table<Book>()
 
 Supported operators: `+`, `-`, `*`, `/`, `%`.
 
+Integer division or modulo by zero follows SQLite, not .NET. `x / 0` and `x % 0` evaluate to `NULL` (which materializes as `0` in a non-nullable projection) rather than throwing `DivideByZeroException`. Floating-point division by zero yields infinity, the same as .NET.
+
 ## Math Functions
 
 | C# | SQL |
 |---|---|
 | `Math.Abs(x)` | `ABS(x)` |
-| `Math.Round(x)` | `ROUND(x)` |
-| `Math.Round(x, digits)` | `ROUND(x, digits)` |
+| `Math.Round(x)` | round half to even (banker's), the .NET default, via a `CASE` over `ROUND` |
+| `Math.Round(x, digits)` | round half to even (banker's), the .NET default, via a `CASE` over `ROUND` |
+| `Math.Round(x, MidpointRounding.AwayFromZero)` | `ROUND(x)` |
+| `Math.Round(x, MidpointRounding.ToEven)` | round half to even (banker's), via a `CASE` over `ROUND` |
 | `Math.Round(x, digits, MidpointRounding.AwayFromZero)` | `ROUND(x, digits)` |
+| `Math.Round(x, digits, MidpointRounding.ToEven)` | round half to even (banker's), via a `CASE` over `ROUND` |
 | `Math.Floor(x)` | `FLOOR(x)` |
 | `Math.Ceiling(x)` | `CEIL(x)` |
 | `Math.Truncate(x)` | `TRUNC(x)` |
@@ -92,9 +97,9 @@ var rounded = await db.Table<Book>()
 | `s.Insert(index, value)` | `SUBSTR(s, 1, index) \|\| value \|\| SUBSTR(s, index + 1)` |
 | `s.Remove(start)` | `SUBSTR(s, 1, start)` |
 | `s.Remove(start, count)` | `SUBSTR(s, 1, start) \|\| SUBSTR(s, start + count + 1)` |
-| `s.PadLeft(n)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB((n - LENGTH(s)) / 2 + (n - LENGTH(s)) % 2)), '00', ' '), 1, n - LENGTH(s)) \|\| s) END` |
+| `s.PadLeft(n)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(n - LENGTH(s))), '00', ' '), 1, n - LENGTH(s)) \|\| s) END` |
 | `s.PadLeft(n, c)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(n - LENGTH(s))), '00', c), 1, n - LENGTH(s)) \|\| s) END` |
-| `s.PadRight(n)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (s \|\| (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB((n - LENGTH(s)) / 2 + (n - LENGTH(s)) % 2)), '00', ' '), 1, n - LENGTH(s)))) END` |
+| `s.PadRight(n)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (s \|\| (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(n - LENGTH(s))), '00', ' '), 1, n - LENGTH(s)))) END` |
 | `s.PadRight(n, c)` | `CASE WHEN LENGTH(s) >= n THEN s ELSE (s \|\| (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(n - LENGTH(s))), '00', c), 1, n - LENGTH(s)))) END` |
 | `s + other` | `s \|\| other` |
 | `string.Concat(a, b, ...)` | `a \|\| b \|\| ...` |
@@ -102,7 +107,7 @@ var rounded = await db.Table<Book>()
 | `string.Compare(a, b)` | `CASE WHEN a = b THEN 0 WHEN a < b THEN -1 ELSE 1 END` |
 | `s.CompareTo(other)` | `CASE WHEN s = other THEN 0 WHEN s < other THEN -1 ELSE 1 END` |
 | `string.IsNullOrEmpty(s)` | `(s IS NULL OR s = '')` |
-| `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, ' ') = '')` |
+| `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, CHAR(9, 10, 11, 12, 13, 32)) = '')` |
 
 `Contains`, `StartsWith`, and `EndsWith` use `LIKE`, which is case-insensitive for ASCII by default. To make them case-sensitive, build the database with `UseCaseSensitiveStringComparison()`. They then translate to `INSTR` / `SUBSTR` instead of `LIKE`. See [Storage Options](Storage%20Options).
 
@@ -128,7 +133,7 @@ var results = await db.Table<Book>()
 |---|---|
 | `char.ToLower(c)` | `LOWER(c)` |
 | `char.ToUpper(c)` | `UPPER(c)` |
-| `char.IsWhiteSpace(c)` | `TRIM(c) = ''` |
+| `char.IsWhiteSpace(c)` | `TRIM(c, CHAR(9, 10, 11, 12, 13, 32)) = ''` |
 | `char.IsAsciiDigit(c)` | `c >= '0' AND c <= '9'` |
 | `char.IsAsciiLetter(c)` | `(c >= 'a' AND c <= 'z') OR (c >= 'A' AND c <= 'Z')` |
 | `char.IsAsciiLetterOrDigit(c)` | `(c >= '0' AND c <= '9') OR (c >= 'a' AND c <= 'z') OR (c >= 'A' AND c <= 'Z')` |

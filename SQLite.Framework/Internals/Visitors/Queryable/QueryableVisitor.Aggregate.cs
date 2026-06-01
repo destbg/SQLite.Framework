@@ -46,7 +46,7 @@ internal partial class QueryableVisitor
             else
             {
                 Type resultType = node.Method.ReturnType;
-                bool wrapWithCoalesce = function == "SUM" && Nullable.GetUnderlyingType(resultType) == null;
+                bool wrapWithCoalesce = function == "SUM";
                 SQLiteExpression innerExpr = sqlExpression;
                 select = wrapWithCoalesce
                     ? SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"COALESCE({function}({distinctPrefix}", innerExpr, "), 0)", sqlExpression.Parameters)
@@ -71,7 +71,7 @@ internal partial class QueryableVisitor
         else if (Selects.Count == 1)
         {
             Type resultType = node.Method.ReturnType;
-            bool wrapWithCoalesce = function == "SUM" && Nullable.GetUnderlyingType(resultType) == null;
+            bool wrapWithCoalesce = function == "SUM";
             SQLiteExpression innerExpr = Selects[0];
             select = wrapWithCoalesce
                 ? SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"COALESCE({function}({distinctPrefix}", innerExpr, "), 0)", Selects[0].Parameters)

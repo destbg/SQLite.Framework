@@ -403,45 +403,39 @@ internal static class DateTimeMemberVisitor
 
         string tick = tickParameter.Name;
         string toSec = tickToSecondParameter.Name;
+        long ticksPerDay = TimeSpan.TicksPerDay;
+        int multiplier = addType == "years" ? 12 : 1;
+
+        string objSql = obj.ToString();
+        string srcDate = $"DATE((({objSql} - {tick}) / {toSec}), 'unixepoch')";
+        string day = $"CAST(STRFTIME('%d', {srcDate}) AS INTEGER)";
+
+        string months;
+        string monthsPlusOne;
+        SQLiteParameter[] parameters;
 
         if (arguments[0].IsConstant)
         {
-            SQLiteParameter parameter = new()
-            {
-                Name = visitor.Counters.NextParamName(),
-                Value = $"{arguments[0].Constant} {addType}"
-            };
-
-            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter, parameter];
-
-            return SQLiteExpression.Multi(
-                method.ReturnType,
-                visitor.Counters.NextIdentifier(),
-                [
-                    "CAST(STRFTIME('%s',DATETIME((",
-                    $" - {tick}) / {toSec}, 'unixepoch', {parameter.Name})) AS INTEGER) * {toSec} + {tick} + ((",
-                    $" - {tick}) % {toSec})"
-                ],
-                [obj, obj],
-                parameters);
+            long n = Convert.ToInt64(arguments[0].Constant) * multiplier;
+            months = $"'{n} months'";
+            monthsPlusOne = $"'{n + 1} months'";
+            parameters = [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter];
         }
         else
         {
-            SQLiteParameter[] parameters = [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], tickParameter, tickToSecondParameter];
-
-            return SQLiteExpression.Multi(
-                method.ReturnType,
-                visitor.Counters.NextIdentifier(),
-                [
-                    "CAST(STRFTIME('%s',DATETIME((",
-                    $" - {tick}) / {toSec}, 'unixepoch', ",
-                    $"||' {addType}')) AS INTEGER) * {toSec} + {tick} + ((",
-                    $" - {tick}) % {toSec})"
-                ],
-                [obj, arguments[0].SQLiteExpression!, obj],
-                parameters
-            );
+            string nSql = arguments[0].SQLiteExpression!.ToString();
+            months = $"((({nSql}) * {multiplier}) || ' months')";
+            monthsPlusOne = $"((({nSql}) * {multiplier} + 1) || ' months')";
+            parameters = [.. obj.Parameters ?? [], .. arguments[0].SQLiteExpression!.Parameters ?? [], tickParameter, tickToSecondParameter];
         }
+
+        string overflowed = $"DATE({srcDate}, 'start of month', {months}, '+' || ({day} - 1) || ' days')";
+        string lastDay = $"DATE({srcDate}, 'start of month', {monthsPlusOne}, '-1 day')";
+        string clampedDate = $"MIN({overflowed}, {lastDay})";
+        string clampedMidnight = $"(CAST(STRFTIME('%s', {clampedDate}) AS INTEGER) * {toSec} + {tick})";
+        string sql = $"({clampedMidnight} + ({objSql} % {ticksPerDay}))";
+
+        return SQLiteExpression.Leaf(method.ReturnType, visitor.Counters.NextIdentifier(), sql, parameters);
     }
 
     private static (SQLiteParameter TickParameter, SQLiteParameter TickToSecondParameter) CreateHelperDateParameters(SQLVisitor visitor)
@@ -489,12 +483,18 @@ internal static class DateTimeMemberVisitor
     {
         (SQLiteParameter tickParameter, SQLiteParameter tickToSecondParameter) = CreateHelperDateParameters(visitor);
 
-        return SQLiteExpression.Wrap(
+        string tick = tickParameter.Name;
+        string toSec = tickToSecondParameter.Name;
+
+        return SQLiteExpression.Multi(
             type,
             visitor.Counters.NextIdentifier(),
-            $"CAST(STRFTIME('%{format}',{function}((",
-            obj,
-            $" - {tickParameter.Name}) / {tickToSecondParameter.Name}, 'unixepoch')) AS INTEGER)",
+            [
+                $"CAST(STRFTIME('%{format}',{function}((",
+                $" - {tick}) / {toSec} - (CASE WHEN ((",
+                $" - {tick}) % {toSec}) < 0 THEN 1 ELSE 0 END), 'unixepoch')) AS INTEGER)"
+            ],
+            [obj, obj],
             [.. obj.Parameters ?? [], tickParameter, tickToSecondParameter]
         );
     }
