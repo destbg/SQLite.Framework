@@ -72,4 +72,15 @@ public class NullSemanticsOracleBugTests
             mem.Where(x => !(3 > x.A)).Select(x => x.Id).OrderBy(i => i).ToList(),
             db.Table<TwoNullableIntEntity>().Where(x => !(3 > x.A)).Select(x => x.Id).OrderBy(i => i).ToList());
     }
+
+    [Fact]
+    public void NullableEqualityResultIsTwoValuedLikeDotNet()
+    {
+        using TestDatabase db = Seed();
+
+        List<int> actual = db.Table<TwoNullableIntEntity>().Where(x => (x.A == 5) == false).Select(x => x.Id).OrderBy(i => i).ToList();
+        List<int> oracle = InMemory().Where(x => (x.A == 5) == false).Select(x => x.Id).OrderBy(i => i).ToList();
+
+        Assert.Equal(oracle, actual);
+    }
 }

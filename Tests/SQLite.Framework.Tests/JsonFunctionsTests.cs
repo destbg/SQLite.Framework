@@ -248,6 +248,21 @@ public class JsonFunctionsTests
     }
 
     [Fact]
+    public void List_Contains_Null_MatchesDotNet()
+    {
+        using TestDatabase db = CreateListDb();
+        db.Table<ListRow>().Add(new ListRow { Id = 1, Tags = ["fiction", null!] });
+        db.Table<ListRow>().Add(new ListRow { Id = 2, Tags = ["fiction", "bestseller"] });
+
+        List<int> actual = db.Table<ListRow>().Where(r => r.Tags.Contains(null!)).Select(r => r.Id).OrderBy(i => i).ToList();
+
+        List<List<string>> mem = [["fiction", null!], ["fiction", "bestseller"]];
+        List<int> oracle = mem.Select((tags, i) => (tags, id: i + 1)).Where(r => r.tags.Contains(null!)).Select(r => r.id).OrderBy(i => i).ToList();
+
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
     public void List_Any_NonEmptyList_ReturnsRow()
     {
         using TestDatabase db = CreateListDb();

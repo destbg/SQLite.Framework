@@ -32,6 +32,16 @@ internal static class EnumMemberVisitor
                 case nameof(Enum.ToString):
                 {
                     Type enumType = node.Object!.Type;
+
+                    if (enumType.IsDefined(typeof(FlagsAttribute), inherit: false))
+                    {
+                        SQLiteExpression? flagsResult = TryBuildFlagsToString(visitor, node, obj, enumType);
+                        if (flagsResult != null)
+                        {
+                            return flagsResult;
+                        }
+                    }
+
                     Type enumUnderlying = Enum.GetUnderlyingType(enumType);
                     Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
                     string[] enumNames = Enum.GetNames(enumType);
@@ -135,5 +145,79 @@ internal static class EnumMemberVisitor
         return enumUnderlying == typeof(ulong)
             ? unchecked((long)(ulong)enumValue)
             : Convert.ToInt64(enumValue);
+    }
+
+    private static SQLiteExpression? TryBuildFlagsToString(SQLVisitor visitor, MethodCallExpression node, ResolvedModel obj, Type enumType)
+    {
+        Type enumUnderlying = Enum.GetUnderlyingType(enumType);
+        Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
+        string[] enumNames = Enum.GetNames(enumType);
+
+        string? zeroName = null;
+        List<(long Bit, string Name)> singleBits = new();
+        for (int i = 0; i < enumValuesArray.Length; i++)
+        {
+            long numericValue = ToSignedNumeric(enumValuesArray.GetValue(i)!, enumUnderlying);
+            if (numericValue == 0)
+            {
+                zeroName ??= enumNames[i];
+            }
+            else if ((numericValue & (numericValue - 1)) == 0)
+            {
+                singleBits.Add((numericValue, enumNames[i]));
+            }
+        }
+
+        if (singleBits.Count == 0)
+        {
+            return null;
+        }
+
+        singleBits.Sort((a, b) => a.Bit.CompareTo(b.Bit));
+
+        long allBits = 0;
+        foreach ((long bit, string _) in singleBits)
+        {
+            allBits |= bit;
+        }
+
+        SQLiteExpression objExpr = obj.SQLiteExpression!;
+        string column = objExpr.ToString();
+        List<SQLiteParameter> nameParams = new();
+
+        StringBuilder sb = new();
+        sb.Append("(CASE WHEN ").Append(column).Append(" = 0 THEN ");
+        if (zeroName != null)
+        {
+            SQLiteParameter zeroParam = new() { Name = visitor.Counters.NextParamName(), Value = zeroName };
+            nameParams.Add(zeroParam);
+            sb.Append(zeroParam.Name);
+        }
+        else
+        {
+            sb.Append("'0'");
+        }
+
+        sb.Append(" WHEN (").Append(column).Append(" & ").Append(~allBits).Append(") <> 0 THEN CAST(").Append(column).Append(" AS TEXT) ELSE RTRIM(");
+        for (int i = 0; i < singleBits.Count; i++)
+        {
+            (long bit, string name) = singleBits[i];
+            SQLiteParameter nameParam = new() { Name = visitor.Counters.NextParamName(), Value = name };
+            nameParams.Add(nameParam);
+            if (i > 0)
+            {
+                sb.Append(" || ");
+            }
+
+            sb.Append("(CASE WHEN (").Append(column).Append(" & ").Append(bit).Append(") = ").Append(bit).Append(" THEN ").Append(nameParam.Name).Append(" || ', ' ELSE '' END)");
+        }
+
+        sb.Append(", ', ') END)");
+
+        SQLiteParameter[] parameters = objExpr.Parameters == null
+            ? [.. nameParams]
+            : [.. objExpr.Parameters, .. nameParams];
+
+        return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), sb.ToString(), parameters);
     }
 }

@@ -109,6 +109,8 @@ var rounded = await db.Table<Book>()
 | `string.IsNullOrEmpty(s)` | `(s IS NULL OR s = '')` |
 | `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, CHAR(9, 10, 11, 12, 13, 32)) = '')` |
 
+`s.Length` maps to SQLite `LENGTH`, which counts Unicode code points. .NET `string.Length` counts UTF-16 code units, so the two differ for characters outside the Basic Multilingual Plane such as emoji, where `LENGTH` returns 1 but `string.Length` returns 2.
+
 `Contains`, `StartsWith`, and `EndsWith` use `LIKE`, which is case-insensitive for ASCII by default. To make them case-sensitive, build the database with `UseCaseSensitiveStringComparison()`. They then translate to `INSTR` / `SUBSTR` instead of `LIKE`. See [Storage Options](Storage%20Options).
 
 Pass `StringComparison.OrdinalIgnoreCase` to `Contains`, `StartsWith`, or `EndsWith` to force a case-insensitive match regardless of that option:

@@ -149,10 +149,9 @@ internal partial class SQLVisitor
             }
         }
 
-        bool leftMayBeNull = MayBeNull(leftNode);
-        bool rightMayBeNull = MayBeNull(rightNode);
-        bool eitherOperandMayBeNull = leftMayBeNull || rightMayBeNull;
-        bool bothOperandsMayBeNull = leftMayBeNull && rightMayBeNull;
+        bool eitherOperandMayBeNull = MayBeNull(leftNode) || MayBeNull(rightNode);
+        bool equalIsNullSafe = (IsNullableColumn(leftNode) && !resolvedLeft.IsConstant)
+            || (IsNullableColumn(rightNode) && !resolvedRight.IsConstant);
 
         if (node.NodeType is ExpressionType.Add && node.Type == typeof(string))
         {
@@ -175,7 +174,7 @@ internal partial class SQLVisitor
 
         (string sqlOp, bool parenthesis) = node.NodeType switch
         {
-            ExpressionType.Equal => (bothOperandsMayBeNull ? " IS " : " = ", false),
+            ExpressionType.Equal => (equalIsNullSafe ? " IS " : " = ", false),
             ExpressionType.NotEqual => (eitherOperandMayBeNull ? " IS NOT " : " <> ", false),
             ExpressionType.GreaterThan => (" > ", false),
             ExpressionType.LessThan => (" < ", false),
@@ -272,6 +271,23 @@ internal partial class SQLVisitor
 
         return stripped is MemberExpression { Member: PropertyInfo property }
             && property.PropertyType == typeof(string)
+            && new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable;
+    }
+
+    private static bool IsNullableColumn(Expression operand)
+    {
+        Expression stripped = operand;
+        while (stripped is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
+        {
+            stripped = convert.Operand;
+        }
+
+        if (stripped.Type.IsValueType)
+        {
+            return Nullable.GetUnderlyingType(stripped.Type) != null;
+        }
+
+        return stripped is MemberExpression { Member: PropertyInfo property }
             && new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable;
     }
 }

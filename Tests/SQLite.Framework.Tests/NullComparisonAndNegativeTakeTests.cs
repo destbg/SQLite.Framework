@@ -61,7 +61,7 @@ public class NullComparisonAndNegativeTakeTests
         using TestDatabase db = Nums((1, 1));
 
         Assert.Contains(" IS NOT @", db.Table<NullableEntity>().Where(x => x.Value != 5).ToSqlCommand().CommandText);
-        Assert.Contains(" = @", db.Table<NullableEntity>().Where(x => x.Value == 5).ToSqlCommand().CommandText);
+        Assert.Contains(" IS @", db.Table<NullableEntity>().Where(x => x.Value == 5).ToSqlCommand().CommandText);
         Assert.Contains(" IS NOT @", db.Table<NullableEntity>().Where(x => !(x.Value == 5)).ToSqlCommand().CommandText);
     }
 

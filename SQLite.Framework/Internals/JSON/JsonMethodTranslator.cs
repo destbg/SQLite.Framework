@@ -127,7 +127,7 @@ internal static class JsonMethodTranslator
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
             return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                $"EXISTS (SELECT 1 FROM json_each({src}) WHERE \"value\" = {arg.SQLiteExpression})",
+                $"EXISTS (SELECT 1 FROM json_each({src}) WHERE \"value\" IS {arg.SQLiteExpression})",
                 parameters)
                 .WithJsonSource();
         }
@@ -139,7 +139,7 @@ internal static class JsonMethodTranslator
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
             return SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" = {arg.SQLiteExpression} LIMIT 1), -1)",
+                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" IS {arg.SQLiteExpression} LIMIT 1), -1)",
                 parameters)
                 .WithJsonSource();
         }
@@ -151,7 +151,7 @@ internal static class JsonMethodTranslator
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
             return SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" = {arg.SQLiteExpression} ORDER BY \"key\" DESC LIMIT 1), -1)",
+                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" IS {arg.SQLiteExpression} ORDER BY \"key\" DESC LIMIT 1), -1)",
                 parameters)
                 .WithJsonSource();
         }
@@ -285,10 +285,10 @@ internal static class JsonMethodTranslator
             return node.Method.Name switch
             {
                 nameof(Array.IndexOf) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                    $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" = {argSql} LIMIT 1), -1)", parameters)
+                    $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" IS {argSql} LIMIT 1), -1)", parameters)
                     .WithJsonSource(),
                 nameof(Array.LastIndexOf) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                    $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" = {argSql} ORDER BY \"key\" DESC LIMIT 1), -1)", parameters)
+                    $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" IS {argSql} ORDER BY \"key\" DESC LIMIT 1), -1)", parameters)
                     .WithJsonSource(),
                 _ => null,
             };
