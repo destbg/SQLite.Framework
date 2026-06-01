@@ -969,7 +969,7 @@ public class CoverageGap3Tests
                      WHERE NOT EXISTS (
                          SELECT 1
                          FROM "Books" AS b1
-                         WHERE NOT (b1."BookPrice" > @p0)
+                         WHERE (b1."BookPrice" > @p0) IS NOT 1
                      )
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));

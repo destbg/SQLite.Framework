@@ -509,9 +509,9 @@ internal class SQLTranslator
             if (q.AllPredicate != null)
             {
                 if (needAnd) sb.Append(" AND ");
-                sb.Append("NOT (");
+                sb.Append('(');
                 q.AllPredicate.WriteSqlTo(sb);
-                sb.Append(')');
+                sb.Append(") IS NOT 1");
             }
         }
 
