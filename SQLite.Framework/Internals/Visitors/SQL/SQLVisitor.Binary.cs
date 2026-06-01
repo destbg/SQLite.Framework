@@ -155,12 +155,8 @@ internal partial class SQLVisitor
 
         if (node.NodeType is ExpressionType.Add && node.Type == typeof(string))
         {
-            SQLiteExpression concatLeft = IsNullableStringColumn(leftNode)
-                ? SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(), "COALESCE(", left, ", '')", left.Parameters)
-                : left;
-            SQLiteExpression concatRight = IsNullableStringColumn(rightNode)
-                ? SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(), "COALESCE(", right, ", '')", right.Parameters)
-                : right;
+            SQLiteExpression concatLeft = CoalesceNullableStringColumn(this, leftNode, left);
+            SQLiteExpression concatRight = CoalesceNullableStringColumn(this, rightNode, right);
 
             return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", concatLeft, " || ", concatRight, "", ParameterHelpers.CombineParameters(concatLeft, concatRight));
         }
@@ -218,6 +214,13 @@ internal partial class SQLVisitor
             ["(CASE WHEN ((", " < 0) = (", " < 0)) THEN ", signedOp, " ELSE ", " < 0 END)"],
             [a, b, a, b, elseOperand],
             parameters);
+    }
+
+    public static SQLiteExpression CoalesceNullableStringColumn(SQLVisitor visitor, Expression operand, SQLiteExpression expr)
+    {
+        return IsNullableStringColumn(operand)
+            ? SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "COALESCE(", expr, ", '')", expr.Parameters)
+            : expr;
     }
 
     private static SQLiteExpression BracketBooleanOr(Expression node, SQLiteExpression expr)

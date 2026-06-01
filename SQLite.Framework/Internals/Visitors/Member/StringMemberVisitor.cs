@@ -251,14 +251,21 @@ internal static class StringMemberVisitor
             }
             case nameof(string.Concat):
             {
-                SQLiteExpression[] concatArgs = arguments.Select(a => a.SQLiteExpression!).ToArray();
-                return SQLiteExpression.Variadic(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", concatArgs, " || ", "", ParameterHelpers.CombineParametersFromModels(arguments));
+                SQLiteExpression[] concatArgs = new SQLiteExpression[arguments.Count];
+                for (int i = 0; i < arguments.Count; i++)
+                {
+                    concatArgs[i] = SQLVisitor.CoalesceNullableStringColumn(visitor, node.Arguments[i], arguments[i].SQLiteExpression!);
+                }
+
+                return SQLiteExpression.Variadic(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", concatArgs, " || ", "", ParameterHelpers.CombineParameters(concatArgs));
             }
             case nameof(string.Join):
                 if (node.Arguments[1] is NewArrayExpression arrayExpr)
                 {
-                    SQLiteExpression sep = arguments[0].SQLiteExpression!;
-                    SQLiteExpression[] joinArgs = arrayExpr.Expressions.Select(e => visitor.ResolveExpression(e).SQLiteExpression!).ToArray();
+                    SQLiteExpression sep = SQLVisitor.CoalesceNullableStringColumn(visitor, node.Arguments[0], arguments[0].SQLiteExpression!);
+                    SQLiteExpression[] joinArgs = arrayExpr.Expressions
+                        .Select(e => SQLVisitor.CoalesceNullableStringColumn(visitor, e, visitor.ResolveExpression(e).SQLiteExpression!))
+                        .ToArray();
                     if (joinArgs.Length == 0)
                     {
                         return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "''");

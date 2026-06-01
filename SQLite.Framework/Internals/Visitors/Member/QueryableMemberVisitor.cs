@@ -69,8 +69,10 @@ internal static class QueryableMemberVisitor
         {
             case nameof(Enumerable.Contains):
             {
-                SQLiteParameter[] parameters = enumerable
-                    .Cast<object>()
+                List<object?> values = enumerable.Cast<object?>().ToList();
+                bool hasNull = values.Any(v => v is null);
+                SQLiteParameter[] parameters = values
+                    .Where(v => v is not null)
                     .Select(f => new SQLiteParameter
                     {
                         Name = visitor.Counters.NextParamName(),
@@ -80,8 +82,9 @@ internal static class QueryableMemberVisitor
 
                 int itemIndex = node.Object == null ? 1 : 0;
                 ResolvedModel item = arguments[itemIndex];
+                SQLiteExpression itemExpr = item.SQLiteExpression!;
 
-                if (parameters.Length == 0)
+                if (parameters.Length == 0 && !hasNull)
                 {
                     // For an empty list, `IN ()` is invalid SQL and should always return false.
                     // We use `0 = 1` to ensure the condition is never true.
@@ -93,7 +96,16 @@ internal static class QueryableMemberVisitor
                     );
                 }
 
-                SQLiteExpression itemExpr = item.SQLiteExpression!;
+                if (parameters.Length == 0)
+                {
+                    return SQLiteExpression.Wrap(
+                        node.Method.ReturnType,
+                        visitor.Counters.NextIdentifier(),
+                        "", itemExpr, " IS NULL",
+                        item.Parameters
+                    );
+                }
+
                 StringBuilder paramSb = new(" IN (");
                 for (int i = 0; i < parameters.Length; i++)
                 {
@@ -101,11 +113,25 @@ internal static class QueryableMemberVisitor
                     paramSb.Append(parameters[i].Name);
                 }
                 paramSb.Append(')');
-                return SQLiteExpression.Wrap(
+
+                SQLiteParameter[] allParameters = [.. item.Parameters ?? [], .. parameters];
+
+                if (!hasNull)
+                {
+                    return SQLiteExpression.Wrap(
+                        node.Method.ReturnType,
+                        visitor.Counters.NextIdentifier(),
+                        "", itemExpr, paramSb.ToString(),
+                        allParameters
+                    );
+                }
+
+                return SQLiteExpression.Multi(
                     node.Method.ReturnType,
                     visitor.Counters.NextIdentifier(),
-                    "", itemExpr, paramSb.ToString(),
-                    [.. item.Parameters ?? [], .. parameters]
+                    ["(", paramSb.ToString() + " OR ", " IS NULL)"],
+                    [itemExpr, itemExpr],
+                    allParameters
                 );
             }
         }

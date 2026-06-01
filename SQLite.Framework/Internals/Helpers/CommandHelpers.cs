@@ -108,6 +108,13 @@ internal static class CommandHelpers
                 return TimeOnly.ParseExact(timeOnlyString, options.TimeOnlyFormat, CultureInfo.InvariantCulture);
             }
         }
+        else if (type == typeof(int))
+        {
+            if (value is long intValue)
+            {
+                return unchecked((int)intValue);
+            }
+        }
         else if (type == typeof(uint))
         {
             if (value is long uintValue)

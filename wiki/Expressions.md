@@ -22,7 +22,11 @@ var evens = await db.Table<Book>()
 
 Supported operators: `+`, `-`, `*`, `/`, `%`.
 
-Integer division or modulo by zero follows SQLite, not .NET. `x / 0` and `x % 0` evaluate to `NULL` (which materializes as `0` in a non-nullable projection) rather than throwing `DivideByZeroException`. Floating-point division by zero yields infinity, the same as .NET.
+Integer arithmetic is computed in 64-bit and then narrowed back to the result type with the same wrap-around as unchecked C# code. For example, an `int * int` product that exceeds `int.MaxValue` wraps the same way it does in .NET.
+
+Division or modulo by zero follows SQLite, not .NET. `x / 0` and `x % 0` evaluate to `NULL`, which materializes as `0` in a non-nullable projection or as `null` in a nullable one, rather than throwing `DivideByZeroException`. This also applies to floating-point division by zero, so `5.0 / 0.0` is `NULL`, not infinity.
+
+Floating-point operations that produce `NaN` or infinity in .NET return `NULL` in SQLite, because SQLite cannot store those values. This includes `Math.Sqrt` of a negative number, `Math.Log` of zero or a negative number, and `Math.Acos` of a value outside the range from -1 to 1.
 
 ## Math Functions
 
@@ -110,6 +114,10 @@ var rounded = await db.Table<Book>()
 | `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, CHAR(9, 10, 11, 12, 13, 32)) = '')` |
 
 `s.Length` maps to SQLite `LENGTH`, which counts Unicode code points. .NET `string.Length` counts UTF-16 code units, so the two differ for characters outside the Basic Multilingual Plane such as emoji, where `LENGTH` returns 1 but `string.Length` returns 2.
+
+In `+`, `string.Concat`, and `string.Join`, a nullable string column is wrapped in `COALESCE(col, '')`, so a `NULL` value becomes an empty string. This matches .NET, where `string.Concat` and `string.Join` treat a `null` argument as empty.
+
+String comparison and ordering use SQLite's default `BINARY` collation, which compares by byte value (ordinal). .NET `OrderBy`, `string.Compare`, and `s.CompareTo` use culture-sensitive comparison by default. The two can order strings differently when case or non-ASCII characters are involved. For example, `"a".CompareTo("B")` is negative in .NET but positive under `BINARY`, because lowercase letters sort after uppercase ones by byte value.
 
 `Contains`, `StartsWith`, and `EndsWith` use `LIKE`, which is case-insensitive for ASCII by default. To make them case-sensitive, build the database with `UseCaseSensitiveStringComparison()`. They then translate to `INSTR` / `SUBSTR` instead of `LIKE`. See [Storage Options](Storage%20Options).
 
