@@ -45,9 +45,7 @@ public class TableColumn
         DefaultValueAttribute? defaultValueAttribute = property.GetCustomAttribute<DefaultValueAttribute>();
         if (defaultValueAttribute != null)
         {
-            DefaultSql = defaultValueAttribute.Value is Enum enumDefault && options.EnumStorage == EnumStorageMode.Text
-                ? SqlLiteralHelper.FormatLiteral(enumDefault.ToString())
-                : SqlLiteralHelper.FormatLiteral(defaultValueAttribute.Value);
+            DefaultSql = SqlLiteralHelper.FormatLiteral(defaultValueAttribute.Value, options);
         }
 
         if (ReferencesTableAttribute != null && ForeignKeyAttribute != null)

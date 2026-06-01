@@ -344,7 +344,7 @@ public class SQLiteSchema
         TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
 
-        string? defaultOverride = defaultValue == null ? null : SqlLiteralHelper.FormatLiteral(defaultValue);
+        string? defaultOverride = defaultValue == null ? null : SqlLiteralHelper.FormatLiteral(defaultValue, Database.Options);
         string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: defaultOverride)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }

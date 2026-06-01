@@ -377,7 +377,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
     public SQLiteEntityTypeBuilder<T> Default<TValue>(Expression<Func<T, TValue>> column, TValue value)
     {
         ArgumentNullException.ThrowIfNull(column);
-        ResolveTargetColumn(column).DefaultSql = SqlLiteralHelper.FormatLiteral(value);
+        ResolveTargetColumn(column).DefaultSql = SqlLiteralHelper.FormatLiteral(value, database.Options);
         return this;
     }
 
