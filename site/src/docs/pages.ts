@@ -54,6 +54,7 @@ export const sections: Section[] = [
             makePage("Backup"),
             makePage("Attached Databases"),
             makePage("Schema"),
+            makePage("Limitations"),
         ],
     },
     {

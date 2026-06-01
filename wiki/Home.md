@@ -64,6 +64,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - [Backup](Backup)
 - [Attached Databases](Attached%20Databases)
 - [Schema](Schema)
+- [Limitations](Limitations)
 - [Data Types](Data%20Types)
 - [Storage Options](Storage%20Options)
 - [Custom Converters](Custom%20Converters)
