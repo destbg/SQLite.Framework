@@ -31,7 +31,7 @@ internal static class CharMemberVisitor
                         ? SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UNICODE(UPPER(CHAR(", a0, ")))", parameters)
                         : SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UPPER(", a0, ")", parameters);
                 case nameof(char.IsWhiteSpace):
-                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TRIM(", a0t, ", CHAR(9, 10, 11, 12, 13, 32)) = ''", parameters);
+                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TRIM(", a0t, ", CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = ''", parameters);
                 case nameof(char.IsAsciiDigit):
                     return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(", a0t, " >= '0' AND ", a0t, " <= '9')", parameters);
                 case nameof(char.IsAsciiLetter):

@@ -10,7 +10,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("mydb.sqlite")
 using SQLiteDatabase db = new(options);
 ```
 
-`UseDateTimeStorage`, `UseDateTimeOffsetStorage`, `UseTimeSpanStorage`, `UseDateOnlyStorage`, `UseTimeOnlyStorage`, `UseDecimalStorage`, and `UseEnumStorage` each set the corresponding mode and optionally the format string. Chain them together with `AddTypeConverter`, `AddMethodTranslator`, `AddPropertyTranslator`, `UseWalMode`, `UseOpenFlags`, and `UseEncryptionKey` to configure the whole database in one place.
+`UseDateTimeStorage`, `UseDateTimeOffsetStorage`, `UseTimeSpanStorage`, `UseDateOnlyStorage`, `UseTimeOnlyStorage`, `UseDecimalStorage`, `UseEnumStorage`, and `UseCharStorage` each set the corresponding mode and optionally the format string. Chain them together with `AddTypeConverter`, `AddMethodTranslator`, `AddPropertyTranslator`, `UseWalMode`, `UseOpenFlags`, and `UseEncryptionKey` to configure the whole database in one place.
 
 Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you need to change a setting, build a new options instance.
 
@@ -146,6 +146,29 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 | `Text` | TEXT | `"Active"` |
 
 `Text` stores the name of the enum value. This is more readable but takes more space than `Integer`.
+
+---
+
+## Char
+
+| Property | Type | Default |
+|---|---|---|
+| `CharStorage` | `CharStorageMode` | `Text` |
+
+| Mode | SQLite type | Example value |
+|---|---|---|
+| `Text` | TEXT | `"A"` |
+| `Integer` | INTEGER | `65` |
+
+`Text` stores the character as a single-character string. A lone UTF-16 surrogate cannot be stored this way and reads back as the replacement character.
+
+`Integer` stores the UTF-16 code unit as a number. It round-trips every char value exactly, including lone surrogates.
+
+```csharp
+SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
+    .UseCharStorage(CharStorageMode.Integer)
+    .Build();
+```
 
 ---
 

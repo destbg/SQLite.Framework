@@ -247,7 +247,7 @@ internal static class StringMemberVisitor
             case nameof(string.IsNullOrWhiteSpace):
             {
                 SQLiteExpression a = arguments[0].SQLiteExpression!;
-                return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", a, " IS NULL OR TRIM(", a, ", CHAR(9, 10, 11, 12, 13, 32)) = '')", arguments[0].Parameters);
+                return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", a, " IS NULL OR TRIM(", a, ", CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = '')", arguments[0].Parameters);
             }
             case nameof(string.Concat):
             {

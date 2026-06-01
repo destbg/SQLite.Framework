@@ -107,7 +107,7 @@ var rounded = await db.Table<Book>()
 | `string.Compare(a, b)` | `CASE WHEN a = b THEN 0 WHEN a < b THEN -1 ELSE 1 END` |
 | `s.CompareTo(other)` | `CASE WHEN s = other THEN 0 WHEN s < other THEN -1 ELSE 1 END` |
 | `string.IsNullOrEmpty(s)` | `(s IS NULL OR s = '')` |
-| `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, CHAR(9, 10, 11, 12, 13, 32)) = '')` |
+| `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = '')` |
 
 In `+`, `string.Concat`, and `string.Join`, a nullable string column is wrapped in `COALESCE(col, '')`, so a `NULL` value becomes an empty string. This matches .NET, where `string.Concat` and `string.Join` treat a `null` argument as empty.
 
@@ -137,7 +137,7 @@ var results = await db.Table<Book>()
 |---|---|
 | `char.ToLower(c)` | `LOWER(c)` |
 | `char.ToUpper(c)` | `UPPER(c)` |
-| `char.IsWhiteSpace(c)` | `TRIM(c, CHAR(9, 10, 11, 12, 13, 32)) = ''` |
+| `char.IsWhiteSpace(c)` | `TRIM(c, CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = ''` |
 | `char.IsAsciiDigit(c)` | `c >= '0' AND c <= '9'` |
 | `char.IsAsciiLetter(c)` | `(c >= 'a' AND c <= 'z') OR (c >= 'A' AND c <= 'Z')` |
 | `char.IsAsciiLetterOrDigit(c)` | `(c >= '0' AND c <= '9') OR (c >= 'a' AND c <= 'z') OR (c >= 'A' AND c <= 'Z')` |

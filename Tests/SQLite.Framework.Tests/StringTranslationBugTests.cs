@@ -66,8 +66,11 @@ public class StringTranslationBugTests
         db.Table<TextRow>().Schema.CreateTable();
         List<TextRow> data = new()
         {
-            new TextRow { Id = 1, Value = " " },
+            new TextRow { Id = 1, Value = "\u00A0" },
             new TextRow { Id = 2, Value = "x" },
+            new TextRow { Id = 3, Value = "\u2028" },
+            new TextRow { Id = 4, Value = "\u3000\u2003" },
+            new TextRow { Id = 5, Value = "a\u00A0b" },
         };
         db.Table<TextRow>().AddRange(data);
 

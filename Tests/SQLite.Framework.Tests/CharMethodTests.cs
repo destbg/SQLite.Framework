@@ -114,7 +114,7 @@ public class CharMethodTests
                             n0."CharValue" AS "CharValue",
                             n0."BlobValue" AS "BlobValue"
                      FROM "NumericTypes" AS n0
-                     WHERE TRIM(n0."CharValue", CHAR(9, 10, 11, 12, 13, 32)) = ''
+                     WHERE TRIM(n0."CharValue", CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = ''
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
