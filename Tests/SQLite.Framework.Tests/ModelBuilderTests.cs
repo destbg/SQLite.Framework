@@ -38,7 +38,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().HasKey(m => new { m.Code, m.Id }));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("PRIMARY KEY (\"Id\", \"Code\")", TableSql(db, "MbItem"));
+        Assert.Contains("PRIMARY KEY (\"Code\", \"Id\")", TableSql(db, "MbItem"));
     }
 
     [Fact]

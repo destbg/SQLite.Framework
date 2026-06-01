@@ -91,6 +91,13 @@ public class TableColumn
     public bool IsPrimaryKey { get; internal set; }
 
     /// <summary>
+    /// The position of this column within a composite primary key. Lower values come first.
+    /// Columns that are not part of a composite key keep the default value of zero, so they
+    /// fall back to their declaration order.
+    /// </summary>
+    public int PrimaryKeyOrder { get; internal set; }
+
+    /// <summary>
     /// Indicates whether the column is an auto-incrementing primary key.
     /// </summary>
     public bool IsAutoIncrement { get; internal set; }

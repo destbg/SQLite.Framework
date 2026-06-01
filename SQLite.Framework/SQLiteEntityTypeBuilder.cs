@@ -73,12 +73,13 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
             column.IsPrimaryKey = false;
         }
 
-        foreach (string name in names)
+        for (int i = 0; i < names.Length; i++)
         {
-            TableColumn column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == name)
-                ?? throw new ArgumentException($"Property '{name}' is not mapped on {typeof(T).Name}.", nameof(key));
+            TableColumn column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == names[i])
+                ?? throw new ArgumentException($"Property '{names[i]}' is not mapped on {typeof(T).Name}.", nameof(key));
             column.IsPrimaryKey = true;
             column.IsNullable = false;
+            column.PrimaryKeyOrder = i;
         }
 
         return this;

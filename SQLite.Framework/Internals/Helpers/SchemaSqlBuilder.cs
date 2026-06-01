@@ -10,7 +10,7 @@ internal static class SchemaSqlBuilder
 {
     public static string BuildCreateTable(SQLiteDatabase database, TableMapping mapping, string tableName, bool ifNotExists)
     {
-        TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
+        TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).OrderBy(c => c.PrimaryKeyOrder).ToArray();
         bool hasCompositePrimaryKey = primaryKeyColumns.Length > 1;
 
         StringBuilder sb = new();
