@@ -678,6 +678,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         if (Options.IsWalMode)
         {
             AcquireWalWrite();
+            SetConnectionLock();
             return new WalWriteLockObject(this);
         }
 
