@@ -149,10 +149,12 @@ internal partial class SQLVisitor
             }
         }
 
+        bool eitherOperandMayBeNull = MayBeNull(leftNode) || MayBeNull(rightNode);
+
         (string sqlOp, bool parenthesis) = node.NodeType switch
         {
             ExpressionType.Equal => (" = ", false),
-            ExpressionType.NotEqual => (" <> ", false),
+            ExpressionType.NotEqual => (eitherOperandMayBeNull ? " IS NOT " : " <> ", false),
             ExpressionType.GreaterThan => (" > ", false),
             ExpressionType.LessThan => (" < ", false),
             ExpressionType.GreaterThanOrEqual => (" >= ", false),
@@ -194,5 +196,27 @@ internal partial class SQLVisitor
         return isCompound
             ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
             : expr;
+    }
+
+    private static bool MayBeNull(Expression operand)
+    {
+        Expression stripped = operand;
+        while (stripped is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
+        {
+            stripped = convert.Operand;
+        }
+
+        if (stripped.Type.IsValueType)
+        {
+            return Nullable.GetUnderlyingType(stripped.Type) != null;
+        }
+
+        return stripped switch
+        {
+            ConstantExpression => false,
+            MemberExpression { Member: PropertyInfo property } =>
+                new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
+            _ => true
+        };
     }
 }

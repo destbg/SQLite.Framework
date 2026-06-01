@@ -73,7 +73,7 @@ public class WhereTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE NOT b0."BookId" <> @p0
+                     WHERE b0."BookId" = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -455,7 +455,7 @@ public class WhereTests
                              b0."BookAuthorId" AS "AuthorId",
                              b0."BookPrice" AS "Price"
                       FROM "Books" AS b0
-                      WHERE b0."BookId" = @p0 AND NOT b0."BookId" <> @p1 AND (b0."BookId" = @p2 OR b0."BookAuthorId" = @p3) AND b0."BookTitle" IS NULL AND b0."BookTitle" <> @p5 AND (CASE WHEN b0."BookTitle" IS NOT NULL THEN @p7 ELSE @p8 END) = @p9 AND COALESCE(b0."BookTitle", @p10) = @p11
+                      WHERE b0."BookId" = @p0 AND b0."BookId" = @p1 AND (b0."BookId" = @p2 OR b0."BookAuthorId" = @p3) AND b0."BookTitle" IS NULL AND b0."BookTitle" <> @p5 AND (CASE WHEN b0."BookTitle" IS NOT NULL THEN @p7 ELSE @p8 END) = @p9 AND COALESCE(b0."BookTitle", @p10) = @p11
                       """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

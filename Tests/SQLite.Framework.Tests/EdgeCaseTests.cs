@@ -380,7 +380,7 @@ public class EdgeCaseTests
 
         List<Book> results = db.Table<Book>().Take(-1).ToList();
 
-        Assert.Single(results);
+        Assert.Empty(results);
     }
 
     [Fact]

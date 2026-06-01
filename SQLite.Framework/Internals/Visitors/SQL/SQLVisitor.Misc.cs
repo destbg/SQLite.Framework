@@ -68,6 +68,15 @@ internal partial class SQLVisitor
 
     protected override Expression VisitUnary(UnaryExpression node)
     {
+        if (node.NodeType == ExpressionType.Not
+            && node.Operand is BinaryExpression { NodeType: ExpressionType.Equal or ExpressionType.NotEqual } comparison)
+        {
+            ExpressionType flipped = comparison.NodeType == ExpressionType.Equal
+                ? ExpressionType.NotEqual
+                : ExpressionType.Equal;
+            return Visit(Expression.MakeBinary(flipped, comparison.Left, comparison.Right));
+        }
+
         ResolvedModel resolved = ResolveExpression(node.Operand);
 
         if (resolved.SQLiteExpression == null)

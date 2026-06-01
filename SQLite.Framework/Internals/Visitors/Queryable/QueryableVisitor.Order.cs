@@ -6,7 +6,7 @@ internal partial class QueryableVisitor
     {
         ThrowIfReverse(node.Method.Name);
 
-        int n = (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+        int n = Math.Max(0, (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!);
         Take = Take.HasValue ? Math.Min(Take.Value, n) : n;
         return node;
     }
