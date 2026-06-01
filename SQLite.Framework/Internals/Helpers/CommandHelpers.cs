@@ -129,7 +129,18 @@ internal static class CommandHelpers
                 return decimal.Parse(decimalString, NumberStyles.Any, CultureInfo.InvariantCulture);
             }
 
-            return Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+            double d = Convert.ToDouble(value, CultureInfo.InvariantCulture);
+            if (d >= (double)decimal.MaxValue)
+            {
+                return decimal.MaxValue;
+            }
+
+            if (d <= (double)decimal.MinValue)
+            {
+                return decimal.MinValue;
+            }
+
+            return (decimal)d;
         }
         else if (type == typeof(Guid))
         {
