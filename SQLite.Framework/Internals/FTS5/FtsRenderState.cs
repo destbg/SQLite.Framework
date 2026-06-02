@@ -199,6 +199,15 @@ internal sealed class FtsRenderState
     {
         int distance = (int)ExpressionHelpers.GetConstantValue(distanceArg)!;
 
+        int termCount = termsArg is NewArrayExpression countNae
+            ? countNae.Expressions.Count
+            : ((string[])ExpressionHelpers.GetConstantValue(termsArg)!).Length;
+        if (termCount == 0)
+        {
+            throw new NotSupportedException(
+                "SQLiteFTS5Builder.Near requires at least one term, for example f.Near(2, \"foo\", \"bar\").");
+        }
+
         AppendLiteral("NEAR(");
         if (termsArg is NewArrayExpression nae)
         {
