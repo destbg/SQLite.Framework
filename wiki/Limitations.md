@@ -35,3 +35,7 @@ This page documents query behavior that is easy to miss.
 ## SQLite functions
 
 **`SQLiteFunctions.Min` and `SQLiteFunctions.Max` need two or more arguments.** With a single argument SQLite reads `min(x)` and `max(x)` as the aggregate forms, so the query turns into an aggregate and returns one row instead of one per input row. To aggregate a column, use LINQ's `Min` and `Max`. See [SQLite Functions](SQLite%20Functions).
+
+## JSON-stored collections
+
+**`ElementAt` past the end returns the default.** Indexing a JSON-stored collection runs as a SQL subquery, so an out-of-range index returns no row and reads back as the type default, the same as `ElementAtOrDefault`. It does not throw `ArgumentOutOfRangeException` the way an in-memory list does.

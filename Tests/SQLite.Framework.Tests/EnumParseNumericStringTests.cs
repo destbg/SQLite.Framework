@@ -4,7 +4,7 @@ using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
-file enum ParseColor
+public enum ParseColor
 {
     Red = 1,
     Green = 2,
