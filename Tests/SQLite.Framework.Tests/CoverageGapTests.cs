@@ -585,7 +585,7 @@ public class CoverageGapTests
                             p0."Name" AS "Name",
                             p0."Type" AS "Type"
                      FROM "Publisher" AS p0
-                     WHERE p0."Type" = CAST((CASE @p1 WHEN @p2 THEN 1 WHEN @p3 THEN 2 WHEN @p4 THEN 3 WHEN @p5 THEN 4 ELSE NULL END) AS INTEGER)
+                     WHERE p0."Type" = CAST((CASE @p1 WHEN @p2 THEN 1 WHEN @p3 THEN 2 WHEN @p4 THEN 3 WHEN @p5 THEN 4 ELSE CAST(@p1 AS INTEGER) END) AS INTEGER)
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }

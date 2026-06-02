@@ -133,7 +133,7 @@ internal static class EnumMemberVisitor
                 ? [.. parameters]
                 : [.. stringArg.Parameters, .. parameters];
 
-            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, caseSb.ToString() + " ELSE NULL END)", allParams);
+            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, caseSb.ToString() + " ELSE CAST(", stringArgExpr, " AS INTEGER) END)", allParams);
         }
 
         throw new NotSupportedException($"Enum.{node.Method.Name} is not translatable to SQL.");
