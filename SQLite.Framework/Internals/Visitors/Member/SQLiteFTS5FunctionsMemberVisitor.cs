@@ -19,6 +19,23 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         };
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Entity type is referenced by user code via the LINQ expression.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Entity type is referenced by user code.")]
+    public static string ResolveFTS5ColumnName(SQLVisitor visitor, Type entityType, string columnName)
+    {
+        TableMapping mapping = visitor.Database.TableMapping(entityType);
+        foreach (FtsIndexedColumn indexed in mapping.FullTextSearch!.IndexedColumns)
+        {
+            if (indexed.Name == columnName || indexed.Property.Name == columnName)
+            {
+                return indexed.Name;
+            }
+        }
+
+        throw new NotSupportedException($"SQLiteFTS5 column '{columnName}' is not declared on FTS entity '{entityType.Name}'.");
+    }
+
     private static SQLiteExpression HandleFTS5Match(SQLVisitor visitor, MethodCallExpression node)
     {
         Expression first = node.Arguments[0];
@@ -244,23 +261,6 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         }
 
         throw new NotSupportedException($"SQLiteFTS5 method requires a direct entity reference; got {entity}.");
-    }
-
-    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Entity type is referenced by user code via the LINQ expression.")]
-    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Entity type is referenced by user code.")]
-    private static string ResolveFTS5ColumnName(SQLVisitor visitor, Type entityType, string columnName)
-    {
-        TableMapping mapping = visitor.Database.TableMapping(entityType);
-        foreach (FtsIndexedColumn indexed in mapping.FullTextSearch!.IndexedColumns)
-        {
-            if (indexed.Name == columnName || indexed.Property.Name == columnName)
-            {
-                return indexed.Name;
-            }
-        }
-
-        throw new NotSupportedException($"SQLiteFTS5 column '{columnName}' is not declared on FTS entity '{entityType.Name}'.");
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]

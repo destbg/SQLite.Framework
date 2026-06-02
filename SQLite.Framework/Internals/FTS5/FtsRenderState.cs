@@ -259,16 +259,16 @@ internal sealed class FtsRenderState
         return resolved.SQLiteExpression;
     }
 
-    private static string ResolveColumnName(Expression expr)
+    private string ResolveColumnName(Expression expr)
     {
-        if (expr is MemberExpression me)
-        {
-            return me.Member.Name;
-        }
-
         if (expr is UnaryExpression { NodeType: ExpressionType.Convert } u)
         {
             return ResolveColumnName(u.Operand);
+        }
+
+        if (expr is MemberExpression { Expression: { } instance } me)
+        {
+            return SQLiteFTS5FunctionsMemberVisitor.ResolveFTS5ColumnName(Visitor, instance.Type, me.Member.Name);
         }
 
         throw new NotSupportedException($"SQLiteFTS5Builder.Column expects a property reference like a.Title for its first argument, got: {expr}");

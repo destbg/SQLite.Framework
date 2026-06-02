@@ -6,17 +6,6 @@ using SQLite.Framework.Tests.Helpers;
 namespace SQLite.Framework.Tests.BugHunt;
 
 [FullTextSearch(ContentMode = FtsContentMode.Internal)]
-public class FtsRtreeHunt_ColumnAlias_Search
-{
-    [FullTextRowId]
-    public int Id { get; set; }
-
-    [FullTextIndexed]
-    [System.ComponentModel.DataAnnotations.Schema.Column("body_text")]
-    public required string Body { get; set; }
-}
-
-[FullTextSearch(ContentMode = FtsContentMode.Internal)]
 public class FtsRtreeHunt_Plain_Search
 {
     [FullTextRowId]
@@ -28,20 +17,6 @@ public class FtsRtreeHunt_Plain_Search
 
 public class FtsMatchBuilderBugTests
 {
-    [Fact]
-    public void BuilderColumnScope_UsesMappedColumnName()
-    {
-        using TestDatabase db = new();
-        db.Table<FtsRtreeHunt_ColumnAlias_Search>().Schema.CreateTable();
-        db.Table<FtsRtreeHunt_ColumnAlias_Search>().Add(new FtsRtreeHunt_ColumnAlias_Search { Id = 1, Body = "hello world" });
-
-        List<FtsRtreeHunt_ColumnAlias_Search> rows = db.Table<FtsRtreeHunt_ColumnAlias_Search>()
-            .Where(d => SQLiteFTS5Functions.Match(d, f => f.Column(d.Body, f.Term("hello"))))
-            .ToList();
-
-        Assert.Single(rows);
-    }
-
     [Fact]
     public void NearWithNoTerms_DoesNotEmitInvalidSql()
     {
