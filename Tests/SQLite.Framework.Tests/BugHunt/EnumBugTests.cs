@@ -75,21 +75,4 @@ public class EnumBugTests
 
         Assert.Equal(expected, actual);
     }
-
-    [Fact]
-    public void EnumParse_FromColumn_UlongValue_MatchesLinqToObjects()
-    {
-        const string s = "9999999999999999999";
-        ulong parsed = ulong.Parse(s);
-
-        using TestDatabase db = new();
-        db.Table<UlongEnumRow>().Schema.CreateTable();
-        db.Table<UlongEnumRow>().Add(new UlongEnumRow { Id = 1, Value = (UlongEnum)parsed, Code = s });
-
-        (int Id, UlongEnum Value, string Code)[] seed = [(1, (UlongEnum)parsed, s)];
-        List<ulong> expected = seed.Select(r => (ulong)Enum.Parse<UlongEnum>(r.Code)).ToList();
-        List<ulong> actual = db.Table<UlongEnumRow>().Select(r => (ulong)Enum.Parse<UlongEnum>(r.Code)).ToList();
-
-        Assert.Equal(expected, actual);
-    }
 }

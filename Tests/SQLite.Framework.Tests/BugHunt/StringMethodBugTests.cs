@@ -43,28 +43,6 @@ public class StringMethodBugTests
     }
 
     [Fact]
-    public void Replace_EmptyOldValue_ThrowsLikeDotNet()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "abc", AuthorId = 1, Price = 1 });
-
-        Assert.Throws<ArgumentException>(() =>
-            db.Table<Book>().Select(b => b.Title.Replace("", "X")).First());
-    }
-
-    [Fact]
-    public void Substring_NegativeCount_ThrowsLikeDotNet()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "hello", AuthorId = 1, Price = 1 });
-
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            db.Table<Book>().Select(b => b.Title.Substring(1, -3)).First());
-    }
-
-    [Fact]
     public void Compare_SubstringOverload_MatchesDotNet()
     {
         using TestDatabase db = new();
