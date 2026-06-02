@@ -84,6 +84,7 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitElementAt(MethodCallExpression node, bool throwOnEmpty)
     {
         ThrowIfReverse(node.Method.Name);
+        IsRowSelector = true;
 
         object indexValue = ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
         int n = indexValue switch

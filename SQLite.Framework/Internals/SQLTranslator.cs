@@ -359,6 +359,7 @@ internal class SQLTranslator
             ThrowOnMoreThanOne = queryableMethodVisitor.ThrowOnMoreThanOne,
             DefaultValue = queryableMethodVisitor.DefaultValue,
             HasDefaultValue = queryableMethodVisitor.HasDefaultValue,
+            IsRowSelector = queryableMethodVisitor.IsRowSelector,
             ReflectedMethods = reflectedMethods,
             ReflectedMethodInstances = reflectedInstances,
             CapturedValues = capturedValues,

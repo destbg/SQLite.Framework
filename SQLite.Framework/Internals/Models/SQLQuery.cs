@@ -14,6 +14,7 @@ internal class SQLQuery
 
     public object? DefaultValue { get; init; }
     public bool HasDefaultValue { get; init; }
+    public bool IsRowSelector { get; init; }
     public IReadOnlyList<MethodInfo>? ReflectedMethods { get; init; }
     public IReadOnlyList<object?>? ReflectedMethodInstances { get; init; }
     public IReadOnlyList<object?>? CapturedValues { get; init; }

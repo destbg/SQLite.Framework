@@ -72,6 +72,7 @@ internal partial class QueryableVisitor
     {
         CheckWhereArgument(node);
         ThrowIfReverse(node.Method.Name);
+        IsRowSelector = true;
 
         if (node.Method.Name is nameof(System.Linq.Queryable.Single) or nameof(System.Linq.Queryable.SingleOrDefault))
         {

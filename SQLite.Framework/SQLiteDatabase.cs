@@ -177,14 +177,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             {
                 Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
                 SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
-                TResult result = (TResult)BuildQueryObject.CreateInstance(context, elementType, query)!;
+                object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
 
                 if (reader.Read())
                 {
                     throw new InvalidOperationException("Query returned more than one row");
                 }
 
-                return result;
+                return CoerceScalar<TResult>(raw);
             }
         }
         else if (reader.Read())
@@ -195,12 +195,13 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
             if (raw == null
                 && typeof(TResult).IsValueType
-                && Nullable.GetUnderlyingType(typeof(TResult)) == null)
+                && Nullable.GetUnderlyingType(typeof(TResult)) == null
+                && !query.IsRowSelector)
             {
                 throw new InvalidOperationException("Sequence contains no elements");
             }
 
-            return (TResult)raw!;
+            return CoerceScalar<TResult>(raw);
         }
 
         if (query.ThrowOnEmpty)
@@ -1251,6 +1252,18 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 throw;
             }
         }
+    }
+
+    private static TResult CoerceScalar<TResult>(object? raw)
+    {
+        if (raw == null
+            && typeof(TResult).IsValueType
+            && Nullable.GetUnderlyingType(typeof(TResult)) == null)
+        {
+            return default!;
+        }
+
+        return (TResult)raw!;
     }
 
     private static void ValidateSchemaName(string schemaName)

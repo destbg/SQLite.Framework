@@ -42,11 +42,13 @@ public class NullableComparisonProjectionSemanticsTests
     }
 
     [Fact]
-    public void NullableInequalityProjectedToScalarThrows()
+    public void NullableInequalityProjectedToScalarMatchesDotNet()
     {
         using TestDatabase db = Seed((1, null));
 
-        Assert.Throws<InvalidOperationException>(
-            () => db.Table<NullableEntity>().Where(x => x.Id == 1).Select(x => x.Value > 5).First());
+        bool actual = db.Table<NullableEntity>().Where(x => x.Id == 1).Select(x => x.Value > 5).First();
+        bool oracle = ((int?)null) > 5;
+
+        Assert.Equal(oracle, actual);
     }
 }
