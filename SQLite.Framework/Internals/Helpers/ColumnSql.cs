@@ -10,7 +10,16 @@ internal static class ColumnSql
     {
         string columnType = column.ColumnType.ToString().ToUpperInvariant();
         bool inlinePk = emitInlinePrimaryKey && column.IsPrimaryKey;
-        string nullability = inlinePk ? string.Empty : column.IsNullable ? "NULL" : "NOT NULL";
+        bool rowidAlias = inlinePk && column.ColumnType == SQLiteColumnType.Integer;
+        string nullability;
+        if (!inlinePk)
+        {
+            nullability = column.IsNullable ? "NULL" : "NOT NULL";
+        }
+        else
+        {
+            nullability = rowidAlias ? string.Empty : "NOT NULL";
+        }
         string primaryKey = inlinePk ? "PRIMARY KEY" : string.Empty;
         string autoIncrement = inlinePk && column.IsAutoIncrement ? "AUTOINCREMENT" : string.Empty;
 
