@@ -32,7 +32,7 @@ public class InternalHelpersDirectTests
     public void SqlLiteralHelper_InlineParameters_NoParameters_ReturnsSqlUnchanged()
     {
         string sql = "SELECT 1";
-        string result = SqlLiteralHelper.InlineParameters(sql, []);
+        string result = SqlLiteralHelper.InlineParameters(sql, [], CompilerOptions);
         Assert.Same(sql, result);
     }
 
@@ -45,7 +45,7 @@ public class InternalHelpersDirectTests
             new() { Name = "@p10", Value = 10 },
         ];
 
-        string result = SqlLiteralHelper.InlineParameters("a = @p1 AND b = @p10", parameters);
+        string result = SqlLiteralHelper.InlineParameters("a = @p1 AND b = @p10", parameters, CompilerOptions);
 
         Assert.Equal("a = 1 AND b = 10", result);
     }
@@ -59,7 +59,7 @@ public class InternalHelpersDirectTests
             new() { Name = "@p1", Value = 42 },
         ];
 
-        string result = SqlLiteralHelper.InlineParameters("x = @p0 AND y = @p1", parameters);
+        string result = SqlLiteralHelper.InlineParameters("x = @p0 AND y = @p1", parameters, CompilerOptions);
 
         Assert.Equal("x = 'contains @p1 token' AND y = 42", result);
     }

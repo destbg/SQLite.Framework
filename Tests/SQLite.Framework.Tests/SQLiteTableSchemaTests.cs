@@ -272,12 +272,19 @@ public class SQLiteTableSchemaTests
     }
 
     [Fact]
-    public void Model_Check_DateTimeConstant_ThrowsNotSupported()
+    public void Model_Check_DateTimeConstant_IsEnforced()
     {
         DateTime cutoff = new(2026, 1, 1);
         using ModelTestDatabase db = new(model => model.Entity<Article>()
             .Check(a => a.PublishedAt > cutoff));
-        Assert.Throws<NotSupportedException>(() => db.Schema.CreateTable<Article>());
+        db.Schema.CreateTable<Article>();
+
+        db.Table<Article>().Add(new Article { Title = "ok", Body = "b", PublishedAt = new DateTime(2026, 6, 1) });
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<Article>().Add(new Article { Title = "bad", Body = "b", PublishedAt = new DateTime(2020, 1, 1) }));
+
+        List<DateTime> stored = db.Table<Article>().Select(a => a.PublishedAt).ToList();
+        Assert.Equal([new DateTime(2026, 6, 1)], stored);
     }
 
     [Fact]
@@ -625,12 +632,13 @@ public class SQLiteTableSchemaTests
         Assert.Equal("1.5", InvokeFormatLiteral(1.5f));
         Assert.Equal("1.5", InvokeFormatLiteral(1.5));
         Assert.Equal("1.5", InvokeFormatLiteral(1.5m));
+        Assert.Equal("'11112222-3333-4444-5555-666677778888'", InvokeFormatLiteral(new Guid("11112222-3333-4444-5555-666677778888")));
     }
 
     [Fact]
     public void FormatLiteral_UnsupportedType_ThrowsNotSupported()
     {
-        Assert.Throws<NotSupportedException>(() => InvokeFormatLiteral(Guid.NewGuid()));
+        Assert.Throws<NotSupportedException>(() => InvokeFormatLiteral(new object()));
     }
 
     [Fact]
@@ -649,7 +657,8 @@ public class SQLiteTableSchemaTests
 
     private static string InvokeFormatLiteral(object? value)
     {
-        return SQLite.Framework.Internals.Helpers.SqlLiteralHelper.FormatLiteral(value);
+        SQLiteOptions options = new SQLiteOptionsBuilder("format-literal.db3").Build();
+        return SQLite.Framework.Internals.Helpers.SqlLiteralHelper.FormatLiteral(value, options);
     }
 
     public class IndexBuilderEntityWithNotMapped

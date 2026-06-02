@@ -527,7 +527,7 @@ public class SQLiteSchema
         SQLTranslator translator = new(Database);
         SQLQuery sqlQuery = translator.Translate(query.Body);
 
-        string body = SqlLiteralHelper.InlineParameters(sqlQuery.Sql, sqlQuery.Parameters);
+        string body = SqlLiteralHelper.InlineParameters(sqlQuery.Sql, sqlQuery.Parameters, Database.Options);
         string sql = $"CREATE VIEW IF NOT EXISTS \"{viewName.Replace("\"", "\"\"")}\" AS{Environment.NewLine}{body}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }

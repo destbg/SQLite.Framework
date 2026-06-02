@@ -20,6 +20,6 @@ internal static class DefaultExpressionTranslator
             throw new ArgumentException($"Default expression '{lambda}' could not be translated to SQL.", parameterName);
         }
 
-        return SqlLiteralHelper.InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters ?? []);
+        return SqlLiteralHelper.InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters ?? [], database.Options);
     }
 }

@@ -66,6 +66,6 @@ internal static class BareSqlTranslator
             throw new ArgumentException($"Expression '{body}' could not be translated to SQL.", nameof(body));
         }
 
-        return SqlLiteralHelper.InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters ?? []);
+        return SqlLiteralHelper.InlineParameters(sqlExpr.ToString(), sqlExpr.Parameters ?? [], visitor.Database.Options);
     }
 }
