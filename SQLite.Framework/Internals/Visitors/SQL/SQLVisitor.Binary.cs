@@ -82,8 +82,8 @@ internal partial class SQLVisitor
             return Expression.MakeBinary(node.NodeType, resolvedLeft.Expression, resolvedRight.Expression, node.IsLiftedToNull, node.Method);
         }
 
-        SQLiteExpression left = ExpressionHelpers.BracketIfNeeded(resolvedLeft.SQLiteExpression);
-        SQLiteExpression right = ExpressionHelpers.BracketIfNeeded(resolvedRight.SQLiteExpression);
+        SQLiteExpression left = BracketBinaryOperand(leftNode, resolvedLeft.SQLiteExpression);
+        SQLiteExpression right = BracketBinaryOperand(rightNode, resolvedRight.SQLiteExpression);
 
         SQLiteParameter[]? bothParameters = ParameterHelpers.CombineParameters(left, right);
 
@@ -238,6 +238,19 @@ internal partial class SQLVisitor
         bool isCompound = stripped.NodeType is ExpressionType.OrElse or ExpressionType.AndAlso
             or ExpressionType.Or or ExpressionType.And;
         return isCompound
+            ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
+            : expr;
+    }
+
+    private static SQLiteExpression BracketBinaryOperand(Expression node, SQLiteExpression expr)
+    {
+        Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
+        bool needsBrackets = expr.RequiresBrackets
+            || stripped.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
+            || (stripped.Type == typeof(bool)
+                && stripped.NodeType is ExpressionType.AndAlso or ExpressionType.And or ExpressionType.ExclusiveOr);
+
+        return needsBrackets
             ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
             : expr;
     }

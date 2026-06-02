@@ -1,10 +1,9 @@
-using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 
-namespace SQLite.Framework.Tests.BugHunt;
+namespace SQLite.Framework.Tests;
 
-public class BooleanOperatorPrecedenceBugTests
+public class BooleanOperatorPrecedenceTests
 {
     private static readonly (int id, int? a, int? b)[] Rows =
     {
@@ -32,7 +31,7 @@ public class BooleanOperatorPrecedenceBugTests
     }
 
     [Fact]
-    public void XorOfTwoEqualityComparisons()
+    public void XorOfTwoEqualityComparisonsMatchesInMemory()
     {
         using TestDatabase db = Seed();
 
@@ -51,7 +50,7 @@ public class BooleanOperatorPrecedenceBugTests
     }
 
     [Fact]
-    public void XorOfTwoIdEqualityComparisons()
+    public void XorOfTwoIdEqualityComparisonsMatchesInMemory()
     {
         using TestDatabase db = Seed();
 
@@ -70,7 +69,7 @@ public class BooleanOperatorPrecedenceBugTests
     }
 
     [Fact]
-    public void EqualityOfTwoEqualityComparisons()
+    public void EqualityOfTwoEqualityComparisonsMatchesInMemory()
     {
         using TestDatabase db = Seed();
 
@@ -89,7 +88,7 @@ public class BooleanOperatorPrecedenceBugTests
     }
 
     [Fact]
-    public void InequalityOfTwoIdEqualityComparisons()
+    public void InequalityOfTwoIdEqualityComparisonsMatchesInMemory()
     {
         using TestDatabase db = Seed();
 
@@ -100,6 +99,44 @@ public class BooleanOperatorPrecedenceBugTests
             .ToList();
         List<int> oracle = InMemory()
             .Where(x => (x.Id == 3) != (x.Id == 4))
+            .Select(x => x.Id)
+            .OrderBy(i => i)
+            .ToList();
+
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void AndOperandUnderXorMatchesInMemory()
+    {
+        using TestDatabase db = Seed();
+
+        List<int> actual = db.Table<TwoNullableIntEntity>()
+            .Where(x => ((x.A == 5) && (x.B == 5)) ^ (x.Id == 1))
+            .Select(x => x.Id)
+            .OrderBy(i => i)
+            .ToList();
+        List<int> oracle = InMemory()
+            .Where(x => ((x.A == 5) && (x.B == 5)) ^ (x.Id == 1))
+            .Select(x => x.Id)
+            .OrderBy(i => i)
+            .ToList();
+
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void TripleNestedEqualityMatchesInMemory()
+    {
+        using TestDatabase db = Seed();
+
+        List<int> actual = db.Table<TwoNullableIntEntity>()
+            .Where(x => ((x.A == 5) == (x.B == 5)) == (x.Id == 2))
+            .Select(x => x.Id)
+            .OrderBy(i => i)
+            .ToList();
+        List<int> oracle = InMemory()
+            .Where(x => ((x.A == 5) == (x.B == 5)) == (x.Id == 2))
             .Select(x => x.Id)
             .OrderBy(i => i)
             .ToList();
