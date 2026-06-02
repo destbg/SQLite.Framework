@@ -55,16 +55,28 @@ public class SQLiteCommand
         IDisposable connectionLock = Database.ReadLock();
 
         NotifyExecuting();
+        SQLiteDataReader? reader = null;
         try
         {
             sqlite3_stmt statement = CreateStatement();
-            SQLiteDataReader reader = new(Database.GetActiveHandle(), statement, connectionLock, Database);
+            reader = new(Database.GetActiveHandle(), statement, connectionLock, Database)
+            {
+                PooledSql = CommandText,
+            };
             NotifyExecuted(rowsAffected: null);
             return reader;
         }
         catch (Exception exception)
         {
-            connectionLock.Dispose();
+            if (reader != null)
+            {
+                reader.Dispose();
+            }
+            else
+            {
+                connectionLock.Dispose();
+            }
+
             NotifyFailed(exception);
             throw;
         }
@@ -167,18 +179,7 @@ public class SQLiteCommand
 
     internal sqlite3_stmt CreateStatement()
     {
-        sqlite3 handle = Database.GetActiveHandle();
-
-        SQLiteResult result = (SQLiteResult)raw.sqlite3_prepare_v2(
-            handle,
-            CommandText,
-            out sqlite3_stmt? stmt
-        );
-
-        if (result != 0)
-        {
-            throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), CommandText);
-        }
+        sqlite3_stmt stmt = Database.RentStatement(CommandText);
 
         try
         {

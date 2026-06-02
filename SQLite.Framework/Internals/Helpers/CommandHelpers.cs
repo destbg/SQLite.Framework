@@ -20,93 +20,47 @@ internal static class CommandHelpers
 
     public static object? ReadColumnValue(sqlite3_stmt statement, int index, SQLiteColumnType columnType, Type type, SQLiteOptions options)
     {
-        object? value = columnType switch
-        {
-            SQLiteColumnType.Null => null,
-            SQLiteColumnType.Integer => raw.sqlite3_column_int64(statement, index),
-            SQLiteColumnType.Real => raw.sqlite3_column_double(statement, index),
-            SQLiteColumnType.Text => raw.sqlite3_column_text(statement, index).utf8_to_string(),
-            SQLiteColumnType.Blob => raw.sqlite3_column_blob(statement, index).ToArray(),
-            _ => throw new NotSupportedException($"Unsupported column type: {columnType}")
-        };
-
-        if (value == null)
+        if (columnType == SQLiteColumnType.Null)
         {
             return null;
         }
 
         type = Nullable.GetUnderlyingType(type) ?? type;
 
-        if (type == typeof(object))
+        if (type == typeof(DateTime))
         {
-            return value;
-        }
-        else if (type == typeof(DateTime))
-        {
-            if (value is long ticks)
-            {
-                return new DateTime(ticks);
-            }
-            else if (value is string dateString)
-            {
-                if (options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
-                {
-                    return DateTime.ParseExact(dateString, options.DateTimeFormat, CultureInfo.InvariantCulture);
-                }
-
-                if (long.TryParse(dateString, out long parsedTicks))
-                {
-                    return new DateTime(parsedTicks);
-                }
-
-                return DateTime.Parse(dateString, CultureInfo.InvariantCulture);
-            }
+            return ReadDateTime(statement, index, columnType, options);
         }
         else if (type == typeof(DateTimeOffset))
         {
-            if (value is long ticks)
-            {
-                return new DateTimeOffset(ticks, TimeSpan.Zero);
-            }
-            else if (value is string dateString)
-            {
-                return options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted
-                    ? DateTimeOffset.ParseExact(dateString, options.DateTimeOffsetFormat, CultureInfo.InvariantCulture)
-                    : DateTimeOffset.Parse(dateString, CultureInfo.InvariantCulture);
-            }
+            return ReadDateTimeOffset(statement, index, columnType, options);
         }
         else if (type == typeof(TimeSpan))
         {
-            if (value is long ticks)
-            {
-                return TimeSpan.FromTicks(ticks);
-            }
-            else if (value is string timeString)
-            {
-                return TimeSpan.ParseExact(timeString, options.TimeSpanFormat, CultureInfo.InvariantCulture);
-            }
+            return ReadTimeSpan(statement, index, columnType, options);
         }
         else if (type == typeof(DateOnly))
         {
-            if (value is long ticks)
-            {
-                return DateOnly.FromDateTime(new DateTime(ticks));
-            }
-            else if (value is string dateOnlyString)
-            {
-                return DateOnly.ParseExact(dateOnlyString, options.DateOnlyFormat, CultureInfo.InvariantCulture);
-            }
+            return ReadDateOnly(statement, index, columnType, options);
         }
         else if (type == typeof(TimeOnly))
         {
-            if (value is long ticks)
-            {
-                return new TimeOnly(ticks);
-            }
-            else if (value is string timeOnlyString)
-            {
-                return TimeOnly.ParseExact(timeOnlyString, options.TimeOnlyFormat, CultureInfo.InvariantCulture);
-            }
+            return ReadTimeOnly(statement, index, columnType, options);
+        }
+        else if (type == typeof(Guid))
+        {
+            return ReadGuid(statement, index, columnType);
+        }
+        else if (type == typeof(decimal))
+        {
+            return ReadDecimal(statement, index, columnType, options);
+        }
+
+        object value = ReadRawValue(statement, index, columnType);
+
+        if (type == typeof(object))
+        {
+            return value;
         }
         else if (type == typeof(uint))
         {
@@ -120,33 +74,6 @@ internal static class CommandHelpers
             if (value is long ulongValue)
             {
                 return unchecked((ulong)ulongValue);
-            }
-        }
-        else if (type == typeof(decimal))
-        {
-            if (value is string decimalString)
-            {
-                return decimal.Parse(decimalString, NumberStyles.Any, CultureInfo.InvariantCulture);
-            }
-
-            double d = Convert.ToDouble(value, CultureInfo.InvariantCulture);
-            if (d >= (double)decimal.MaxValue)
-            {
-                return decimal.MaxValue;
-            }
-
-            if (d <= (double)decimal.MinValue)
-            {
-                return decimal.MinValue;
-            }
-
-            return (decimal)d;
-        }
-        else if (type == typeof(Guid))
-        {
-            if (value is string guidString)
-            {
-                return Guid.Parse(guidString);
             }
         }
         else if (type == typeof(bool))
@@ -172,6 +99,143 @@ internal static class CommandHelpers
         }
 
         return Convert.ChangeType(value, type, CultureInfo.InvariantCulture);
+    }
+
+    public static object ReadRawValue(sqlite3_stmt statement, int index, SQLiteColumnType columnType)
+    {
+        return columnType switch
+        {
+            SQLiteColumnType.Integer => raw.sqlite3_column_int64(statement, index),
+            SQLiteColumnType.Real => raw.sqlite3_column_double(statement, index),
+            SQLiteColumnType.Text => raw.sqlite3_column_text(statement, index).utf8_to_string(),
+            SQLiteColumnType.Blob => raw.sqlite3_column_blob(statement, index).ToArray(),
+            _ => throw new NotSupportedException($"Unsupported column type: {columnType}")
+        };
+    }
+
+    public static DateTime ReadDateTime(sqlite3_stmt statement, int index, SQLiteColumnType columnType, SQLiteOptions options)
+    {
+        if (columnType == SQLiteColumnType.Integer)
+        {
+            return new DateTime(raw.sqlite3_column_int64(statement, index));
+        }
+
+        if (columnType == SQLiteColumnType.Text)
+        {
+            string dateString = raw.sqlite3_column_text(statement, index).utf8_to_string();
+            if (options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
+            {
+                return DateTime.ParseExact(dateString, options.DateTimeFormat, CultureInfo.InvariantCulture);
+            }
+
+            if (long.TryParse(dateString, out long parsedTicks))
+            {
+                return new DateTime(parsedTicks);
+            }
+
+            return DateTime.Parse(dateString, CultureInfo.InvariantCulture);
+        }
+
+        return (DateTime)Convert.ChangeType(ReadRawValue(statement, index, columnType), typeof(DateTime), CultureInfo.InvariantCulture);
+    }
+
+    public static DateTimeOffset ReadDateTimeOffset(sqlite3_stmt statement, int index, SQLiteColumnType columnType, SQLiteOptions options)
+    {
+        if (columnType == SQLiteColumnType.Integer)
+        {
+            return new DateTimeOffset(raw.sqlite3_column_int64(statement, index), TimeSpan.Zero);
+        }
+
+        if (columnType == SQLiteColumnType.Text)
+        {
+            string dateString = raw.sqlite3_column_text(statement, index).utf8_to_string();
+            return options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted
+                ? DateTimeOffset.ParseExact(dateString, options.DateTimeOffsetFormat, CultureInfo.InvariantCulture)
+                : DateTimeOffset.Parse(dateString, CultureInfo.InvariantCulture);
+        }
+
+        return (DateTimeOffset)Convert.ChangeType(ReadRawValue(statement, index, columnType), typeof(DateTimeOffset), CultureInfo.InvariantCulture);
+    }
+
+    public static TimeSpan ReadTimeSpan(sqlite3_stmt statement, int index, SQLiteColumnType columnType, SQLiteOptions options)
+    {
+        if (columnType == SQLiteColumnType.Integer)
+        {
+            return TimeSpan.FromTicks(raw.sqlite3_column_int64(statement, index));
+        }
+
+        if (columnType == SQLiteColumnType.Text)
+        {
+            string timeString = raw.sqlite3_column_text(statement, index).utf8_to_string();
+            return TimeSpan.ParseExact(timeString, options.TimeSpanFormat, CultureInfo.InvariantCulture);
+        }
+
+        return (TimeSpan)Convert.ChangeType(ReadRawValue(statement, index, columnType), typeof(TimeSpan), CultureInfo.InvariantCulture);
+    }
+
+    public static DateOnly ReadDateOnly(sqlite3_stmt statement, int index, SQLiteColumnType columnType, SQLiteOptions options)
+    {
+        if (columnType == SQLiteColumnType.Integer)
+        {
+            return DateOnly.FromDateTime(new DateTime(raw.sqlite3_column_int64(statement, index)));
+        }
+
+        if (columnType == SQLiteColumnType.Text)
+        {
+            string dateOnlyString = raw.sqlite3_column_text(statement, index).utf8_to_string();
+            return DateOnly.ParseExact(dateOnlyString, options.DateOnlyFormat, CultureInfo.InvariantCulture);
+        }
+
+        return (DateOnly)Convert.ChangeType(ReadRawValue(statement, index, columnType), typeof(DateOnly), CultureInfo.InvariantCulture);
+    }
+
+    public static TimeOnly ReadTimeOnly(sqlite3_stmt statement, int index, SQLiteColumnType columnType, SQLiteOptions options)
+    {
+        if (columnType == SQLiteColumnType.Integer)
+        {
+            return new TimeOnly(raw.sqlite3_column_int64(statement, index));
+        }
+
+        if (columnType == SQLiteColumnType.Text)
+        {
+            string timeOnlyString = raw.sqlite3_column_text(statement, index).utf8_to_string();
+            return TimeOnly.ParseExact(timeOnlyString, options.TimeOnlyFormat, CultureInfo.InvariantCulture);
+        }
+
+        return (TimeOnly)Convert.ChangeType(ReadRawValue(statement, index, columnType), typeof(TimeOnly), CultureInfo.InvariantCulture);
+    }
+
+    public static Guid ReadGuid(sqlite3_stmt statement, int index, SQLiteColumnType columnType)
+    {
+        if (columnType == SQLiteColumnType.Text)
+        {
+            return Guid.Parse(raw.sqlite3_column_text(statement, index).utf8_to_string());
+        }
+
+        return (Guid)Convert.ChangeType(ReadRawValue(statement, index, columnType), typeof(Guid), CultureInfo.InvariantCulture);
+    }
+
+    public static decimal ReadDecimal(sqlite3_stmt statement, int index, SQLiteColumnType columnType, SQLiteOptions options)
+    {
+        if (columnType == SQLiteColumnType.Text)
+        {
+            return decimal.Parse(raw.sqlite3_column_text(statement, index).utf8_to_string(), NumberStyles.Any, CultureInfo.InvariantCulture);
+        }
+
+        double d = columnType == SQLiteColumnType.Real
+            ? raw.sqlite3_column_double(statement, index)
+            : Convert.ToDouble(ReadRawValue(statement, index, columnType), CultureInfo.InvariantCulture);
+        if (d >= (double)decimal.MaxValue)
+        {
+            return decimal.MaxValue;
+        }
+
+        if (d <= (double)decimal.MinValue)
+        {
+            return decimal.MinValue;
+        }
+
+        return (decimal)d;
     }
 
     public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteOptions options)

@@ -17,16 +17,28 @@ public static class AsyncSQLiteCommandExtensions
         IDisposable connectionLock = await command.Database.ReadLockAsync(cancellationToken);
 
         command.NotifyExecuting();
+        SQLiteDataReader? reader = null;
         try
         {
             sqlite3_stmt statement = command.CreateStatement();
-            SQLiteDataReader reader = new(command.Database.GetActiveHandle(), statement, connectionLock, command.Database);
+            reader = new(command.Database.GetActiveHandle(), statement, connectionLock, command.Database)
+            {
+                PooledSql = command.CommandText,
+            };
             command.NotifyExecuted(rowsAffected: null);
             return reader;
         }
         catch (Exception exception)
         {
-            connectionLock.Dispose();
+            if (reader != null)
+            {
+                reader.Dispose();
+            }
+            else
+            {
+                connectionLock.Dispose();
+            }
+
             command.NotifyFailed(exception);
             throw;
         }

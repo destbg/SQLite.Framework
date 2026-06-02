@@ -17,6 +17,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly AsyncLocal<bool> holdsConnectionLock = new();
     private readonly SemaphoreSlim walWriterGate = new(1, 1);
     private readonly Dictionary<Type, TableMapping> tableMappings = [];
+    private readonly PreparedStatementPool statementPool = new();
     private bool modelCreated;
     private int walWriterCount;
     private int activeTransactionCount;
@@ -130,9 +131,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
             lock (connectionOpenLock)
             {
+                statementPool.Clear();
+
                 if (Handle != null)
                 {
-                    raw.sqlite3_close(Handle);
+                    raw.sqlite3_close_v2(Handle);
                     Handle = null;
                 }
             }
@@ -948,6 +951,28 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     internal sqlite3 GetActiveHandle()
     {
         return Handle!;
+    }
+
+    internal sqlite3_stmt RentStatement(string sql)
+    {
+        if (statementPool.TryRent(sql, out sqlite3_stmt pooled))
+        {
+            return pooled;
+        }
+
+        sqlite3 handle = GetActiveHandle();
+        SQLiteResult result = (SQLiteResult)raw.sqlite3_prepare_v2(handle, sql, out sqlite3_stmt? stmt);
+        if (result != SQLiteResult.OK)
+        {
+            throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
+        }
+
+        return stmt;
+    }
+
+    internal void ReturnStatement(string sql, sqlite3_stmt statement)
+    {
+        statementPool.Return(sql, statement);
     }
 
 #if SQLITE_FRAMEWORK_TESTING

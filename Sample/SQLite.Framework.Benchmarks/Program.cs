@@ -4,6 +4,7 @@ using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Environments;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using BenchmarkDotNet.Toolchains.NativeAot;
 using Microsoft.EntityFrameworkCore;
 using SqliteNet = SQLite;
@@ -13,34 +14,117 @@ using SQLite.Framework.Generated;
 
 SQLitePCL.Batteries_V2.Init();
 
-if (args.Length > 0 && args[0] == "--separate-connection")
+if (args.Length > 0 && args[0] == "--alloc")
 {
-    SQLite.Framework.Benchmarks.SeparateConnectionScenario.Run();
+    AllocProbe.Run();
     return;
 }
 
-IConfig config = DefaultConfig.Instance
-    .AddJob(Job.Default
-        .WithWarmupCount(5)
-        .WithIterationCount(30)
-        .WithId("JIT"))
-    .AddJob(Job.Default
-        .WithWarmupCount(5)
-        .WithIterationCount(30)
-        .WithToolchain(NativeAotToolchain.CreateBuilder()
-            .UseNuGet("10.0.0", "https://api.nuget.org/v3/index.json")
-            .TargetFrameworkMoniker("net10.0")
-            .ToToolchain())
-        .WithId("AOT"));
+bool fast = args.Length > 0 && args[0] == "--fast";
+if (fast)
+{
+    args = args.Skip(1).ToArray();
+}
+
+bool jit = args.Length > 0 && args[0] == "--jit";
+if (jit)
+{
+    args = args.Skip(1).ToArray();
+}
+
+IConfig config = fast
+    ? DefaultConfig.Instance
+        .AddJob(Job.Default
+            .WithWarmupCount(3)
+            .WithIterationCount(10)
+            .WithToolchain(InProcessEmitToolchain.Instance)
+            .WithId("JIT"))
+    : jit
+    ? DefaultConfig.Instance
+        .AddJob(Job.Default
+            .WithWarmupCount(5)
+            .WithIterationCount(15)
+            .WithId("JIT"))
+    : DefaultConfig.Instance
+        .AddJob(Job.Default
+            .WithWarmupCount(5)
+            .WithIterationCount(30)
+            .WithId("JIT"))
+        .AddJob(Job.Default
+            .WithWarmupCount(5)
+            .WithIterationCount(30)
+            .WithToolchain(NativeAotToolchain.CreateBuilder()
+                .UseNuGet("10.0.0", "https://api.nuget.org/v3/index.json")
+                .TargetFrameworkMoniker("net10.0")
+                .ToToolchain())
+            .WithId("AOT"));
 
 BenchmarkSwitcher.FromTypes(new[]
 {
     typeof(TranslationBenchmarks),
     typeof(ReadBenchmarks),
+    typeof(ValueTypeReadBenchmarks),
     typeof(InsertBenchmarks),
     typeof(UpdateBenchmarks),
     typeof(JoinBenchmarks),
 }).Run(args, config);
+
+internal static class AllocProbe
+{
+    public static void Run()
+    {
+        string reflPath = BenchHelpers.NewDb("alloc-fw");
+        string genPath = BenchHelpers.NewDb("alloc-fwg");
+
+        SQLiteDatabase refl = new(new SQLiteOptionsBuilder(reflPath).Build());
+        SQLiteDatabase gen = new(new SQLiteOptionsBuilder(genPath).UseGeneratedMaterializers().Build());
+
+        foreach (SQLiteDatabase db in new[] { refl, gen })
+        {
+            db.Schema.CreateTable<Event>();
+            for (int i = 0; i < BenchHelpers.RowsPerQuery; i++)
+            {
+                db.Table<Event>().Add(new Event
+                {
+                    Id = i + 1,
+                    Name = $"Event {i}",
+                    CreatedAt = new DateTime(2026, 1, 1).AddMinutes(i),
+                    Stamp = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddSeconds(i),
+                    Duration = TimeSpan.FromSeconds(i),
+                    Token = Guid.NewGuid(),
+                    Amount = 9.99m + i,
+                });
+            }
+        }
+
+        Console.WriteLine($"reflection bytes/read: {Measure(refl)}");
+        Console.WriteLine($"generated  bytes/read: {Measure(gen)}");
+
+        refl.Dispose();
+        gen.Dispose();
+        BenchHelpers.TryDelete(reflPath);
+        BenchHelpers.TryDelete(genPath);
+
+        static long Measure(SQLiteDatabase db)
+        {
+            for (int i = 0; i < 50; i++)
+            {
+                _ = db.Table<Event>().ToList();
+            }
+
+            const int iterations = 2000;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int i = 0; i < iterations; i++)
+            {
+                _ = db.Table<Event>().ToList();
+            }
+            long after = GC.GetAllocatedBytesForCurrentThread();
+            return (after - before) / iterations;
+        }
+    }
+}
 
 internal static class BenchHelpers
 {
@@ -583,6 +667,83 @@ public class JoinBenchmarks
          orderby book.Price descending
          select new BookSummary { Title = book.Title, Author = author.Name, Price = book.Price })
         .ToList();
+}
+
+[MemoryDiagnoser]
+[GroupBenchmarksBy(BenchmarkLogicalGroupRule.ByCategory)]
+[CategoriesColumn]
+public class ValueTypeReadBenchmarks
+{
+    private SQLiteDatabase frameworkDb = null!;
+    private SQLiteDatabase frameworkDbGen = null!;
+    private string a = null!, b = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        a = BenchHelpers.NewDb("vt-fw");
+        b = BenchHelpers.NewDb("vt-fwg");
+
+        frameworkDb = new SQLiteDatabase(new SQLiteOptionsBuilder(a).Build());
+        frameworkDb.Schema.CreateTable<Event>();
+        Seed(frameworkDb);
+
+        frameworkDbGen = new SQLiteDatabase(new SQLiteOptionsBuilder(b).UseGeneratedMaterializers().Build());
+        frameworkDbGen.Schema.CreateTable<Event>();
+        Seed(frameworkDbGen);
+    }
+
+    private static void Seed(SQLiteDatabase db)
+    {
+        for (int i = 0; i < BenchHelpers.RowsPerQuery; i++)
+        {
+            db.Table<Event>().Add(new Event
+            {
+                Id = i + 1,
+                Name = $"Event {i}",
+                CreatedAt = new DateTime(2026, 1, 1).AddMinutes(i),
+                Stamp = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddSeconds(i),
+                Duration = TimeSpan.FromSeconds(i),
+                Token = Guid.NewGuid(),
+                Amount = 9.99m + i,
+            });
+        }
+    }
+
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        frameworkDb.Dispose();
+        frameworkDbGen.Dispose();
+        BenchHelpers.TryDelete(a);
+        BenchHelpers.TryDelete(b);
+    }
+
+    [Benchmark(Baseline = true), BenchmarkCategory("VtList")]
+    public List<Event> Framework_ValueTypeList() =>
+        frameworkDb.Table<Event>().ToList();
+
+    [Benchmark, BenchmarkCategory("VtList")]
+    public List<Event> FrameworkGen_ValueTypeList() =>
+        frameworkDbGen.Table<Event>().ToList();
+}
+
+public class Event
+{
+    [Key]
+    public int Id { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTimeOffset Stamp { get; set; }
+
+    public TimeSpan Duration { get; set; }
+
+    public Guid Token { get; set; }
+
+    public decimal Amount { get; set; }
 }
 
 public class Book

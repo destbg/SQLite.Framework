@@ -7,6 +7,7 @@ public class SQLiteDataReader : IDisposable
 {
     private readonly IDisposable connectionLock;
     private readonly sqlite3 handle;
+    private bool disposed;
 
     internal readonly sqlite3_stmt Statement;
 
@@ -27,6 +28,13 @@ public class SQLiteDataReader : IDisposable
     public SQLiteDatabase Database { get; }
 
     /// <summary>
+    /// When set, the statement is returned to the database statement pool on dispose instead of being
+    /// finalized, so the next query with the same SQL can reuse it. Left null for readers created
+    /// directly through the public constructor, which keep the finalize on dispose behavior.
+    /// </summary>
+    internal string? PooledSql { get; init; }
+
+    /// <summary>
     /// The storage options used by the data reader, which may affect how certain types are read from the database.
     /// </summary>
     public SQLiteOptions Options => Database.Options;
@@ -39,7 +47,22 @@ public class SQLiteDataReader : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        raw.sqlite3_finalize(Statement);
+        if (disposed)
+        {
+            return;
+        }
+
+        disposed = true;
+
+        if (PooledSql != null)
+        {
+            Database.ReturnStatement(PooledSql, Statement);
+        }
+        else
+        {
+            raw.sqlite3_finalize(Statement);
+        }
+
         connectionLock.Dispose();
     }
 
@@ -139,5 +162,84 @@ public class SQLiteDataReader : IDisposable
             return null;
         }
         return raw.sqlite3_column_text(Statement, index).utf8_to_string();
+    }
+
+    /// <summary>
+    /// Reads a <see cref="DateTime" /> column without boxing. A NULL column returns the default value.
+    /// Honors the database <see cref="SQLiteOptions.DateTimeStorage" /> mode, the same as the generic
+    /// <see cref="GetValue(int, SQLiteColumnType, Type)" /> path.
+    /// </summary>
+    public DateTime GetDateTimeValue(int index)
+    {
+        SQLiteColumnType columnType = GetColumnType(index);
+        return columnType == SQLiteColumnType.Null
+            ? default
+            : CommandHelpers.ReadDateTime(Statement, index, columnType, Options);
+    }
+
+    /// <summary>
+    /// Reads a <see cref="DateTimeOffset" /> column without boxing. A NULL column returns the default value.
+    /// </summary>
+    public DateTimeOffset GetDateTimeOffsetValue(int index)
+    {
+        SQLiteColumnType columnType = GetColumnType(index);
+        return columnType == SQLiteColumnType.Null
+            ? default
+            : CommandHelpers.ReadDateTimeOffset(Statement, index, columnType, Options);
+    }
+
+    /// <summary>
+    /// Reads a <see cref="TimeSpan" /> column without boxing. A NULL column returns the default value.
+    /// </summary>
+    public TimeSpan GetTimeSpanValue(int index)
+    {
+        SQLiteColumnType columnType = GetColumnType(index);
+        return columnType == SQLiteColumnType.Null
+            ? default
+            : CommandHelpers.ReadTimeSpan(Statement, index, columnType, Options);
+    }
+
+    /// <summary>
+    /// Reads a <see cref="DateOnly" /> column without boxing. A NULL column returns the default value.
+    /// </summary>
+    public DateOnly GetDateOnlyValue(int index)
+    {
+        SQLiteColumnType columnType = GetColumnType(index);
+        return columnType == SQLiteColumnType.Null
+            ? default
+            : CommandHelpers.ReadDateOnly(Statement, index, columnType, Options);
+    }
+
+    /// <summary>
+    /// Reads a <see cref="TimeOnly" /> column without boxing. A NULL column returns the default value.
+    /// </summary>
+    public TimeOnly GetTimeOnlyValue(int index)
+    {
+        SQLiteColumnType columnType = GetColumnType(index);
+        return columnType == SQLiteColumnType.Null
+            ? default
+            : CommandHelpers.ReadTimeOnly(Statement, index, columnType, Options);
+    }
+
+    /// <summary>
+    /// Reads a <see cref="Guid" /> column without boxing. A NULL column returns the default value.
+    /// </summary>
+    public Guid GetGuidValue(int index)
+    {
+        SQLiteColumnType columnType = GetColumnType(index);
+        return columnType == SQLiteColumnType.Null
+            ? default
+            : CommandHelpers.ReadGuid(Statement, index, columnType);
+    }
+
+    /// <summary>
+    /// Reads a <see cref="decimal" /> column without boxing. A NULL column returns the default value.
+    /// </summary>
+    public decimal GetDecimalValue(int index)
+    {
+        SQLiteColumnType columnType = GetColumnType(index);
+        return columnType == SQLiteColumnType.Null
+            ? default
+            : CommandHelpers.ReadDecimal(Statement, index, columnType, Options);
     }
 }

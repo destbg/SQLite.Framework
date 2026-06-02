@@ -627,10 +627,36 @@ internal static class SelectMaterializerEmitter
                 cast = null;
                 handlesNull = true;
                 return true;
-            default:
-                accessor = null;
+            case SpecialType.System_DateTime:
+                accessor = "GetDateTimeValue";
                 cast = null;
-                return false;
+                return true;
+            case SpecialType.System_Decimal:
+                accessor = "GetDecimalValue";
+                cast = null;
+                return true;
+            default:
+                cast = null;
+                accessor = TryGetStructAccessor(stripped);
+                return accessor != null;
         }
+    }
+
+    private static string? TryGetStructAccessor(ITypeSymbol type)
+    {
+        if (type.ContainingNamespace?.ToDisplayString() != "System")
+        {
+            return null;
+        }
+
+        return type.Name switch
+        {
+            "DateTimeOffset" => "GetDateTimeOffsetValue",
+            "TimeSpan" => "GetTimeSpanValue",
+            "DateOnly" => "GetDateOnlyValue",
+            "TimeOnly" => "GetTimeOnlyValue",
+            "Guid" => "GetGuidValue",
+            _ => null,
+        };
     }
 }
