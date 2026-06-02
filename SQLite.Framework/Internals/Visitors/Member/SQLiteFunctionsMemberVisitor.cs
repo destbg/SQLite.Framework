@@ -260,14 +260,7 @@ internal static class SQLiteFunctionsMemberVisitor
     {
         ResolvedModel format = visitor.ResolveExpression(node.Arguments[0]);
 
-        List<ResolvedModel> rest = [];
-        if (node.Arguments[1] is NewArrayExpression arrayExpr)
-        {
-            foreach (Expression e in arrayExpr.Expressions)
-            {
-                rest.Add(visitor.ResolveExpression(e));
-            }
-        }
+        List<ResolvedModel> rest = ResolveVariadic(visitor, node.Arguments[1]);
 
         SQLiteExpression formatExpr = format.SQLiteExpression!;
         SQLiteExpression[] restExprs = rest.Select(r => r.SQLiteExpression!).ToArray();
