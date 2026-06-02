@@ -96,8 +96,16 @@ internal partial class QueryableVisitor
                 "Use OrderByDescending instead so you can index from the start.")
         };
 
-        Skip = (Skip ?? 0) + n;
-        Take = Take.HasValue ? Math.Min(Math.Max(0, Take.Value - n), 1) : 1;
+        if (n < 0)
+        {
+            Take = 0;
+        }
+        else
+        {
+            Skip = (Skip ?? 0) + n;
+            Take = Take.HasValue ? Math.Min(Math.Max(0, Take.Value - n), 1) : 1;
+        }
+
         if (throwOnEmpty)
         {
             ThrowOnEmpty = true;
