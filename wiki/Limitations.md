@@ -22,6 +22,8 @@ This page documents query behavior that is easy to miss.
 
 **`Substring` and `Remove` clamp.** Out-of-range arguments are clamped rather than rejected. `"ab".Substring(0, 5)` returns `"ab"` and `"ab".Substring(5)` returns `""`.
 
+**`ToUpper` and `ToLower` depend on the SQLite build.** They map to SQLite's `upper` and `lower`. How those fold non-ASCII letters depends on how the SQLite library was compiled. The default bundled SQLite folds only `a` to `z` and `A` to `Z`, so an accented or non-Latin letter is left unchanged and the result can differ from folding in memory. A build with the ICU extension folds non-ASCII letters too.
+
 ## Null comparisons
 
 **Order comparisons on a `NULL` column are `NULL`.** `>`, `<`, `>=`, and `<=` evaluate to `NULL` when one side is a `NULL` column. In a `Where` clause and in `All` the row is excluded or fails the check. Projected with `ToList` the value reads as `false`. Read as a single scalar with `First` or `Single` it throws, because a `NULL` cannot be read into a non-nullable `bool`. Project to `bool?` or use `ToList` to read it. Equality (`==` and `!=`) stays correct, because it uses `IS` and `IS NOT`.

@@ -22,7 +22,7 @@ internal static class NumericMemberVisitor
 
             if (node.Method.Name == nameof(int.ToString))
             {
-                Type objType = Nullable.GetUnderlyingType(node.Object!.Type) ?? node.Object!.Type;
+                Type objType = node.Object!.Type;
                 if (objType == typeof(ulong))
                 {
                     return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "printf('%llu', ", obj.SQLiteExpression!, ")", obj.Parameters);

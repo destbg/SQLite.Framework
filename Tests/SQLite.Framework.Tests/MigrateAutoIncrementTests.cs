@@ -127,4 +127,18 @@ public class MigrateAutoIncrementTests
 
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void RebuildOfNeverInsertedAutoIncrementTableStartsFresh()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<AiSeqRow>();
+
+        db.Schema.Table<AiSeqRow>().Migrate(m => m.Set(x => x.Name, x => x.Name));
+
+        AiSeqRow inserted = new() { Name = "a" };
+        db.Table<AiSeqRow>().Add(inserted);
+
+        Assert.Equal(1, inserted.Id);
+    }
 }

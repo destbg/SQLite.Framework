@@ -266,7 +266,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         List<TResult> projected = ExecuteWithReturning(sql, parameters);
 
         bool inserted = raw.sqlite3_last_insert_rowid(Database.GetActiveHandle()) != lastRowIdBefore;
-        if (inserted && projected.Count > 0 && autoIncrement != null)
+        if (inserted && autoIncrement != null)
         {
             BackfillAutoIncrement(item, projected[0], autoIncrement);
         }
