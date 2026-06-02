@@ -1358,7 +1358,7 @@ public class MethodCallTests
         Assert.Equal("Test", command.Parameters[0].Value);
         Assert.Equal("""
                      SELECT b0."BookId" AS "Id",
-                            (CASE WHEN b0."BookTitle" = @p0 THEN 0 WHEN b0."BookTitle" < @p0 THEN -1 ELSE 1 END) AS "Comparison"
+                            (CASE WHEN b0."BookTitle" IS NULL AND @p0 IS NULL THEN 0 WHEN b0."BookTitle" IS NULL THEN -1 WHEN @p0 IS NULL THEN 1 WHEN b0."BookTitle" = @p0 THEN 0 WHEN b0."BookTitle" < @p0 THEN -1 ELSE 1 END) AS "Comparison"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

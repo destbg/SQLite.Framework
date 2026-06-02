@@ -129,8 +129,8 @@ internal static class StringMemberVisitor
                     SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);
                     return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                        ["(CASE WHEN ", " = ", " THEN 0 WHEN ", " < ", " THEN -1 ELSE 1 END)"],
-                        [objExpr, arg0, objExpr, arg0],
+                        ["(CASE WHEN ", " IS NULL AND ", " IS NULL THEN 0 WHEN ", " IS NULL THEN -1 WHEN ", " IS NULL THEN 1 WHEN ", " = ", " THEN 0 WHEN ", " < ", " THEN -1 ELSE 1 END)"],
+                        [objExpr, arg0, objExpr, arg0, objExpr, arg0, objExpr, arg0],
                         parameters);
                 }
                 case nameof(string.Equals):
@@ -307,8 +307,8 @@ internal static class StringMemberVisitor
                     || (arguments[2].Constant is bool b && b));
                 string collate = ignoreCase ? " COLLATE NOCASE" : "";
                 return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                    ["(CASE WHEN ", " = ", $"{collate} THEN 0 WHEN ", " < ", $"{collate} THEN -1 ELSE 1 END)"],
-                    [a0, a1, a0, a1],
+                    ["(CASE WHEN ", " IS NULL AND ", " IS NULL THEN 0 WHEN ", " IS NULL THEN -1 WHEN ", " IS NULL THEN 1 WHEN ", " = ", $"{collate} THEN 0 WHEN ", " < ", $"{collate} THEN -1 ELSE 1 END)"],
+                    [a0, a1, a0, a1, a0, a1, a0, a1],
                     ParameterHelpers.CombineParameters(a0, a1));
             }
             case nameof(string.Equals):
