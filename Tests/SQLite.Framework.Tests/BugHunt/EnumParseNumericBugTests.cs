@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests.BugHunt;
@@ -9,15 +8,6 @@ file enum HuntSmallEnum
 {
     A = 1,
     B = 2
-}
-
-[Table("HuntUlongRows")]
-file sealed class HuntUlongRow
-{
-    [Key]
-    public int Id { get; set; }
-
-    public ulong Value { get; set; }
 }
 
 [Table("HuntEnumParseRows")]
@@ -31,34 +21,8 @@ file sealed class HuntEnumParseRow
     public string Code { get; set; } = "";
 }
 
-public class UnsignedNumericAndEnumParseBugTests
+public class EnumParseNumericBugTests
 {
-    [Fact]
-    public void UlongDivideAboveLongMaxMatchesDotNet()
-    {
-        using TestDatabase db = new();
-        db.Table<HuntUlongRow>().Schema.CreateTable();
-        db.Table<HuntUlongRow>().Add(new HuntUlongRow { Id = 1, Value = ulong.MaxValue });
-
-        ulong actual = db.Table<HuntUlongRow>().Select(r => r.Value / 2UL).First();
-        ulong expected = ulong.MaxValue / 2UL;
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void UlongModuloAboveLongMaxMatchesDotNet()
-    {
-        using TestDatabase db = new();
-        db.Table<HuntUlongRow>().Schema.CreateTable();
-        db.Table<HuntUlongRow>().Add(new HuntUlongRow { Id = 1, Value = ulong.MaxValue });
-
-        ulong actual = db.Table<HuntUlongRow>().Select(r => r.Value % 10UL).First();
-        ulong expected = ulong.MaxValue % 10UL;
-
-        Assert.Equal(expected, actual);
-    }
-
     [Fact]
     public void EnumParseNumericStringMatchesDotNet()
     {

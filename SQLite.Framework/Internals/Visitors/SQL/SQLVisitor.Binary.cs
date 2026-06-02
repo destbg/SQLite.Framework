@@ -161,11 +161,16 @@ internal partial class SQLVisitor
             return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", concatLeft, " || ", concatRight, "", ParameterHelpers.CombineParameters(concatLeft, concatRight));
         }
 
-        if (leftNode.Type == typeof(ulong) && rightNode.Type == typeof(ulong)
-            && node.NodeType is ExpressionType.GreaterThan or ExpressionType.LessThan
-                or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual)
+        if (leftNode.Type == typeof(ulong) && rightNode.Type == typeof(ulong))
         {
-            return BuildUnsignedComparison(node.NodeType, left, right, bothParameters);
+            switch (node.NodeType)
+            {
+                case ExpressionType.GreaterThan or ExpressionType.LessThan
+                    or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual:
+                    return BuildUnsignedComparison(node.NodeType, left, right, bothParameters);
+                case ExpressionType.Divide or ExpressionType.Modulo:
+                    return BuildUnsignedDivOrMod(node.NodeType == ExpressionType.Modulo, node.Type, left, right, bothParameters);
+            }
         }
 
         (string sqlOp, bool parenthesis) = node.NodeType switch
@@ -213,6 +218,22 @@ internal partial class SQLVisitor
             Counters.NextIdentifier(),
             ["(CASE WHEN ((", " < 0) = (", " < 0)) THEN ", signedOp, " ELSE ", " < 0 END)"],
             [a, b, a, b, elseOperand],
+            parameters);
+    }
+
+    private SQLiteExpression BuildUnsignedDivOrMod(bool isModulo, Type resultType, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)
+    {
+        string caseBody = isModulo
+            ? "CASE WHEN bb = 0 THEN aa % bb WHEN bb = 1 THEN 0 WHEN bb < 0 THEN (CASE WHEN (aa < 0 AND aa >= bb) THEN (aa - bb) ELSE aa END) ELSE (CASE WHEN (rh + a0) >= (bb - rh) THEN (rh + a0) - (bb - rh) ELSE (rh + a0 + rh) END) END"
+            : "CASE WHEN bb = 0 THEN aa / bb WHEN bb = 1 THEN aa WHEN bb < 0 THEN (CASE WHEN (aa < 0 AND aa >= bb) THEN 1 ELSE 0 END) ELSE ((ah / bb) * 2 + (CASE WHEN (rh + a0) >= (bb - rh) THEN 1 ELSE 0 END)) END";
+
+        string prefix = "(SELECT " + caseBody + " FROM (SELECT aa, bb, ah, (ah % bb) AS rh, (aa & 1) AS a0 FROM (SELECT aa, bb, ((aa >> 1) & 9223372036854775807) AS ah FROM (SELECT ";
+
+        return SQLiteExpression.Multi(
+            resultType,
+            Counters.NextIdentifier(),
+            [prefix, " AS aa, ", " AS bb))))"],
+            [a, b],
             parameters);
     }
 
