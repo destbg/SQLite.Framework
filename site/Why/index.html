@@ -245,7 +245,8 @@
                     and
                     <a href="https://github.com/dotnet/macios/issues/17194"
                        target="_blank"
-                       rel="noopener noreferrer">this one</a>.
+                       rel="noopener noreferrer">this one</a>. You can enable the interpreter, but that has a huge
+                    performance cost, and it broke some other parts of the app.
                 </p>
                 <p data-reveal>
                     So we went back to sqlite-net-pcl. But it still loads whole tables into memory and joins them in C#,
