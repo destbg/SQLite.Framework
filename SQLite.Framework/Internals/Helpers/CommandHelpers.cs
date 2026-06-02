@@ -171,7 +171,7 @@ internal static class CommandHelpers
             return Encoding.UTF8.GetString(blobBytes);
         }
 
-        return Convert.ChangeType(value, type);
+        return Convert.ChangeType(value, type, CultureInfo.InvariantCulture);
     }
 
     public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteOptions options)
