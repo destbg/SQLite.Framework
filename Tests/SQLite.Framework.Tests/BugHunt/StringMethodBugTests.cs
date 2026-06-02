@@ -1,0 +1,82 @@
+using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Helpers;
+
+namespace SQLite.Framework.Tests.BugHunt;
+
+public class StringMethodBugTests
+{
+    [Fact]
+    public void Trim_StripsAllWhitespace_MatchesDotNet()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "\tTest\n", AuthorId = 1, Price = 1 });
+
+        string[] seed = ["\tTest\n"];
+        string expectedTrim = seed.Select(s => s.Trim()).Single();
+        string expectedTrimStart = seed.Select(s => s.TrimStart()).Single();
+        string expectedTrimEnd = seed.Select(s => s.TrimEnd()).Single();
+
+        string actualTrim = db.Table<Book>().Select(b => b.Title.Trim()).Single();
+        string actualTrimStart = db.Table<Book>().Select(b => b.Title.TrimStart()).Single();
+        string actualTrimEnd = db.Table<Book>().Select(b => b.Title.TrimEnd()).Single();
+
+        Assert.Equal(expectedTrim, actualTrim);
+        Assert.Equal(expectedTrimStart, actualTrimStart);
+        Assert.Equal(expectedTrimEnd, actualTrimEnd);
+    }
+
+    [Fact]
+    public void LastIndexOf_WithStartIndex_MatchesDotNet()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "banana", AuthorId = 1, Price = 1 });
+
+        int expectedString = "banana".LastIndexOf("a", 3);
+        int expectedChar = "banana".LastIndexOf('a', 3);
+        int actualString = db.Table<Book>().Select(b => b.Title.LastIndexOf("a", 3)).First();
+        int actualChar = db.Table<Book>().Select(b => b.Title.LastIndexOf('a', 3)).First();
+
+        Assert.Equal(expectedString, actualString);
+        Assert.Equal(expectedChar, actualChar);
+    }
+
+    [Fact]
+    public void Replace_EmptyOldValue_ThrowsLikeDotNet()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "abc", AuthorId = 1, Price = 1 });
+
+        Assert.Throws<ArgumentException>(() =>
+            db.Table<Book>().Select(b => b.Title.Replace("", "X")).First());
+    }
+
+    [Fact]
+    public void Substring_NegativeCount_ThrowsLikeDotNet()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "hello", AuthorId = 1, Price = 1 });
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            db.Table<Book>().Select(b => b.Title.Substring(1, -3)).First());
+    }
+
+    [Fact]
+    public void Compare_SubstringOverload_MatchesDotNet()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "hello", AuthorId = 1, Price = 1 });
+
+        int expected = string.Compare("hello", 2, "fully", 2, 2);
+        int actual = db.Table<Book>()
+            .Where(b => b.Id == 1)
+            .Select(b => string.Compare(b.Title, 2, "fully", 2, 2))
+            .First();
+
+        Assert.Equal(Math.Sign(expected), Math.Sign(actual));
+    }
+}
