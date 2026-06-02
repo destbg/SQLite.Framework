@@ -128,9 +128,10 @@ internal class SQLTranslator
         }
 
         bool useExists = queryableMethodVisitor.IsAny || queryableMethodVisitor.IsAll;
+        bool hasSetOperations = queryableMethodVisitor.SetOperations.Count > 0;
 
         // Visit all expressions to collect parameters before composing SQL.
-        if (QueryType == QueryType.Select && !useExists)
+        if (QueryType == QueryType.Select && (!useExists || hasSetOperations))
         {
             foreach (SQLiteExpression expression in queryableMethodVisitor.Selects)
             {
@@ -182,8 +183,6 @@ internal class SQLTranslator
         {
             VisitSQLExpression(sqlExpression);
         }
-
-        bool hasSetOperations = queryableMethodVisitor.SetOperations.Count > 0;
 
         if (hasSetOperations)
         {
@@ -388,7 +387,7 @@ internal class SQLTranslator
             sb.Append("SELECT");
             if (q.IsDistinct) sb.Append(" DISTINCT");
             sb.Append(' ');
-            if (useExists)
+            if (useExists && !hasSetOperations)
             {
                 sb.Append('1');
             }
