@@ -227,12 +227,13 @@ internal class AliasVisitor
         else
         {
             (string path, ParameterExpression _) = ExpressionHelpers.ResolveParameterPath(memberExpression);
+            string prefixToMatch = path + ".";
 
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
-                if (tableColumn.Key.StartsWith(path))
+                if (tableColumn.Key.StartsWith(prefixToMatch, StringComparison.Ordinal))
                 {
-                    string newPath = tableColumn.Key[(path.Length + 1)..];
+                    string newPath = tableColumn.Key[prefixToMatch.Length..];
                     result.Add(CheckPrefix(prefix, newPath), tableColumn.Value);
                 }
             }
