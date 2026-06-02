@@ -74,16 +74,14 @@ internal partial class JsonCollectionVisitor
 
     private void HandleSkip(MethodCallExpression call)
     {
-        ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-        offset = arg.SQLiteExpression!.ToString();
-        AddParameters(arg);
+        int n = Math.Max(0, (int)ExpressionHelpers.GetConstantValue(call.Arguments[1])!);
+        offset = n.ToString(CultureInfo.InvariantCulture);
     }
 
     private void HandleTake(MethodCallExpression call)
     {
-        ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-        limit = arg.SQLiteExpression!.ToString();
-        AddParameters(arg);
+        int n = Math.Max(0, (int)ExpressionHelpers.GetConstantValue(call.Arguments[1])!);
+        limit = n.ToString(CultureInfo.InvariantCulture);
     }
 
     private void AddOptionalPredicate(MethodCallExpression call, Type elementType)

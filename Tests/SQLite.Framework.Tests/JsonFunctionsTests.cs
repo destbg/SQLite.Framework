@@ -1719,9 +1719,9 @@ public class JsonFunctionsTests
                              SELECT "value"
                              FROM json_each(l0."Tags")
                              ORDER BY "value" ASC
-                             LIMIT @p0
+                             LIMIT 2
                          )
-                     ) AS "4"
+                     ) AS "3"
                      FROM "ListRow" AS l0
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
 
