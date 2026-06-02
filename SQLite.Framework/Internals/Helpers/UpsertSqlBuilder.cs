@@ -12,6 +12,12 @@ internal static class UpsertSqlBuilder
             .Where(c => !c.IsPrimaryKey || !c.IsAutoIncrement)
             .ToArray();
 
+        if (table.ComputedColumns.Count > 0)
+        {
+            HashSet<string> computedNames = table.ComputedColumns.Select(c => c.Column.Name).ToHashSet();
+            insertColumns = insertColumns.Where(c => !computedNames.Contains(c.Name)).ToArray();
+        }
+
         if (extraColumns is { Count: > 0 })
         {
             HashSet<string> overridden = extraColumns.Select(e => e.Column).ToHashSet();

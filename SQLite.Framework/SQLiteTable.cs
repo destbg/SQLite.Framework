@@ -550,6 +550,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         TableColumn[] columns = Database.Options.ExplicitAutoIncrementKeysPreserved
             ? Table.Columns.ToArray()
             : Table.Columns.Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement).ToArray();
+        columns = ExcludeComputedColumns(columns);
         columns = ExcludeOverriddenColumns(columns);
 
         return (columns, BuildAddSql(columns));
@@ -566,6 +567,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         TableColumn[] columns = Table.Columns
             .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
             .ToArray();
+        columns = ExcludeComputedColumns(columns);
         columns = ExcludeOverriddenColumns(columns);
 
         TableColumn[] primaryKeyColumns = Table.Columns
@@ -628,7 +630,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
     {
-        TableColumn[] columns = ExcludeOverriddenColumns(Table.Columns.ToArray());
+        TableColumn[] columns = ExcludeOverriddenColumns(ExcludeComputedColumns(Table.Columns.ToArray()));
         string sql = BuildAddOrUpdateSql(columns, conflict);
 
         return (columns, sql);
@@ -987,6 +989,18 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         HashSet<string> overridden = extra.Select(e => e.Column).ToHashSet();
         return columns.Where(c => !overridden.Contains(c.Name)).ToArray();
+    }
+
+    private TableColumn[] ExcludeComputedColumns(TableColumn[] columns)
+    {
+        IReadOnlyList<ComputedColumnSpec> computed = Table.ComputedColumns;
+        if (computed.Count == 0)
+        {
+            return columns;
+        }
+
+        HashSet<string> computedNames = computed.Select(c => c.Column.Name).ToHashSet();
+        return columns.Where(c => !computedNames.Contains(c.Name)).ToArray();
     }
 
     private (string ColumnList, string ValueList) BuildWriteLists(TableColumn[] columns)
