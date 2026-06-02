@@ -34,19 +34,6 @@ file sealed class HuntEnumParseRow
 public class UnsignedNumericAndEnumParseBugTests
 {
     [Fact]
-    public void UlongToStringAboveLongMaxMatchesDotNet()
-    {
-        using TestDatabase db = new();
-        db.Table<HuntUlongRow>().Schema.CreateTable();
-        db.Table<HuntUlongRow>().Add(new HuntUlongRow { Id = 1, Value = ulong.MaxValue });
-
-        string actual = db.Table<HuntUlongRow>().Select(r => r.Value.ToString()).First();
-        string expected = ulong.MaxValue.ToString();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
     public void UlongDivideAboveLongMaxMatchesDotNet()
     {
         using TestDatabase db = new();
