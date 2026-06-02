@@ -198,18 +198,8 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
         List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
 
-        List<TResult> rows = ExecuteWithReturning(sql, parameters);
-        if (rows.Count == 0)
-        {
-            return default;
-        }
-
-        if (autoIncrement != null)
-        {
-            BackfillAutoIncrement(item, rows[0], autoIncrement);
-        }
-
-        return rows[0];
+        List<TResult> rows = UpsertWithReturning(sql, parameters, autoIncrement, item);
+        return rows.Count == 0 ? default : rows[0];
     }
 
     /// <summary>
@@ -232,12 +222,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             item =>
             {
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
-                List<TResult> projected = ExecuteWithReturning(sql, parameters);
-                if (projected.Count > 0 && autoIncrement != null)
-                {
-                    BackfillAutoIncrement(item, projected[0], autoIncrement);
-                }
-                return projected;
+                return UpsertWithReturning(sql, parameters, autoIncrement, item);
             });
     }
 
@@ -273,6 +258,20 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         return Database.CreateCommand(finalSql, combinedParameters)
             .ExecuteQueryInternal<TResult>(query)
             .ToList();
+    }
+
+    private List<TResult> UpsertWithReturning(string sql, List<SQLiteParameter> parameters, TableColumn? autoIncrement, T item)
+    {
+        long lastRowIdBefore = raw.sqlite3_last_insert_rowid(Database.GetActiveHandle());
+        List<TResult> projected = ExecuteWithReturning(sql, parameters);
+
+        bool inserted = raw.sqlite3_last_insert_rowid(Database.GetActiveHandle()) != lastRowIdBefore;
+        if (inserted && projected.Count > 0 && autoIncrement != null)
+        {
+            BackfillAutoIncrement(item, projected[0], autoIncrement);
+        }
+
+        return projected;
     }
 
     private ProjectionPlan BuildProjectionPlan()
