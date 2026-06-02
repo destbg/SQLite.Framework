@@ -79,7 +79,7 @@ internal static class JsonMethodTranslator
                     $"CASE WHEN json_array_length({src}) = 1 THEN json_extract({src}, '$[0]') ELSE NULL END",
                 nameof(Enumerable.Min) => $"(SELECT MIN(\"value\") FROM json_each({src}))",
                 nameof(Enumerable.Max) => $"(SELECT MAX(\"value\") FROM json_each({src}))",
-                nameof(Enumerable.Sum) => $"(SELECT SUM(\"value\") FROM json_each({src}))",
+                nameof(Enumerable.Sum) => $"(SELECT COALESCE(SUM(\"value\"), 0) FROM json_each({src}))",
                 nameof(Enumerable.Average) => $"(SELECT AVG(\"value\") FROM json_each({src}))",
                 nameof(Enumerable.Distinct) => $"(SELECT json_group_array(DISTINCT \"value\") FROM json_each({src}))",
                 nameof(Enumerable.Reverse) => $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) ORDER BY \"key\" DESC))",

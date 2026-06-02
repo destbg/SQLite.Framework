@@ -148,7 +148,8 @@ internal partial class JsonCollectionVisitor
             ? VisitLambda(call.Arguments[1], elementType)
             : selectExpr;
 
-        selectExpr = distinct ? $"{sqlFunc}(DISTINCT {inner})" : $"{sqlFunc}({inner})";
+        string aggregate = distinct ? $"{sqlFunc}(DISTINCT {inner})" : $"{sqlFunc}({inner})";
+        selectExpr = sqlFunc == "SUM" ? $"COALESCE({aggregate}, 0)" : aggregate;
         distinct = false;
         wrapInArray = false;
     }

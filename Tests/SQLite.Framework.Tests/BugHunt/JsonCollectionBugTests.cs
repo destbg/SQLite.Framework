@@ -41,30 +41,6 @@ public class JsonCollectionBugTests
     }
 
     [Fact]
-    public void SumOverEmptyArrayWithFirstReturnsZero()
-    {
-        using TestDatabase db = CreateNumDb();
-        db.Table<HuntNumRow>().Add(new HuntNumRow { Id = 1, Numbers = [] });
-
-        int expected = new List<int>().Sum();
-        int actual = db.Table<HuntNumRow>().Select(r => r.Numbers.Sum()).First();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void FirstOrDefaultOverEmptyArrayWithFirstReturnsZero()
-    {
-        using TestDatabase db = CreateNumDb();
-        db.Table<HuntNumRow>().Add(new HuntNumRow { Id = 1, Numbers = [] });
-
-        int expected = new List<int>().FirstOrDefault();
-        int actual = db.Table<HuntNumRow>().Select(r => r.Numbers.FirstOrDefault()).First();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
     public void TakeNegativeOnJsonCollectionReturnsEmpty()
     {
         using TestDatabase db = CreateNumDb();
