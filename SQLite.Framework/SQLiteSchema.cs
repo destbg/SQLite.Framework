@@ -904,6 +904,8 @@ public class SQLiteSchema
         IReadOnlyList<string> liveTriggers = Database.Query<string>(
             $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{table.Replace("'", "''")}' AND sql IS NOT NULL");
 
+        long? autoIncrementSeq = ReadAutoIncrementSequence(mapping, table);
+
         long foreignKeys = Database.ExecuteScalar<long>("PRAGMA foreign_keys");
         Database.Execute("PRAGMA foreign_keys = OFF");
         try
@@ -916,6 +918,10 @@ public class SQLiteSchema
             }
             Database.Execute($"DROP TABLE \"{table}\"");
             Database.Execute($"ALTER TABLE \"{temp}\" RENAME TO \"{table}\"");
+            if (autoIncrementSeq.HasValue)
+            {
+                RestoreAutoIncrementSequence(table, autoIncrementSeq.Value);
+            }
             foreach (string trigger in liveTriggers)
             {
                 Database.Execute(trigger);
@@ -927,6 +933,31 @@ public class SQLiteSchema
         {
             Database.Execute($"PRAGMA foreign_keys = {foreignKeys}");
         }
+    }
+
+    private long? ReadAutoIncrementSequence(TableMapping mapping, string table)
+    {
+        if (!mapping.Columns.Any(c => c.IsPrimaryKey && c.IsAutoIncrement))
+        {
+            return null;
+        }
+
+        bool sequenceExists = Database.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'sqlite_sequence'") > 0;
+        if (!sequenceExists)
+        {
+            return null;
+        }
+
+        List<long> seq = Database.Query<long>($"SELECT seq FROM sqlite_sequence WHERE name = '{table.Replace("'", "''")}'");
+        return seq.Count > 0 ? seq[0] : null;
+    }
+
+    private void RestoreAutoIncrementSequence(string table, long seq)
+    {
+        string escaped = table.Replace("'", "''");
+        Database.Execute($"DELETE FROM sqlite_sequence WHERE name = '{escaped}'");
+        Database.Execute($"INSERT INTO sqlite_sequence (name, seq) VALUES ('{escaped}', {seq})");
     }
 
     private void EnsureNoUnfilledNotNull(TableMapping mapping, string table, HashSet<string> liveColumns, HashSet<string> computedColumns, HashSet<string> setColumns)
