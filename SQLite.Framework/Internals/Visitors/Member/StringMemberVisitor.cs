@@ -318,19 +318,35 @@ internal static class StringMemberVisitor
                 throw new NotSupportedException("string.Join with a non-array source is not translatable to SQL.");
             case nameof(string.Compare):
             {
+                if (node.Arguments[1].Type == typeof(int))
+                {
+                    if (arguments.Count is not (5 or 6))
+                    {
+                        throw new NotSupportedException(
+                            "string.Compare with a CultureInfo is not translatable to SQL. " +
+                            "Only the substring overloads with an optional ignoreCase or StringComparison are supported.");
+                    }
+
+                    SQLiteExpression strA = arguments[0].SQLiteExpression!;
+                    SQLiteExpression indexA = arguments[1].SQLiteExpression!;
+                    SQLiteExpression strB = arguments[2].SQLiteExpression!;
+                    SQLiteExpression indexB = arguments[3].SQLiteExpression!;
+                    SQLiteExpression length = arguments[4].SQLiteExpression!;
+
+                    SQLiteExpression subA = SQLiteExpression.Multi(typeof(string), visitor.Counters.NextIdentifier(),
+                        ["SUBSTR(", ", ", " + 1, ", ")"], [strA, indexA, length], null);
+                    SQLiteExpression subB = SQLiteExpression.Multi(typeof(string), visitor.Counters.NextIdentifier(),
+                        ["SUBSTR(", ", ", " + 1, ", ")"], [strB, indexB, length], null);
+
+                    bool ignoreCaseSub = arguments.Count == 6 && IsCompareIgnoreCase(arguments[5].Constant);
+                    SQLiteParameter[]? subParameters = ParameterHelpers.CombineParameters([strA, indexA, strB, indexB, length]);
+                    return BuildCompare(visitor, node.Method.ReturnType, subA, subB, ignoreCaseSub, subParameters);
+                }
+
                 SQLiteExpression a0 = arguments[0].SQLiteExpression!;
                 SQLiteExpression a1 = arguments[1].SQLiteExpression!;
-                bool ignoreCase = arguments.Count == 3 && (
-                    (arguments[2].Constant is StringComparison c
-                        && c is StringComparison.OrdinalIgnoreCase
-                            or StringComparison.CurrentCultureIgnoreCase
-                            or StringComparison.InvariantCultureIgnoreCase)
-                    || (arguments[2].Constant is bool b && b));
-                string collate = ignoreCase ? " COLLATE NOCASE" : "";
-                return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                    ["(CASE WHEN ", " IS NULL AND ", " IS NULL THEN 0 WHEN ", " IS NULL THEN -1 WHEN ", " IS NULL THEN 1 WHEN ", " = ", $"{collate} THEN 0 WHEN ", " < ", $"{collate} THEN -1 ELSE 1 END)"],
-                    [a0, a1, a0, a1, a0, a1, a0, a1],
-                    ParameterHelpers.CombineParameters(a0, a1));
+                bool ignoreCase = arguments.Count == 3 && IsCompareIgnoreCase(arguments[2].Constant);
+                return BuildCompare(visitor, node.Method.ReturnType, a0, a1, ignoreCase, ParameterHelpers.CombineParameters(a0, a1));
             }
             case nameof(string.Equals):
                 if (arguments.Count == 3 && arguments[2].Constant is StringComparison comparison)
@@ -516,5 +532,23 @@ internal static class StringMemberVisitor
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj, arguments[0].SQLiteExpression!);
             return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{trimType}(", obj, ", ", arguments[0].SQLiteExpression!, ")", parameters);
         }
+    }
+
+    private static SQLiteExpression BuildCompare(SQLVisitor visitor, Type returnType, SQLiteExpression a, SQLiteExpression b, bool ignoreCase, SQLiteParameter[]? parameters)
+    {
+        string collate = ignoreCase ? " COLLATE NOCASE" : "";
+        return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
+            ["(CASE WHEN ", " IS NULL AND ", " IS NULL THEN 0 WHEN ", " IS NULL THEN -1 WHEN ", " IS NULL THEN 1 WHEN ", " = ", $"{collate} THEN 0 WHEN ", " < ", $"{collate} THEN -1 ELSE 1 END)"],
+            [a, b, a, b, a, b, a, b],
+            parameters);
+    }
+
+    private static bool IsCompareIgnoreCase(object? constant)
+    {
+        return (constant is StringComparison c
+                && c is StringComparison.OrdinalIgnoreCase
+                    or StringComparison.CurrentCultureIgnoreCase
+                    or StringComparison.InvariantCultureIgnoreCase)
+            || (constant is bool b && b);
     }
 }

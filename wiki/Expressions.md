@@ -106,6 +106,7 @@ var rounded = await db.Table<Book>()
 | `string.Concat(a, b, ...)` | `a \|\| b \|\| ...` |
 | `string.Join(sep, values)` | `val1 \|\| sep \|\| val2 \|\| ...` |
 | `string.Compare(a, b)` | `CASE WHEN a = b THEN 0 WHEN a < b THEN -1 ELSE 1 END` |
+| `string.Compare(a, indexA, b, indexB, length)` | the same `Compare`, run over `SUBSTR(a, indexA + 1, length)` and `SUBSTR(b, indexB + 1, length)` |
 | `s.CompareTo(other)` | `CASE WHEN s = other THEN 0 WHEN s < other THEN -1 ELSE 1 END` |
 | `string.IsNullOrEmpty(s)` | `(s IS NULL OR s = '')` |
 | `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = '')` |
