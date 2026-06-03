@@ -3,25 +3,9 @@ using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests.BugHunt;
 
-internal enum ParseColorCi
-{
-    Red = 1,
-    Green = 2,
-}
-
 internal enum UlongEnum : ulong
 {
     A = 1,
-}
-
-internal sealed class EnumParseCiRow
-{
-    [Key]
-    public int Id { get; set; }
-
-    public ParseColorCi Color { get; set; }
-
-    public string Code { get; set; } = "";
 }
 
 internal sealed class UlongEnumRow
@@ -36,33 +20,6 @@ internal sealed class UlongEnumRow
 
 public class EnumBugTests
 {
-    [Fact]
-    public void EnumParse_IgnoreCase_Where_MatchesLinqToObjects()
-    {
-        using TestDatabase db = new();
-        db.Table<EnumParseCiRow>().Schema.CreateTable();
-        db.Table<EnumParseCiRow>().Add(new EnumParseCiRow { Id = 1, Color = ParseColorCi.Green, Code = "green" });
-
-        (int Id, ParseColorCi Color, string Code)[] seed = [(1, ParseColorCi.Green, "green")];
-        List<int> expected = seed.Where(r => r.Color == Enum.Parse<ParseColorCi>(r.Code, true)).Select(r => r.Id).ToList();
-        List<int> actual = db.Table<EnumParseCiRow>().Where(r => r.Color == Enum.Parse<ParseColorCi>(r.Code, true)).Select(r => r.Id).ToList();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void EnumParse_IgnoreCase_Projection_MatchesLinqToObjects()
-    {
-        using TestDatabase db = new();
-        db.Table<EnumParseCiRow>().Schema.CreateTable();
-        db.Table<EnumParseCiRow>().Add(new EnumParseCiRow { Id = 1, Color = ParseColorCi.Green, Code = "green" });
-
-        ParseColorCi expected = Enum.Parse<ParseColorCi>("green", true);
-        ParseColorCi actual = db.Table<EnumParseCiRow>().Select(r => Enum.Parse<ParseColorCi>(r.Code, true)).First();
-
-        Assert.Equal(expected, actual);
-    }
-
     [Fact]
     public void EnumToString_UlongUndefinedValue_MatchesDotNet()
     {

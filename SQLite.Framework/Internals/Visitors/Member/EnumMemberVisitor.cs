@@ -84,11 +84,13 @@ internal static class EnumMemberVisitor
         {
             Type enumType;
             ResolvedModel stringArg;
+            bool ignoreCase;
 
             if (node.Method.IsGenericMethod)
             {
                 enumType = node.Method.GetGenericArguments()[0];
                 stringArg = arguments[0];
+                ignoreCase = arguments.Count >= 2 && arguments[1].Constant is bool genericIgnoreCase && genericIgnoreCase;
             }
             else
             {
@@ -96,6 +98,7 @@ internal static class EnumMemberVisitor
                 {
                     enumType = type;
                     stringArg = arguments[1];
+                    ignoreCase = arguments.Count >= 3 && arguments[2].Constant is bool nonGenericIgnoreCase && nonGenericIgnoreCase;
                 }
                 else
                 {
@@ -133,7 +136,8 @@ internal static class EnumMemberVisitor
                 ? [.. parameters]
                 : [.. stringArg.Parameters, .. parameters];
 
-            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, caseSb.ToString() + " ELSE CAST(", stringArgExpr, " AS INTEGER) END)", allParams);
+            string collate = ignoreCase ? " COLLATE NOCASE" : "";
+            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, collate + caseSb + " ELSE CAST(", stringArgExpr, " AS INTEGER) END)", allParams);
         }
 
         throw new NotSupportedException($"Enum.{node.Method.Name} is not translatable to SQL.");
