@@ -64,11 +64,29 @@ internal static class StringMemberVisitor
 #endif
                     SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
-                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);
-                    return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                        ["CASE WHEN LENGTH(", ") = 0 THEN LENGTH(", ") ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, ", " UNION ALL SELECT pos + INSTR(rem, ", "), SUBSTR(rem, INSTR(rem, ", ") + 1) FROM find_pos WHERE INSTR(rem, ", ") > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END"],
-                        [arg0, objExpr, objExpr, arg0, arg0, arg0],
-                        parameters);
+
+                    if (arguments.Count == 1)
+                    {
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0);
+                        return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                            ["CASE WHEN LENGTH(", ") = 0 THEN LENGTH(", ") ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, ", " UNION ALL SELECT pos + INSTR(rem, ", "), SUBSTR(rem, INSTR(rem, ", ") + 1) FROM find_pos WHERE INSTR(rem, ", ") > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END"],
+                            [arg0, objExpr, objExpr, arg0, arg0, arg0],
+                            parameters);
+                    }
+
+                    if (arguments.Count == 2 && node.Arguments[1].Type == typeof(int))
+                    {
+                        SQLiteExpression start = arguments[1].SQLiteExpression!;
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(objExpr, arg0, start);
+                        return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                            ["CASE WHEN LENGTH(", ") = 0 THEN LENGTH(SUBSTR(", ", 1, ", " + 1)) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, SUBSTR(", ", 1, ", " + 1) UNION ALL SELECT pos + INSTR(rem, ", "), SUBSTR(rem, INSTR(rem, ", ") + 1) FROM find_pos WHERE INSTR(rem, ", ") > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END"],
+                            [arg0, objExpr, start, objExpr, start, arg0, arg0, arg0],
+                            parameters);
+                    }
+
+                    throw new NotSupportedException(
+                        "string.LastIndexOf is only translatable with a single value argument or a value plus a start index. " +
+                        "StringComparison and count overloads are not supported.");
                 }
                 case nameof(string.Insert):
                 {
