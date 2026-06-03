@@ -68,7 +68,7 @@ internal partial class JsonCollectionVisitor
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
         ParameterExpression param = lambda.Parameters[0];
 
-        BindParameter(param, elementType, "\"value\"");
+        BindParameter(param, elementType, selectExpr);
 
         Expression result = visitor.Visit(lambda.Body);
         visitor.MethodArguments.Remove(param);

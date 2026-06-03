@@ -197,7 +197,7 @@ internal partial class JsonCollectionVisitor
     {
         ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
         AddParameters(arg);
-        wheres.Add($"\"value\" IS {arg.SQLiteExpression}");
+        wheres.Add($"{selectExpr} IS {arg.SQLiteExpression}");
         existsWrapper = "EXISTS";
         selectExpr = "1";
         limit = "1";
