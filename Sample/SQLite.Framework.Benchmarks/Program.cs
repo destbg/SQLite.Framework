@@ -11,6 +11,8 @@ using SqliteNet = SQLite;
 using SQLite.Framework;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Generated;
+using System.Reflection;
+using SQLitePCL;
 
 SQLitePCL.Batteries_V2.Init();
 
@@ -67,6 +69,7 @@ BenchmarkSwitcher.FromTypes(new[]
     typeof(InsertBenchmarks),
     typeof(UpdateBenchmarks),
     typeof(JoinBenchmarks),
+    typeof(ModuloSubqueryBenchmarks),
 }).Run(args, config);
 
 internal static class AllocProbe
@@ -638,7 +641,13 @@ public class JoinBenchmarks
          join author in frameworkDb.Table<Author>() on book.AuthorId equals author.Id
          where book.Price > 50
          orderby book.Price descending
-         select new BookSummary { Title = book.Title, Author = author.Name, Price = book.Price })
+         select new BookSummary
+         {
+             Title = book.Title,
+             Author = author.Name,
+             Price = book.Price,
+             TotalBooks = frameworkDb.Table<Book>().Count(),
+         })
         .ToList();
 
     [Benchmark, BenchmarkCategory("JoinProject")]
@@ -647,7 +656,13 @@ public class JoinBenchmarks
          join author in frameworkDbGen.Table<Author>() on book.AuthorId equals author.Id
          where book.Price > 50
          orderby book.Price descending
-         select new BookSummary { Title = book.Title, Author = author.Name, Price = book.Price })
+         select new BookSummary
+         {
+             Title = book.Title,
+             Author = author.Name,
+             Price = book.Price,
+             TotalBooks = frameworkDbGen.Table<Book>().Count(),
+         })
         .ToList();
 
     [Benchmark, BenchmarkCategory("JoinProject")]
@@ -656,7 +671,13 @@ public class JoinBenchmarks
          join author in sqliteNet.Table<Author>() on book.AuthorId equals author.Id
          where book.Price > 50
          orderby book.Price descending
-         select new BookSummary { Title = book.Title, Author = author.Name, Price = book.Price })
+         select new BookSummary
+         {
+             Title = book.Title,
+             Author = author.Name,
+             Price = book.Price,
+             TotalBooks = sqliteNet.Table<Book>().Count(),
+         })
         .ToList();
 
     [Benchmark, BenchmarkCategory("JoinProject")]
@@ -665,7 +686,13 @@ public class JoinBenchmarks
          join author in ef.Authors.AsNoTracking() on book.AuthorId equals author.Id
          where book.Price > 50
          orderby book.Price descending
-         select new BookSummary { Title = book.Title, Author = author.Name, Price = book.Price })
+         select new BookSummary
+         {
+             Title = book.Title,
+             Author = author.Name,
+             Price = book.Price,
+             TotalBooks = ef.Books.Count(),
+         })
         .ToList();
 }
 
@@ -728,6 +755,90 @@ public class ValueTypeReadBenchmarks
         frameworkDbGen.Table<Event>().ToList();
 }
 
+[MemoryDiagnoser]
+public class ModuloSubqueryBenchmarks
+{
+    private SQLiteDatabase db = null!;
+    private string path = null!;
+    private string modSql = null!;
+    private string emulationSql = null!;
+    private string withCteSql = null!;
+    private string withCteMaterializedSql = null!;
+    private string udfSql = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        path = BenchHelpers.NewDb("mod-sub");
+        db = new SQLiteDatabase(new SQLiteOptionsBuilder(path).Build());
+        db.Schema.CreateTable<Num>();
+        db.Execute(
+            "INSERT INTO \"Num\" (\"Id\", \"Name\", \"Value\") " +
+            "WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 300000) " +
+            "SELECT n, 'Name ' || n, (n % 997) * 1.5 + 0.25 FROM seq");
+
+        const string agg =
+            "SELECT SUM((LENGTH(\"Name\") * \"Value\" + ABS(\"Value\" - 100.0)) / (LENGTH(\"Name\") + 1.0)) " +
+            "FROM \"Num\" WHERE \"Name\" LIKE '%5%' AND \"Value\" > 0.0";
+        string subquery = "(" + agg + ")";
+
+        modSql = "SELECT mod(" + subquery + ", 7.0) AS \"V\"";
+        emulationSql = "SELECT (" + subquery + " - 7.0 * CAST(" + subquery + " / 7.0 AS INTEGER)) AS \"V\"";
+        withCteSql = "WITH t(v) AS (" + agg + ") SELECT (t.v - 7.0 * CAST(t.v / 7.0 AS INTEGER)) AS \"V\" FROM t";
+        withCteMaterializedSql = "WITH t(v) AS MATERIALIZED (" + agg + ") SELECT (t.v - 7.0 * CAST(t.v / 7.0 AS INTEGER)) AS \"V\" FROM t";
+        udfSql = "SELECT udf_mod(" + subquery + ", 7.0) AS \"V\"";
+
+        sqlite3 handle = (sqlite3)typeof(SQLiteDatabase)
+            .GetMethod("GetActiveHandle", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .Invoke(db, null)!;
+        raw.sqlite3_create_function(handle, "udf_mod", 2, raw.SQLITE_UTF8 | raw.SQLITE_DETERMINISTIC, null, UdfMod);
+    }
+
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        db.Dispose();
+        BenchHelpers.TryDelete(path);
+    }
+
+    [Benchmark(Baseline = true)]
+    public double Emulation_SubqueryEvaluatedTwice() => db.QueryFirst<ModRow>(emulationSql).V;
+
+    [Benchmark]
+    public double Mod_SubqueryEvaluatedOnce() => db.QueryFirst<ModRow>(modSql).V;
+
+    [Benchmark]
+    public double Emulation_WithCte() => db.QueryFirst<ModRow>(withCteSql).V;
+
+    [Benchmark]
+    public double Emulation_WithCteMaterialized() => db.QueryFirst<ModRow>(withCteMaterializedSql).V;
+
+    [Benchmark]
+    public double CustomUdf_Mod() => db.QueryFirst<ModRow>(udfSql).V;
+
+    private static void UdfMod(sqlite3_context ctx, object user_data, sqlite3_value[] args)
+    {
+        double a = raw.sqlite3_value_double(args[0]);
+        double b = raw.sqlite3_value_double(args[1]);
+        raw.sqlite3_result_double(ctx, a % b);
+    }
+}
+
+public class Num
+{
+    [Key]
+    public int Id { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public double Value { get; set; }
+}
+
+public class ModRow
+{
+    public double V { get; set; }
+}
+
 public class Event
 {
     [Key]
@@ -775,6 +886,7 @@ public class BookSummary
     public string Title { get; set; } = string.Empty;
     public string Author { get; set; } = string.Empty;
     public double Price { get; set; }
+    public int TotalBooks { get; set; }
 }
 
 public class BookContext : DbContext
