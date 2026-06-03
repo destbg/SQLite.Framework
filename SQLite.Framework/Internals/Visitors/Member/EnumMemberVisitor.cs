@@ -71,7 +71,7 @@ internal static class EnumMemberVisitor
                         : [.. obj.Parameters, .. nameParams];
 
                     bool isUlongBacked = enumUnderlying == typeof(ulong);
-                    string elseOpen = caseSb + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
+                    string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
                     string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
 
                     return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseOpen, objExpr, elseClose, parameters);
@@ -94,7 +94,7 @@ internal static class EnumMemberVisitor
             {
                 enumType = node.Method.GetGenericArguments()[0];
                 stringArg = arguments[0];
-                ignoreCase = arguments.Count >= 2 && arguments[1].Constant is bool genericIgnoreCase && genericIgnoreCase;
+                ignoreCase = arguments.Count >= 2 && Equals(arguments[1].Constant, true);
             }
             else
             {
@@ -102,7 +102,7 @@ internal static class EnumMemberVisitor
                 {
                     enumType = type;
                     stringArg = arguments[1];
-                    ignoreCase = arguments.Count >= 3 && arguments[2].Constant is bool nonGenericIgnoreCase && nonGenericIgnoreCase;
+                    ignoreCase = arguments.Count >= 3 && Equals(arguments[2].Constant, true);
                 }
                 else
                 {
@@ -141,7 +141,7 @@ internal static class EnumMemberVisitor
                 : [.. stringArg.Parameters, .. parameters];
 
             string collate = ignoreCase ? " COLLATE NOCASE" : "";
-            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, collate + caseSb + " ELSE CAST(", stringArgExpr, " AS INTEGER) END)", allParams);
+            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, collate + caseSb.ToString() + " ELSE CAST(", stringArgExpr, " AS INTEGER) END)", allParams);
         }
 
         throw new NotSupportedException($"Enum.{node.Method.Name} is not translatable to SQL.");

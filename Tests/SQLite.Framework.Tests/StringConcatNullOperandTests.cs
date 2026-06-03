@@ -45,6 +45,19 @@ public class StringConcatNullOperandTests
     }
 
     [Fact]
+    public void ConcatConditionalNullOnFalseBranch_MatchesLinqToObjects()
+    {
+        (TestDatabase db, NullableStringEntity[] seed) = Seed((1, "x"));
+        using TestDatabase _ = db;
+
+        string expected = seed.Where(e => e.Id == 1).Select(e => e.Name + (e.Id == 1 ? "z" : null)).First();
+        string actual = db.Table<NullableStringEntity>().Where(e => e.Id == 1).Select(e => e.Name + (e.Id == 1 ? "z" : null)).First();
+
+        Assert.Equal("xz", expected);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void ConcatCapturedNullVariable_MatchesLinqToObjects()
     {
         (TestDatabase db, NullableStringEntity[] seed) = Seed((1, "x"));

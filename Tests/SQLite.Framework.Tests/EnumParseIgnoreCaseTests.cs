@@ -105,4 +105,30 @@ public class EnumParseIgnoreCaseTests
         Assert.Equal(ParseFruit.Apple, expected);
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void Parse_NonGeneric_NoFlag_MatchesDotNet()
+    {
+        (TestDatabase db, ParseFruitRow[] seed) = Seed((1, ParseFruit.Banana, "Banana"));
+        using TestDatabase _ = db;
+
+        ParseFruit expected = (ParseFruit)Enum.Parse(typeof(ParseFruit), "Banana");
+        ParseFruit actual = db.Table<ParseFruitRow>().Select(r => (ParseFruit)Enum.Parse(typeof(ParseFruit), r.Code)).First();
+
+        Assert.Equal(ParseFruit.Banana, expected);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void Parse_NonGeneric_CaseSensitive_ExactMatch_MatchesDotNet()
+    {
+        (TestDatabase db, ParseFruitRow[] seed) = Seed((1, ParseFruit.Cherry, "Cherry"));
+        using TestDatabase _ = db;
+
+        ParseFruit expected = (ParseFruit)Enum.Parse(typeof(ParseFruit), "Cherry", false);
+        ParseFruit actual = db.Table<ParseFruitRow>().Select(r => (ParseFruit)Enum.Parse(typeof(ParseFruit), r.Code, false)).First();
+
+        Assert.Equal(ParseFruit.Cherry, expected);
+        Assert.Equal(expected, actual);
+    }
 }

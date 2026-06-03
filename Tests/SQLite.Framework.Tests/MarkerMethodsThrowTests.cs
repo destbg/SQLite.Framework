@@ -79,6 +79,10 @@ public class MarkerMethodsThrowTests
     {
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Sum(1));
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg(1));
+        Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg(1.0));
+        Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg(1L));
+        Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((int?)1));
+        Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((long?)1));
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Min(1));
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Max(1));
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Count());
