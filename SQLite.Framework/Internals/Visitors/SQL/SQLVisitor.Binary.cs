@@ -107,7 +107,9 @@ internal partial class SQLVisitor
         {
             if (node.Type == typeof(bool))
             {
-                return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", left, " <> ", right, "", bothParameters);
+                SQLiteExpression xorLeft = CoalesceLiftedOrderComparison(leftNode, left);
+                SQLiteExpression xorRight = CoalesceLiftedOrderComparison(rightNode, right);
+                return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", xorLeft, " <> ", xorRight, "", ParameterHelpers.CombineParameters(xorLeft, xorRight));
             }
 
             return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),

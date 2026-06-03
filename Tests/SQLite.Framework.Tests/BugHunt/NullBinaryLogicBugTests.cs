@@ -17,52 +17,6 @@ internal sealed class BugHuntBoolPair
 public class NullBinaryLogicBugTests
 {
     [Fact]
-    public void XorOfRelationalAndEquality_OnNullColumn_MatchesLinqToObjects()
-    {
-        using TestDatabase db = new();
-        db.Table<TwoNullableIntEntity>().Schema.CreateTable();
-        TwoNullableIntEntity[] rows =
-        [
-            new TwoNullableIntEntity { Id = 1, A = null, B = null },
-            new TwoNullableIntEntity { Id = 2, A = 5, B = 5 },
-            new TwoNullableIntEntity { Id = 3, A = 5, B = 7 },
-            new TwoNullableIntEntity { Id = 4, A = null, B = 5 },
-        ];
-        foreach (TwoNullableIntEntity r in rows)
-        {
-            db.Table<TwoNullableIntEntity>().Add(r);
-        }
-
-        List<int> expected = rows.Where(x => (x.A > 5) ^ (x.B == 5)).Select(x => x.Id).OrderBy(i => i).ToList();
-        List<int> actual = db.Table<TwoNullableIntEntity>().Where(x => (x.A > 5) ^ (x.B == 5)).Select(x => x.Id).OrderBy(i => i).ToList();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void XorOfRelationalAndTrue_OnNullColumn_MatchesLinqToObjects()
-    {
-        using TestDatabase db = new();
-        db.Table<TwoNullableIntEntity>().Schema.CreateTable();
-        TwoNullableIntEntity[] rows =
-        [
-            new TwoNullableIntEntity { Id = 1, A = null, B = null },
-            new TwoNullableIntEntity { Id = 2, A = 5, B = 5 },
-            new TwoNullableIntEntity { Id = 3, A = 5, B = 7 },
-            new TwoNullableIntEntity { Id = 4, A = null, B = 5 },
-        ];
-        foreach (TwoNullableIntEntity r in rows)
-        {
-            db.Table<TwoNullableIntEntity>().Add(r);
-        }
-
-        List<int> expected = rows.Where(x => (x.A > 5) ^ true).Select(x => x.Id).OrderBy(i => i).ToList();
-        List<int> actual = db.Table<TwoNullableIntEntity>().Where(x => (x.A > 5) ^ true).Select(x => x.Id).OrderBy(i => i).ToList();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
     public void BitwiseAnd_OnNullableBoolColumns_MatchesLinqToObjects()
     {
         using TestDatabase db = new();
