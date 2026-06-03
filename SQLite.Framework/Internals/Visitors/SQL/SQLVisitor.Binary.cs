@@ -87,8 +87,9 @@ internal partial class SQLVisitor
 
         SQLiteParameter[]? bothParameters = ParameterHelpers.CombineParameters(left, right);
 
+        Type nodeUnderlyingType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
         if (node.NodeType is ExpressionType.AndAlso or ExpressionType.OrElse
-            || (node.Type == typeof(bool) && node.NodeType is ExpressionType.And or ExpressionType.Or))
+            || (nodeUnderlyingType == typeof(bool) && node.NodeType is ExpressionType.And or ExpressionType.Or))
         {
             bool isAnd = node.NodeType is ExpressionType.AndAlso or ExpressionType.And;
             string spacedOp = isAnd ? " AND " : " OR ";
@@ -97,7 +98,7 @@ internal partial class SQLVisitor
             SQLiteExpression boolRight = isAnd ? BracketBooleanOr(rightNode, resolvedRight.SQLiteExpression!) : resolvedRight.SQLiteExpression!;
             SQLiteParameter[]? boolParameters = ParameterHelpers.CombineParameters(boolLeft, boolRight);
 
-            SQLiteExpression boolResult = SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", boolLeft, spacedOp, boolRight, "", boolParameters);
+            SQLiteExpression boolResult = SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", boolLeft, spacedOp, boolRight, "", boolParameters);
 
             boolResult.RequiresBrackets = !isAnd;
             return boolResult;
