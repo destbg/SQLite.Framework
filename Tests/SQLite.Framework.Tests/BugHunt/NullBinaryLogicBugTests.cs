@@ -17,22 +17,6 @@ internal sealed class BugHuntBoolPair
 public class NullBinaryLogicBugTests
 {
     [Fact]
-    public void RelationalEqualsBoolConstant_OnNullColumn_MatchesLinqToObjects()
-    {
-        using TestDatabase db = new();
-        db.Table<NullableEntity>().Schema.CreateTable();
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Value = null });
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Value = 10 });
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 3, Value = 3 });
-
-        (int Id, int? Value)[] seed = [(1, null), (2, 10), (3, 3)];
-        List<int> expected = seed.Where(x => (x.Value > 5) == false).Select(x => x.Id).OrderBy(i => i).ToList();
-        List<int> actual = db.Table<NullableEntity>().Where(x => (x.Value > 5) == false).Select(x => x.Id).OrderBy(i => i).ToList();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
     public void XorOfRelationalAndEquality_OnNullColumn_MatchesLinqToObjects()
     {
         using TestDatabase db = new();

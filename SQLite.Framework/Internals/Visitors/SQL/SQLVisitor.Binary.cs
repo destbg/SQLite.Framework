@@ -173,6 +173,12 @@ internal partial class SQLVisitor
             }
         }
 
+        if (equalityOp)
+        {
+            left = CoalesceLiftedOrderComparison(leftNode, left);
+            right = CoalesceLiftedOrderComparison(rightNode, right);
+        }
+
         (string sqlOp, bool parenthesis) = node.NodeType switch
         {
             ExpressionType.Equal => (equalIsNullSafe ? " IS " : " = ", false),
@@ -237,11 +243,32 @@ internal partial class SQLVisitor
             parameters);
     }
 
+    private SQLiteExpression CoalesceLiftedOrderComparison(Expression operand, SQLiteExpression expr)
+    {
+        return IsLiftedOrderComparisonThatMayBeNull(operand)
+            ? SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "COALESCE(", expr, ", 0)", expr.Parameters)
+            : expr;
+    }
+
     public static SQLiteExpression CoalesceNullableStringOperand(SQLVisitor visitor, Expression operand, ResolvedModel resolved, SQLiteExpression expr)
     {
         return StringConcatOperandMayBeNull(operand, resolved)
             ? SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "COALESCE(", expr, ", '')", expr.Parameters)
             : expr;
+    }
+
+    private static bool IsLiftedOrderComparisonThatMayBeNull(Expression operand)
+    {
+        Expression stripped = operand;
+        while (stripped is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
+        {
+            stripped = convert.Operand;
+        }
+
+        return stripped is BinaryExpression binary
+            && binary.NodeType is ExpressionType.GreaterThan or ExpressionType.LessThan
+                or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual
+            && (MayBeNull(binary.Left) || MayBeNull(binary.Right));
     }
 
     private static SQLiteExpression BracketBooleanOr(Expression node, SQLiteExpression expr)
