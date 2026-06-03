@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Tests.Helpers;
 
@@ -18,6 +19,13 @@ file sealed class PlusThousandUIntConverter : ISQLiteTypeConverter
     public object? FromDatabase(object? value) => value is long l ? (uint)(l + 1000) : value;
 }
 
+file sealed class YesNoBoolConverter : ISQLiteTypeConverter
+{
+    public SQLiteColumnType ColumnType => SQLiteColumnType.Text;
+    public object? ToDatabase(object? value) => value is bool b ? (b ? "yes" : "no") : value;
+    public object? FromDatabase(object? value) => value is string s ? s == "yes" : value;
+}
+
 file sealed class StringRow
 {
     [Key]
@@ -30,6 +38,14 @@ file sealed class UIntRow
     [Key]
     public int Id { get; set; }
     public uint Value { get; set; }
+}
+
+[Table("BoolRow")]
+file sealed class BoolRow
+{
+    [Key]
+    public int Id { get; set; }
+    public bool Flag { get; set; }
 }
 
 public class ConverterEntityReadTests
@@ -97,5 +113,23 @@ public class ConverterEntityReadTests
         db.Table<StringRow>().Add(new StringRow { Id = 1, Name = "plain" });
 
         Assert.Equal("plain", db.Table<StringRow>().First().Name);
+    }
+
+    [Fact]
+    public void Converter_OverridesBuiltInBoolHandling_OnWriteAndRead()
+    {
+        using TestDatabase db = new(b => b.AddTypeConverter(typeof(bool), new YesNoBoolConverter()));
+        db.Table<BoolRow>().Schema.CreateTable();
+        db.Table<BoolRow>().Add(new BoolRow { Id = 1, Flag = true });
+        db.Table<BoolRow>().Add(new BoolRow { Id = 2, Flag = false });
+
+        List<string> stored = db.Query<string>("SELECT Flag FROM BoolRow ORDER BY Id", []).ToList();
+        Assert.Equal(["yes", "no"], stored);
+
+        bool entityRead = db.Table<BoolRow>().First(r => r.Id == 1).Flag;
+        bool projectionRead = db.Table<BoolRow>().Where(r => r.Id == 2).Select(r => r.Flag).First();
+
+        Assert.True(entityRead);
+        Assert.False(projectionRead);
     }
 }

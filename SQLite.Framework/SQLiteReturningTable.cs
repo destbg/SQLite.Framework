@@ -91,7 +91,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
                 (TableColumn[] columns, string sql) = Source.GetAddInfoForItemInternal(item);
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
                 List<TResult> projected = ExecuteWithReturning(sql, parameters);
-                if (autoIncrement != null)
+                if (autoIncrement != null && projected.Count > 0)
                 {
                     BackfillAutoIncrement(item, projected[0], autoIncrement);
                 }

@@ -84,10 +84,6 @@ internal static class CommandHelpers
         {
             return Convert.ToBoolean(value);
         }
-        else if (options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter))
-        {
-            return converter.FromDatabase(value);
-        }
         else if (type.IsEnum)
         {
             if (value is string enumString)
