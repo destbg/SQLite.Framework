@@ -70,7 +70,11 @@ internal static class EnumMemberVisitor
                         ? [.. nameParams]
                         : [.. obj.Parameters, .. nameParams];
 
-                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, caseSb.ToString() + " ELSE CAST(", objExpr, " AS TEXT) END)", parameters);
+                    bool isUlongBacked = enumUnderlying == typeof(ulong);
+                    string elseOpen = caseSb + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
+                    string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
+
+                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseOpen, objExpr, elseClose, parameters);
                 }
             }
         }
