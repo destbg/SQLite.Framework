@@ -60,7 +60,14 @@ internal partial class QueryableVisitor
         {
             SQLiteExpression columnExpr = (SQLiteExpression)visitor.TableColumns.Values.First();
 
-            Wheres.Add(SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " = ", sqlExpression, "", sqlExpression.Parameters));
+            if (resolved is { IsConstant: true, Constant: null })
+            {
+                Wheres.Add(SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " IS NULL", columnExpr.Parameters));
+            }
+            else
+            {
+                Wheres.Add(SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " = ", sqlExpression, "", sqlExpression.Parameters));
+            }
 
             IsAny = true;
         }

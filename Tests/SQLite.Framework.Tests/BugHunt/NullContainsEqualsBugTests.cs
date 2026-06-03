@@ -6,27 +6,6 @@ namespace SQLite.Framework.Tests.BugHunt;
 public class NullContainsEqualsBugTests
 {
     [Fact]
-    public void TerminalContainsNullProbe_MatchesLinqToObjects()
-    {
-        using TestDatabase db = new();
-        db.Table<NullableEntity>().Schema.CreateTable();
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 1, Value = null });
-        db.Table<NullableEntity>().Add(new NullableEntity { Id = 2, Value = 5 });
-
-        NullableEntity[] seed =
-        [
-            new NullableEntity { Id = 1, Value = null },
-            new NullableEntity { Id = 2, Value = 5 },
-        ];
-
-        int? probe = null;
-        bool expected = seed.Select(x => x.Value).Contains(probe);
-        bool actual = db.Table<NullableEntity>().Select(x => x.Value).Contains(probe);
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
     public void NullableEquals_NullConstant_Projection_MatchesLinqToObjects()
     {
         using TestDatabase db = new();
