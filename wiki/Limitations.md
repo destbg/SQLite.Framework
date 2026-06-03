@@ -14,6 +14,8 @@ Query behavior that is easy to miss.
 
 **Integer overflow throws.** Math runs in 64-bit and is read back into the result type. A value that does not fit throws `OverflowException`, for example an `int * int` product or a `Sum` past `int.MaxValue`. Cast wider, like `(long)a * b`.
 
+**`Math.Round` with `AwayFromZero` can differ in the last digit.** `MidpointRounding.AwayFromZero` maps to SQLite `ROUND`. .NET first scales by a power of ten and then rounds, so `Math.Round(2.675, 2, MidpointRounding.AwayFromZero)` is `2.68` in .NET but `2.67` here.
+
 **`NaN` does not round-trip.** A `double` or `float` `NaN` is stored as `NULL`. A nullable column reads back `null`, and a non-nullable column fails with a `NOT NULL` error. Infinity is fine.
 
 **`Parse` over a column maps to `CAST`.** `int.Parse`, `double.Parse`, `Enum.Parse` and similar do not validate. Bad input reads as `0` or keeps the numeric prefix (`"12abc"` becomes `12`), and an out-of-range value clamps to the 64-bit limits. .NET would throw `FormatException`. A constant argument is parsed in memory and stays correct.
