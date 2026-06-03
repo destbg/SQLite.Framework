@@ -155,8 +155,8 @@ internal partial class SQLVisitor
 
         if (node.NodeType is ExpressionType.Add && node.Type == typeof(string))
         {
-            SQLiteExpression concatLeft = CoalesceNullableStringColumn(this, leftNode, left);
-            SQLiteExpression concatRight = CoalesceNullableStringColumn(this, rightNode, right);
+            SQLiteExpression concatLeft = CoalesceNullableStringOperand(this, leftNode, resolvedLeft, left);
+            SQLiteExpression concatRight = CoalesceNullableStringOperand(this, rightNode, resolvedRight, right);
 
             return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", concatLeft, " || ", concatRight, "", ParameterHelpers.CombineParameters(concatLeft, concatRight));
         }
@@ -237,9 +237,9 @@ internal partial class SQLVisitor
             parameters);
     }
 
-    public static SQLiteExpression CoalesceNullableStringColumn(SQLVisitor visitor, Expression operand, SQLiteExpression expr)
+    public static SQLiteExpression CoalesceNullableStringOperand(SQLVisitor visitor, Expression operand, ResolvedModel resolved, SQLiteExpression expr)
     {
-        return IsNullableStringColumn(operand)
+        return StringConcatOperandMayBeNull(operand, resolved)
             ? SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "COALESCE(", expr, ", '')", expr.Parameters)
             : expr;
     }
@@ -298,7 +298,13 @@ internal partial class SQLVisitor
         };
     }
 
-    private static bool IsNullableStringColumn(Expression operand)
+    private static bool StringConcatOperandMayBeNull(Expression operand, ResolvedModel resolved)
+    {
+        return resolved is { IsConstant: true, Constant: null }
+            || StringConcatExpressionMayBeNull(operand);
+    }
+
+    private static bool StringConcatExpressionMayBeNull(Expression operand)
     {
         Expression stripped = operand;
         while (stripped is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
@@ -306,9 +312,16 @@ internal partial class SQLVisitor
             stripped = convert.Operand;
         }
 
-        return stripped is MemberExpression { Member: PropertyInfo property }
-            && property.PropertyType == typeof(string)
-            && new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable;
+        return stripped switch
+        {
+            ConstantExpression constant => constant.Value == null,
+            ConditionalExpression conditional =>
+                StringConcatExpressionMayBeNull(conditional.IfTrue)
+                || StringConcatExpressionMayBeNull(conditional.IfFalse),
+            MemberExpression { Member: PropertyInfo property } =>
+                new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
+            _ => false
+        };
     }
 
     private static bool IsNullableColumn(Expression operand)

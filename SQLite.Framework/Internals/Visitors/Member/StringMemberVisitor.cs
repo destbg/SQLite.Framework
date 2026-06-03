@@ -254,7 +254,7 @@ internal static class StringMemberVisitor
                 SQLiteExpression[] concatArgs = new SQLiteExpression[arguments.Count];
                 for (int i = 0; i < arguments.Count; i++)
                 {
-                    concatArgs[i] = SQLVisitor.CoalesceNullableStringColumn(visitor, node.Arguments[i], arguments[i].SQLiteExpression!);
+                    concatArgs[i] = SQLVisitor.CoalesceNullableStringOperand(visitor, node.Arguments[i], arguments[i], arguments[i].SQLiteExpression!);
                 }
 
                 return SQLiteExpression.Variadic(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", concatArgs, " || ", "", ParameterHelpers.CombineParameters(concatArgs));
@@ -262,9 +262,13 @@ internal static class StringMemberVisitor
             case nameof(string.Join):
                 if (node.Arguments[1] is NewArrayExpression arrayExpr)
                 {
-                    SQLiteExpression sep = SQLVisitor.CoalesceNullableStringColumn(visitor, node.Arguments[0], arguments[0].SQLiteExpression!);
+                    SQLiteExpression sep = SQLVisitor.CoalesceNullableStringOperand(visitor, node.Arguments[0], arguments[0], arguments[0].SQLiteExpression!);
                     SQLiteExpression[] joinArgs = arrayExpr.Expressions
-                        .Select(e => SQLVisitor.CoalesceNullableStringColumn(visitor, e, visitor.ResolveExpression(e).SQLiteExpression!))
+                        .Select(e =>
+                        {
+                            ResolvedModel resolvedElement = visitor.ResolveExpression(e);
+                            return SQLVisitor.CoalesceNullableStringOperand(visitor, e, resolvedElement, resolvedElement.SQLiteExpression!);
+                        })
                         .ToArray();
                     if (joinArgs.Length == 0)
                     {
