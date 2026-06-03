@@ -27,7 +27,11 @@ internal static class CommandHelpers
 
         type = Nullable.GetUnderlyingType(type) ?? type;
 
-        if (type == typeof(DateTime))
+        if (options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? typeConverter))
+        {
+            return typeConverter.FromDatabase(ReadRawValue(statement, index, columnType));
+        }
+        else if (type == typeof(DateTime))
         {
             return ReadDateTime(statement, index, columnType, options);
         }
