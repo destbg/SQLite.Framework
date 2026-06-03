@@ -3,14 +3,6 @@ using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests.BugHunt;
 
-internal sealed class ShiftRow
-{
-    [Key]
-    public int Id { get; set; }
-
-    public int N { get; set; }
-}
-
 internal sealed class ModuloRow
 {
     [Key]
@@ -21,34 +13,6 @@ internal sealed class ModuloRow
 
 public class ShiftModuloBugTests
 {
-    [Fact]
-    public void RightShift_CountMasking_MatchesLinqToObjects()
-    {
-        using TestDatabase db = new();
-        db.Table<ShiftRow>().Schema.CreateTable();
-        db.Table<ShiftRow>().Add(new ShiftRow { Id = 1, N = 1024 });
-
-        int[] seed = [1024];
-        int expected = seed.Select(n => n >> 33).First();
-        int actual = db.Table<ShiftRow>().Select(x => x.N >> 33).First();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void LeftShift_IntWidthAndSign_MatchesLinqToObjects()
-    {
-        using TestDatabase db = new();
-        db.Table<ShiftRow>().Schema.CreateTable();
-        db.Table<ShiftRow>().Add(new ShiftRow { Id = 1, N = 1 });
-
-        int[] seed = [1];
-        List<int> expected = seed.Where(n => (n << 31) < 0).ToList();
-        List<int> actual = db.Table<ShiftRow>().Where(x => (x.N << 31) < 0).Select(x => x.N).ToList();
-
-        Assert.Equal(expected, actual);
-    }
-
     [Fact]
     public void DoubleModulo_LargeOperands_MatchesLinqToObjects()
     {

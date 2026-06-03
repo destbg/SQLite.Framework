@@ -182,6 +182,11 @@ internal partial class SQLVisitor
             right = CoalesceLiftedOrderComparison(rightNode, right);
         }
 
+        if (node.NodeType is ExpressionType.LeftShift or ExpressionType.RightShift)
+        {
+            return BuildShift(node, nodeUnderlyingType, left, right, bothParameters);
+        }
+
         (string sqlOp, bool parenthesis) = node.NodeType switch
         {
             ExpressionType.Equal => (equalIsNullSafe ? " IS " : " = ", false),
@@ -197,8 +202,6 @@ internal partial class SQLVisitor
             ExpressionType.Modulo => (" % ", true),
             ExpressionType.And => (" & ", true),
             ExpressionType.Or => (" | ", true),
-            ExpressionType.LeftShift => (" << ", true),
-            ExpressionType.RightShift => (" >> ", true),
             _ => throw new NotSupportedException($"Unsupported binary op {node.NodeType}")
         };
 
@@ -251,6 +254,27 @@ internal partial class SQLVisitor
         return IsLiftedOrderComparisonThatMayBeNull(operand)
             ? SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "COALESCE(", expr, ", 0)", expr.Parameters)
             : expr;
+    }
+
+    private SQLiteExpression BuildShift(BinaryExpression node, Type shiftType, SQLiteExpression value, SQLiteExpression count, SQLiteParameter[]? parameters)
+    {
+        bool is64Bit = shiftType == typeof(long) || shiftType == typeof(ulong);
+        string spacedOp = node.NodeType == ExpressionType.LeftShift ? " << (" : " >> (";
+        string maskedCount = is64Bit ? " & 63))" : " & 31))";
+
+        if (node.NodeType is ExpressionType.RightShift || is64Bit || shiftType == typeof(uint))
+        {
+            string[] parts = node.NodeType == ExpressionType.LeftShift && shiftType == typeof(uint)
+                ? ["((", spacedOp, " & 31)) & 4294967295)"]
+                : ["(", spacedOp, maskedCount];
+
+            return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(), parts, [value, count], parameters);
+        }
+
+        return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+            ["(((((", spacedOp, " & 31)) & 4294967295) + 2147483648) % 4294967296) - 2147483648)"],
+            [value, count],
+            parameters);
     }
 
     public static SQLiteExpression CoalesceNullableStringOperand(SQLVisitor visitor, Expression operand, ResolvedModel resolved, SQLiteExpression expr)
