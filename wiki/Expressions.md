@@ -81,13 +81,13 @@ var rounded = await db.Table<Book>()
 | `s.Length` | `LENGTH(s)` |
 | `s.ToUpper()` / `s.ToUpperInvariant()` | `UPPER(s)` |
 | `s.ToLower()` / `s.ToLowerInvariant()` | `LOWER(s)` |
-| `s.Trim()` | `TRIM(s)` |
-| `s.TrimStart()` | `LTRIM(s)` |
-| `s.TrimEnd()` | `RTRIM(s)` |
+| `s.Trim()` | `TRIM(s, <whitespace>)` |
+| `s.TrimStart()` | `LTRIM(s, <whitespace>)` |
+| `s.TrimEnd()` | `RTRIM(s, <whitespace>)` |
 | `s.Contains(value)` | `s LIKE '%value%' ESCAPE '\'` |
 | `s.StartsWith(value)` | `s LIKE 'value%' ESCAPE '\'` |
 | `s.EndsWith(value)` | `s LIKE '%value' ESCAPE '\'` |
-| `s.Equals(value)` | `s = value` |
+| `s.Equals(value)` | `s IS value` |
 | `s.Replace(old, new)` | `REPLACE(s, old, new)` |
 | `s.Substring(start, length)` | `SUBSTR(s, start + 1, length)` |
 | `s[index]` | `SUBSTR(s, index + 1, 1)` |

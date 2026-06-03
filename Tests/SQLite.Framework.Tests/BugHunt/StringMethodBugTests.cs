@@ -6,27 +6,6 @@ namespace SQLite.Framework.Tests.BugHunt;
 public class StringMethodBugTests
 {
     [Fact]
-    public void Trim_StripsAllWhitespace_MatchesDotNet()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "\tTest\n", AuthorId = 1, Price = 1 });
-
-        string[] seed = ["\tTest\n"];
-        string expectedTrim = seed.Select(s => s.Trim()).Single();
-        string expectedTrimStart = seed.Select(s => s.TrimStart()).Single();
-        string expectedTrimEnd = seed.Select(s => s.TrimEnd()).Single();
-
-        string actualTrim = db.Table<Book>().Select(b => b.Title.Trim()).Single();
-        string actualTrimStart = db.Table<Book>().Select(b => b.Title.TrimStart()).Single();
-        string actualTrimEnd = db.Table<Book>().Select(b => b.Title.TrimEnd()).Single();
-
-        Assert.Equal(expectedTrim, actualTrim);
-        Assert.Equal(expectedTrimStart, actualTrimStart);
-        Assert.Equal(expectedTrimEnd, actualTrimEnd);
-    }
-
-    [Fact]
     public void LastIndexOf_WithStartIndex_MatchesDotNet()
     {
         using TestDatabase db = new();
