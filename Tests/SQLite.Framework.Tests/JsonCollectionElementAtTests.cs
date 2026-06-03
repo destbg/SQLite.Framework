@@ -44,4 +44,46 @@ public class JsonCollectionElementAtTests
 
         Assert.Null(actual);
     }
+
+    [Fact]
+    public void ElementAt_NegativeIndex_ThrowsLikeLinqToObjects()
+    {
+        using TestDatabase db = CreateDb();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new List<string> { "a", "b" }.ElementAt(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            db.Table<JsonElementAtRow>().Select(r => r.Tags.ElementAt(-1)).First());
+    }
+
+    [Fact]
+    public void ElementAt_NegativeIndexFar_ThrowsLikeLinqToObjects()
+    {
+        using TestDatabase db = CreateDb();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new List<string> { "a", "b" }.ElementAt(-5));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            db.Table<JsonElementAtRow>().Select(r => r.Tags.ElementAt(-5)).First());
+    }
+
+    [Fact]
+    public void ElementAt_NegativeIndexFromVariable_ThrowsLikeLinqToObjects()
+    {
+        using TestDatabase db = CreateDb();
+        int index = -1;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            db.Table<JsonElementAtRow>().Select(r => r.Tags.ElementAt(index)).First());
+    }
+
+    [Fact]
+    public void ElementAt_ZeroIndex_StillReturnsFirst()
+    {
+        using TestDatabase db = CreateDb();
+
+        string expected = new List<string> { "a", "b" }.ElementAt(0);
+        string actual = db.Table<JsonElementAtRow>().Select(r => r.Tags.ElementAt(0)).First();
+
+        Assert.Equal("a", expected);
+        Assert.Equal(expected, actual);
+    }
 }

@@ -3,14 +3,6 @@ using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests.BugHunt;
 
-internal sealed class JsonTagRow
-{
-    [Key]
-    public int Id { get; set; }
-
-    public List<string> Tags { get; set; } = [];
-}
-
 internal sealed class JsonNumberRow
 {
     [Key]
@@ -29,19 +21,6 @@ internal sealed class JsonPeopleRow
 
 public class JsonCollectionBugTests
 {
-    [Fact]
-    public void ElementAtNegativeIndex_ThrowsLikeLinqToObjects()
-    {
-        using TestDatabase db = new(b =>
-            b.TypeConverters[typeof(List<string>)] =
-                new SQLiteJsonConverter<List<string>>(TestJsonContext.Default.ListString));
-        db.Table<JsonTagRow>().Schema.CreateTable();
-        db.Table<JsonTagRow>().Add(new JsonTagRow { Id = 1, Tags = ["a", "b", "c"] });
-
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            db.Table<JsonTagRow>().Select(r => r.Tags.ElementAt(-1)).First());
-    }
-
     [Fact]
     public void SelectProjectionThenWhere_MatchesLinqToObjects()
     {

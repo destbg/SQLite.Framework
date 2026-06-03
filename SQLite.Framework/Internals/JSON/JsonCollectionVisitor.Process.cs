@@ -181,6 +181,12 @@ internal partial class JsonCollectionVisitor
     private void HandleElementAt(MethodCallExpression call)
     {
         ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
+        if (arg is { IsConstant: true, Constant: int index } && index < 0)
+        {
+            throw new ArgumentOutOfRangeException("index", index,
+                $"{call.Method.Name} was called with a negative index ({index}). The index must be non-negative.");
+        }
+
         offset = arg.SQLiteExpression!.ToString();
         AddParameters(arg);
         limit = "1";
