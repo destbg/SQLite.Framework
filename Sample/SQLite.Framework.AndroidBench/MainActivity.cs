@@ -264,7 +264,7 @@ internal static class Benchmarks
         Del(joinPath);
     }
 
-    private static void Bench(string label, Action action, Action? perIteration = null, int warmup = 3, int iterations = 30)
+    private static void Bench(string label, Action action, Action? perIteration = null, int warmup = 20, int iterations = 2000)
     {
         for (int i = 0; i < warmup; i++)
         {

@@ -45,14 +45,14 @@ The benchmark project lives at [`Sample/SQLite.Framework.Benchmarks`](https://gi
 
 ## On-device benchmarks (Android)
 
-The same four operations measured on an Android emulator. BenchmarkDotNet does not run on Android, so this use a simple `Stopwatch`. Results may be inaccurate, they are here just as an example. Lower is better.
+The same four operations measured on an Android emulator. BenchmarkDotNet does not run on Android, so this uses a simple `Stopwatch`. The numbers are rough and shown only as an example. Lower is better.
 
 | ORM | Read 100 | Insert 100 | Update 100 | Join + sub-query |
 |---|---:|---:|---:|---:|
-| SQLite.Framework + SourceGenerator | 499 | 1,025 | 967 | 1,223 |
-| SQLite.Framework | 975 | 1,514 | 1,189 | 1,467 |
-| sqlite-net-pcl | 572 | 1,022 | 3,444 | 4,343 |
-| EF Core 10 | 1,134 | 15,327 | 1,468 | 1,930 |
+| SQLite.Framework + SourceGenerator | 350 | 848 | 795 | 739 |
+| SQLite.Framework | 533 | 1,016 | 813 | 784 |
+| sqlite-net-pcl | 433 | 972 | 3,139 | 4,214 |
+| EF Core 10 | 997 | 14,264 | 1,360 | 1,679 |
 
 The harness lives at [`Sample/SQLite.Framework.AndroidBench`](https://github.com/destbg/SQLite.Framework/tree/main/Sample/SQLite.Framework.AndroidBench). Launching it runs all four. To run one ORM use `adb shell am start -n com.sqliteframework.androidbench/.MainActivity --es orm ef` (values `framework`, `frameworkgen`, `ef`, `sqlitenet`, or `all`).
 
