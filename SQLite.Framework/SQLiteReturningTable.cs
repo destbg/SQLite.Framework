@@ -246,6 +246,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             CreateObject = plan.Template.CreateObject,
             Reverse = false,
             ThrowOnEmpty = false,
+            ElementAtSemantic = false,
             ThrowOnMoreThanOne = false,
             ReflectedMethods = plan.Template.ReflectedMethods,
             ReflectedMethodInstances = plan.Template.ReflectedMethodInstances,

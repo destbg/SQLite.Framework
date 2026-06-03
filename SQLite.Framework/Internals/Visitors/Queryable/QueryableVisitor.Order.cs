@@ -109,6 +109,7 @@ internal partial class QueryableVisitor
         if (throwOnEmpty)
         {
             ThrowOnEmpty = true;
+            ElementAtSemantic = true;
         }
 
         return node;

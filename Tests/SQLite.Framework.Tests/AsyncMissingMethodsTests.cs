@@ -31,7 +31,7 @@ public class AsyncMissingMethodsTests
     public async Task ElementAtAsync_OutOfRange_Throws()
     {
         using TestDatabase db = NewDb();
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
             await db.Table<Book>().OrderBy(b => b.Id).ElementAtAsync(99));
     }
 

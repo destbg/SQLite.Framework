@@ -35,6 +35,7 @@ internal partial class QueryableVisitor
     public bool Reverse { get; private set; }
     public bool IsDistinct { get; private set; }
     public bool ThrowOnEmpty { get; private set; }
+    public bool ElementAtSemantic { get; private set; }
     public bool ThrowOnMoreThanOne { get; private set; }
     public object? DefaultValue { get; private set; }
     public bool HasDefaultValue { get; private set; }

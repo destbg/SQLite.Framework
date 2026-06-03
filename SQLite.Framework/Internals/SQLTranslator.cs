@@ -356,6 +356,7 @@ internal class SQLTranslator
             CreateObject = createObject,
             Reverse = queryableMethodVisitor.Reverse,
             ThrowOnEmpty = queryableMethodVisitor.ThrowOnEmpty,
+            ElementAtSemantic = queryableMethodVisitor.ElementAtSemantic,
             ThrowOnMoreThanOne = queryableMethodVisitor.ThrowOnMoreThanOne,
             DefaultValue = queryableMethodVisitor.DefaultValue,
             HasDefaultValue = queryableMethodVisitor.HasDefaultValue,
