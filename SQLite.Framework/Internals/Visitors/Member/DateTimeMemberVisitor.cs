@@ -407,7 +407,7 @@ internal static class DateTimeMemberVisitor
         int multiplier = addType == "years" ? 12 : 1;
 
         string objSql = obj.ToString();
-        string srcDate = $"DATE((({objSql} - {tick}) / {toSec}), 'unixepoch')";
+        string srcDate = $"DATE((({objSql} - {tick}) / {toSec} - (CASE WHEN (({objSql} - {tick}) % {toSec}) < 0 THEN 1 ELSE 0 END)), 'unixepoch')";
         string day = $"CAST(STRFTIME('%d', {srcDate}) AS INTEGER)";
 
         string months;

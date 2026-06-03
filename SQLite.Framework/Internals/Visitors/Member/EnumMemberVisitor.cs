@@ -70,7 +70,11 @@ internal static class EnumMemberVisitor
                         ? [.. nameParams]
                         : [.. obj.Parameters, .. nameParams];
 
-                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, caseSb.ToString() + " ELSE CAST(", objExpr, " AS TEXT) END)", parameters);
+                    bool isUlongBacked = enumUnderlying == typeof(ulong);
+                    string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
+                    string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
+
+                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseOpen, objExpr, elseClose, parameters);
                 }
             }
         }
@@ -84,11 +88,13 @@ internal static class EnumMemberVisitor
         {
             Type enumType;
             ResolvedModel stringArg;
+            bool ignoreCase;
 
             if (node.Method.IsGenericMethod)
             {
                 enumType = node.Method.GetGenericArguments()[0];
                 stringArg = arguments[0];
+                ignoreCase = arguments.Count >= 2 && Equals(arguments[1].Constant, true);
             }
             else
             {
@@ -96,6 +102,7 @@ internal static class EnumMemberVisitor
                 {
                     enumType = type;
                     stringArg = arguments[1];
+                    ignoreCase = arguments.Count >= 3 && Equals(arguments[2].Constant, true);
                 }
                 else
                 {
@@ -133,7 +140,8 @@ internal static class EnumMemberVisitor
                 ? [.. parameters]
                 : [.. stringArg.Parameters, .. parameters];
 
-            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, caseSb.ToString() + " ELSE CAST(", stringArgExpr, " AS INTEGER) END)", allParams);
+            string collate = ignoreCase ? " COLLATE NOCASE" : "";
+            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, collate + caseSb.ToString() + " ELSE CAST(", stringArgExpr, " AS INTEGER) END)", allParams);
         }
 
         throw new NotSupportedException($"Enum.{node.Method.Name} is not translatable to SQL.");

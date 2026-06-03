@@ -87,8 +87,9 @@ internal partial class SQLVisitor
 
         SQLiteParameter[]? bothParameters = ParameterHelpers.CombineParameters(left, right);
 
+        Type nodeUnderlyingType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
         if (node.NodeType is ExpressionType.AndAlso or ExpressionType.OrElse
-            || (node.Type == typeof(bool) && node.NodeType is ExpressionType.And or ExpressionType.Or))
+            || (nodeUnderlyingType == typeof(bool) && node.NodeType is ExpressionType.And or ExpressionType.Or))
         {
             bool isAnd = node.NodeType is ExpressionType.AndAlso or ExpressionType.And;
             string spacedOp = isAnd ? " AND " : " OR ";
@@ -97,7 +98,7 @@ internal partial class SQLVisitor
             SQLiteExpression boolRight = isAnd ? BracketBooleanOr(rightNode, resolvedRight.SQLiteExpression!) : resolvedRight.SQLiteExpression!;
             SQLiteParameter[]? boolParameters = ParameterHelpers.CombineParameters(boolLeft, boolRight);
 
-            SQLiteExpression boolResult = SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", boolLeft, spacedOp, boolRight, "", boolParameters);
+            SQLiteExpression boolResult = SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", boolLeft, spacedOp, boolRight, "", boolParameters);
 
             boolResult.RequiresBrackets = !isAnd;
             return boolResult;
@@ -107,7 +108,9 @@ internal partial class SQLVisitor
         {
             if (node.Type == typeof(bool))
             {
-                return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", left, " <> ", right, "", bothParameters);
+                SQLiteExpression xorLeft = CoalesceLiftedOrderComparison(leftNode, left);
+                SQLiteExpression xorRight = CoalesceLiftedOrderComparison(rightNode, right);
+                return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", xorLeft, " <> ", xorRight, "", ParameterHelpers.CombineParameters(xorLeft, xorRight));
             }
 
             return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
@@ -155,8 +158,8 @@ internal partial class SQLVisitor
 
         if (node.NodeType is ExpressionType.Add && node.Type == typeof(string))
         {
-            SQLiteExpression concatLeft = CoalesceNullableStringColumn(this, leftNode, left);
-            SQLiteExpression concatRight = CoalesceNullableStringColumn(this, rightNode, right);
+            SQLiteExpression concatLeft = CoalesceNullableStringOperand(this, leftNode, resolvedLeft, left);
+            SQLiteExpression concatRight = CoalesceNullableStringOperand(this, rightNode, resolvedRight, right);
 
             return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", concatLeft, " || ", concatRight, "", ParameterHelpers.CombineParameters(concatLeft, concatRight));
         }
@@ -171,6 +174,17 @@ internal partial class SQLVisitor
                 case ExpressionType.Divide or ExpressionType.Modulo:
                     return BuildUnsignedDivOrMod(node.NodeType == ExpressionType.Modulo, node.Type, left, right, bothParameters);
             }
+        }
+
+        if (equalityOp)
+        {
+            left = CoalesceLiftedOrderComparison(leftNode, left);
+            right = CoalesceLiftedOrderComparison(rightNode, right);
+        }
+
+        if (node.NodeType is ExpressionType.LeftShift or ExpressionType.RightShift)
+        {
+            return BuildShift(node, nodeUnderlyingType, left, right, bothParameters);
         }
 
         (string sqlOp, bool parenthesis) = node.NodeType switch
@@ -188,8 +202,6 @@ internal partial class SQLVisitor
             ExpressionType.Modulo => (" % ", true),
             ExpressionType.And => (" & ", true),
             ExpressionType.Or => (" | ", true),
-            ExpressionType.LeftShift => (" << ", true),
-            ExpressionType.RightShift => (" >> ", true),
             _ => throw new NotSupportedException($"Unsupported binary op {node.NodeType}")
         };
 
@@ -237,11 +249,53 @@ internal partial class SQLVisitor
             parameters);
     }
 
-    public static SQLiteExpression CoalesceNullableStringColumn(SQLVisitor visitor, Expression operand, SQLiteExpression expr)
+    private SQLiteExpression CoalesceLiftedOrderComparison(Expression operand, SQLiteExpression expr)
     {
-        return IsNullableStringColumn(operand)
+        return IsLiftedOrderComparisonThatMayBeNull(operand)
+            ? SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "COALESCE(", expr, ", 0)", expr.Parameters)
+            : expr;
+    }
+
+    private SQLiteExpression BuildShift(BinaryExpression node, Type shiftType, SQLiteExpression value, SQLiteExpression count, SQLiteParameter[]? parameters)
+    {
+        bool is64Bit = shiftType == typeof(long) || shiftType == typeof(ulong);
+        string spacedOp = node.NodeType == ExpressionType.LeftShift ? " << (" : " >> (";
+        string maskedCount = is64Bit ? " & 63))" : " & 31))";
+
+        if (node.NodeType is ExpressionType.RightShift || is64Bit || shiftType == typeof(uint))
+        {
+            string[] parts = node.NodeType == ExpressionType.LeftShift && shiftType == typeof(uint)
+                ? ["((", spacedOp, " & 31)) & 4294967295)"]
+                : ["(", spacedOp, maskedCount];
+
+            return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(), parts, [value, count], parameters);
+        }
+
+        return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+            ["(((((", spacedOp, " & 31)) & 4294967295) + 2147483648) % 4294967296) - 2147483648)"],
+            [value, count],
+            parameters);
+    }
+
+    public static SQLiteExpression CoalesceNullableStringOperand(SQLVisitor visitor, Expression operand, ResolvedModel resolved, SQLiteExpression expr)
+    {
+        return StringConcatOperandMayBeNull(operand, resolved)
             ? SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "COALESCE(", expr, ", '')", expr.Parameters)
             : expr;
+    }
+
+    private static bool IsLiftedOrderComparisonThatMayBeNull(Expression operand)
+    {
+        Expression stripped = operand;
+        while (stripped is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
+        {
+            stripped = convert.Operand;
+        }
+
+        return stripped is BinaryExpression binary
+            && binary.NodeType is ExpressionType.GreaterThan or ExpressionType.LessThan
+                or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual
+            && (MayBeNull(binary.Left) || MayBeNull(binary.Right));
     }
 
     private static SQLiteExpression BracketBooleanOr(Expression node, SQLiteExpression expr)
@@ -298,7 +352,13 @@ internal partial class SQLVisitor
         };
     }
 
-    private static bool IsNullableStringColumn(Expression operand)
+    private static bool StringConcatOperandMayBeNull(Expression operand, ResolvedModel resolved)
+    {
+        return resolved is { IsConstant: true, Constant: null }
+            || StringConcatExpressionMayBeNull(operand);
+    }
+
+    private static bool StringConcatExpressionMayBeNull(Expression operand)
     {
         Expression stripped = operand;
         while (stripped is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
@@ -306,9 +366,16 @@ internal partial class SQLVisitor
             stripped = convert.Operand;
         }
 
-        return stripped is MemberExpression { Member: PropertyInfo property }
-            && property.PropertyType == typeof(string)
-            && new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable;
+        return stripped switch
+        {
+            ConstantExpression constant => constant.Value == null,
+            ConditionalExpression conditional =>
+                StringConcatExpressionMayBeNull(conditional.IfTrue)
+                || StringConcatExpressionMayBeNull(conditional.IfFalse),
+            MemberExpression { Member: PropertyInfo property } =>
+                new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
+            _ => false
+        };
     }
 
     private static bool IsNullableColumn(Expression operand)

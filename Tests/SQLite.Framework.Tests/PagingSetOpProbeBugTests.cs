@@ -55,7 +55,9 @@ public class PagingSetOpProbeBugTests
             db.Table<Book>().Add(new Book { Id = i, Title = "a", AuthorId = 1, Price = i });
         }
 
-        Assert.Throws<InvalidOperationException>(
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => Enumerable.Range(1, 8).Take(3).ElementAt(5));
+        Assert.Throws<ArgumentOutOfRangeException>(
             () => db.Table<Book>().OrderBy(x => x.Id).Take(3).ElementAt(5));
     }
 

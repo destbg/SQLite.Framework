@@ -49,6 +49,7 @@ internal partial class JsonCollectionVisitor
     private readonly List<string> groupBys = [];
     private readonly List<SQLiteParameter> parameters = [];
     private string selectExpr = "\"value\"";
+    private Type currentElementType = typeof(object);
     private string? limit;
     private string? offset;
     private bool distinct;
@@ -68,7 +69,7 @@ internal partial class JsonCollectionVisitor
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
         ParameterExpression param = lambda.Parameters[0];
 
-        BindParameter(param, elementType, "\"value\"");
+        BindParameter(param, elementType, selectExpr);
 
         Expression result = visitor.Visit(lambda.Body);
         visitor.MethodArguments.Remove(param);
@@ -176,10 +177,11 @@ internal partial class JsonCollectionVisitor
         JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
         jcv.parameters.AddRange(sourceModel.SQLiteExpression.Parameters ?? []);
 
+        jcv.currentElementType = TypeHelpers.GetEnumerableElementType(sourceModel.SQLiteExpression.Type)!;
         Type resultType = node.Type;
         foreach (MethodCallExpression call in chain)
         {
-            jcv.ProcessMethod(call, sourceModel.SQLiteExpression.Type);
+            jcv.ProcessMethod(call);
             resultType = call.Type;
         }
 

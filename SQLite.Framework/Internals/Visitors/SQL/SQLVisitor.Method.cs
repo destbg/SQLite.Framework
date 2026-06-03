@@ -16,7 +16,7 @@ internal partial class SQLVisitor
             }
 
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, argument.SQLiteExpression);
-            return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", obj.SQLiteExpression!, " = ", argument.SQLiteExpression!, "", parameters);
+            return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", obj.SQLiteExpression!, " IS ", argument.SQLiteExpression!, "", parameters);
         }
 
         Type? declaringType = node.Method.DeclaringType;

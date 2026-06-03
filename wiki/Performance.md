@@ -8,40 +8,53 @@ Against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 10
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
-| **SQLite.Framework + SourceGenerator** | **32.5 μs** | **23.1 KB** |
-| SQLite.Framework | 33.9 μs | 23.1 KB |
-| sqlite-net-pcl | 43.2 μs | 15.4 KB |
-| EF Core 10 (`AsNoTracking`) | 71.0 μs | 47.6 KB |
+| **SQLite.Framework + SourceGenerator** | **34.1 μs** | **22.9 KB** |
+| SQLite.Framework | 35.8 μs | 23.0 KB |
+| sqlite-net-pcl | 43.3 μs | 15.4 KB |
+| EF Core 10 (`AsNoTracking`) | 71.9 μs | 47.6 KB |
 
 **Bulk insert 100 rows (single transaction):**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
-| **SQLite.Framework + SourceGenerator** | **131.3 μs** | **13.2 KB** |
-| SQLite.Framework | 139.9 μs | 22.5 KB |
-| sqlite-net-pcl (`InsertAll`) | 143.3 μs | 20.6 KB |
-| EF Core 10 (`AddRange` + `SaveChanges`) | 2,087 μs | 915.9 KB |
+| **SQLite.Framework + SourceGenerator** | **130.8 μs** | **13.2 KB** |
+| SQLite.Framework | 142.4 μs | 22.5 KB |
+| sqlite-net-pcl (`InsertAll`) | 142.4 μs | 20.6 KB |
+| EF Core 10 (`AddRange` + `SaveChanges`) | 2,070 μs | 915.9 KB |
 
 **Bulk update 100 rows by predicate:**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
-| **SQLite.Framework (`ExecuteUpdate`)** | **142.1 μs** | **16.2 KB** |
-| EF Core 10 (`ExecuteUpdate`) | 197.4 μs | 17.1 KB |
-| sqlite-net-pcl (`UpdateAll`) | 445.1 μs | 198.3 KB |
+| **SQLite.Framework (`ExecuteUpdate`)** | **143.5 μs** | **16.2 KB** |
+| EF Core 10 (`ExecuteUpdate`) | 169.3 μs | 17.0 KB |
+| sqlite-net-pcl (`UpdateAll`) | 436.1 μs | 198.3 KB |
 
-**Join + project (1000 Books and 50 Authors, filter `Price > 50`, sort, project to a DTO):**
+**Join + project (1000 Books and 50 Authors, filter `Price > 50`, sort, project to a DTO with a sub-query in the projection):**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
-| **SQLite.Framework** | **68.2 μs** | **32.6 KB** |
-| SQLite.Framework + SourceGenerator | 68.2 μs | 36.4 KB |
-| EF Core 10 | 96.1 μs | 61.9 KB |
-| sqlite-net-pcl | 397.5 μs | 155.4 KB |
+| **SQLite.Framework** | **74.0 μs** | **39.6 KB** |
+| SQLite.Framework + SourceGenerator | 78.5 μs | 45.1 KB |
+| EF Core 10 | 126.3 μs | 76.3 KB |
+| sqlite-net-pcl | 687.2 μs | 203.9 KB |
 
 sqlite-net-pcl's `TableQuery<T>` is `IEnumerable<T>`, not `IQueryable<T>`, so the LINQ join binds to `Enumerable.Join`. The whole `Books` and `Authors` tables load into memory before the filter and join run client-side.
 
 The benchmark project lives at [`Sample/SQLite.Framework.Benchmarks`](https://github.com/destbg/SQLite.Framework/tree/main/Sample/SQLite.Framework.Benchmarks) and can be reproduced with `dotnet run --project Sample/SQLite.Framework.Benchmarks -c Release`.
+
+## On-device benchmarks (Android)
+
+The same four operations measured on an Android emulator. BenchmarkDotNet does not run on Android, so this use a simple `Stopwatch`. Results may be inaccurate, they are here just as an example. Lower is better.
+
+| ORM | Read 100 | Insert 100 | Update 100 | Join + sub-query |
+|---|---:|---:|---:|---:|
+| SQLite.Framework + SourceGenerator | 499 | 1,025 | 967 | 1,223 |
+| SQLite.Framework | 975 | 1,514 | 1,189 | 1,467 |
+| sqlite-net-pcl | 572 | 1,022 | 3,444 | 4,343 |
+| EF Core 10 | 1,134 | 15,327 | 1,468 | 1,930 |
+
+The harness lives at [`Sample/SQLite.Framework.AndroidBench`](https://github.com/destbg/SQLite.Framework/tree/main/Sample/SQLite.Framework.AndroidBench). Launching it runs all four. To run one ORM use `adb shell am start -n com.sqliteframework.androidbench/.MainActivity --es orm ef` (values `framework`, `frameworkgen`, `ef`, `sqlitenet`, or `all`).
 
 ## Benchmark: Bulk Insert
 

@@ -201,7 +201,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 && Nullable.GetUnderlyingType(typeof(TResult)) == null
                 && !query.IsRowSelector)
             {
-                throw new InvalidOperationException("Sequence contains no elements");
+                throw new InvalidOperationException("Query sequence contains no elements");
             }
 
             return CoerceScalar<TResult>(raw);
@@ -209,6 +209,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         if (query.ThrowOnEmpty)
         {
+            if (query.ElementAtSemantic)
+            {
+                throw new ArgumentOutOfRangeException("index",
+                    "ElementAt index is out of range. The sequence does not contain that many elements.");
+            }
+
             throw new InvalidOperationException("Query returned no rows");
         }
 

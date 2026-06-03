@@ -45,6 +45,11 @@ internal partial class QueryableVisitor
             }
             else
             {
+                if (applyDistinct)
+                {
+                    ThrowOnMultiColumnDistinct(node);
+                }
+
                 Type resultType = node.Method.ReturnType;
                 bool wrapWithCoalesce = function == "SUM";
                 SQLiteExpression innerExpr = sqlExpression;

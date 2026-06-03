@@ -24,8 +24,46 @@ public static class SQLiteWindowFunctions
 
     /// <summary>
     /// Computes the average of the values in the window. Translates to <c>AVG(value) OVER (...)</c>.
+    /// For an integer column use the <see cref="Avg(int)" /> or <see cref="Avg(long)" /> overloads, which
+    /// return a <see cref="double" /> window so the fraction is kept, matching LINQ <c>Average</c>.
     /// </summary>
     public static SQLiteWindow<T> Avg<T>(T value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of an <see cref="int" /> column over the window as a <see cref="double" />,
+    /// so the fractional result is kept. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double> Avg(int value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a <see cref="long" /> column over the window as a <see cref="double" />,
+    /// so the fractional result is kept. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double> Avg(long value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a nullable <see cref="int" /> column over the window as a nullable
+    /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double?> Avg(int? value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a nullable <see cref="long" /> column over the window as a nullable
+    /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double?> Avg(long? value)
     {
         throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
     }

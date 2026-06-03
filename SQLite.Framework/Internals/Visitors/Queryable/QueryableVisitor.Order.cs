@@ -42,7 +42,7 @@ internal partial class QueryableVisitor
         string baseDirection = node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.ThenBy)
             ? " ASC"
             : " DESC";
-        string order = baseDirection;
+        string nullsClause = string.Empty;
 
         if (node.Arguments.Count == 3)
         {
@@ -52,16 +52,18 @@ internal partial class QueryableVisitor
 #if SQLITE_FRAMEWORK_VERSION_AWARE
                 database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_30, "NULLS FIRST/LAST in ORDER BY");
 #endif
-                order += nulls == SQLiteNullsOrder.First ? " NULLS FIRST" : " NULLS LAST";
+                nullsClause = nulls == SQLiteNullsOrder.First ? " NULLS FIRST" : " NULLS LAST";
             }
         }
 
         if (sqlExpression.Type == typeof(ulong))
         {
-            OrderBys.Add(SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", sqlExpression, ") < 0" + baseDirection, sqlExpression.Parameters));
+            OrderBys.Add(SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", sqlExpression, ") < 0" + baseDirection + nullsClause, sqlExpression.Parameters));
+            OrderBys.Add(SQLiteExpression.Wrap(node.Arguments[1].Type, visitor.Counters.NextIdentifier(), "", sqlExpression, baseDirection, sqlExpression.Parameters));
+            return orderBy;
         }
 
-        OrderBys.Add(SQLiteExpression.Wrap(node.Arguments[1].Type, visitor.Counters.NextIdentifier(), "", sqlExpression, order, sqlExpression.Parameters));
+        OrderBys.Add(SQLiteExpression.Wrap(node.Arguments[1].Type, visitor.Counters.NextIdentifier(), "", sqlExpression, baseDirection + nullsClause, sqlExpression.Parameters));
         return orderBy;
     }
 
@@ -109,6 +111,7 @@ internal partial class QueryableVisitor
         if (throwOnEmpty)
         {
             ThrowOnEmpty = true;
+            ElementAtSemantic = true;
         }
 
         return node;

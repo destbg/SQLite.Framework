@@ -81,19 +81,20 @@ var rounded = await db.Table<Book>()
 | `s.Length` | `LENGTH(s)` |
 | `s.ToUpper()` / `s.ToUpperInvariant()` | `UPPER(s)` |
 | `s.ToLower()` / `s.ToLowerInvariant()` | `LOWER(s)` |
-| `s.Trim()` | `TRIM(s)` |
-| `s.TrimStart()` | `LTRIM(s)` |
-| `s.TrimEnd()` | `RTRIM(s)` |
+| `s.Trim()` | `TRIM(s, <whitespace>)` |
+| `s.TrimStart()` | `LTRIM(s, <whitespace>)` |
+| `s.TrimEnd()` | `RTRIM(s, <whitespace>)` |
 | `s.Contains(value)` | `s LIKE '%value%' ESCAPE '\'` |
 | `s.StartsWith(value)` | `s LIKE 'value%' ESCAPE '\'` |
 | `s.EndsWith(value)` | `s LIKE '%value' ESCAPE '\'` |
-| `s.Equals(value)` | `s = value` |
+| `s.Equals(value)` | `s IS value` |
 | `s.Replace(old, new)` | `REPLACE(s, old, new)` |
 | `s.Substring(start, length)` | `SUBSTR(s, start + 1, length)` |
 | `s[index]` | `SUBSTR(s, index + 1, 1)` |
 | `s.IndexOf(value)` | `INSTR(s, value) - 1` |
 | `s.IndexOf(value, startIndex)` | `INSTR(SUBSTR(s, startIndex + 1), value)` adjusted back to a 0-based absolute index, or `-1` |
 | `s.LastIndexOf(value)` | `CASE WHEN LENGTH(value) = 0 THEN LENGTH(s) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, s UNION ALL SELECT pos + INSTR(rem, value), SUBSTR(rem, INSTR(rem, value) + 1) FROM find_pos WHERE INSTR(rem, value) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END` |
+| `s.LastIndexOf(value, startIndex)` | the same `LastIndexOf` search run over the prefix `SUBSTR(s, 1, startIndex + 1)`, so the match must fall within the first `startIndex + 1` characters |
 | `s.Insert(index, value)` | `SUBSTR(s, 1, index) \|\| value \|\| SUBSTR(s, index + 1)` |
 | `s.Remove(start)` | `SUBSTR(s, 1, start)` |
 | `s.Remove(start, count)` | `SUBSTR(s, 1, start) \|\| SUBSTR(s, start + count + 1)` |
@@ -105,6 +106,7 @@ var rounded = await db.Table<Book>()
 | `string.Concat(a, b, ...)` | `a \|\| b \|\| ...` |
 | `string.Join(sep, values)` | `val1 \|\| sep \|\| val2 \|\| ...` |
 | `string.Compare(a, b)` | `CASE WHEN a = b THEN 0 WHEN a < b THEN -1 ELSE 1 END` |
+| `string.Compare(a, indexA, b, indexB, length)` | the same `Compare`, run over `SUBSTR(a, indexA + 1, length)` and `SUBSTR(b, indexB + 1, length)` |
 | `s.CompareTo(other)` | `CASE WHEN s = other THEN 0 WHEN s < other THEN -1 ELSE 1 END` |
 | `string.IsNullOrEmpty(s)` | `(s IS NULL OR s = '')` |
 | `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = '')` |

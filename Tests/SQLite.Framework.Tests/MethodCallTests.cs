@@ -311,7 +311,7 @@ public class MethodCallTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0."BookTitle" = @p0
+                     WHERE b0."BookTitle" IS @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -422,7 +422,7 @@ public class MethodCallTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE TRIM(b0."BookTitle") = @p0
+                     WHERE TRIM(b0."BookTitle", CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -538,7 +538,7 @@ public class MethodCallTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE LTRIM(b0."BookTitle") = @p0
+                     WHERE LTRIM(b0."BookTitle", CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 
@@ -575,7 +575,7 @@ public class MethodCallTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE RTRIM(b0."BookTitle") = @p0
+                     WHERE RTRIM(b0."BookTitle", CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = @p0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
 

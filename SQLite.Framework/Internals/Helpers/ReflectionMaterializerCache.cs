@@ -47,7 +47,7 @@ internal static class ReflectionMaterializerCache
                 IsEnum = isEnum,
                 EnumUnderlyingType = isEnum ? Enum.GetUnderlyingType(targetType) : null,
                 Setter = CreateSetter(prop),
-                Assigner = CreateAssigner(prop, propType, targetType),
+                Assigner = CreateAssigner(prop, propType, targetType, options),
             });
         }
 
@@ -78,7 +78,7 @@ internal static class ReflectionMaterializerCache
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Falls back to the boxed setter when MakeGenericMethod is unsupported under NativeAOT.")]
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Falls back to the boxed setter when MakeGenericMethod is unsupported under NativeAOT.")]
-    private static Action<sqlite3_stmt, int, object>? CreateAssigner(PropertyInfo prop, Type propType, Type targetType)
+    private static Action<sqlite3_stmt, int, object>? CreateAssigner(PropertyInfo prop, Type propType, Type targetType, SQLiteOptions options)
     {
         Type declaringType = prop.DeclaringType!;
         if (declaringType.IsValueType || !RuntimeFeature.IsDynamicCodeSupported)
@@ -87,6 +87,11 @@ internal static class ReflectionMaterializerCache
         }
 
         if (propType != targetType)
+        {
+            return null;
+        }
+
+        if (options.TypeConverters.ContainsKey(targetType))
         {
             return null;
         }

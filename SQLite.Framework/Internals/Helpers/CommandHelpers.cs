@@ -27,7 +27,11 @@ internal static class CommandHelpers
 
         type = Nullable.GetUnderlyingType(type) ?? type;
 
-        if (type == typeof(DateTime))
+        if (options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? typeConverter))
+        {
+            return typeConverter.FromDatabase(ReadRawValue(statement, index, columnType));
+        }
+        else if (type == typeof(DateTime))
         {
             return ReadDateTime(statement, index, columnType, options);
         }
@@ -79,10 +83,6 @@ internal static class CommandHelpers
         else if (type == typeof(bool))
         {
             return Convert.ToBoolean(value);
-        }
-        else if (options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter))
-        {
-            return converter.FromDatabase(value);
         }
         else if (type.IsEnum)
         {

@@ -10,6 +10,7 @@ internal class SQLQuery
     public required Func<SQLiteQueryContext, object?>? CreateObject { get; init; }
     public required bool Reverse { get; init; }
     public required bool ThrowOnEmpty { get; init; }
+    public required bool ElementAtSemantic { get; init; }
     public required bool ThrowOnMoreThanOne { get; init; }
 
     public object? DefaultValue { get; init; }

@@ -139,9 +139,15 @@ internal class AliasVisitor
         }
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types have public properties.")]
     private void VisitMemberInitExpression(LambdaExpression resultSelector, MemberInitExpression memberInitExpression, string prefix)
     {
-        foreach (MemberAssignment memberAssignment in memberInitExpression.Bindings.OfType<MemberAssignment>())
+        PropertyInfo[] declaredProperties = memberInitExpression.Type.GetProperties();
+        IEnumerable<MemberAssignment> orderedBindings = memberInitExpression.Bindings
+            .OfType<MemberAssignment>()
+            .OrderBy(binding => Array.FindIndex(declaredProperties, p => p.Name == binding.Member.Name));
+
+        foreach (MemberAssignment memberAssignment in orderedBindings)
         {
             if (memberAssignment.Expression is MemberInitExpression or NewExpression)
             {
