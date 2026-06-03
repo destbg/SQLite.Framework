@@ -33,11 +33,9 @@ internal partial class JsonCollectionVisitor
         [nameof(Enumerable.Contains)] = static (v, c, _) => v.HandleContains(c),
     };
 
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
-    private void ProcessMethod(MethodCallExpression call, Type sourceType)
+    private void ProcessMethod(MethodCallExpression call)
     {
-        Type elementType = TypeHelpers.GetEnumerableElementType(sourceType)!;
-        Handlers[call.Method.Name](this, call, elementType);
+        Handlers[call.Method.Name](this, call, currentElementType);
     }
 
     private void HandleWhere(MethodCallExpression call, Type elementType)
@@ -63,13 +61,17 @@ internal partial class JsonCollectionVisitor
     private void HandleSelect(MethodCallExpression call, Type elementType)
     {
         selectExpr = VisitLambda(call.Arguments[1], elementType);
+        currentElementType = ((LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1])).ReturnType;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
     private void HandleSelectMany(MethodCallExpression call, Type elementType)
     {
+        LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1]);
         string selSql = VisitLambdaAliased(call.Arguments[1], elementType, "e");
         crossJoin = $", json_each({selSql}) n";
         selectExpr = "n.\"value\"";
+        currentElementType = TypeHelpers.GetEnumerableElementType(lambda.ReturnType)!;
     }
 
     private void HandleSkip(MethodCallExpression call)
