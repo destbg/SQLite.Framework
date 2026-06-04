@@ -58,6 +58,14 @@ internal partial class JsonCollectionVisitor
 
         if (wrapInArray)
         {
+            if (groupBys.Count > 0)
+            {
+                List<string> groupedClauses = [.. clauses];
+                groupedClauses[0] = $"SELECT {distinctKeyword}{selectExpr} AS \"value\"";
+                string groupedInner = string.Join(nl + sp2, groupedClauses);
+                return $"({nl}{sp}SELECT json_group_array(\"value\"){nl}{sp}FROM ({nl}{sp2}{groupedInner}{nl}{sp}){nl})";
+            }
+
             if (distinct && reverseApplied)
             {
                 string positionAggregate = distinctSeenReverse ? "MAX" : "MIN";
