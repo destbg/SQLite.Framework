@@ -541,7 +541,8 @@ internal class SQLTranslator
             for (int i = 0; i < q.Havings.Count; i++)
             {
                 if (i > 0) sb.Append(" AND ");
-                q.Havings[i].WriteSqlTo(sb);
+                SQLiteExpression having = q.Havings.Count > 1 ? ExpressionHelpers.BracketIfNeeded(q.Havings[i]) : q.Havings[i];
+                having.WriteSqlTo(sb);
             }
         }
 
