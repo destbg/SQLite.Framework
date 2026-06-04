@@ -368,6 +368,15 @@ public class JsonWindowCompositionTests
     }
 
     [Fact]
+    public void OrderByThenSkipSequence()
+    {
+        using TestDatabase db = CreateDb();
+        List<int> oracle = A.OrderBy(x => x).Skip(2).ToList();
+        List<int> actual = db.Table<JsonCompRow>().Where(r => r.Id == 1).Select(r => r.Numbers.OrderBy(x => x).Skip(2)).First().ToList();
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
     public void SelectManyThenSkipThenElementAt()
     {
         using TestDatabase db = CreateNestedDb();

@@ -4,6 +4,8 @@ internal partial class QueryableVisitor
 {
     private SQLiteExpression VisitSetOperation(MethodCallExpression node, string setType)
     {
+        ThrowIfReverse(node.Method.Name);
+
         if (OrderBys.Count > 0 || Take != null || Skip != null)
         {
             throw new NotSupportedException(

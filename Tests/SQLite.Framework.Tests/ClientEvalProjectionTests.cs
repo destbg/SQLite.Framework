@@ -15,6 +15,9 @@ internal sealed class CeRow
     public double Price { get; set; }
     public DateTime Moment { get; set; }
     public CePerm Perm { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string Tagged => Name + "#" + Value;
 }
 
 internal sealed class CeChild
@@ -125,6 +128,21 @@ public class ClientEvalProjectionTests
     public void ClientEval_OnComputedMemberReceiver()
         => Same(q => q.Select(x => x.Moment.DayOfWeek.ToString().Normalize(NormalizationForm.FormD)),
                 q => q.Select(x => x.Moment.DayOfWeek.ToString().Normalize(NormalizationForm.FormD)));
+
+    [Fact]
+    public void ClientEval_OnStaticConcatReceiver()
+        => Same(q => q.Select(x => string.Concat(x.Name, "!").Normalize(NormalizationForm.FormD)),
+                q => q.Select(x => string.Concat(x.Name, "!").Normalize(NormalizationForm.FormD)));
+
+#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
+    [Fact]
+    public void ClientEval_OnUnmappedMemberReceiver_Throws()
+    {
+        using TestDatabase db = Db();
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<CeRow>().Select(x => x.Tagged.Normalize(NormalizationForm.FormD)).ToList());
+    }
+#endif
 
     [Fact]
     public void Negative_UntranslatableInWhere_Throws()
