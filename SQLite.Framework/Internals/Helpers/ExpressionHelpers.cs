@@ -91,8 +91,7 @@ internal static class ExpressionHelpers
                 ? (me.Expression != null ? fi.GetValue(GetConstantValue(me.Expression)) : fi.GetValue(null))
                 : ((PropertyInfo)me.Member).GetValue(me.Expression != null ? GetConstantValue(me.Expression) : null),
             UnaryExpression { NodeType: ExpressionType.Convert } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type),
-            NewArrayExpression na =>
-                na.Expressions.Select(GetConstantValue),
+            NewArrayExpression na => CreateArray(na),
             MemberInitExpression mie => CreateMember(mie),
             NewExpression ne => CreateNew(ne),
             ListInitExpression lie => CreateListInit(lie),
@@ -195,6 +194,26 @@ internal static class ExpressionHelpers
 
         object?[] args = newExpression.Arguments.Select(GetConstantValue).ToArray();
         return newExpression.Constructor.Invoke(args);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The element type comes from a user array literal and is already rooted.")]
+    private static Array CreateArray(NewArrayExpression newArray)
+    {
+        Type elementType = newArray.Type.GetElementType()!;
+
+        if (newArray.NodeType == ExpressionType.NewArrayBounds)
+        {
+            int length = Convert.ToInt32(GetConstantValue(newArray.Expressions[0]), CultureInfo.InvariantCulture);
+            return Array.CreateInstance(elementType, length);
+        }
+
+        Array array = Array.CreateInstance(elementType, newArray.Expressions.Count);
+        for (int i = 0; i < newArray.Expressions.Count; i++)
+        {
+            array.SetValue(GetConstantValue(newArray.Expressions[i]), i);
+        }
+
+        return array;
     }
 
     private static object CreateListInit(ListInitExpression listInit)
