@@ -893,6 +893,7 @@ internal class SQLTranslator
         QueryLevelParts blockedBy = name switch
         {
             nameof(Queryable.Where) => QueryLevelParts.Limit,
+            nameof(Queryable.Any) or nameof(Queryable.All) or nameof(Queryable.Contains) => QueryLevelParts.Limit,
             nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
                 or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) => QueryLevelParts.Limit,
             nameof(Queryable.Distinct) => QueryLevelParts.Limit,
