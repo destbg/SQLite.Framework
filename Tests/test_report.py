@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""Cross-platform test runner that reports per-project and total test counts
-plus per-project and combined SQLite.Framework code coverage.
-
-Mirrors the .github/workflows/coverage.yml pipeline:
-  * dotnet build -c Release
-  * dotnet run -- --report-xunit-junit ...    (test counts)
-  * coverlet <dll> --include "[SQLite.Framework]*" --format cobertura
-
-Works on Linux, macOS, and Windows. Only requires Python 3.8+ and the
-.NET SDK on PATH. coverlet.console is auto-installed if missing.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -246,24 +234,24 @@ def run_coverage(
 CONDITION_RE = re.compile(r"\((\d+)\s*/\s*(\d+)\)")
 
 
-def parse_cobertura(
-    path: Path,
-) -> tuple[CoverageStats, dict[tuple[str, int], tuple[int, int, int]]]:
-    """Returns (top-level totals, per-line map of (file,line) -> (hits, br_cov, br_total))."""
-    stats = CoverageStats()
-    line_map: dict[tuple[str, int], tuple[int, int, int]] = {}
+LineCov = dict[tuple[str, int], list]
+
+
+def _merge_line(dst: list, hits: int, a_cov: int, a_total: int, conds: dict[str, float]) -> None:
+    dst[0] = max(dst[0], hits)
+    dst[1] = max(dst[1], a_cov)
+    dst[2] = max(dst[2], a_total)
+    for num, pct in conds.items():
+        dst[3][num] = max(dst[3].get(num, 0.0), pct)
+
+
+def parse_cobertura(path: Path) -> LineCov:
+    """Returns per-line map (file,line) -> [hits, summary_cov, summary_total, {cond_number: pct}]."""
+    line_map: LineCov = {}
     try:
-        tree = ET.parse(path)
+        root = ET.parse(path).getroot()
     except ET.ParseError:
-        return stats, line_map
-    root = tree.getroot()
-    try:
-        stats.lines_valid = int(root.get("lines-valid", "0") or 0)
-        stats.lines_covered = int(root.get("lines-covered", "0") or 0)
-        stats.branches_valid = int(root.get("branches-valid", "0") or 0)
-        stats.branches_covered = int(root.get("branches-covered", "0") or 0)
-    except ValueError:
-        pass
+        return line_map
     for cls in root.findall(".//class"):
         filename = cls.get("filename", "") or ""
         for line in cls.findall(".//line"):
@@ -275,45 +263,45 @@ def parse_cobertura(
                 hits = int(line.get("hits", "0") or 0)
             except ValueError:
                 hits = 0
-            br_cov = br_total = 0
+            a_cov = a_total = 0
+            conds: dict[str, float] = {}
             if (line.get("branch", "False") or "False").lower() == "true":
-                cc = line.get("condition-coverage", "") or ""
-                m = CONDITION_RE.search(cc)
+                m = CONDITION_RE.search(line.get("condition-coverage", "") or "")
                 if m:
-                    br_cov = int(m.group(1))
-                    br_total = int(m.group(2))
+                    a_cov, a_total = int(m.group(1)), int(m.group(2))
+                celem = line.find("conditions")
+                if celem is not None:
+                    for c in celem.findall("condition"):
+                        cn = c.get("number")
+                        if cn is not None:
+                            conds[cn] = max(conds.get(cn, 0.0), float((c.get("coverage", "0") or "0").rstrip("%")))
             key = (filename, num)
-            prev = line_map.get(key)
-            if prev is None:
-                line_map[key] = (hits, br_cov, br_total)
+            if key not in line_map:
+                line_map[key] = [hits, a_cov, a_total, conds]
             else:
-                line_map[key] = (
-                    max(prev[0], hits),
-                    max(prev[1], br_cov),
-                    max(prev[2], br_total),
-                )
-    return stats, line_map
+                _merge_line(line_map[key], hits, a_cov, a_total, conds)
+    return line_map
 
 
-def merge_coverage(
-    per_project_lines: list[dict[tuple[str, int], tuple[int, int, int]]],
-) -> CoverageStats:
-    merged: dict[tuple[str, int], tuple[int, int, int]] = {}
+def compute_stats(per_project_lines: list[LineCov]) -> CoverageStats:
+    merged: LineCov = {}
     for lm in per_project_lines:
-        for key, val in lm.items():
-            prev = merged.get(key)
-            if prev is None:
-                merged[key] = val
+        for key, (hits, a_cov, a_total, conds) in lm.items():
+            if key not in merged:
+                merged[key] = [hits, a_cov, a_total, dict(conds)]
             else:
-                merged[key] = (
-                    max(prev[0], val[0]),
-                    max(prev[1], val[1]),
-                    max(prev[2], val[2]),
-                )
+                _merge_line(merged[key], hits, a_cov, a_total, conds)
     out = CoverageStats()
-    for hits, br_cov, br_total in merged.values():
+    for hits, a_cov, a_total, conds in merged.values():
+        if conds:
+            br_cov = round(sum(conds.values()) / 50.0)
+            br_total = 2 * len(conds)
+        elif a_total > 0:
+            br_cov, br_total = a_cov, a_total
+        else:
+            br_cov, br_total = 0, 0
         out.lines_valid += 1
-        if hits > 0:
+        if hits > 0 and br_cov >= br_total:
             out.lines_covered += 1
         out.branches_valid += br_total
         out.branches_covered += br_cov
@@ -343,8 +331,6 @@ def fmt_table(rows: list[list[str]], headers: list[str]) -> str:
 def build_phase(
     csprojs: list[Path], configuration: str, skip_build: bool
 ) -> dict[str, ProjectResult]:
-    """Builds every project sequentially so that the shared SQLite.Framework
-    output isn't written by two MSBuild invocations at once."""
     results: dict[str, ProjectResult] = {
         c.stem: ProjectResult(name=c.stem, csproj=c) for c in csprojs
     }
@@ -365,9 +351,6 @@ def run_project(
     skip_coverage: bool,
     result: ProjectResult,
 ) -> ProjectResult:
-    """Runs tests and collects coverage for a single project. Safe to invoke
-    in parallel across projects: each project has its own dll, junit
-    filename, and coverage output path."""
     if result.build_failed:
         return result
     if not skip_tests:
@@ -399,8 +382,7 @@ def run_project(
                 result.coverage_failed = True
                 result.notes.append(f"coverage failed: {err.strip()[:200]}")
             else:
-                cov, _ = parse_cobertura(cob)
-                result.coverage = cov
+                result.coverage = compute_stats([parse_cobertura(cob)])
     return result
 
 
@@ -554,7 +536,7 @@ def main() -> int:
         print("=" * 78)
         print("Coverage (assembly: SQLite.Framework)")
         print("=" * 78)
-        per_line_maps: list[dict[tuple[str, int], tuple[int, int, int]]] = []
+        per_line_maps: list[LineCov] = []
         cov_rows: list[list[str]] = []
         for r in results:
             if r.coverage is None:
@@ -571,10 +553,9 @@ def main() -> int:
                 ]
             )
             if r.cobertura_path is not None:
-                _, lm = parse_cobertura(r.cobertura_path)
-                per_line_maps.append(lm)
+                per_line_maps.append(parse_cobertura(r.cobertura_path))
         if per_line_maps:
-            combined = merge_coverage(per_line_maps)
+            combined = compute_stats(per_line_maps)
             cov_rows.append(
                 [
                     "COMBINED",

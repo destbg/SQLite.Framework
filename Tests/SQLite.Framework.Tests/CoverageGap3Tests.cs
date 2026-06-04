@@ -1148,4 +1148,109 @@ public class CoverageGap3Tests
     {
         public int Value { get; set; }
     }
+
+    [Fact]
+    public void SelectMaterializer_NoMatch_FallsBackToReflection()
+    {
+        using TestDatabase db = new(b => b.SelectMaterializers.Add("__no_such_sig__", _ => null));
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        string? result = db.Table<Book>().Select(b => b.Title).First();
+
+        Assert.Equal("x", result);
+    }
+
+    [Fact]
+    public void SelectMaterializer_NullSignature_FallsBackToReflection()
+    {
+        using TestDatabase db = new(b => b.SelectMaterializers.Add("__any__", _ => null));
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        Book result = db.Table<Book>().Select(b => b).First();
+
+        Assert.Equal(1, result.Id);
+    }
+
+    [Fact]
+    public void SelectMaterializer_ClientEvalMatch_UsesGenerated()
+    {
+        System.Linq.Expressions.Expression<Func<Book, string>> selector = b => b.Title.Normalize(System.Text.NormalizationForm.FormD);
+        string sig = SQLite.Framework.Internals.SelectSignature.Compute(selector.Body);
+
+        int callCount = 0;
+        using TestDatabase db = new(b =>
+        {
+            if (!b.SelectMaterializers.ContainsKey(sig))
+            {
+                b.SelectMaterializers.Add(sig, ctx =>
+                {
+                    callCount++;
+                    string colKey = ctx.Columns!.Keys.First();
+                    string raw = ctx.Reader!.GetString(ctx.Columns![colKey]) ?? "";
+                    return raw.Normalize(System.Text.NormalizationForm.FormD);
+                });
+            }
+        });
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        string result = db.Table<Book>().Select(b => b.Title.Normalize(System.Text.NormalizationForm.FormD)).First();
+
+        Assert.Equal("x".Normalize(System.Text.NormalizationForm.FormD), result);
+    }
+
+    [Fact]
+    public void SelectMaterializer_AnonymousNoMatch_FallsBackToReflection()
+    {
+        using TestDatabase db = new(b => b.SelectMaterializers.Add("__no_such_anon_sig__", _ => null));
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        var result = db.Table<Book>().Select(b => new { b.Id, b.Title }).First();
+
+        Assert.Equal(1, result.Id);
+        Assert.Equal("x", result.Title);
+    }
+
+    [Fact]
+    public void SelectMaterializer_AnonymousWithInternalMemberType_Match_UsesGenerated()
+    {
+        System.Linq.Expressions.Expression<Func<EcRow, object>> selector = r => new { r.Id, r.Color };
+        string sig = SQLite.Framework.Internals.SelectSignature.Compute(selector.Body);
+
+        using TestDatabase db = new(b =>
+        {
+            if (!b.SelectMaterializers.ContainsKey(sig))
+            {
+                b.SelectMaterializers.Add(sig, ctx =>
+                {
+                    int id = ctx.Reader!.GetInt32(ctx.Columns!["Id"]);
+                    EcColor color = (EcColor)ctx.Reader!.GetInt32(ctx.Columns!["Color"]);
+                    return new { Id = id, Color = color };
+                });
+            }
+        });
+        db.Table<EcRow>().Schema.CreateTable();
+        db.Table<EcRow>().Add(new EcRow { Id = 1, Color = EcColor.Green });
+
+        dynamic result = db.Table<EcRow>().Select(r => new { r.Id, r.Color }).First()!;
+
+        Assert.Equal(1, (int)result.Id);
+        Assert.Equal(EcColor.Green, (EcColor)result.Color);
+    }
+
+    [Fact]
+    public void SelectMaterializer_AnonymousWithInternalMemberType_NoMatch_FallsBackToReflection()
+    {
+        using TestDatabase db = new(b => b.SelectMaterializers.Add("__no_match__", _ => null));
+        db.Table<EcRow>().Schema.CreateTable();
+        db.Table<EcRow>().Add(new EcRow { Id = 1, Color = EcColor.Blue });
+
+        var result = db.Table<EcRow>().Select(r => new { r.Id, r.Color }).First();
+
+        Assert.Equal(1, result.Id);
+        Assert.Equal(EcColor.Blue, result.Color);
+    }
 }

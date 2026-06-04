@@ -201,7 +201,6 @@ public class FullTextSearchTokenizerCoverageTests
             ReadSchema(db, "Custom_BacktickArg_Search"));
     }
 
-#if !SQLITECIPHER
     [Fact]
     public void Validation_TwoTokenizerAttributes_Throws()
     {
@@ -212,7 +211,6 @@ public class FullTextSearchTokenizerCoverageTests
 
         Assert.Contains("more than one tokenizer attribute", ex.Message);
     }
-#endif
 
     [Fact]
     public void Validation_ExternalWithoutContentTable_Throws()

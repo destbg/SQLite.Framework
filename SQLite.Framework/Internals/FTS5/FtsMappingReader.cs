@@ -82,7 +82,11 @@ internal static class FtsMappingReader
         AsciiTokenizerAttribute? ascii = type.GetCustomAttribute<AsciiTokenizerAttribute>();
         CustomTokenizerAttribute? custom = type.GetCustomAttribute<CustomTokenizerAttribute>();
 
+#if SQLITECIPHER
+        int count = (unicode != null ? 1 : 0) + (porter != null ? 1 : 0) + (ascii != null ? 1 : 0) + (custom != null ? 1 : 0);
+#else
         int count = (unicode != null ? 1 : 0) + (porter != null ? 1 : 0) + (trigram != null ? 1 : 0) + (ascii != null ? 1 : 0) + (custom != null ? 1 : 0);
+#endif
 
         if (count > 1)
         {

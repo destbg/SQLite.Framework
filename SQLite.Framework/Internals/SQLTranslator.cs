@@ -277,9 +277,9 @@ internal class SQLTranslator
            && ne.Type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
            && ne.Arguments.Any(a => !a.Type.IsVisible);
 
-        if (hasReflectedArg
+        if (selectMaterializers2.Count > 0
+            && hasReflectedArg
             && rawSignature2 != null
-            && selectMaterializers2.Count > 0
             && selectMaterializers2.TryGetValue(rawSignature2, out Func<SQLiteQueryContext, object?>? generatedAnon))
         {
 #if SQLITE_FRAMEWORK_TESTING
@@ -308,7 +308,8 @@ internal class SQLTranslator
         {
             IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> selectMaterializers = database.Options.SelectMaterializers;
             string? rawSignature = queryableMethodVisitor.RawSelectSignature;
-            if (selectMaterializers.Count > 0 && rawSignature != null
+            if (selectMaterializers.Count > 0
+                && rawSignature != null
                 && selectMaterializers.TryGetValue(rawSignature, out Func<SQLiteQueryContext, object?>? generated))
             {
 #if SQLITE_FRAMEWORK_TESTING

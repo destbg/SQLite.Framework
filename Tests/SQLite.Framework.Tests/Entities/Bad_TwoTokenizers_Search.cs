@@ -16,4 +16,19 @@ public class Bad_TwoTokenizers_Search
     [FullTextIndexed]
     public required string Body { get; set; }
 }
+
+#else
+
+[FullTextSearch(ContentMode = FtsContentMode.Internal)]
+[Unicode61Tokenizer]
+[AsciiTokenizer]
+public class Bad_TwoTokenizers_Search
+{
+    [FullTextRowId]
+    public int Id { get; set; }
+
+    [FullTextIndexed]
+    public required string Body { get; set; }
+}
+
 #endif
