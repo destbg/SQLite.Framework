@@ -133,7 +133,20 @@ internal static class ExpressionHelpers
         }
 
         Type underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        return value.GetType() == underlying ? value : Convert.ChangeType(value, underlying);
+        if (value.GetType() == underlying)
+        {
+            return value;
+        }
+
+        if (underlying.IsEnum)
+        {
+            object numeric = value is Enum
+                ? Convert.ChangeType(value, Enum.GetUnderlyingType(value.GetType()))
+                : value;
+            return Enum.ToObject(underlying, numeric);
+        }
+
+        return Convert.ChangeType(value, underlying);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of user assembly")]
