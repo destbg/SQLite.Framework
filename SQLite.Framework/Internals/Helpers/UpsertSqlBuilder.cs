@@ -6,7 +6,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class UpsertSqlBuilder
 {
-    public static (TableColumn[] Columns, string Sql) Build<T>(SQLiteDatabase database, TableMapping table, SQLiteUpsertConflictTarget<T> target, Func<TableColumn, string, string> wrapParam, IReadOnlyList<(string Column, string ValueSql)>? extraColumns = null)
+    public static (TableColumn[] Columns, string Sql) Build<T>(SQLiteDatabase database, TableMapping table, SQLiteUpsertConflictTarget<T> target, Func<TableColumn, string, string> wrapParam, IReadOnlyList<(string Column, string ValueSql)>? extraColumns = null, TableColumn[]? insertOverride = null)
     {
         TableColumn[] insertColumns = table.Columns.ToArray();
 
@@ -22,8 +22,10 @@ internal static class UpsertSqlBuilder
             insertColumns = insertColumns.Where(c => !overridden.Contains(c.Name)).ToArray();
         }
 
-        IEnumerable<string> names = insertColumns.Select(c => IdentifierGuard.Quote(c.Name));
-        IEnumerable<string> values = insertColumns.Select((c, i) => wrapParam(c, $"@p{i}"));
+        TableColumn[] valueColumns = insertOverride ?? insertColumns;
+
+        IEnumerable<string> names = valueColumns.Select(c => IdentifierGuard.Quote(c.Name));
+        IEnumerable<string> values = valueColumns.Select((c, i) => wrapParam(c, $"@p{i}"));
         if (extraColumns is { Count: > 0 })
         {
             names = names.Concat(extraColumns.Select(e => IdentifierGuard.Quote(e.Column)));
@@ -89,7 +91,7 @@ internal static class UpsertSqlBuilder
                 throw new InvalidOperationException($"Unknown UpsertActionKind: {action.Kind}");
         }
 
-        return (insertColumns, sb.ToString());
+        return (valueColumns, sb.ToString());
     }
 
     private static void AppendUpdate<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, IEnumerable<TableColumn> setColumns, SQLiteUpsertAction<T> action)

@@ -72,4 +72,39 @@ public class UpsertDatabaseDefaultColumnFilteringTests
 
         Assert.Equal(referenceRatings, actualRatings);
     }
+
+    [Fact]
+    public void UpsertWithNonDefaultValueMatchesAddForSameData()
+    {
+        using TestDatabase reference = new();
+        reference.Schema.CreateTable<RatedEntry>();
+        reference.Table<RatedEntry>().Add(new RatedEntry { Id = 1, Name = "first", Rating = 7 });
+        int referenceRating = reference.Table<RatedEntry>().Single(x => x.Id == 1).Rating;
+
+        using TestDatabase db = new();
+        db.Schema.CreateTable<RatedEntry>();
+        db.Table<RatedEntry>().Upsert(
+            new RatedEntry { Id = 1, Name = "first", Rating = 7 },
+            c => c.OnConflict(x => x.Id).DoNothing());
+        int actualRating = db.Table<RatedEntry>().Single(x => x.Id == 1).Rating;
+
+        Assert.Equal(referenceRating, actualRating);
+    }
+
+    [Fact]
+    public void UpsertConflictDoUpdateAllUpdatesNonKeyColumns()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<RatedEntry>();
+        db.Table<RatedEntry>().Add(new RatedEntry { Id = 1, Name = "old", Rating = 7 });
+
+        db.Table<RatedEntry>().Upsert(
+            new RatedEntry { Id = 1, Name = "new", Rating = 8 },
+            c => c.OnConflict(x => x.Id).DoUpdateAll());
+
+        RatedEntry row = db.Table<RatedEntry>().Single(x => x.Id == 1);
+
+        Assert.Equal("new", row.Name);
+        Assert.Equal(8, row.Rating);
+    }
 }

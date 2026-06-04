@@ -305,7 +305,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 #endif
     public virtual int UpsertRange(IEnumerable<T> collection, Action<SQLiteUpsertBuilder<T>> configure, bool runInTransaction = true)
     {
-        if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(InsertItem)))
+        if (Database.Options.OnActionHooks.Count == 0
+            && !IsItemMethodOverridden(nameof(InsertItem))
+            && !HasAnyDatabaseDefault())
         {
             (TableColumn[] columns, string sql) = GetUpsertInfo(configure);
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
@@ -826,6 +828,15 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual int DefaultUpsert(T item, Action<SQLiteUpsertBuilder<T>> configure)
     {
         (TableColumn[] columns, string sql) = GetUpsertInfo(configure);
+        if (!IsItemMethodOverridden(nameof(GetUpsertInfo)))
+        {
+            TableColumn[] filtered = FilterColumnsForDefaults(columns, item);
+            if (filtered.Length != columns.Length)
+            {
+                columns = filtered;
+                sql = BuildUpsertSql(configure, filtered);
+            }
+        }
         return InsertItem(columns, sql, item);
     }
 
@@ -1192,6 +1203,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         string sql = $"UPDATE \"{Table.TableName}\" SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", primaryKeyClauses)}";
         return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
+    }
+
+    private string BuildUpsertSql(Action<SQLiteUpsertBuilder<T>> configure, TableColumn[] insertOverride)
+    {
+        SQLiteUpsertBuilder<T> builder = new();
+        configure(builder);
+        SQLiteUpsertConflictTarget<T> target = builder.Build();
+        return UpsertSqlBuilder.Build(Database, Table, target, (c, p) => WrapParam(p, c), ExtraWriteColumns, insertOverride).Sql;
     }
 
     private static bool HasColumnHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks)

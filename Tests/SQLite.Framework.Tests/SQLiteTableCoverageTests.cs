@@ -378,6 +378,18 @@ public class SQLiteTableCoverageTests
         Assert.Throws<SQLiteException>(() => table.AddOrUpdate(row));
     }
 
+    [Fact]
+    public void Upsert_OverriddenGetUpsertInfo_SkipsDefaultFilter()
+    {
+        using TestDatabase db = new();
+        db.Table<Article>().Schema.CreateTable();
+        OverridingArticleTable table = new(db, db.TableMapping(typeof(Article)));
+
+        Article row = new() { Title = "t", Body = "b", PublishedAt = DateTime.UtcNow };
+
+        Assert.Throws<SQLiteException>(() => table.Upsert(row, c => c.OnConflict(a => a.Id).DoNothing()));
+    }
+
     private sealed class OverridingArticleTable : SQLiteTable<Article>
     {
         public OverridingArticleTable(SQLiteDatabase database, TableMapping table)
@@ -394,6 +406,12 @@ public class SQLiteTableCoverageTests
         protected override (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
         {
             (TableColumn[] columns, _) = base.GetAddOrUpdateInfo(conflict);
+            return (columns, "INSERT GARBAGE @!%");
+        }
+
+        protected override (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<Article>> configure)
+        {
+            (TableColumn[] columns, _) = base.GetUpsertInfo(configure);
             return (columns, "INSERT GARBAGE @!%");
         }
     }
