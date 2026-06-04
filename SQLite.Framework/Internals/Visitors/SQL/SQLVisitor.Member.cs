@@ -86,6 +86,15 @@ internal partial class SQLVisitor
             }
         }
 
+        if (node.Expression is MemberExpression chainedExpression)
+        {
+            Expression visitedInner = Visit(chainedExpression);
+            if (visitedInner is SQLiteExpression innerSqlExpression)
+            {
+                return ConvertMemberExpression(node, innerSqlExpression);
+            }
+        }
+
         return ResolveMember(node);
     }
 

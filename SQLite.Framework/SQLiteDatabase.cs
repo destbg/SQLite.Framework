@@ -959,6 +959,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return Handle!;
     }
 
+    internal bool TryGetCachedTableMapping(Type type, [NotNullWhen(true)] out TableMapping? mapping)
+    {
+        lock (tableMappingsLock)
+        {
+            return tableMappings.TryGetValue(type, out mapping);
+        }
+    }
+
     internal sqlite3_stmt RentStatement(string sql)
     {
         if (statementPool.TryRent(sql, out sqlite3_stmt pooled))

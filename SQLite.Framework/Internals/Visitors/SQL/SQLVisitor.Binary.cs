@@ -103,8 +103,11 @@ internal partial class SQLVisitor
             bool isAnd = node.NodeType is ExpressionType.AndAlso or ExpressionType.And;
             string spacedOp = isAnd ? " AND " : " OR ";
 
-            SQLiteExpression boolLeft = isAnd ? BracketBooleanOr(leftNode, resolvedLeft.SQLiteExpression!) : resolvedLeft.SQLiteExpression!;
-            SQLiteExpression boolRight = isAnd ? BracketBooleanOr(rightNode, resolvedRight.SQLiteExpression!) : resolvedRight.SQLiteExpression!;
+            SQLiteExpression coalescedLeft = CoalesceLiftedOrderComparison(leftNode, resolvedLeft.SQLiteExpression!);
+            SQLiteExpression coalescedRight = CoalesceLiftedOrderComparison(rightNode, resolvedRight.SQLiteExpression!);
+
+            SQLiteExpression boolLeft = isAnd ? BracketBooleanOr(leftNode, coalescedLeft) : coalescedLeft;
+            SQLiteExpression boolRight = isAnd ? BracketBooleanOr(rightNode, coalescedRight) : coalescedRight;
             SQLiteParameter[]? boolParameters = ParameterHelpers.CombineParameters(boolLeft, boolRight);
 
             SQLiteExpression boolResult = SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", boolLeft, spacedOp, boolRight, "", boolParameters);
@@ -122,9 +125,11 @@ internal partial class SQLVisitor
                 return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", xorLeft, " <> ", xorRight, "", ParameterHelpers.CombineParameters(xorLeft, xorRight));
             }
 
+            SQLiteExpression xorLeftMulti = CoalesceLiftedOrderComparison(leftNode, left);
+            SQLiteExpression xorRightMulti = CoalesceLiftedOrderComparison(rightNode, right);
             return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
                 ["((", " | ", ") - (", " & ", "))"],
-                [left, right, left, right],
+                [xorLeftMulti, xorRightMulti, xorLeftMulti, xorRightMulti],
                 bothParameters);
         }
 

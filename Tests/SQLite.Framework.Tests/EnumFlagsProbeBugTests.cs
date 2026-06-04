@@ -6,21 +6,21 @@ using SQLite.Framework.Tests.Helpers;
 namespace SQLite.Framework.Tests;
 
 [Flags]
-file enum Access
+internal enum Access
 {
     None = 0,
     Read = 1,
     Write = 2
 }
 
-file enum BigEnum : ulong
+internal enum BigEnum : ulong
 {
     Zero = 0,
     Max = ulong.MaxValue
 }
 
 [Table("AccessDocs")]
-file sealed class AccessDoc
+internal sealed class AccessDoc
 {
     [Key]
     public int Id { get; set; }
@@ -29,7 +29,7 @@ file sealed class AccessDoc
 }
 
 [Table("BigEnumRows")]
-file sealed class BigEnumRow
+internal sealed class BigEnumRow
 {
     [Key]
     public int Id { get; set; }
@@ -52,14 +52,17 @@ public class EnumFlagsProbeBugTests
     }
 
     [Fact]
-    public void FlagsEnumToStringInQueryThrows()
+    public void FlagsEnumToStringInProjection_ClientEvaluates()
     {
         using TestDatabase db = new();
         db.Table<AccessDoc>().Schema.CreateTable();
         db.Table<AccessDoc>().Add(new AccessDoc { Id = 1, Perms = Access.Read | Access.Write });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<AccessDoc>().Select(x => x.Perms.ToString()).First());
+        string expected = (Access.Read | Access.Write).ToString();
+        string actual = db.Table<AccessDoc>().Select(x => x.Perms.ToString()).First();
+
+        Assert.Equal("Read, Write", expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

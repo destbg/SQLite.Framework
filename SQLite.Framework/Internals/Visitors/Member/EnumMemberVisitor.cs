@@ -31,17 +31,65 @@ internal static class EnumMemberVisitor
                 }
                 case nameof(Enum.ToString):
                 {
-                    Type enumType = node.Object!.Type;
+                    Type objectType = node.Object!.Type;
+                    Type enumType = Nullable.GetUnderlyingType(objectType) ?? objectType;
+                    bool isNullableEnum = enumType != objectType;
+                    Type enumUnderlying = Enum.GetUnderlyingType(enumType);
+                    SQLiteExpression objExpr = obj.SQLiteExpression!;
+                    bool isUlongBacked = enumUnderlying == typeof(ulong);
+
+                    string format = "G";
+                    if (node.Arguments.Count > 0)
+                    {
+                        if (!arguments[0].IsConstant || arguments[0].Constant is not string formatArg)
+                        {
+                            throw new NotSupportedException(
+                                "Enum.ToString with a non-constant format string is not translatable to SQL. " +
+                                "Use a constant \"G\" (name), \"D\" (number) or \"X\" (hex) format.");
+                        }
+
+                        format = string.IsNullOrEmpty(formatArg) ? "G" : formatArg;
+                    }
+
+                    if (format.Length != 1)
+                    {
+                        throw new NotSupportedException(
+                            $"Enum.ToString format \"{format}\" is not supported in a query. " +
+                            "The supported formats are \"G\" (name), \"D\" (number) and \"X\" (hex).");
+                    }
+
+                    char formatChar = char.ToUpperInvariant(format[0]);
+
+                    if (formatChar == 'D')
+                    {
+                        return isUlongBacked
+                            ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "printf('%llu', ", objExpr, ")", obj.Parameters)
+                            : SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", objExpr, " AS TEXT)", obj.Parameters);
+                    }
+
+                    if (formatChar == 'X')
+                    {
+                        (int hexDigits, long hexMask, bool use64) = HexFormatInfo(enumUnderlying);
+                        return use64
+                            ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"printf('%0{hexDigits}llX', ", objExpr, ")", obj.Parameters)
+                            : SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"printf('%0{hexDigits}X', (", objExpr, $" & {hexMask}))", obj.Parameters);
+                    }
+
+                    if (formatChar != 'G')
+                    {
+                        throw new NotSupportedException(
+                            $"Enum.ToString format \"{format}\" is not supported in a query. " +
+                            "The supported formats are \"G\" (name), \"D\" (number) and \"X\" (hex).");
+                    }
 
                     if (enumType.IsDefined(typeof(FlagsAttribute), inherit: false))
                     {
                         throw new NotSupportedException(
-                            $"ToString on the [Flags] enum {enumType.Name} is not supported in a query because its " +
-                            "result depends on a value decomposition that cannot be reproduced faithfully in SQL. " +
-                            "Materialize the rows into a list first, then call ToString.");
+                            $"ToString with the \"G\" (name) format on the [Flags] enum {enumType.Name} is not supported in a query " +
+                            "because the name decomposition cannot be reproduced faithfully in SQL. " +
+                            "Use the \"D\" (number) or \"X\" (hex) format.");
                     }
 
-                    Type enumUnderlying = Enum.GetUnderlyingType(enumType);
                     Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
                     string[] enumNames = Enum.GetNames(enumType);
 
@@ -65,16 +113,18 @@ internal static class EnumMemberVisitor
                         caseSb.Append(nameParam.Name);
                     }
 
-                    SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteParameter[] parameters = obj.Parameters == null
                         ? [.. nameParams]
                         : [.. obj.Parameters, .. nameParams];
 
-                    bool isUlongBacked = enumUnderlying == typeof(ulong);
                     string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
                     string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
 
-                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseOpen, objExpr, elseClose, parameters);
+                    SQLiteExpression nameCase = SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseOpen, objExpr, elseClose, parameters);
+
+                    return isNullableEnum
+                        ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "COALESCE(", nameCase, ", '')", parameters)
+                        : nameCase;
                 }
             }
         }
@@ -152,5 +202,25 @@ internal static class EnumMemberVisitor
         return enumUnderlying == typeof(ulong)
             ? unchecked((long)(ulong)enumValue)
             : Convert.ToInt64(enumValue);
+    }
+
+    private static (int Digits, long Mask, bool Use64) HexFormatInfo(Type enumUnderlying)
+    {
+        if (enumUnderlying == typeof(byte) || enumUnderlying == typeof(sbyte))
+        {
+            return (2, 0xFF, false);
+        }
+
+        if (enumUnderlying == typeof(short) || enumUnderlying == typeof(ushort))
+        {
+            return (4, 0xFFFF, false);
+        }
+
+        if (enumUnderlying == typeof(int) || enumUnderlying == typeof(uint))
+        {
+            return (8, 0xFFFFFFFFL, false);
+        }
+
+        return (16, 0L, true);
     }
 }

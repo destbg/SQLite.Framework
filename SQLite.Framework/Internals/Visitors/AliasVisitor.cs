@@ -123,7 +123,8 @@ internal class AliasVisitor
                     SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
                     {
                         MethodArguments = visitor.MethodArguments,
-                        TableColumnPrefixes = visitor.TableColumnPrefixes
+                        TableColumnPrefixes = visitor.TableColumnPrefixes,
+                        ClientEvalAllowed = visitor.ClientEvalAllowed
                     };
                     Expression expression = innerVisitor.Visit(argument);
 
@@ -215,7 +216,8 @@ internal class AliasVisitor
                 SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
                 {
                     MethodArguments = visitor.MethodArguments,
-                    TableColumnPrefixes = visitor.TableColumnPrefixes
+                    TableColumnPrefixes = visitor.TableColumnPrefixes,
+                    ClientEvalAllowed = visitor.ClientEvalAllowed
                 };
                 Expression expression = innerVisitor.Visit(memberAssignment.Expression);
                 result.Add(alias, expression);
@@ -267,7 +269,8 @@ internal class AliasVisitor
         SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
         {
             MethodArguments = visitor.MethodArguments,
-            TableColumnPrefixes = visitor.TableColumnPrefixes
+            TableColumnPrefixes = visitor.TableColumnPrefixes,
+            ClientEvalAllowed = visitor.ClientEvalAllowed
         };
         Expression expression = innerVisitor.Visit(body);
         result.Add(prefix, expression);

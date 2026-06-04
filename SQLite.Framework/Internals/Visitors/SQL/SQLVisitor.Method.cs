@@ -82,7 +82,9 @@ internal partial class SQLVisitor
 
         if (node.Object != null)
         {
-            if (node.Object.Type.IsEnum)
+            if (node.Object.Type.IsEnum
+                || ((Nullable.GetUnderlyingType(node.Object.Type)?.IsEnum ?? false)
+                    && node.Method.Name == nameof(object.ToString)))
             {
                 return EnumMemberVisitor.HandleEnumMethod(ctx);
             }

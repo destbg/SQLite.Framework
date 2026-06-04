@@ -310,7 +310,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             (TableColumn[] columns, string sql) = GetUpsertInfo(configure);
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
             SQLiteOptions options = Database.Options;
-            Action<sqlite3_stmt, T> bindRow = ResolveBindRow(columns, 0, options);
+            Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
             return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, bindRow, autoIncrement);
         }
 

@@ -96,6 +96,14 @@ internal static class SelectSignatureWriter
             }
         }
 
+        if (declaredType != null
+            && convertedType != null
+            && !SymbolEqualityComparer.Default.Equals(declaredType, convertedType)
+            && ctx.Model.ClassifyConversion(node, convertedType).IsReference)
+        {
+            return AppendWithType(sb, node, declaredType, ctx);
+        }
+
         return AppendWithType(sb, node, convertedType ?? declaredType, ctx);
     }
 
@@ -112,6 +120,12 @@ internal static class SelectSignatureWriter
 
             case ConditionalExpressionSyntax cond:
                 return AppendConditional(sb, cond, type, ctx);
+
+            case MemberAccessExpressionSyntax constMember
+                when constMember.Kind() == SyntaxKind.SimpleMemberAccessExpression
+                    && ctx.Model.GetConstantValue(constMember).HasValue:
+                AppendConstant(sb, constMember, type, ctx);
+                return true;
 
             case MemberAccessExpressionSyntax memberAccess
                 when memberAccess.Kind() == SyntaxKind.SimpleMemberAccessExpression:
@@ -151,6 +165,9 @@ internal static class SelectSignatureWriter
             case LiteralExpressionSyntax literal:
                 AppendConstant(sb, literal, type, ctx);
                 return true;
+
+            case InterpolatedStringExpressionSyntax interpolated:
+                return AppendInterpolatedString(sb, interpolated, ctx);
 
             case CastExpressionSyntax cast:
                 return AppendCast(sb, cast, type, ctx);
@@ -1035,7 +1052,114 @@ internal static class SelectSignatureWriter
 
     private static void AppendConstant(StringBuilder sb, ExpressionSyntax node, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        sb.Append("(Constant ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatConstant(GetConstantValue(node, type, ctx))).Append(')');
+        sb.Append("(Constant ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
+
+        ITypeSymbol? underlying = type is INamedTypeSymbol nullable && nullable.IsGenericType
+            && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
+            ? nullable.TypeArguments[0]
+            : type;
+
+        object? value = GetConstantValue(node, underlying, ctx);
+        if (value != null && underlying is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+            && FormatEnumConstant(enumType, value) is { } enumName)
+        {
+            sb.Append(enumName);
+        }
+        else
+        {
+            sb.Append(FormatConstant(value));
+        }
+
+        sb.Append(')');
+    }
+
+    private static bool AppendInterpolatedString(StringBuilder sb, InterpolatedStringExpressionSyntax interpolated, SelectSignatureCtx ctx)
+    {
+        StringBuilder format = new();
+        List<InterpolationSyntax> holes = new();
+
+        foreach (InterpolatedStringContentSyntax content in interpolated.Contents)
+        {
+            switch (content)
+            {
+                case InterpolatedStringTextSyntax text:
+                    format.Append(text.TextToken.Text);
+                    break;
+                case InterpolationSyntax hole:
+                    format.Append('{').Append(holes.Count);
+                    if (hole.AlignmentClause != null)
+                    {
+                        format.Append(',').Append(hole.AlignmentClause.Value.ToString());
+                    }
+                    if (hole.FormatClause != null)
+                    {
+                        format.Append(':').Append(hole.FormatClause.FormatStringToken.ValueText);
+                    }
+                    format.Append('}');
+                    holes.Add(hole);
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        if (holes.Count is 0 or > 3)
+        {
+            return false;
+        }
+
+        sb.Append("(Call System.String System.String.Format (Constant System.String ")
+            .Append(FormatConstant(format.ToString()))
+            .Append(')');
+
+        foreach (InterpolationSyntax hole in holes)
+        {
+            sb.Append(' ');
+            ITypeSymbol? holeType = ctx.Model.GetTypeInfo(hole.Expression).Type;
+            bool box = holeType is { IsValueType: true };
+            if (box)
+            {
+                sb.Append("(Convert System.Object ");
+            }
+
+            if (!TryAppend(sb, hole.Expression, ctx))
+            {
+                return false;
+            }
+
+            if (box)
+            {
+                sb.Append(')');
+            }
+        }
+
+        sb.Append(')');
+        return true;
+    }
+
+    private static string? FormatEnumConstant(INamedTypeSymbol enumType, object value)
+    {
+        foreach (IFieldSymbol field in enumType.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (field.HasConstantValue && Equals(NormalizeEnumNumeric(field.ConstantValue), NormalizeEnumNumeric(value)))
+            {
+                return field.Name;
+            }
+        }
+
+        return null;
+    }
+
+    private static object? NormalizeEnumNumeric(object? value)
+    {
+        try
+        {
+            return value is null ? null : Convert.ToInt64(value, CultureInfo.InvariantCulture);
+        }
+        catch
+        {
+            return value;
+        }
     }
 
     private static object? GetConstantValue(ExpressionSyntax node, ITypeSymbol? type, SelectSignatureCtx ctx)

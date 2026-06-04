@@ -3244,7 +3244,7 @@ public class CoverageGapTests
     }
 
     [Fact]
-    public void PropertyVisitor_DateTimeKind_IsNotSupported()
+    public void PropertyVisitor_DateTimeKind_ClientEvaluatesToStoredValue()
     {
         using TestDatabase db = new();
         db.Table<PropertyVisitorEntity>().Schema.CreateTable();
@@ -3254,14 +3254,14 @@ public class CoverageGapTests
             DateTimeValue = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
         });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<PropertyVisitorEntity>()
-                .Select(e => e.DateTimeValue.Kind)
-                .ToList());
+        DateTimeKind roundTrip = db.Table<PropertyVisitorEntity>().Select(e => e.DateTimeValue).Single().Kind;
+        DateTimeKind projected = db.Table<PropertyVisitorEntity>().Select(e => e.DateTimeValue.Kind).Single();
+
+        Assert.Equal(roundTrip, projected);
     }
 
     [Fact]
-    public void PropertyVisitor_DateTimeOffsetOffset_IsNotSupported()
+    public void PropertyVisitor_DateTimeOffsetOffset_ClientEvaluatesToStoredValue()
     {
         using TestDatabase db = new();
         db.Table<PropertyVisitorEntity>().Schema.CreateTable();
@@ -3271,10 +3271,10 @@ public class CoverageGapTests
             DateTimeOffsetValue = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
         });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<PropertyVisitorEntity>()
-                .Select(e => e.DateTimeOffsetValue.Offset)
-                .ToList());
+        TimeSpan roundTrip = db.Table<PropertyVisitorEntity>().Select(e => e.DateTimeOffsetValue).Single().Offset;
+        TimeSpan projected = db.Table<PropertyVisitorEntity>().Select(e => e.DateTimeOffsetValue.Offset).Single();
+
+        Assert.Equal(roundTrip, projected);
     }
 
     [Fact]

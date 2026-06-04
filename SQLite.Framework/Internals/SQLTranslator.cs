@@ -541,7 +541,8 @@ internal class SQLTranslator
             for (int i = 0; i < q.Havings.Count; i++)
             {
                 if (i > 0) sb.Append(" AND ");
-                q.Havings[i].WriteSqlTo(sb);
+                SQLiteExpression having = q.Havings.Count > 1 ? ExpressionHelpers.BracketIfNeeded(q.Havings[i]) : q.Havings[i];
+                having.WriteSqlTo(sb);
             }
         }
 
@@ -893,6 +894,7 @@ internal class SQLTranslator
         QueryLevelParts blockedBy = name switch
         {
             nameof(Queryable.Where) => QueryLevelParts.Limit,
+            nameof(Queryable.Any) or nameof(Queryable.All) or nameof(Queryable.Contains) => QueryLevelParts.Limit,
             nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
                 or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) => QueryLevelParts.Limit,
             nameof(Queryable.Distinct) => QueryLevelParts.Limit,
