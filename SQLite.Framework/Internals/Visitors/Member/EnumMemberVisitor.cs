@@ -31,7 +31,9 @@ internal static class EnumMemberVisitor
                 }
                 case nameof(Enum.ToString):
                 {
-                    Type enumType = node.Object!.Type;
+                    Type objectType = node.Object!.Type;
+                    Type enumType = Nullable.GetUnderlyingType(objectType) ?? objectType;
+                    bool isNullableEnum = enumType != objectType;
                     Type enumUnderlying = Enum.GetUnderlyingType(enumType);
                     SQLiteExpression objExpr = obj.SQLiteExpression!;
                     bool isUlongBacked = enumUnderlying == typeof(ulong);
@@ -118,7 +120,11 @@ internal static class EnumMemberVisitor
                     string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
                     string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
 
-                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseOpen, objExpr, elseClose, parameters);
+                    SQLiteExpression nameCase = SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseOpen, objExpr, elseClose, parameters);
+
+                    return isNullableEnum
+                        ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "COALESCE(", nameCase, ", '')", parameters)
+                        : nameCase;
                 }
             }
         }
