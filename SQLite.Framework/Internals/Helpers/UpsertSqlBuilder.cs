@@ -8,9 +8,7 @@ internal static class UpsertSqlBuilder
 {
     public static (TableColumn[] Columns, string Sql) Build<T>(SQLiteDatabase database, TableMapping table, SQLiteUpsertConflictTarget<T> target, Func<TableColumn, string, string> wrapParam, IReadOnlyList<(string Column, string ValueSql)>? extraColumns = null)
     {
-        TableColumn[] insertColumns = table.Columns
-            .Where(c => !c.IsPrimaryKey || !c.IsAutoIncrement)
-            .ToArray();
+        TableColumn[] insertColumns = table.Columns.ToArray();
 
         if (table.ComputedColumns.Count > 0)
         {
