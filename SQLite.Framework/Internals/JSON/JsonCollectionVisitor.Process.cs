@@ -67,7 +67,8 @@ internal partial class JsonCollectionVisitor
             nameof(Enumerable.Where)
                 or nameof(Enumerable.OrderBy) or nameof(Enumerable.OrderByDescending)
                 or nameof(Enumerable.Distinct)
-                or nameof(Enumerable.Skip) => true,
+                or nameof(Enumerable.Skip)
+                or nameof(Enumerable.ElementAt) => true,
             nameof(Enumerable.Take) => limit != null,
             _ => WindowConsumers.Contains(name)
         };
@@ -75,10 +76,12 @@ internal partial class JsonCollectionVisitor
 
     private void MaterializeWindow()
     {
+        string currentFrom = fromOverride ?? $"json_each({baseSource}){baseJoinSuffix}{crossJoin ?? ""}";
+
         List<string> clauses =
         [
             $"SELECT {selectExpr} AS \"value\", {keyColumn} AS \"key\"",
-            $"FROM json_each({baseSource})"
+            $"FROM {currentFrom}"
         ];
 
         if (wheres.Count > 0)
@@ -95,6 +98,8 @@ internal partial class JsonCollectionVisitor
 
         string wrapAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         fromOverride = $"({string.Join(" ", clauses)}) {wrapAlias}";
+        baseJoinSuffix = "";
+        crossJoin = null;
         wheres.Clear();
         orderBys.Clear();
         limit = null;
