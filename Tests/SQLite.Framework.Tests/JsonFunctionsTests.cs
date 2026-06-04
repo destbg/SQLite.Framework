@@ -1767,8 +1767,8 @@ public class JsonFunctionsTests
 
         Assert.Equal("""
                      SELECT (
-                         SELECT json_group_array(n."value")
-                         FROM json_each(p0."People") e, json_each(json_extract(e."value", '$.Tags')) n
+                         SELECT json_group_array(j2."value")
+                         FROM json_each(p0."People") j1, json_each(json_extract(j1."value", '$.Tags')) j2
                      ) AS "3"
                      FROM "PersonWithTagsRow" AS p0
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));

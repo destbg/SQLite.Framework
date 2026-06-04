@@ -2,6 +2,15 @@ namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
+    private static readonly HashSet<ExpressionType> ConcatBracketNodeTypes =
+    [
+        ExpressionType.Equal, ExpressionType.NotEqual,
+        ExpressionType.GreaterThan, ExpressionType.LessThan,
+        ExpressionType.GreaterThanOrEqual, ExpressionType.LessThanOrEqual,
+        ExpressionType.AndAlso, ExpressionType.OrElse,
+        ExpressionType.And, ExpressionType.Or, ExpressionType.ExclusiveOr,
+    ];
+
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "ToString does exist")]
     protected override Expression VisitBinary(BinaryExpression node)
     {
@@ -152,14 +161,24 @@ internal partial class SQLVisitor
             }
         }
 
+        if (node.NodeType is ExpressionType.Subtract
+            && leftNode.Type == typeof(TimeOnly) && rightNode.Type == typeof(TimeOnly))
+        {
+            long day = TimeSpan.TicksPerDay;
+            return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+                ["(((", " - ", $") % {day} + {day}) % {day})"],
+                [left, right],
+                bothParameters);
+        }
+
         bool eitherOperandMayBeNull = MayBeNull(leftNode) || MayBeNull(rightNode);
         bool equalIsNullSafe = (IsNullableColumn(leftNode) && !resolvedLeft.IsConstant)
             || (IsNullableColumn(rightNode) && !resolvedRight.IsConstant);
 
         if (node.NodeType is ExpressionType.Add && node.Type == typeof(string))
         {
-            SQLiteExpression concatLeft = CoalesceNullableStringOperand(this, leftNode, resolvedLeft, left);
-            SQLiteExpression concatRight = CoalesceNullableStringOperand(this, rightNode, resolvedRight, right);
+            SQLiteExpression concatLeft = CoalesceNullableStringOperand(this, leftNode, resolvedLeft, BracketConcatOperand(leftNode, resolvedLeft.SQLiteExpression!));
+            SQLiteExpression concatRight = CoalesceNullableStringOperand(this, rightNode, resolvedRight, BracketConcatOperand(rightNode, resolvedRight.SQLiteExpression!));
 
             return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", concatLeft, " || ", concatRight, "", ParameterHelpers.CombineParameters(concatLeft, concatRight));
         }
@@ -317,12 +336,20 @@ internal partial class SQLVisitor
             : expr;
     }
 
+    private static SQLiteExpression BracketConcatOperand(Expression node, SQLiteExpression expr)
+    {
+        Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
+        return ConcatBracketNodeTypes.Contains(stripped.NodeType)
+            ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
+            : expr;
+    }
+
     private static SQLiteExpression BracketBinaryOperand(Expression node, SQLiteExpression expr)
     {
         Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
         bool needsBrackets = expr.RequiresBrackets
             || stripped.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
-            || (stripped.Type == typeof(bool)
+            || ((Nullable.GetUnderlyingType(stripped.Type) ?? stripped.Type) == typeof(bool)
                 && stripped.NodeType is ExpressionType.AndAlso or ExpressionType.And or ExpressionType.ExclusiveOr);
 
         return needsBrackets

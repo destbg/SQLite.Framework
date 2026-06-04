@@ -1,51 +1,44 @@
 # Limitations
 
-Query behavior that is easy to miss.
+Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage%20Options) for the storage modes referenced below.
 
 ## Numbers
 
-**Divide or modulo by zero is `NULL`.** `x / 0` and `x % 0` (including `5.0 / 0.0`) give `NULL`, which reads back as `0` in a non-nullable projection and `null` in a nullable one.
-
-**Some float operations are `NULL`.** `Math.Sqrt` of a negative, `Math.Log` of zero or a negative, and `Math.Acos` out of range give `NULL`, since SQLite has no `NaN` or infinity.
-
-**Float `ToString()` keeps a decimal point.** It maps to `CAST(x AS TEXT)`, so `1.0` becomes `"1.0"`.
-
-**`decimal` is not exact.** `Real` storage keeps it as a 64-bit float (about 15 digits). `Text` storage keeps the full value but casts to float for comparison and ordering. See [Storage Options](Storage%20Options).
-
-**Integer overflow throws.** Math runs in 64-bit and is read back into the result type. A value that does not fit throws `OverflowException`, for example an `int * int` product or a `Sum` past `int.MaxValue`. Cast wider, like `(long)a * b`.
-
-**`Math.Round` with `AwayFromZero` can differ in the last digit.** `MidpointRounding.AwayFromZero` maps to SQLite `ROUND`. .NET first scales by a power of ten and then rounds, so `Math.Round(2.675, 2, MidpointRounding.AwayFromZero)` is `2.68` in .NET but `2.67` here.
-
-**`NaN` does not round-trip.** A `double` or `float` `NaN` is stored as `NULL`. A nullable column reads back `null`, and a non-nullable column fails with a `NOT NULL` error. Infinity is fine.
-
-**`Parse` over a column maps to `CAST`.** `int.Parse`, `double.Parse`, `Enum.Parse` and similar do not validate. Bad input reads as `0` or keeps the numeric prefix (`"12abc"` becomes `12`), and an out-of-range value clamps to the 64-bit limits. .NET would throw `FormatException`. A constant argument is parsed in memory and stays correct.
+- Divide or modulo by zero is `NULL` (reads back `0` for a non-nullable result, `null` for a nullable one).
+- `Math.Sqrt`, `Math.Log` and `Math.Acos` out of domain are `NULL`. SQLite has no `NaN` or infinity.
+- Float `ToString()` keeps the decimal point, so `1.0` becomes `"1.0"`.
+- `decimal` is not exact: `Real` storage is a 64-bit float, `Text` storage casts to float for compare and order.
+- Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
+- `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
+- `Math.Round` with `AwayFromZero` can differ in the last digit.
+- `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
+- `Parse` and narrowing casts over a column map to `CAST` and do not validate or throw.
 
 ## Strings
 
-**`Length` counts code points.** A non-BMP character such as an emoji counts as 1.
+- `Length` counts code points, and `PadLeft`/`PadRight` measure the target width the same way.
+- Ordering and comparison use byte value (`BINARY`), so `"B"` sorts before `"a"`.
+- `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing.
+- `Replace("", ...)` returns the original string.
+- `ToUpper` and `ToLower` fold only ASCII unless the SQLite build has ICU.
+- Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text), matching EF Core.
 
-**Ordering and comparison are by byte value.** `OrderBy`, `string.Compare`, `CompareTo`, `<` and `>` use SQLite `BINARY`, so `"B"` sorts before `"a"`.
+## Ordering and set operations
 
-**`Substring` and `Remove` clamp.** Out-of-range arguments are clamped, not rejected. `"ab".Substring(0, 5)` is `"ab"` and `"ab".Substring(5)` is `""`. A negative length maps to `SUBSTR`, which takes a leftward window, so `"hello".Substring(1, -3)` is `"h"` where .NET throws.
-
-**`Replace("", ...)` returns the original.** SQLite `REPLACE` ignores an empty search string, where .NET throws `ArgumentException`.
-
-**`ToUpper` and `ToLower` depend on the SQLite build.** The default build folds only `a` to `z` and `A` to `Z`, so non-ASCII letters are left as is. An ICU build folds more.
+- Chained `OrderBy` keeps only the last key, like EF Core. Use `ThenBy` to keep both.
+- `Union`, `Distinct`, `Intersect` and `Except` dedup by value, not by reference.
 
 ## Null comparisons
 
-**Order comparisons on a `NULL` column are `NULL`.** `>`, `<`, `>=`, `<=` give `NULL` when one side is a `NULL` column. A `Where` or `All` drops the row, `ToList` reads it as `false`, and `First` or `Single` throws because a `NULL` cannot read into `bool`. Use `bool?` or `ToList`. Equality (`==`, `!=`) stays correct via `IS`.
+- `>`, `<`, `>=`, `<=` on a `NULL` column are `NULL`: the row drops in `Where`/`All`, reads as `false` in `ToList`, and throws in `First`/`Single`. Equality stays correct via `IS`.
 
-## Dates and times
+## Dates, times and storage
 
-**`DateTimeOffset` drops its offset.** It is stored as ticks or text without the offset. Keep the offset in its own column. See [Storage Options](Storage%20Options).
+- `DateTimeOffset` drops its offset.
+- Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
+- A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal`, and the `HasFlag`, bitwise, comparison and cast operators on a `Text`-stored enum.
 
-**Component access needs numeric storage.** `.Year`, `.Month`, `.Day`, `.Hour`, `.Days`, `.TotalHours` in `Where` and `OrderBy` need `Integer` or `Ticks` storage. Under `TextFormatted` or `Text` they work only in `Select`, computed in memory. See [Storage Options](Storage%20Options).
+## Functions and JSON collections
 
-## SQLite functions
-
-**`SQLiteFunctions.Min` and `Max` need two or more arguments.** With one argument SQLite reads `min(x)` and `max(x)` as aggregates, so the query returns one row. To aggregate a column use LINQ `Min` and `Max`. See [SQLite Functions](SQLite%20Functions).
-
-## JSON-stored collections
-
-**`ElementAt` past the end returns the default.** Indexing runs as a subquery, so an out-of-range index returns the type default like `ElementAtOrDefault`, not `ArgumentOutOfRangeException`.
+- `SQLiteFunctions.Min` and `Max` need two or more arguments.
+- On a JSON array, `ElementAt` past the end and `Min`/`Max`/`Average`/`Sum` over an empty array return the type default instead of throwing.

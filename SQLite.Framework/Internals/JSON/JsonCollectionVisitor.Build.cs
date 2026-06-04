@@ -9,10 +9,10 @@ internal partial class JsonCollectionVisitor
         string nl = Environment.NewLine;
 
         string distinctKeyword = distinct ? "DISTINCT " : "";
-        string tableAlias = crossJoin != null ? " e" : "";
         string joinClause = crossJoin ?? "";
+        string fromClause = fromOverride ?? $"json_each({sourceSql}){baseJoinSuffix}{joinClause}";
 
-        List<string> clauses = [$"SELECT {distinctKeyword}{selectExpr}", $"FROM json_each({sourceSql}){tableAlias}{joinClause}"];
+        List<string> clauses = [$"SELECT {distinctKeyword}{selectExpr}", $"FROM {fromClause}"];
 
         if (wheres.Count > 0)
         {
@@ -29,17 +29,10 @@ internal partial class JsonCollectionVisitor
             clauses.Add("ORDER BY " + string.Join(", ", orderBys));
         }
 
-        if (limit != null && offset != null)
+        string? limitOffset = LimitOffsetClause();
+        if (limitOffset != null)
         {
-            clauses.Add($"LIMIT {limit} OFFSET {offset}");
-        }
-        else if (limit != null)
-        {
-            clauses.Add($"LIMIT {limit}");
-        }
-        else if (offset != null)
-        {
-            clauses.Add($"LIMIT -1 OFFSET {offset}");
+            clauses.Add(limitOffset);
         }
 
         string innerSelect = string.Join(nl + sp, clauses);
@@ -65,6 +58,21 @@ internal partial class JsonCollectionVisitor
 
         if (wrapInArray)
         {
+            if (distinct && reverseApplied)
+            {
+                string positionAggregate = distinctSeenReverse ? "MAX" : "MIN";
+                List<string> comboClauses = ["SELECT \"value\"", $"FROM {fromClause}"];
+                if (wheres.Count > 0)
+                {
+                    comboClauses.Add("WHERE " + string.Join(" AND ", wheres));
+                }
+
+                comboClauses.Add("GROUP BY \"value\"");
+                comboClauses.Add($"ORDER BY {positionAggregate}(\"key\") DESC");
+                string comboInner = string.Join(nl + sp2, comboClauses);
+                return $"({nl}{sp}SELECT json_group_array(\"value\"){nl}{sp}FROM ({nl}{sp2}{comboInner}{nl}{sp}){nl})";
+            }
+
             bool needsSubquery = orderBys.Count > 0 || limit != null || offset != null;
             if (needsSubquery)
             {

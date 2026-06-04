@@ -40,7 +40,9 @@ internal static class QueryableMemberVisitor
         SQLiteParameter[]? parameters = queryParams == null
             ? argParams
             : argParams == null ? queryParams : [.. queryParams, .. argParams];
-        return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", firstArg, $" IN ({Environment.NewLine}{querySql}{Environment.NewLine})", parameters);
+        string containsColumn = translator.Selects[0].IdentifierText;
+        return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+            $"EXISTS ({Environment.NewLine}SELECT 1 FROM ({Environment.NewLine}{querySql}{Environment.NewLine}) WHERE \"{containsColumn}\" IS ", firstArg, ")", parameters);
     }
 
     public static Expression HandleEnumerableMethod(SQLVisitor visitor, MethodCallExpression node, IEnumerable enumerable, List<ResolvedModel> arguments)

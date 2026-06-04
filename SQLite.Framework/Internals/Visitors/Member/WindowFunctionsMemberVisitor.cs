@@ -63,7 +63,7 @@ internal static class WindowFunctionsMemberVisitor
         int id = visitor.Counters.NextIdentifier();
         return node.Method.Name switch
         {
-            nameof(SQLiteWindowFunctions.Sum) => FnOver(t, id, "SUM", arguments[0], parameters),
+            nameof(SQLiteWindowFunctions.Sum) => SQLiteExpression.Wrap(t, id, "SUM(COALESCE(", arguments[0].SQLiteExpression!, ", 0)) OVER ()", parameters),
             nameof(SQLiteWindowFunctions.Avg) => FnOver(t, id, "AVG", arguments[0], parameters),
             nameof(SQLiteWindowFunctions.Min) => FnOver(t, id, "MIN", arguments[0], parameters),
             nameof(SQLiteWindowFunctions.Max) => FnOver(t, id, "MAX", arguments[0], parameters),

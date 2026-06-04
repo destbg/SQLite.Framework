@@ -417,7 +417,7 @@ public class CharMethodTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT CHAR(n0."IntValue") AS "15"
+                     SELECT CHAR((n0."IntValue") & 65535) AS "15"
                      FROM "NumericTypes" AS n0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

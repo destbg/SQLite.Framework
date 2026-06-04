@@ -312,6 +312,10 @@ internal static class DateTimeMemberVisitor
             nameof(TimeSpan.TotalSeconds) => DivAsRealExpression(visitor, type, node, TimeSpan.TicksPerSecond),
             nameof(TimeSpan.Milliseconds) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMillisecond, 1000),
             nameof(TimeSpan.TotalMilliseconds) => DivAsRealExpression(visitor, type, node, TimeSpan.TicksPerMillisecond),
+            nameof(TimeSpan.Microseconds) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, 1000),
+            nameof(TimeSpan.TotalMicroseconds) => DivAsRealExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond),
+            nameof(TimeSpan.Nanoseconds) => ModMulExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, TimeSpan.NanosecondsPerTick),
+            nameof(TimeSpan.TotalNanoseconds) => MulAsRealExpression(visitor, type, node, TimeSpan.NanosecondsPerTick),
             _ => node
         };
     }
@@ -332,6 +336,7 @@ internal static class DateTimeMemberVisitor
             nameof(DateOnly.Day) => ResolveDateFormat(visitor, type, node, "d", "DATE"),
             nameof(DateTime.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATE"),
             nameof(DateTime.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATE"),
+            nameof(DateOnly.DayNumber) => DivExpression(visitor, type, node, TimeSpan.TicksPerDay),
             _ => node
         };
     }
@@ -350,6 +355,8 @@ internal static class DateTimeMemberVisitor
             nameof(TimeOnly.Hour) => ResolveTimeFormat(visitor, type, node, "H"),
             nameof(TimeOnly.Minute) => ResolveTimeFormat(visitor, type, node, "M"),
             nameof(TimeOnly.Second) => ResolveTimeFormat(visitor, type, node, "S"),
+            nameof(TimeOnly.Millisecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMillisecond, 1000),
+            nameof(TimeOnly.Microsecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, 1000),
             _ => node
         };
     }
@@ -362,11 +369,25 @@ internal static class DateTimeMemberVisitor
             Value = multiplyBy
         };
 
-        return SQLiteExpression.Binary(
+        SQLiteParameter[] combinedParameters = [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter];
+
+        if (multiplyBy == 1)
+        {
+            return SQLiteExpression.Binary(
+                method.ReturnType,
+                visitor.Counters.NextIdentifier(),
+                "CAST(", obj, " + (", arguments[0].SQLiteExpression!, $" * {parameter.Name}) AS 'INTEGER')",
+                combinedParameters
+            );
+        }
+
+        SQLiteExpression arg = arguments[0].SQLiteExpression!;
+        return SQLiteExpression.Multi(
             method.ReturnType,
             visitor.Counters.NextIdentifier(),
-            "CAST(", obj, " + (", arguments[0].SQLiteExpression!, $" * {parameter.Name}) AS 'INTEGER')",
-            [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter]
+            ["(", " + CAST((", $") * {parameter.Name} + (CASE WHEN (", ") >= 0 THEN 0.5 ELSE -0.5 END) AS INTEGER))"],
+            [obj, arg, arg],
+            combinedParameters
         );
     }
 
@@ -467,6 +488,16 @@ internal static class DateTimeMemberVisitor
     private static SQLiteExpression DivAsRealExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long div)
     {
         return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "(CAST(", node, $" AS REAL) / {div})", node.Parameters);
+    }
+
+    private static SQLiteExpression MulAsRealExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long mul)
+    {
+        return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "(CAST(", node, $" AS REAL) * {mul})", node.Parameters);
+    }
+
+    private static SQLiteExpression ModMulExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long mod, long mul)
+    {
+        return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "((", node, $" % {mod}) * {mul})", node.Parameters);
     }
 
     private static SQLiteExpression ModExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long mod)

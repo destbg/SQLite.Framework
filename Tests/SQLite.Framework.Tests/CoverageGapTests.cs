@@ -654,10 +654,11 @@ public class CoverageGapTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0."BookAuthorId" IN (
+                     WHERE EXISTS (
+                     SELECT 1 FROM (
                          SELECT a1."AuthorId" AS "Id"
                          FROM "Authors" AS a1
-                     )
+                     ) WHERE "Id" IS b0."BookAuthorId")
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
     }
@@ -2062,7 +2063,7 @@ public class CoverageGapTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT CHAR(b0."BookId") AS "5"
+                     SELECT CHAR((b0."BookId") & 65535) AS "5"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

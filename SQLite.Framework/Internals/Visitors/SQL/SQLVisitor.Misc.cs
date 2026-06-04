@@ -127,7 +127,7 @@ internal partial class SQLVisitor
             {
                 return Database.Options.CharStorage == CharStorageMode.Integer
                     ? SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters)
-                    : SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
+                    : SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR((", resolved.SQLiteExpression, ") & 65535)", resolved.SQLiteExpression.Parameters);
             }
             else if (node.Type == typeof(int) && resolved.SQLiteExpression.Type == typeof(char))
             {

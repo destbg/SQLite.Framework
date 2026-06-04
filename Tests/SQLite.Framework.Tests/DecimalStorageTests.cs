@@ -286,10 +286,11 @@ public class DecimalStorageTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT t0."Price" IN (
+                     SELECT EXISTS (
+                     SELECT 1 FROM (
                          SELECT t1."Price" AS "Price"
                          FROM "TestEntity" AS t1
-                     ) AS "7"
+                     ) WHERE "Price" IS t0."Price") AS "7"
                      FROM "TestEntity" AS t0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

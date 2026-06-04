@@ -536,10 +536,11 @@ internal static class StringMemberVisitor
 
     private static SQLiteExpression BuildCompare(SQLVisitor visitor, Type returnType, SQLiteExpression a, SQLiteExpression b, bool ignoreCase, SQLiteParameter[]? parameters)
     {
-        string collate = ignoreCase ? " COLLATE NOCASE" : "";
+        SQLiteExpression cmpA = ignoreCase ? SQLiteExpression.Wrap(a.Type, visitor.Counters.NextIdentifier(), "UPPER(", a, ")", a.Parameters) : a;
+        SQLiteExpression cmpB = ignoreCase ? SQLiteExpression.Wrap(b.Type, visitor.Counters.NextIdentifier(), "UPPER(", b, ")", b.Parameters) : b;
         return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
-            ["(CASE WHEN ", " IS NULL AND ", " IS NULL THEN 0 WHEN ", " IS NULL THEN -1 WHEN ", " IS NULL THEN 1 WHEN ", " = ", $"{collate} THEN 0 WHEN ", " < ", $"{collate} THEN -1 ELSE 1 END)"],
-            [a, b, a, b, a, b, a, b],
+            ["(CASE WHEN ", " IS NULL AND ", " IS NULL THEN 0 WHEN ", " IS NULL THEN -1 WHEN ", " IS NULL THEN 1 WHEN ", " = ", " THEN 0 WHEN ", " < ", " THEN -1 ELSE 1 END)"],
+            [a, b, a, b, cmpA, cmpB, cmpA, cmpB],
             parameters);
     }
 

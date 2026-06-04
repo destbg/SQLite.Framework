@@ -66,7 +66,7 @@ internal partial class QueryableVisitor
             }
             else
             {
-                Wheres.Add(SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " = ", sqlExpression, "", sqlExpression.Parameters));
+                Wheres.Add(SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " = ", sqlExpression, "", ParameterHelpers.CombineParameters(columnExpr, sqlExpression)));
             }
 
             IsAny = true;

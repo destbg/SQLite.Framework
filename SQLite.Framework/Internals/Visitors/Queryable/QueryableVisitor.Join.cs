@@ -48,7 +48,8 @@ internal partial class QueryableVisitor
 
                 SQLiteParameter[]? combinedParameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
 
-                sqlExpressions.Add(SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, " = ", innerAlias, "", combinedParameters));
+                string keyOp = JoinKeyOperator(outerArgument.Type, innerArgument.Type);
+                sqlExpressions.Add(SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, keyOp, innerAlias, "", combinedParameters));
             }
 
             SQLiteParameter[]? sqlParameters = ParameterHelpers.CombineParameters(sqlExpressions);
@@ -70,17 +71,24 @@ internal partial class QueryableVisitor
 
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
 
+            string keyOp = JoinKeyOperator(outerKey.Body.Type, innerKey.Body.Type);
             Joins.Add(new JoinInfo
             {
                 EntityType = entityType,
                 JoinType = joinType,
                 Sql = sql,
-                OnClause = SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, " = ", innerAlias, "", parameters),
+                OnClause = SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, keyOp, innerAlias, "", parameters),
                 IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
             });
         }
 
         return sql;
+    }
+
+    private static string JoinKeyOperator(Type outerType, Type innerType)
+    {
+        bool nullable = Nullable.GetUnderlyingType(outerType) != null || Nullable.GetUnderlyingType(innerType) != null;
+        return nullable ? " IS " : " = ";
     }
 
     private static void EnsureGroupJoinResultSelectorIsPassthrough(LambdaExpression resultSelector)

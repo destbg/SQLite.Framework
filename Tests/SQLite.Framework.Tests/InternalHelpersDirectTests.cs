@@ -630,6 +630,35 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
+    public void PropertyVisitor_HandleDateOnlyProperty_UnknownName_ReturnsOriginalNode()
+    {
+        using TestDatabase db = new();
+
+        SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
+
+        SQLiteExpression source = SQLiteExpression.Leaf(typeof(System.DateOnly), 0, "\"Date\"", null);
+        Expression result = DateTimeMemberVisitor.HandleDateOnlyProperty(sqlVisitor, "NotARealProperty", typeof(System.DateOnly), source);
+
+        Assert.Same(source, result);
+    }
+
+#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR && !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
+    [Fact]
+    public void StaticObjectEquals_UntranslatableOperand_FallsBackClientSide()
+    {
+        using TestDatabase db = new();
+        db.Table<NumericType>().Schema.CreateTable();
+        db.Table<NumericType>().Add(new NumericType { Id = 1, IntValue = 7 });
+
+        System.Collections.Generic.List<bool> actual = db.Table<NumericType>()
+            .Select(x => object.Equals(InterceptorHelpers.IdentityInt(x.IntValue), x.IntValue))
+            .ToList();
+
+        Assert.Equal(new System.Collections.Generic.List<bool> { true }, actual);
+    }
+#endif
+
+    [Fact]
     public void QueryableMethodVisitor_VisitContains_ArgResolvesToNonConstantNonSql_Throws()
     {
         using TestDatabase db = new();

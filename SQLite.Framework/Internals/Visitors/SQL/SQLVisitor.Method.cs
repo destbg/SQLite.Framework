@@ -2,17 +2,30 @@ namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
+    private static readonly HashSet<Type> NumericCastTypes =
+    [
+        typeof(int), typeof(long), typeof(short), typeof(byte), typeof(sbyte),
+        typeof(uint), typeof(ulong), typeof(ushort), typeof(double), typeof(float), typeof(decimal),
+    ];
+
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types have public properties.")]
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        if (node.Method.Name == nameof(object.Equals) && node.Object != null && node.Arguments.Count == 1)
+        bool instanceEquals = node.Method.Name == nameof(object.Equals) && node.Object != null && node.Arguments.Count == 1;
+        bool staticEquals = node.Method.Name == nameof(object.Equals) && node.Object == null
+            && node.Arguments.Count == 2 && node.Method.DeclaringType == typeof(object);
+        if (instanceEquals || staticEquals)
         {
-            ResolvedModel obj = ResolveExpression(node.Object);
-            ResolvedModel argument = ResolveExpression(node.Arguments[0]);
+            Expression leftOperand = node.Object ?? node.Arguments[0];
+            Expression rightOperand = instanceEquals ? node.Arguments[0] : node.Arguments[1];
+            ResolvedModel obj = ResolveExpression(leftOperand);
+            ResolvedModel argument = ResolveExpression(rightOperand);
 
             if (obj.SQLiteExpression == null || argument.SQLiteExpression == null)
             {
-                return Expression.Call(obj.Expression, node.Method, argument.Expression);
+                return instanceEquals
+                    ? Expression.Call(obj.Expression, node.Method, argument.Expression)
+                    : Expression.Call(node.Method, BoxIfNeeded(obj.Expression), BoxIfNeeded(argument.Expression));
             }
 
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, argument.SQLiteExpression);
@@ -78,6 +91,19 @@ internal partial class SQLVisitor
                 && node.Method.Name == nameof(Nullable<>.GetValueOrDefault))
             {
                 return NullableMemberVisitor.HandleGetValueOrDefault(this, node, underlying);
+            }
+
+            if (Nullable.GetUnderlyingType(node.Object.Type) is { } nullableUnderlying
+                && node.Method.Name == nameof(object.ToString)
+                && node.Arguments.Count == 0
+                && NumericCastTypes.Contains(nullableUnderlying))
+            {
+                ResolvedModel nullableObj = ResolveExpression(node.Object);
+                if (nullableObj.SQLiteExpression != null)
+                {
+                    return SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(),
+                        "COALESCE(CAST(", nullableObj.SQLiteExpression, " AS TEXT), '')", nullableObj.SQLiteExpression.Parameters);
+                }
             }
 
             ResolvedModel obj = ResolveExpression(node.Object);
@@ -165,6 +191,11 @@ internal partial class SQLVisitor
         }
 
         return SQLiteExpression.Leaf(type, Counters.NextIdentifier(), colSql);
+    }
+
+    private static UnaryExpression BoxIfNeeded(Expression expr)
+    {
+        return Expression.Convert(expr, typeof(object));
     }
 
     private static IEnumerable? TryGetImplicitlyConvertedConstantCollection(Expression expr)

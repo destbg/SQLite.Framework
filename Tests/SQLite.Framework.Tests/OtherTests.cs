@@ -68,11 +68,12 @@ public class OtherTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE @p2 IN (
+                     WHERE EXISTS (
+                     SELECT 1 FROM (
                          SELECT b1."BookTitle" AS "Title"
                          FROM "Books" AS b1
                          WHERE b1."BookTitle" = @p0 AND b0."BookAuthorId" = b1."BookAuthorId"
-                     )
+                     ) WHERE "Title" IS @p2)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -1368,10 +1369,11 @@ public class OtherTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE b0."BookId" IN (
+                     WHERE EXISTS (
+                     SELECT 1 FROM (
                          SELECT b1."BookId" AS "Id"
                          FROM (SELECT * FROM "Books" WHERE "BookTitle" = @title) AS b1
-                     )
+                     ) WHERE "Id" IS b0."BookId")
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
         Assert.Single(command.Parameters);
         Assert.Equal("@title", command.Parameters[0].Name);

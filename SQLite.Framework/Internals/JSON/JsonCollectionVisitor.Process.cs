@@ -33,9 +33,76 @@ internal partial class JsonCollectionVisitor
         [nameof(Enumerable.Contains)] = static (v, c, _) => v.HandleContains(c),
     };
 
+    private static readonly HashSet<string> WindowConsumers =
+    [
+        nameof(Enumerable.Count),
+        nameof(Enumerable.Any),
+        nameof(Enumerable.All),
+        nameof(Enumerable.Min),
+        nameof(Enumerable.Max),
+        nameof(Enumerable.Sum),
+        nameof(Enumerable.Average),
+        nameof(Enumerable.Contains),
+    ];
+
     private void ProcessMethod(MethodCallExpression call)
     {
+        if ((limit != null || offset != null) && WindowConsumers.Contains(call.Method.Name))
+        {
+            MaterializeWindow();
+        }
+
         Handlers[call.Method.Name](this, call, currentElementType);
+    }
+
+    private void MaterializeWindow()
+    {
+        List<string> clauses =
+        [
+            $"SELECT {selectExpr} AS \"value\", {keyColumn} AS \"key\"",
+            $"FROM json_each({baseSource})"
+        ];
+
+        if (wheres.Count > 0)
+        {
+            clauses.Add("WHERE " + string.Join(" AND ", wheres));
+        }
+
+        if (orderBys.Count > 0)
+        {
+            clauses.Add("ORDER BY " + string.Join(", ", orderBys));
+        }
+
+        clauses.Add(LimitOffsetClause()!);
+
+        string wrapAlias = $"j{visitor.Counters.NextTableIndex('j')}";
+        fromOverride = $"({string.Join(" ", clauses)}) {wrapAlias}";
+        wheres.Clear();
+        orderBys.Clear();
+        limit = null;
+        offset = null;
+        selectExpr = $"{wrapAlias}.\"value\"";
+        keyColumn = $"{wrapAlias}.\"key\"";
+    }
+
+    private string? LimitOffsetClause()
+    {
+        if (limit != null && offset != null)
+        {
+            return $"LIMIT {limit} OFFSET {offset}";
+        }
+
+        if (limit != null)
+        {
+            return $"LIMIT {limit}";
+        }
+
+        if (offset != null)
+        {
+            return $"LIMIT -1 OFFSET {offset}";
+        }
+
+        return null;
     }
 
     private void HandleWhere(MethodCallExpression call, Type elementType)
@@ -68,9 +135,13 @@ internal partial class JsonCollectionVisitor
     private void HandleSelectMany(MethodCallExpression call, Type elementType)
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1]);
-        string selSql = VisitLambdaAliased(call.Arguments[1], elementType, "e");
-        crossJoin = $", json_each({selSql}) n";
-        selectExpr = "n.\"value\"";
+        string outerAlias = $"j{visitor.Counters.NextTableIndex('j')}";
+        string selSql = VisitLambdaAliased(call.Arguments[1], elementType, outerAlias);
+        string joinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
+        baseJoinSuffix = $" {outerAlias}";
+        crossJoin = $", json_each({selSql}) {joinAlias}";
+        selectExpr = $"{joinAlias}.\"value\"";
+        keyColumn = $"{joinAlias}.\"key\"";
         currentElementType = TypeHelpers.GetEnumerableElementType(lambda.ReturnType)!;
     }
 
@@ -104,6 +175,20 @@ internal partial class JsonCollectionVisitor
     private void HandleLast(MethodCallExpression call, Type elementType)
     {
         AddOptionalPredicate(call, elementType);
+
+        if (limit != null || offset != null)
+        {
+            bool hadOrder = orderBys.Count > 0;
+            bool outerAscending = hadOrder && orderBys[^1].EndsWith(" DESC");
+            MaterializeWindow();
+            orderBys.Add(hadOrder
+                ? $"{selectExpr}{(outerAscending ? " ASC" : " DESC")}"
+                : $"{keyColumn} DESC");
+            limit = "1";
+            wrapInArray = false;
+            return;
+        }
+
         ReverseOrderBys();
         limit = "1";
         wrapInArray = false;
@@ -157,27 +242,38 @@ internal partial class JsonCollectionVisitor
     private void HandleDistinct()
     {
         distinct = true;
+        distinctSeenReverse = reverseApplied;
     }
 
     private void HandleReverse()
     {
+        reverseApplied = true;
         ReverseOrderBys();
     }
 
     private void ReverseOrderBys()
     {
+        List<string> reversed = ReversedOrderBysList();
+        orderBys.Clear();
+        orderBys.AddRange(reversed);
+    }
+
+    private List<string> ReversedOrderBysList()
+    {
         if (orderBys.Count == 0)
         {
-            orderBys.Add("\"key\" DESC");
-            return;
+            return [$"{keyColumn} DESC"];
         }
 
-        for (int i = 0; i < orderBys.Count; i++)
+        List<string> reversed = new(orderBys.Count);
+        foreach (string clause in orderBys)
         {
-            orderBys[i] = orderBys[i].EndsWith(" ASC")
-                ? orderBys[i][..^4] + " DESC"
-                : orderBys[i][..^5] + " ASC";
+            reversed.Add(clause.EndsWith(" ASC")
+                ? clause[..^4] + " DESC"
+                : clause[..^5] + " ASC");
         }
+
+        return reversed;
     }
 
     private void HandleElementAt(MethodCallExpression call)

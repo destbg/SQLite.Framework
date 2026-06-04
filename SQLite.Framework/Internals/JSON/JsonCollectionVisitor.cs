@@ -49,10 +49,16 @@ internal partial class JsonCollectionVisitor
     private readonly List<string> groupBys = [];
     private readonly List<SQLiteParameter> parameters = [];
     private string selectExpr = "\"value\"";
+    private string keyColumn = "\"key\"";
     private Type currentElementType = typeof(object);
+    private string baseSource = "";
+    private string baseJoinSuffix = "";
+    private string? fromOverride;
     private string? limit;
     private string? offset;
     private bool distinct;
+    private bool reverseApplied;
+    private bool distinctSeenReverse;
     private bool wrapInArray = true;
     private bool singleSemantic;
     private string? existsWrapper;
@@ -178,6 +184,7 @@ internal partial class JsonCollectionVisitor
         jcv.parameters.AddRange(sourceModel.SQLiteExpression.Parameters ?? []);
 
         jcv.currentElementType = TypeHelpers.GetEnumerableElementType(sourceModel.SQLiteExpression.Type)!;
+        jcv.baseSource = sourceModel.SQLiteExpression.ToString();
         Type resultType = node.Type;
         foreach (MethodCallExpression call in chain)
         {

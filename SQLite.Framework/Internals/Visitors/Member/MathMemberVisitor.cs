@@ -71,9 +71,22 @@ internal static class MathMemberVisitor
             nameof(Math.Asinh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ASINH(", a0, ")", parameters),
             nameof(Math.Acosh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ACOSH(", a0, ")", parameters),
             nameof(Math.Atanh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ATANH(", a0, ")", parameters),
-            nameof(Math.Clamp) => SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(), ["(CASE WHEN ", " < ", " THEN ", " WHEN ", " > ", " THEN ", " ELSE ", " END)"], [a0, a1, a1, a0, a2, a2, a0], parameters),
+            nameof(Math.Clamp) => BuildClamp(visitor, returnType, arguments, a0, a1, a2, parameters),
             _ => throw new NotSupportedException($"Math.{node.Method.Name} is not translatable to SQL.")
         };
+    }
+
+    private static SQLiteExpression BuildClamp(SQLVisitor visitor, Type returnType, List<ResolvedModel> arguments, SQLiteExpression a0, SQLiteExpression a1, SQLiteExpression a2, SQLiteParameter[]? parameters)
+    {
+        if (arguments[1].IsConstant && arguments[2].IsConstant
+            && Convert.ToDouble(arguments[1].Constant) > Convert.ToDouble(arguments[2].Constant))
+        {
+            throw new ArgumentException("Math.Clamp requires the minimum to be less than or equal to the maximum.");
+        }
+
+        return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
+            ["(CASE WHEN ", " < ", " THEN ", " WHEN ", " > ", " THEN ", " ELSE ", " END)"],
+            [a0, a1, a1, a0, a2, a2, a0], parameters);
     }
 
     private static SQLiteExpression HandleRound(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, SQLiteParameter[]? parameters)

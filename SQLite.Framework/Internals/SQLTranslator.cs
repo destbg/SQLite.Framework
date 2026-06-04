@@ -769,7 +769,7 @@ internal class SQLTranslator
             UnaryExpression? unaryExpression = node.Arguments
                 .Skip(1)
                 .OfType<UnaryExpression>()
-                .FirstOrDefault();
+                .FirstOrDefault(u => u.Operand is LambdaExpression);
 
             if (unaryExpression != null)
             {

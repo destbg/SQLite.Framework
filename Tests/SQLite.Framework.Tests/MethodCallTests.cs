@@ -87,11 +87,12 @@ public class MethodCallTests
                             b0."BookAuthorId" AS "AuthorId",
                             b0."BookPrice" AS "Price"
                      FROM "Books" AS b0
-                     WHERE @p2 IN (
+                     WHERE EXISTS (
+                     SELECT 1 FROM (
                          SELECT b1."BookTitle" AS "Title"
                          FROM "Books" AS b1
                          WHERE b1."BookTitle" = @p0
-                     )
+                     ) WHERE "Title" IS @p2)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

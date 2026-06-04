@@ -31,10 +31,7 @@ internal partial class QueryableVisitor
                 if (applyDistinct)
                 {
                     ThrowOnMultiColumnDistinct(node);
-                    SQLiteExpression firstSelect = Selects[0];
-                    select = SQLiteExpression.Wrap(node.Arguments[0].Type, visitor.Counters.NextIdentifier(),
-                        "COUNT(DISTINCT ", firstSelect, ")",
-                        Selects[0].Parameters);
+                    select = NullAwareDistinctCount(node.Arguments[0].Type, Selects[0]);
                     Wheres.Add(sqlExpression);
                 }
                 else
@@ -63,10 +60,7 @@ internal partial class QueryableVisitor
             if (applyDistinct)
             {
                 ThrowOnMultiColumnDistinct(node);
-                SQLiteExpression firstSelect = Selects[0];
-                select = SQLiteExpression.Wrap(node.Arguments[0].Type, visitor.Counters.NextIdentifier(),
-                    "COUNT(DISTINCT ", firstSelect, ")",
-                    Selects[0].Parameters);
+                select = NullAwareDistinctCount(node.Arguments[0].Type, Selects[0]);
             }
             else
             {
@@ -225,6 +219,16 @@ internal partial class QueryableVisitor
         Selects.Add(select);
 
         return select;
+    }
+
+    private SQLiteExpression NullAwareDistinctCount(Type type, SQLiteExpression column)
+    {
+        return SQLiteExpression.Multi(
+            type,
+            visitor.Counters.NextIdentifier(),
+            ["(COUNT(DISTINCT ", ") + (CASE WHEN COUNT(*) > COUNT(", ") THEN 1 ELSE 0 END))"],
+            [column, column],
+            column.Parameters);
     }
 
     private void ThrowOnMultiColumnDistinct(MethodCallExpression node)

@@ -51,7 +51,7 @@ public class WindowFunctionTests
 
         Assert.Equal("""
                      SELECT w0."Id" AS "Id",
-                            SUM(w0."Amount") OVER ( PARTITION BY w0."CustomerId" ORDER BY w0."Date" ASC) AS "RunningTotal"
+                            SUM(COALESCE(w0."Amount", 0)) OVER ( PARTITION BY w0."CustomerId" ORDER BY w0."Date" ASC) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -122,7 +122,7 @@ public class WindowFunctionTests
 
         Assert.Equal("""
                      SELECT w0."Id" AS "Id",
-                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
+                            SUM(COALESCE(w0."Amount", 0)) OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -429,9 +429,9 @@ public class WindowFunctionTests
 
         Assert.Equal("""
                      SELECT w0."Id" AS "Id",
-                            SUM(w0."Amount") OVER ( PARTITION BY w0."CustomerId", w0."Date" ORDER BY w0."Id" ASC, w0."Date" ASC, w0."Amount" DESC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "R",
-                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING) AS "G",
-                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS "Rw"
+                            SUM(COALESCE(w0."Amount", 0)) OVER ( PARTITION BY w0."CustomerId", w0."Date" ORDER BY w0."Id" ASC, w0."Date" ASC, w0."Amount" DESC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "R",
+                            SUM(COALESCE(w0."Amount", 0)) OVER ( ORDER BY w0."Id" ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING) AS "G",
+                            SUM(COALESCE(w0."Amount", 0)) OVER ( ORDER BY w0."Id" DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS "Rw"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -519,7 +519,7 @@ public class WindowFunctionTests
 
         Assert.Equal("""
                      SELECT w0."Id" AS "Id",
-                            SUM(w0."Amount") FILTER (WHERE w0."Amount" > @p0) OVER ( PARTITION BY w0."CustomerId" ORDER BY w0."Date" ASC) AS "RunningTotal"
+                            SUM(COALESCE(w0."Amount", 0)) FILTER (WHERE w0."Amount" > @p0) OVER ( PARTITION BY w0."CustomerId" ORDER BY w0."Date" ASC) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -576,7 +576,7 @@ public class WindowFunctionTests
 
         Assert.Equal("""
                      SELECT w0."Id" AS "Id",
-                            SUM(w0."Amount") FILTER (WHERE w0."Amount" > @p0) OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
+                            SUM(COALESCE(w0."Amount", 0)) FILTER (WHERE w0."Amount" > @p0) OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -649,7 +649,7 @@ public class WindowFunctionTests
 
         Assert.Equal("""
                      SELECT w0."Id" AS "Id",
-                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE CURRENT ROW) AS "RunningTotal"
+                            SUM(COALESCE(w0."Amount", 0)) OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE CURRENT ROW) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -673,7 +673,7 @@ public class WindowFunctionTests
 
         Assert.Equal("""
                      SELECT w0."Id" AS "Id",
-                            SUM(w0."Amount") OVER ( ORDER BY w0."Date" ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE GROUP) AS "RunningTotal"
+                            SUM(COALESCE(w0."Amount", 0)) OVER ( ORDER BY w0."Date" ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE GROUP) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -697,7 +697,7 @@ public class WindowFunctionTests
 
         Assert.Equal("""
                      SELECT w0."Id" AS "Id",
-                            SUM(w0."Amount") OVER ( ORDER BY w0."Amount" ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING EXCLUDE TIES) AS "RunningTotal"
+                            SUM(COALESCE(w0."Amount", 0)) OVER ( ORDER BY w0."Amount" ASC GROUPS BETWEEN @p0 PRECEDING AND @p1 FOLLOWING EXCLUDE TIES) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -721,7 +721,7 @@ public class WindowFunctionTests
 
         Assert.Equal("""
                      SELECT w0."Id" AS "Id",
-                            SUM(w0."Amount") OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
+                            SUM(COALESCE(w0."Amount", 0)) OVER ( ORDER BY w0."Id" ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RunningTotal"
                      FROM "Order" AS w0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

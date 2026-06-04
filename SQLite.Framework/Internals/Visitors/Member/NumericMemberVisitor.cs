@@ -22,6 +22,11 @@ internal static class NumericMemberVisitor
 
             if (node.Method.Name == nameof(int.ToString))
             {
+                if (node.Arguments.Count > 0)
+                {
+                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                }
+
                 Type objType = node.Object!.Type;
                 if (objType == typeof(ulong))
                 {
@@ -65,6 +70,11 @@ internal static class NumericMemberVisitor
 
             if (node.Method.Name == nameof(double.ToString))
             {
+                if (node.Arguments.Count > 0)
+                {
+                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                }
+
                 return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", obj.SQLiteExpression!, " AS TEXT)", obj.Parameters);
             }
         }
