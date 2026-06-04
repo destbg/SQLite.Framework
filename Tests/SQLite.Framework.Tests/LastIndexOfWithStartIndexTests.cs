@@ -74,20 +74,26 @@ public class LastIndexOfWithStartIndexTests
     }
 
     [Fact]
-    public void LastIndexOf_CountOverload_Throws()
+    public void LastIndexOf_CountOverload_ClientEvaluates()
     {
         using TestDatabase db = SeedTitle("banana");
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Select(b => b.Title.LastIndexOf("a", 5, 3)).First());
+        int expected = "banana".LastIndexOf("a", 5, 3);
+        int actual = db.Table<Book>().Select(b => b.Title.LastIndexOf("a", 5, 3)).First();
+
+        Assert.Equal(5, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void LastIndexOf_StringComparisonOverload_Throws()
+    public void LastIndexOf_StringComparisonOverload_ClientEvaluates()
     {
         using TestDatabase db = SeedTitle("banana");
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Select(b => b.Title.LastIndexOf("a", StringComparison.Ordinal)).First());
+        int expected = "banana".LastIndexOf("a", StringComparison.Ordinal);
+        int actual = db.Table<Book>().Select(b => b.Title.LastIndexOf("a", StringComparison.Ordinal)).First();
+
+        Assert.Equal(5, expected);
+        Assert.Equal(expected, actual);
     }
 }

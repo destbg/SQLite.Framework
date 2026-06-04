@@ -48,6 +48,7 @@ internal partial class QueryableVisitor
 
         PreviousSelectLambda = lambda;
         visitor.IsInSelectProjection = true;
+        visitor.ClientEvalAllowed = !IsInnerQuery;
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(lambda);
 
         Selects.Clear();
@@ -78,10 +79,12 @@ internal partial class QueryableVisitor
                 List<MemberBinding> allBindings = RebuildBindingsForListInit(mieBody, prefix: null);
 
                 visitor.IsInSelectProjection = false;
+                visitor.ClientEvalAllowed = false;
                 return Expression.MemberInit(mieBody.NewExpression, allBindings);
             }
 
             visitor.IsInSelectProjection = false;
+            visitor.ClientEvalAllowed = false;
             return node;
         }
 
@@ -100,6 +103,7 @@ internal partial class QueryableVisitor
             bool hasWritableProperties = properties.All(p => p.CanWrite);
 
             visitor.IsInSelectProjection = false;
+            visitor.ClientEvalAllowed = false;
 
             if (hasWritableProperties)
             {
@@ -119,6 +123,7 @@ internal partial class QueryableVisitor
 
         Expression selectExpression = visitor.Visit(lambda.Body);
         visitor.IsInSelectProjection = false;
+        visitor.ClientEvalAllowed = false;
         Expression expression = selectVisitor.Visit(selectExpression);
 
         return expression;

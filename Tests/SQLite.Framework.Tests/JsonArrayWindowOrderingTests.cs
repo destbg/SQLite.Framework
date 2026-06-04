@@ -126,6 +126,16 @@ public class JsonArrayWindowOrderingTests
     }
 
     [Fact]
+    public void OrderByDescendingThenTakeThenReverse()
+    {
+        using TestDatabase db = CreateDb();
+        List<int> oracle = A.OrderByDescending(x => x).Take(3).Reverse().ToList();
+        List<int> actual = db.Table<JawRow>().Where(r => r.Id == 1).Select(r => r.Numbers.OrderByDescending(x => x).Take(3).Reverse()).First().ToList();
+        Assert.Equal([5, 8, 9], oracle);
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
     public void TakeThenSkip()
     {
         using TestDatabase db = CreateDb();
@@ -172,6 +182,33 @@ public class JsonArrayWindowOrderingTests
         List<int> oracle = B.Take(4).Distinct().ToList();
         List<int> actual = db.Table<JawRow>().Where(r => r.Id == 2).Select(r => r.Numbers.Take(4).Distinct()).First().ToList();
         Assert.Equal([3, 1, 2], oracle);
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void TakeThenThenByDescending()
+    {
+        using TestDatabase db = CreateDb();
+        int oracle = A.Take(4).OrderBy(x => x % 2).ThenByDescending(x => x).First();
+        int actual = db.Table<JawRow>().Where(r => r.Id == 1).Select(r => r.Numbers.Take(4).OrderBy(x => x % 2).ThenByDescending(x => x).First()).First();
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void TakeThenDistinctThenCount()
+    {
+        using TestDatabase db = CreateDb();
+        int oracle = B.Take(5).Distinct().Count();
+        int actual = db.Table<JawRow>().Where(r => r.Id == 2).Select(r => r.Numbers.Take(5).Distinct().Count()).First();
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void MixedOrderThenReverse_NoWindow()
+    {
+        using TestDatabase db = CreateDb();
+        List<int> oracle = A.OrderBy(x => x % 2).ThenByDescending(x => x).Reverse().ToList();
+        List<int> actual = db.Table<JawRow>().Where(r => r.Id == 1).Select(r => r.Numbers.OrderBy(x => x % 2).ThenByDescending(x => x).Reverse()).First().ToList();
         Assert.Equal(oracle, actual);
     }
 

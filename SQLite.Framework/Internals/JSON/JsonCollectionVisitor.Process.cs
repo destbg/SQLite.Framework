@@ -66,7 +66,6 @@ internal partial class JsonCollectionVisitor
         {
             nameof(Enumerable.Where)
                 or nameof(Enumerable.OrderBy) or nameof(Enumerable.OrderByDescending)
-                or nameof(Enumerable.ThenBy) or nameof(Enumerable.ThenByDescending)
                 or nameof(Enumerable.Distinct)
                 or nameof(Enumerable.Skip) => true,
             nameof(Enumerable.Take) => limit != null,

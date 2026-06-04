@@ -1638,17 +1638,18 @@ public class QueryPatternGapTests
 
 
     [Fact]
-    public void Math_Round_ToZeroMode_IsNotSupported()
+    public void Math_Round_ToZeroMode_ClientEvaluates()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.5 });
+        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.55 });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>()
-                .Select(b => Math.Round(b.Price, 1, MidpointRounding.ToZero))
-                .ToList());
+        double expected = Math.Round(1.55, 1, MidpointRounding.ToZero);
+        double actual = db.Table<Book>().Select(b => Math.Round(b.Price, 1, MidpointRounding.ToZero)).Single();
+
+        Assert.Equal(1.5, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -3323,17 +3324,18 @@ public class QueryPatternGapTests
     }
 
     [Fact]
-    public void Select_StringFormat_IsNotSupported()
+    public void Select_StringFormat_ClientEvaluates()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>()
-                .Select(b => string.Format("{0}-{1}", b.Id, b.Title))
-                .ToList());
+        string actual = db.Table<Book>()
+            .Select(b => string.Format("{0}-{1}", b.Id, b.Title))
+            .Single();
+
+        Assert.Equal("1-A", actual);
     }
 
     [Fact]
@@ -4605,13 +4607,15 @@ public class QueryPatternGapTests
     }
 
     [Fact]
-    public void Select_InterpolatedString_ThrowsNotSupported()
+    public void Select_InterpolatedString_ClientEvaluates()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 7, Title = "A", AuthorId = 1, Price = 1 });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Select(b => $"id={b.Id}").ToList());
+        string actual = db.Table<Book>().Select(b => $"id={b.Id}").Single();
+
+        Assert.Equal("id=7", actual);
     }
 
     [Fact]

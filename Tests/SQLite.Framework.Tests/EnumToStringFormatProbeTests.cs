@@ -126,27 +126,59 @@ public class EnumToStringFormatProbeTests
     }
 
     [Fact]
-    public void NonConstantFormatThrows()
+    public void CapturedFormat_ClientEvaluates()
     {
-        AssertThrows(q => q.Select(r => r.IntVal.ToString(r.Fmt)));
+        using TestDatabase db = new();
+        db.Table<EnumFmtRow>().Schema.CreateTable();
+        db.Table<EnumFmtRow>().AddRange(Data());
+
+        string fmt = "X";
+        List<string> oracle = Data().AsQueryable().OrderBy(r => r.Id).Select(r => r.IntVal.ToString(fmt)).ToList();
+        List<string> actual = db.Table<EnumFmtRow>().OrderBy(r => r.Id).Select(r => r.IntVal.ToString(fmt)).ToList();
+
+        Assert.Equal(oracle, actual);
     }
 
     [Fact]
-    public void MultiCharFormatThrows()
+    public void MultiCharFormat_ThrowsLikeDotNet()
     {
-        AssertThrows(q => q.Select(r => r.IntVal.ToString("DD")));
+        using TestDatabase db = new();
+        db.Table<EnumFmtRow>().Schema.CreateTable();
+        db.Table<EnumFmtRow>().AddRange(Data());
+
+        Assert.ThrowsAny<FormatException>(() => Data().AsQueryable().Select(r => r.IntVal.ToString("DD")).ToList());
+
+        Exception ex = Assert.ThrowsAny<Exception>(() => db.Table<EnumFmtRow>().Select(r => r.IntVal.ToString("DD")).ToList());
+        Assert.True(ex is FormatException || ex.InnerException is FormatException);
     }
 
     [Fact]
-    public void FlagsFormatThrows()
+    public void FlagsFormat_ClientEvaluates()
     {
-        AssertThrows(q => q.Select(r => r.IntVal.ToString("F")));
+        Run(q => q.Select(r => r.IntVal.ToString("F")));
     }
 
     [Fact]
-    public void FlagsEnumNameThrows()
+    public void FlagsEnumName_ClientEvaluates()
     {
-        AssertThrows(q => q.Select(r => r.Flags.ToString()));
+        Run(q => q.Select(r => r.Flags.ToString()));
+    }
+
+    [Fact]
+    public void EmptyFormat_ClientEvaluates()
+    {
+        Run(q => q.Select(r => r.Color.ToString("")));
+    }
+
+    [Fact]
+    public void NonConstantFormatInWhere_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<EnumFmtRow>().Schema.CreateTable();
+        db.Table<EnumFmtRow>().AddRange(Data());
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<EnumFmtRow>().Where(r => r.IntVal.ToString(r.Fmt) == "x").ToList());
     }
 
     private static void Run(Func<IQueryable<EnumFmtRow>, IQueryable<string>> project)
@@ -161,14 +193,6 @@ public class EnumToStringFormatProbeTests
         Assert.Equal(oracle, actual);
     }
 
-    private static void AssertThrows(Func<IQueryable<EnumFmtRow>, IQueryable<string>> project)
-    {
-        using TestDatabase db = new();
-        db.Table<EnumFmtRow>().Schema.CreateTable();
-        db.Table<EnumFmtRow>().AddRange(Data());
-
-        Assert.Throws<NotSupportedException>(() => project(db.Table<EnumFmtRow>()).ToList());
-    }
 
     private static List<EnumFmtRow> Data()
     {

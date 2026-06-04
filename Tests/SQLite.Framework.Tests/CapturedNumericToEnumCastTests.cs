@@ -111,6 +111,17 @@ public class CapturedNumericToEnumCastTests
     }
 
     [Fact]
+    public void CrossEnumCast_InWhere()
+    {
+        using TestDatabase db = CreateDb();
+        EcByteFlag flag = EcByteFlag.A;
+        List<int> oracle = Data.Where(x => x.Color == (EcColor)flag).Select(x => x.Id).OrderBy(i => i).ToList();
+        List<int> actual = db.Table<EcRow>().Where(x => x.Color == (EcColor)flag).Select(x => x.Id).OrderBy(i => i).ToList();
+        Assert.Equal([1], oracle);
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
     public void CapturedEnumVariable_NoCast_StillWorks()
     {
         using TestDatabase db = CreateDb();

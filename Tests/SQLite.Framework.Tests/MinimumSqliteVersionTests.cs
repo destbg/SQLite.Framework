@@ -367,14 +367,17 @@ public class MinimumSqliteVersionTests
     }
 
     [Fact]
-    public void LowFloor_BlocksMathExtension()
+    public void LowFloor_MathExtension_ClientEvaluatesInProjection_ButGatesInWhere()
     {
         using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_32));
         db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 4 });
 
+        List<double> actual = db.Table<Book>().Select(b => Math.Sqrt(b.Price)).ToList();
+        Assert.Equal([2.0], actual);
+
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Select(b => Math.Sqrt(b.Price)).ToList());
+            db.Table<Book>().Where(b => Math.Sqrt(b.Price) > 1).ToList());
 
         Assert.Contains("Math.Sqrt", ex.Message);
         Assert.Contains("3.35", ex.Message);
@@ -527,14 +530,17 @@ public class MinimumSqliteVersionTests
     }
 
     [Fact]
-    public void LowFloor_BlocksLastIndexOf()
+    public void LowFloor_LastIndexOf_ClientEvaluatesInProjection_ButGatesInWhere()
     {
         using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_8));
         db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "hello world", AuthorId = 1, Price = 1 });
 
+        List<int> actual = db.Table<Book>().Select(b => b.Title.LastIndexOf("o")).ToList();
+        Assert.Equal([7], actual);
+
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Select(b => b.Title.LastIndexOf("o")).ToList());
+            db.Table<Book>().Where(b => b.Title.LastIndexOf("o") >= 0).ToList());
 
         Assert.Contains("LastIndexOf", ex.Message);
         Assert.Contains("3.8.3", ex.Message);
@@ -551,6 +557,17 @@ public class MinimumSqliteVersionTests
 
         Assert.Contains("RETURNING", ex.Message);
         Assert.Contains("3.35", ex.Message);
+    }
+
+    [Fact]
+    public void LowFloor_WindowFunctionInProjection_StillThrows_NotClientEvaluated()
+    {
+        using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_8));
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 1 });
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().Select(b => SQLite.Framework.SQLiteWindowFunctions.Avg(b.Price).Over().AsValue()).ToList());
     }
 }
 
