@@ -76,7 +76,13 @@ internal partial class JsonCollectionVisitor
             bool needsSubquery = orderBys.Count > 0 || limit != null || offset != null;
             if (needsSubquery)
             {
-                string innerSelect2 = string.Join(nl + sp2, clauses);
+                List<string> arrayClauses = clauses;
+                if (orderBys.Count > 0 && limit == null && offset == null && fromOverride != null)
+                {
+                    arrayClauses = [.. clauses, "LIMIT -1"];
+                }
+
+                string innerSelect2 = string.Join(nl + sp2, arrayClauses);
                 return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}\"value\"){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
             }
 

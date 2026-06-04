@@ -47,12 +47,31 @@ internal partial class JsonCollectionVisitor
 
     private void ProcessMethod(MethodCallExpression call)
     {
-        if ((limit != null || offset != null) && WindowConsumers.Contains(call.Method.Name))
+        if (RequiresWindowMaterialization(call.Method.Name))
         {
             MaterializeWindow();
         }
 
         Handlers[call.Method.Name](this, call, currentElementType);
+    }
+
+    private bool RequiresWindowMaterialization(string name)
+    {
+        if (limit == null && offset == null)
+        {
+            return false;
+        }
+
+        return name switch
+        {
+            nameof(Enumerable.Where)
+                or nameof(Enumerable.OrderBy) or nameof(Enumerable.OrderByDescending)
+                or nameof(Enumerable.ThenBy) or nameof(Enumerable.ThenByDescending)
+                or nameof(Enumerable.Distinct)
+                or nameof(Enumerable.Skip) => true,
+            nameof(Enumerable.Take) => limit != null,
+            _ => WindowConsumers.Contains(name)
+        };
     }
 
     private void MaterializeWindow()
@@ -174,13 +193,12 @@ internal partial class JsonCollectionVisitor
 
     private void HandleLast(MethodCallExpression call, Type elementType)
     {
-        AddOptionalPredicate(call, elementType);
-
         if (limit != null || offset != null)
         {
             bool hadOrder = orderBys.Count > 0;
             bool outerAscending = hadOrder && orderBys[^1].EndsWith(" DESC");
             MaterializeWindow();
+            AddOptionalPredicate(call, elementType);
             orderBys.Add(hadOrder
                 ? $"{selectExpr}{(outerAscending ? " ASC" : " DESC")}"
                 : $"{keyColumn} DESC");
@@ -189,6 +207,7 @@ internal partial class JsonCollectionVisitor
             return;
         }
 
+        AddOptionalPredicate(call, elementType);
         ReverseOrderBys();
         limit = "1";
         wrapInArray = false;
@@ -248,6 +267,18 @@ internal partial class JsonCollectionVisitor
     private void HandleReverse()
     {
         reverseApplied = true;
+
+        if (limit != null || offset != null)
+        {
+            bool hadOrder = orderBys.Count > 0;
+            bool lastWasAscending = hadOrder && orderBys[^1].EndsWith(" ASC");
+            MaterializeWindow();
+            orderBys.Add(hadOrder
+                ? $"{selectExpr}{(lastWasAscending ? " DESC" : " ASC")}"
+                : $"{keyColumn} DESC");
+            return;
+        }
+
         ReverseOrderBys();
     }
 
