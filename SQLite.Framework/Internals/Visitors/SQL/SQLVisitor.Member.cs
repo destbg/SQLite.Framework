@@ -125,7 +125,7 @@ internal partial class SQLVisitor
                 return node.Update(sqlExpression);
             }
 
-            return DateTimeMemberVisitor.HandleDateTimeProperty(this, node.Member.Name, node.Type, sqlExpression);
+            return DateTimeMemberVisitor.HandleDateTimeProperty(this, node, sqlExpression);
         }
 
         if (node.Expression.Type == typeof(DateTimeOffset))
@@ -135,7 +135,7 @@ internal partial class SQLVisitor
                 return node.Update(sqlExpression);
             }
 
-            return DateTimeMemberVisitor.HandleDateTimeOffsetProperty(this, node.Member.Name, node.Type, sqlExpression);
+            return DateTimeMemberVisitor.HandleDateTimeOffsetProperty(this, node, sqlExpression);
         }
 
         if (node.Expression.Type == typeof(TimeSpan))

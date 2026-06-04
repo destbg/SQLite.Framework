@@ -27,9 +27,10 @@ internal static class MathMemberVisitor
         }
 
 #if SQLITE_FRAMEWORK_VERSION_AWARE
-        if (MathExtensionFunctions.Contains(node.Method.Name))
+        if (MathExtensionFunctions.Contains(node.Method.Name)
+            && !visitor.Database.Options.OverMinimumVersion(SQLiteMinimumVersion.V3_35))
         {
-            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, $"Math.{node.Method.Name}");
+            return visitor.NotTranslatableBelowVersion(node, SQLiteMinimumVersion.V3_35, $"Math.{node.Method.Name}");
         }
 #endif
 
@@ -72,7 +73,7 @@ internal static class MathMemberVisitor
             nameof(Math.Acosh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ACOSH(", a0, ")", parameters),
             nameof(Math.Atanh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ATANH(", a0, ")", parameters),
             nameof(Math.Clamp) => BuildClamp(visitor, returnType, arguments, a0, a1, a2, parameters),
-            _ => throw new NotSupportedException($"Math.{node.Method.Name} is not translatable to SQL.")
+            _ => visitor.NotTranslatable(node, $"Math.{node.Method.Name} is not translatable to SQL.")
         };
     }
 
@@ -89,7 +90,7 @@ internal static class MathMemberVisitor
             [a0, a1, a1, a0, a2, a2, a0], parameters);
     }
 
-    private static SQLiteExpression HandleRound(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, SQLiteParameter[]? parameters)
+    private static Expression HandleRound(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, SQLiteParameter[]? parameters)
     {
         if (arguments.Count == 1)
         {
@@ -109,11 +110,11 @@ internal static class MathMemberVisitor
         return BuildRound(visitor, node, arguments[0], arguments[1], MidpointRounding.ToEven);
     }
 
-    private static SQLiteExpression BuildRound(SQLVisitor visitor, MethodCallExpression node, ResolvedModel value, ResolvedModel? digits, MidpointRounding mode)
+    private static Expression BuildRound(SQLVisitor visitor, MethodCallExpression node, ResolvedModel value, ResolvedModel? digits, MidpointRounding mode)
     {
         if (mode is not (MidpointRounding.AwayFromZero or MidpointRounding.ToEven))
         {
-            throw new NotSupportedException(
+            return visitor.NotTranslatable(node,
                 $"Math.Round with MidpointRounding.{mode} is not translatable to SQL. " +
                 "SQLite supports round-half-away-from-zero (MidpointRounding.AwayFromZero) " +
                 "and round-half-to-even (MidpointRounding.ToEven, the .NET default).");

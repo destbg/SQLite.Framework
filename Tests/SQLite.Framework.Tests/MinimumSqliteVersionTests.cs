@@ -384,6 +384,26 @@ public class MinimumSqliteVersionTests
     }
 
     [Fact]
+    public void LowFloor_TrigConversion_ClientEvaluatesInProjection_ButGatesInWhere()
+    {
+        using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_32));
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().Add(new Book { Id = 1, Title = "x", AuthorId = 1, Price = 180 });
+
+        List<double> radians = db.Table<Book>().Select(b => double.DegreesToRadians(b.Price)).ToList();
+        Assert.Equal([double.DegreesToRadians(180.0)], radians);
+
+        List<double> degrees = db.Table<Book>().Select(b => double.RadiansToDegrees(b.Price)).ToList();
+        Assert.Equal([double.RadiansToDegrees(180.0)], degrees);
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().Where(b => double.DegreesToRadians(b.Price) > 1).ToList());
+
+        Assert.Contains("DegreesToRadians", ex.Message);
+        Assert.Contains("3.35", ex.Message);
+    }
+
+    [Fact]
     public void LowFloor_AllowsMathRoundAndAbs()
     {
         using TestDatabase db = new(b => b.UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_8));

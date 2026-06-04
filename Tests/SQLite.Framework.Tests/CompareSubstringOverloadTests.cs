@@ -90,13 +90,26 @@ public class CompareSubstringOverloadTests
     }
 
     [Fact]
-    public void Compare_CultureOverload_Throws()
+    public void Compare_CultureOverload_ClientEvaluatesInProjection()
+    {
+        using TestDatabase db = SeedTitle("hello");
+
+        int oracle = string.Compare("hello", 0, "hello", 0, 5, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.CompareOptions.None);
+        int actual = db.Table<Book>()
+            .Select(b => string.Compare(b.Title, 0, "hello", 0, 5, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.CompareOptions.None))
+            .First();
+
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void Compare_CultureOverload_Throws_InWhere()
     {
         using TestDatabase db = SeedTitle("hello");
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
-                .Select(b => string.Compare(b.Title, 0, "hello", 0, 5, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.CompareOptions.None))
+                .Where(b => string.Compare(b.Title, 0, "hello", 0, 5, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.CompareOptions.None) == 0)
                 .First());
     }
 }

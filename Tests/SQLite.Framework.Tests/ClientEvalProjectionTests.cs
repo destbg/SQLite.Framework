@@ -89,6 +89,11 @@ public class ClientEvalProjectionTests
                 q => q.Select(x => x.Value.ToString("X4")));
 
     [Fact]
+    public void ClientEval_OverTranslatableSubexpression()
+        => Same(q => q.Select(x => (x.Value * 2).ToString("X4")),
+                q => q.Select(x => (x.Value * 2).ToString("X4")));
+
+    [Fact]
     public void ClientEval_WithCapturedVariable()
     {
         string suffix = "!";

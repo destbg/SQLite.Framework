@@ -305,12 +305,24 @@ public sealed class SQLiteOptions
 
         if ((int)requiredVersion > (int)MinimumSqliteVersion)
         {
-            throw new NotSupportedException(
-                $"{featureName} requires SQLite {SQLiteVersionFormatter.Format((int)requiredVersion)} or later. " +
-                $"The configured minimum is {SQLiteVersionFormatter.Format((int)MinimumSqliteVersion)}. " +
-                $"Raise the value passed to UseMinimumSqliteVersion or remove the call that needs the newer feature."
-            );
+            ThrowMinimumVersionNotSupported(requiredVersion, featureName);
         }
+    }
+
+    /// <summary>
+    /// Returns <see langword="true" /> when <paramref name="requiredVersion" /> is
+    /// less than or equal to the configured <see cref="MinimumSqliteVersion" />. Always returns <see langword="true" /> when
+    /// the floor is <see cref="SQLiteMinimumVersion.Unspecified" />. Used by built-in SQL
+    /// emitters to check if a query, DDL fragment, or pragma can run with the current SQLite version.
+    /// </summary>
+    public bool OverMinimumVersion(SQLiteMinimumVersion requiredVersion)
+    {
+        if (MinimumSqliteVersion == SQLiteMinimumVersion.Unspecified)
+        {
+            return true;
+        }
+
+        return (int)requiredVersion <= (int)MinimumSqliteVersion;
     }
 
     /// <summary>
@@ -323,6 +335,15 @@ public sealed class SQLiteOptions
     public void BindParameter(sqlite3_stmt statement, int parameterIndex, object? value)
     {
         CommandHelpers.BindParameterByIndex(statement, parameterIndex, value, this);
+    }
+
+    internal void ThrowMinimumVersionNotSupported(SQLiteMinimumVersion requiredVersion, string featureName)
+    {
+        throw new NotSupportedException(
+            $"{featureName} requires SQLite {SQLiteVersionFormatter.Format((int)requiredVersion)} or later. " +
+            $"The configured minimum is {SQLiteVersionFormatter.Format((int)MinimumSqliteVersion)}. " +
+            $"Raise the value passed to UseMinimumSqliteVersion or remove the call that needs the newer feature."
+        );
     }
 
     internal Type? GetConverterTypeForInterface(Type interfaceType)

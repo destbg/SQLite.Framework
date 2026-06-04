@@ -54,6 +54,6 @@ internal static class CharMemberVisitor
             return expression;
         }
 
-        throw new NotSupportedException($"char.{node.Method.Name} is not translatable to SQL.");
+        return visitor.NotTranslatable(node, $"char.{node.Method.Name} is not translatable to SQL.");
     }
 }

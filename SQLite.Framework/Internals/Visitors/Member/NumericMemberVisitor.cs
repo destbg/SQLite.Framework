@@ -24,7 +24,7 @@ internal static class NumericMemberVisitor
             {
                 if (node.Arguments.Count > 0)
                 {
-                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                    return visitor.NotTranslatable(node, $"{node.Method.DeclaringType!.Name}.ToString with a format string is not translatable to SQL.");
                 }
 
                 Type objType = node.Object!.Type;
@@ -47,7 +47,7 @@ internal static class NumericMemberVisitor
             return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", arguments[0].SQLiteExpression!, " AS INTEGER)", arguments[0].Parameters);
         }
 
-        throw new NotSupportedException($"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");
+        return visitor.NotTranslatable(node, $"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");
     }
 
     public static Expression HandleFloatingPointMethod(SQLiteCallerContext ctx)
@@ -72,7 +72,7 @@ internal static class NumericMemberVisitor
             {
                 if (node.Arguments.Count > 0)
                 {
-                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                    return visitor.NotTranslatable(node, $"{node.Method.DeclaringType!.Name}.ToString with a format string is not translatable to SQL.");
                 }
 
                 return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", obj.SQLiteExpression!, " AS TEXT)", obj.Parameters);
@@ -92,7 +92,10 @@ internal static class NumericMemberVisitor
         if (node.Method.Name == nameof(double.DegreesToRadians))
         {
 #if SQLITE_FRAMEWORK_VERSION_AWARE
-            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, $"{node.Method.DeclaringType!.Name}.DegreesToRadians");
+            if (!visitor.Database.Options.OverMinimumVersion(SQLiteMinimumVersion.V3_35))
+            {
+                return visitor.NotTranslatableBelowVersion(node, SQLiteMinimumVersion.V3_35, $"{node.Method.DeclaringType!.Name}.DegreesToRadians");
+            }
 #endif
             return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "RADIANS(", arguments[0].SQLiteExpression!, ")", arguments[0].Parameters);
         }
@@ -100,11 +103,14 @@ internal static class NumericMemberVisitor
         if (node.Method.Name == nameof(double.RadiansToDegrees))
         {
 #if SQLITE_FRAMEWORK_VERSION_AWARE
-            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, $"{node.Method.DeclaringType!.Name}.RadiansToDegrees");
+            if (!visitor.Database.Options.OverMinimumVersion(SQLiteMinimumVersion.V3_35))
+            {
+                return visitor.NotTranslatableBelowVersion(node, SQLiteMinimumVersion.V3_35, $"{node.Method.DeclaringType!.Name}.RadiansToDegrees");
+            }
 #endif
             return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "DEGREES(", arguments[0].SQLiteExpression!, ")", arguments[0].Parameters);
         }
 
-        throw new NotSupportedException($"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");
+        return visitor.NotTranslatable(node, $"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");
     }
 }

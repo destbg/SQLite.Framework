@@ -53,14 +53,17 @@ internal static class StringMemberVisitor
                             parameters);
                     }
 
-                    throw new NotSupportedException(
+                    return visitor.NotTranslatable(node,
                         "string.IndexOf is only translatable with a single value argument or a value plus a start index. " +
                         "StringComparison and count overloads are not supported.");
                 }
                 case nameof(string.LastIndexOf):
                 {
 #if SQLITE_FRAMEWORK_VERSION_AWARE
-                    visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_8_3, "string.LastIndexOf (uses WITH RECURSIVE CTE)");
+                    if (!visitor.Database.Options.OverMinimumVersion(SQLiteMinimumVersion.V3_8_3))
+                    {
+                        return visitor.NotTranslatableBelowVersion(node, SQLiteMinimumVersion.V3_8_3, "string.LastIndexOf (uses WITH RECURSIVE CTE)");
+                    }
 #endif
                     SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
@@ -84,7 +87,7 @@ internal static class StringMemberVisitor
                             parameters);
                     }
 
-                    throw new NotSupportedException(
+                    return visitor.NotTranslatable(node,
                         "string.LastIndexOf is only translatable with a single value argument or a value plus a start index. " +
                         "StringComparison and count overloads are not supported.");
                 }
@@ -315,14 +318,14 @@ internal static class StringMemberVisitor
                     return RewriteJoinAsGroupConcat(visitor, node);
                 }
 
-                throw new NotSupportedException("string.Join with a non-array source is not translatable to SQL.");
+                return visitor.NotTranslatable(node, "string.Join with a non-array source is not translatable to SQL.");
             case nameof(string.Compare):
             {
                 if (node.Arguments[1].Type == typeof(int))
                 {
                     if (arguments.Count is not (5 or 6))
                     {
-                        throw new NotSupportedException(
+                        return visitor.NotTranslatable(node,
                             "string.Compare with a CultureInfo is not translatable to SQL. " +
                             "Only the substring overloads with an optional ignoreCase or StringComparison are supported.");
                     }
@@ -364,7 +367,7 @@ internal static class StringMemberVisitor
 
                 return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", arguments[0].SQLiteExpression!, " = ", arguments[1].SQLiteExpression!, ")", ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!));
             default:
-                throw new NotSupportedException($"string.{node.Method.Name} is not translatable to SQL.");
+                return visitor.NotTranslatable(node, $"string.{node.Method.Name} is not translatable to SQL.");
         }
     }
 

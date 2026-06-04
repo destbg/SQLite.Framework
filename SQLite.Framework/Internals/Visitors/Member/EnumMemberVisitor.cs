@@ -43,7 +43,7 @@ internal static class EnumMemberVisitor
                     {
                         if (!arguments[0].IsConstant || arguments[0].Constant is not string formatArg)
                         {
-                            throw new NotSupportedException(
+                            return visitor.NotTranslatable(node,
                                 "Enum.ToString with a non-constant format string is not translatable to SQL. " +
                                 "Use a constant \"G\" (name), \"D\" (number) or \"X\" (hex) format.");
                         }
@@ -53,7 +53,7 @@ internal static class EnumMemberVisitor
 
                     if (format.Length != 1)
                     {
-                        throw new NotSupportedException(
+                        return visitor.NotTranslatable(node,
                             $"Enum.ToString format \"{format}\" is not supported in a query. " +
                             "The supported formats are \"G\" (name), \"D\" (number) and \"X\" (hex).");
                     }
@@ -77,14 +77,14 @@ internal static class EnumMemberVisitor
 
                     if (formatChar != 'G')
                     {
-                        throw new NotSupportedException(
+                        return visitor.NotTranslatable(node,
                             $"Enum.ToString format \"{format}\" is not supported in a query. " +
                             "The supported formats are \"G\" (name), \"D\" (number) and \"X\" (hex).");
                     }
 
                     if (enumType.IsDefined(typeof(FlagsAttribute), inherit: false))
                     {
-                        throw new NotSupportedException(
+                        return visitor.NotTranslatable(node,
                             $"ToString with the \"G\" (name) format on the [Flags] enum {enumType.Name} is not supported in a query " +
                             "because the name decomposition cannot be reproduced faithfully in SQL. " +
                             "Use the \"D\" (number) or \"X\" (hex) format.");
@@ -194,7 +194,7 @@ internal static class EnumMemberVisitor
             return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, collate + caseSb.ToString() + " ELSE CAST(", stringArgExpr, " AS INTEGER) END)", allParams);
         }
 
-        throw new NotSupportedException($"Enum.{node.Method.Name} is not translatable to SQL.");
+        return visitor.NotTranslatable(node, $"Enum.{node.Method.Name} is not translatable to SQL.");
     }
 
     private static long ToSignedNumeric(object enumValue, Type enumUnderlying)

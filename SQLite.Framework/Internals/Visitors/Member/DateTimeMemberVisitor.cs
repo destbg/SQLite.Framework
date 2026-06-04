@@ -44,7 +44,7 @@ internal static class DateTimeMemberVisitor
                 nameof(DateTime.AddMilliseconds) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerMillisecond),
                 nameof(DateTime.AddMicroseconds) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerMicrosecond),
                 nameof(DateTime.AddTicks) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
-                _ => throw new NotSupportedException($"DateTime.{node.Method.Name} is not translatable to SQL.")
+                _ => visitor.NotTranslatable(node, $"DateTime.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -53,7 +53,7 @@ internal static class DateTimeMemberVisitor
             return expression;
         }
 
-        throw new NotSupportedException($"DateTime.{node.Method.Name} is not translatable to SQL.");
+        return visitor.NotTranslatable(node, $"DateTime.{node.Method.Name} is not translatable to SQL.");
     }
 
     public static Expression HandleDateTimeOffsetMethod(SQLiteCallerContext ctx)
@@ -95,7 +95,7 @@ internal static class DateTimeMemberVisitor
                 nameof(DateTimeOffset.AddMilliseconds) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerMillisecond),
                 nameof(DateTimeOffset.AddMicroseconds) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerMicrosecond),
                 nameof(DateTimeOffset.AddTicks) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
-                _ => throw new NotSupportedException($"DateTimeOffset.{node.Method.Name} is not translatable to SQL.")
+                _ => visitor.NotTranslatable(node, $"DateTimeOffset.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -104,7 +104,7 @@ internal static class DateTimeMemberVisitor
             return expression;
         }
 
-        throw new NotSupportedException($"DateTimeOffset.{node.Method.Name} is not translatable to SQL.");
+        return visitor.NotTranslatable(node, $"DateTimeOffset.{node.Method.Name} is not translatable to SQL.");
     }
 
     public static Expression HandleTimeSpanMethod(SQLiteCallerContext ctx)
@@ -143,7 +143,7 @@ internal static class DateTimeMemberVisitor
                 nameof(TimeSpan.Subtract) => SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", obj.SQLiteExpression!, " - ", arguments[0].SQLiteExpression!, "", ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!)),
                 nameof(TimeSpan.Negate) => SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(-", obj.SQLiteExpression!, ")", obj.Parameters),
                 nameof(TimeSpan.Duration) => SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ABS(", obj.SQLiteExpression!, ")", obj.Parameters),
-                _ => throw new NotSupportedException($"TimeSpan.{node.Method.Name} is not translatable to SQL.")
+                _ => visitor.NotTranslatable(node, $"TimeSpan.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -161,7 +161,7 @@ internal static class DateTimeMemberVisitor
             nameof(TimeSpan.FromMilliseconds) => ResolveParse(visitor, node.Method, arguments, TimeSpan.TicksPerMillisecond),
             nameof(TimeSpan.FromMicroseconds) => ResolveParse(visitor, node.Method, arguments, TimeSpan.TicksPerMicrosecond),
             nameof(TimeSpan.FromTicks) => ResolveParse(visitor, node.Method, arguments, 1),
-            _ => throw new NotSupportedException($"TimeSpan.{node.Method.Name} is not translatable to SQL.")
+            _ => visitor.NotTranslatable(node, $"TimeSpan.{node.Method.Name} is not translatable to SQL.")
         };
     }
 
@@ -189,7 +189,7 @@ internal static class DateTimeMemberVisitor
                 nameof(DateOnly.AddYears) => ResolveRelativeDate(visitor, node.Method, obj.SQLiteExpression, arguments, "years"),
                 nameof(DateOnly.AddMonths) => ResolveRelativeDate(visitor, node.Method, obj.SQLiteExpression, arguments, "months"),
                 nameof(DateOnly.AddDays) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerDay),
-                _ => throw new NotSupportedException($"DateOnly.{node.Method.Name} is not translatable to SQL.")
+                _ => visitor.NotTranslatable(node, $"DateOnly.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -198,7 +198,7 @@ internal static class DateTimeMemberVisitor
             return expression;
         }
 
-        throw new NotSupportedException($"DateOnly.{node.Method.Name} is not translatable to SQL.");
+        return visitor.NotTranslatable(node, $"DateOnly.{node.Method.Name} is not translatable to SQL.");
     }
 
     public static Expression HandleTimeOnlyMethod(SQLiteCallerContext ctx)
@@ -225,7 +225,7 @@ internal static class DateTimeMemberVisitor
                 nameof(TimeOnly.Add) => ResolveTimeOnlyAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
                 nameof(TimeOnly.AddHours) => ResolveTimeOnlyAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerHour),
                 nameof(TimeOnly.AddMinutes) => ResolveTimeOnlyAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerMinute),
-                _ => throw new NotSupportedException($"TimeOnly.{node.Method.Name} is not translatable to SQL.")
+                _ => visitor.NotTranslatable(node, $"TimeOnly.{node.Method.Name} is not translatable to SQL.")
             };
         }
 
@@ -234,14 +234,17 @@ internal static class DateTimeMemberVisitor
             return expression;
         }
 
-        throw new NotSupportedException($"TimeOnly.{node.Method.Name} is not translatable to SQL.");
+        return visitor.NotTranslatable(node, $"TimeOnly.{node.Method.Name} is not translatable to SQL.");
     }
 
-    public static Expression HandleDateTimeProperty(SQLVisitor visitor, string propertyName, Type type, SQLiteExpression node)
+    public static Expression HandleDateTimeProperty(SQLVisitor visitor, MemberExpression member, SQLiteExpression node)
     {
+        string propertyName = member.Member.Name;
+        Type type = member.Type;
+
         if (visitor.Database.Options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
         {
-            throw new NotSupportedException(
+            return visitor.NotTranslatable(member,
                 $"DateTime.{propertyName} cannot be used in a LINQ query when DateTimeStorage is set to TextFormatted." +
                 $" Use direct SQL queries instead, or switch to Integer storage.");
         }
@@ -260,15 +263,18 @@ internal static class DateTimeMemberVisitor
             nameof(DateTime.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
             nameof(DateTime.Date) => DateTruncExpression(visitor, type, node),
             nameof(DateTime.TimeOfDay) => ModExpression(visitor, type, node, TimeSpan.TicksPerDay),
-            _ => throw new NotSupportedException($"DateTime.{propertyName} is not translatable to SQL.")
+            _ => visitor.NotTranslatable(member, $"DateTime.{propertyName} is not translatable to SQL.")
         };
     }
 
-    public static Expression HandleDateTimeOffsetProperty(SQLVisitor visitor, string propertyName, Type type, SQLiteExpression node)
+    public static Expression HandleDateTimeOffsetProperty(SQLVisitor visitor, MemberExpression member, SQLiteExpression node)
     {
+        string propertyName = member.Member.Name;
+        Type type = member.Type;
+
         if (visitor.Database.Options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
         {
-            throw new NotSupportedException(
+            return visitor.NotTranslatable(member,
                 $"DateTimeOffset.{propertyName} cannot be used in a LINQ query when DateTimeOffsetStorage is set to TextFormatted." +
                 $" Use direct SQL queries instead, or switch to Ticks storage.");
         }
@@ -287,7 +293,7 @@ internal static class DateTimeMemberVisitor
             nameof(DateTimeOffset.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
             nameof(DateTimeOffset.Date) => DateTruncExpression(visitor, type, node),
             nameof(DateTimeOffset.TimeOfDay) => ModExpression(visitor, type, node, TimeSpan.TicksPerDay),
-            _ => throw new NotSupportedException($"DateTimeOffset.{propertyName} is not translatable to SQL.")
+            _ => visitor.NotTranslatable(member, $"DateTimeOffset.{propertyName} is not translatable to SQL.")
         };
     }
 

@@ -35,6 +35,6 @@ internal static class GuidMemberVisitor
             return expression;
         }
 
-        throw new NotSupportedException($"Guid.{node.Method.Name} is not translatable to SQL.");
+        return visitor.NotTranslatable(node, $"Guid.{node.Method.Name} is not translatable to SQL.");
     }
 }

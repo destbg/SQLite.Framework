@@ -389,7 +389,7 @@ internal static class SelectSignatureWriter
 
         if (isStatic)
         {
-            sb.Append("(MemberAccess ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ').Append(memberName).Append(" null)");
+            AppendCapturedValue(sb, type, ctx);
             return true;
         }
 
