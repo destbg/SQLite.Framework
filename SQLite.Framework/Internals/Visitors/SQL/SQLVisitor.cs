@@ -127,6 +127,11 @@ internal partial class SQLVisitor : ExpressionVisitor
                 return expression;
             }
 
+            if (ResolvePrimaryKeyColumn(node.Type, path, expressions) is { } primaryKeyColumn)
+            {
+                return primaryKeyColumn;
+            }
+
             SQLiteExpression? sqlExpression = expressions
                 .OrderBy(f => f.Key.Count(c => c == '.'))
                 .ThenBy(f => f.Key.Length)
@@ -187,6 +192,28 @@ internal partial class SQLVisitor : ExpressionVisitor
             SQLiteExpression = sqlExpression,
             Expression = resolvedExpression
         };
+    }
+
+    private SQLiteExpression? ResolvePrimaryKeyColumn(Type entityType, string path, Dictionary<string, Expression> expressions)
+    {
+        if (!Database.TryGetCachedTableMapping(entityType, out TableMapping? mapping))
+        {
+            return null;
+        }
+
+        string prefix = path.Length == 0 ? "" : path + ".";
+        foreach (TableColumn column in mapping.Columns
+                     .Where(c => c.IsPrimaryKey)
+                     .OrderBy(c => c.PrimaryKeyOrder))
+        {
+            if (expressions.TryGetValue(prefix + column.PropertyInfo.Name, out Expression? expression)
+                && expression is SQLiteExpression sqlExpression)
+            {
+                return sqlExpression;
+            }
+        }
+
+        return null;
     }
 
     private Dictionary<string, Expression> BuildTableColumns(TableMapping tableMapping, string? prefix)
