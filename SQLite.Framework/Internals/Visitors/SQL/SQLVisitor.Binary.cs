@@ -68,9 +68,9 @@ internal partial class SQLVisitor
         ResolvedModel resolvedLeft = ResolveExpression(leftNode);
         ResolvedModel resolvedRight = ResolveExpression(rightNode);
 
-        bool isArithmeticOp = node.NodeType is ExpressionType.Add
-            or ExpressionType.Subtract
-            or ExpressionType.Multiply
+        bool isArithmeticOp = node.NodeType is ExpressionType.Add or ExpressionType.AddChecked
+            or ExpressionType.Subtract or ExpressionType.SubtractChecked
+            or ExpressionType.Multiply or ExpressionType.MultiplyChecked
             or ExpressionType.Divide
             or ExpressionType.Modulo;
         bool eitherSideStoredAsTextOrBlob =
@@ -210,9 +210,9 @@ internal partial class SQLVisitor
             ExpressionType.LessThan => (" < ", false),
             ExpressionType.GreaterThanOrEqual => (" >= ", false),
             ExpressionType.LessThanOrEqual => (" <= ", false),
-            ExpressionType.Add => (" + ", true),
-            ExpressionType.Subtract => (" - ", true),
-            ExpressionType.Multiply => (" * ", true),
+            ExpressionType.Add or ExpressionType.AddChecked => (" + ", true),
+            ExpressionType.Subtract or ExpressionType.SubtractChecked => (" - ", true),
+            ExpressionType.Multiply or ExpressionType.MultiplyChecked => (" * ", true),
             ExpressionType.Divide => (" / ", true),
             ExpressionType.Modulo => (" % ", true),
             ExpressionType.And => (" & ", true),
