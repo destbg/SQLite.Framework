@@ -33,18 +33,6 @@ internal partial class JsonCollectionVisitor
         [nameof(Enumerable.Contains)] = static (v, c, _) => v.HandleContains(c),
     };
 
-    private static readonly HashSet<string> WindowConsumers =
-    [
-        nameof(Enumerable.Count),
-        nameof(Enumerable.Any),
-        nameof(Enumerable.All),
-        nameof(Enumerable.Min),
-        nameof(Enumerable.Max),
-        nameof(Enumerable.Sum),
-        nameof(Enumerable.Average),
-        nameof(Enumerable.Contains),
-    ];
-
     private void ProcessMethod(MethodCallExpression call)
     {
         if (RequiresWindowMaterialization(call.Method.Name))
@@ -70,7 +58,7 @@ internal partial class JsonCollectionVisitor
                 or nameof(Enumerable.Skip)
                 or nameof(Enumerable.ElementAt) => true,
             nameof(Enumerable.Take) => limit != null,
-            _ => WindowConsumers.Contains(name)
+            _ => TranslationPatterns.IsWindowConsumer(name)
         };
     }
 

@@ -2,17 +2,6 @@ namespace SQLite.Framework.Internals.Visitors.Member;
 
 internal static class MathMemberVisitor
 {
-    private static readonly HashSet<string> MathExtensionFunctions = new(StringComparer.Ordinal)
-    {
-        nameof(Math.Ceiling), nameof(Math.Floor), nameof(Math.Truncate), nameof(Math.Pow),
-        nameof(Math.Sqrt), nameof(Math.Exp), nameof(Math.Log), nameof(Math.Log10), nameof(Math.Log2),
-        nameof(Math.Sin), nameof(Math.Cos), nameof(Math.Tan),
-        nameof(Math.Asin), nameof(Math.Acos), nameof(Math.Atan), nameof(Math.Atan2),
-        nameof(Math.Sinh), nameof(Math.Cosh), nameof(Math.Tanh),
-        nameof(Math.Asinh), nameof(Math.Acosh), nameof(Math.Atanh),
-        nameof(Math.Cbrt),
-    };
-
     public static Expression HandleMathMethod(SQLiteCallerContext ctx)
     {
         SQLVisitor visitor = ctx.Visitor;
@@ -27,7 +16,7 @@ internal static class MathMemberVisitor
         }
 
 #if SQLITE_FRAMEWORK_VERSION_AWARE
-        if (MathExtensionFunctions.Contains(node.Method.Name)
+        if (TranslationPatterns.IsMathExtensionFunction(node.Method.Name)
             && !visitor.Database.Options.OverMinimumVersion(SQLiteMinimumVersion.V3_35))
         {
             return visitor.NotTranslatableBelowVersion(node, SQLiteMinimumVersion.V3_35, $"Math.{node.Method.Name}");

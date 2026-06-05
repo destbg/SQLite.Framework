@@ -2,15 +2,6 @@ namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
-    private static readonly HashSet<ExpressionType> ConcatBracketNodeTypes =
-    [
-        ExpressionType.Equal, ExpressionType.NotEqual,
-        ExpressionType.GreaterThan, ExpressionType.LessThan,
-        ExpressionType.GreaterThanOrEqual, ExpressionType.LessThanOrEqual,
-        ExpressionType.AndAlso, ExpressionType.OrElse,
-        ExpressionType.And, ExpressionType.Or, ExpressionType.ExclusiveOr,
-    ];
-
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "ToString does exist")]
     protected override Expression VisitBinary(BinaryExpression node)
     {
@@ -344,9 +335,12 @@ internal partial class SQLVisitor
     private static SQLiteExpression BracketConcatOperand(Expression node, SQLiteExpression expr)
     {
         Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
-        return ConcatBracketNodeTypes.Contains(stripped.NodeType)
-            ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
-            : expr;
+        if (TranslationPatterns.IsConcatBracketNodeType(stripped.NodeType))
+        {
+            return SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters);
+        }
+
+        return expr;
     }
 
     private static SQLiteExpression BracketBinaryOperand(Expression node, SQLiteExpression expr)

@@ -284,24 +284,19 @@ def parse_cobertura(path: Path) -> LineCov:
 
 
 def compute_stats(per_project_lines: list[LineCov]) -> CoverageStats:
-    merged: LineCov = {}
+    keys: set[tuple[str, int]] = set()
     for lm in per_project_lines:
-        for key, (hits, a_cov, a_total, conds) in lm.items():
-            if key not in merged:
-                merged[key] = [hits, a_cov, a_total, dict(conds)]
-            else:
-                _merge_line(merged[key], hits, a_cov, a_total, conds)
+        keys.update(lm.keys())
+
     out = CoverageStats()
-    for hits, a_cov, a_total, conds in merged.values():
-        if conds:
-            br_cov = round(sum(conds.values()) / 50.0)
-            br_total = 2 * len(conds)
-        elif a_total > 0:
-            br_cov, br_total = a_cov, a_total
-        else:
-            br_cov, br_total = 0, 0
+    for key in keys:
+        entries = [lm[key] for lm in per_project_lines if key in lm]
+        hits = max(e[0] for e in entries)
+        full = any(e[0] > 0 and (e[2] == 0 or e[1] == e[2]) for e in entries)
+        br_total = max(e[2] for e in entries)
+        br_cov = br_total if full else max(e[1] for e in entries)
         out.lines_valid += 1
-        if hits > 0 and br_cov >= br_total:
+        if hits > 0 and full:
             out.lines_covered += 1
         out.branches_valid += br_total
         out.branches_covered += br_cov

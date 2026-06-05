@@ -8,20 +8,6 @@ namespace SQLite.Framework.Internals;
 /// </remarks>
 internal class SQLTranslator
 {
-    private static readonly HashSet<string> SelectMethodNames = new(StringComparer.Ordinal)
-    {
-        nameof(Queryable.Select),
-        nameof(Queryable.Min),
-        nameof(Queryable.Max),
-        nameof(Queryable.Sum),
-        nameof(Queryable.Count),
-        nameof(Queryable.LongCount),
-        nameof(Queryable.Average),
-        nameof(Queryable.Contains),
-        nameof(QueryableExtensions.GroupConcatMarker),
-        nameof(QueryableExtensions.TotalMarker),
-    };
-
     private readonly SQLiteDatabase database;
     private readonly int level;
     private readonly bool isInnerQuery;
@@ -962,6 +948,6 @@ internal class SQLTranslator
 
     private static bool IsSelectMethod(MethodInfo method)
     {
-        return SelectMethodNames.Contains(method.Name);
+        return TranslationPatterns.IsSelectMethodName(method.Name);
     }
 }

@@ -2,45 +2,6 @@ namespace SQLite.Framework.Internals.JSON;
 
 internal partial class JsonCollectionVisitor
 {
-    private static readonly HashSet<string> ImplicitlyChainedNames =
-    [
-        nameof(Enumerable.ThenBy),
-        nameof(Enumerable.ThenByDescending),
-        nameof(Enumerable.GroupBy),
-        nameof(Enumerable.SelectMany),
-    ];
-
-    private static readonly HashSet<string> CollectionMethods =
-    [
-        nameof(Enumerable.Where),
-        nameof(Enumerable.Select),
-        nameof(Enumerable.OrderBy),
-        nameof(Enumerable.OrderByDescending),
-        nameof(Enumerable.ThenBy),
-        nameof(Enumerable.ThenByDescending),
-        nameof(Enumerable.GroupBy),
-        nameof(Enumerable.SelectMany),
-        nameof(Enumerable.Skip),
-        nameof(Enumerable.Take),
-        nameof(Enumerable.First),
-        nameof(Enumerable.FirstOrDefault),
-        nameof(Enumerable.Last),
-        nameof(Enumerable.LastOrDefault),
-        nameof(Enumerable.Single),
-        nameof(Enumerable.SingleOrDefault),
-        nameof(Enumerable.Count),
-        nameof(Enumerable.Any),
-        nameof(Enumerable.All),
-        nameof(Enumerable.Min),
-        nameof(Enumerable.Max),
-        nameof(Enumerable.Sum),
-        nameof(Enumerable.Average),
-        nameof(Enumerable.Distinct),
-        nameof(Enumerable.Reverse),
-        nameof(Enumerable.ElementAt),
-        nameof(Enumerable.Contains)
-    ];
-
     private readonly SQLVisitor visitor;
     private readonly SQLiteOptions options;
 
@@ -201,7 +162,7 @@ internal partial class JsonCollectionVisitor
 
     private static bool IsChainedCollectionMethod(MethodCallExpression node)
     {
-        if (!CollectionMethods.Contains(node.Method.Name))
+        if (!TranslationPatterns.IsJsonCollectionMethod(node.Method.Name))
         {
             return false;
         }
@@ -209,10 +170,10 @@ internal partial class JsonCollectionVisitor
         bool hasInnerChainCall = node.Arguments.Count > 0
             && node.Arguments[0] is MethodCallExpression innerCall
             && innerCall.Method.DeclaringType == typeof(Enumerable)
-            && CollectionMethods.Contains(innerCall.Method.Name);
+            && TranslationPatterns.IsJsonCollectionMethod(innerCall.Method.Name);
         bool takesPredicate = node.Arguments.Count >= 2;
 
-        return hasInnerChainCall || takesPredicate || ImplicitlyChainedNames.Contains(node.Method.Name);
+        return hasInnerChainCall || takesPredicate;
     }
 
     private static Expression UnwindChain(MethodCallExpression node, List<MethodCallExpression> chain)
@@ -220,7 +181,7 @@ internal partial class JsonCollectionVisitor
         Expression current = node;
         while (current is MethodCallExpression call
                && call.Method.DeclaringType == typeof(Enumerable)
-               && CollectionMethods.Contains(call.Method.Name))
+               && TranslationPatterns.IsJsonCollectionMethod(call.Method.Name))
         {
             chain.Insert(0, call);
             current = call.Arguments[0];

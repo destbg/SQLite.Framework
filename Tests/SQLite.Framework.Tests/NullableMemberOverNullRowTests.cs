@@ -61,11 +61,58 @@ public class NullableMemberOverNullRowTests
         Assert.Equal(oracle, actual);
     }
 
+    [Fact]
+    public void NullableMemberOverNullRow_Float()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableFloatEntity>().Schema.CreateTable();
+        db.Table<NullableFloatEntity>().Add(new NullableFloatEntity { Id = 1, Value = 1.5f });
+        db.Table<NullableFloatEntity>().Add(new NullableFloatEntity { Id = 2, Value = null });
+
+        List<string?> actual = db.Table<NullableFloatEntity>().OrderBy(e => e.Id).Select(e => e.Value.ToString()).ToList();
+        List<string?> oracle = new List<NullableFloatEntity> { new() { Id = 1, Value = 1.5f }, new() { Id = 2, Value = null } }
+            .OrderBy(e => e.Id).Select(e => e.Value.ToString()).ToList();
+
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void NullableMemberOverNullRow_Decimal()
+    {
+        using TestDatabase db = new();
+        db.Table<NullableDecimalEntity>().Schema.CreateTable();
+        db.Table<NullableDecimalEntity>().Add(new NullableDecimalEntity { Id = 1, Value = 9.99m });
+        db.Table<NullableDecimalEntity>().Add(new NullableDecimalEntity { Id = 2, Value = null });
+
+        List<string?> actual = db.Table<NullableDecimalEntity>().OrderBy(e => e.Id).Select(e => e.Value.ToString()).ToList();
+        List<string?> oracle = new List<NullableDecimalEntity> { new() { Id = 1, Value = 9.99m }, new() { Id = 2, Value = null } }
+            .OrderBy(e => e.Id).Select(e => e.Value.ToString()).ToList();
+
+        Assert.Equal(oracle, actual);
+    }
+
 }
+
 public class NullableDoubleEntity
 {
     [System.ComponentModel.DataAnnotations.Key]
     public int Id { get; set; }
 
     public double? Value { get; set; }
+}
+
+public class NullableFloatEntity
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    public int Id { get; set; }
+
+    public float? Value { get; set; }
+}
+
+public class NullableDecimalEntity
+{
+    [System.ComponentModel.DataAnnotations.Key]
+    public int Id { get; set; }
+
+    public decimal? Value { get; set; }
 }

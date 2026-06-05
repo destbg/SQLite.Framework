@@ -2,12 +2,6 @@ namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
-    private static readonly HashSet<Type> NumericCastTypes =
-    [
-        typeof(int), typeof(long), typeof(short), typeof(byte), typeof(sbyte),
-        typeof(uint), typeof(ulong), typeof(ushort), typeof(double), typeof(float), typeof(decimal),
-    ];
-
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types have public properties.")]
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
@@ -98,7 +92,7 @@ internal partial class SQLVisitor
             if (Nullable.GetUnderlyingType(node.Object.Type) is { } nullableUnderlying
                 && node.Method.Name == nameof(object.ToString)
                 && node.Arguments.Count == 0
-                && NumericCastTypes.Contains(nullableUnderlying))
+                && TranslationPatterns.IsNumericCastType(nullableUnderlying))
             {
                 ResolvedModel nullableObj = ResolveExpression(node.Object);
                 if (nullableObj.SQLiteExpression != null)

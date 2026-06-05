@@ -8,18 +8,6 @@ namespace SQLite.Framework.Internals.JSON;
 /// </summary>
 internal static class JsonMethodTranslator
 {
-    private static readonly HashSet<string> ArrayLambdaMethodNames =
-    [
-        nameof(Array.Exists),
-        nameof(Array.Find),
-        nameof(Array.FindAll),
-        nameof(Array.FindIndex),
-        nameof(Array.FindLast),
-        nameof(Array.FindLastIndex),
-        nameof(Array.TrueForAll),
-        nameof(Array.ConvertAll),
-    ];
-
     public static Expression? TryHandle(MethodCallExpression node, SQLVisitor visitor)
     {
         Type declaring = node.Method.DeclaringType!;
@@ -243,7 +231,7 @@ internal static class JsonMethodTranslator
         if (node.Arguments.Count == 2 && node.Arguments[1] is Expression secondArg)
         {
             Expression stripped = ExpressionHelpers.StripQuotes(secondArg);
-            if (stripped is LambdaExpression lambda && ArrayLambdaMethodNames.Contains(node.Method.Name))
+            if (stripped is LambdaExpression lambda && TranslationPatterns.IsArrayLambdaMethod(node.Method.Name))
             {
                 (string predSql, SQLiteParameter[]? predParams) = VisitElementLambda(visitor, lambda);
                 SQLiteParameter[]? combined = CombineAll(source.SQLiteExpression, predParams == null ? null : SQLiteExpression.Leaf(typeof(object), -1, "", predParams).WithJsonSource());
