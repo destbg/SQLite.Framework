@@ -14,6 +14,7 @@ internal class SQLTranslator
     private readonly List<SQLiteParameter> parameters = [];
     private readonly QueryableVisitor queryableMethodVisitor;
     private Expression? selectMethodExpression;
+    private bool skipGeneratedMaterializers;
 
     public SQLTranslator(SQLiteDatabase database)
     {
@@ -263,7 +264,8 @@ internal class SQLTranslator
            && ne.Type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
            && ne.Arguments.Any(a => !a.Type.IsVisible);
 
-        if (selectMaterializers2.Count > 0
+        if (!skipGeneratedMaterializers
+            && selectMaterializers2.Count > 0
             && hasReflectedArg
             && rawSignature2 != null
             && selectMaterializers2.TryGetValue(rawSignature2, out Func<SQLiteQueryContext, object?>? generatedAnon))
@@ -294,7 +296,8 @@ internal class SQLTranslator
         {
             IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> selectMaterializers = database.Options.SelectMaterializers;
             string? rawSignature = queryableMethodVisitor.RawSelectSignature;
-            if (selectMaterializers.Count > 0
+            if (!skipGeneratedMaterializers
+                && selectMaterializers.Count > 0
                 && rawSignature != null
                 && selectMaterializers.TryGetValue(rawSignature, out Func<SQLiteQueryContext, object?>? generated))
             {
@@ -314,7 +317,7 @@ internal class SQLTranslator
             }
             else
             {
-                if (rawSignature != null && database.Options.ReflectionFallbackDisabled)
+                if (rawSignature != null && database.Options.ReflectionFallbackDisabled && !skipGeneratedMaterializers)
                 {
                     throw new InvalidOperationException(
                         "Select projection fell back to runtime reflection but ReflectionFallbackDisabled is set. " +
@@ -618,6 +621,20 @@ internal class SQLTranslator
 
         while (true)
         {
+            if (callExpression.Method.Name == nameof(QueryableExtensions.UseReflectionMaterializer)
+                && callExpression.Method.DeclaringType == typeof(QueryableExtensions))
+            {
+                skipGeneratedMaterializers = true;
+                if (callExpression.Arguments.Count > 0
+                    && callExpression.Arguments[0] is MethodCallExpression innerMethod)
+                {
+                    callExpression = innerMethod;
+                    continue;
+                }
+
+                break;
+            }
+
             methodCalls.Add(callExpression);
             if (callExpression.Arguments.Count == 0)
             {

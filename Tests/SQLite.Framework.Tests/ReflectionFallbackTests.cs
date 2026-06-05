@@ -1,3 +1,4 @@
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR
 using SQLite.Framework.Generated;
@@ -101,6 +102,39 @@ public class ReflectionFallbackTests : IDisposable
         Assert.Contains("GroupBy", ex.Message);
     }
 #endif
+#endif
+
+    [Fact]
+    public void UseReflectionMaterializer_SkipsGeneratedMaterializerAndReturnsCorrectResult()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(databasePath).Build();
+        using SQLiteDatabase db = new(options);
+        db.Table<Book>().Schema.CreateTable();
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (2, 'B', 1, 20)");
+
+        List<string?> normal = db.Table<Book>().OrderBy(b => b.Id).Select(b => b.Title).ToList();
+        List<string?> via = db.Table<Book>().OrderBy(b => b.Id).Select(b => b.Title).UseReflectionMaterializer().ToList();
+
+        Assert.Equal(normal, via);
+    }
+
+#if SQLITE_FRAMEWORK_SOURCE_GENERATOR
+    [Fact]
+    public void UseReflectionMaterializer_SuppressesReflectionFallbackDisabledThrow()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(databasePath)
+            .UseGeneratedMaterializers()
+            .DisableReflectionFallback()
+            .Build();
+        using SQLiteDatabase db = new(options);
+        db.Table<Book>().Schema.CreateTable();
+        db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
+
+        List<string?> result = db.Table<Book>().Select(b => b.Title).UseReflectionMaterializer().ToList();
+
+        Assert.Equal(["A"], result);
+    }
 #endif
 
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR

@@ -2,37 +2,6 @@ namespace SQLite.Framework.Internals.JSON;
 
 internal partial class JsonCollectionVisitor
 {
-    private static readonly Dictionary<string, Action<JsonCollectionVisitor, MethodCallExpression, Type>> Handlers = new()
-    {
-        [nameof(Enumerable.Where)] = static (v, c, t) => v.HandleWhere(c, t),
-        [nameof(Enumerable.OrderBy)] = static (v, c, t) => v.HandleOrderBy(c, t, "ASC", clear: true),
-        [nameof(Enumerable.OrderByDescending)] = static (v, c, t) => v.HandleOrderBy(c, t, "DESC", clear: true),
-        [nameof(Enumerable.ThenBy)] = static (v, c, t) => v.HandleOrderBy(c, t, "ASC", clear: false),
-        [nameof(Enumerable.ThenByDescending)] = static (v, c, t) => v.HandleOrderBy(c, t, "DESC", clear: false),
-        [nameof(Enumerable.GroupBy)] = static (v, c, t) => v.HandleGroupBy(c, t),
-        [nameof(Enumerable.Select)] = static (v, c, t) => v.HandleSelect(c, t),
-        [nameof(Enumerable.SelectMany)] = static (v, c, t) => v.HandleSelectMany(c, t),
-        [nameof(Enumerable.Skip)] = static (v, c, _) => v.HandleSkip(c),
-        [nameof(Enumerable.Take)] = static (v, c, _) => v.HandleTake(c),
-        [nameof(Enumerable.First)] = static (v, c, t) => v.HandleFirst(c, t),
-        [nameof(Enumerable.FirstOrDefault)] = static (v, c, t) => v.HandleFirst(c, t),
-        [nameof(Enumerable.Last)] = static (v, c, t) => v.HandleLast(c, t),
-        [nameof(Enumerable.LastOrDefault)] = static (v, c, t) => v.HandleLast(c, t),
-        [nameof(Enumerable.Single)] = static (v, c, t) => v.HandleSingle(c, t),
-        [nameof(Enumerable.SingleOrDefault)] = static (v, c, t) => v.HandleSingle(c, t),
-        [nameof(Enumerable.Count)] = static (v, c, t) => v.HandleCount(c, t),
-        [nameof(Enumerable.Any)] = static (v, c, t) => v.HandleAny(c, t),
-        [nameof(Enumerable.All)] = static (v, c, t) => v.HandleAll(c, t),
-        [nameof(Enumerable.Min)] = static (v, c, t) => v.HandleAggregate(c, t, "MIN"),
-        [nameof(Enumerable.Max)] = static (v, c, t) => v.HandleAggregate(c, t, "MAX"),
-        [nameof(Enumerable.Sum)] = static (v, c, t) => v.HandleAggregate(c, t, "SUM"),
-        [nameof(Enumerable.Average)] = static (v, c, t) => v.HandleAggregate(c, t, "AVG"),
-        [nameof(Enumerable.Distinct)] = static (v, _, _) => v.HandleDistinct(),
-        [nameof(Enumerable.Reverse)] = static (v, _, _) => v.HandleReverse(),
-        [nameof(Enumerable.ElementAt)] = static (v, c, _) => v.HandleElementAt(c),
-        [nameof(Enumerable.Contains)] = static (v, c, _) => v.HandleContains(c),
-    };
-
     private void ProcessMethod(MethodCallExpression call)
     {
         if (RequiresWindowMaterialization(call.Method.Name))
@@ -40,7 +9,84 @@ internal partial class JsonCollectionVisitor
             MaterializeWindow();
         }
 
-        Handlers[call.Method.Name](this, call, currentElementType);
+        switch (call.Method.Name)
+        {
+            case nameof(Enumerable.Where):
+                HandleWhere(call, currentElementType);
+                break;
+            case nameof(Enumerable.OrderBy):
+                HandleOrderBy(call, currentElementType, "ASC", clear: true);
+                break;
+            case nameof(Enumerable.OrderByDescending):
+                HandleOrderBy(call, currentElementType, "DESC", clear: true);
+                break;
+            case nameof(Enumerable.ThenBy):
+                HandleOrderBy(call, currentElementType, "ASC", clear: false);
+                break;
+            case nameof(Enumerable.ThenByDescending):
+                HandleOrderBy(call, currentElementType, "DESC", clear: false);
+                break;
+            case nameof(Enumerable.GroupBy):
+                HandleGroupBy(call, currentElementType);
+                break;
+            case nameof(Enumerable.Select):
+                HandleSelect(call, currentElementType);
+                break;
+            case nameof(Enumerable.SelectMany):
+                HandleSelectMany(call, currentElementType);
+                break;
+            case nameof(Enumerable.Skip):
+                HandleSkip(call);
+                break;
+            case nameof(Enumerable.Take):
+                HandleTake(call);
+                break;
+            case nameof(Enumerable.First):
+            case nameof(Enumerable.FirstOrDefault):
+                HandleFirst(call, currentElementType);
+                break;
+            case nameof(Enumerable.Last):
+            case nameof(Enumerable.LastOrDefault):
+                HandleLast(call, currentElementType);
+                break;
+            case nameof(Enumerable.Single):
+            case nameof(Enumerable.SingleOrDefault):
+                HandleSingle(call, currentElementType);
+                break;
+            case nameof(Enumerable.Count):
+                HandleCount(call, currentElementType);
+                break;
+            case nameof(Enumerable.Any):
+                HandleAny(call, currentElementType);
+                break;
+            case nameof(Enumerable.All):
+                HandleAll(call, currentElementType);
+                break;
+            case nameof(Enumerable.Min):
+                HandleAggregate(call, currentElementType, "MIN");
+                break;
+            case nameof(Enumerable.Max):
+                HandleAggregate(call, currentElementType, "MAX");
+                break;
+            case nameof(Enumerable.Sum):
+                HandleAggregate(call, currentElementType, "SUM");
+                break;
+            case nameof(Enumerable.Average):
+                HandleAggregate(call, currentElementType, "AVG");
+                break;
+            case nameof(Enumerable.Distinct):
+                HandleDistinct();
+                break;
+            case nameof(Enumerable.Reverse):
+                HandleReverse();
+                break;
+            case nameof(Enumerable.ElementAt):
+                HandleElementAt(call);
+                break;
+            default:
+                HandleContains(call);
+                break;
+        }
     }
 
     private bool RequiresWindowMaterialization(string name)

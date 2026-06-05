@@ -369,6 +369,22 @@ public static class QueryableExtensions
     }
 
     /// <summary>
+    /// Overrides the global source-generated materializer for this specific query and uses
+    /// runtime reflection to materialize results instead.
+    /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The method reference is only used to build an Expression tree, it is never invoked by the translator.")]
+    public static IQueryable<T> UseReflectionMaterializer<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IQueryable<T> source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        return source.Provider.CreateQuery<T>(
+            Expression.Call(
+                null,
+                new Func<IQueryable<T>, IQueryable<T>>(UseReflectionMaterializer).Method,
+                source.Expression));
+    }
+
+    /// <summary>
     /// Concatenates the projected values of <paramref name="source" /> into one string, separated
     /// by <paramref name="separator" />. Emits a single
     /// <c>SELECT group_concat(column, separator) FROM ...</c> SQL query. Returns an empty string
