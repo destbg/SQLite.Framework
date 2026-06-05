@@ -117,6 +117,56 @@ public class QueryCompilerVisitorCoverageTests
         Assert.Equal(new Coverage_NumericValue(-7m), result);
     }
 #endif
+
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
+    [Fact]
+    public void InvokeOperator_BitwiseAndOnCustomStruct_GoesThroughGenericFallback()
+    {
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryBitwiseAndOperator"), new Coverage_ShiftableValue(12), new Coverage_ShiftableValue(10), TestOptions]);
+
+        Assert.Equal(new Coverage_ShiftableValue(8), result);
+    }
+#endif
+
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
+    [Fact]
+    public void InvokeOperator_BitwiseOrOnCustomStruct_GoesThroughGenericFallback()
+    {
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryBitwiseOrOperator"), new Coverage_ShiftableValue(12), new Coverage_ShiftableValue(10), TestOptions]);
+
+        Assert.Equal(new Coverage_ShiftableValue(14), result);
+    }
+#endif
+
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
+    [Fact]
+    public void InvokeOperator_ExclusiveOrOnCustomStruct_GoesThroughGenericFallback()
+    {
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryExclusiveOrOperator"), new Coverage_ShiftableValue(12), new Coverage_ShiftableValue(10), TestOptions]);
+
+        Assert.Equal(new Coverage_ShiftableValue(6), result);
+    }
+#endif
+
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
+    [Fact]
+    public void InvokeOperator_LeftShiftOnCustomStruct_GoesThroughGenericFallback()
+    {
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryLeftShiftOperator"), new Coverage_ShiftableValue(3), 2, TestOptions]);
+
+        Assert.Equal(new Coverage_ShiftableValue(12), result);
+    }
+#endif
+
+#if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
+    [Fact]
+    public void InvokeOperator_RightShiftOnCustomStruct_GoesThroughGenericFallback()
+    {
+        object? result = InvokeOperator.Invoke(null, [GetOpenMethod("BinaryRightShiftOperator"), new Coverage_ShiftableValue(12), 2, TestOptions]);
+
+        Assert.Equal(new Coverage_ShiftableValue(3), result);
+    }
+#endif
 #endif
 
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR

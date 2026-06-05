@@ -541,6 +541,33 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
+    public void QueryCompilerVisitor_InvokeBitwiseShiftOperator_AllTypes_Direct()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder("compiler-direct-bitwise.db3").Build();
+        Type t = typeof(QueryCompilerVisitor);
+        MethodInfo invokeOp = t.GetMethod("InvokeOperator", BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        MethodInfo Op(string name) => (MethodInfo)t.GetField(name, BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+
+        foreach (MethodInfo op in new[] { Op("BinaryBitwiseAndOperator"), Op("BinaryBitwiseOrOperator"), Op("BinaryExclusiveOrOperator") })
+        {
+            Assert.NotNull(invokeOp.Invoke(null, [op, true, false, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 12, 10, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 12L, 10L, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 12u, 10u, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 12ul, 10ul, options]));
+        }
+
+        foreach (MethodInfo op in new[] { Op("BinaryLeftShiftOperator"), Op("BinaryRightShiftOperator") })
+        {
+            Assert.NotNull(invokeOp.Invoke(null, [op, 12, 1, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 12L, 1, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 12u, 1, options]));
+            Assert.NotNull(invokeOp.Invoke(null, [op, 12ul, 1, options]));
+        }
+    }
+
+    [Fact]
     public void QueryCompilerVisitor_InvokeUnaryOperator_AllNumericTypes_Direct()
     {
         SQLiteOptions options = new SQLiteOptionsBuilder("compiler-direct-unary.db3").Build();
@@ -590,6 +617,26 @@ public class InternalHelpersDirectTests
 
         SQLiteQueryContext ctx = new() { Input = 42L };
         Assert.Equal(42, compiled.Call(ctx));
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitTypeBinary_TypeEqual_NonNullValue_ReturnsTrue()
+    {
+        QueryCompilerVisitor visitor = new(CompilerOptions);
+        TypeBinaryExpression node = Expression.TypeEqual(Expression.Constant("hello", typeof(object)), typeof(string));
+        CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
+
+        Assert.True((bool)compiled.Call(new SQLiteQueryContext())!);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitTypeBinary_TypeEqual_NullValue_ReturnsFalse()
+    {
+        QueryCompilerVisitor visitor = new(CompilerOptions);
+        TypeBinaryExpression node = Expression.TypeEqual(Expression.Constant(null, typeof(object)), typeof(string));
+        CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
+
+        Assert.False((bool)compiled.Call(new SQLiteQueryContext())!);
     }
 
     [Fact]
