@@ -264,7 +264,7 @@ internal static class Benchmarks
         Del(joinPath);
     }
 
-    private static void Bench(string label, Action action, Action? perIteration = null, int warmup = 20, int iterations = 2000)
+    private static void Bench(string label, Action action, Action? perIteration = null, int warmup = 20, int iterations = 200)
     {
         for (int i = 0; i < warmup; i++)
         {
@@ -272,23 +272,20 @@ internal static class Benchmarks
             action();
         }
 
-        double min = double.MaxValue;
-        double sum = 0;
+        double[] samples = new double[iterations];
         for (int i = 0; i < iterations; i++)
         {
             perIteration?.Invoke();
             System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
             action();
             sw.Stop();
-            double us = sw.Elapsed.TotalMilliseconds * 1000.0;
-            sum += us;
-            if (us < min)
-            {
-                min = us;
-            }
+            samples[i] = sw.Elapsed.TotalMilliseconds * 1000.0;
         }
 
-        Log.Info(Tag, $"{label,-22} mean {sum / iterations,11:F1} us   min {min,11:F1} us");
+        Array.Sort(samples);
+        double median = (samples[iterations / 2 - 1] + samples[iterations / 2]) / 2.0;
+        double min = samples[0];
+        Log.Info(Tag, $"{label,-22} median {median,11:F1} us   min {min,11:F1} us");
     }
 
     private static SQLiteDatabase NewDb(string path, bool gen)

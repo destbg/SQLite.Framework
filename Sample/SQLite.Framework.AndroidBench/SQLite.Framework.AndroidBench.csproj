@@ -9,7 +9,7 @@
         <ApplicationId>com.sqliteframework.androidbench</ApplicationId>
         <ApplicationVersion>1</ApplicationVersion>
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-        <RuntimeIdentifier>android-x64</RuntimeIdentifier>
+        <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
         <AndroidPackageFormat>apk</AndroidPackageFormat>
     </PropertyGroup>
 
