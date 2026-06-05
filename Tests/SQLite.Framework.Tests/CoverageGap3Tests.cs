@@ -121,7 +121,6 @@ public class CoverageGap3Tests
         Assert.Equal(260, matched);
     }
 
-#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void ExecuteQuery_NestedClassPropertyOfNestedClassProperty_RecursesIntoBuildInternal()
     {
@@ -152,7 +151,6 @@ public class CoverageGap3Tests
         Assert.Equal(1, result.Id);
         Assert.Equal(7, result.Inner.Value);
     }
-#endif
 
     [Fact]
     public void NestedTransaction_Rollback_DoesNotReleaseOuterLock()
@@ -521,7 +519,6 @@ public class CoverageGap3Tests
         public int? Value { get; set; }
     }
 
-#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void Select_EnumHasFlagWithUntranslatableReceiver_FallsBack()
     {
@@ -535,7 +532,6 @@ public class CoverageGap3Tests
 
         Assert.Single(rows);
     }
-#endif
 
     [Fact]
     public void Select_StringSubstringWithUntranslatableReceiver_FallsBack()

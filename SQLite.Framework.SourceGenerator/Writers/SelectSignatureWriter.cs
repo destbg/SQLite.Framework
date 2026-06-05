@@ -410,6 +410,10 @@ public static class SelectSignatureWriter
             case BinaryExpressionSyntax asExpr when asExpr.Kind() == SyntaxKind.AsExpression:
                 return AppendAsExpression(sb, asExpr, type, ctx);
 
+            case BinaryExpressionSyntax isExpr when isExpr.Kind() == SyntaxKind.IsExpression:
+                sb.Append("(TypeIs ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(')');
+                return true;
+
             case BinaryExpressionSyntax bin:
                 return AppendBinary(sb, bin, type, ctx);
 
@@ -1404,6 +1408,10 @@ public static class SelectSignatureWriter
         (SyntaxKind.LogicalOrExpression, _) => "OrElse",
         (SyntaxKind.BitwiseAndExpression, _) => "And",
         (SyntaxKind.BitwiseOrExpression, _) => "Or",
+        (SyntaxKind.ExclusiveOrExpression, _) => "ExclusiveOr",
+        (SyntaxKind.LeftShiftExpression, _) => "LeftShift",
+        (SyntaxKind.RightShiftExpression, _) => "RightShift",
+        (SyntaxKind.UnsignedRightShiftExpression, _) => "UnsignedRightShift",
         (SyntaxKind.CoalesceExpression, _) => "Coalesce",
         _ => null
     };

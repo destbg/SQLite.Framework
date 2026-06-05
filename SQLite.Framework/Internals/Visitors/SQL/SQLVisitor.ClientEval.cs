@@ -57,6 +57,13 @@ internal partial class SQLVisitor
             return Expression.MakeUnary(unary.NodeType, ToClientExpression(unary.Operand), unary.Type);
         }
 
+        if (node is TypeBinaryExpression typeBinary)
+        {
+            return typeBinary.NodeType == ExpressionType.TypeIs
+                ? Expression.TypeIs(ToClientExpression(typeBinary.Expression), typeBinary.TypeOperand)
+                : Expression.TypeEqual(ToClientExpression(typeBinary.Expression), typeBinary.TypeOperand);
+        }
+
         MemberExpression memberExpression = (MemberExpression)node;
         return Expression.MakeMemberAccess(ToClientExpression(memberExpression.Expression!), memberExpression.Member);
     }

@@ -108,7 +108,7 @@ public class CoverageGapTests
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>().ExecuteUpdate(s => s.Set(b => b.Title,
                 b => b is Book ? "a" : "b")));
     }
@@ -2544,6 +2544,17 @@ public class CoverageGapTests
     }
 
     private static bool UnsupportedHelper(string s) => s.Length > 0;
+
+    [Fact]
+    public void All_NonSqlPredicate_Throws()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().All(b => UnsupportedHelper(b.Title)));
+    }
+
 
     [Fact]
     public void Single_WithNonSqlPredicate_Throws()

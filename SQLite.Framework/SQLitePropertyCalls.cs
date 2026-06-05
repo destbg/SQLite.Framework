@@ -45,12 +45,7 @@ public class SQLitePropertyCalls<T>
     {
         string propertyName = GetPropertyName(propertyGetter);
         visitor.MethodArguments[setter.Parameters[0]] = visitor.TableColumns;
-        Expression expression = visitor.Visit(setter.Body);
-
-        if (expression is not SQLiteExpression expr)
-        {
-            throw new ArgumentException($"Expression '{setter}' must evaluate to a SQL expression.", nameof(setter));
-        }
+        SQLiteExpression expr = (SQLiteExpression)visitor.Visit(setter.Body);
 
         SetProperties.Add((propertyName, expr));
 

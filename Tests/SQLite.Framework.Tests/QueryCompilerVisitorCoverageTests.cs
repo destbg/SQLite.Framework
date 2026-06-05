@@ -4,7 +4,9 @@ using System.Reflection;
 #if SQLITE_FRAMEWORK_SOURCE_GENERATOR
 using SQLite.Framework.Generated;
 #endif
+using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Internals.Visitors;
+using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 
 namespace SQLite.Framework.Tests;
@@ -206,7 +208,6 @@ public class QueryCompilerVisitorCoverageTests
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Switch(Expression.Constant(1), Expression.Constant(2), Expression.SwitchCase(Expression.Constant(3), Expression.Constant(1)))));
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.TryCatch(Expression.Constant(1), Expression.Catch(typeof(Exception), Expression.Constant(0)))));
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.RuntimeVariables(Expression.Parameter(typeof(int), "p"))));
-        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.TypeIs(Expression.Constant(1), typeof(int))));
         Assert.Throws<NotSupportedException>(() => visitor.Visit(new UnsupportedExtensionExpression()));
     }
 #endif

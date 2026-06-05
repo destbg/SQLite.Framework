@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 using SQLite.Framework.Tests.Helpers;
 
@@ -195,6 +197,21 @@ public class ClientEvalProjectionTests
     }
 
     [Fact]
+    public void TypeEqual_InSelectProjection_ClientEvaluates()
+    {
+        using TestDatabase db = Db();
+        ParameterExpression param = Expression.Parameter(typeof(CeRow), "x");
+        PropertyInfo nameProp = typeof(CeRow).GetProperty(nameof(CeRow.Name))!;
+        Expression body = Expression.TypeEqual(Expression.MakeMemberAccess(param, nameProp), typeof(string));
+        Expression<Func<CeRow, bool>> selector = Expression.Lambda<Func<CeRow, bool>>(body, param);
+
+        List<bool> expected = Data.OrderBy(x => x.Id).Select(x => x.Name?.GetType() == typeof(string)).ToList();
+        List<bool> actual = db.Table<CeRow>().OrderBy(x => x.Id).Select(selector).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void Negative_UntranslatableInWhere_Throws()
     {
         using TestDatabase db = Db();
@@ -247,4 +264,49 @@ public class ClientEvalProjectionTests
     public void TypeAs_IncompatibleType_ReturnsNull()
         => Same(q => q.Select(x => (object)x.Name as IComparable<int>),
                 q => q.Select(x => (object)x.Name as IComparable<int>));
+
+    [Fact]
+    public void MixedAnonymous_CoalesceAndClientEval()
+        => Same(q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), C = x.Name ?? "default" }),
+                q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), C = x.Name ?? "default" }));
+
+    [Fact]
+    public void MixedAnonymous_BitwiseAndAndClientEval()
+        => Same(q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), F = x.Value & 3 }),
+                q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), F = x.Value & 3 }));
+
+    [Fact]
+    public void MixedAnonymous_LeftShiftAndClientEval()
+        => Same(q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), S = x.Value << 2 }),
+                q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), S = x.Value << 2 }));
+
+    [Fact]
+    public void TypeIs_InSelectProjection_ClientEvaluates()
+        => Same(q => q.Select(x => (object)x.Name is string),
+                q => q.Select(x => (object)x.Name is string));
+
+    [Fact]
+    public void MixedAnonymous_TypeIsAndClientEval()
+        => Same(q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), IsStr = (object)x.Name is string }),
+                q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), IsStr = (object)x.Name is string }));
+
+    [Fact]
+    public void MixedAnonymous_BitwiseOrAndClientEval()
+        => Same(q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), F = x.Value | 3 }),
+                q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), F = x.Value | 3 }));
+
+    [Fact]
+    public void MixedAnonymous_ExclusiveOrAndClientEval()
+        => Same(q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), F = x.Value ^ 3 }),
+                q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), F = x.Value ^ 3 }));
+
+    [Fact]
+    public void MixedAnonymous_RightShiftAndClientEval()
+        => Same(q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), S = x.Value >> 1 }),
+                q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), S = x.Value >> 1 }));
+
+    [Fact]
+    public void Coalesce_NullLeft_TakesRight_ClientEvaluates()
+        => Same(q => q.Select(x => null ?? x.Name.Normalize(NormalizationForm.FormD)),
+                q => q.Select(x => null ?? x.Name.Normalize(NormalizationForm.FormD)));
 }

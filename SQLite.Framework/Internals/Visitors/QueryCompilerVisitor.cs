@@ -16,6 +16,11 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     private static readonly MethodInfo BinaryDivisionOperator;
     private static readonly MethodInfo BinaryModulusOperator;
     private static readonly MethodInfo BinaryNegationOperator;
+    private static readonly MethodInfo BinaryBitwiseAndOperator;
+    private static readonly MethodInfo BinaryBitwiseOrOperator;
+    private static readonly MethodInfo BinaryExclusiveOrOperator;
+    private static readonly MethodInfo BinaryLeftShiftOperator;
+    private static readonly MethodInfo BinaryRightShiftOperator;
     private static readonly Dictionary<(Type, MethodInfo), MethodInfo> ConcreteMethodCache = [];
 
     [DynamicDependency(DynamicallyAccessedMemberTypes.NonPublicMethods, typeof(QueryCompilerVisitor))]
@@ -27,6 +32,11 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         BinaryDivisionOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryDivisionOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
         BinaryModulusOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryModulusOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
         BinaryNegationOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryNegationOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinaryBitwiseAndOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryBitwiseAndOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinaryBitwiseOrOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryBitwiseOrOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinaryExclusiveOrOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryExclusiveOrOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinaryLeftShiftOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryLeftShiftOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
+        BinaryRightShiftOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryRightShiftOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
     }
 
     private readonly IReadOnlyCollection<ParameterExpression>? inputParameters;
@@ -82,8 +92,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             {
                 ExpressionType.Equal => Equals(leftValue, rightValue),
                 ExpressionType.NotEqual => !Equals(leftValue, rightValue),
-                ExpressionType.And => (bool)leftValue! && (bool)rightValue!,
-                ExpressionType.Or => (bool)leftValue! || (bool)rightValue!,
+                ExpressionType.And => InvokeOperator(BinaryBitwiseAndOperator, leftValue!, rightValue!, options),
+                ExpressionType.Or => InvokeOperator(BinaryBitwiseOrOperator, leftValue!, rightValue!, options),
+                ExpressionType.ExclusiveOr => InvokeOperator(BinaryExclusiveOrOperator, leftValue!, rightValue!, options),
                 ExpressionType.AndAlso => (bool)leftValue! && (bool)rightValue!,
                 ExpressionType.OrElse => (bool)leftValue! || (bool)rightValue!,
                 ExpressionType.GreaterThan => CompareValues(leftValue, rightValue) > 0,
@@ -95,6 +106,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 ExpressionType.Multiply or ExpressionType.MultiplyChecked => InvokeOperator(BinaryMultiplyOperator, leftValue!, rightValue!, options),
                 ExpressionType.Divide => InvokeOperator(BinaryDivisionOperator, leftValue!, rightValue!, options),
                 ExpressionType.Modulo => InvokeOperator(BinaryModulusOperator, leftValue!, rightValue!, options),
+                ExpressionType.LeftShift => InvokeOperator(BinaryLeftShiftOperator, leftValue!, rightValue!, options),
+                ExpressionType.RightShift => InvokeOperator(BinaryRightShiftOperator, leftValue!, rightValue!, options),
+                ExpressionType.Coalesce => leftValue ?? rightValue,
                 _ => throw new NotSupportedException($"The binary operator '{node.NodeType}' is not supported.")
             };
         });
@@ -401,7 +415,14 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
     protected override Expression VisitTypeBinary(TypeBinaryExpression node)
     {
-        throw new NotSupportedException($"The type binary expression '{node}' is not supported.");
+        CompiledExpression operand = (CompiledExpression)Visit(node.Expression);
+        return new CompiledExpression(typeof(bool), ctx =>
+        {
+            object? value = operand.Call(ctx);
+            return node.NodeType == ExpressionType.TypeIs
+                ? node.TypeOperand.IsInstanceOfType(value)
+                : value?.GetType() == node.TypeOperand;
+        });
     }
 
     protected override ElementInit VisitElementInit(ElementInit node)
@@ -564,6 +585,69 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             };
         }
 
+        if (openMethod == BinaryBitwiseAndOperator)
+        {
+            return left switch
+            {
+                bool l => l & (bool)right,
+                int l => l & (int)right,
+                long l => l & (long)right,
+                uint l => l & (uint)right,
+                ulong l => l & (ulong)right,
+                _ => InvokeGenericOperator(openMethod, left, right, options)
+            };
+        }
+
+        if (openMethod == BinaryBitwiseOrOperator)
+        {
+            return left switch
+            {
+                bool l => l | (bool)right,
+                int l => l | (int)right,
+                long l => l | (long)right,
+                uint l => l | (uint)right,
+                ulong l => l | (ulong)right,
+                _ => InvokeGenericOperator(openMethod, left, right, options)
+            };
+        }
+
+        if (openMethod == BinaryExclusiveOrOperator)
+        {
+            return left switch
+            {
+                bool l => l ^ (bool)right,
+                int l => l ^ (int)right,
+                long l => l ^ (long)right,
+                uint l => l ^ (uint)right,
+                ulong l => l ^ (ulong)right,
+                _ => InvokeGenericOperator(openMethod, left, right, options)
+            };
+        }
+
+        if (openMethod == BinaryLeftShiftOperator)
+        {
+            return left switch
+            {
+                int l => l << (int)right,
+                long l => l << (int)right,
+                uint l => l << (int)right,
+                ulong l => l << (int)right,
+                _ => InvokeGenericOperator(openMethod, left, right, options)
+            };
+        }
+
+        if (openMethod == BinaryRightShiftOperator)
+        {
+            return left switch
+            {
+                int l => l >> (int)right,
+                long l => l >> (int)right,
+                uint l => l >> (int)right,
+                ulong l => l >> (int)right,
+                _ => InvokeGenericOperator(openMethod, left, right, options)
+            };
+        }
+
         return InvokeGenericOperator(openMethod, left, right, options);
     }
 
@@ -691,6 +775,36 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         where T : IUnaryNegationOperators<T, T>
     {
         return -operand;
+    }
+
+    private static T ApplyBinaryBitwiseAndOperator<T>(T left, T right)
+        where T : IBitwiseOperators<T, T, T>
+    {
+        return left & right;
+    }
+
+    private static T ApplyBinaryBitwiseOrOperator<T>(T left, T right)
+        where T : IBitwiseOperators<T, T, T>
+    {
+        return left | right;
+    }
+
+    private static T ApplyBinaryExclusiveOrOperator<T>(T left, T right)
+        where T : IBitwiseOperators<T, T, T>
+    {
+        return left ^ right;
+    }
+
+    private static T ApplyBinaryLeftShiftOperator<T>(T left, int right)
+        where T : IShiftOperators<T, int, T>
+    {
+        return left << right;
+    }
+
+    private static T ApplyBinaryRightShiftOperator<T>(T left, int right)
+        where T : IShiftOperators<T, int, T>
+    {
+        return left >> right;
     }
 
     private static object? ConvertOperand(object? value, Type targetType)

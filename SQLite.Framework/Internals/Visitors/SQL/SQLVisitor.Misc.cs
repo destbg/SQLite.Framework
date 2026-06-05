@@ -66,6 +66,11 @@ internal partial class SQLVisitor
         return ResolveMember(node);
     }
 
+    protected override Expression VisitTypeBinary(TypeBinaryExpression node)
+    {
+        return NotTranslatable(node, $"The '{node.NodeType}' operator is not translatable to SQL.");
+    }
+
     protected override Expression VisitUnary(UnaryExpression node)
     {
         if (node.NodeType == ExpressionType.Not

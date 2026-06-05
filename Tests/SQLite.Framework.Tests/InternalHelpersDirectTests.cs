@@ -286,7 +286,6 @@ public class InternalHelpersDirectTests
         Assert.Contains("2 arguments were provided", ex.Message);
     }
 
-#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void QueryFilterRebinder_ConcreteMemberNotFound_FallsThroughToBaseUpdate()
     {
@@ -296,7 +295,6 @@ public class InternalHelpersDirectTests
         Assert.NotSame(lambda, rebound);
         Assert.Equal(typeof(RebindEntityWithExplicitImpl), rebound.Parameters[0].Type);
     }
-#endif
 
     [Fact]
     public void RowParameterExpander_EmptyRowParameters_ReturnsLambdaUnchanged()
@@ -336,8 +334,9 @@ public class InternalHelpersDirectTests
     [Fact]
     public void QueryCompilerVisitor_VisitBinary_DefaultArm_Throws()
     {
-        BinaryExpression node = Expression.LeftShift(Expression.Constant(1), Expression.Constant(2));
-        QueryCompilerVisitor visitor = new(CompilerOptions);
+        ParameterExpression param = Expression.Parameter(typeof(int));
+        BinaryExpression node = Expression.Assign(param, Expression.Constant(5));
+        QueryCompilerVisitor visitor = new(CompilerOptions, inputParameters: [param]);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new();
@@ -642,7 +641,6 @@ public class InternalHelpersDirectTests
         Assert.Same(source, result);
     }
 
-#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR && !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void StaticObjectEquals_UntranslatableOperand_FallsBackClientSide()
     {
@@ -656,7 +654,6 @@ public class InternalHelpersDirectTests
 
         Assert.Equal(new System.Collections.Generic.List<bool> { true }, actual);
     }
-#endif
 
     [Fact]
     public void QueryableMethodVisitor_VisitContains_ArgResolvesToNonConstantNonSql_Throws()

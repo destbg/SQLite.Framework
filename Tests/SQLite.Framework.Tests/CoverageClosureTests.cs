@@ -183,7 +183,6 @@ public class CoverageClosureTests
             db.Table<Book>().All(b => (object)b.Title is int));
     }
 
-#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR && !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]
     public void GroupByCastKeyConvertsNonNullValue()
     {
@@ -213,5 +212,4 @@ public class CoverageClosureTests
         Assert.Equal(2, groups.Single(g => g.Key == null).Count());
         Assert.Equal(new[] { 3 }, groups.Single(g => g.Key == 5L).Select(e => e.Id).ToArray());
     }
-#endif
 }

@@ -33,7 +33,6 @@ public class CharCompilerProbeTests
         Assert.Equal(new[] { 1, 2 }, ids);
     }
 
-#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void ClientCompiledCastToNullableLongWorks()
     {
@@ -47,5 +46,4 @@ public class CharCompilerProbeTests
 
         Assert.Equal(6L, rows[0].Cast);
     }
-#endif
 }
