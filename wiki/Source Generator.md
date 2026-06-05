@@ -92,6 +92,18 @@ With this set, any query that would otherwise use the runtime reflection path th
 
 With the flag on, unsupported shapes fail in your test suite instead of falling back. With it off, they fall back to the runtime path.
 
+## Force the runtime path for one query
+
+`UseReflectionMaterializer` is the opposite escape hatch. Call it on a single query to skip the source-generated materializer for that query and build the result with runtime reflection instead:
+
+```csharp
+var titles = await db.Table<Book>()
+    .Where(b => b.Price < 30)
+    .Select(b => new { b.Id, b.Title })
+    .UseReflectionMaterializer()
+    .ToListAsync();
+```
+
 ## One generator output per project
 
 The generator runs in every project that references the package and produces one `SQLiteFrameworkGeneratedMaterializers` class per project. The class and its `UseGeneratedMaterializers` method are `internal`, so they are only visible inside the project that built them.
