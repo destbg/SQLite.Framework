@@ -152,6 +152,12 @@ internal partial class SQLVisitor
         }
 
         SQLiteExpression operand = resolved.SQLiteExpression;
+
+        if (node.NodeType == ExpressionType.TypeAs)
+        {
+            return NotTranslatable(node, $"The 'as' operator is not translatable to SQL.");
+        }
+
         return node.NodeType switch
         {
             ExpressionType.Negate or ExpressionType.NegateChecked => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "-(", operand, ")", operand.Parameters),

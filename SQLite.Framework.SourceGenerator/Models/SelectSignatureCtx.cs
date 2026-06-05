@@ -29,6 +29,17 @@ public readonly struct SelectSignatureCtx
         TypeArgSubstitutions = typeArgSubstitutions ?? new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
     }
 
+    private SelectSignatureCtx(ITypeSymbol outerRowType, Dictionary<ISymbol, RowBinding> rowBindings, SemanticModel model, Dictionary<ITypeParameterSymbol, ITypeSymbol> typeArgSubstitutions, Dictionary<ISymbol, ExpressionSyntax> parameterSubstitutions, HashSet<ISymbol> nullableRangeVars, bool isInChecked)
+    {
+        OuterRowType = outerRowType;
+        RowBindings = rowBindings;
+        Model = model;
+        ParameterSubstitutions = parameterSubstitutions;
+        NullableRangeVars = nullableRangeVars;
+        TypeArgSubstitutions = typeArgSubstitutions;
+        IsInChecked = isInChecked;
+    }
+
     /// <summary>
     /// The row type of the outer query.
     /// </summary>
@@ -58,4 +69,17 @@ public readonly struct SelectSignatureCtx
     /// Maps type parameters to the concrete types that replace them.
     /// </summary>
     public Dictionary<ITypeParameterSymbol, ITypeSymbol> TypeArgSubstitutions { get; }
+
+    /// <summary>
+    /// Whether the current expression is inside a checked context.
+    /// </summary>
+    public bool IsInChecked { get; }
+
+    /// <summary>
+    /// Returns a copy of this context with <see cref="IsInChecked"/> set to <see langword="true"/>.
+    /// </summary>
+    public SelectSignatureCtx WithChecked()
+    {
+        return new SelectSignatureCtx(OuterRowType, RowBindings, Model, TypeArgSubstitutions, ParameterSubstitutions, NullableRangeVars, isInChecked: true);
+    }
 }

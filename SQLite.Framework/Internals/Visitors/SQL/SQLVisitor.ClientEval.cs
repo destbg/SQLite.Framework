@@ -52,6 +52,11 @@ internal partial class SQLVisitor
                 : Expression.Call(ToClientExpression(methodCall.Object), methodCall.Method, arguments);
         }
 
+        if (node is UnaryExpression unary)
+        {
+            return Expression.MakeUnary(unary.NodeType, ToClientExpression(unary.Operand), unary.Type);
+        }
+
         MemberExpression memberExpression = (MemberExpression)node;
         return Expression.MakeMemberAccess(ToClientExpression(memberExpression.Expression!), memberExpression.Member);
     }

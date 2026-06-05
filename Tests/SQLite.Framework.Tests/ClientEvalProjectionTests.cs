@@ -232,4 +232,19 @@ public class ClientEvalProjectionTests
                 .Select(x => db.Table<CeChild>().Where(c => c.Fk == x.Id).Select(c => c.Label.Normalize(NormalizationForm.FormD)).First())
                 .ToList());
     }
+
+    [Fact]
+    public void MixedAnonymous_CheckedArithmeticAndClientEval()
+        => Same(q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), A = checked(x.Id + x.Value), S = checked(x.Value - x.Id), M = checked(x.Id * x.Value) }),
+                q => q.Select(x => new { N = x.Name.Normalize(NormalizationForm.FormD), A = checked(x.Id + x.Value), S = checked(x.Value - x.Id), M = checked(x.Id * x.Value) }));
+
+    [Fact]
+    public void TypeAs_CompatibleType_ReturnsValue()
+        => Same(q => q.Select(x => x.Name as IEnumerable<char>),
+                q => q.Select(x => x.Name as IEnumerable<char>));
+
+    [Fact]
+    public void TypeAs_IncompatibleType_ReturnsNull()
+        => Same(q => q.Select(x => (object)x.Name as IComparable<int>),
+                q => q.Select(x => (object)x.Name as IComparable<int>));
 }

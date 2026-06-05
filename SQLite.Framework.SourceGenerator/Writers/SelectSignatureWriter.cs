@@ -407,6 +407,9 @@ public static class SelectSignatureWriter
 
         switch (node)
         {
+            case BinaryExpressionSyntax asExpr when asExpr.Kind() == SyntaxKind.AsExpression:
+                return AppendAsExpression(sb, asExpr, type, ctx);
+
             case BinaryExpressionSyntax bin:
                 return AppendBinary(sb, bin, type, ctx);
 
@@ -469,6 +472,9 @@ public static class SelectSignatureWriter
 
             case ElementAccessExpressionSyntax indexer:
                 return AppendElementAccess(sb, indexer, type, ctx);
+
+            case CheckedExpressionSyntax checkedExpr when checkedExpr.Kind() == SyntaxKind.CheckedExpression:
+                return AppendWithType(sb, checkedExpr.Expression, type, ctx.WithChecked());
         }
 
         return false;
@@ -524,6 +530,17 @@ public static class SelectSignatureWriter
         return false;
     }
 
+    private static bool AppendAsExpression(StringBuilder sb, BinaryExpressionSyntax asExpr, ITypeSymbol? type, SelectSignatureCtx ctx)
+    {
+        sb.Append("(TypeAs ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
+        if (!TryAppend(sb, asExpr.Left, ctx))
+        {
+            return false;
+        }
+        sb.Append(')');
+        return true;
+    }
+
     private static void AppendRowReference(StringBuilder sb, ITypeSymbol? exprType, RowBinding binding, SelectSignatureCtx ctx)
     {
         if (binding.MemberPath == null || binding.MemberPath.Count == 0)
@@ -547,7 +564,7 @@ public static class SelectSignatureWriter
 
     private static bool AppendBinary(StringBuilder sb, BinaryExpressionSyntax bin, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        string? nodeType = MapBinaryKind(bin.Kind());
+        string? nodeType = MapBinaryKind(bin.Kind(), ctx.IsInChecked);
         if (nodeType == null)
         {
             return false;
@@ -572,7 +589,7 @@ public static class SelectSignatureWriter
     {
         string? nodeType = unary.Kind() switch
         {
-            SyntaxKind.UnaryMinusExpression => "Negate",
+            SyntaxKind.UnaryMinusExpression => ctx.IsInChecked ? "NegateChecked" : "Negate",
             SyntaxKind.LogicalNotExpression => "Not",
             _ => null
         };
@@ -1367,24 +1384,27 @@ public static class SelectSignatureWriter
         return true;
     }
 
-    private static string? MapBinaryKind(SyntaxKind kind) => kind switch
+    private static string? MapBinaryKind(SyntaxKind kind, bool isChecked = false) => (kind, isChecked) switch
     {
-        SyntaxKind.AddExpression => "Add",
-        SyntaxKind.SubtractExpression => "Subtract",
-        SyntaxKind.MultiplyExpression => "Multiply",
-        SyntaxKind.DivideExpression => "Divide",
-        SyntaxKind.ModuloExpression => "Modulo",
-        SyntaxKind.EqualsExpression => "Equal",
-        SyntaxKind.NotEqualsExpression => "NotEqual",
-        SyntaxKind.LessThanExpression => "LessThan",
-        SyntaxKind.LessThanOrEqualExpression => "LessThanOrEqual",
-        SyntaxKind.GreaterThanExpression => "GreaterThan",
-        SyntaxKind.GreaterThanOrEqualExpression => "GreaterThanOrEqual",
-        SyntaxKind.LogicalAndExpression => "AndAlso",
-        SyntaxKind.LogicalOrExpression => "OrElse",
-        SyntaxKind.BitwiseAndExpression => "And",
-        SyntaxKind.BitwiseOrExpression => "Or",
-        SyntaxKind.CoalesceExpression => "Coalesce",
+        (SyntaxKind.AddExpression, false) => "Add",
+        (SyntaxKind.AddExpression, true) => "AddChecked",
+        (SyntaxKind.SubtractExpression, false) => "Subtract",
+        (SyntaxKind.SubtractExpression, true) => "SubtractChecked",
+        (SyntaxKind.MultiplyExpression, false) => "Multiply",
+        (SyntaxKind.MultiplyExpression, true) => "MultiplyChecked",
+        (SyntaxKind.DivideExpression, _) => "Divide",
+        (SyntaxKind.ModuloExpression, _) => "Modulo",
+        (SyntaxKind.EqualsExpression, _) => "Equal",
+        (SyntaxKind.NotEqualsExpression, _) => "NotEqual",
+        (SyntaxKind.LessThanExpression, _) => "LessThan",
+        (SyntaxKind.LessThanOrEqualExpression, _) => "LessThanOrEqual",
+        (SyntaxKind.GreaterThanExpression, _) => "GreaterThan",
+        (SyntaxKind.GreaterThanOrEqualExpression, _) => "GreaterThanOrEqual",
+        (SyntaxKind.LogicalAndExpression, _) => "AndAlso",
+        (SyntaxKind.LogicalOrExpression, _) => "OrElse",
+        (SyntaxKind.BitwiseAndExpression, _) => "And",
+        (SyntaxKind.BitwiseOrExpression, _) => "Or",
+        (SyntaxKind.CoalesceExpression, _) => "Coalesce",
         _ => null
     };
 

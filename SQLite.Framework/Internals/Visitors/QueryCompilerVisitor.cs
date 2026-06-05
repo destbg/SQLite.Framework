@@ -90,9 +90,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 ExpressionType.GreaterThanOrEqual => CompareValues(leftValue, rightValue) >= 0,
                 ExpressionType.LessThan => CompareValues(leftValue, rightValue) < 0,
                 ExpressionType.LessThanOrEqual => CompareValues(leftValue, rightValue) <= 0,
-                ExpressionType.Add => InvokeOperator(BinaryAdditionOperator, leftValue!, rightValue!, options),
-                ExpressionType.Subtract => InvokeOperator(BinarySubtractionOperator, leftValue!, rightValue!, options),
-                ExpressionType.Multiply => InvokeOperator(BinaryMultiplyOperator, leftValue!, rightValue!, options),
+                ExpressionType.Add or ExpressionType.AddChecked => InvokeOperator(BinaryAdditionOperator, leftValue!, rightValue!, options),
+                ExpressionType.Subtract or ExpressionType.SubtractChecked => InvokeOperator(BinarySubtractionOperator, leftValue!, rightValue!, options),
+                ExpressionType.Multiply or ExpressionType.MultiplyChecked => InvokeOperator(BinaryMultiplyOperator, leftValue!, rightValue!, options),
                 ExpressionType.Divide => InvokeOperator(BinaryDivisionOperator, leftValue!, rightValue!, options),
                 ExpressionType.Modulo => InvokeOperator(BinaryModulusOperator, leftValue!, rightValue!, options),
                 _ => throw new NotSupportedException($"The binary operator '{node.NodeType}' is not supported.")
@@ -243,6 +243,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 ExpressionType.Not => !(bool)operandValue!,
                 ExpressionType.Convert => ConvertOperand(operandValue, node.Type),
                 ExpressionType.ConvertChecked => ConvertOperand(operandValue, node.Type),
+                ExpressionType.TypeAs => node.Type.IsInstanceOfType(operandValue) ? operandValue : null,
                 _ => throw new NotSupportedException($"The unary operator '{node.NodeType}' is not supported.")
             };
         });
