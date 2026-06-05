@@ -348,6 +348,83 @@ public static class EntityMaterializerEmitter
         return true;
     }
 
+    private static bool IsNestedCompositeShape(ITypeSymbol type)
+    {
+        type = StripNullableSymbol(type);
+
+        if (IsSupportedPropertyType(type))
+        {
+            return false;
+        }
+
+        if (type.TypeKind != TypeKind.Class && type.TypeKind != TypeKind.Struct)
+        {
+            return false;
+        }
+
+        if (type.IsAbstract || type.SpecialType != SpecialType.None)
+        {
+            return false;
+        }
+
+        string fullName = type.ToDisplayString();
+        if (fullName.StartsWith("System.") || fullName.StartsWith("Microsoft."))
+        {
+            return false;
+        }
+
+        return IsReachableFromGeneratedCode(type);
+    }
+
+    private static bool CanEmitNestedMaterialization(INamedTypeSymbol type, HashSet<INamedTypeSymbol> visited)
+    {
+        if (!visited.Add(type))
+        {
+            return false;
+        }
+
+        bool anyWritable = false;
+        foreach (IPropertySymbol prop in EnumerateInstanceProperties(type))
+        {
+            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null)
+            {
+                continue;
+            }
+
+            anyWritable = true;
+            ITypeSymbol propType = StripNullableSymbol(prop.Type);
+
+            if (IsSupportedPropertyType(propType))
+            {
+                continue;
+            }
+
+            if (propType is INamedTypeSymbol nestedNamed
+                && IsNestedCompositeShape(nestedNamed)
+                && CanEmitNestedMaterialization(nestedNamed, visited))
+            {
+                continue;
+            }
+
+            visited.Remove(type);
+            return false;
+        }
+
+        visited.Remove(type);
+        return anyWritable;
+    }
+
+    private static bool ShouldRecurseInto(ITypeSymbol propType)
+    {
+        if (StripNullableSymbol(propType) is not INamedTypeSymbol nested)
+        {
+            return false;
+        }
+
+        return IsNestedCompositeShape(nested)
+            && CanEmitNestedMaterialization(nested, new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default));
+    }
+
     private static bool IsCompositeUserType(ITypeSymbol type)
     {
         if (type is INamedTypeSymbol nt && nt.IsGenericType && nt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
@@ -482,16 +559,11 @@ public static class EntityMaterializerEmitter
             string valueLocal = "__val_" + localSuffix;
 
             INamedTypeSymbol? nestedStripped = StripNullableSymbol(prop.Type) as INamedTypeSymbol;
-            bool shouldRecurse = nestedStripped != null
-                && nestedStripped.TypeKind == TypeKind.Class
-                && entitySet.Contains(nestedStripped)
-                && nestedInitSet.Contains((entity, prop.Name));
+            bool shouldRecurse = nestedStripped != null && ShouldRecurseInto(prop.Type);
 
             if (shouldRecurse && nestedStripped != null)
             {
-                EmitEntityProperties(sb, preamble, preambleIndent, nestedStripped, propColumn + ".", indent, ref counter, out string nestedResult, entitySet, nestedInitSet);
-                string propTypeDisplay = prop.Type.ToDisplayString();
-                sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).Append(" = ").Append(nestedResult).AppendLine(";");
+                EmitCompositePropertyReadLocal(sb, preamble, preambleIndent, prop.Type, nestedStripped, propColumn, valueLocal, localSuffix, indent, ref counter, entitySet, nestedInitSet);
             }
             else
             {
@@ -624,6 +696,32 @@ public static class EntityMaterializerEmitter
         sb.Append(indent).AppendLine("    {");
         sb.Append(indent).Append("        ").Append(valueLocal).Append(" = (").Append(propTypeDisplay).Append(")__raw_").Append(localSuffix).AppendLine("!;");
         sb.Append(indent).AppendLine("    }");
+        sb.Append(indent).AppendLine("}");
+    }
+
+    private static void EmitCompositePropertyReadLocal(StringBuilder sb, StringBuilder preamble, string preambleIndent, ITypeSymbol propType, INamedTypeSymbol nestedType, string columnName, string valueLocal, string localSuffix, string indent, ref int counter, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
+    {
+        string safeColumn = columnName.Replace("\"", "\\\"");
+        string flatIdx = "__cidx_" + localSuffix;
+        string flatTemp = "__cit_" + localSuffix;
+
+        preamble.Append(preambleIndent).Append("int ").Append(flatIdx)
+            .Append(" = columns.TryGetValue(\"").Append(safeColumn).Append("\", out int ").Append(flatTemp).Append(") ? ").Append(flatTemp).AppendLine(" : -1;");
+
+        EmitEntityProperties(sb, preamble, preambleIndent, nestedType, columnName + ".", indent, ref counter, out string nestedResult, entitySet, nestedInitSet);
+
+        string propTypeDisplay = propType.ToDisplayString();
+        string strippedDisplay = nestedType.ToDisplayString();
+
+        sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).AppendLine(";");
+        sb.Append(indent).Append("if (").Append(flatIdx).AppendLine(" >= 0)");
+        sb.Append(indent).AppendLine("{");
+        sb.Append(indent).Append("    object? __craw_").Append(localSuffix).Append(" = reader.GetValue(").Append(flatIdx).Append(", reader.GetColumnType(").Append(flatIdx).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
+        sb.Append(indent).Append("    ").Append(valueLocal).Append(" = __craw_").Append(localSuffix).Append(" != null ? (").Append(propTypeDisplay).Append(")__craw_").Append(localSuffix).Append(" : ").Append(nestedResult).AppendLine(";");
+        sb.Append(indent).AppendLine("}");
+        sb.Append(indent).AppendLine("else");
+        sb.Append(indent).AppendLine("{");
+        sb.Append(indent).Append("    ").Append(valueLocal).Append(" = ").Append(nestedResult).AppendLine(";");
         sb.Append(indent).AppendLine("}");
     }
 

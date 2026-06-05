@@ -381,13 +381,7 @@ public static class SelectSignatureWriter
                 || (conversion.IsExplicit && !conversion.IsReference);
             if (needsTreeConvert)
             {
-                sb.Append("(Convert ").Append(FormatType(convertedType, ctx.TypeArgSubstitutions)).Append(' ');
-                if (!AppendWithType(sb, node, declaredType, ctx))
-                {
-                    return false;
-                }
-                sb.Append(')');
-                return true;
+                return AppendConvertChain(sb, convertedType, declaredType, () => AppendWithType(sb, node, declaredType, ctx), ctx);
             }
         }
 
@@ -1379,13 +1373,60 @@ public static class SelectSignatureWriter
 
     private static bool AppendCast(StringBuilder sb, CastExpressionSyntax cast, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        sb.Append("(Convert ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
-        if (!TryAppend(sb, cast.Expression, ctx))
+        ExpressionSyntax inner = cast.Expression;
+        while (inner is ParenthesizedExpressionSyntax paren)
+        {
+            inner = paren.Expression;
+        }
+
+        if (inner.IsKind(SyntaxKind.NullLiteralExpression) || inner.IsKind(SyntaxKind.DefaultLiteralExpression))
+        {
+            return AppendWithType(sb, inner, type, ctx);
+        }
+
+        ITypeSymbol? operandType = ctx.Model.GetTypeInfo(cast.Expression).Type;
+        return AppendConvertChain(sb, type, operandType, () => TryAppend(sb, cast.Expression, ctx), ctx);
+    }
+
+    private static bool AppendConvertChain(StringBuilder sb, ITypeSymbol? targetType, ITypeSymbol? operandType, Func<bool> appendOperand, SelectSignatureCtx ctx)
+    {
+        ITypeSymbol? resolvedTarget = Substitute(targetType, ctx.TypeArgSubstitutions);
+        ITypeSymbol? resolvedOperand = Substitute(operandType, ctx.TypeArgSubstitutions);
+        ITypeSymbol? underlying = GetNullableUnderlying(resolvedTarget);
+
+        if (underlying != null
+            && resolvedOperand != null
+            && GetNullableUnderlying(resolvedOperand) == null
+            && !SymbolEqualityComparer.Default.Equals(resolvedOperand, underlying))
+        {
+            sb.Append("(Convert ").Append(FormatType(resolvedTarget, ctx.TypeArgSubstitutions))
+                .Append(" (Convert ").Append(FormatType(underlying, ctx.TypeArgSubstitutions)).Append(' ');
+            if (!appendOperand())
+            {
+                return false;
+            }
+            sb.Append("))");
+            return true;
+        }
+
+        sb.Append("(Convert ").Append(FormatType(resolvedTarget, ctx.TypeArgSubstitutions)).Append(' ');
+        if (!appendOperand())
         {
             return false;
         }
         sb.Append(')');
         return true;
+    }
+
+    private static ITypeSymbol? GetNullableUnderlying(ITypeSymbol? type)
+    {
+        if (type is INamedTypeSymbol { IsGenericType: true } named
+            && named.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
+        {
+            return named.TypeArguments[0];
+        }
+
+        return null;
     }
 
     private static string? MapBinaryKind(SyntaxKind kind, bool isChecked = false) => (kind, isChecked) switch

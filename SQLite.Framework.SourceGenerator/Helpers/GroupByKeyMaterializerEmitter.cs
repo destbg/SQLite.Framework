@@ -106,6 +106,12 @@ public static class GroupByKeyMaterializerEmitter
             return false;
         }
 
+        if (type is INamedTypeSymbol { IsGenericType: true } named
+            && named.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
+        {
+            return IsBuiltInType(named.TypeArguments[0]);
+        }
+
         switch (type.SpecialType)
         {
             case SpecialType.System_Boolean:

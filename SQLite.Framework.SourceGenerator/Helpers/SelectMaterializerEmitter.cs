@@ -462,7 +462,12 @@ public static class SelectMaterializerEmitter
                         return RegisterRowExpansion(access.Expression, ctx);
                     }
 
-                    ITypeSymbol? leafType = ctx.Model.GetTypeInfo(access).ConvertedType ?? ctx.Model.GetTypeInfo(access).Type;
+                    ITypeSymbol? declaredLeafType = ctx.Model.GetTypeInfo(access).Type;
+                    ITypeSymbol? convertedLeafType = ctx.Model.GetTypeInfo(access).ConvertedType;
+                    ITypeSymbol? leafType = declaredLeafType is { IsValueType: true }
+                        && convertedLeafType is { IsValueType: false }
+                        ? declaredLeafType
+                        : convertedLeafType ?? declaredLeafType;
                     if (leafType == null)
                     {
                         return false;

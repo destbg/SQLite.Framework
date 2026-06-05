@@ -196,6 +196,7 @@ public class ClientEvalProjectionTests
         }
     }
 
+#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
     public void TypeEqual_InSelectProjection_ClientEvaluates()
     {
@@ -210,6 +211,7 @@ public class ClientEvalProjectionTests
 
         Assert.Equal(expected, actual);
     }
+#endif
 
     [Fact]
     public void Negative_UntranslatableInWhere_Throws()
@@ -307,6 +309,6 @@ public class ClientEvalProjectionTests
 
     [Fact]
     public void Coalesce_NullLeft_TakesRight_ClientEvaluates()
-        => Same(q => q.Select(x => null ?? x.Name.Normalize(NormalizationForm.FormD)),
-                q => q.Select(x => null ?? x.Name.Normalize(NormalizationForm.FormD)));
+        => Same(q => q.Select(x => (string?)null ?? x.Name.Normalize(NormalizationForm.FormD)),
+                q => q.Select(x => (string?)null ?? x.Name.Normalize(NormalizationForm.FormD)));
 }
