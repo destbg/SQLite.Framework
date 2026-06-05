@@ -28,7 +28,37 @@ internal partial class QueryableVisitor
         visitor.MethodArguments[resultSelector.Parameters[1]] = newTableColumns;
 
         resultSelector = RowParameterExpander.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
+
+        bool isProjection = node.Method.Name != nameof(System.Linq.Queryable.GroupJoin)
+            && resultSelector.Body is NewExpression or MemberInitExpression;
+
+        if (isProjection && database.Options.SelectMaterializers.Count > 0)
+        {
+            RawSelectSignature = SelectSignature.Compute(resultSelector.Body);
+            LastSelectLambdaBody = resultSelector.Body;
+        }
+
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
+
+        if (isProjection && visitor.TableColumns.Values.Any(v => v is not SQLiteExpression))
+        {
+            visitor.IsInSelectProjection = true;
+            visitor.ClientEvalAllowed = !IsInnerQuery;
+
+            Expression decomposed = visitor.ToClientExpression(resultSelector.Body);
+            if (decomposed is NewExpression { Members: not null } newExpression)
+            {
+                visitor.TableColumns = DecomposeJoinProjectionColumns(newExpression);
+            }
+            else
+            {
+                Selects.Clear();
+                JoinSelectExpression = selectVisitor.Visit(decomposed);
+            }
+
+            visitor.IsInSelectProjection = false;
+            visitor.ClientEvalAllowed = false;
+        }
 
         visitor.MethodArguments[innerKey.Parameters[0]] = newTableColumns;
 
@@ -83,6 +113,18 @@ internal partial class QueryableVisitor
         }
 
         return sql;
+    }
+
+    private static Dictionary<string, Expression> DecomposeJoinProjectionColumns(NewExpression newExpression)
+    {
+        Dictionary<string, Expression> columns = new();
+
+        for (int i = 0; i < newExpression.Arguments.Count; i++)
+        {
+            columns[newExpression.Members![i].Name] = newExpression.Arguments[i];
+        }
+
+        return columns;
     }
 
     private static string JoinKeyOperator(Type outerType, Type innerType)

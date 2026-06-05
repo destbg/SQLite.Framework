@@ -9,6 +9,7 @@ internal partial class SQLVisitor
             throw new NotSupportedException(message);
         }
 
+        ClientEvalUsed = true;
         return BuildClientEvalFallback(node);
     }
 
@@ -19,6 +20,7 @@ internal partial class SQLVisitor
             Database.Options.ThrowMinimumVersionNotSupported(requiredVersion, featureName);
         }
 
+        ClientEvalUsed = true;
         return BuildClientEvalFallback(node);
     }
 
@@ -27,13 +29,17 @@ internal partial class SQLVisitor
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node);
         if (pe != null
             && MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns)
-            && columns.TryGetValue(path, out Expression? column)
-            && column is SQLiteExpression)
+            && IsSingleLeafColumn(columns, path))
         {
             return (SQLiteExpression)Visit(node);
         }
 
         return null;
+    }
+
+    public Expression ToClientExpression(Expression node)
+    {
+        return new ClientLeafRewriter(this).Visit(node);
     }
 
     private Expression BuildClientEvalFallback(Expression node)
@@ -50,8 +56,13 @@ internal partial class SQLVisitor
         return Expression.MakeMemberAccess(ToClientExpression(memberExpression.Expression!), memberExpression.Member);
     }
 
-    private Expression ToClientExpression(Expression node)
+    private static bool IsSingleLeafColumn(Dictionary<string, Expression> columns, string path)
     {
-        return new ClientLeafRewriter(this).Visit(node);
+        if (columns.TryGetValue(path, out Expression? column))
+        {
+            return column is SQLiteExpression;
+        }
+
+        return path.Length == 0 && columns.Count == 1 && columns.Values.First() is SQLiteExpression;
     }
 }

@@ -2,6 +2,9 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SQLite.Framework.SourceGenerator.Helpers;
+using SQLite.Framework.SourceGenerator.Models;
+using SQLite.Framework.SourceGenerator.Writers;
 
 namespace SQLite.Framework.SourceGenerator;
 
@@ -845,21 +848,38 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 
         INamedTypeSymbol projection;
         INamedTypeSymbol outerRowType;
+        bool useMethodTypeArgs = false;
+        bool isResultSelectorProjection = false;
 
         if (method != null)
         {
-            if (method.Name != "Select")
-            {
-                return null;
-            }
-
             string containingType = method.ContainingType.ToDisplayString();
             if (containingType != "System.Linq.Queryable" && containingType != "System.Linq.Enumerable")
             {
                 return null;
             }
 
-            if (method.TypeArguments.Length < 2 || method.TypeArguments[1] is not INamedTypeSymbol projFromMethod)
+            if (method.Name == "Select")
+            {
+                useMethodTypeArgs = true;
+            }
+            else if (method.Name == "Join")
+            {
+                isResultSelectorProjection = true;
+            }
+            else
+            {
+                return null;
+            }
+        }
+        else
+        {
+            isResultSelectorProjection = true;
+        }
+
+        if (useMethodTypeArgs)
+        {
+            if (method!.TypeArguments.Length < 2 || method.TypeArguments[1] is not INamedTypeSymbol projFromMethod)
             {
                 return null;
             }
@@ -904,6 +924,13 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         if (ranges.Count == 1)
         {
             bindings[ranges[0].Symbol] = new RowBinding((string?)null, ranges[0].Type);
+        }
+        else if (isResultSelectorProjection)
+        {
+            foreach ((IRangeVariableSymbol sym, ITypeSymbol rangeType) in ranges)
+            {
+                bindings[sym] = new RowBinding((string?)null, rangeType);
+            }
         }
         else
         {

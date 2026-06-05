@@ -1,5 +1,3 @@
-using System.Numerics;
-
 namespace SQLite.Framework.Internals.Visitors;
 
 /// <summary>
@@ -36,6 +34,12 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
     public QueryCompilerVisitor(SQLiteOptions options, IReadOnlyCollection<ParameterExpression>? inputParameters = null)
     {
+        if (options.ReflectionFallbackDisabled)
+        {
+            throw new InvalidOperationException(
+                "The runtime query compiler (reflection fallback) was invoked while ReflectionFallbackDisabled is set.");
+        }
+
         this.inputParameters = inputParameters;
         this.options = options;
     }

@@ -27,6 +27,17 @@ public class QueryCompilerVisitorCoverageTests
         return (MethodInfo)field.GetValue(null)!;
     }
 
+    [Fact]
+    public void Constructor_ThrowsWhenReflectionFallbackDisabled()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder("compiler-fallback-disabled.db3")
+            .DisableReflectionFallback()
+            .Build();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => new QueryCompilerVisitor(options));
+        Assert.Contains("ReflectionFallbackDisabled", ex.Message);
+    }
+
 #if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
 #if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
     [Fact]

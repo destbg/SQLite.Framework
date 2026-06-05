@@ -27,6 +27,12 @@ internal sealed class CeChild
     public string Label { get; set; } = "";
 }
 
+internal sealed class CeJoinDto
+{
+    public string Combined { get; set; } = "";
+    public string Formatted { get; set; } = "";
+}
+
 public class ClientEvalProjectionTests
 {
     private static readonly CeRow[] Data =
@@ -87,6 +93,20 @@ public class ClientEvalProjectionTests
     }
 
     [Fact]
+    public void MixedCompoundSqlMemberAndClientMember()
+    {
+        using TestDatabase db = Db();
+        var expected = Data.OrderBy(x => x.Id).Select(x => new { C = x.Name + " " + x.Value, N = x.Name.Normalize(NormalizationForm.FormD) }).ToList();
+        var actual = db.Table<CeRow>().OrderBy(x => x.Id).Select(x => new { C = x.Name + " " + x.Value, N = x.Name.Normalize(NormalizationForm.FormD) }).ToList();
+        Assert.Equal(expected.Count, actual.Count);
+        for (int i = 0; i < expected.Count; i++)
+        {
+            Assert.Equal(expected[i].C, actual[i].C);
+            Assert.Equal(expected[i].N, actual[i].N);
+        }
+    }
+
+    [Fact]
     public void ClientEval_NumericToStringWithFormat()
         => Same(q => q.Select(x => x.Value.ToString("X4")),
                 q => q.Select(x => x.Value.ToString("X4")));
@@ -134,15 +154,45 @@ public class ClientEvalProjectionTests
         => Same(q => q.Select(x => string.Concat(x.Name, "!").Normalize(NormalizationForm.FormD)),
                 q => q.Select(x => string.Concat(x.Name, "!").Normalize(NormalizationForm.FormD)));
 
-#if !SQLITE_FRAMEWORK_SOURCE_GENERATOR
     [Fact]
-    public void ClientEval_OnUnmappedMemberReceiver_Throws()
+    public void ClientEval_OnUnmappedComputedMemberReceiver()
+        => Same(q => q.Select(x => x.Tagged.Normalize(NormalizationForm.FormD)),
+                q => q.Select(x => x.Tagged.Normalize(NormalizationForm.FormD)));
+
+    [Fact]
+    public void ClientEval_OnChainedScalarColumnParameter()
+        => Same(q => q.Select(x => x.Name).Select(s => s.Normalize(NormalizationForm.FormD)),
+                q => q.Select(x => x.Name).Select(s => s.Normalize(NormalizationForm.FormD)));
+
+    [Fact]
+    public void Join_MemberInitProjection_WithClientMember()
     {
         using TestDatabase db = Db();
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<CeRow>().Select(x => x.Tagged.Normalize(NormalizationForm.FormD)).ToList());
+        db.Table<CeChild>().Schema.CreateTable();
+        CeChild[] children =
+        [
+            new CeChild { Id = 1, Fk = 1, Label = "L" },
+            new CeChild { Id = 2, Fk = 2, Label = "M" },
+        ];
+        db.Table<CeChild>().AddRange(children);
+
+        List<CeJoinDto> expected = (
+            from r in Data.OrderBy(x => x.Id)
+            join c in children on r.Id equals c.Fk
+            select new CeJoinDto { Combined = r.Name + "#" + c.Label, Formatted = r.Moment.ToString("yyyy") }).ToList();
+
+        List<CeJoinDto> actual = (
+            from r in db.Table<CeRow>().OrderBy(x => x.Id)
+            join c in db.Table<CeChild>() on r.Id equals c.Fk
+            select new CeJoinDto { Combined = r.Name + "#" + c.Label, Formatted = r.Moment.ToString("yyyy") }).ToList();
+
+        Assert.Equal(expected.Count, actual.Count);
+        for (int i = 0; i < expected.Count; i++)
+        {
+            Assert.Equal(expected[i].Combined, actual[i].Combined);
+            Assert.Equal(expected[i].Formatted, actual[i].Formatted);
+        }
     }
-#endif
 
     [Fact]
     public void Negative_UntranslatableInWhere_Throws()

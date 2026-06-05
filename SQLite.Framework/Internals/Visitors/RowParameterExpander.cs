@@ -13,6 +13,20 @@ internal sealed class RowParameterExpander : ExpressionVisitor
         this.rowParameters = rowParameters;
     }
 
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if (node.Expression is ParameterExpression pe
+            && rowParameters.Contains(pe)
+            && IsConstructibleEntityType(pe.Type)
+            && node.Member is PropertyInfo prop
+            && prop.GetCustomAttribute<System.ComponentModel.DataAnnotations.Schema.NotMappedAttribute>() != null)
+        {
+            return Expression.MakeMemberAccess(BuildMaterialization(pe), node.Member);
+        }
+
+        return base.VisitMember(node);
+    }
+
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         Expression? newObject = node.Object != null ? Visit(node.Object) : null;

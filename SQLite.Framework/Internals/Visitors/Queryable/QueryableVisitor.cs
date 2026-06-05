@@ -45,6 +45,7 @@ internal partial class QueryableVisitor
 
     public string? RawSelectSignature { get; private set; }
     public Expression? LastSelectLambdaBody { get; private set; }
+    public Expression? JoinSelectExpression { get; private set; }
 
     public LambdaExpression? PreviousSelectLambda { get; set; }
 

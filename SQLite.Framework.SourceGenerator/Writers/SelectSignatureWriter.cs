@@ -1,19 +1,22 @@
-using System;
 using System.Globalization;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SQLite.Framework.SourceGenerator.Models;
 
-namespace SQLite.Framework.SourceGenerator;
+namespace SQLite.Framework.SourceGenerator.Writers;
 
 /// <summary>
 /// Walks a Select lambda at build time and writes the same signature string that
 /// <c>SQLite.Framework.Internals.SelectSignature.Compute</c> writes at run time for the
 /// same expression tree. The two strings must match so the runtime can find the method.
 /// </summary>
-internal static class SelectSignatureWriter
+public static class SelectSignatureWriter
 {
+    /// <summary>
+    /// Tries to build the signature string for the given expression.
+    /// </summary>
     public static string? TryCompute(ExpressionSyntax expression, SelectSignatureCtx ctx)
     {
         StringBuilder sb = new();
@@ -25,7 +28,10 @@ internal static class SelectSignatureWriter
         return sb.ToString();
     }
 
-    internal static ITypeSymbol? ResolveRangeVariableType(IRangeVariableSymbol rs, SemanticModel model)
+    /// <summary>
+    /// Finds the element type that a range variable iterates over.
+    /// </summary>
+    public static ITypeSymbol? ResolveRangeVariableType(IRangeVariableSymbol rs, SemanticModel model)
     {
         if (rs.DeclaringSyntaxReferences.Length == 0)
         {
@@ -39,6 +45,295 @@ internal static class SelectSignatureWriter
             JoinClauseSyntax join => ElementTypeOf(model.GetTypeInfo(join.InExpression).Type),
             _ => null
         };
+    }
+
+    /// <summary>
+    /// Tells if the node reads a captured local, field, or property value.
+    /// </summary>
+    public static bool IsCapturedValue(ExpressionSyntax node, SelectSignatureCtx ctx)
+    {
+        if (node.Parent is AssignmentExpressionSyntax assignment
+            && assignment.Left == node
+            && assignment.Parent is InitializerExpressionSyntax initializer
+            && initializer.Kind() == SyntaxKind.ObjectInitializerExpression)
+        {
+            return false;
+        }
+
+        if (node.Parent is MemberAccessExpressionSyntax parentMa && parentMa.Name == node)
+        {
+            return false;
+        }
+
+        if (node.Parent is NameEqualsSyntax nameEquals && nameEquals.Name == node)
+        {
+            return false;
+        }
+
+        switch (node)
+        {
+            case IdentifierNameSyntax ident:
+            {
+                ISymbol? sym = ctx.Model.GetSymbolInfo(ident).Symbol;
+                return sym switch
+                {
+                    ILocalSymbol => true,
+                    IFieldSymbol { IsStatic: false } => true,
+                    IPropertySymbol { IsStatic: false } => true,
+                    _ => false
+                };
+            }
+            case MemberAccessExpressionSyntax ma:
+                ISymbol? member = ctx.Model.GetSymbolInfo(ma).Symbol;
+                if (member is IFieldSymbol or IPropertySymbol)
+                {
+                    return IsCapturedValue(ma.Expression, ctx);
+                }
+                return false;
+            case ThisExpressionSyntax:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Tries to find the row binding for the given identifier.
+    /// </summary>
+    public static bool TryGetRowBinding(IdentifierNameSyntax ident, SelectSignatureCtx ctx, out RowBinding binding)
+    {
+        ISymbol? sym = ctx.Model.GetSymbolInfo(ident).Symbol;
+        if (sym != null && ctx.RowBindings.TryGetValue(sym, out binding))
+        {
+            return true;
+        }
+
+        binding = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Tells if the member has the NotMapped attribute.
+    /// </summary>
+    public static bool IsNotMappedMember(ISymbol? memberSym)
+    {
+        return memberSym is IPropertySymbol prop
+            && prop.GetAttributes().Any(a =>
+                a.AttributeClass?.ToDisplayString() == "System.ComponentModel.DataAnnotations.Schema.NotMappedAttribute");
+    }
+
+    /// <summary>
+    /// Tells if the expression refers to a row that can be built as an entity.
+    /// </summary>
+    public static bool IsRowLikeReference(ExpressionSyntax expr, SelectSignatureCtx ctx)
+    {
+        if (expr is IdentifierNameSyntax id && TryGetRowBinding(id, ctx, out _))
+        {
+            ITypeSymbol? t = ctx.Model.GetTypeInfo(id).Type;
+            return t is INamedTypeSymbol nt && IsConstructibleEntityType(nt);
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the public settable properties of a row type.
+    /// </summary>
+    public static List<IPropertySymbol> GetRowProperties(INamedTypeSymbol rowType)
+    {
+        List<IPropertySymbol> result = new();
+        for (ITypeSymbol? t = rowType; t != null; t = t.BaseType)
+        {
+            foreach (ISymbol member in t.GetMembers())
+            {
+                if (member is IPropertySymbol prop
+                    && !prop.IsStatic
+                    && !prop.IsIndexer
+                    && prop.SetMethod != null
+                    && prop.DeclaredAccessibility == Accessibility.Public
+                    && !result.Any(p => p.Name == prop.Name))
+                {
+                    result.Add(prop);
+                }
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Tells if the type can be built with a public parameterless constructor.
+    /// </summary>
+    public static bool IsConstructibleEntityType(INamedTypeSymbol type)
+    {
+        if (type.SpecialType is SpecialType.System_String or SpecialType.System_Decimal)
+        {
+            return false;
+        }
+        if (type.TypeKind == TypeKind.Enum)
+        {
+            return false;
+        }
+        if (type.IsValueType)
+        {
+            return false;
+        }
+        if (type.AllInterfaces.Any(i => i.ToDisplayString() == "System.Collections.IEnumerable"))
+        {
+            return false;
+        }
+        foreach (IMethodSymbol ctor in type.InstanceConstructors)
+        {
+            if (ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Tells if a collection initializer uses only stable constant values.
+    /// </summary>
+    public static bool IsConstantCollectionInit(BaseObjectCreationExpressionSyntax node, SelectSignatureCtx ctx)
+    {
+        if (node.Initializer == null || node.Initializer.Kind() != SyntaxKind.CollectionInitializerExpression)
+        {
+            return false;
+        }
+
+        if (node.ArgumentList != null)
+        {
+            foreach (ArgumentSyntax a in node.ArgumentList.Arguments)
+            {
+                if (!IsStableConstantSubtree(a.Expression, ctx))
+                {
+                    return false;
+                }
+            }
+        }
+
+        foreach (ExpressionSyntax elem in node.Initializer.Expressions)
+        {
+            if (elem is InitializerExpressionSyntax nested && nested.Kind() == SyntaxKind.ComplexElementInitializerExpression)
+            {
+                foreach (ExpressionSyntax e in nested.Expressions)
+                {
+                    if (!IsStableConstantSubtree(e, ctx))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else if (!IsStableConstantSubtree(elem, ctx))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Formats a type symbol into its signature text.
+    /// </summary>
+    public static string FormatType(ITypeSymbol? symbol)
+    {
+        return FormatType(symbol, null);
+    }
+
+    /// <summary>
+    /// Formats a type symbol into its signature text using the given substitutions.
+    /// </summary>
+    public static string FormatType(ITypeSymbol? symbol, IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? substitutions)
+    {
+        symbol = Substitute(symbol, substitutions);
+
+        if (symbol == null)
+        {
+            return "null";
+        }
+
+        if (symbol is IArrayTypeSymbol array)
+        {
+            return FormatType(array.ElementType, substitutions) + "[]";
+        }
+
+        if (symbol is INamedTypeSymbol anon && anon.IsAnonymousType)
+        {
+            if (anon.IsGenericType && anon.TypeArguments.Length > 0)
+            {
+                string args = string.Join(",", anon.TypeArguments.Select(t => FormatType(t, substitutions)));
+                return "<anonymous<" + args + ">>";
+            }
+
+            if (anon.GetMembers().OfType<IPropertySymbol>().Any())
+            {
+                string args = string.Join(",", anon.GetMembers().OfType<IPropertySymbol>().Select(p => FormatType(p.Type, substitutions)));
+                return "<anonymous<" + args + ">>";
+            }
+
+            return "<anonymous>";
+        }
+
+        if (symbol is INamedTypeSymbol named && named.IsGenericType)
+        {
+            INamedTypeSymbol def = named.ConstructedFrom;
+            string defName = GetFullName(def);
+            int tick = defName.IndexOf('`');
+            if (tick >= 0)
+            {
+                defName = defName.Substring(0, tick);
+            }
+
+            string args = string.Join(",", named.TypeArguments.Select(t => FormatType(t, substitutions)));
+            return defName + "<" + args + ">";
+        }
+
+        return GetFullName(symbol);
+    }
+
+    /// <summary>
+    /// Replaces type parameters in a type with their mapped types.
+    /// </summary>
+    public static ITypeSymbol? Substitute(ITypeSymbol? symbol, IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? substitutions)
+    {
+        if (symbol == null || substitutions == null || substitutions.Count == 0)
+        {
+            return symbol;
+        }
+
+        if (symbol is ITypeParameterSymbol tp && substitutions.TryGetValue(tp, out ITypeSymbol? mapped))
+        {
+            return mapped;
+        }
+
+        if (symbol is IArrayTypeSymbol array)
+        {
+            ITypeSymbol? mappedElem = Substitute(array.ElementType, substitutions);
+            return SymbolEqualityComparer.Default.Equals(mappedElem, array.ElementType)
+                ? array
+                : symbol;
+        }
+
+        if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsAnonymousType)
+        {
+            ITypeSymbol[] args = named.TypeArguments.ToArray();
+            bool changed = false;
+            for (int i = 0; i < args.Length; i++)
+            {
+                ITypeSymbol? sub = Substitute(args[i], substitutions);
+                if (sub != null && !SymbolEqualityComparer.Default.Equals(sub, args[i]))
+                {
+                    args[i] = sub;
+                    changed = true;
+                }
+            }
+            if (changed)
+            {
+                return named.OriginalDefinition.Construct(args);
+            }
+        }
+
+        return symbol;
     }
 
     private static ITypeSymbol? ElementTypeOf(ITypeSymbol? source) => source switch
@@ -179,53 +474,6 @@ internal static class SelectSignatureWriter
         return false;
     }
 
-    internal static bool IsCapturedValue(ExpressionSyntax node, SelectSignatureCtx ctx)
-    {
-        if (node.Parent is AssignmentExpressionSyntax assignment
-            && assignment.Left == node
-            && assignment.Parent is InitializerExpressionSyntax initializer
-            && initializer.Kind() == SyntaxKind.ObjectInitializerExpression)
-        {
-            return false;
-        }
-
-        if (node.Parent is MemberAccessExpressionSyntax parentMa && parentMa.Name == node)
-        {
-            return false;
-        }
-
-        if (node.Parent is NameEqualsSyntax nameEquals && nameEquals.Name == node)
-        {
-            return false;
-        }
-
-        switch (node)
-        {
-            case IdentifierNameSyntax ident:
-            {
-                ISymbol? sym = ctx.Model.GetSymbolInfo(ident).Symbol;
-                return sym switch
-                {
-                    ILocalSymbol => true,
-                    IFieldSymbol { IsStatic: false } => true,
-                    IPropertySymbol { IsStatic: false } => true,
-                    _ => false
-                };
-            }
-            case MemberAccessExpressionSyntax ma:
-                ISymbol? member = ctx.Model.GetSymbolInfo(ma).Symbol;
-                if (member is IFieldSymbol or IPropertySymbol)
-                {
-                    return IsCapturedValue(ma.Expression, ctx);
-                }
-                return false;
-            case ThisExpressionSyntax:
-                return true;
-            default:
-                return false;
-        }
-    }
-
     private static void AppendCapturedValue(StringBuilder sb, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
         sb.Append("(CapturedValue ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(')');
@@ -276,23 +524,12 @@ internal static class SelectSignatureWriter
         return false;
     }
 
-    internal static bool TryGetRowBinding(IdentifierNameSyntax ident, SelectSignatureCtx ctx, out RowBinding binding)
-    {
-        ISymbol? sym = ctx.Model.GetSymbolInfo(ident).Symbol;
-        if (sym != null && ctx.RowBindings.TryGetValue(sym, out binding))
-        {
-            return true;
-        }
-
-        binding = default;
-        return false;
-    }
-
     private static void AppendRowReference(StringBuilder sb, ITypeSymbol? exprType, RowBinding binding, SelectSignatureCtx ctx)
     {
         if (binding.MemberPath == null || binding.MemberPath.Count == 0)
         {
-            sb.Append("(Parameter ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(ctx.OuterRowType, ctx.TypeArgSubstitutions)).Append(')');
+            ITypeSymbol? parameterType = exprType ?? ctx.OuterRowType;
+            sb.Append("(Parameter ").Append(FormatType(parameterType, ctx.TypeArgSubstitutions)).Append(' ').Append(FormatType(parameterType, ctx.TypeArgSubstitutions)).Append(')');
             return;
         }
 
@@ -414,6 +651,13 @@ internal static class SelectSignatureWriter
                 return false;
             }
             sb.Append(')');
+        }
+        else if (IsNotMappedMember(memberSym) && IsRowLikeReference(access.Expression, ctx))
+        {
+            if (!AppendExpandedRow(sb, access.Expression, ctx))
+            {
+                return false;
+            }
         }
         else if (!TryAppend(sb, access.Expression, ctx))
         {
@@ -557,65 +801,6 @@ internal static class SelectSignatureWriter
         }
         sb.Append(')');
         return true;
-    }
-
-    internal static bool IsRowLikeReference(ExpressionSyntax expr, SelectSignatureCtx ctx)
-    {
-        if (expr is IdentifierNameSyntax id && TryGetRowBinding(id, ctx, out _))
-        {
-            ITypeSymbol? t = ctx.Model.GetTypeInfo(id).Type;
-            return t is INamedTypeSymbol nt && IsConstructibleEntityType(nt);
-        }
-        return false;
-    }
-
-    internal static List<IPropertySymbol> GetRowProperties(INamedTypeSymbol rowType)
-    {
-        List<IPropertySymbol> result = new();
-        for (ITypeSymbol? t = rowType; t != null; t = t.BaseType)
-        {
-            foreach (ISymbol member in t.GetMembers())
-            {
-                if (member is IPropertySymbol prop
-                    && !prop.IsStatic
-                    && !prop.IsIndexer
-                    && prop.SetMethod != null
-                    && prop.DeclaredAccessibility == Accessibility.Public
-                    && !result.Any(p => p.Name == prop.Name))
-                {
-                    result.Add(prop);
-                }
-            }
-        }
-        return result;
-    }
-
-    internal static bool IsConstructibleEntityType(INamedTypeSymbol type)
-    {
-        if (type.SpecialType is SpecialType.System_String or SpecialType.System_Decimal)
-        {
-            return false;
-        }
-        if (type.TypeKind == TypeKind.Enum)
-        {
-            return false;
-        }
-        if (type.IsValueType)
-        {
-            return false;
-        }
-        if (type.AllInterfaces.Any(i => i.ToDisplayString() == "System.Collections.IEnumerable"))
-        {
-            return false;
-        }
-        foreach (IMethodSymbol ctor in type.InstanceConstructors)
-        {
-            if (ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public)
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static bool IsFrameworkTranslatedMethod(IMethodSymbol method)
@@ -862,45 +1047,6 @@ internal static class SelectSignatureWriter
         }
 
         sb.Append("(CapturedValue ").Append(FormatType(exprType, ctx.TypeArgSubstitutions)).Append(')');
-        return true;
-    }
-
-    internal static bool IsConstantCollectionInit(BaseObjectCreationExpressionSyntax node, SelectSignatureCtx ctx)
-    {
-        if (node.Initializer == null || node.Initializer.Kind() != SyntaxKind.CollectionInitializerExpression)
-        {
-            return false;
-        }
-
-        if (node.ArgumentList != null)
-        {
-            foreach (ArgumentSyntax a in node.ArgumentList.Arguments)
-            {
-                if (!IsStableConstantSubtree(a.Expression, ctx))
-                {
-                    return false;
-                }
-            }
-        }
-
-        foreach (ExpressionSyntax elem in node.Initializer.Expressions)
-        {
-            if (elem is InitializerExpressionSyntax nested && nested.Kind() == SyntaxKind.ComplexElementInitializerExpression)
-            {
-                foreach (ExpressionSyntax e in nested.Expressions)
-                {
-                    if (!IsStableConstantSubtree(e, ctx))
-                    {
-                        return false;
-                    }
-                }
-            }
-            else if (!IsStableConstantSubtree(elem, ctx))
-            {
-                return false;
-            }
-        }
-
         return true;
     }
 
@@ -1241,101 +1387,6 @@ internal static class SelectSignatureWriter
         SyntaxKind.CoalesceExpression => "Coalesce",
         _ => null
     };
-
-    internal static string FormatType(ITypeSymbol? symbol)
-    {
-        return FormatType(symbol, null);
-    }
-
-    internal static string FormatType(ITypeSymbol? symbol, IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? substitutions)
-    {
-        symbol = Substitute(symbol, substitutions);
-
-        if (symbol == null)
-        {
-            return "null";
-        }
-
-        if (symbol is IArrayTypeSymbol array)
-        {
-            return FormatType(array.ElementType, substitutions) + "[]";
-        }
-
-        if (symbol is INamedTypeSymbol anon && anon.IsAnonymousType)
-        {
-            if (anon.IsGenericType && anon.TypeArguments.Length > 0)
-            {
-                string args = string.Join(",", anon.TypeArguments.Select(t => FormatType(t, substitutions)));
-                return "<anonymous<" + args + ">>";
-            }
-
-            if (anon.GetMembers().OfType<IPropertySymbol>().Any())
-            {
-                string args = string.Join(",", anon.GetMembers().OfType<IPropertySymbol>().Select(p => FormatType(p.Type, substitutions)));
-                return "<anonymous<" + args + ">>";
-            }
-
-            return "<anonymous>";
-        }
-
-        if (symbol is INamedTypeSymbol named && named.IsGenericType)
-        {
-            INamedTypeSymbol def = named.ConstructedFrom;
-            string defName = GetFullName(def);
-            int tick = defName.IndexOf('`');
-            if (tick >= 0)
-            {
-                defName = defName.Substring(0, tick);
-            }
-
-            string args = string.Join(",", named.TypeArguments.Select(t => FormatType(t, substitutions)));
-            return defName + "<" + args + ">";
-        }
-
-        return GetFullName(symbol);
-    }
-
-    internal static ITypeSymbol? Substitute(ITypeSymbol? symbol, IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? substitutions)
-    {
-        if (symbol == null || substitutions == null || substitutions.Count == 0)
-        {
-            return symbol;
-        }
-
-        if (symbol is ITypeParameterSymbol tp && substitutions.TryGetValue(tp, out ITypeSymbol? mapped))
-        {
-            return mapped;
-        }
-
-        if (symbol is IArrayTypeSymbol array)
-        {
-            ITypeSymbol? mappedElem = Substitute(array.ElementType, substitutions);
-            return SymbolEqualityComparer.Default.Equals(mappedElem, array.ElementType)
-                ? array
-                : symbol;
-        }
-
-        if (symbol is INamedTypeSymbol named && named.IsGenericType && !named.IsAnonymousType)
-        {
-            ITypeSymbol[] args = named.TypeArguments.ToArray();
-            bool changed = false;
-            for (int i = 0; i < args.Length; i++)
-            {
-                ITypeSymbol? sub = Substitute(args[i], substitutions);
-                if (sub != null && !SymbolEqualityComparer.Default.Equals(sub, args[i]))
-                {
-                    args[i] = sub;
-                    changed = true;
-                }
-            }
-            if (changed)
-            {
-                return named.OriginalDefinition.Construct(args);
-            }
-        }
-
-        return symbol;
-    }
 
     private static string GetFullName(ITypeSymbol symbol)
     {

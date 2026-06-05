@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using SQLite.Framework.Enums;
 
 namespace SQLite.Framework.Internals.Helpers;
 

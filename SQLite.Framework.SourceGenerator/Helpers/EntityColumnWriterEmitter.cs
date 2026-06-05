@@ -1,15 +1,18 @@
 using System.Text;
 using Microsoft.CodeAnalysis;
 
-namespace SQLite.Framework.SourceGenerator;
+namespace SQLite.Framework.SourceGenerator.Helpers;
 
 /// <summary>
 /// Emits per-property bind methods for entities and the <c>SQLiteOptions.EntityWriters</c>
 /// dictionary registration. Used by <c>AddRange</c> / <c>UpdateRange</c> / <c>RemoveRange</c> to
 /// skip <c>PropertyInfo.GetValue</c> on hot paths.
 /// </summary>
-internal static class EntityColumnWriterEmitter
+public static class EntityColumnWriterEmitter
 {
+    /// <summary>
+    /// Writes the dictionary that maps each column name to its generated bind method.
+    /// </summary>
     public static void EmitRegistration(StringBuilder sb, INamedTypeSymbol entity, string methodName)
     {
         List<IPropertySymbol> props = GetWritableProps(entity);
@@ -31,6 +34,9 @@ internal static class EntityColumnWriterEmitter
         sb.AppendLine("            };");
     }
 
+    /// <summary>
+    /// Writes one bind method per writable property of the entity.
+    /// </summary>
     public static void EmitWriters(StringBuilder sb, INamedTypeSymbol entity, string methodName)
     {
         List<IPropertySymbol> props = GetWritableProps(entity);

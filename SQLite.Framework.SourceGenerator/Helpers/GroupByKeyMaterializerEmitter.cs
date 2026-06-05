@@ -2,15 +2,19 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SQLite.Framework.SourceGenerator.Models;
 
-namespace SQLite.Framework.SourceGenerator;
+namespace SQLite.Framework.SourceGenerator.Helpers;
 
 /// <summary>
 /// Emits a key-selector method for a client-side <c>GroupBy(keySelector)</c> call. The method
 /// takes the already-materialized row from <c>SQLiteQueryContext.Input</c> and returns the group key.
 /// </summary>
-internal static class GroupByKeyMaterializerEmitter
+public static class GroupByKeyMaterializerEmitter
 {
+    /// <summary>
+    /// Emits the key-selector method when the key expression is simple enough to translate.
+    /// </summary>
     public static bool TryEmit(StringBuilder sb, string methodName, GroupByKeyInvocation invocation, SemanticModel model)
     {
         if (invocation.ParameterSymbol.Type is ITypeParameterSymbol)

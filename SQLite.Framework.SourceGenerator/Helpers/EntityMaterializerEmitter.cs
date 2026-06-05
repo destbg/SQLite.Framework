@@ -1,14 +1,19 @@
 using System.Text;
 using Microsoft.CodeAnalysis;
+using SQLite.Framework.SourceGenerator.Enums;
+using SQLite.Framework.SourceGenerator.Models;
 
-namespace SQLite.Framework.SourceGenerator;
+namespace SQLite.Framework.SourceGenerator.Helpers;
 
 /// <summary>
 /// Writes one method per entity and one method per Select result, plus the
 /// <c>UseGeneratedMaterializers</c> extension that adds them to a builder.
 /// </summary>
-internal static class EntityMaterializerEmitter
+public static class EntityMaterializerEmitter
 {
+    /// <summary>
+    /// Builds the generated source that holds all entity and select materializers.
+    /// </summary>
     public static string Emit(string rootNamespace, IEnumerable<INamedTypeSymbol> entities, IEnumerable<SelectInvocation> selects, IEnumerable<(GroupByKeyInvocation Invocation, SemanticModel Model)> groupKeys, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
         HashSet<INamedTypeSymbol> entitySet = new(entities, SymbolEqualityComparer.Default);
@@ -175,14 +180,6 @@ internal static class EntityMaterializerEmitter
         }
         sb.Append('"');
         return sb.ToString();
-    }
-
-    private enum EmitStrategy
-    {
-        Direct,
-        Reflection,
-        Anonymous,
-        Positional,
     }
 
     private static bool TryGetEmitStrategy(INamedTypeSymbol entity, out EmitStrategy strategy)
@@ -580,13 +577,6 @@ internal static class EntityMaterializerEmitter
         return result;
     }
 
-    /// <summary>
-    /// Emits the index resolution to <paramref name="preamble"/> (one
-    /// <c>int idx_X = columns.TryGetValue(name, out int i) ? i : -1;</c> per call) and the
-    /// row-time value read to <paramref name="sb"/>. The index local is referenced by name from
-    /// the row body, which lets the row body live inside a closure that captures resolved indices
-    /// from the surrounding builder method, so the per-row loop never re-resolves column names.
-    /// </summary>
     private static void EmitSimpleColumnReadLocal(StringBuilder sb, StringBuilder preamble, string preambleIndent, ITypeSymbol propType, string columnName, string valueLocal, string localSuffix, string indent)
     {
         string propTypeDisplay = propType.ToDisplayString();

@@ -2,22 +2,36 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SQLite.Framework.SourceGenerator.Helpers;
+using SQLite.Framework.SourceGenerator.Models;
 
-namespace SQLite.Framework.SourceGenerator;
+namespace SQLite.Framework.SourceGenerator.Writers;
 
-internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
+/// <summary>
+/// Rewrites a syntax tree so every type and member is fully qualified for the generated code.
+/// </summary>
+public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
 {
     private readonly EmitContext ctx;
     private int reflectedMethodSlots;
     private int capturedValueSlots;
 
+    /// <summary>
+    /// Creates a rewriter that uses the given emit context.
+    /// </summary>
     public FullyQualifiedRewriter(EmitContext ctx)
     {
         this.ctx = ctx;
     }
 
+    /// <summary>
+    /// True when the rewriter could not fully qualify some node.
+    /// </summary>
     public bool Failed { get; private set; }
 
+    /// <summary>
+    /// Rewrites an anonymous object member so it keeps its inferred name.
+    /// </summary>
     public override SyntaxNode? VisitAnonymousObjectMemberDeclarator(AnonymousObjectMemberDeclaratorSyntax node)
     {
         if (node.NameEquals == null)
@@ -48,6 +62,9 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         return base.VisitAnonymousObjectMemberDeclarator(node);
     }
 
+    /// <summary>
+    /// Rewrites a binary expression, handling null checks on nullable ranges.
+    /// </summary>
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
     {
         SyntaxKind kind = node.Kind();
@@ -72,6 +89,9 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         return base.VisitBinaryExpression(node);
     }
 
+    /// <summary>
+    /// Rewrites an object creation expression for captured values or private types.
+    /// </summary>
     public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
     {
         if (IsCollectionInitConstant(node))
@@ -85,6 +105,9 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         return base.VisitObjectCreationExpression(node);
     }
 
+    /// <summary>
+    /// Rewrites an implicit object creation expression for captured values or private types.
+    /// </summary>
     public override SyntaxNode? VisitImplicitObjectCreationExpression(ImplicitObjectCreationExpressionSyntax node)
     {
         if (IsCollectionInitConstant(node))
@@ -96,6 +119,152 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return BuildPrivateMemberInitCall(node);
         }
         return base.VisitImplicitObjectCreationExpression(node);
+    }
+
+    /// <summary>
+    /// Rewrites a member access expression into a fully qualified form.
+    /// </summary>
+    public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
+    {
+        if (ctx.LeafIndexBySyntax.TryGetValue(node, out int leafIndex))
+        {
+            LeafInfo leaf = ctx.Leaves[leafIndex];
+            if (leaf.IsNullable)
+            {
+                return SyntaxFactory.ParseExpression("((" + SelectMaterializerEmitter.FormatType(leaf.Type, ctx.WriterCtx.TypeArgSubstitutions) + ")" + leaf.VarName + "!)");
+            }
+            return SyntaxFactory.IdentifierName(leaf.VarName);
+        }
+
+        if (node.Kind() == SyntaxKind.SimpleMemberAccessExpression
+            && SelectSignatureWriter.IsCapturedValue(node, ctx.WriterCtx))
+        {
+            return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
+        }
+
+        SymbolInfo info = ctx.Model.GetSymbolInfo(node);
+        ISymbol? symbol = info.Symbol;
+
+        if (symbol is ITypeSymbol typeSymbol)
+        {
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol, ctx.WriterCtx.TypeArgSubstitutions));
+        }
+
+        if (ctx.Model.GetSymbolInfo(node.Expression).Symbol is ITypeSymbol receiverType)
+        {
+            return SyntaxFactory.ParseExpression(SelectMaterializerEmitter.FormatType(receiverType, ctx.WriterCtx.TypeArgSubstitutions) + "." + QualifyName(node.Name));
+        }
+
+        return base.VisitMemberAccessExpression(node);
+    }
+
+    /// <summary>
+    /// Rewrites an identifier name into a fully qualified form.
+    /// </summary>
+    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+    {
+        if (ctx.RowExpansions.TryGetValue(node, out RowExpansion? expansion))
+        {
+            return BuildRowMaterialization(expansion);
+        }
+
+        ISymbol? identSym = ctx.Model.GetSymbolInfo(node).Symbol;
+        if (identSym != null
+            && ctx.WriterCtx.ParameterSubstitutions.TryGetValue(identSym, out ExpressionSyntax? substExpr))
+        {
+            return Visit(substExpr);
+        }
+
+        if (SelectSignatureWriter.IsCapturedValue(node, ctx.WriterCtx))
+        {
+            return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
+        }
+
+        ISymbol? symbol = ctx.Model.GetSymbolInfo(node).Symbol;
+
+        if (symbol is IParameterSymbol or IRangeVariableSymbol)
+        {
+            if (ctx.WriterCtx.RowBindings.ContainsKey(symbol))
+            {
+                Failed = true;
+            }
+            return node;
+        }
+
+        if (symbol is ITypeSymbol typeSymbol)
+        {
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol, ctx.WriterCtx.TypeArgSubstitutions));
+        }
+
+        if (symbol is IMethodSymbol { IsStatic: true } method && method.ContainingType != null)
+        {
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(method.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + method.Name);
+        }
+
+        if (symbol is IFieldSymbol { IsStatic: true } field && field.ContainingType != null)
+        {
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(field.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + field.Name);
+        }
+
+        if (symbol is IPropertySymbol { IsStatic: true } prop && prop.ContainingType != null)
+        {
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(prop.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + prop.Name);
+        }
+
+        return base.VisitIdentifierName(node);
+    }
+
+    /// <summary>
+    /// Rewrites a method call into a fully qualified or reflected form.
+    /// </summary>
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        if (ctx.Model.GetSymbolInfo(node).Symbol is not IMethodSymbol method)
+        {
+            Failed = true;
+            return node;
+        }
+
+        if (!SelectMaterializerEmitter.IsSymbolAccessibleFromGenerator(method, ctx.GeneratorAssembly))
+        {
+            return BuildReflectedInvocation(node, method);
+        }
+
+        if (method.IsExtensionMethod && method.ReducedFrom != null)
+        {
+            if (node.Expression is not MemberAccessExpressionSyntax ma)
+            {
+                Failed = true;
+                return node;
+            }
+
+            SyntaxNode? receiverVisited = Visit(ma.Expression);
+            if (receiverVisited is not ExpressionSyntax receiverExpr)
+            {
+                Failed = true;
+                return node;
+            }
+
+            List<ArgumentSyntax> args = new() { SyntaxFactory.Argument(receiverExpr) };
+            foreach (ArgumentSyntax arg in node.ArgumentList.Arguments)
+            {
+                SyntaxNode? visitedArg = Visit(arg.Expression);
+                if (visitedArg is not ExpressionSyntax argExpr)
+                {
+                    Failed = true;
+                    return node;
+                }
+                args.Add(SyntaxFactory.Argument(argExpr));
+            }
+
+            IMethodSymbol reduced = method.ReducedFrom;
+            string qualifiedTarget = SelectMaterializerEmitter.FormatType(reduced.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + reduced.Name;
+            return SyntaxFactory.InvocationExpression(
+                SyntaxFactory.ParseExpression(qualifiedTarget),
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)));
+        }
+
+        return base.VisitInvocationExpression(node);
     }
 
     private bool IsPrivateMemberInit(BaseObjectCreationExpressionSyntax node)
@@ -222,143 +391,6 @@ internal sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return false;
         }
         return SelectSignatureWriter.IsConstantCollectionInit(node, ctx.WriterCtx);
-    }
-
-    public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
-    {
-        if (ctx.LeafIndexBySyntax.TryGetValue(node, out int leafIndex))
-        {
-            LeafInfo leaf = ctx.Leaves[leafIndex];
-            if (leaf.IsNullable)
-            {
-                return SyntaxFactory.ParseExpression("((" + SelectMaterializerEmitter.FormatType(leaf.Type, ctx.WriterCtx.TypeArgSubstitutions) + ")" + leaf.VarName + "!)");
-            }
-            return SyntaxFactory.IdentifierName(leaf.VarName);
-        }
-
-        if (node.Kind() == SyntaxKind.SimpleMemberAccessExpression
-            && SelectSignatureWriter.IsCapturedValue(node, ctx.WriterCtx))
-        {
-            return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
-        }
-
-        SymbolInfo info = ctx.Model.GetSymbolInfo(node);
-        ISymbol? symbol = info.Symbol;
-
-        if (symbol is ITypeSymbol typeSymbol)
-        {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol, ctx.WriterCtx.TypeArgSubstitutions));
-        }
-
-        if (ctx.Model.GetSymbolInfo(node.Expression).Symbol is ITypeSymbol receiverType)
-        {
-            return SyntaxFactory.ParseExpression(SelectMaterializerEmitter.FormatType(receiverType, ctx.WriterCtx.TypeArgSubstitutions) + "." + QualifyName(node.Name));
-        }
-
-        return base.VisitMemberAccessExpression(node);
-    }
-
-    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
-    {
-        if (ctx.RowExpansions.TryGetValue(node, out RowExpansion? expansion))
-        {
-            return BuildRowMaterialization(expansion);
-        }
-
-        ISymbol? identSym = ctx.Model.GetSymbolInfo(node).Symbol;
-        if (identSym != null
-            && ctx.WriterCtx.ParameterSubstitutions.TryGetValue(identSym, out ExpressionSyntax? substExpr))
-        {
-            return Visit(substExpr);
-        }
-
-        if (SelectSignatureWriter.IsCapturedValue(node, ctx.WriterCtx))
-        {
-            return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
-        }
-
-        ISymbol? symbol = ctx.Model.GetSymbolInfo(node).Symbol;
-
-        if (symbol is IParameterSymbol or IRangeVariableSymbol)
-        {
-            if (ctx.WriterCtx.RowBindings.ContainsKey(symbol))
-            {
-                Failed = true;
-            }
-            return node;
-        }
-
-        if (symbol is ITypeSymbol typeSymbol)
-        {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol, ctx.WriterCtx.TypeArgSubstitutions));
-        }
-
-        if (symbol is IMethodSymbol { IsStatic: true } method && method.ContainingType != null)
-        {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(method.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + method.Name);
-        }
-
-        if (symbol is IFieldSymbol { IsStatic: true } field && field.ContainingType != null)
-        {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(field.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + field.Name);
-        }
-
-        if (symbol is IPropertySymbol { IsStatic: true } prop && prop.ContainingType != null)
-        {
-            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(prop.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + prop.Name);
-        }
-
-        return base.VisitIdentifierName(node);
-    }
-
-    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
-    {
-        if (ctx.Model.GetSymbolInfo(node).Symbol is not IMethodSymbol method)
-        {
-            Failed = true;
-            return node;
-        }
-
-        if (!SelectMaterializerEmitter.IsSymbolAccessibleFromGenerator(method, ctx.GeneratorAssembly))
-        {
-            return BuildReflectedInvocation(node, method);
-        }
-
-        if (method.IsExtensionMethod && method.ReducedFrom != null)
-        {
-            if (node.Expression is not MemberAccessExpressionSyntax ma)
-            {
-                Failed = true;
-                return node;
-            }
-
-            SyntaxNode? receiverVisited = Visit(ma.Expression);
-            if (receiverVisited is not ExpressionSyntax receiverExpr)
-            {
-                Failed = true;
-                return node;
-            }
-
-            List<ArgumentSyntax> args = new() { SyntaxFactory.Argument(receiverExpr) };
-            foreach (ArgumentSyntax arg in node.ArgumentList.Arguments)
-            {
-                SyntaxNode? visitedArg = Visit(arg.Expression);
-                if (visitedArg is not ExpressionSyntax argExpr)
-                {
-                    Failed = true;
-                    return node;
-                }
-                args.Add(SyntaxFactory.Argument(argExpr));
-            }
-
-            IMethodSymbol reduced = method.ReducedFrom;
-            string qualifiedTarget = SelectMaterializerEmitter.FormatType(reduced.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + reduced.Name;
-            return SyntaxFactory.InvocationExpression(
-                SyntaxFactory.ParseExpression(qualifiedTarget),
-                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)));
-        }
-
-        return base.VisitInvocationExpression(node);
     }
 
     private string QualifyName(SimpleNameSyntax name)

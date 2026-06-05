@@ -2,14 +2,19 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SQLite.Framework.SourceGenerator.Models;
+using SQLite.Framework.SourceGenerator.Writers;
 
-namespace SQLite.Framework.SourceGenerator;
+namespace SQLite.Framework.SourceGenerator.Helpers;
 
 /// <summary>
 /// Writes the body of a method that builds one Select result from a SQLite row.
 /// </summary>
-internal static class SelectMaterializerEmitter
+public static class SelectMaterializerEmitter
 {
+    /// <summary>
+    /// Emits a materializer method body that builds one Select result from a row.
+    /// </summary>
     public static bool TryEmit(StringBuilder sb, string methodName, ExpressionSyntax body, SelectSignatureCtx writerCtx)
     {
         if (body is IdentifierNameSyntax)
@@ -169,6 +174,226 @@ internal static class SelectMaterializerEmitter
         return true;
     }
 
+    /// <summary>
+    /// Tells whether a method can only be translated to SQL and not run in code.
+    /// </summary>
+    public static bool IsSqlOnlyCallable(IMethodSymbol method)
+    {
+        string? declType = method.ContainingType?.ToDisplayString();
+        return declType is "SQLite.Framework.SQLiteFunctions"
+            or "SQLite.Framework.SQLiteFTS5Functions"
+            or "SQLite.Framework.SQLiteJsonFunctions"
+            or "SQLite.Framework.SQLiteWindowFunctions"
+            or "SQLite.Framework.SQLiteFrameBoundary";
+    }
+
+    /// <summary>
+    /// Tells whether a symbol is reachable using only public access.
+    /// </summary>
+    public static bool IsSymbolPubliclyReachable(ISymbol? symbol)
+    {
+        return IsSymbolAccessibleFromGenerator(symbol, generatorAssembly: null);
+    }
+
+    /// <summary>
+    /// Tells whether a symbol is accessible from the generator assembly.
+    /// </summary>
+    public static bool IsSymbolAccessibleFromGenerator(ISymbol? symbol, IAssemblySymbol? generatorAssembly)
+    {
+        if (symbol == null)
+        {
+            return false;
+        }
+
+        for (ISymbol? current = symbol; current != null; current = current.ContainingSymbol)
+        {
+            if (current is INamespaceSymbol)
+            {
+                return true;
+            }
+
+            if (current is IParameterSymbol || current is ILocalSymbol || current is IRangeVariableSymbol)
+            {
+                current = current.ContainingSymbol;
+                continue;
+            }
+
+            Accessibility acc = current.DeclaredAccessibility;
+            if (acc == Accessibility.Public || acc == Accessibility.NotApplicable)
+            {
+                continue;
+            }
+
+            if (acc == Accessibility.Internal
+                && generatorAssembly != null
+                && SymbolEqualityComparer.Default.Equals(current.ContainingAssembly, generatorAssembly)
+                && !(current is INamedTypeSymbol named && named.IsFileLocal))
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Tells whether a type is reachable using only public access.
+    /// </summary>
+    public static bool IsTypePubliclyReachable(ITypeSymbol type)
+    {
+        return IsTypeAccessibleFromGenerator(type, generatorAssembly: null);
+    }
+
+    /// <summary>
+    /// Tells whether a type is accessible from the generator assembly.
+    /// </summary>
+    public static bool IsTypeAccessibleFromGenerator(ITypeSymbol type, IAssemblySymbol? generatorAssembly)
+    {
+        if (type is INamedTypeSymbol nullable
+            && nullable.IsGenericType
+            && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
+            && nullable.TypeArguments.Length == 1)
+        {
+            return IsTypeAccessibleFromGenerator(nullable.TypeArguments[0], generatorAssembly);
+        }
+
+        if (type is IArrayTypeSymbol array)
+        {
+            return IsTypeAccessibleFromGenerator(array.ElementType, generatorAssembly);
+        }
+
+        if (type is INamedTypeSymbol named)
+        {
+            foreach (ITypeSymbol arg in named.TypeArguments)
+            {
+                if (!IsTypeAccessibleFromGenerator(arg, generatorAssembly))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return IsSymbolAccessibleFromGenerator(type, generatorAssembly);
+    }
+
+    /// <summary>
+    /// Formats a type as its fully qualified name.
+    /// </summary>
+    public static string FormatType(ITypeSymbol symbol)
+    {
+        return symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+    }
+
+    /// <summary>
+    /// Formats a type as its fully qualified name after applying substitutions.
+    /// </summary>
+    public static string FormatType(ITypeSymbol symbol, IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? substitutions)
+    {
+        ITypeSymbol? mapped = SelectSignatureWriter.Substitute(symbol, substitutions);
+        return (mapped ?? symbol).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+    }
+
+    /// <summary>
+    /// Returns the underlying type of a nullable value type, or the type itself.
+    /// </summary>
+    public static ITypeSymbol StripNullableSymbol(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol named
+            && named.IsGenericType
+            && named.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
+            && named.TypeArguments.Length == 1)
+        {
+            return named.TypeArguments[0];
+        }
+
+        return type;
+    }
+
+    /// <summary>
+    /// Looks up the fast-path reader accessor for a CLR type.
+    /// </summary>
+    public static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out string? cast)
+    {
+        return TryGetFastPathAccessor(type, out accessor, out cast, out _);
+    }
+
+    /// <summary>
+    /// Looks up the fast-path reader accessor for a CLR type. <paramref name="handlesNull"/>
+    /// is <see langword="true"/> when the accessor itself returns <see langword="null"/> for
+    /// SQL NULL, which lets the emitter skip a redundant <c>IsDBNull</c> guard.
+    /// </summary>
+    public static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out string? cast, out bool handlesNull)
+    {
+        handlesNull = false;
+        ITypeSymbol stripped = StripNullableSymbol(type);
+        switch (stripped.SpecialType)
+        {
+            case SpecialType.System_Int32:
+                accessor = "GetInt32";
+                cast = null;
+                return true;
+            case SpecialType.System_Int64:
+                accessor = "GetInt64";
+                cast = null;
+                return true;
+            case SpecialType.System_Int16:
+                accessor = "GetInt32";
+                cast = "short";
+                return true;
+            case SpecialType.System_Byte:
+                accessor = "GetInt32";
+                cast = "byte";
+                return true;
+            case SpecialType.System_SByte:
+                accessor = "GetInt32";
+                cast = "sbyte";
+                return true;
+            case SpecialType.System_UInt16:
+                accessor = "GetInt32";
+                cast = "ushort";
+                return true;
+            case SpecialType.System_UInt32:
+                accessor = "GetInt32";
+                cast = "uint";
+                return true;
+            case SpecialType.System_UInt64:
+                accessor = "GetInt64";
+                cast = "ulong";
+                return true;
+            case SpecialType.System_Double:
+                accessor = "GetDouble";
+                cast = null;
+                return true;
+            case SpecialType.System_Single:
+                accessor = "GetDouble";
+                cast = "float";
+                return true;
+            case SpecialType.System_Boolean:
+                accessor = "GetBoolean";
+                cast = null;
+                return true;
+            case SpecialType.System_String:
+                accessor = "GetString";
+                cast = null;
+                handlesNull = true;
+                return true;
+            case SpecialType.System_DateTime:
+                accessor = "GetDateTimeValue";
+                cast = null;
+                return true;
+            case SpecialType.System_Decimal:
+                accessor = "GetDecimalValue";
+                cast = null;
+                return true;
+            default:
+                cast = null;
+                accessor = TryGetStructAccessor(stripped);
+                return accessor != null;
+        }
+    }
+
     private static bool CollectLeaves(SyntaxNode node, EmitContext ctx)
     {
         if (node is IdentifierNameSyntax substIdent
@@ -232,6 +457,11 @@ internal static class SelectMaterializerEmitter
             case MemberAccessExpressionSyntax access when access.Kind() == SyntaxKind.SimpleMemberAccessExpression:
                 if (access.Expression is IdentifierNameSyntax rowIdent && IsRowReference(rowIdent, ctx))
                 {
+                    if (SelectSignatureWriter.IsNotMappedMember(ctx.Model.GetSymbolInfo(access).Symbol))
+                    {
+                        return RegisterRowExpansion(access.Expression, ctx);
+                    }
+
                     ITypeSymbol? leafType = ctx.Model.GetTypeInfo(access).ConvertedType ?? ctx.Model.GetTypeInfo(access).Type;
                     if (leafType == null)
                     {
@@ -437,16 +667,6 @@ internal static class SelectMaterializerEmitter
             || ns == "SQLite.Framework.Extensions";
     }
 
-    internal static bool IsSqlOnlyCallable(IMethodSymbol method)
-    {
-        string? declType = method.ContainingType?.ToDisplayString();
-        return declType is "SQLite.Framework.SQLiteFunctions"
-            or "SQLite.Framework.SQLiteFTS5Functions"
-            or "SQLite.Framework.SQLiteJsonFunctions"
-            or "SQLite.Framework.SQLiteWindowFunctions"
-            or "SQLite.Framework.SQLiteFrameBoundary";
-    }
-
     private static string? RewriteBody(ExpressionSyntax expression, EmitContext ctx)
     {
         FullyQualifiedRewriter rewriter = new(ctx);
@@ -457,189 +677,6 @@ internal static class SelectMaterializerEmitter
         }
 
         return rewritten.NormalizeWhitespace(indentation: "", eol: " ").ToFullString();
-    }
-
-    internal static bool IsSymbolPubliclyReachable(ISymbol? symbol)
-    {
-        return IsSymbolAccessibleFromGenerator(symbol, generatorAssembly: null);
-    }
-
-    internal static bool IsSymbolAccessibleFromGenerator(ISymbol? symbol, IAssemblySymbol? generatorAssembly)
-    {
-        if (symbol == null)
-        {
-            return false;
-        }
-
-        for (ISymbol? current = symbol; current != null; current = current.ContainingSymbol)
-        {
-            if (current is INamespaceSymbol)
-            {
-                return true;
-            }
-
-            if (current is IParameterSymbol || current is ILocalSymbol || current is IRangeVariableSymbol)
-            {
-                current = current.ContainingSymbol;
-                continue;
-            }
-
-            Accessibility acc = current.DeclaredAccessibility;
-            if (acc == Accessibility.Public || acc == Accessibility.NotApplicable)
-            {
-                continue;
-            }
-
-            if (acc == Accessibility.Internal
-                && generatorAssembly != null
-                && SymbolEqualityComparer.Default.Equals(current.ContainingAssembly, generatorAssembly)
-                && !(current is INamedTypeSymbol named && named.IsFileLocal))
-            {
-                continue;
-            }
-
-            return false;
-        }
-
-        return true;
-    }
-
-    internal static bool IsTypePubliclyReachable(ITypeSymbol type)
-    {
-        return IsTypeAccessibleFromGenerator(type, generatorAssembly: null);
-    }
-
-    internal static bool IsTypeAccessibleFromGenerator(ITypeSymbol type, IAssemblySymbol? generatorAssembly)
-    {
-        if (type is INamedTypeSymbol nullable
-            && nullable.IsGenericType
-            && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
-            && nullable.TypeArguments.Length == 1)
-        {
-            return IsTypeAccessibleFromGenerator(nullable.TypeArguments[0], generatorAssembly);
-        }
-
-        if (type is IArrayTypeSymbol array)
-        {
-            return IsTypeAccessibleFromGenerator(array.ElementType, generatorAssembly);
-        }
-
-        if (type is INamedTypeSymbol named)
-        {
-            foreach (ITypeSymbol arg in named.TypeArguments)
-            {
-                if (!IsTypeAccessibleFromGenerator(arg, generatorAssembly))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return IsSymbolAccessibleFromGenerator(type, generatorAssembly);
-    }
-
-    internal static string FormatType(ITypeSymbol symbol)
-    {
-        return symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-    }
-
-    internal static string FormatType(ITypeSymbol symbol, IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? substitutions)
-    {
-        ITypeSymbol? mapped = SelectSignatureWriter.Substitute(symbol, substitutions);
-        return (mapped ?? symbol).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-    }
-
-    internal static ITypeSymbol StripNullableSymbol(ITypeSymbol type)
-    {
-        if (type is INamedTypeSymbol named
-            && named.IsGenericType
-            && named.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
-            && named.TypeArguments.Length == 1)
-        {
-            return named.TypeArguments[0];
-        }
-
-        return type;
-    }
-
-    internal static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out string? cast)
-    {
-        return TryGetFastPathAccessor(type, out accessor, out cast, out _);
-    }
-
-    /// <summary>
-    /// Looks up the fast-path reader accessor for a CLR type. <paramref name="handlesNull"/>
-    /// is <see langword="true"/> when the accessor itself returns <see langword="null"/> for
-    /// SQL NULL, which lets the emitter skip a redundant <c>IsDBNull</c> guard.
-    /// </summary>
-    internal static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out string? cast, out bool handlesNull)
-    {
-        handlesNull = false;
-        ITypeSymbol stripped = StripNullableSymbol(type);
-        switch (stripped.SpecialType)
-        {
-            case SpecialType.System_Int32:
-                accessor = "GetInt32";
-                cast = null;
-                return true;
-            case SpecialType.System_Int64:
-                accessor = "GetInt64";
-                cast = null;
-                return true;
-            case SpecialType.System_Int16:
-                accessor = "GetInt32";
-                cast = "short";
-                return true;
-            case SpecialType.System_Byte:
-                accessor = "GetInt32";
-                cast = "byte";
-                return true;
-            case SpecialType.System_SByte:
-                accessor = "GetInt32";
-                cast = "sbyte";
-                return true;
-            case SpecialType.System_UInt16:
-                accessor = "GetInt32";
-                cast = "ushort";
-                return true;
-            case SpecialType.System_UInt32:
-                accessor = "GetInt32";
-                cast = "uint";
-                return true;
-            case SpecialType.System_UInt64:
-                accessor = "GetInt64";
-                cast = "ulong";
-                return true;
-            case SpecialType.System_Double:
-                accessor = "GetDouble";
-                cast = null;
-                return true;
-            case SpecialType.System_Single:
-                accessor = "GetDouble";
-                cast = "float";
-                return true;
-            case SpecialType.System_Boolean:
-                accessor = "GetBoolean";
-                cast = null;
-                return true;
-            case SpecialType.System_String:
-                accessor = "GetString";
-                cast = null;
-                handlesNull = true;
-                return true;
-            case SpecialType.System_DateTime:
-                accessor = "GetDateTimeValue";
-                cast = null;
-                return true;
-            case SpecialType.System_Decimal:
-                accessor = "GetDecimalValue";
-                cast = null;
-                return true;
-            default:
-                cast = null;
-                accessor = TryGetStructAccessor(stripped);
-                return accessor != null;
-        }
     }
 
     private static string? TryGetStructAccessor(ITypeSymbol type)

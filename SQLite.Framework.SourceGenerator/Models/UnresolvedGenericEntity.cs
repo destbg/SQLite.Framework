@@ -1,6 +1,6 @@
 using Microsoft.CodeAnalysis;
 
-namespace SQLite.Framework.SourceGenerator;
+namespace SQLite.Framework.SourceGenerator.Models;
 
 /// <summary>
 /// A reference to an entity at an invocation site whose type argument is itself an open
@@ -9,12 +9,18 @@ namespace SQLite.Framework.SourceGenerator;
 /// resolve stage to produce one closed <see cref="INamedTypeSymbol"/> per concrete
 /// substitution observed at any callsite.
 /// </summary>
-internal sealed class UnresolvedGenericEntity
+public sealed class UnresolvedGenericEntity
 {
+    /// <summary>
+    /// Creates a new unresolved generic entity.
+    /// </summary>
     public UnresolvedGenericEntity(ITypeParameterSymbol typeParameter)
     {
         TypeParameter = typeParameter;
     }
 
+    /// <summary>
+    /// The open type parameter to resolve later.
+    /// </summary>
     public ITypeParameterSymbol TypeParameter { get; }
 }

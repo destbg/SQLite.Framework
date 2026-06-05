@@ -9,6 +9,11 @@ internal partial class QueryableVisitor
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
 
+        if (JoinSelectExpression != null && lambda.Body is ParameterExpression)
+        {
+            return JoinSelectExpression;
+        }
+
         if (lambda.Body is not ParameterExpression)
         {
             ThrowIfSetOperations(node.Method.Name);
@@ -97,8 +102,8 @@ internal partial class QueryableVisitor
             ConstructorInfo constructor = lambda.Body.Type.GetConstructors()[0];
 
             List<Expression> constructorArgs = properties
-                .ConvertAll(prop => selectVisitor.Visit(visitor.Visit(
-                    visitor.TableColumns.First(tc => tc.Key == prop.Name).Value)));
+                .ConvertAll(prop => selectVisitor.Visit(
+                    visitor.TableColumns.First(tc => tc.Key == prop.Name).Value));
 
             bool hasWritableProperties = properties.All(p => p.CanWrite);
 
@@ -121,7 +126,11 @@ internal partial class QueryableVisitor
             }
         }
 
-        Expression selectExpression = visitor.Visit(lambda.Body);
+        visitor.ClientEvalUsed = false;
+        Expression normalSelect = visitor.Visit(lambda.Body);
+        Expression selectExpression = visitor.ClientEvalUsed
+            ? visitor.ToClientExpression(lambda.Body)
+            : normalSelect;
         visitor.IsInSelectProjection = false;
         visitor.ClientEvalAllowed = false;
         Expression expression = selectVisitor.Visit(selectExpression);

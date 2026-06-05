@@ -721,6 +721,20 @@ public class ResultTests
     }
 
     [Fact]
+    public void DirectJoinProjectingScalarMember()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        List<string> titles = (
+            from author in db.Table<Author>()
+            join book in db.Table<Book>() on author.Id equals book.AuthorId
+            select book.Title
+        ).ToList();
+
+        Assert.Equal(new[] { "Book 1", "Book 2" }, titles.OrderBy(t => t));
+    }
+
+    [Fact]
     public void SeparateVariables()
     {
         using TestDatabase db = SetupDatabase();
