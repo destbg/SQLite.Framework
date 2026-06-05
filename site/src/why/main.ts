@@ -1,3 +1,4 @@
+import "../shared/view-transitions.css";
 import "../landing/landing.css";
 import "./why.css";
 

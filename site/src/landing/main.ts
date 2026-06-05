@@ -1,3 +1,4 @@
+import "../shared/view-transitions.css";
 import "./landing.css";
 import "../highlight/syntax.css";
 import { initSavePace } from "./savePace";
