@@ -25,6 +25,11 @@ internal sealed class ClientLeafRewriter : ExpressionVisitor
 
         if (node is MemberExpression or ParameterExpression && owner.TryResolveColumnLeaf(node) is { } leaf)
         {
+            if (node.Type != leaf.Type && Nullable.GetUnderlyingType(node.Type) == leaf.Type)
+            {
+                return Expression.Convert(leaf, node.Type);
+            }
+
             return leaf;
         }
 

@@ -174,7 +174,7 @@ internal static class BuildQueryObject
         HashSet<string> propertyNames = type
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Select(p => p.Name)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (ParameterInfo parameter in parameters)
         {

@@ -210,8 +210,8 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             {
                 if (symbol != null
                     && !symbol.IsAbstract
-                    && (!symbol.IsGenericType || symbol.IsAnonymousType)
-                    && !IsFrameworkType(symbol))
+                    && ((!symbol.IsGenericType || symbol.IsAnonymousType) && !IsFrameworkType(symbol)
+                        || IsSupportedPositionalSystemType(symbol)))
                 {
                     unique.Add(symbol);
                 }
@@ -255,11 +255,12 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                     {
                         uniqueSelects[expanded.Signature] = expanded;
 
-                        if (!expanded.ProjectionType.IsAbstract
-                            && (!expanded.ProjectionType.IsGenericType || expanded.ProjectionType.IsAnonymousType)
-                            && !IsFrameworkType(expanded.ProjectionType))
+                        if (expanded.ProjectionType is INamedTypeSymbol expandedProjection
+                            && !expandedProjection.IsAbstract
+                            && (!expandedProjection.IsGenericType || expandedProjection.IsAnonymousType)
+                            && !IsFrameworkType(expandedProjection))
                         {
-                            unique.Add(expanded.ProjectionType);
+                            unique.Add(expandedProjection);
                         }
                     }
                 }
@@ -513,10 +514,12 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (method.TypeArguments.Length < 2 || method.TypeArguments[1] is not INamedTypeSymbol projection)
+        if (method.TypeArguments.Length < 2 || method.TypeArguments[1] is not (INamedTypeSymbol or IArrayTypeSymbol))
         {
             return null;
         }
+
+        ITypeSymbol projection = method.TypeArguments[1];
 
         if (invocation.ArgumentList.Arguments.Count == 0)
         {
@@ -606,7 +609,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static SelectInvocation? TryFlattenChainedSelect(ExpressionSyntax outerBody, IParameterSymbol outerRow, ExpressionSyntax receiver, INamedTypeSymbol projection, SemanticModel model)
+    private static SelectInvocation? TryFlattenChainedSelect(ExpressionSyntax outerBody, IParameterSymbol outerRow, ExpressionSyntax receiver, ITypeSymbol projection, SemanticModel model)
     {
         (ExpressionSyntax Body, ISymbol Row)? inner = FindUpstreamInnerSelector(receiver, model);
         if (inner is not { } innerInfo)
@@ -970,6 +973,18 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         return new SelectInvocation(signature, bodyExpr, writerCtx, ctx.SemanticModel, projection);
+    }
+
+    private static bool IsSupportedPositionalSystemType(INamedTypeSymbol symbol)
+    {
+        if (!symbol.IsGenericType)
+        {
+            return false;
+        }
+
+        string name = symbol.ConstructedFrom.ToDisplayString();
+        return name == "System.Tuple<T1, T2>"
+            || name == "System.Collections.Generic.KeyValuePair<TKey, TValue>";
     }
 
     private static bool IsFrameworkType(INamedTypeSymbol symbol)

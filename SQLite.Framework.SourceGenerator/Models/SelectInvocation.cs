@@ -11,7 +11,7 @@ public sealed class SelectInvocation
     /// <summary>
     /// Creates a new select invocation.
     /// </summary>
-    public SelectInvocation(string signature, ExpressionSyntax body, SelectSignatureCtx writerCtx, SemanticModel model, INamedTypeSymbol projectionType)
+    public SelectInvocation(string signature, ExpressionSyntax body, SelectSignatureCtx writerCtx, SemanticModel model, ITypeSymbol projectionType)
     {
         Signature = signature;
         Body = body;
@@ -43,5 +43,5 @@ public sealed class SelectInvocation
     /// <summary>
     /// The projection type produced by the select.
     /// </summary>
-    public INamedTypeSymbol ProjectionType { get; }
+    public ITypeSymbol ProjectionType { get; }
 }

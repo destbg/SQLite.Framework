@@ -172,6 +172,14 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             return new CompiledExpression(node.Type, _ => value);
         }
 
+        if (node.Expression != null
+            && node.Member.Name == nameof(Nullable<int>.HasValue)
+            && IsNullableValueType(node.Member.DeclaringType))
+        {
+            CompiledExpression nullableInner = (CompiledExpression)Visit(node.Expression);
+            return new CompiledExpression(node.Type, ctx => nullableInner.Call(ctx) != null);
+        }
+
         CompiledExpression innerExpression = (CompiledExpression)Visit(node.Expression!);
 
         return new CompiledExpression(node.Type, context =>
@@ -368,12 +376,29 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Methods should be preserved")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Method should be preserved")]
+    [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "The nullable underlying type is a value type with a default constructor.")]
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         CompiledExpression? instance = Visit(node.Object) as CompiledExpression;
         CompiledExpression[] arguments = node.Arguments
             .Select(arg => (CompiledExpression)Visit(arg))
             .ToArray();
+
+        if (instance != null && IsNullableValueType(node.Object!.Type))
+        {
+            Type underlying = node.Object.Type.GetGenericArguments()[0];
+            bool isGetValueOrDefault = node.Method.Name == nameof(Nullable<int>.GetValueOrDefault);
+            return new CompiledExpression(node.Type, ctx =>
+            {
+                object? boxed = instance.Call(ctx);
+                if (isGetValueOrDefault)
+                {
+                    return boxed ?? (arguments.Length == 1 ? arguments[0].Call(ctx) : Activator.CreateInstance(underlying));
+                }
+
+                return boxed?.ToString() ?? string.Empty;
+            });
+        }
 
         return new CompiledExpression(node.Type, ctx =>
         {
@@ -807,6 +832,11 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return left >> right;
     }
 
+    private static bool IsNullableValueType(Type? type)
+    {
+        return type is { IsGenericType: true } && type.GetGenericTypeDefinition() == typeof(Nullable<>);
+    }
+
     private static object? ConvertOperand(object? value, Type targetType)
     {
         if (value == null)
@@ -815,6 +845,28 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         }
 
         Type underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        return underlying.IsInstanceOfType(value) ? value : Convert.ChangeType(value, underlying);
+        if (underlying.IsInstanceOfType(value))
+        {
+            return value;
+        }
+
+        if (value is double d && IsIntegerType(underlying))
+        {
+            value = Math.Truncate(d);
+        }
+
+        return Convert.ChangeType(value, underlying, CultureInfo.InvariantCulture);
+    }
+
+    private static bool IsIntegerType(Type type)
+    {
+        return type == typeof(int)
+            || type == typeof(uint)
+            || type == typeof(long)
+            || type == typeof(ulong)
+            || type == typeof(short)
+            || type == typeof(ushort)
+            || type == typeof(byte)
+            || type == typeof(sbyte);
     }
 }

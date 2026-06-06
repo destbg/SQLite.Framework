@@ -144,6 +144,10 @@ internal partial class SQLVisitor
             {
                 return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
             }
+            else if (TryGetNarrowingIntegerWrap(resolved.SQLiteExpression.Type, node.Type, out string? wrapBefore, out string? wrapAfter))
+            {
+                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), wrapBefore!, resolved.SQLiteExpression, wrapAfter!, resolved.SQLiteExpression.Parameters);
+            }
             else
             {
                 string sqliteType = TypeHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
@@ -251,4 +255,112 @@ internal partial class SQLVisitor
             .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
     }
 
+    private static bool TryGetNarrowingIntegerWrap(Type sourceType, Type targetType, out string? before, out string? after)
+    {
+        before = null;
+        after = null;
+
+        if (!IsWrappableNarrowingTarget(targetType)
+            || !TryGetIntegerInfo(sourceType, out int sourceBits, out bool sourceSigned)
+            || !TryGetIntegerInfo(targetType, out int targetBits, out bool targetSigned))
+        {
+            return false;
+        }
+
+        if (IsIntegerRangeSubset(sourceBits, sourceSigned, targetBits, targetSigned))
+        {
+            return false;
+        }
+
+        long mask = (1L << targetBits) - 1;
+        if (targetSigned)
+        {
+            long signBit = 1L << (targetBits - 1);
+            long modulus = 1L << targetBits;
+            before = "((((";
+            after = ") & " + mask + ") + " + signBit + ") % " + modulus + " - " + signBit + ")";
+        }
+        else
+        {
+            before = "((";
+            after = ") & " + mask + ")";
+        }
+
+        return true;
+    }
+
+    private static bool IsWrappableNarrowingTarget(Type target)
+    {
+        return target == typeof(sbyte)
+            || target == typeof(byte)
+            || target == typeof(short)
+            || target == typeof(ushort)
+            || target == typeof(int);
+    }
+
+    private static bool TryGetIntegerInfo(Type type, out int bits, out bool signed)
+    {
+        if (type == typeof(sbyte))
+        {
+            bits = 8;
+            signed = true;
+            return true;
+        }
+        if (type == typeof(byte))
+        {
+            bits = 8;
+            signed = false;
+            return true;
+        }
+        if (type == typeof(short))
+        {
+            bits = 16;
+            signed = true;
+            return true;
+        }
+        if (type == typeof(ushort))
+        {
+            bits = 16;
+            signed = false;
+            return true;
+        }
+        if (type == typeof(int))
+        {
+            bits = 32;
+            signed = true;
+            return true;
+        }
+        if (type == typeof(uint))
+        {
+            bits = 32;
+            signed = false;
+            return true;
+        }
+        if (type == typeof(long))
+        {
+            bits = 64;
+            signed = true;
+            return true;
+        }
+        if (type == typeof(ulong))
+        {
+            bits = 64;
+            signed = false;
+            return true;
+        }
+
+        bits = 0;
+        signed = false;
+        return false;
+    }
+
+    private static bool IsIntegerRangeSubset(int sourceBits, bool sourceSigned, int targetBits, bool targetSigned)
+    {
+        if (targetSigned)
+        {
+            return sourceSigned ? sourceBits <= targetBits : sourceBits <= targetBits - 1;
+        }
+
+        return !sourceSigned && sourceBits <= targetBits;
+    }
 }

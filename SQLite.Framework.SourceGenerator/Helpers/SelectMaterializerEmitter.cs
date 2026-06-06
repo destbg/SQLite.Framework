@@ -120,7 +120,18 @@ public static class SelectMaterializerEmitter
                 typeOfText = "typeof(" + FormatType(StripNullableSymbol(leaf.Type), writerCtx.TypeArgSubstitutions) + ")";
             }
 
-            if (leaf.IsNullable || leaf.IsReflected)
+            if (!leaf.IsReflected
+                && IsNullableValueType(leaf.Type)
+                && TryGetFastPathAccessor(leaf.Type, out string? vnAccessor, out string? vnCast, out bool vnHandlesNull)
+                && !vnHandlesNull)
+            {
+                string nullableTypeText = FormatType(leaf.Type, writerCtx.TypeArgSubstitutions);
+                string vnCastOpen = vnCast is null ? "" : "(" + vnCast + ")";
+                sb.Append("            ").Append(nullableTypeText).Append(' ').Append(leaf.VarName)
+                    .Append(" = reader.IsDBNull(").Append(i).Append(") ? (").Append(nullableTypeText).Append(")null : ")
+                    .Append(vnCastOpen).Append("reader.").Append(vnAccessor).Append("(").Append(i).AppendLine(");");
+            }
+            else if (leaf.IsNullable || leaf.IsReflected)
             {
                 if (TryGetFastPathAccessor(leaf.Type, out string? nAccessor, out string? nCast, out bool nHandlesNull))
                 {
@@ -293,6 +304,16 @@ public static class SelectMaterializerEmitter
     {
         ITypeSymbol? mapped = SelectSignatureWriter.Substitute(symbol, substitutions);
         return (mapped ?? symbol).ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+    }
+
+    /// <summary>
+    /// Tells whether a type is a nullable value type such as <c>int?</c>.
+    /// </summary>
+    public static bool IsNullableValueType(ITypeSymbol type)
+    {
+        return type is INamedTypeSymbol named
+            && named.IsGenericType
+            && named.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T;
     }
 
     /// <summary>

@@ -186,9 +186,30 @@ public static class EntityMaterializerEmitter
     {
         strategy = EmitStrategy.Direct;
 
-        if (entity.IsAbstract || entity.IsStatic || entity.TypeKind != TypeKind.Class)
+        if (entity.IsAbstract || entity.IsStatic
+            || (entity.TypeKind != TypeKind.Class && entity.TypeKind != TypeKind.Struct))
         {
             return false;
+        }
+
+        if (entity.IsValueType)
+        {
+            IMethodSymbol? structPositional = TryFindPositionalConstructor(entity);
+            if (structPositional == null || !IsReachableFromGeneratedCode(entity))
+            {
+                return false;
+            }
+
+            foreach (IParameterSymbol parameter in structPositional.Parameters)
+            {
+                if (!IsEmittablePropertyType(parameter.Type) || !IsReachableFromGeneratedCode(parameter.Type))
+                {
+                    return false;
+                }
+            }
+
+            strategy = EmitStrategy.Positional;
+            return true;
         }
 
         if (entity.IsAnonymousType)
@@ -289,7 +310,7 @@ public static class EntityMaterializerEmitter
         }
 
         IMethodSymbol ctor = publicCtors[0];
-        HashSet<string> propertyNames = new(StringComparer.Ordinal);
+        HashSet<string> propertyNames = new(StringComparer.OrdinalIgnoreCase);
         foreach (IPropertySymbol p in entity.GetMembers().OfType<IPropertySymbol>())
         {
             if (p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic && !p.IsIndexer)

@@ -1213,15 +1213,21 @@ public static class SelectSignatureWriter
 
     private static void AppendConstant(StringBuilder sb, ExpressionSyntax node, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        sb.Append("(Constant ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
-
         ITypeSymbol? underlying = type is INamedTypeSymbol nullable && nullable.IsGenericType
             && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
             ? nullable.TypeArguments[0]
             : type;
 
         object? value = GetConstantValue(node, underlying, ctx);
-        if (value != null && underlying is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+
+        if (value == null)
+        {
+            sb.Append("(Constant null null)");
+            return;
+        }
+
+        sb.Append("(Constant ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
+        if (underlying is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
             && FormatEnumConstant(enumType, value) is { } enumName)
         {
             sb.Append(enumName);

@@ -5,6 +5,7 @@ internal partial class QueryableVisitor
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "All types should have public properties.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The array element type comes from the user projection.")]
     private Expression VisitSelect(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
@@ -58,7 +59,7 @@ internal partial class QueryableVisitor
 
         Selects.Clear();
 
-        if (visitor.TableColumns.All(f => f.Value is SQLiteExpression))
+        if (visitor.TableColumns.All(f => f.Value is SQLiteExpression) && lambda.Body is not NewArrayExpression)
         {
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
@@ -127,7 +128,9 @@ internal partial class QueryableVisitor
         }
 
         visitor.ClientEvalUsed = false;
-        Expression normalSelect = visitor.Visit(lambda.Body);
+        Expression normalSelect = lambda.Body is NewArrayExpression arrayBody
+            ? Expression.NewArrayInit(arrayBody.Type.GetElementType()!, arrayBody.Expressions.Select(e => visitor.Visit(e)!).ToList())
+            : visitor.Visit(lambda.Body);
         Expression selectExpression = visitor.ClientEvalUsed
             ? visitor.ToClientExpression(lambda.Body)
             : normalSelect;

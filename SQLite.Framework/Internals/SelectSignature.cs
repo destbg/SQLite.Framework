@@ -29,6 +29,12 @@ internal static class SelectSignature
             return;
         }
 
+        if (expression is ConstantExpression { Value: null })
+        {
+            sb.Append("(Constant null null)");
+            return;
+        }
+
         sb.Append('(').Append(expression.NodeType).Append(' ').Append(FormatType(expression.Type));
         switch (expression)
         {
@@ -106,7 +112,7 @@ internal static class SelectSignature
                 sb.Append(' ').Append(FormatType(pe.Type));
                 break;
             case ConstantExpression constant:
-                sb.Append(' ').Append(FormatConstant(constant.Value));
+                sb.Append(' ').Append(FormatConstant(constant.Value!));
                 break;
             case NewArrayExpression nae:
                 foreach (Expression arg in nae.Expressions)
@@ -211,11 +217,10 @@ internal static class SelectSignature
             || type.Name.StartsWith("<>h__TransparentIdentifier", StringComparison.Ordinal);
     }
 
-    private static string? FormatConstant(object? value)
+    private static string? FormatConstant(object value)
     {
         return value switch
         {
-            null => "null",
             string s => "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"",
             IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
             _ => value.ToString()
