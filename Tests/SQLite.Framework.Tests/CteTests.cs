@@ -807,7 +807,7 @@ public class CteTests
         SQLiteCte<Book> cte = db.With(() => db.Table<Book>());
         SQLiteCommand command = (from b in cte select b).ToSqlCommand();
 
-        Assert.DoesNotContain("MATERIALIZED", command.CommandText);
+        Assert.Equal("WITH cte0 AS (\n    SELECT b1.\"BookId\" AS \"Id\",\n       b1.\"BookTitle\" AS \"Title\",\n       b1.\"BookAuthorId\" AS \"AuthorId\",\n       b1.\"BookPrice\" AS \"Price\"\n    FROM \"Books\" AS b1\n)\nSELECT b0.\"Id\" AS \"Id\",\n       b0.\"Title\" AS \"Title\",\n       b0.\"AuthorId\" AS \"AuthorId\",\n       b0.\"Price\" AS \"Price\"\nFROM cte0 AS b0", command.CommandText);
     }
 
     [Fact]
@@ -833,7 +833,7 @@ public class CteTests
                      FROM cte0 AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
-        Assert.DoesNotContain("NOT MATERIALIZED", command.CommandText);
+        Assert.Equal("WITH cte0 AS MATERIALIZED (\n    SELECT b1.\"BookId\" AS \"Id\",\n       b1.\"BookTitle\" AS \"Title\",\n       b1.\"BookAuthorId\" AS \"AuthorId\",\n       b1.\"BookPrice\" AS \"Price\"\n    FROM \"Books\" AS b1\n)\nSELECT b0.\"Id\" AS \"Id\",\n       b0.\"Title\" AS \"Title\",\n       b0.\"AuthorId\" AS \"AuthorId\",\n       b0.\"Price\" AS \"Price\"\nFROM cte0 AS b0", command.CommandText);
     }
 
     [Fact]

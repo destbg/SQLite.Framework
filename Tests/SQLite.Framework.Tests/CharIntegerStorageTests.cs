@@ -42,7 +42,7 @@ public class CharIntegerStorageTests
         string sql = db.ExecuteScalar<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'CharIntRows'")!;
 
-        Assert.Contains("\"Value\" INTEGER", sql);
+        Assert.Equal("CREATE TABLE \"CharIntRows\" (\"Id\" INTEGER PRIMARY KEY, \"Value\" INTEGER NOT NULL, \"Nullable\" INTEGER NULL)", sql);
     }
 
     [Theory]
@@ -131,7 +131,7 @@ public class CharIntegerStorageTests
         string sql = db.ExecuteScalar<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'CharIntRows'")!;
 
-        Assert.Contains("DEFAULT 65", sql);
+        Assert.Equal("CREATE TABLE \"CharIntRows\" (\"Id\" INTEGER PRIMARY KEY, \"Value\" INTEGER NOT NULL DEFAULT 65, \"Nullable\" INTEGER NULL)", sql);
     }
 
     [Fact]

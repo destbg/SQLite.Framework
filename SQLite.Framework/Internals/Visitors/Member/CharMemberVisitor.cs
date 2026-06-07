@@ -33,19 +33,17 @@ internal static class CharMemberVisitor
                 case nameof(char.IsWhiteSpace):
                     return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TRIM(", a0t, $", {Constants.WhitespaceChars}) = ''", parameters);
                 case nameof(char.IsAsciiDigit):
-                    return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(", a0t, " >= '0' AND ", a0t, " <= '9')", parameters);
+                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "(", a0t, " BETWEEN '0' AND '9')", parameters);
                 case nameof(char.IsAsciiLetter):
-                    return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
-                        ["((", " >= 'a' AND ", " <= 'z') OR (", " >= 'A' AND ", " <= 'Z'))"],
-                        [a0t, a0t, a0t, a0t], parameters);
+                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "(LOWER(", a0t, ") BETWEEN 'a' AND 'z')", parameters);
                 case nameof(char.IsAsciiLetterOrDigit):
                     return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
-                        ["((", " >= '0' AND ", " <= '9') OR (", " >= 'a' AND ", " <= 'z') OR (", " >= 'A' AND ", " <= 'Z'))"],
-                        [a0t, a0t, a0t, a0t, a0t, a0t], parameters);
+                        ["((", " BETWEEN '0' AND '9') OR (LOWER(", ") BETWEEN 'a' AND 'z'))"],
+                        [a0t, a0t], parameters);
                 case nameof(char.IsAsciiLetterLower):
-                    return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(", a0t, " >= 'a' AND ", a0t, " <= 'z')", parameters);
+                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "(", a0t, " BETWEEN 'a' AND 'z')", parameters);
                 case nameof(char.IsAsciiLetterUpper):
-                    return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(", a0t, " >= 'A' AND ", a0t, " <= 'Z')", parameters);
+                    return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "(", a0t, " BETWEEN 'A' AND 'Z')", parameters);
             }
         }
 

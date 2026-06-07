@@ -62,7 +62,7 @@ public class SchemaDeclarationTests
         using ModelTestDatabase db = new(model => model.Entity<CompKeyEntity>().HasKey(e => new { e.Code, e.Id }));
         db.Schema.CreateTable<CompKeyEntity>();
 
-        Assert.Contains("PRIMARY KEY (\"Code\", \"Id\")", TableSql(db, "CompKey"));
+        Assert.Equal("CREATE TABLE \"CompKey\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NOT NULL, PRIMARY KEY (\"Code\", \"Id\"))", TableSql(db, "CompKey"));
     }
 
     [Fact]

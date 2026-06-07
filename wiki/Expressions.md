@@ -1,6 +1,6 @@
 # Expressions
 
-LINQ expressions inside `Where`, `Select`, and other methods are translated directly to SQL. The framework stays close to the shape of the LINQ query and does not wrap the result in an extra subquery just to make a method work. When a method does not have a clean SQL equivalent, you get a clear `NotSupportedException` rather than a hidden rewrite. When SQLite has no built-in for a method but the same shape can be expressed inline (often as a `CASE WHEN ...` block), the framework uses that. This page covers what is supported beyond basic comparisons.
+LINQ expressions inside `Where`, `Select`, and other methods are translated directly to SQL. The framework stays close to the shape of the LINQ query and does not rewrite the query just to make a method work.
 
 ## Arithmetic
 
@@ -47,9 +47,9 @@ A few arithmetic and comparison cases have SQLite-specific behavior, such as div
 | `Math.Log10(x)` | `LOG10(x)` |
 | `Math.Log2(x)` | `LOG2(x)` |
 | `Math.Sign(x)` | `CASE WHEN x > 0 THEN 1 WHEN x < 0 THEN -1 ELSE 0 END` |
-| `Math.Max(x, y)` | `CASE WHEN x > y THEN x ELSE y END` |
-| `Math.Min(x, y)` | `CASE WHEN x < y THEN x ELSE y END` |
-| `Math.Clamp(x, min, max)` | `CASE WHEN x < min THEN min WHEN x > max THEN max ELSE x END` |
+| `Math.Max(x, y)` | `MAX(x, y)` |
+| `Math.Min(x, y)` | `MIN(x, y)` |
+| `Math.Clamp(x, min, max)` | `MAX(min, MIN(x, max))` |
 | `Math.Sin(x)` | `SIN(x)` |
 | `Math.Cos(x)` | `COS(x)` |
 | `Math.Tan(x)` | `TAN(x)` |
@@ -108,8 +108,8 @@ var rounded = await db.Table<Book>()
 | `string.Compare(a, b)` | `CASE WHEN a = b THEN 0 WHEN a < b THEN -1 ELSE 1 END` |
 | `string.Compare(a, indexA, b, indexB, length)` | the same `Compare`, run over `SUBSTR(a, indexA + 1, length)` and `SUBSTR(b, indexB + 1, length)` |
 | `s.CompareTo(other)` | `CASE WHEN s = other THEN 0 WHEN s < other THEN -1 ELSE 1 END` |
-| `string.IsNullOrEmpty(s)` | `(s IS NULL OR s = '')` |
-| `string.IsNullOrWhiteSpace(s)` | `(s IS NULL OR TRIM(s, CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = '')` |
+| `string.IsNullOrEmpty(s)` | `(COALESCE(s, '') = '')` |
+| `string.IsNullOrWhiteSpace(s)` | `(TRIM(COALESCE(s, ''), CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = '')` |
 
 In `+`, `string.Concat`, and `string.Join`, a nullable string column is wrapped in `COALESCE(col, '')`, so a `NULL` value becomes an empty string. This matches .NET, where `string.Concat` and `string.Join` treat a `null` argument as empty.
 
@@ -140,11 +140,11 @@ var results = await db.Table<Book>()
 | `char.ToLower(c)` | `LOWER(c)` |
 | `char.ToUpper(c)` | `UPPER(c)` |
 | `char.IsWhiteSpace(c)` | `TRIM(c, CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = ''` |
-| `char.IsAsciiDigit(c)` | `c >= '0' AND c <= '9'` |
-| `char.IsAsciiLetter(c)` | `(c >= 'a' AND c <= 'z') OR (c >= 'A' AND c <= 'Z')` |
-| `char.IsAsciiLetterOrDigit(c)` | `(c >= '0' AND c <= '9') OR (c >= 'a' AND c <= 'z') OR (c >= 'A' AND c <= 'Z')` |
-| `char.IsAsciiLetterLower(c)` | `c >= 'a' AND c <= 'z'` |
-| `char.IsAsciiLetterUpper(c)` | `c >= 'A' AND c <= 'Z'` |
+| `char.IsAsciiDigit(c)` | `c BETWEEN '0' AND '9'` |
+| `char.IsAsciiLetter(c)` | `LOWER(c) BETWEEN 'a' AND 'z'` |
+| `char.IsAsciiLetterOrDigit(c)` | `(c BETWEEN '0' AND '9') OR (LOWER(c) BETWEEN 'a' AND 'z')` |
+| `char.IsAsciiLetterLower(c)` | `c BETWEEN 'a' AND 'z'` |
+| `char.IsAsciiLetterUpper(c)` | `c BETWEEN 'A' AND 'Z'` |
 
 ## DateTime Properties
 

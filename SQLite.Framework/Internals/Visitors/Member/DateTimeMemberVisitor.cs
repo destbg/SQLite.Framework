@@ -388,11 +388,10 @@ internal static class DateTimeMemberVisitor
         }
 
         SQLiteExpression arg = arguments[0].SQLiteExpression!;
-        return SQLiteExpression.Multi(
+        return SQLiteExpression.Binary(
             method.ReturnType,
             visitor.Counters.NextIdentifier(),
-            ["(", " + CAST((", $") * {parameter.Name} + (CASE WHEN (", ") >= 0 THEN 0.5 ELSE -0.5 END) AS INTEGER))"],
-            [obj, arg, arg],
+            "(", obj, " + CAST((", arg, $") * {parameter.Name} AS INTEGER))",
             combinedParameters
         );
     }

@@ -120,7 +120,7 @@ public class FullTextSearchTests
                      ORDER BY s0."rank" ASC
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
-        Assert.DoesNotContain("bm25(", N(command.CommandText));
+        Assert.Equal("SELECT s0.\"rowid\" AS \"Id\",\n       s0.\"Body\" AS \"Body\"\nFROM \"SimpleSearchEntity\" AS s0\nWHERE \"SimpleSearchEntity\" MATCH @p0\nORDER BY s0.\"rank\" ASC", N(command.CommandText));
     }
 
     [Fact]

@@ -303,7 +303,7 @@ public class WhereBuilderTests
                      WHERE CAST(b0."BookAuthorId" AS INTEGER) = @p0 OR CAST(b0."BookPrice" AS REAL) = @p1
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
-        Assert.DoesNotContain(" AND ", cmd.CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Book.Id\",\n       b0.\"BookTitle\" AS \"Book.Title\",\n       b0.\"BookAuthorId\" AS \"Book.AuthorId\",\n       b0.\"BookPrice\" AS \"Book.Price\",\n       a1.\"AuthorId\" AS \"Author.Id\",\n       a1.\"AuthorName\" AS \"Author.Name\",\n       a1.\"AuthorEmail\" AS \"Author.Email\",\n       a1.\"AuthorBirthDate\" AS \"Author.BirthDate\"\nFROM \"Books\" AS b0\nJOIN \"Authors\" AS a1 ON b0.\"BookAuthorId\" = a1.\"AuthorId\"\nWHERE CAST(b0.\"BookAuthorId\" AS INTEGER) = @p0 OR CAST(b0.\"BookPrice\" AS REAL) = @p1", cmd.CommandText);
 
         List<int> ids = query.OrderBy(x => x.Book.Id).Select(x => x.Book.Id).ToList();
         Assert.Equal([1, 2, 3], ids);
@@ -340,8 +340,8 @@ public class WhereBuilderTests
                      WHERE CAST(b0."BookAuthorId" AS INTEGER) = @p0
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
-        Assert.DoesNotContain(" OR ", cmd.CommandText);
-        Assert.DoesNotContain(" AND ", cmd.CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Book.Id\",\n       b0.\"BookTitle\" AS \"Book.Title\",\n       b0.\"BookAuthorId\" AS \"Book.AuthorId\",\n       b0.\"BookPrice\" AS \"Book.Price\",\n       a1.\"AuthorId\" AS \"Author.Id\",\n       a1.\"AuthorName\" AS \"Author.Name\",\n       a1.\"AuthorEmail\" AS \"Author.Email\",\n       a1.\"AuthorBirthDate\" AS \"Author.BirthDate\"\nFROM \"Books\" AS b0\nJOIN \"Authors\" AS a1 ON b0.\"BookAuthorId\" = a1.\"AuthorId\"\nWHERE CAST(b0.\"BookAuthorId\" AS INTEGER) = @p0", cmd.CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Book.Id\",\n       b0.\"BookTitle\" AS \"Book.Title\",\n       b0.\"BookAuthorId\" AS \"Book.AuthorId\",\n       b0.\"BookPrice\" AS \"Book.Price\",\n       a1.\"AuthorId\" AS \"Author.Id\",\n       a1.\"AuthorName\" AS \"Author.Name\",\n       a1.\"AuthorEmail\" AS \"Author.Email\",\n       a1.\"AuthorBirthDate\" AS \"Author.BirthDate\"\nFROM \"Books\" AS b0\nJOIN \"Authors\" AS a1 ON b0.\"BookAuthorId\" = a1.\"AuthorId\"\nWHERE CAST(b0.\"BookAuthorId\" AS INTEGER) = @p0", cmd.CommandText);
 
         List<int> ids = query.OrderBy(x => x.Book.Id).Select(x => x.Book.Id).ToList();
         Assert.Equal([1, 2], ids);
@@ -364,7 +364,7 @@ public class WhereBuilderTests
             });
 
         SQLiteCommand cmd = query.ToSqlCommand();
-        Assert.DoesNotContain("WHERE", cmd.CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Book.Id\",\n       b0.\"BookTitle\" AS \"Book.Title\",\n       b0.\"BookAuthorId\" AS \"Book.AuthorId\",\n       b0.\"BookPrice\" AS \"Book.Price\",\n       a1.\"AuthorId\" AS \"Author.Id\",\n       a1.\"AuthorName\" AS \"Author.Name\",\n       a1.\"AuthorEmail\" AS \"Author.Email\",\n       a1.\"AuthorBirthDate\" AS \"Author.BirthDate\"\nFROM \"Books\" AS b0\nJOIN \"Authors\" AS a1 ON b0.\"BookAuthorId\" = a1.\"AuthorId\"", cmd.CommandText);
 
         List<int> ids = query.OrderBy(x => x.Book.Id).Select(x => x.Book.Id).ToList();
         Assert.Equal([1, 2, 3, 4], ids);
@@ -399,7 +399,7 @@ public class WhereBuilderTests
                      WHERE CAST(b0."BookAuthorId" AS INTEGER) = @p0 AND CAST(b0."BookPrice" AS REAL) = @p1
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
-        Assert.DoesNotContain(" OR ", cmd.CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Book.Id\",\n       b0.\"BookTitle\" AS \"Book.Title\",\n       b0.\"BookAuthorId\" AS \"Book.AuthorId\",\n       b0.\"BookPrice\" AS \"Book.Price\",\n       a1.\"AuthorId\" AS \"Author.Id\",\n       a1.\"AuthorName\" AS \"Author.Name\",\n       a1.\"AuthorEmail\" AS \"Author.Email\",\n       a1.\"AuthorBirthDate\" AS \"Author.BirthDate\"\nFROM \"Books\" AS b0\nJOIN \"Authors\" AS a1 ON b0.\"BookAuthorId\" = a1.\"AuthorId\"\nWHERE CAST(b0.\"BookAuthorId\" AS INTEGER) = @p0 AND CAST(b0.\"BookPrice\" AS REAL) = @p1", cmd.CommandText);
 
         List<int> ids = query.OrderBy(x => x.Book.Id).Select(x => x.Book.Id).ToList();
         Assert.Equal([2], ids);
@@ -434,7 +434,7 @@ public class WhereBuilderTests
                      WHERE CAST(b0."BookPrice" AS REAL) = @p0
                      """.Replace("\r\n", "\n"),
             cmd.CommandText.Replace("\r\n", "\n"));
-        Assert.DoesNotContain(" AND ", cmd.CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Book.Id\",\n       b0.\"BookTitle\" AS \"Book.Title\",\n       b0.\"BookAuthorId\" AS \"Book.AuthorId\",\n       b0.\"BookPrice\" AS \"Book.Price\",\n       a1.\"AuthorId\" AS \"Author.Id\",\n       a1.\"AuthorName\" AS \"Author.Name\",\n       a1.\"AuthorEmail\" AS \"Author.Email\",\n       a1.\"AuthorBirthDate\" AS \"Author.BirthDate\"\nFROM \"Books\" AS b0\nJOIN \"Authors\" AS a1 ON b0.\"BookAuthorId\" = a1.\"AuthorId\"\nWHERE CAST(b0.\"BookPrice\" AS REAL) = @p0", cmd.CommandText);
 
         List<int> ids = query.OrderBy(x => x.Book.Id).Select(x => x.Book.Id).ToList();
         Assert.Equal([3], ids);

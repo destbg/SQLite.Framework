@@ -62,9 +62,9 @@ internal static class JsonMethodTranslator
                 nameof(Enumerable.Count) => $"json_array_length({src})",
                 nameof(Enumerable.First) or nameof(Enumerable.FirstOrDefault) => $"json_extract({src}, '$[0]')",
                 nameof(Enumerable.Last) or nameof(Enumerable.LastOrDefault) =>
-                    $"CASE WHEN json_array_length({src}) > 0 THEN json_extract({src}, '$[' || (json_array_length({src}) - 1) || ']') ELSE NULL END",
+                    $"(SELECT \"value\" FROM json_each({src}) ORDER BY \"key\" DESC LIMIT 1)",
                 nameof(Enumerable.Single) or nameof(Enumerable.SingleOrDefault) =>
-                    $"CASE WHEN json_array_length({src}) = 1 THEN json_extract({src}, '$[0]') ELSE NULL END",
+                    $"(SELECT CASE WHEN COUNT(*) = 1 THEN MAX(\"value\") END FROM json_each({src}))",
                 nameof(Enumerable.Min) => $"(SELECT MIN(\"value\") FROM json_each({src}))",
                 nameof(Enumerable.Max) => $"(SELECT MAX(\"value\") FROM json_each({src}))",
                 nameof(Enumerable.Sum) => $"(SELECT COALESCE(SUM(\"value\"), 0) FROM json_each({src}))",

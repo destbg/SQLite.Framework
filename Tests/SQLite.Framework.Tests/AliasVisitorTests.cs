@@ -1,0 +1,59 @@
+using SQLite.Framework.Extensions;
+using SQLite.Framework.Tests.Entities;
+using SQLite.Framework.Tests.Helpers;
+
+namespace SQLite.Framework.Tests;
+
+public class AliasVisitorTests
+{
+    [Fact]
+    public void GroupBy_ComplexKey_ProjectKeyIntoAnonymous_EmitsKeyColumns()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand command = db.Table<Book>()
+            .GroupBy(b => new { b.AuthorId, b.Title })
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToSqlCommand();
+
+        Assert.Equal("""
+                     SELECT b0."BookAuthorId" AS "Key.AuthorId",
+                            b0."BookTitle" AS "Key.Title",
+                            COUNT(*) AS "Count"
+                     FROM "Books" AS b0
+                     GROUP BY b0."BookAuthorId", b0."BookTitle"
+                     """.Replace("\r\n", "\n"),
+            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookAuthorId\" AS \"Key.AuthorId\",\n       b0.\"BookTitle\" AS \"Key.Title\",\n       COUNT(*) AS \"Count\"\nFROM \"Books\" AS b0\nGROUP BY b0.\"BookAuthorId\", b0.\"BookTitle\"", command.CommandText);
+        Assert.Equal("SELECT b0.\"BookAuthorId\" AS \"Key.AuthorId\",\n       b0.\"BookTitle\" AS \"Key.Title\",\n       COUNT(*) AS \"Count\"\nFROM \"Books\" AS b0\nGROUP BY b0.\"BookAuthorId\", b0.\"BookTitle\"", command.CommandText);
+        Assert.Equal("SELECT b0.\"BookAuthorId\" AS \"Key.AuthorId\",\n       b0.\"BookTitle\" AS \"Key.Title\",\n       COUNT(*) AS \"Count\"\nFROM \"Books\" AS b0\nGROUP BY b0.\"BookAuthorId\", b0.\"BookTitle\"", command.CommandText);
+    }
+
+    [Fact]
+    public void GroupBy_ComplexKey_ProjectKeyIntoAnonymous_MaterializesEachComponent()
+    {
+        using TestDatabase db = new();
+        db.Schema.CreateTable<Book>();
+
+        db.Table<Book>().AddRange(new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1.0 },
+            new Book { Id = 2, Title = "A", AuthorId = 1, Price = 2.0 },
+            new Book { Id = 3, Title = "B", AuthorId = 2, Price = 3.0 },
+        });
+
+        var rows = db.Table<Book>()
+            .GroupBy(b => new { b.AuthorId, b.Title })
+            .Select(g => new { g.Key, Count = g.Count() })
+            .OrderBy(r => r.Key.Title)
+            .ToList();
+
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(1, rows[0].Key.AuthorId);
+        Assert.Equal("A", rows[0].Key.Title);
+        Assert.Equal(2, rows[0].Count);
+        Assert.Equal(2, rows[1].Key.AuthorId);
+        Assert.Equal("B", rows[1].Key.Title);
+        Assert.Equal(1, rows[1].Count);
+    }
+}

@@ -111,9 +111,7 @@ public class OtherTests
             .ThenByDescending(b => b.AuthorId, SQLiteNullsOrder.First)
             .ToSqlCommand();
 
-        Assert.Contains(
-            "ORDER BY b0.\"BookTitle\" ASC NULLS LAST, b0.\"BookAuthorId\" DESC NULLS FIRST",
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nORDER BY b0.\"BookTitle\" ASC NULLS LAST, b0.\"BookAuthorId\" DESC NULLS FIRST", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -126,9 +124,7 @@ public class OtherTests
             .ThenBy(b => b.AuthorId, SQLiteNullsOrder.Last)
             .ToSqlCommand();
 
-        Assert.Contains(
-            "ORDER BY b0.\"BookTitle\" DESC NULLS FIRST, b0.\"BookAuthorId\" ASC NULLS LAST",
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nORDER BY b0.\"BookTitle\" DESC NULLS FIRST, b0.\"BookAuthorId\" ASC NULLS LAST", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -140,8 +136,8 @@ public class OtherTests
             .OrderBy(b => b.Title, SQLiteNullsOrder.Default)
             .ToSqlCommand();
 
-        Assert.Contains("ORDER BY b0.\"BookTitle\" ASC", command.CommandText.Replace("\r\n", "\n"));
-        Assert.DoesNotContain("NULLS", command.CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nORDER BY b0.\"BookTitle\" ASC", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nORDER BY b0.\"BookTitle\" ASC", command.CommandText);
     }
 
     [Fact]

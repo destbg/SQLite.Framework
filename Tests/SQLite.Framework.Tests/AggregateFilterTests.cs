@@ -202,7 +202,7 @@ public class AggregateFilterTests
 
         Assert.Single(command.Parameters);
         Assert.Equal(10.0, command.Parameters[0].Value);
-        Assert.Contains("COUNT(*) FILTER (WHERE", command.CommandText);
+        Assert.Equal("SELECT COUNT(*) FILTER (WHERE b0.\"BookPrice\" >= @p0) AS \"7\"\nFROM \"Books\" AS b0\nGROUP BY b0.\"BookAuthorId\"", command.CommandText);
     }
 
     [Fact]
@@ -555,7 +555,7 @@ public class AggregateFilterTests
             select g.Sum(x => x.Price)
         ).ToSqlCommand();
 
-        Assert.DoesNotContain("FILTER", command.CommandText);
+        Assert.Equal("SELECT COALESCE(SUM(b0.\"BookPrice\"), 0) AS \"5\"\nFROM \"Books\" AS b0\nGROUP BY b0.\"BookAuthorId\"", command.CommandText);
     }
 #endif
 }

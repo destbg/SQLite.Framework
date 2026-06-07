@@ -158,7 +158,7 @@ public class LeftJoinEntityNullCheckTests
             select r != null;
         string sql = query.ToSqlCommand().CommandText;
 
-        Assert.Contains("\"Marker\" IS NOT NULL", sql);
-        Assert.DoesNotContain("\"X\" IS NOT NULL", sql);
+        Assert.Equal("SELECT n1.\"Marker\" IS NOT NULL AS \"8\"\nFROM \"NjLeftRow\" AS n0\nLEFT JOIN \"NjRightRow\" AS n1 ON n0.\"Fk\" = n1.\"Fk\"", sql);
+        Assert.Equal("SELECT n1.\"Marker\" IS NOT NULL AS \"8\"\nFROM \"NjLeftRow\" AS n0\nLEFT JOIN \"NjRightRow\" AS n1 ON n0.\"Fk\" = n1.\"Fk\"", sql);
     }
 }

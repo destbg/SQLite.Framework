@@ -60,7 +60,7 @@ public class MigrateTests
         Assert.Equal(3, rows.Count);
         Assert.Equal(["a", "b", "c"], rows.Select(r => r.Name));
         Assert.All(rows, r => Assert.Null(r.Extra));
-        Assert.Contains("Extra", TableSql(db, "MigSimple"));
+        Assert.Equal("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER NULL)", TableSql(db, "MigSimple"));
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class MigrateTests
 
         db.Schema.Table<MigSimple>().Migrate();
 
-        Assert.Contains("\"Extra\" INTEGER", TableSql(db, "MigSimple"));
+        Assert.Equal("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER NULL)", TableSql(db, "MigSimple"));
         Assert.Equal(5, db.Table<MigSimple>().Single().Extra);
     }
 
@@ -85,7 +85,7 @@ public class MigrateTests
 
         db.Schema.Table<MigSimple>().Migrate();
 
-        Assert.DoesNotContain("\"Old\"", TableSql(db, "MigSimple"));
+        Assert.Equal("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER NULL)", TableSql(db, "MigSimple"));
         MigSimple row = db.Table<MigSimple>().Single();
         Assert.Equal("a", row.Name);
         Assert.Equal(5, row.Extra);
@@ -99,7 +99,7 @@ public class MigrateTests
 
         db.Table<MigComputed>().Schema.Migrate();
 
-        Assert.Contains("GENERATED ALWAYS AS", TableSql(db, "MigComputed"));
+        Assert.Equal("CREATE TABLE \"MigComputed\" (\"Id\" INTEGER PRIMARY KEY, \"Price\" REAL NOT NULL, \"Quantity\" INTEGER NOT NULL, \"Total\" REAL GENERATED ALWAYS AS ((\"Price\" * CAST(\"Quantity\" AS REAL))) VIRTUAL)", TableSql(db, "MigComputed"));
         db.Execute("INSERT INTO \"MigComputed\" (\"Id\", \"Price\", \"Quantity\") VALUES (1, 2, 3)");
         Assert.Equal(6, db.Table<MigComputed>().Single().Total);
     }
@@ -116,7 +116,7 @@ public class MigrateTests
 
         db.Table<MigSimple>().Schema.Migrate();
 
-        Assert.Contains("CHECK", TableSql(db, "MigSimple"));
+        Assert.Equal("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER NULL, CONSTRAINT \"CK_MigSimple_Extra\" CHECK (\"Extra\" IS NULL OR COALESCE(\"Extra\" >= 0, 0)))", TableSql(db, "MigSimple"));
         Assert.Throws<SQLiteException>(() =>
             db.Table<MigSimple>().Add(new MigSimple { Id = 1, Name = "a", Extra = -5 }));
     }
@@ -129,7 +129,7 @@ public class MigrateTests
 
         db.Table<MigSimple>().Schema.Migrate();
 
-        Assert.Contains("STRICT", TableSql(db, "MigSimple"));
+        Assert.Equal("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER NULL) STRICT", TableSql(db, "MigSimple"));
     }
 
     [Fact]
@@ -140,7 +140,7 @@ public class MigrateTests
 
         db.Table<MigSimple>().Schema.Migrate();
 
-        Assert.Contains("DEFAULT", TableSql(db, "MigSimple"));
+        Assert.Equal("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER NULL DEFAULT 7)", TableSql(db, "MigSimple"));
         db.Execute("INSERT INTO \"MigSimple\" (\"Id\", \"Name\") VALUES (1, 'a')");
         Assert.Equal(7, db.Table<MigSimple>().Single().Extra);
     }
@@ -154,8 +154,8 @@ public class MigrateTests
 
         db.Table<MigIndexed>().Schema.Migrate();
 
-        Assert.Contains("\"Age\"", IndexSql(db, "IX_Mig"));
-        Assert.DoesNotContain("\"Name\"", IndexSql(db, "IX_Mig"));
+        Assert.Equal("CREATE INDEX \"IX_Mig\" ON \"MigIndexed\" (\"Age\")", IndexSql(db, "IX_Mig"));
+        Assert.Equal("CREATE INDEX \"IX_Mig\" ON \"MigIndexed\" (\"Age\")", IndexSql(db, "IX_Mig"));
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public class MigrateTests
         db.Schema.Table<MigChild>().Migrate();
 
         Assert.Equal(1, db.Table<MigChild>().Single().ParentId);
-        Assert.Contains("REFERENCES \"MigParent\"", TableSql(db, "MigChild"));
+        Assert.Equal("CREATE TABLE \"MigChild\" (\"Id\" INTEGER PRIMARY KEY, \"ParentId\" INTEGER NOT NULL REFERENCES \"MigParent\"(\"Id\"))", TableSql(db, "MigChild"));
         Assert.Throws<SQLiteException>(() => db.Table<MigChild>().Add(new MigChild { Id = 2, ParentId = 999 }));
     }
 
@@ -230,7 +230,7 @@ public class MigrateTests
 
         db.Table<MigWor>().Schema.Migrate();
 
-        Assert.Contains("WITHOUT ROWID", TableSql(db, "MigWor"));
+        Assert.Equal("CREATE TABLE \"MigWor\" (\"Key\" TEXT NOT NULL PRIMARY KEY, \"Val\" INTEGER NOT NULL, \"Note\" TEXT NULL) WITHOUT ROWID", TableSql(db, "MigWor"));
         List<MigWor> rows = db.Table<MigWor>().OrderBy(w => w.Key).ToList();
         Assert.Equal(["a", "b"], rows.Select(r => r.Key));
     }
@@ -243,8 +243,8 @@ public class MigrateTests
 
         db.Schema.Table<MigNoCommon>().Migrate();
 
-        Assert.Contains("\"Value\"", TableSql(db, "MigNoCommon"));
-        Assert.DoesNotContain("\"Other\"", TableSql(db, "MigNoCommon"));
+        Assert.Equal("CREATE TABLE \"MigNoCommon\" (\"Id\" INTEGER PRIMARY KEY, \"Value\" INTEGER NOT NULL)", TableSql(db, "MigNoCommon"));
+        Assert.Equal("CREATE TABLE \"MigNoCommon\" (\"Id\" INTEGER PRIMARY KEY, \"Value\" INTEGER NOT NULL)", TableSql(db, "MigNoCommon"));
     }
 
     [Fact]
@@ -258,7 +258,7 @@ public class MigrateTests
 
         db.Table<MigSimple>().Schema.Migrate();
 
-        Assert.Contains("CHECK", TableSql(db, "MigSimple"));
+        Assert.Equal("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER NULL, \"Version\" INTEGER NOT NULL DEFAULT 0, CONSTRAINT \"CK_MigSimple_Extra\" CHECK (\"Extra\" IS NULL OR COALESCE(\"Extra\" >= 0, 0)))", TableSql(db, "MigSimple"));
         Assert.Equal(42, db.ExecuteScalar<long>("SELECT \"Version\" FROM \"MigSimple\""));
     }
 
@@ -273,7 +273,7 @@ public class MigrateTests
         Assert.Throws<SQLiteException>(() => db.Table<MigSimple>().Schema.Migrate());
 
         Assert.Equal(-5, db.Table<MigSimple>().Single().Extra);
-        Assert.DoesNotContain("CHECK", TableSql(db, "MigSimple"));
+        Assert.Equal("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER)", TableSql(db, "MigSimple"));
         Assert.Equal(foreignKeysBefore, db.ExecuteScalar<long>("PRAGMA foreign_keys"));
         Assert.Null(TableSql(db, "MigSimple__sqlitefw_migrate"));
     }
@@ -362,7 +362,7 @@ public class MigrateTests
 
         db.Table<MigSimple>().Schema.Migrate();
 
-        Assert.DoesNotContain("\"Old\"", TableSql(db, "MigSimple"));
+        Assert.Equal("CREATE TABLE \"MigSimple\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Extra\" INTEGER NULL)", TableSql(db, "MigSimple"));
         Assert.NotNull(TriggerSql(db, "trg_extra"));
         Assert.NotNull(TriggerSql(db, "trg_mig_ins"));
     }

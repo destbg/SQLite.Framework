@@ -283,7 +283,7 @@ public class LinqMethodTests
 
         Assert.Empty(command.Parameters);
         Assert.Equal("""
-                     SELECT b0."BookPrice" AS "4"
+                     SELECT b0."BookPrice" AS "3"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

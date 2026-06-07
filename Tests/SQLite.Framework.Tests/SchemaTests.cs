@@ -58,8 +58,8 @@ public class SchemaTests
 
         string indexSql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Schema_Composite'");
-        Assert.Contains("Col1", indexSql);
-        Assert.Contains("Col2", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_Schema_Composite\" ON \"CompositeIndexedTable\" (\"Col1\", \"Col2\")", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_Schema_Composite\" ON \"CompositeIndexedTable\" (\"Col1\", \"Col2\")", indexSql);
     }
 
     [Fact]
@@ -275,7 +275,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Evolving'");
-        Assert.Contains("DEFAULT 42", sql);
+        Assert.Equal("CREATE TABLE \"Evolving\" (\"Id\" INTEGER PRIMARY KEY, \"Count\" INTEGER NOT NULL DEFAULT 42)", sql);
     }
 
     [Fact]
@@ -288,7 +288,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Evolving'");
-        Assert.Contains("'O''Reilly'", sql);
+        Assert.Equal("CREATE TABLE \"Evolving\" (\"Id\" INTEGER PRIMARY KEY, \"Label\" TEXT NOT NULL DEFAULT 'O''Reilly')", sql);
     }
 
     [Fact]
@@ -413,8 +413,8 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Evolving'");
-        Assert.Contains("DEFAULT (", sql);
-        Assert.Contains("42", sql);
+        Assert.Equal("CREATE TABLE \"Evolving\" (\"Id\" INTEGER PRIMARY KEY, \"Count\" INTEGER NOT NULL DEFAULT (42))", sql);
+        Assert.Equal("CREATE TABLE \"Evolving\" (\"Id\" INTEGER PRIMARY KEY, \"Count\" INTEGER NOT NULL DEFAULT (42))", sql);
     }
 
     [Fact]
@@ -716,7 +716,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'WithoutRowIdEntity'");
-        Assert.Contains("WITHOUT ROWID", sql);
+        Assert.Equal("CREATE TABLE \"WithoutRowIdEntity\" (\"Code\" TEXT NOT NULL PRIMARY KEY, \"Name\" TEXT NOT NULL) WITHOUT ROWID", sql);
     }
 
     [Fact]
@@ -727,7 +727,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'StrictTableEntity'");
-        Assert.EndsWith(" STRICT", sql);
+        Assert.Equal("CREATE TABLE \"StrictTableEntity\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL) STRICT", sql);
     }
 
     [Fact]
@@ -748,7 +748,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'StrictWithoutRowIdEntity'");
-        Assert.Contains("WITHOUT ROWID, STRICT", sql);
+        Assert.Equal("CREATE TABLE \"StrictWithoutRowIdEntity\" (\"Code\" TEXT NOT NULL PRIMARY KEY, \"Name\" TEXT NOT NULL) WITHOUT ROWID, STRICT", sql);
     }
 
     [Fact]
@@ -759,7 +759,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Books'");
-        Assert.EndsWith(" STRICT", sql);
+        Assert.Equal("CREATE TABLE \"Books\" (\"BookId\" INTEGER PRIMARY KEY, \"BookTitle\" TEXT NOT NULL, \"BookAuthorId\" INTEGER NOT NULL, \"BookPrice\" REAL NOT NULL) STRICT", sql);
     }
 
     [Fact]
@@ -770,7 +770,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'WithoutRowIdEntity'");
-        Assert.Contains("WITHOUT ROWID, STRICT", sql);
+        Assert.Equal("CREATE TABLE \"WithoutRowIdEntity\" (\"Code\" TEXT NOT NULL PRIMARY KEY, \"Name\" TEXT NOT NULL) WITHOUT ROWID, STRICT", sql);
     }
 
     [Fact]
@@ -807,8 +807,8 @@ public class SchemaTests
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Schema_MixedColl'");
         Assert.Equal("CREATE INDEX \"IX_Schema_MixedColl\" ON \"CompositeIndexedCollationTable\" (\"LastName\" COLLATE NOCASE, \"FirstName\")", sql);
-        Assert.Contains("FirstName", sql);
-        Assert.DoesNotContain("FirstName COLLATE", sql);
+        Assert.Equal("CREATE INDEX \"IX_Schema_MixedColl\" ON \"CompositeIndexedCollationTable\" (\"LastName\" COLLATE NOCASE, \"FirstName\")", sql);
+        Assert.Equal("CREATE INDEX \"IX_Schema_MixedColl\" ON \"CompositeIndexedCollationTable\" (\"LastName\" COLLATE NOCASE, \"FirstName\")", sql);
     }
 
     [Fact]
@@ -844,7 +844,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_Title_Plain'");
-        Assert.DoesNotContain("COLLATE", sql);
+        Assert.Equal("CREATE INDEX \"IX_Book_Title_Plain\" ON \"Books\" (\"BookTitle\")", sql);
     }
 
     [Fact]
@@ -858,7 +858,7 @@ public class SchemaTests
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Book_TitleAuthor'");
         Assert.Equal("CREATE INDEX \"IX_Book_TitleAuthor\" ON \"Books\" (\"BookTitle\" COLLATE RTRIM, \"BookAuthorId\")", sql);
-        Assert.DoesNotContain("AuthorId COLLATE", sql);
+        Assert.Equal("CREATE INDEX \"IX_Book_TitleAuthor\" ON \"Books\" (\"BookTitle\" COLLATE RTRIM, \"BookAuthorId\")", sql);
     }
 
     [Fact]
@@ -929,7 +929,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ContentlessSearch'");
-        Assert.Contains("content=''", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"ContentlessSearch\" USING fts5(\"Body\", content='', tokenize='unicode61 remove_diacritics 2')", sql);
     }
 
     [Fact]
@@ -940,7 +940,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'PrefixSearch'");
-        Assert.Contains("prefix='2 3'", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"PrefixSearch\" USING fts5(\"Body\", tokenize='unicode61 remove_diacritics 2', prefix='2 3')", sql);
     }
 
     [Fact]
@@ -952,7 +952,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ExplicitRowIdSearch'");
-        Assert.Contains("content_rowid='Id'", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"ExplicitRowIdSearch\" USING fts5(\"Title\", content='Article', content_rowid='Id', tokenize='unicode61 remove_diacritics 2')", sql);
     }
 
     [Fact]
@@ -974,7 +974,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithDefaultRating'");
-        Assert.Contains("DEFAULT 10", sql);
+        Assert.Equal("CREATE TABLE \"BookWithDefaultRating\" (\"Id\" INTEGER PRIMARY KEY AUTOINCREMENT, \"Title\" TEXT NOT NULL, \"Rating\" INTEGER NOT NULL DEFAULT 10)", sql);
     }
 
     [Fact]
@@ -1044,7 +1044,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithBuilderDefault'");
-        Assert.Contains("DEFAULT 25", sql);
+        Assert.Equal("CREATE TABLE \"BookWithBuilderDefault\" (\"Id\" INTEGER PRIMARY KEY AUTOINCREMENT, \"Title\" TEXT NOT NULL, \"Rating\" INTEGER NOT NULL DEFAULT 25)", sql);
     }
 
     [Fact]
@@ -1070,8 +1070,8 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithBuilderDefault'");
-        Assert.Contains("DEFAULT (", sql);
-        Assert.Contains("42", sql);
+        Assert.Equal("CREATE TABLE \"BookWithBuilderDefault\" (\"Id\" INTEGER PRIMARY KEY AUTOINCREMENT, \"Title\" TEXT NOT NULL, \"Rating\" INTEGER NOT NULL DEFAULT (42))", sql);
+        Assert.Equal("CREATE TABLE \"BookWithBuilderDefault\" (\"Id\" INTEGER PRIMARY KEY AUTOINCREMENT, \"Title\" TEXT NOT NULL, \"Rating\" INTEGER NOT NULL DEFAULT (42))", sql);
     }
 
     [Fact]
@@ -1158,7 +1158,7 @@ public class SchemaTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BookWithBuilderTimestamp'");
-        Assert.Contains("sqlite_version()", sql);
+        Assert.Equal("CREATE TABLE \"BookWithBuilderTimestamp\" (\"Id\" INTEGER PRIMARY KEY AUTOINCREMENT, \"Title\" TEXT NOT NULL, \"CreatedAt\" TEXT NULL DEFAULT (sqlite_version()))", sql);
     }
 }
 

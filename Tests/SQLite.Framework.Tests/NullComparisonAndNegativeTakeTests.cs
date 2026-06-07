@@ -60,9 +60,9 @@ public class NullComparisonAndNegativeTakeTests
     {
         using TestDatabase db = Nums((1, 1));
 
-        Assert.Contains(" IS NOT @", db.Table<NullableEntity>().Where(x => x.Value != 5).ToSqlCommand().CommandText);
-        Assert.Contains(" IS @", db.Table<NullableEntity>().Where(x => x.Value == 5).ToSqlCommand().CommandText);
-        Assert.Contains(" IS NOT @", db.Table<NullableEntity>().Where(x => !(x.Value == 5)).ToSqlCommand().CommandText);
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"Value\" AS \"Value\"\nFROM \"NullableEntity\" AS n0\nWHERE n0.\"Value\" IS NOT @p0", db.Table<NullableEntity>().Where(x => x.Value != 5).ToSqlCommand().CommandText);
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"Value\" AS \"Value\"\nFROM \"NullableEntity\" AS n0\nWHERE n0.\"Value\" IS @p0", db.Table<NullableEntity>().Where(x => x.Value == 5).ToSqlCommand().CommandText);
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"Value\" AS \"Value\"\nFROM \"NullableEntity\" AS n0\nWHERE n0.\"Value\" IS NOT @p0", db.Table<NullableEntity>().Where(x => !(x.Value == 5)).ToSqlCommand().CommandText);
     }
 
     [Fact]
@@ -71,9 +71,9 @@ public class NullComparisonAndNegativeTakeTests
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        Assert.Contains("<>", db.Table<Book>().Where(b => b.Id != 5).ToSqlCommand().CommandText);
-        Assert.Contains("<>", db.Table<Book>().Where(b => b.Title != "a").ToSqlCommand().CommandText);
-        Assert.Contains(" = @", db.Table<Book>().Where(b => b.Title == "a").ToSqlCommand().CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE b0.\"BookId\" <> @p0", db.Table<Book>().Where(b => b.Id != 5).ToSqlCommand().CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE b0.\"BookTitle\" <> @p0", db.Table<Book>().Where(b => b.Title != "a").ToSqlCommand().CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE b0.\"BookTitle\" = @p0", db.Table<Book>().Where(b => b.Title == "a").ToSqlCommand().CommandText);
     }
 
     [Fact]
@@ -82,6 +82,6 @@ public class NullComparisonAndNegativeTakeTests
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        Assert.Contains(" IS NOT @", db.Table<Book>().Where(b => b.Title.Trim() != "a").ToSqlCommand().CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE TRIM(b0.\"BookTitle\", CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) IS NOT @p0", db.Table<Book>().Where(b => b.Title.Trim() != "a").ToSqlCommand().CommandText);
     }
 }

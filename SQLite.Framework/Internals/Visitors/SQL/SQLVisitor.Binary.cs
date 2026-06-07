@@ -179,7 +179,7 @@ internal partial class SQLVisitor
             return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", concatLeft, " || ", concatRight, "", ParameterHelpers.CombineParameters(concatLeft, concatRight));
         }
 
-        if (leftNode.Type == typeof(ulong) && rightNode.Type == typeof(ulong))
+        if (UnsignedIntegerKey(leftNode.Type) == typeof(ulong) && UnsignedIntegerKey(rightNode.Type) == typeof(ulong))
         {
             switch (node.NodeType)
             {
@@ -354,6 +354,12 @@ internal partial class SQLVisitor
         return needsBrackets
             ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
             : expr;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Enum underlying type is always preserved for enum types reachable from user code.")]
+    private static Type UnsignedIntegerKey(Type type)
+    {
+        return type.IsEnum ? Enum.GetUnderlyingType(type) : type;
     }
 
     private static bool MayBeNull(Expression operand)

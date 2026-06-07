@@ -26,78 +26,90 @@ public static class SelectMaterializerEmitter
         {
             OwnerMethodName = methodName
         };
-        if (!CollectLeaves(body, emitCtx))
-        {
-            return false;
-        }
-
-        if (emitCtx.Leaves.Count == 0)
-        {
-            return false;
-        }
-
-        bool hasReflectedLeaf = emitCtx.Leaves.Any(l => l.IsReflected);
-        bool anonHasNonAccessibleArg = body is AnonymousObjectCreationExpressionSyntax anonForCheck
-            && anonForCheck.Initializers.Any(init =>
-            {
-                ITypeSymbol? argType = writerCtx.Model.GetTypeInfo(init.Expression).Type;
-                return argType != null && !IsTypeAccessibleFromGenerator(argType, emitCtx.GeneratorAssembly);
-            });
-        bool anonCtorPath = (hasReflectedLeaf || anonHasNonAccessibleArg)
-            && body is AnonymousObjectCreationExpressionSyntax;
 
         string? bodyText;
-        if (anonCtorPath)
+        if (body is ImplicitArrayCreationExpressionSyntax or ArrayCreationExpressionSyntax)
         {
-            AnonymousObjectCreationExpressionSyntax anonExpr = (AnonymousObjectCreationExpressionSyntax)body;
-            FullyQualifiedRewriter rewriter = new(emitCtx);
-
-            StringBuilder args = new();
-            args.Append("ctx.ReflectedConstructors![0].Invoke(new object?[] { ");
-            int leafCursor = 0;
-            for (int i = 0; i < anonExpr.Initializers.Count; i++)
-            {
-                if (i > 0)
-                {
-                    args.Append(", ");
-                }
-
-                ExpressionSyntax initExpr = anonExpr.Initializers[i].Expression;
-                int initLeafCount = CountLeavesUnder(emitCtx.Leaves, leafCursor, initExpr);
-                ITypeSymbol? initType = writerCtx.Model.GetTypeInfo(initExpr).Type;
-                bool initIsInaccessibleBoc = initExpr is BaseObjectCreationExpressionSyntax
-                    && initType != null
-                    && !IsTypeAccessibleFromGenerator(initType, emitCtx.GeneratorAssembly);
-
-                if (initIsInaccessibleBoc)
-                {
-                    SyntaxNode? rewritten = rewriter.Visit(initExpr);
-                    if (rewriter.Failed || rewritten is not ExpressionSyntax rewrittenExpr)
-                    {
-                        return false;
-                    }
-                    args.Append(rewrittenExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString());
-                }
-                else if (initLeafCount == 1)
-                {
-                    args.Append(emitCtx.Leaves[leafCursor].VarName);
-                }
-                else
-                {
-                    return false;
-                }
-
-                leafCursor += initLeafCount;
-            }
-            args.Append(" })");
-            bodyText = args.ToString();
-        }
-        else
-        {
-            bodyText = RewriteBody(body, emitCtx);
+            bodyText = CollectArrayLeaves(body, emitCtx);
             if (bodyText == null)
             {
                 return false;
+            }
+        }
+        else
+        {
+            if (!CollectLeaves(body, emitCtx))
+            {
+                return false;
+            }
+
+            if (emitCtx.Leaves.Count == 0)
+            {
+                return false;
+            }
+
+            bool hasReflectedLeaf = emitCtx.Leaves.Any(l => l.IsReflected);
+            bool anonHasNonAccessibleArg = body is AnonymousObjectCreationExpressionSyntax anonForCheck
+                && anonForCheck.Initializers.Any(init =>
+                {
+                    ITypeSymbol? argType = writerCtx.Model.GetTypeInfo(init.Expression).Type;
+                    return argType != null && !IsTypeAccessibleFromGenerator(argType, emitCtx.GeneratorAssembly);
+                });
+            bool anonCtorPath = (hasReflectedLeaf || anonHasNonAccessibleArg)
+                && body is AnonymousObjectCreationExpressionSyntax;
+
+            if (anonCtorPath)
+            {
+                AnonymousObjectCreationExpressionSyntax anonExpr = (AnonymousObjectCreationExpressionSyntax)body;
+                FullyQualifiedRewriter rewriter = new(emitCtx);
+
+                StringBuilder args = new();
+                args.Append("ctx.ReflectedConstructors![0].Invoke(new object?[] { ");
+                int leafCursor = 0;
+                for (int i = 0; i < anonExpr.Initializers.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        args.Append(", ");
+                    }
+
+                    ExpressionSyntax initExpr = anonExpr.Initializers[i].Expression;
+                    int initLeafCount = CountLeavesUnder(emitCtx.Leaves, leafCursor, initExpr);
+                    ITypeSymbol? initType = writerCtx.Model.GetTypeInfo(initExpr).Type;
+                    bool initIsInaccessibleBoc = initExpr is BaseObjectCreationExpressionSyntax
+                        && initType != null
+                        && !IsTypeAccessibleFromGenerator(initType, emitCtx.GeneratorAssembly);
+
+                    if (initIsInaccessibleBoc)
+                    {
+                        SyntaxNode? rewritten = rewriter.Visit(initExpr);
+                        if (rewriter.Failed || rewritten is not ExpressionSyntax rewrittenExpr)
+                        {
+                            return false;
+                        }
+                        args.Append(rewrittenExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString());
+                    }
+                    else if (initLeafCount == 1)
+                    {
+                        args.Append(emitCtx.Leaves[leafCursor].VarName);
+                    }
+                    else
+                    {
+                        return false;
+                    }
+
+                    leafCursor += initLeafCount;
+                }
+                args.Append(" })");
+                bodyText = args.ToString();
+            }
+            else
+            {
+                bodyText = RewriteBody(body, emitCtx);
+                if (bodyText == null)
+                {
+                    return false;
+                }
             }
         }
 
@@ -413,6 +425,54 @@ public static class SelectMaterializerEmitter
                 accessor = TryGetStructAccessor(stripped);
                 return accessor != null;
         }
+    }
+
+    private static string? CollectArrayLeaves(ExpressionSyntax body, EmitContext ctx)
+    {
+        InitializerExpressionSyntax? initializer = body switch
+        {
+            ImplicitArrayCreationExpressionSyntax implicitArray => implicitArray.Initializer,
+            ArrayCreationExpressionSyntax arrayCreation => arrayCreation.Initializer,
+            _ => null
+        };
+
+        if (initializer == null || initializer.Expressions.Count == 0)
+        {
+            return null;
+        }
+
+        ITypeSymbol? arraySymbol = ctx.Model.GetTypeInfo(body).Type ?? ctx.Model.GetTypeInfo(body).ConvertedType;
+        if (arraySymbol is not IArrayTypeSymbol arrayType)
+        {
+            return null;
+        }
+
+        ITypeSymbol elementType = arrayType.ElementType;
+        if (!IsTypeAccessibleFromGenerator(elementType, ctx.GeneratorAssembly))
+        {
+            return null;
+        }
+
+        bool isNullableElement = elementType.IsReferenceType || IsNullableValueType(elementType);
+        string elementTypeText = FormatType(elementType, ctx.WriterCtx.TypeArgSubstitutions);
+
+        StringBuilder bodyBuilder = new();
+        bodyBuilder.Append("new ").Append(elementTypeText).Append("[] { ");
+        for (int i = 0; i < initializer.Expressions.Count; i++)
+        {
+            int idx = ctx.Leaves.Count;
+            string varName = "__leaf_" + idx;
+            ctx.Leaves.Add(new LeafInfo(initializer.Expressions[i], elementType, varName, isNullableElement));
+
+            if (i > 0)
+            {
+                bodyBuilder.Append(", ");
+            }
+            bodyBuilder.Append('(').Append(elementTypeText).Append(')').Append(varName);
+        }
+        bodyBuilder.Append(" }");
+
+        return bodyBuilder.ToString();
     }
 
     private static bool CollectLeaves(SyntaxNode node, EmitContext ctx)

@@ -1211,7 +1211,7 @@ public class InternalHelpersDirectTests
 
         Expression result = sqlVisitor.Visit(access);
         SQLiteExpression sql = Assert.IsAssignableFrom<SQLiteExpression>(result);
-        Assert.StartsWith("@p", sql.ToString());
+        Assert.Equal("@p0", sql.ToString());
     }
 
     [Fact]

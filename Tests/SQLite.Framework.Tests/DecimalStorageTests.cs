@@ -114,7 +114,7 @@ public class DecimalStorageTests
 
         SQLiteCommand command = db.Table<TestEntity>().ToSqlCommand();
 
-        Assert.DoesNotContain("CAST", command.CommandText);
+        Assert.Equal("SELECT t0.\"Id\" AS \"Id\",\n       t0.\"Price\" AS \"Price\"\nFROM \"TestEntity\" AS t0", command.CommandText);
     }
 
     [Fact]

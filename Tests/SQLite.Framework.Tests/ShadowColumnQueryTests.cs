@@ -227,8 +227,8 @@ public class ShadowColumnQueryTests
             .Select(x => SQLiteColumn.Of<Address>(x, "Data"))
             .ToSql();
 
-        Assert.Contains("\"Data\"", sql);
-        Assert.DoesNotContain("json(", sql);
+        Assert.Equal("SELECT s0.\"Data\" AS \"4\"\nFROM \"ShQ\" AS s0", sql);
+        Assert.Equal("SELECT s0.\"Data\" AS \"4\"\nFROM \"ShQ\" AS s0", sql);
     }
 
 #if !SQLITECIPHER
@@ -244,7 +244,7 @@ public class ShadowColumnQueryTests
             .Select(x => SQLiteColumn.Of<Address>(x, "Data"))
             .ToSql();
 
-        Assert.Contains("json(", sql);
+        Assert.Equal("SELECT json(s0.\"Data\") AS \"4\"\nFROM \"ShQ\" AS s0", sql);
     }
 #endif
 

@@ -120,7 +120,8 @@ internal static class EnumMemberVisitor
                     string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
                     string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
 
-                    SQLiteExpression nameCase = SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseOpen, objExpr, elseClose, parameters);
+                    SQLiteExpression nameCase = SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr], v =>
+                        SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], elseClose, [.. nameParams]));
 
                     return isNullableEnum
                         ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "COALESCE(", nameCase, ", '')", parameters)
@@ -186,12 +187,9 @@ internal static class EnumMemberVisitor
             }
 
             SQLiteExpression stringArgExpr = stringArg.SQLiteExpression!;
-            SQLiteParameter[] allParams = stringArg.Parameters == null
-                ? [.. parameters]
-                : [.. stringArg.Parameters, .. parameters];
-
             string collate = ignoreCase ? " COLLATE NOCASE" : "";
-            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", stringArgExpr, collate + caseSb.ToString() + " ELSE CAST(", stringArgExpr, " AS INTEGER) END)", allParams);
+            return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [stringArgExpr], v =>
+                SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], collate + caseSb.ToString() + " ELSE CAST(", v[0], " AS INTEGER) END)", [.. parameters]));
         }
 
         return visitor.NotTranslatable(node, $"Enum.{node.Method.Name} is not translatable to SQL.");

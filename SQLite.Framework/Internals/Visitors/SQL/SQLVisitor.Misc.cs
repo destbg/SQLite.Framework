@@ -93,9 +93,7 @@ internal partial class SQLVisitor
             ResolvedModel inner = ResolveExpression(relational);
             if (inner.SQLiteExpression != null)
             {
-                string cmp = inner.SQLiteExpression.ToString();
-                SQLiteParameter[]? cmpParameters = inner.SQLiteExpression.Parameters;
-                return SQLiteExpression.Leaf(typeof(bool), Counters.NextIdentifier(), $"(NOT ({cmp}) OR ({cmp}) IS NULL)", cmpParameters);
+                return SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "(", inner.SQLiteExpression, ") IS NOT 1", inner.SQLiteExpression.Parameters);
             }
         }
 

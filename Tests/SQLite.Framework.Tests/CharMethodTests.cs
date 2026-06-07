@@ -21,25 +21,7 @@ public class CharMethodTests
 
         Assert.Single(command.Parameters);
         Assert.Equal(command.Parameters[0].Value, "a");
-        Assert.Equal("""
-                     SELECT n0."Id" AS "Id",
-                            n0."IntValue" AS "IntValue",
-                            n0."LongValue" AS "LongValue",
-                            n0."ShortValue" AS "ShortValue",
-                            n0."ByteValue" AS "ByteValue",
-                            n0."SByteValue" AS "SByteValue",
-                            n0."UIntValue" AS "UIntValue",
-                            n0."ULongValue" AS "ULongValue",
-                            n0."UShortValue" AS "UShortValue",
-                            n0."DoubleValue" AS "DoubleValue",
-                            n0."FloatValue" AS "FloatValue",
-                            n0."DecimalValue" AS "DecimalValue",
-                            n0."CharValue" AS "CharValue",
-                            n0."BlobValue" AS "BlobValue"
-                     FROM "NumericTypes" AS n0
-                     WHERE LOWER(n0."CharValue") = @p0
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"IntValue\" AS \"IntValue\",\n       n0.\"LongValue\" AS \"LongValue\",\n       n0.\"ShortValue\" AS \"ShortValue\",\n       n0.\"ByteValue\" AS \"ByteValue\",\n       n0.\"SByteValue\" AS \"SByteValue\",\n       n0.\"UIntValue\" AS \"UIntValue\",\n       n0.\"ULongValue\" AS \"ULongValue\",\n       n0.\"UShortValue\" AS \"UShortValue\",\n       n0.\"DoubleValue\" AS \"DoubleValue\",\n       n0.\"FloatValue\" AS \"FloatValue\",\n       n0.\"DecimalValue\" AS \"DecimalValue\",\n       n0.\"CharValue\" AS \"CharValue\",\n       n0.\"BlobValue\" AS \"BlobValue\"\nFROM \"NumericTypes\" AS n0\nWHERE LOWER(n0.\"CharValue\") = @p0", command.CommandText.Replace("\r\n", "\n"));
 
         List<NumericType> results = query.ToList();
         Assert.Single(results);
@@ -60,25 +42,7 @@ public class CharMethodTests
 
         Assert.Single(command.Parameters);
         Assert.Equal(command.Parameters[0].Value, "Z");
-        Assert.Equal("""
-                     SELECT n0."Id" AS "Id",
-                            n0."IntValue" AS "IntValue",
-                            n0."LongValue" AS "LongValue",
-                            n0."ShortValue" AS "ShortValue",
-                            n0."ByteValue" AS "ByteValue",
-                            n0."SByteValue" AS "SByteValue",
-                            n0."UIntValue" AS "UIntValue",
-                            n0."ULongValue" AS "ULongValue",
-                            n0."UShortValue" AS "UShortValue",
-                            n0."DoubleValue" AS "DoubleValue",
-                            n0."FloatValue" AS "FloatValue",
-                            n0."DecimalValue" AS "DecimalValue",
-                            n0."CharValue" AS "CharValue",
-                            n0."BlobValue" AS "BlobValue"
-                     FROM "NumericTypes" AS n0
-                     WHERE UPPER(n0."CharValue") = @p0
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"IntValue\" AS \"IntValue\",\n       n0.\"LongValue\" AS \"LongValue\",\n       n0.\"ShortValue\" AS \"ShortValue\",\n       n0.\"ByteValue\" AS \"ByteValue\",\n       n0.\"SByteValue\" AS \"SByteValue\",\n       n0.\"UIntValue\" AS \"UIntValue\",\n       n0.\"ULongValue\" AS \"ULongValue\",\n       n0.\"UShortValue\" AS \"UShortValue\",\n       n0.\"DoubleValue\" AS \"DoubleValue\",\n       n0.\"FloatValue\" AS \"FloatValue\",\n       n0.\"DecimalValue\" AS \"DecimalValue\",\n       n0.\"CharValue\" AS \"CharValue\",\n       n0.\"BlobValue\" AS \"BlobValue\"\nFROM \"NumericTypes\" AS n0\nWHERE UPPER(n0.\"CharValue\") = @p0", command.CommandText.Replace("\r\n", "\n"));
 
         List<NumericType> results = query.ToList();
         Assert.Single(results);
@@ -98,25 +62,7 @@ public class CharMethodTests
         SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Empty(command.Parameters);
-        Assert.Equal("""
-                     SELECT n0."Id" AS "Id",
-                            n0."IntValue" AS "IntValue",
-                            n0."LongValue" AS "LongValue",
-                            n0."ShortValue" AS "ShortValue",
-                            n0."ByteValue" AS "ByteValue",
-                            n0."SByteValue" AS "SByteValue",
-                            n0."UIntValue" AS "UIntValue",
-                            n0."ULongValue" AS "ULongValue",
-                            n0."UShortValue" AS "UShortValue",
-                            n0."DoubleValue" AS "DoubleValue",
-                            n0."FloatValue" AS "FloatValue",
-                            n0."DecimalValue" AS "DecimalValue",
-                            n0."CharValue" AS "CharValue",
-                            n0."BlobValue" AS "BlobValue"
-                     FROM "NumericTypes" AS n0
-                     WHERE TRIM(n0."CharValue", CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = ''
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"IntValue\" AS \"IntValue\",\n       n0.\"LongValue\" AS \"LongValue\",\n       n0.\"ShortValue\" AS \"ShortValue\",\n       n0.\"ByteValue\" AS \"ByteValue\",\n       n0.\"SByteValue\" AS \"SByteValue\",\n       n0.\"UIntValue\" AS \"UIntValue\",\n       n0.\"ULongValue\" AS \"ULongValue\",\n       n0.\"UShortValue\" AS \"UShortValue\",\n       n0.\"DoubleValue\" AS \"DoubleValue\",\n       n0.\"FloatValue\" AS \"FloatValue\",\n       n0.\"DecimalValue\" AS \"DecimalValue\",\n       n0.\"CharValue\" AS \"CharValue\",\n       n0.\"BlobValue\" AS \"BlobValue\"\nFROM \"NumericTypes\" AS n0\nWHERE TRIM(n0.\"CharValue\", CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = ''", command.CommandText.Replace("\r\n", "\n"));
 
         List<NumericType> results = query.ToList();
         Assert.Single(results);
@@ -136,25 +82,7 @@ public class CharMethodTests
         SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Empty(command.Parameters);
-        Assert.Equal("""
-                     SELECT n0."Id" AS "Id",
-                            n0."IntValue" AS "IntValue",
-                            n0."LongValue" AS "LongValue",
-                            n0."ShortValue" AS "ShortValue",
-                            n0."ByteValue" AS "ByteValue",
-                            n0."SByteValue" AS "SByteValue",
-                            n0."UIntValue" AS "UIntValue",
-                            n0."ULongValue" AS "ULongValue",
-                            n0."UShortValue" AS "UShortValue",
-                            n0."DoubleValue" AS "DoubleValue",
-                            n0."FloatValue" AS "FloatValue",
-                            n0."DecimalValue" AS "DecimalValue",
-                            n0."CharValue" AS "CharValue",
-                            n0."BlobValue" AS "BlobValue"
-                     FROM "NumericTypes" AS n0
-                     WHERE (n0."CharValue" >= '0' AND n0."CharValue" <= '9')
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"IntValue\" AS \"IntValue\",\n       n0.\"LongValue\" AS \"LongValue\",\n       n0.\"ShortValue\" AS \"ShortValue\",\n       n0.\"ByteValue\" AS \"ByteValue\",\n       n0.\"SByteValue\" AS \"SByteValue\",\n       n0.\"UIntValue\" AS \"UIntValue\",\n       n0.\"ULongValue\" AS \"ULongValue\",\n       n0.\"UShortValue\" AS \"UShortValue\",\n       n0.\"DoubleValue\" AS \"DoubleValue\",\n       n0.\"FloatValue\" AS \"FloatValue\",\n       n0.\"DecimalValue\" AS \"DecimalValue\",\n       n0.\"CharValue\" AS \"CharValue\",\n       n0.\"BlobValue\" AS \"BlobValue\"\nFROM \"NumericTypes\" AS n0\nWHERE (n0.\"CharValue\" BETWEEN '0' AND '9')", command.CommandText.Replace("\r\n", "\n"));
 
         List<NumericType> results = query.ToList();
         Assert.Equal(2, results.Count);
@@ -175,25 +103,7 @@ public class CharMethodTests
         SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Empty(command.Parameters);
-        Assert.Equal("""
-                     SELECT n0."Id" AS "Id",
-                            n0."IntValue" AS "IntValue",
-                            n0."LongValue" AS "LongValue",
-                            n0."ShortValue" AS "ShortValue",
-                            n0."ByteValue" AS "ByteValue",
-                            n0."SByteValue" AS "SByteValue",
-                            n0."UIntValue" AS "UIntValue",
-                            n0."ULongValue" AS "ULongValue",
-                            n0."UShortValue" AS "UShortValue",
-                            n0."DoubleValue" AS "DoubleValue",
-                            n0."FloatValue" AS "FloatValue",
-                            n0."DecimalValue" AS "DecimalValue",
-                            n0."CharValue" AS "CharValue",
-                            n0."BlobValue" AS "BlobValue"
-                     FROM "NumericTypes" AS n0
-                     WHERE ((n0."CharValue" >= 'a' AND n0."CharValue" <= 'z') OR (n0."CharValue" >= 'A' AND n0."CharValue" <= 'Z'))
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"IntValue\" AS \"IntValue\",\n       n0.\"LongValue\" AS \"LongValue\",\n       n0.\"ShortValue\" AS \"ShortValue\",\n       n0.\"ByteValue\" AS \"ByteValue\",\n       n0.\"SByteValue\" AS \"SByteValue\",\n       n0.\"UIntValue\" AS \"UIntValue\",\n       n0.\"ULongValue\" AS \"ULongValue\",\n       n0.\"UShortValue\" AS \"UShortValue\",\n       n0.\"DoubleValue\" AS \"DoubleValue\",\n       n0.\"FloatValue\" AS \"FloatValue\",\n       n0.\"DecimalValue\" AS \"DecimalValue\",\n       n0.\"CharValue\" AS \"CharValue\",\n       n0.\"BlobValue\" AS \"BlobValue\"\nFROM \"NumericTypes\" AS n0\nWHERE (LOWER(n0.\"CharValue\") BETWEEN 'a' AND 'z')", command.CommandText.Replace("\r\n", "\n"));
 
         List<NumericType> results = query.ToList();
         Assert.Equal(2, results.Count);
@@ -214,25 +124,7 @@ public class CharMethodTests
         SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Empty(command.Parameters);
-        Assert.Equal("""
-                     SELECT n0."Id" AS "Id",
-                            n0."IntValue" AS "IntValue",
-                            n0."LongValue" AS "LongValue",
-                            n0."ShortValue" AS "ShortValue",
-                            n0."ByteValue" AS "ByteValue",
-                            n0."SByteValue" AS "SByteValue",
-                            n0."UIntValue" AS "UIntValue",
-                            n0."ULongValue" AS "ULongValue",
-                            n0."UShortValue" AS "UShortValue",
-                            n0."DoubleValue" AS "DoubleValue",
-                            n0."FloatValue" AS "FloatValue",
-                            n0."DecimalValue" AS "DecimalValue",
-                            n0."CharValue" AS "CharValue",
-                            n0."BlobValue" AS "BlobValue"
-                     FROM "NumericTypes" AS n0
-                     WHERE ((n0."CharValue" >= '0' AND n0."CharValue" <= '9') OR (n0."CharValue" >= 'a' AND n0."CharValue" <= 'z') OR (n0."CharValue" >= 'A' AND n0."CharValue" <= 'Z'))
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"IntValue\" AS \"IntValue\",\n       n0.\"LongValue\" AS \"LongValue\",\n       n0.\"ShortValue\" AS \"ShortValue\",\n       n0.\"ByteValue\" AS \"ByteValue\",\n       n0.\"SByteValue\" AS \"SByteValue\",\n       n0.\"UIntValue\" AS \"UIntValue\",\n       n0.\"ULongValue\" AS \"ULongValue\",\n       n0.\"UShortValue\" AS \"UShortValue\",\n       n0.\"DoubleValue\" AS \"DoubleValue\",\n       n0.\"FloatValue\" AS \"FloatValue\",\n       n0.\"DecimalValue\" AS \"DecimalValue\",\n       n0.\"CharValue\" AS \"CharValue\",\n       n0.\"BlobValue\" AS \"BlobValue\"\nFROM \"NumericTypes\" AS n0\nWHERE ((n0.\"CharValue\" BETWEEN '0' AND '9') OR (LOWER(n0.\"CharValue\") BETWEEN 'a' AND 'z'))", command.CommandText.Replace("\r\n", "\n"));
 
         List<NumericType> results = query.ToList();
         Assert.Equal(2, results.Count);
@@ -253,25 +145,7 @@ public class CharMethodTests
         SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Empty(command.Parameters);
-        Assert.Equal("""
-                     SELECT n0."Id" AS "Id",
-                            n0."IntValue" AS "IntValue",
-                            n0."LongValue" AS "LongValue",
-                            n0."ShortValue" AS "ShortValue",
-                            n0."ByteValue" AS "ByteValue",
-                            n0."SByteValue" AS "SByteValue",
-                            n0."UIntValue" AS "UIntValue",
-                            n0."ULongValue" AS "ULongValue",
-                            n0."UShortValue" AS "UShortValue",
-                            n0."DoubleValue" AS "DoubleValue",
-                            n0."FloatValue" AS "FloatValue",
-                            n0."DecimalValue" AS "DecimalValue",
-                            n0."CharValue" AS "CharValue",
-                            n0."BlobValue" AS "BlobValue"
-                     FROM "NumericTypes" AS n0
-                     WHERE (n0."CharValue" >= 'a' AND n0."CharValue" <= 'z')
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"IntValue\" AS \"IntValue\",\n       n0.\"LongValue\" AS \"LongValue\",\n       n0.\"ShortValue\" AS \"ShortValue\",\n       n0.\"ByteValue\" AS \"ByteValue\",\n       n0.\"SByteValue\" AS \"SByteValue\",\n       n0.\"UIntValue\" AS \"UIntValue\",\n       n0.\"ULongValue\" AS \"ULongValue\",\n       n0.\"UShortValue\" AS \"UShortValue\",\n       n0.\"DoubleValue\" AS \"DoubleValue\",\n       n0.\"FloatValue\" AS \"FloatValue\",\n       n0.\"DecimalValue\" AS \"DecimalValue\",\n       n0.\"CharValue\" AS \"CharValue\",\n       n0.\"BlobValue\" AS \"BlobValue\"\nFROM \"NumericTypes\" AS n0\nWHERE (n0.\"CharValue\" BETWEEN 'a' AND 'z')", command.CommandText.Replace("\r\n", "\n"));
 
         List<NumericType> results = query.ToList();
         Assert.Equal(2, results.Count);
@@ -292,25 +166,7 @@ public class CharMethodTests
         SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Empty(command.Parameters);
-        Assert.Equal("""
-                     SELECT n0."Id" AS "Id",
-                            n0."IntValue" AS "IntValue",
-                            n0."LongValue" AS "LongValue",
-                            n0."ShortValue" AS "ShortValue",
-                            n0."ByteValue" AS "ByteValue",
-                            n0."SByteValue" AS "SByteValue",
-                            n0."UIntValue" AS "UIntValue",
-                            n0."ULongValue" AS "ULongValue",
-                            n0."UShortValue" AS "UShortValue",
-                            n0."DoubleValue" AS "DoubleValue",
-                            n0."FloatValue" AS "FloatValue",
-                            n0."DecimalValue" AS "DecimalValue",
-                            n0."CharValue" AS "CharValue",
-                            n0."BlobValue" AS "BlobValue"
-                     FROM "NumericTypes" AS n0
-                     WHERE (n0."CharValue" >= 'A' AND n0."CharValue" <= 'Z')
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"IntValue\" AS \"IntValue\",\n       n0.\"LongValue\" AS \"LongValue\",\n       n0.\"ShortValue\" AS \"ShortValue\",\n       n0.\"ByteValue\" AS \"ByteValue\",\n       n0.\"SByteValue\" AS \"SByteValue\",\n       n0.\"UIntValue\" AS \"UIntValue\",\n       n0.\"ULongValue\" AS \"ULongValue\",\n       n0.\"UShortValue\" AS \"UShortValue\",\n       n0.\"DoubleValue\" AS \"DoubleValue\",\n       n0.\"FloatValue\" AS \"FloatValue\",\n       n0.\"DecimalValue\" AS \"DecimalValue\",\n       n0.\"CharValue\" AS \"CharValue\",\n       n0.\"BlobValue\" AS \"BlobValue\"\nFROM \"NumericTypes\" AS n0\nWHERE (n0.\"CharValue\" BETWEEN 'A' AND 'Z')", command.CommandText.Replace("\r\n", "\n"));
 
         List<NumericType> results = query.ToList();
         Assert.Equal(2, results.Count);
@@ -387,11 +243,7 @@ public class CharMethodTests
             .Select(n => (int)n.CharValue)
             .ToSqlCommand();
 
-        Assert.Equal("""
-                     SELECT UNICODE(n0."CharValue") AS "15"
-                     FROM "NumericTypes" AS n0
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT UNICODE(n0.\"CharValue\") AS \"15\"\nFROM \"NumericTypes\" AS n0", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -416,11 +268,7 @@ public class CharMethodTests
             .Select(n => (char)n.IntValue)
             .ToSqlCommand();
 
-        Assert.Equal("""
-                     SELECT CHAR((n0."IntValue") & 65535) AS "15"
-                     FROM "NumericTypes" AS n0
-                     """.Replace("\r\n", "\n"),
-            command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT CHAR((n0.\"IntValue\") & 65535) AS \"15\"\nFROM \"NumericTypes\" AS n0", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

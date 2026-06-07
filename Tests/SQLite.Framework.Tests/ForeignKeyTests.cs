@@ -369,9 +369,9 @@ public class ForeignKeyTests
         StringBuilder sb = new();
         ForeignKeySql.WriteSql(info, sb, inline: true);
         string sql = sb.ToString();
-        Assert.Contains("ON DELETE RESTRICT", sql);
-        Assert.Contains("ON UPDATE SET DEFAULT", sql);
-        Assert.Contains("DEFERRABLE INITIALLY DEFERRED", sql);
+        Assert.Equal("REFERENCES \"Parent\"(\"Id\") ON DELETE RESTRICT ON UPDATE SET DEFAULT DEFERRABLE INITIALLY DEFERRED", sql);
+        Assert.Equal("REFERENCES \"Parent\"(\"Id\") ON DELETE RESTRICT ON UPDATE SET DEFAULT DEFERRABLE INITIALLY DEFERRED", sql);
+        Assert.Equal("REFERENCES \"Parent\"(\"Id\") ON DELETE RESTRICT ON UPDATE SET DEFAULT DEFERRABLE INITIALLY DEFERRED", sql);
     }
 
     [Fact]
@@ -387,9 +387,9 @@ public class ForeignKeyTests
         StringBuilder sb = new();
         ForeignKeySql.WriteSql(info, sb, inline: false);
         string sql = sb.ToString();
-        Assert.DoesNotContain("ON DELETE", sql);
-        Assert.DoesNotContain("ON UPDATE", sql);
-        Assert.DoesNotContain("DEFERRABLE", sql);
+        Assert.Equal("FOREIGN KEY (\"A\") REFERENCES \"Parent\"(\"Id\")", sql);
+        Assert.Equal("FOREIGN KEY (\"A\") REFERENCES \"Parent\"(\"Id\")", sql);
+        Assert.Equal("FOREIGN KEY (\"A\") REFERENCES \"Parent\"(\"Id\")", sql);
     }
 
     [Fact]
@@ -405,8 +405,8 @@ public class ForeignKeyTests
         StringBuilder sb = new();
         ForeignKeySql.WriteSql(info, sb, inline: true);
         string sql = sb.ToString();
-        Assert.Contains("ON DELETE CASCADE", sql);
-        Assert.Contains("ON UPDATE SET NULL", sql);
+        Assert.Equal("REFERENCES \"Parent\"(\"Id\") ON DELETE CASCADE ON UPDATE SET NULL", sql);
+        Assert.Equal("REFERENCES \"Parent\"(\"Id\") ON DELETE CASCADE ON UPDATE SET NULL", sql);
     }
 
     [Fact]

@@ -59,7 +59,9 @@ internal partial class QueryableVisitor
 
         Selects.Clear();
 
-        if (visitor.TableColumns.All(f => f.Value is SQLiteExpression) && lambda.Body is not NewArrayExpression)
+        if (visitor.TableColumns.All(f => f.Value is SQLiteExpression)
+            && lambda.Body is not NewArrayExpression
+            && !IsScalarBoxingToObject(lambda.Body))
         {
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
@@ -128,9 +130,19 @@ internal partial class QueryableVisitor
         }
 
         visitor.ClientEvalUsed = false;
-        Expression normalSelect = lambda.Body is NewArrayExpression arrayBody
-            ? Expression.NewArrayInit(arrayBody.Type.GetElementType()!, arrayBody.Expressions.Select(e => visitor.Visit(e)!).ToList())
-            : visitor.Visit(lambda.Body);
+        Expression normalSelect;
+        if (lambda.Body is NewArrayExpression arrayBody)
+        {
+            Type elementType = arrayBody.Type.GetElementType()!;
+            List<Expression> elements = arrayBody.Expressions
+                .Select(e => CoerceArrayElement(visitor.Visit(e)!, elementType))
+                .ToList();
+            normalSelect = Expression.NewArrayInit(elementType, elements);
+        }
+        else
+        {
+            normalSelect = visitor.Visit(lambda.Body);
+        }
         Expression selectExpression = visitor.ClientEvalUsed
             ? visitor.ToClientExpression(lambda.Body)
             : normalSelect;
@@ -227,6 +239,23 @@ internal partial class QueryableVisitor
         }
 
         return rebuilt;
+    }
+
+    private Expression CoerceArrayElement(Expression element, Type elementType)
+    {
+        if (element is SQLiteExpression sql && sql.Type != elementType)
+        {
+            return SQLiteExpression.Alias(elementType, visitor.Counters.NextIdentifier(), sql, sql.Parameters);
+        }
+
+        return element;
+    }
+
+    private static bool IsScalarBoxingToObject(Expression body)
+    {
+        return body is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert
+            && convert.Type == typeof(object)
+            && convert.Operand.Type != typeof(object);
     }
 
     private static Expression? TryFlattenChainedSelectBody(LambdaExpression outer, LambdaExpression inner)

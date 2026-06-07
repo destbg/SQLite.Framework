@@ -272,7 +272,7 @@ public class SQLiteFunctionsTests
             .Where(b => SQLiteFunctions.Collate(b.Title, SQLite.Framework.Enums.SQLiteCollation.Inherit) == "x")
             .ToSqlCommand();
 
-        Assert.DoesNotContain("COLLATE", cmd.CommandText);
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE b0.\"BookTitle\" = @p1", cmd.CommandText);
     }
 
     [Fact]

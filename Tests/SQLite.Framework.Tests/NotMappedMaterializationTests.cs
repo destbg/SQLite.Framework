@@ -59,8 +59,8 @@ public class NotMappedMaterializationTests
             select n
         ).ToSqlCommand();
 
-        Assert.DoesNotContain("Tags", command.CommandText);
-        Assert.DoesNotContain("Computed", command.CommandText);
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"Title\" AS \"Title\"\nFROM \"NotesWithExtras\" AS n0", command.CommandText);
+        Assert.Equal("SELECT n0.\"Id\" AS \"Id\",\n       n0.\"Title\" AS \"Title\"\nFROM \"NotesWithExtras\" AS n0", command.CommandText);
     }
 }
 

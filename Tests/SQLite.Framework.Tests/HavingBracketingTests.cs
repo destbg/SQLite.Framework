@@ -128,6 +128,6 @@ public class HavingBracketingTests
             .Where(g => g.Key >= 5).Select(g => g.Key);
         string sql = query.ToSqlCommand().CommandText;
 
-        Assert.Contains("HAVING (", sql);
+        Assert.Equal("SELECT h0.\"Grp\" AS \"Key\"\nFROM \"HbRow\" AS h0\nGROUP BY h0.\"Grp\"\nHAVING (COUNT(*) = @p0 OR COALESCE(SUM(h0.\"Value\"), 0) > @p1) AND h0.\"Grp\" >= @p2", sql);
     }
 }

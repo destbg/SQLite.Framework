@@ -43,7 +43,7 @@ public class PrimaryKeyNotNullTests
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'StrKeyEntities'");
 
         Assert.NotNull(ddl);
-        Assert.Contains("NOT NULL", ddl);
+        Assert.Equal("CREATE TABLE \"StrKeyEntities\" (\"Code\" TEXT NOT NULL PRIMARY KEY, \"Name\" TEXT NOT NULL)", ddl);
     }
 
     [Fact]

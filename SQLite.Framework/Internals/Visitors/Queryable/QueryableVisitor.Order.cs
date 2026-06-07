@@ -46,6 +46,14 @@ internal partial class QueryableVisitor
 
         if (node.Arguments.Count == 3)
         {
+            if (node.Arguments[2].Type != typeof(SQLiteNullsOrder))
+            {
+                throw new NotSupportedException(
+                    $"{node.Method.Name} with a custom IComparer is not supported. " +
+                    "Ordering runs inside SQLite, which cannot call a .NET comparer. " +
+                    "Remove the comparer to use the default SQL ordering, or call ToList()/ToArray() first to order in memory.");
+            }
+
             SQLiteNullsOrder nulls = (SQLiteNullsOrder)ExpressionHelpers.GetConstantValue(node.Arguments[2])!;
             if (nulls != SQLiteNullsOrder.Default)
             {
@@ -56,7 +64,11 @@ internal partial class QueryableVisitor
             }
         }
 
-        if (sqlExpression.Type == typeof(ulong))
+        Type orderKeyType = sqlExpression.Type.IsEnum
+            ? Enum.GetUnderlyingType(sqlExpression.Type)
+            : sqlExpression.Type;
+
+        if (orderKeyType == typeof(ulong))
         {
             OrderBys.Add(SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", sqlExpression, ") < 0" + baseDirection + nullsClause, sqlExpression.Parameters));
             OrderBys.Add(SQLiteExpression.Wrap(node.Arguments[1].Type, visitor.Counters.NextIdentifier(), "", sqlExpression, baseDirection, sqlExpression.Parameters));

@@ -28,8 +28,8 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().HasKey(m => m.Code));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("\"Code\" INTEGER", TableSql(db, "MbItem"));
-        Assert.Contains("PRIMARY KEY", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL)", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL)", TableSql(db, "MbItem"));
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().HasKey(m => new { m.Code, m.Id }));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("PRIMARY KEY (\"Code\", \"Id\")", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL, PRIMARY KEY (\"Code\", \"Id\"))", TableSql(db, "MbItem"));
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().HasKey(m => m.Id).AutoIncrement(m => m.Id));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("AUTOINCREMENT", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER PRIMARY KEY AUTOINCREMENT, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL)", TableSql(db, "MbItem"));
     }
 
     [Fact]
@@ -64,8 +64,8 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().HasColumnName(m => m.Name, "item_name"));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("\"item_name\"", TableSql(db, "MbItem"));
-        Assert.DoesNotContain("\"Name\"", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"item_name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL)", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"item_name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL)", TableSql(db, "MbItem"));
         db.Table<MbItem>().Add(new MbItem { Code = 1, Name = "hello" });
         Assert.Equal("hello", db.Table<MbItem>().Single().Name);
     }
@@ -76,7 +76,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().HasColumnType(m => m.Price, SQLiteColumnType.Text));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("\"Price\" TEXT", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NOT NULL, \"Price\" TEXT NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL)", TableSql(db, "MbItem"));
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().IsRequired(m => m.Tax));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("\"Tax\" INTEGER NOT NULL", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NOT NULL, \"Extra\" TEXT NULL)", TableSql(db, "MbItem"));
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().IsRequired(m => m.Name, required: false));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.DoesNotContain("\"Name\" TEXT NOT NULL", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL)", TableSql(db, "MbItem"));
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().Ignore(m => m.Extra));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.DoesNotContain("\"Extra\"", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL)", TableSql(db, "MbItem"));
         db.Table<MbItem>().Add(new MbItem { Code = 1, Name = "a", Extra = "ignored" });
         Assert.Single(db.Table<MbItem>().ToList());
     }
@@ -114,7 +114,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().HasKey(m => m.Code).WithoutRowId());
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("WITHOUT ROWID", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL) WITHOUT ROWID", TableSql(db, "MbItem"));
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().HasKey(m => m.Id).Strict());
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("STRICT", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER PRIMARY KEY, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL) STRICT", TableSql(db, "MbItem"));
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().Column("Blob", SQLiteColumnType.Text));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("\"Blob\" TEXT", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL, \"Blob\" TEXT)", TableSql(db, "MbItem"));
         db.Table<MbItem>().Add(new MbItem { Code = 1, Name = "a" });
         Assert.Single(db.Table<MbItem>().ToList());
         Assert.Null(db.ExecuteScalar<string>("SELECT \"Blob\" FROM \"MbItem\""));
@@ -144,7 +144,7 @@ public class ModelBuilderTests
         using ModelTestDatabase db = new(model => model.Entity<MbItem>().Column("Version", SQLiteColumnType.Integer, nullable: false, defaultSql: "0"));
         db.Schema.CreateTable<MbItem>();
 
-        Assert.Contains("\"Version\" INTEGER NOT NULL DEFAULT 0", TableSql(db, "MbItem"));
+        Assert.Equal("CREATE TABLE \"MbItem\" (\"Id\" INTEGER NOT NULL, \"Code\" INTEGER NOT NULL, \"Name\" TEXT NOT NULL, \"Price\" REAL NOT NULL, \"Tax\" INTEGER NULL, \"Extra\" TEXT NULL, \"Version\" INTEGER NOT NULL DEFAULT 0)", TableSql(db, "MbItem"));
         db.Table<MbItem>().Add(new MbItem { Code = 1, Name = "a" });
         Assert.Equal(0, db.ExecuteScalar<long>("SELECT \"Version\" FROM \"MbItem\""));
     }

@@ -32,8 +32,8 @@ internal static class MathMemberVisitor
 
         return node.Method.Name switch
         {
-            nameof(Math.Min) => SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(), ["(CASE WHEN ", " < ", " THEN ", " ELSE ", " END)"], [a0, a1, a0, a1], parameters),
-            nameof(Math.Max) => SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(), ["(CASE WHEN ", " > ", " THEN ", " ELSE ", " END)"], [a0, a1, a0, a1], parameters),
+            nameof(Math.Min) => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MIN(", a0, ", ", a1, ")", parameters),
+            nameof(Math.Max) => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MAX(", a0, ", ", a1, ")", parameters),
             nameof(Math.Abs) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ABS(", a0, ")", parameters),
             nameof(Math.Round) => HandleRound(visitor, node, arguments, parameters),
             nameof(Math.Ceiling) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "CEIL(", a0, ")", parameters),
@@ -56,7 +56,8 @@ internal static class MathMemberVisitor
             nameof(Math.Sinh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "SINH(", a0, ")", parameters),
             nameof(Math.Cosh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "COSH(", a0, ")", parameters),
             nameof(Math.Tanh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TANH(", a0, ")", parameters),
-            nameof(Math.Cbrt) => SQLiteExpression.Trinary(returnType, visitor.Counters.NextIdentifier(), "(CASE WHEN ", a0, " >= 0 THEN POWER(", a0, ", 1.0/3.0) ELSE -POWER(-", a0, ", 1.0/3.0) END)", parameters),
+            nameof(Math.Cbrt) => SubSelectBuilder.EvaluateOnce(visitor.Counters, returnType, [a0], v =>
+                SQLiteExpression.Trinary(returnType, visitor.Counters.NextIdentifier(), "(CASE WHEN ", v[0], " >= 0 THEN POWER(", v[0], ", 1.0/3.0) ELSE -POWER(-", v[0], ", 1.0/3.0) END)", null)),
             nameof(Math.Log2) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOG2(", a0, ")", parameters),
             nameof(Math.Asinh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ASINH(", a0, ")", parameters),
             nameof(Math.Acosh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ACOSH(", a0, ")", parameters),
@@ -75,8 +76,8 @@ internal static class MathMemberVisitor
         }
 
         return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
-            ["(CASE WHEN ", " < ", " THEN ", " WHEN ", " > ", " THEN ", " ELSE ", " END)"],
-            [a0, a1, a1, a0, a2, a2, a0], parameters);
+            ["MAX(", ", MIN(", ", ", "))"],
+            [a1, a0, a2], parameters);
     }
 
     private static Expression HandleRound(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, SQLiteParameter[]? parameters)

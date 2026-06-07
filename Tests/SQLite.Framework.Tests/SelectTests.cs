@@ -162,7 +162,7 @@ public class SelectTests
                      SELECT (a0."AuthorId" + @p0) AS "Id",
                             a0."AuthorName" || @p1 AS "Name",
                             a0."AuthorEmail" || @p2 AS "Email",
-                            (a0."AuthorBirthDate" + CAST((@p3) * @p4 + (CASE WHEN (@p3) >= 0 THEN 0.5 ELSE -0.5 END) AS INTEGER)) AS "BirthDate"
+                            (a0."AuthorBirthDate" + CAST((@p3) * @p4 AS INTEGER)) AS "BirthDate"
                      FROM "Authors" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

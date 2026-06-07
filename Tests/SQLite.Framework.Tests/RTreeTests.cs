@@ -18,12 +18,12 @@ public class RTreeTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'Region2D'");
-        Assert.Contains("USING rtree", sql);
-        Assert.Contains("Id", sql);
-        Assert.Contains("MinX", sql);
-        Assert.Contains("MaxX", sql);
-        Assert.Contains("MinY", sql);
-        Assert.Contains("MaxY", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"Region2D\" USING rtree(\"Id\", \"MinX\", \"MaxX\", \"MinY\", \"MaxY\")", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"Region2D\" USING rtree(\"Id\", \"MinX\", \"MaxX\", \"MinY\", \"MaxY\")", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"Region2D\" USING rtree(\"Id\", \"MinX\", \"MaxX\", \"MinY\", \"MaxY\")", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"Region2D\" USING rtree(\"Id\", \"MinX\", \"MaxX\", \"MinY\", \"MaxY\")", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"Region2D\" USING rtree(\"Id\", \"MinX\", \"MaxX\", \"MinY\", \"MaxY\")", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"Region2D\" USING rtree(\"Id\", \"MinX\", \"MaxX\", \"MinY\", \"MaxY\")", sql);
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public class RTreeTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'RegionIntCell'");
-        Assert.Contains("USING rtree_i32", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"RegionIntCell\" USING rtree_i32(\"Id\", \"MinX\", \"MaxX\", \"MinY\", \"MaxY\")", sql);
     }
 
     [Fact]
@@ -262,8 +262,8 @@ public class RTreeTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'RegionRenamed'");
-        Assert.Contains("xmin", sql);
-        Assert.Contains("xmax", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"RegionRenamed\" USING rtree(\"Id\", \"xmin\", \"xmax\")", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"RegionRenamed\" USING rtree(\"Id\", \"xmin\", \"xmax\")", sql);
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public class RTreeTests
 
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'RegionWithIgnored'");
-        Assert.DoesNotContain("IgnoredField", sql);
+        Assert.Equal("CREATE VIRTUAL TABLE \"RegionWithIgnored\" USING rtree(\"Id\", \"MinX\", \"MaxX\")", sql);
     }
 
     [Fact]
