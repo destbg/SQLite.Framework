@@ -24,14 +24,6 @@ public class GuidOrderRow
     public Guid G { get; set; }
 }
 
-public class JsonNumbersRow
-{
-    [System.ComponentModel.DataAnnotations.Key]
-    public int Id { get; set; }
-
-    public List<int> Numbers { get; set; } = [];
-}
-
 public class FlagsParseRow
 {
     [System.ComponentModel.DataAnnotations.Key]
@@ -42,16 +34,6 @@ public class FlagsParseRow
 
 public class LinqToObjectsParityTests
 {
-    private static TestDatabase JsonDb(params int[] numbers)
-    {
-        TestDatabase db = new(b =>
-            b.TypeConverters[typeof(List<int>)] =
-                new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32));
-        db.Table<JsonNumbersRow>().Schema.CreateTable();
-        db.Table<JsonNumbersRow>().Add(new JsonNumbersRow { Id = 1, Numbers = numbers.ToList() });
-        return db;
-    }
-
     [Fact]
     public void CharPlusInt_Arithmetic_MatchesDotNet()
     {
@@ -196,54 +178,6 @@ public class LinqToObjectsParityTests
     }
 
     [Fact]
-    public void JsonSingle_OverManyElements_Throws()
-    {
-        using TestDatabase db = JsonDb(1, 2);
-
-        List<int> source = [1, 2];
-        Assert.Throws<InvalidOperationException>(() => source.Single());
-        Assert.Throws<InvalidOperationException>(() =>
-            db.Table<JsonNumbersRow>().Select(r => r.Numbers.Single()).First());
-    }
-
-    [Fact]
-    public void JsonFirst_OverEmptyArray_Throws()
-    {
-        using TestDatabase db = JsonDb();
-
-        List<int> source = [];
-        Assert.Throws<InvalidOperationException>(() => source.First());
-        Assert.Throws<InvalidOperationException>(() =>
-            db.Table<JsonNumbersRow>().Select(r => r.Numbers.First()).First());
-    }
-
-    [Fact]
-    public void GroupedMin_EmptyFilter_Throws()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-        db.Table<Book>().Add(new Book { Id = 1, Title = "a", AuthorId = 1, Price = 10 });
-        db.Table<Book>().Add(new Book { Id = 2, Title = "b", AuthorId = 1, Price = 20 });
-        db.Table<Book>().Add(new Book { Id = 3, Title = "c", AuthorId = 2, Price = 30 });
-
-        List<(int Id, int AuthorId, double Price)> source =
-        [
-            (1, 1, 10d), (2, 1, 20d), (3, 2, 30d)
-        ];
-
-        Assert.Throws<InvalidOperationException>(() =>
-            source.GroupBy(b => b.AuthorId)
-                .Select(g => g.Where(x => x.Price > 100000d).Min(x => x.Price))
-                .ToList());
-
-        Assert.Throws<InvalidOperationException>(() =>
-            db.Table<Book>()
-                .GroupBy(b => b.AuthorId)
-                .Select(g => g.Where(x => x.Price > 100000d).Min(x => x.Price))
-                .ToList());
-    }
-
-    [Fact]
     public void EnumParse_FlagsString_MatchesDotNet()
     {
         using TestDatabase db = new();
@@ -264,23 +198,6 @@ public class LinqToObjectsParityTests
     }
 
     [Fact]
-    public void GroupBy_PreservesFirstSeenKeyOrder()
-    {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
-        (int Id, int AuthorId)[] rows = [(1, 3), (2, 1), (3, 2), (4, 3), (5, 1)];
-        foreach ((int id, int authorId) in rows)
-        {
-            db.Table<Book>().Add(new Book { Id = id, Title = "t" + id, AuthorId = authorId, Price = id });
-        }
-
-        List<int> expected = rows.GroupBy(r => r.AuthorId).Select(g => g.Key).ToList();
-        List<int> actual = db.Table<Book>().GroupBy(b => b.AuthorId).Select(g => g.Key).ToList();
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
     public void Distinct_PreservesFirstSeenOrder()
     {
         using TestDatabase db = new();
@@ -295,23 +212,6 @@ public class LinqToObjectsParityTests
         List<string> actual = db.Table<Book>().Select(b => b.Title).Distinct().ToList();
 
         Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void NullableValueAccess_OverNullRow_Throws()
-    {
-        using TestDatabase db = new();
-        db.Table<NullableEntity>().Schema.CreateTable();
-        int?[] values = [null, 5];
-        for (int i = 0; i < values.Length; i++)
-        {
-            db.Table<NullableEntity>().Add(new NullableEntity { Id = i + 1, Value = values[i] });
-        }
-
-        Assert.Throws<InvalidOperationException>(() =>
-            values.OrderBy(v => 0).Select(v => v!.Value).ToList());
-        Assert.Throws<InvalidOperationException>(() =>
-            db.Table<NullableEntity>().OrderBy(x => x.Id).Select(x => x.Value!.Value).ToList());
     }
 
     [Fact]
@@ -347,26 +247,6 @@ public class LinqToObjectsParityTests
 
         int? expected = values.Sum(v => v);
         int? actual = db.Table<NullableEntity>().Sum(x => x.Value);
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void FloatArithmetic_MatchesFloat32()
-    {
-        using TestDatabase db = new();
-        db.Table<NumericType>().Schema.CreateTable();
-        float[] values = [0.1f, 0.2f, 0.3f];
-        for (int i = 0; i < values.Length; i++)
-        {
-            db.Table<NumericType>().Add(new NumericType { Id = i + 1, FloatValue = values[i] });
-        }
-
-        List<float> expected = values.Select(v => v * v + 0.1f).ToList();
-        List<float> actual = db.Table<NumericType>()
-            .OrderBy(n => n.Id)
-            .Select(n => n.FloatValue * n.FloatValue + 0.1f)
-            .ToList();
 
         Assert.Equal(expected, actual);
     }

@@ -130,7 +130,7 @@ internal partial class SQLVisitor
             {
                 return Database.Options.CharStorage == CharStorageMode.Integer
                     ? SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters)
-                    : SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR((", resolved.SQLiteExpression, ") & 65535)", resolved.SQLiteExpression.Parameters);
+                    : SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR((", resolved.SQLiteExpression, $") & {Constants.UInt16Mask})", resolved.SQLiteExpression.Parameters);
             }
             else if (node.Type == typeof(int) && resolved.SQLiteExpression.Type == typeof(char))
             {
@@ -169,6 +169,7 @@ internal partial class SQLVisitor
         {
             ExpressionType.Negate or ExpressionType.NegateChecked => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "-(", operand, ")", operand.Parameters),
             ExpressionType.Not when (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(bool) => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "NOT ", BracketBooleanCompound(node.Operand, operand), "", operand.Parameters),
+            ExpressionType.Not when (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(uint) => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "(~", operand, $" & {Constants.UInt32Mask})", operand.Parameters),
             ExpressionType.Not => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "~", operand, "", operand.Parameters),
             _ => throw new NotSupportedException($"Unsupported unary op {node.NodeType}")
         };

@@ -36,7 +36,11 @@ internal partial class SQLVisitor
             }
         }
 
-        if (Database.Options.CharStorage != CharStorageMode.Integer && rightNode.Type == typeof(int) && leftNode is UnaryExpression leftUnary && leftUnary.Operand.Type == typeof(char))
+        bool charComparisonOp = node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
+            or ExpressionType.GreaterThan or ExpressionType.LessThan
+            or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual;
+
+        if (charComparisonOp && Database.Options.CharStorage != CharStorageMode.Integer && rightNode.Type == typeof(int) && leftNode is UnaryExpression leftUnary && leftUnary.Operand.Type == typeof(char))
         {
             leftNode = leftUnary.Operand;
 
@@ -50,7 +54,7 @@ internal partial class SQLVisitor
                 rightNode = Expression.MakeUnary(ExpressionType.Convert, rightNode, typeof(char));
             }
         }
-        else if (Database.Options.CharStorage != CharStorageMode.Integer && leftNode.Type == typeof(int) && rightNode is UnaryExpression rightUnary && rightUnary.Operand.Type == typeof(char))
+        else if (charComparisonOp && Database.Options.CharStorage != CharStorageMode.Integer && leftNode.Type == typeof(int) && rightNode is UnaryExpression rightUnary && rightUnary.Operand.Type == typeof(char))
         {
             rightNode = rightUnary.Operand;
 
@@ -254,7 +258,7 @@ internal partial class SQLVisitor
             ? "CASE WHEN bb = 0 THEN aa % bb WHEN bb = 1 THEN 0 WHEN bb < 0 THEN (CASE WHEN (aa < 0 AND aa >= bb) THEN (aa - bb) ELSE aa END) ELSE (CASE WHEN (rh + a0) >= (bb - rh) THEN (rh + a0) - (bb - rh) ELSE (rh + a0 + rh) END) END"
             : "CASE WHEN bb = 0 THEN aa / bb WHEN bb = 1 THEN aa WHEN bb < 0 THEN (CASE WHEN (aa < 0 AND aa >= bb) THEN 1 ELSE 0 END) ELSE ((ah / bb) * 2 + (CASE WHEN (rh + a0) >= (bb - rh) THEN 1 ELSE 0 END)) END";
 
-        string prefix = "(SELECT " + caseBody + " FROM (SELECT aa, bb, ah, (ah % bb) AS rh, (aa & 1) AS a0 FROM (SELECT aa, bb, ((aa >> 1) & 9223372036854775807) AS ah FROM (SELECT ";
+        string prefix = "(SELECT " + caseBody + $" FROM (SELECT aa, bb, ah, (ah % bb) AS rh, (aa & 1) AS a0 FROM (SELECT aa, bb, ((aa >> 1) & {Constants.Int64SignMask}) AS ah FROM (SELECT ";
 
         return SQLiteExpression.Multi(
             resultType,
@@ -275,19 +279,19 @@ internal partial class SQLVisitor
     {
         bool is64Bit = shiftType == typeof(long) || shiftType == typeof(ulong);
         string spacedOp = node.NodeType == ExpressionType.LeftShift ? " << (" : " >> (";
-        string maskedCount = is64Bit ? " & 63))" : " & 31))";
+        string maskedCount = is64Bit ? $" & {Constants.Shift64CountMask}))" : $" & {Constants.Shift32CountMask}))";
 
         if (node.NodeType is ExpressionType.RightShift || is64Bit || shiftType == typeof(uint))
         {
             string[] parts = node.NodeType == ExpressionType.LeftShift && shiftType == typeof(uint)
-                ? ["((", spacedOp, " & 31)) & 4294967295)"]
+                ? ["((", spacedOp, $" & {Constants.Shift32CountMask})) & {Constants.UInt32Mask})"]
                 : ["(", spacedOp, maskedCount];
 
             return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(), parts, [value, count], parameters);
         }
 
         return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
-            ["(((((", spacedOp, " & 31)) & 4294967295) + 2147483648) % 4294967296) - 2147483648)"],
+            ["(((((", spacedOp, $" & {Constants.Shift32CountMask})) & {Constants.UInt32Mask}) + {Constants.Int32SignBit}) % {Constants.UInt32Modulus}) - {Constants.Int32SignBit})"],
             [value, count],
             parameters);
     }

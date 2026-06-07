@@ -706,6 +706,26 @@ public class QueryPatternTests
     }
 
     [Fact]
+    public void Select_OnesComplementOnNullableUInt_MatchesDotNet()
+    {
+        using TestDatabase db = new();
+        db.Table<NumericType>().Schema.CreateTable();
+        uint[] values = [5, 0, 4294967295];
+        for (int i = 0; i < values.Length; i++)
+        {
+            db.Table<NumericType>().Add(new NumericType { Id = i + 1, UIntValue = values[i] });
+        }
+
+        List<uint?> expected = values.Select(v => ~(uint?)v).ToList();
+        List<uint?> actual = db.Table<NumericType>()
+            .OrderBy(n => n.Id)
+            .Select(n => ~(uint?)n.UIntValue)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void Where_NegatedBooleanColumn()
     {
         using TestDatabase db = new(b => b.AddQueryFilter<SoftDeletableBook>(s => true));

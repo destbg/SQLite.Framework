@@ -395,13 +395,14 @@ internal static class StringMemberVisitor
     private static SQLiteExpression ResolveLike(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, Func<object?, string> selectParameter, Func<SQLiteExpression, string> selectValue)
     {
         bool ignoreCase = false;
-        if (arguments.Count == 2)
+        bool explicitComparison = arguments.Count == 2;
+        if (explicitComparison)
         {
             StringComparison comparison = (StringComparison)arguments[1].Constant!;
             ignoreCase = comparison is StringComparison.OrdinalIgnoreCase or StringComparison.CurrentCultureIgnoreCase or StringComparison.InvariantCultureIgnoreCase;
         }
 
-        if (visitor.Database.Options.CaseSensitiveStringComparison && !ignoreCase)
+        if (!ignoreCase && (visitor.Database.Options.CaseSensitiveStringComparison || explicitComparison))
         {
             return ResolveCaseSensitiveSearch(visitor, method, obj, arguments);
         }

@@ -8,6 +8,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Math.Sqrt`, `Math.Log` and `Math.Acos` out of domain are `NULL`. SQLite has no `NaN` or infinity.
 - Float `ToString()` keeps the decimal point, so `1.0` becomes `"1.0"`.
 - `decimal` is not exact: `Real` storage is a 64-bit float, `Text` storage casts to float for compare and order.
+- `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits. SQLite has no 32-bit float type.
 - Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
@@ -28,10 +29,16 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - Chained `OrderBy` keeps only the last key, like EF Core. Use `ThenBy` to keep both.
 - `Union`, `Distinct`, `Intersect` and `Except` dedup by value, not by reference.
+- `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
 
 ## Null comparisons
 
 - `>`, `<`, `>=`, `<=` on a `NULL` column are `NULL`: the row drops in `Where`/`All`, reads as `false` in `ToList`, and throws in `First`/`Single`. Equality stays correct via `IS`.
+- Reading `.Value` on a `NULL` nullable column returns the type default instead of throwing `InvalidOperationException`.
+
+## Aggregates
+
+- A grouped `Min`, `Max` or `Average` over a per-group filter that matches no rows returns the type default instead of throwing. `Sum` returns `0`, the same as LINQ.
 
 ## Dates, times and storage
 
@@ -42,4 +49,4 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Functions and JSON collections
 
 - `SQLiteFunctions.Min` and `Max` need two or more arguments.
-- On a JSON array, `ElementAt` past the end and `Min`/`Max`/`Average`/`Sum` over an empty array return the type default instead of throwing.
+- On a JSON array, `ElementAt` past the end, `First`, `Last` or `Single` over an empty array, `Single` over two or more elements, and `Min`/`Max`/`Average`/`Sum` over an empty array all return the type default instead of throwing.

@@ -47,15 +47,16 @@ public class StringTranslationTests
     }
 
     [Fact]
-    public void ContainsWithOrdinalComparisonStaysCaseInsensitiveByDefault()
+    public void ContainsWithOrdinalComparisonIsCaseSensitiveByDefault()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().Add(new Book { Id = 1, Title = "Clean Code", AuthorId = 1, Price = 1 });
 
+        int expected = new[] { "Clean Code" }.Count(t => t.Contains("clean", StringComparison.Ordinal));
         int actual = db.Table<Book>().Where(b => b.Title.Contains("clean", StringComparison.Ordinal)).ToList().Count;
 
-        Assert.Equal(1, actual);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

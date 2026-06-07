@@ -118,8 +118,21 @@ internal static class QueryableMemberVisitor
 
                 SQLiteParameter[] allParameters = [.. item.Parameters ?? [], .. parameters];
 
+                Type itemType = node.Arguments[itemIndex].Type;
+                bool itemMayBeNull = !itemType.IsValueType || Nullable.GetUnderlyingType(itemType) != null;
+
                 if (!hasNull)
                 {
+                    if (itemMayBeNull)
+                    {
+                        return SQLiteExpression.Wrap(
+                            node.Method.ReturnType,
+                            visitor.Counters.NextIdentifier(),
+                            "((", itemExpr, paramSb.ToString() + ") IS 1)",
+                            allParameters
+                        );
+                    }
+
                     return SQLiteExpression.Wrap(
                         node.Method.ReturnType,
                         visitor.Counters.NextIdentifier(),

@@ -521,7 +521,7 @@ public class SupplementalQueryTests
             .Where(p => p.Type == (PublisherType)Enum.Parse(typeof(PublisherType), "Magazine"))
             .ToSqlCommand();
 
-        Assert.Equal("SELECT p0.\"Id\" AS \"Id\",\n       p0.\"Name\" AS \"Name\",\n       p0.\"Type\" AS \"Type\"\nFROM \"Publisher\" AS p0\nWHERE p0.\"Type\" = CAST((SELECT (CASE v5 WHEN @p2 THEN 1 WHEN @p3 THEN 2 WHEN @p4 THEN 3 WHEN @p5 THEN 4 ELSE CAST(v5 AS INTEGER) END) FROM (SELECT @p1 AS v5)) AS INTEGER)", cmd.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT p0.\"Id\" AS \"Id\",\n       p0.\"Name\" AS \"Name\",\n       p0.\"Type\" AS \"Type\"\nFROM \"Publisher\" AS p0\nWHERE p0.\"Type\" = CAST((SELECT ((CASE WHEN INSTR((',' || REPLACE(v5, ' ', '') || ','), @p2) > 0 THEN 1 ELSE 0 END) | (CASE WHEN INSTR((',' || REPLACE(v5, ' ', '') || ','), @p3) > 0 THEN 2 ELSE 0 END) | (CASE WHEN INSTR((',' || REPLACE(v5, ' ', '') || ','), @p4) > 0 THEN 3 ELSE 0 END) | (CASE WHEN INSTR((',' || REPLACE(v5, ' ', '') || ','), @p5) > 0 THEN 4 ELSE 0 END) | CAST(v5 AS INTEGER)) FROM (SELECT @p1 AS v5)) AS INTEGER)", cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

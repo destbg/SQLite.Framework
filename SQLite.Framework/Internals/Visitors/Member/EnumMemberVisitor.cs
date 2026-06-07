@@ -165,31 +165,35 @@ internal static class EnumMemberVisitor
             Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
             string[] enumNames = Enum.GetNames(enumType);
 
-            StringBuilder caseSb = new();
-            List<SQLiteParameter> parameters = new();
-
-            for (int i = 0; i < enumValuesArray.Length; i++)
-            {
-                object enumValue = enumValuesArray.GetValue(i)!;
-                long numericValue = ToSignedNumeric(enumValue, enumUnderlying);
-                string enumName = enumNames[i];
-
-                SQLiteParameter nameParam = new()
-                {
-                    Name = visitor.Counters.NextParamName(),
-                    Value = enumName
-                };
-                parameters.Add(nameParam);
-                caseSb.Append(" WHEN ");
-                caseSb.Append(nameParam.Name);
-                caseSb.Append(" THEN ");
-                caseSb.Append(numericValue);
-            }
-
             SQLiteExpression stringArgExpr = stringArg.SQLiteExpression!;
-            string collate = ignoreCase ? " COLLATE NOCASE" : "";
+
             return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [stringArgExpr], v =>
-                SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], collate + caseSb.ToString() + " ELSE CAST(", v[0], " AS INTEGER) END)", [.. parameters]));
+            {
+                string vsql = v[0].ToString();
+                string norm = ignoreCase
+                    ? $"LOWER(',' || REPLACE({vsql}, ' ', '') || ',')"
+                    : $"(',' || REPLACE({vsql}, ' ', '') || ',')";
+
+                List<SQLiteParameter> tokenParameters = new();
+                List<string> parts = new();
+                for (int i = 0; i < enumNames.Length; i++)
+                {
+                    long numericValue = ToSignedNumeric(enumValuesArray.GetValue(i)!, enumUnderlying);
+                    string token = "," + (ignoreCase ? enumNames[i].ToLowerInvariant() : enumNames[i]) + ",";
+                    SQLiteParameter tokenParam = new()
+                    {
+                        Name = visitor.Counters.NextParamName(),
+                        Value = token
+                    };
+                    tokenParameters.Add(tokenParam);
+                    parts.Add($"(CASE WHEN INSTR({norm}, {tokenParam.Name}) > 0 THEN {numericValue} ELSE 0 END)");
+                }
+
+                parts.Add($"CAST({vsql} AS INTEGER)");
+                string body = $"({string.Join(" | ", parts)})";
+
+                return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), body, tokenParameters.ToArray());
+            });
         }
 
         return visitor.NotTranslatable(node, $"Enum.{node.Method.Name} is not translatable to SQL.");
