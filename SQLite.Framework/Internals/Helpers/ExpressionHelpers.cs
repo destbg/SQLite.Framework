@@ -73,6 +73,7 @@ internal static class ExpressionHelpers
             ConstantExpression => true,
             MemberExpression me => me.Expression == null || IsConstant(me.Expression),
             UnaryExpression ue => IsConstant(ue.Operand),
+            BinaryExpression { NodeType: ExpressionType.ArrayIndex } bi => IsConstant(bi.Left) && IsConstant(bi.Right),
             NewArrayExpression na => na.Expressions.Select(IsConstant).All(f => f),
             MemberInitExpression mie => mie.Bindings.All(b => b is MemberAssignment ma && IsConstant(ma.Expression)),
             NewExpression ne => ne.Arguments.All(IsConstant),
@@ -91,6 +92,11 @@ internal static class ExpressionHelpers
                 ? (me.Expression != null ? fi.GetValue(GetConstantValue(me.Expression)) : fi.GetValue(null))
                 : ((PropertyInfo)me.Member).GetValue(me.Expression != null ? GetConstantValue(me.Expression) : null),
             UnaryExpression { NodeType: ExpressionType.Convert } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type),
+            UnaryExpression { NodeType: ExpressionType.ArrayLength } ue => ((Array)GetConstantValue(ue.Operand)!).Length,
+            UnaryExpression { NodeType: ExpressionType.Negate } ue => EvaluateUnary(ue),
+            UnaryExpression { NodeType: ExpressionType.Not } ue => EvaluateUnary(ue),
+            BinaryExpression { NodeType: ExpressionType.ArrayIndex } bi => ((Array)GetConstantValue(bi.Left)!)
+                .GetValue(Convert.ToInt32(GetConstantValue(bi.Right), CultureInfo.InvariantCulture)),
             NewArrayExpression na => CreateArray(na),
             MemberInitExpression mie => CreateMember(mie),
             NewExpression ne => CreateNew(ne),
@@ -122,6 +128,24 @@ internal static class ExpressionHelpers
         return node.RequiresBrackets
             ? SQLiteExpression.Wrap(node.Type, node.Identifier, "(", node, ")", node.Parameters)
             : node;
+    }
+
+    private static object EvaluateUnary(UnaryExpression node)
+    {
+        object operand = GetConstantValue(node.Operand)!;
+        bool complement = node.NodeType is ExpressionType.Not;
+        return operand switch
+        {
+            bool b => !b,
+            int i => complement ? ~i : -i,
+            long l => complement ? ~l : -l,
+            uint u => ~u,
+            ulong ul => ~ul,
+            float f => -f,
+            double d => -d,
+            decimal m => -m,
+            _ => throw new NotSupportedException($"Cannot evaluate a constant {node.NodeType} expression on operand type {operand.GetType()}.")
+        };
     }
 
     private static object? ConvertConstant(object? value, Type targetType)
