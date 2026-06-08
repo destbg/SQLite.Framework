@@ -22,10 +22,8 @@ internal static class GuidMemberVisitor
             {
                 case nameof(Guid.NewGuid):
                 {
-                    Guid guid = Guid.NewGuid();
-                    string pName = visitor.Counters.NextParamName();
-
-                    return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), pName, guid);
+                    return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                        "(LOWER(HEX(RANDOMBLOB(4))) || '-' || LOWER(HEX(RANDOMBLOB(2))) || '-' || LOWER(HEX(RANDOMBLOB(2))) || '-' || LOWER(HEX(RANDOMBLOB(2))) || '-' || LOWER(HEX(RANDOMBLOB(6))))");
                 }
             }
         }

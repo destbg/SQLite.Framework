@@ -406,7 +406,7 @@ public static class QueryableExtensions
             .MakeGenericMethod(typeof(T));
         Expression callExpression = Expression.Call(marker, source.Expression, Expression.Constant(separator));
 
-        return sqliteSource.Provider.Execute<string?>(callExpression) ?? string.Empty;
+        return sqliteSource.Provider.Execute<string>(callExpression);
     }
 
     /// <summary>

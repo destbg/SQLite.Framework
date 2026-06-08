@@ -588,7 +588,7 @@ public class MethodVisitorTests
     }
 
     [Fact]
-    public void Guid_NewGuid_InsideSelect_GeneratesParameter()
+    public void Guid_NewGuid_InsideSelect_ReturnsNonEmptyValue()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();

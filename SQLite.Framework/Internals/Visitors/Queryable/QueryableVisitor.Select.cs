@@ -170,6 +170,12 @@ internal partial class QueryableVisitor
 
         if (selector.Body is MethodCallExpression { Method.Name: nameof(Enumerable.DefaultIfEmpty) } methodCallExpression)
         {
+            if (methodCallExpression.Arguments.Count > 1)
+            {
+                throw new NotSupportedException(
+                    "DefaultIfEmpty with a custom default value is not supported in a query.");
+            }
+
             Type type = selector.Body.Type.GetGenericArguments()[^1];
             JoinInfo join = Joins.First(f => f.EntityType == type && f.IsGroupJoin);
             join.JoinType = "LEFT JOIN";

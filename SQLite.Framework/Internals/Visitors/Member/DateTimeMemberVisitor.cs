@@ -408,7 +408,7 @@ internal static class DateTimeMemberVisitor
         return SQLiteExpression.Binary(
             method.ReturnType,
             visitor.Counters.NextIdentifier(),
-            "CAST(((", obj, " + (", arguments[0].SQLiteExpression!, $" * {parameter.Name})) % {day} + {day}) % {day} AS 'INTEGER')",
+            "CAST(((", obj, " + CAST((", arguments[0].SQLiteExpression!, $") * {parameter.Name} AS INTEGER)) % {day} + {day}) % {day} AS 'INTEGER')",
             [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter]
         );
     }

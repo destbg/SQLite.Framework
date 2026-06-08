@@ -80,7 +80,7 @@ internal static class SqlLiteralHelper
             int b => b.ToString(CultureInfo.InvariantCulture),
             uint b => b.ToString(CultureInfo.InvariantCulture),
             long b => b.ToString(CultureInfo.InvariantCulture),
-            ulong b => b.ToString(CultureInfo.InvariantCulture),
+            ulong b => unchecked((long)b).ToString(CultureInfo.InvariantCulture),
             float f => f.ToString("R", CultureInfo.InvariantCulture),
             double d => d.ToString("R", CultureInfo.InvariantCulture),
             _ => throw new NotSupportedException(

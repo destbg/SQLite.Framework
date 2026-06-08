@@ -45,6 +45,10 @@ internal partial class QueryableVisitor
                 if (applyDistinct)
                 {
                     ThrowOnMultiColumnDistinct(node);
+
+                    throw new NotSupportedException(
+                        $"{node.Method.Name} with a selector after Distinct() is not supported, because the DISTINCT " +
+                        "would apply to the selector result instead of to the source rows.");
                 }
 
                 select = BuildScalarAggregate(function, node.Method.ReturnType, sqlExpression, distinctPrefix);
@@ -129,14 +133,14 @@ internal partial class QueryableVisitor
             }
 
             string[] parts = new string[3 + orderCount];
-            parts[0] = "group_concat(";
-            parts[1] = ", ";
+            parts[0] = "COALESCE(group_concat(COALESCE(";
+            parts[1] = ", ''), ";
             parts[2] = " ORDER BY ";
             for (int i = 0; i < orderCount - 1; i++)
             {
                 parts[3 + i] = ", ";
             }
-            parts[2 + orderCount] = ")";
+            parts[2 + orderCount] = "), '')";
 
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(children);
             select = SQLiteExpression.Multi(
@@ -155,11 +159,11 @@ internal partial class QueryableVisitor
             select = SQLiteExpression.Binary(
                 typeof(string),
                 visitor.Counters.NextIdentifier(),
-                "group_concat(",
+                "COALESCE(group_concat(COALESCE(",
                 innerExpression,
-                ", ",
+                ", ''), ",
                 separatorExpression,
-                ")",
+                "), '')",
                 parameters);
         }
 

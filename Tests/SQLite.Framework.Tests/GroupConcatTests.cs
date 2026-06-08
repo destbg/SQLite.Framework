@@ -21,7 +21,7 @@ public class GroupConcatTests
 
         Assert.Equal("""
                      SELECT (
-                         SELECT group_concat(b2."BookTitle", @p1) AS "19"
+                         SELECT COALESCE(group_concat(COALESCE(b2."BookTitle", ''), @p1), '') AS "19"
                          FROM "Books" AS b2
                          WHERE b2."BookAuthorId" = a0."AuthorId"
                      ) AS "21"
@@ -65,7 +65,7 @@ public class GroupConcatTests
     }
 
     [Fact]
-    public void StringJoin_SubqueryWithNoRows_ReturnsNull()
+    public void StringJoin_SubqueryWithNoRows_ReturnsEmptyString()
     {
         using TestDatabase db = new();
 
@@ -73,13 +73,13 @@ public class GroupConcatTests
         db.Table<Book>().Schema.CreateTable();
         db.Table<Author>().Add(new Author { Id = 1, Name = "Anna", Email = "a@example.com", BirthDate = new DateTime(1980, 1, 1) });
 
-        string? row = db.Table<Author>()
+        string row = db.Table<Author>()
             .Select(a => string.Join(", ", db.Table<Book>()
                 .Where(b => b.AuthorId == a.Id)
                 .Select(b => b.Title)))
             .First();
 
-        Assert.Null(row);
+        Assert.Equal("", row);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public class GroupConcatTests
 
         Assert.Equal("""
                      SELECT (
-                         SELECT group_concat(b2."BookTitle", @p1 ORDER BY b2."BookTitle" ASC) AS "21"
+                         SELECT COALESCE(group_concat(COALESCE(b2."BookTitle", ''), @p1 ORDER BY b2."BookTitle" ASC), '') AS "21"
                          FROM "Books" AS b2
                          WHERE b2."BookAuthorId" = a0."AuthorId"
                      ) AS "23"
@@ -204,7 +204,7 @@ public class GroupConcatTests
 
         Assert.Equal("""
                      SELECT (
-                         SELECT group_concat(b2."BookTitle", @p1 ORDER BY b2."BookPrice" DESC, b2."BookId" ASC) AS "23"
+                         SELECT COALESCE(group_concat(COALESCE(b2."BookTitle", ''), @p1 ORDER BY b2."BookPrice" DESC, b2."BookId" ASC), '') AS "23"
                          FROM "Books" AS b2
                          WHERE b2."BookAuthorId" = a0."AuthorId"
                      ) AS "25"

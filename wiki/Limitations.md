@@ -16,6 +16,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
 - `Parse` and narrowing casts over a column map to `CAST` and do not validate or throw.
 - `Math.Clamp` with `min` greater than `max` returns `min` instead of throwing.
+- `Math.Abs(long.MinValue)` throws a `SQLiteException`, since its result does not fit a signed 64-bit integer.
 
 ## Strings
 
@@ -24,6 +25,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing.
 - `Replace("", ...)` returns the original string.
 - `ToUpper` and `ToLower` fold only ASCII unless the SQLite build has ICU.
+- Case-insensitive `Equals` and `Compare` (`OrdinalIgnoreCase`) also fold only ASCII.
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text), matching EF Core.
 
 ## Ordering and set operations
@@ -36,6 +38,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - `>`, `<`, `>=`, `<=` on a `NULL` column are `NULL`: the row drops in `Where`/`All`, reads as `false` in `ToList`, and throws in `First`/`Single`. Equality stays correct via `IS`.
 - Reading `.Value` on a `NULL` nullable column returns the type default instead of throwing `InvalidOperationException`.
+- A projected entity reads back as `null` when all of its mapped columns are `NULL`, so a row whose values are all null cannot be told apart from a missing outer-join row.
 
 ## Aggregates
 

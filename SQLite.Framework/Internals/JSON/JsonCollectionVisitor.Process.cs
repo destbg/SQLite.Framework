@@ -102,7 +102,9 @@ internal partial class JsonCollectionVisitor
                 or nameof(Enumerable.OrderBy) or nameof(Enumerable.OrderByDescending)
                 or nameof(Enumerable.Distinct)
                 or nameof(Enumerable.Skip)
-                or nameof(Enumerable.ElementAt) => true,
+                or nameof(Enumerable.ElementAt)
+                or nameof(Enumerable.First) or nameof(Enumerable.FirstOrDefault)
+                or nameof(Enumerable.Single) or nameof(Enumerable.SingleOrDefault) => true,
             nameof(Enumerable.Take) => limit != null,
             _ => TranslationPatterns.IsWindowConsumer(name)
         };
@@ -233,13 +235,17 @@ internal partial class JsonCollectionVisitor
     {
         if (limit != null || offset != null)
         {
-            bool hadOrder = orderBys.Count > 0;
-            bool outerAscending = hadOrder && orderBys[^1].EndsWith(" DESC");
+            List<string>? reversedOrder = orderBys.Count > 0 ? ReversedOrderBysList() : null;
             MaterializeWindow();
             AddOptionalPredicate(call, elementType);
-            orderBys.Add(hadOrder
-                ? $"{selectExpr}{(outerAscending ? " ASC" : " DESC")}"
-                : $"{keyColumn} DESC");
+            if (reversedOrder != null)
+            {
+                orderBys.AddRange(reversedOrder);
+            }
+            else
+            {
+                orderBys.Add($"{keyColumn} DESC");
+            }
             limit = "1";
             wrapInArray = false;
             return;
@@ -308,12 +314,16 @@ internal partial class JsonCollectionVisitor
 
         if (limit != null || offset != null)
         {
-            bool hadOrder = orderBys.Count > 0;
-            bool lastWasAscending = hadOrder && orderBys[^1].EndsWith(" ASC");
+            List<string>? reversedOrder = orderBys.Count > 0 ? ReversedOrderBysList() : null;
             MaterializeWindow();
-            orderBys.Add(hadOrder
-                ? $"{selectExpr}{(lastWasAscending ? " DESC" : " ASC")}"
-                : $"{keyColumn} DESC");
+            if (reversedOrder != null)
+            {
+                orderBys.AddRange(reversedOrder);
+            }
+            else
+            {
+                orderBys.Add($"{keyColumn} DESC");
+            }
             return;
         }
 
