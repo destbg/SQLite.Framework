@@ -69,6 +69,78 @@ public static class SQLiteWindowFunctions
     }
 
     /// <summary>
+    /// Computes the average of a <see cref="short" /> column over the window as a <see cref="double" />,
+    /// so the fractional result is kept. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double> Avg(short value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a <see cref="byte" /> column over the window as a <see cref="double" />,
+    /// so the fractional result is kept. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double> Avg(byte value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of an <see cref="sbyte" /> column over the window as a <see cref="double" />,
+    /// so the fractional result is kept. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double> Avg(sbyte value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a <see cref="ushort" /> column over the window as a <see cref="double" />,
+    /// so the fractional result is kept. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double> Avg(ushort value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a nullable <see cref="short" /> column over the window as a nullable
+    /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double?> Avg(short? value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a nullable <see cref="byte" /> column over the window as a nullable
+    /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double?> Avg(byte? value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a nullable <see cref="sbyte" /> column over the window as a nullable
+    /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double?> Avg(sbyte? value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a nullable <see cref="ushort" /> column over the window as a nullable
+    /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double?> Avg(ushort? value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
     /// Returns the minimum value in the window. Translates to <c>MIN(value) OVER (...)</c>.
     /// </summary>
     public static SQLiteWindow<T> Min<T>(T value)

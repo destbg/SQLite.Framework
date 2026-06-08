@@ -124,8 +124,10 @@ internal static class StringMemberVisitor
                 }
                 case nameof(string.Replace):
                 {
-                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!);
-                    return SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "REPLACE(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, ", ", arguments[1].SQLiteExpression!, ")", parameters);
+                    SQLiteExpression oldArg = CharArgAsText(arguments[0]);
+                    SQLiteExpression newArg = CharArgAsText(arguments[1]);
+                    SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, oldArg, newArg);
+                    return SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "REPLACE(", obj.SQLiteExpression!, ", ", oldArg, ", ", newArg, ")", parameters);
                 }
                 case nameof(string.Trim):
                 {

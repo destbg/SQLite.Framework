@@ -66,7 +66,7 @@ public class FullTextSearchTests
             .ToSqlCommand();
 
         Assert.Single(command.Parameters);
-        Assert.Equal("{Title} : native", command.Parameters[0].Value);
+        Assert.Equal("{Title} : (native)", command.Parameters[0].Value);
         Assert.Equal(
             N("""
             SELECT a0."rowid" AS "Id",

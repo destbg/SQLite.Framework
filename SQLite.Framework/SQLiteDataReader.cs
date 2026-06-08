@@ -119,6 +119,16 @@ public class SQLiteDataReader : IDisposable
     }
 
     /// <summary>
+    /// Returns true when a custom type converter is registered for <paramref name="type" />.
+    /// Generated materializers call this to decide whether to read a column through the converter
+    /// instead of the fast direct accessor, matching the reflection path.
+    /// </summary>
+    public bool HasConverter(Type type)
+    {
+        return Options.TypeConverters.Count != 0 && Options.TypeConverters.ContainsKey(type);
+    }
+
+    /// <summary>
     /// Reads a 32-bit signed integer column directly. NULL columns return 0.
     /// </summary>
     public int GetInt32(int index)

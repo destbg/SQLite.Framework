@@ -313,7 +313,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
-            return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, bindRow, autoIncrement);
+            return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, bindRow, autoIncrement, detectInsertByRowIdChange: true);
         }
 
         return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, item =>
@@ -465,7 +465,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// is supplied, <c>last_insert_rowid</c> is read after every row that affected at least one row
     /// and written back to the entity.
     /// </summary>
-    protected virtual int RunPreparedRange(string sql, IEnumerable<T> items, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, Action<sqlite3_stmt, T> bindRow, TableColumn? autoIncrement = null)
+    protected virtual int RunPreparedRange(string sql, IEnumerable<T> items, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, Action<sqlite3_stmt, T> bindRow, TableColumn? autoIncrement = null, bool detectInsertByRowIdChange = false)
     {
         int count = 0;
 
@@ -505,6 +505,10 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
                     bindRow(stmt, item);
 
+                    long rowIdBefore = autoIncrement != null && detectInsertByRowIdChange
+                        ? raw.sqlite3_last_insert_rowid(handle)
+                        : 0L;
+
                     SQLiteResult stepResult = (SQLiteResult)raw.sqlite3_step(stmt);
                     if (stepResult != SQLiteResult.Done)
                     {
@@ -514,10 +518,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                     int changes = raw.sqlite3_changes(handle);
                     count += changes;
 
-                    if (autoIncrement != null && changes > 0)
+                    if (autoIncrement != null)
                     {
                         long rowId = raw.sqlite3_last_insert_rowid(handle);
-                        autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
+                        bool inserted = detectInsertByRowIdChange ? rowId != rowIdBefore : changes > 0;
+                        if (inserted)
+                        {
+                            autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
+                        }
                     }
 
                     raw.sqlite3_reset(stmt);
@@ -578,7 +586,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         IReadOnlyList<(string Column, string ValueSql)> extra = ExtraWriteColumns;
         if (extra.Count > 0)
         {
-            setClause += ", " + string.Join(", ", extra.Select(e => $"{IdentifierGuard.Quote(e.Column)} = {e.ValueSql}"));
+            string extraClause = string.Join(", ", extra.Select(e => $"{IdentifierGuard.Quote(e.Column)} = {e.ValueSql}"));
+            setClause = setClause.Length == 0 ? extraClause : setClause + ", " + extraClause;
         }
 
         string primaryKeyClause = string.Join(" AND ",

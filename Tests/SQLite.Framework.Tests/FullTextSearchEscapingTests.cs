@@ -566,7 +566,7 @@ public class FullTextSearchEscapingTests
 
         Func<IQueryable<ArticleSearch>, IQueryable<ArticleSearch>> shape = q => q.Where(a => SQLiteFTS5Functions.Match(a.Title, "native"));
 
-        Assert.Equal("{Title} : native", MatchValue(BuildMatch(db, shape)));
+        Assert.Equal("{Title} : (native)", MatchValue(BuildMatch(db, shape)));
         Assert.Equal(1, Run(db, shape));
     }
 

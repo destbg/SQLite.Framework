@@ -92,16 +92,55 @@ public class SQLiteCommand
         NotifyExecuting();
         try
         {
-            sqlite3_stmt statement = CreateStatement();
-            SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
-            raw.sqlite3_finalize(statement);
+            sqlite3 handle = Database.GetActiveHandle();
+            byte[] sqlBytes = Encoding.UTF8.GetBytes(CommandText);
+            ReadOnlySpan<byte> remaining = sqlBytes;
+            int changes = 0;
+            bool first = true;
 
-            if (result != SQLiteResult.Done)
+            while (true)
             {
-                throw new SQLiteException(result, raw.sqlite3_errmsg(Database.GetActiveHandle()).utf8_to_string(), CommandText);
+                SQLiteResult prepareResult = (SQLiteResult)raw.sqlite3_prepare_v2(handle, remaining, out sqlite3_stmt statement, out ReadOnlySpan<byte> tail);
+                if (prepareResult != SQLiteResult.OK)
+                {
+                    throw new SQLiteException(prepareResult, raw.sqlite3_errmsg(handle).utf8_to_string(), CommandText);
+                }
+
+                if (statement == null)
+                {
+                    break;
+                }
+
+                try
+                {
+                    BindParameters(statement, ignoreMissing: !(first && tail.IsEmpty));
+
+                    SQLiteResult stepResult = (SQLiteResult)raw.sqlite3_step(statement);
+                    while (stepResult == SQLiteResult.Row)
+                    {
+                        stepResult = (SQLiteResult)raw.sqlite3_step(statement);
+                    }
+
+                    if (stepResult != SQLiteResult.Done)
+                    {
+                        throw new SQLiteException(stepResult, raw.sqlite3_errmsg(handle).utf8_to_string(), CommandText);
+                    }
+                }
+                finally
+                {
+                    raw.sqlite3_finalize(statement);
+                }
+
+                changes += raw.sqlite3_changes(handle);
+                first = false;
+                remaining = tail;
+
+                if (remaining.IsEmpty)
+                {
+                    break;
+                }
             }
 
-            int changes = raw.sqlite3_changes(Database.GetActiveHandle());
             NotifyExecuted(changes);
             return changes;
         }
@@ -236,11 +275,16 @@ public class SQLiteCommand
         }
     }
 
-    private void BindParameters(sqlite3_stmt statement)
+    private void BindParameters(sqlite3_stmt statement, bool ignoreMissing = false)
     {
         SQLiteOptions options = Database.Options;
         foreach (SQLiteParameter parameter in Parameters)
         {
+            if (ignoreMissing && raw.sqlite3_bind_parameter_index(statement, parameter.Name) == 0)
+            {
+                continue;
+            }
+
             CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);
         }
     }

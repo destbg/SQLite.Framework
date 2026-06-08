@@ -411,6 +411,11 @@ public static class SelectSignatureWriter
             case BinaryExpressionSyntax bin:
                 return AppendBinary(sb, bin, type, ctx);
 
+            case PrefixUnaryExpressionSyntax constUnary
+                when ctx.Model.GetConstantValue(constUnary).HasValue:
+                AppendConstant(sb, constUnary, type, ctx);
+                return true;
+
             case PrefixUnaryExpressionSyntax preUnary:
                 return AppendPrefixUnary(sb, preUnary, type, ctx);
 

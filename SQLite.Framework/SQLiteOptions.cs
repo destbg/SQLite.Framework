@@ -337,6 +337,16 @@ public sealed class SQLiteOptions
         CommandHelpers.BindParameterByIndex(statement, parameterIndex, value, this);
     }
 
+    /// <summary>
+    /// Returns true when a custom type converter is registered for <paramref name="type" />.
+    /// Generated <see cref="EntityWriters" /> code calls this to decide whether to bind a column
+    /// through the converter instead of a fast direct bind, matching the reflection path.
+    /// </summary>
+    public bool HasConverter(Type type)
+    {
+        return TypeConverters.Count != 0 && TypeConverters.ContainsKey(type);
+    }
+
     internal void ThrowMinimumVersionNotSupported(SQLiteMinimumVersion requiredVersion, string featureName)
     {
         throw new NotSupportedException(

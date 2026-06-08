@@ -139,7 +139,11 @@ public static class SelectMaterializerEmitter
             {
                 string nullableTypeText = FormatType(leaf.Type, writerCtx.TypeArgSubstitutions);
                 string vnCastOpen = vnCast is null ? "" : "(" + vnCast + ")";
-                sb.Append("            ").Append(nullableTypeText).Append(' ').Append(leaf.VarName)
+                sb.Append("            ").Append(nullableTypeText).Append(' ').Append(leaf.VarName).AppendLine(";");
+                sb.Append("            if (reader.HasConverter(").Append(typeOfText).AppendLine("))");
+                sb.Append("                ").Append(leaf.VarName).Append(" = (").Append(nullableTypeText).Append(")reader.GetValue(").Append(i).Append(", reader.GetColumnType(").Append(i).Append("), ").Append(typeOfText).AppendLine(");");
+                sb.AppendLine("            else");
+                sb.Append("                ").Append(leaf.VarName)
                     .Append(" = reader.IsDBNull(").Append(i).Append(") ? (").Append(nullableTypeText).Append(")null : ")
                     .Append(vnCastOpen).Append("reader.").Append(vnAccessor).Append("(").Append(i).AppendLine(");");
             }
@@ -148,14 +152,18 @@ public static class SelectMaterializerEmitter
                 if (TryGetFastPathAccessor(leaf.Type, out string? nAccessor, out string? nCast, out bool nHandlesNull))
                 {
                     string castOpen = nCast is null ? "" : "(" + nCast + ")";
+                    sb.Append("            object? ").Append(leaf.VarName).AppendLine(";");
+                    sb.Append("            if (reader.HasConverter(").Append(typeOfText).AppendLine("))");
+                    sb.Append("                ").Append(leaf.VarName).Append(" = reader.GetValue(").Append(i).Append(", reader.GetColumnType(").Append(i).Append("), ").Append(typeOfText).AppendLine(");");
+                    sb.AppendLine("            else");
                     if (nHandlesNull)
                     {
-                        sb.Append("            object? ").Append(leaf.VarName).Append(" = ")
+                        sb.Append("                ").Append(leaf.VarName).Append(" = ")
                             .Append(castOpen).Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
                     }
                     else
                     {
-                        sb.Append("            object? ").Append(leaf.VarName)
+                        sb.Append("                ").Append(leaf.VarName)
                             .Append(" = reader.IsDBNull(").Append(i).Append(") ? null : (object)")
                             .Append(castOpen).Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
                     }
@@ -171,8 +179,12 @@ public static class SelectMaterializerEmitter
             {
                 string typeText = FormatType(leaf.Type, writerCtx.TypeArgSubstitutions);
                 string castOpen = cast is null ? "" : "(" + cast + ")";
-                sb.Append("            ")
-                    .Append(typeText).Append(' ').Append(leaf.VarName).Append(" = ")
+                sb.Append("            ").Append(typeText).Append(' ').Append(leaf.VarName).AppendLine(";");
+                sb.Append("            if (reader.HasConverter(").Append(typeOfText).AppendLine("))");
+                sb.Append("                ").Append(leaf.VarName).Append(" = (").Append(typeText).Append(")reader.GetValue(").Append(i).Append(", reader.GetColumnType(").Append(i).Append("), ").Append(typeOfText).AppendLine(")!;");
+                sb.AppendLine("            else");
+                sb.Append("                ")
+                    .Append(leaf.VarName).Append(" = ")
                     .Append(castOpen).Append("reader.").Append(accessor).Append("(").Append(i).AppendLine(");");
             }
             else

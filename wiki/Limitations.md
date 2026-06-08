@@ -8,13 +8,14 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Math.Sqrt`, `Math.Log` and `Math.Acos` out of domain are `NULL`. SQLite has no `NaN` or infinity.
 - Float `ToString()` keeps the decimal point, so `1.0` becomes `"1.0"`.
 - `decimal` is not exact: `Real` storage is a 64-bit float, `Text` storage casts to float for compare and order.
+- On `Text` decimal storage, `Distinct`, the set operators, and a subquery `Contains` compare the stored text. Two equal values with a different scale, such as `10.0` and `10.00`, are then treated as different.
 - `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits. SQLite has no 32-bit float type.
 - Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
-- `Parse` and narrowing casts over a column map to `CAST` and do not validate or throw.
+- `Parse` and a narrowing cast of an integer column map to `CAST` and do not validate or throw. A narrowing cast of a floating-point column to a smaller integer type throws `OverflowException` when the value is out of the target range, where .NET would saturate or wrap.
 - `Math.Clamp` with `min` greater than `max` returns `min` instead of throwing.
 - `Math.Abs(long.MinValue)` throws a `SQLiteException`, since its result does not fit a signed 64-bit integer.
 
@@ -64,6 +65,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - `SQLiteFunctions.Min` and `Max` need two or more arguments.
 - On a JSON array, `ElementAt` past the end, `First`, `Last` or `Single` over an empty array, `Single` over two or more elements, and `Min`/`Max`/`Average`/`Sum` over an empty array all return the type default instead of throwing.
+- On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL`, and `Distinct().Count()` leaves the `null` out of the count.
 
 ## Raw SQL
 

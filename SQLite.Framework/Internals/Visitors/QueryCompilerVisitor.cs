@@ -403,7 +403,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return new CompiledExpression(node.Type, ctx =>
         {
             object?[] args = arguments.Select(arg => arg.Call(ctx)).ToArray();
-            return node.Method.Invoke(instance?.Call(ctx), args);
+            return InvokeUnwrapped(node.Method, instance?.Call(ctx), args);
         });
     }
 
@@ -509,6 +509,18 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     private CompiledExpression VisitMemberListBindingExpression(MemberListBinding node)
     {
         throw new NotSupportedException($"List binding '{node.Member.Name}' is not supported inside a nested member binding.");
+    }
+
+    private static object? InvokeUnwrapped(MethodInfo method, object? instance, object?[] args)
+    {
+        try
+        {
+            return method.Invoke(instance, args);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            throw ex.InnerException;
+        }
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]

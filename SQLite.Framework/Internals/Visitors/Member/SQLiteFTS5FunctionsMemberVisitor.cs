@@ -80,7 +80,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             string queryString = (string)ExpressionHelpers.GetConstantValue(second)!;
             if (columnName != null)
             {
-                queryString = "{" + FtsHelpers.FormatColumnFilter(columnName) + "} : " + queryString;
+                queryString = "{" + FtsHelpers.FormatColumnFilter(columnName) + "} : (" + queryString + ")";
             }
 
             string pName = visitor.Counters.NextParamName();

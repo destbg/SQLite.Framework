@@ -83,12 +83,17 @@ public static class EntityColumnWriterEmitter
         ITypeSymbol underlying = StripNullableSymbol(type);
         bool isNullableValueType = type is INamedTypeSymbol nt && nt.IsGenericType && nt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T;
 
-        if (TryEmitDirectBind(sb, underlying, accessExpr, isNullableValueType))
+        sb.Append("            if (options.HasConverter(typeof(").Append(underlying.ToDisplayString()).AppendLine(")))");
+        sb.Append("                options.BindParameter(stmt, idx, (object?)").Append(accessExpr).AppendLine(");");
+        sb.AppendLine("            else");
+        sb.AppendLine("            {");
+
+        if (!TryEmitDirectBind(sb, underlying, accessExpr, isNullableValueType))
         {
-            return;
+            sb.Append("                options.BindParameter(stmt, idx, (object?)").Append(accessExpr).AppendLine(");");
         }
 
-        sb.Append("            options.BindParameter(stmt, idx, (object?)").Append(accessExpr).AppendLine(");");
+        sb.AppendLine("            }");
     }
 
     private static bool TryEmitDirectBind(StringBuilder sb, ITypeSymbol underlying, string accessExpr, bool isNullableValueType)
