@@ -159,7 +159,7 @@ public class StringOperationTests
 
         Assert.Equal(3, command.Parameters.Count);
         Assert.Equal(10, command.Parameters[0].Value);
-        Assert.Equal(' ', command.Parameters[1].Value);
+        Assert.Equal(" ", command.Parameters[1].Value);
         Assert.Equal("    Test", command.Parameters[2].Value);
         Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE (SELECT (CASE WHEN LENGTH(v5) >= v7 THEN v5 ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(v7 - LENGTH(v5))), '00', @p1), 1, v7 - LENGTH(v5)) || v5) END) FROM (SELECT b0.\"BookTitle\" AS v5, @p0 AS v7)) = @p2", command.CommandText.Replace("\r\n", "\n"));
     }
@@ -177,7 +177,7 @@ public class StringOperationTests
 
         Assert.Equal(3, command.Parameters.Count);
         Assert.Equal(10, command.Parameters[0].Value);
-        Assert.Equal(' ', command.Parameters[1].Value);
+        Assert.Equal(" ", command.Parameters[1].Value);
         Assert.Equal("Test    ", command.Parameters[2].Value);
         Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE (SELECT (CASE WHEN LENGTH(v5) >= v7 THEN v5 ELSE (v5 || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(v7 - LENGTH(v5))), '00', @p1), 1, v7 - LENGTH(v5)))) END) FROM (SELECT b0.\"BookTitle\" AS v5, @p0 AS v7)) = @p2", command.CommandText.Replace("\r\n", "\n"));
     }

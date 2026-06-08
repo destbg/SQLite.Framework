@@ -37,14 +37,15 @@ internal static class StringMemberVisitor
                 {
                     if (arguments.Count == 1)
                     {
-                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "INSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, ") - 1", parameters);
+                        SQLiteExpression needle = CharArgAsText(arguments[0]);
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, needle);
+                        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "INSTR(", obj.SQLiteExpression!, ", ", needle, ") - 1", parameters);
                     }
 
                     if (arguments.Count == 2 && node.Arguments[1].Type == typeof(int))
                     {
                         SQLiteExpression objExpr = obj.SQLiteExpression!;
-                        SQLiteExpression needle = arguments[0].SQLiteExpression!;
+                        SQLiteExpression needle = CharArgAsText(arguments[0]);
                         SQLiteExpression start = arguments[1].SQLiteExpression!;
                         return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, needle, start], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
@@ -199,7 +200,7 @@ internal static class StringMemberVisitor
                         SQLiteParameter spaceParam = new()
                         {
                             Name = visitor.Counters.NextParamName(),
-                            Value = ' '
+                            Value = " "
                         };
 
                         return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
@@ -210,7 +211,7 @@ internal static class StringMemberVisitor
                     }
                     else
                     {
-                        SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
+                        SQLiteExpression arg1 = CharArgAsText(arguments[1]);
 
                         return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
@@ -228,7 +229,7 @@ internal static class StringMemberVisitor
                         SQLiteParameter spaceParam = new()
                         {
                             Name = visitor.Counters.NextParamName(),
-                            Value = ' '
+                            Value = " "
                         };
 
                         return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
@@ -239,7 +240,7 @@ internal static class StringMemberVisitor
                     }
                     else
                     {
-                        SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
+                        SQLiteExpression arg1 = CharArgAsText(arguments[1]);
 
                         return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
@@ -448,6 +449,16 @@ internal static class StringMemberVisitor
         }
     }
 
+    private static SQLiteExpression CharArgAsText(ResolvedModel arg)
+    {
+        if (arg is { IsConstant: true, Constant: char c, SQLiteExpression: { Parameters: [{ Name: { } name }] } expr })
+        {
+            return SQLiteExpression.Leaf(typeof(string), expr.Identifier, name, c.ToString());
+        }
+
+        return arg.SQLiteExpression!;
+    }
+
     private static string EscapeLikePattern(string value)
     {
         return value
@@ -524,7 +535,7 @@ internal static class StringMemberVisitor
                 return Expression.Call(obj, node.Method, arguments.Select(f => f.Expression));
             }
 
-            SQLiteExpression[] argExprs = args.Select(f => f.SQLiteExpression!).ToArray();
+            SQLiteExpression[] argExprs = args.Select(f => CharArgAsText(f)).ToArray();
 
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters([obj, .. argExprs]);
 

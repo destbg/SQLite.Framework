@@ -32,8 +32,12 @@ internal static class MathMemberVisitor
 
         return node.Method.Name switch
         {
-            nameof(Math.Min) => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MIN(", a0, ", ", a1, ")", parameters),
-            nameof(Math.Max) => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MAX(", a0, ", ", a1, ")", parameters),
+            nameof(Math.Min) => returnType == typeof(ulong)
+                ? BuildUnsignedMinMax(visitor, isMax: false, returnType, a0, a1, parameters)
+                : SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MIN(", a0, ", ", a1, ")", parameters),
+            nameof(Math.Max) => returnType == typeof(ulong)
+                ? BuildUnsignedMinMax(visitor, isMax: true, returnType, a0, a1, parameters)
+                : SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MAX(", a0, ", ", a1, ")", parameters),
             nameof(Math.Abs) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ABS(", a0, ")", parameters),
             nameof(Math.Round) => HandleRound(visitor, node, arguments, parameters),
             nameof(Math.Ceiling) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "CEIL(", a0, ")", parameters),
@@ -75,9 +79,26 @@ internal static class MathMemberVisitor
             throw new ArgumentException("Math.Clamp requires the minimum to be less than or equal to the maximum.");
         }
 
+        if (returnType == typeof(ulong))
+        {
+            SQLiteExpression inner = BuildUnsignedMinMax(visitor, isMax: false, returnType, a0, a2, parameters);
+            return BuildUnsignedMinMax(visitor, isMax: true, returnType, a1, inner, parameters);
+        }
+
         return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
             ["MAX(", ", MIN(", ", ", "))"],
             [a1, a0, a2], parameters);
+    }
+
+    private static SQLiteExpression BuildUnsignedMinMax(SQLVisitor visitor, bool isMax, Type returnType, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)
+    {
+        string cmpOp = isMax ? " >= " : " <= ";
+        SQLiteExpression elseSide = isMax ? a : b;
+
+        return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
+            ["(CASE WHEN (CASE WHEN ((", " < 0) = (", " < 0)) THEN ", cmpOp, " ELSE ", " < 0 END) THEN ", " ELSE ", " END)"],
+            [a, b, a, b, elseSide, a, b],
+            parameters);
     }
 
     private static Expression HandleRound(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, SQLiteParameter[]? parameters)

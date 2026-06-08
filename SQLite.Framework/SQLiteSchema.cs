@@ -863,15 +863,20 @@ public class SQLiteSchema
     /// virtual table aligned with its external content table. Override to change the trigger
     /// shape, for example to add a <c>WHERE</c> clause or use partial triggers.
     /// </summary>
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
     protected virtual IEnumerable<string> BuildTriggerSql(FtsTableInfo fts, TableMapping mapping)
     {
         string ftsName = mapping.TableName;
         string sourceTable = ResolveContentTableName(fts);
         string sourceRowId = IdentifierGuard.Quote(ResolveContentRowIdColumn(fts, mapping));
 
+        TableMapping sourceMapping = Database.TableMapping(fts.Attribute.ContentTable!);
+        Dictionary<string, string> sourceColumnByProperty = sourceMapping.Columns
+            .ToDictionary(c => c.PropertyInfo.Name, c => c.Name, StringComparer.Ordinal);
+
         string columnList = string.Join(", ", fts.IndexedColumns.Select(c => IdentifierGuard.Quote(c.Name)));
-        string newValues = string.Join(", ", fts.IndexedColumns.Select(c => "new." + IdentifierGuard.Quote(c.Name)));
-        string oldValues = string.Join(", ", fts.IndexedColumns.Select(c => "old." + IdentifierGuard.Quote(c.Name)));
+        string newValues = string.Join(", ", fts.IndexedColumns.Select(c => "new." + IdentifierGuard.Quote(sourceColumnByProperty[c.Property.Name])));
+        string oldValues = string.Join(", ", fts.IndexedColumns.Select(c => "old." + IdentifierGuard.Quote(sourceColumnByProperty[c.Property.Name])));
 
         (string ai, string ad, string au) = TriggerNamesTuple(mapping);
 

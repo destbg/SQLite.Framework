@@ -1163,7 +1163,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         (int changes, long rowId) = Database.CreateCommand(sql, parameters).ExecuteWithLastRowId();
-        autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
+        if (changes > 0)
+        {
+            autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
+        }
+
         return changes;
     }
 

@@ -46,14 +46,26 @@ public sealed class SQLiteBlobStream : Stream
     public override bool CanSeek => handle != null;
 
     /// <inheritdoc />
-    public override long Length => length;
+    public override long Length
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return length;
+        }
+    }
 
     /// <inheritdoc />
     public override long Position
     {
-        get => position;
+        get
+        {
+            ThrowIfDisposed();
+            return position;
+        }
         set
         {
+            ThrowIfDisposed();
             ArgumentOutOfRangeException.ThrowIfNegative(value);
             ArgumentOutOfRangeException.ThrowIfGreaterThan(value, length);
             position = value;
@@ -136,6 +148,7 @@ public sealed class SQLiteBlobStream : Stream
     /// <inheritdoc />
     public override long Seek(long offset, SeekOrigin origin)
     {
+        ThrowIfDisposed();
         long newPosition = origin switch
         {
             SeekOrigin.Begin => offset,

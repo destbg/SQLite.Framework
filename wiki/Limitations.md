@@ -32,7 +32,12 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - Chained `OrderBy` keeps only the last key, like EF Core. Use `ThenBy` to keep both.
 - `Union`, `Distinct`, `Intersect` and `Except` dedup by value, not by reference.
+- `Union`, `Intersect` and `Except` return rows in sorted order, not the first-appearance order that LINQ-to-Objects keeps. `Distinct` and `Concat` do keep first-appearance order.
 - `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
+
+## Joins and SelectMany
+
+- A correlated subquery used directly as a second `from` source, for example `from a in db.Table<Author>() from b in db.Table<Book>().Where(b => b.AuthorId == a.Id)`, is not supported, since SQLite has no `LATERAL` join. Put the correlation in a `where` after the join instead.
 
 ## Null comparisons
 
@@ -59,3 +64,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - `SQLiteFunctions.Min` and `Max` need two or more arguments.
 - On a JSON array, `ElementAt` past the end, `First`, `Last` or `Single` over an empty array, `Single` over two or more elements, and `Min`/`Max`/`Average`/`Sum` over an empty array all return the type default instead of throwing.
+
+## Raw SQL
+
+- Two `FromSql` fragments composed in the same query that use the same parameter name share one bound value, so the last value wins. Give each fragment its own parameter names.

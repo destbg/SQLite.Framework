@@ -370,10 +370,10 @@ public class MethodCallTests
         SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Equal(5, command.Parameters.Count);
-        Assert.Equal(' ', command.Parameters[0].Value);
-        Assert.Equal('a', command.Parameters[1].Value);
-        Assert.Equal('b', command.Parameters[2].Value);
-        Assert.Equal('c', command.Parameters[3].Value);
+        Assert.Equal(" ", command.Parameters[0].Value);
+        Assert.Equal("a", command.Parameters[1].Value);
+        Assert.Equal("b", command.Parameters[2].Value);
+        Assert.Equal("c", command.Parameters[3].Value);
         Assert.Equal("e", command.Parameters[4].Value);
         Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE TRIM(b0.\"BookTitle\", @p1 || @p2 || @p3 || @p4) = @p5", command.CommandText.Replace("\r\n", "\n"));
 
@@ -1123,7 +1123,7 @@ public class MethodCallTests
 
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal(8, command.Parameters[0].Value);
-        Assert.Equal('x', command.Parameters[1].Value);
+        Assert.Equal("x", command.Parameters[1].Value);
         Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       (SELECT (CASE WHEN LENGTH(v6) >= v8 THEN v6 ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(v8 - LENGTH(v6))), '00', v10), 1, v8 - LENGTH(v6)) || v6) END) FROM (SELECT b0.\"BookTitle\" AS v6, @p0 AS v8, @p1 AS v10)) AS \"Padded\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
 
         var results = query.ToList();
@@ -1147,7 +1147,7 @@ public class MethodCallTests
 
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal(8, command.Parameters[0].Value);
-        Assert.Equal('x', command.Parameters[1].Value);
+        Assert.Equal("x", command.Parameters[1].Value);
         Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       (SELECT (CASE WHEN LENGTH(v6) >= v8 THEN v6 ELSE (v6 || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(v8 - LENGTH(v6))), '00', v10), 1, v8 - LENGTH(v6)))) END) FROM (SELECT b0.\"BookTitle\" AS v6, @p0 AS v8, @p1 AS v10)) AS \"Padded\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
 
         var results = query.ToList();

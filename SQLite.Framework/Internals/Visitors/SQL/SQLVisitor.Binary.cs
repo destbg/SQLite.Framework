@@ -281,6 +281,14 @@ internal partial class SQLVisitor
         string spacedOp = node.NodeType == ExpressionType.LeftShift ? " << (" : " >> (";
         string maskedCount = is64Bit ? $" & {Constants.Shift64CountMask}))" : $" & {Constants.Shift32CountMask}))";
 
+        if (node.NodeType is ExpressionType.RightShift && shiftType == typeof(ulong))
+        {
+            return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+                ["(CASE WHEN (", $" & {Constants.Shift64CountMask}) = 0 THEN ", " ELSE ((", $" >> 1) & {Constants.Int64SignMask}) >> ((", $" & {Constants.Shift64CountMask}) - 1) END)"],
+                [count, value, value, count],
+                parameters);
+        }
+
         if (node.NodeType is ExpressionType.RightShift || is64Bit || shiftType == typeof(uint))
         {
             string[] parts = node.NodeType == ExpressionType.LeftShift && shiftType == typeof(uint)
