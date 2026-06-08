@@ -2,6 +2,13 @@ namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
+    public SQLiteExpression CoalesceLiftedOrderComparison(Expression operand, SQLiteExpression expr)
+    {
+        return IsLiftedOrderComparisonThatMayBeNull(operand)
+            ? SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "COALESCE(", expr, ", 0)", expr.Parameters)
+            : expr;
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "ToString does exist")]
     protected override Expression VisitBinary(BinaryExpression node)
     {
@@ -266,13 +273,6 @@ internal partial class SQLVisitor
             [prefix, " AS aa, ", " AS bb))))"],
             [a, b],
             parameters);
-    }
-
-    private SQLiteExpression CoalesceLiftedOrderComparison(Expression operand, SQLiteExpression expr)
-    {
-        return IsLiftedOrderComparisonThatMayBeNull(operand)
-            ? SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "COALESCE(", expr, ", 0)", expr.Parameters)
-            : expr;
     }
 
     private SQLiteExpression BuildShift(BinaryExpression node, Type shiftType, SQLiteExpression value, SQLiteExpression count, SQLiteParameter[]? parameters)

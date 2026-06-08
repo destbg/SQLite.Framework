@@ -9,6 +9,7 @@ public class SQLiteCounters
 
     private readonly Dictionary<char, int> tableIndex = [];
     private readonly string? paramPrefix;
+    private HashSet<string>? reservedParamNames;
     private int paramIndex;
     private int identifierIndex;
 
@@ -46,12 +47,30 @@ public class SQLiteCounters
     /// </summary>
     public string NextParamName()
     {
-        int idx = paramIndex++;
-        if (paramPrefix != null)
+        while (true)
         {
-            return paramPrefix + idx;
+            int idx = paramIndex++;
+            string name = paramPrefix != null
+                ? paramPrefix + idx
+                : idx < paramNameCache.Length ? paramNameCache[idx] : "@p" + idx;
+            if (reservedParamNames == null || !reservedParamNames.Contains(name))
+            {
+                return name;
+            }
         }
-        return idx < paramNameCache.Length ? paramNameCache[idx] : "@p" + idx;
+    }
+
+    /// <summary>
+    /// Records parameter names that the caller supplied directly (for example through
+    /// <c>FromSql</c>), so generated parameter names never collide with them.
+    /// </summary>
+    public void ReserveParamNames(IEnumerable<string> names)
+    {
+        reservedParamNames ??= new HashSet<string>(StringComparer.Ordinal);
+        foreach (string name in names)
+        {
+            reservedParamNames.Add(name);
+        }
     }
 
     /// <summary>

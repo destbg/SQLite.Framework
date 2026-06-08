@@ -66,6 +66,10 @@ internal partial class QueryableVisitor
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
                 SQLiteExpression sqlExpression = (SQLiteExpression)tableColumn.Value;
+                if (visitor.TableColumns.Count == 1)
+                {
+                    sqlExpression = visitor.CoalesceLiftedOrderComparison(lambda.Body, sqlExpression);
+                }
 
                 SQLiteExpression newSqlExpression = SQLiteExpression.Alias(
                     node.Method.ReturnType,
@@ -142,6 +146,10 @@ internal partial class QueryableVisitor
         else
         {
             normalSelect = visitor.Visit(lambda.Body);
+            if (normalSelect is SQLiteExpression projectionExpression)
+            {
+                normalSelect = visitor.CoalesceLiftedOrderComparison(lambda.Body, projectionExpression);
+            }
         }
         Expression selectExpression = visitor.ClientEvalUsed
             ? visitor.ToClientExpression(lambda.Body)

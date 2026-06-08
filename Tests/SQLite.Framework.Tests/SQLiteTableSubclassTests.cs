@@ -78,4 +78,19 @@ public class SQLiteTableSubclassTests
         db.Items.Remove(row);
         Assert.Empty(db.Items.ToList());
     }
+
+    [Fact]
+    public void Subclass_ReturningUpsertWithOverriddenGetUpsertInfo_ResolvesToUpdate()
+    {
+        using AuditingDatabase db = new();
+        db.Items.Schema.CreateTable();
+        db.Items.Add(new SubclassedTableEntity { Id = 1, Name = "first" });
+
+        SubclassedTableEntity? returned = db.Items.Returning()
+            .Upsert(new SubclassedTableEntity { Id = 1, Name = "second" }, c => c.OnConflict(x => x.Id).DoUpdate(x => x.Name));
+
+        Assert.NotNull(returned);
+        Assert.Equal("second", returned.Name);
+        Assert.Equal("second", db.Items.Where(x => x.Id == 1).Select(x => x.Name).First());
+    }
 }

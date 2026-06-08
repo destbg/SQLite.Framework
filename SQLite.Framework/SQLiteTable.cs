@@ -383,17 +383,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return new SQLiteWriteColumnsTable<T>(Database, Table, builder.Columns, builder.ReferencesRow);
     }
 
-    private void ThrowIfExtraWriteColumnsReferenceRowOnInsert()
-    {
-        if (ExtraWriteColumnsReferenceRow)
-        {
-            throw new NotSupportedException(
-                "A WithColumns value expression reads a column of the row, which an Add cannot do " +
-                "because the row does not exist yet. Use a constant or a function such as " +
-                "'_ => SQLiteFunctions.UnixEpoch()', or set the value on an Update instead.");
-        }
-    }
-
     /// <summary>
     /// Copies rows from <paramref name="source" /> into this table using a single
     /// <c>INSERT INTO ... SELECT</c> statement, so the data never round-trips through your code.
@@ -433,11 +422,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return Database.CreateCommand(sql, sourceQuery.Parameters).ExecuteNonQuery();
     }
 
-    IEnumerator<T> IEnumerable<T>.GetEnumerator()
-    {
-        return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
-    }
-
     /// <inheritdoc />
     public override IEnumerator GetEnumerator()
     {
@@ -460,6 +444,19 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     internal (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfoInternal() => GetRemoveInfo();
     internal (TableColumn[] Columns, string Sql) GetUpsertInfoInternal(Action<SQLiteUpsertBuilder<T>> configure) => GetUpsertInfo(configure);
     internal bool RunHooksInternal(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item) => RunHooks(hooks, item);
+
+    internal (TableColumn[] Columns, string Sql) FilterUpsertInfoForItemInternal(Action<SQLiteUpsertBuilder<T>> configure, T item, TableColumn[] baseColumns, string baseSql)
+    {
+        if (IsItemMethodOverridden(nameof(GetUpsertInfo)))
+        {
+            return (baseColumns, baseSql);
+        }
+
+        TableColumn[] filtered = FilterColumnsForDefaults(baseColumns, item);
+        return filtered.Length != baseColumns.Length
+            ? (filtered, BuildUpsertSql(configure, filtered))
+            : (baseColumns, baseSql);
+    }
 
     /// <summary>
     /// Prepares <paramref name="sql" /> once, then loops over <paramref name="items" /> and binds /
@@ -506,8 +503,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                         continue;
                     }
 
-                    long beforeRowId = autoIncrement != null ? raw.sqlite3_last_insert_rowid(handle) : 0;
-
                     bindRow(stmt, item);
 
                     SQLiteResult stepResult = (SQLiteResult)raw.sqlite3_step(stmt);
@@ -522,10 +517,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                     if (autoIncrement != null && changes > 0)
                     {
                         long rowId = raw.sqlite3_last_insert_rowid(handle);
-                        if (rowId != beforeRowId)
-                        {
-                            autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
-                        }
+                        autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
                     }
 
                     raw.sqlite3_reset(stmt);
@@ -837,7 +829,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 sql = BuildUpsertSql(configure, filtered);
             }
         }
-        return InsertItem(columns, sql, item);
+        return InsertItem(columns, sql, item, detectInsertByRowIdChange: true);
     }
 
     /// <summary>
@@ -866,7 +858,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// value for it is the type default (e.g. <c>0</c>), it is bound as <c>NULL</c> so SQLite
     /// generates a fresh key.
     /// </summary>
-    protected virtual int InsertItem(TableColumn[] columns, string sql, T item)
+    protected virtual int InsertItem(TableColumn[] columns, string sql, T item, bool detectInsertByRowIdChange = false)
     {
         TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
 
@@ -887,7 +879,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
         }
 
-        (int changes, long rowId, bool inserted) = Database.CreateCommand(sql, parameters).ExecuteWithInsertDetection();
+        (int changes, long rowId, bool rowIdChanged) = Database.CreateCommand(sql, parameters).ExecuteWithInsertDetection();
+        bool inserted = detectInsertByRowIdChange ? rowIdChanged : changes > 0;
         if (inserted)
         {
             autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
@@ -939,6 +932,22 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .ToList();
 
         return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
+    }
+
+    private void ThrowIfExtraWriteColumnsReferenceRowOnInsert()
+    {
+        if (ExtraWriteColumnsReferenceRow)
+        {
+            throw new NotSupportedException(
+                "A WithColumns value expression reads a column of the row, which an Add cannot do " +
+                "because the row does not exist yet. Use a constant or a function such as " +
+                "'_ => SQLiteFunctions.UnixEpoch()', or set the value on an Update instead.");
+        }
+    }
+
+    IEnumerator<T> IEnumerable<T>.GetEnumerator()
+    {
+        return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "The methods being looked up are protected on this class; reflecting on the runtime subclass is only used to detect that an override exists and falls back to the per-row code path that already routes through the overridden method via the regular virtual call.")]

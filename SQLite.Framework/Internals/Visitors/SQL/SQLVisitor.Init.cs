@@ -75,6 +75,14 @@ internal partial class SQLVisitor
     protected override Expression VisitNew(NewExpression node)
     {
         List<Expression> arguments = node.Arguments.Select(Visit).ToList()!;
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i] is SQLiteExpression sqlArgument && sqlArgument.Type != node.Arguments[i].Type)
+            {
+                arguments[i] = SQLiteExpression.Alias(node.Arguments[i].Type, Counters.NextIdentifier(), sqlArgument, sqlArgument.Parameters);
+            }
+        }
+
         return node.Update(arguments);
     }
 }

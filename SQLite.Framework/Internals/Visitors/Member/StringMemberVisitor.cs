@@ -269,10 +269,23 @@ internal static class StringMemberVisitor
             }
             case nameof(string.Concat):
             {
-                SQLiteExpression[] concatArgs = new SQLiteExpression[arguments.Count];
-                for (int i = 0; i < arguments.Count; i++)
+                SQLiteExpression[] concatArgs;
+                if (node.Arguments is [NewArrayExpression concatArray])
                 {
-                    concatArgs[i] = SQLVisitor.CoalesceNullableStringOperand(visitor, node.Arguments[i], arguments[i], arguments[i].SQLiteExpression!);
+                    concatArgs = new SQLiteExpression[concatArray.Expressions.Count];
+                    for (int i = 0; i < concatArray.Expressions.Count; i++)
+                    {
+                        ResolvedModel resolvedElement = visitor.ResolveExpression(concatArray.Expressions[i]);
+                        concatArgs[i] = SQLVisitor.CoalesceNullableStringOperand(visitor, concatArray.Expressions[i], resolvedElement, resolvedElement.SQLiteExpression!);
+                    }
+                }
+                else
+                {
+                    concatArgs = new SQLiteExpression[arguments.Count];
+                    for (int i = 0; i < arguments.Count; i++)
+                    {
+                        concatArgs[i] = SQLVisitor.CoalesceNullableStringOperand(visitor, node.Arguments[i], arguments[i], arguments[i].SQLiteExpression!);
+                    }
                 }
 
                 return SQLiteExpression.Variadic(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", concatArgs, " || ", "", ParameterHelpers.CombineParameters(concatArgs));

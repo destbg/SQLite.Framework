@@ -40,14 +40,14 @@ public sealed class SQLitePragmaTable<[DynamicallyAccessedMembers(DynamicallyAcc
     /// <inheritdoc />
     public override IQueryProvider Provider => Database;
 
-    IEnumerator<T> IEnumerable<T>.GetEnumerator()
-    {
-        return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
-    }
-
     /// <inheritdoc />
     public override IEnumerator GetEnumerator()
     {
         return ((IEnumerable<T>)this).GetEnumerator();
+    }
+
+    IEnumerator<T> IEnumerable<T>.GetEnumerator()
+    {
+        return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
     }
 }

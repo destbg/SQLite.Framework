@@ -146,7 +146,7 @@ public class SQLiteCommand
         }
     }
 
-    internal (int Changes, long RowId, bool Inserted) ExecuteWithInsertDetection()
+    internal (int Changes, long RowId, bool RowIdChanged) ExecuteWithInsertDetection()
     {
         using IDisposable _ = Database.Lock();
 
@@ -194,15 +194,6 @@ public class SQLiteCommand
         return stmt;
     }
 
-    private void BindParameters(sqlite3_stmt statement)
-    {
-        SQLiteOptions options = Database.Options;
-        foreach (SQLiteParameter parameter in Parameters)
-        {
-            CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);
-        }
-    }
-
     internal void NotifyExecuting()
     {
         IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
@@ -242,6 +233,15 @@ public class SQLiteCommand
         for (int i = 0; i < interceptors.Count; i++)
         {
             interceptors[i].OnFailed(this, exception);
+        }
+    }
+
+    private void BindParameters(sqlite3_stmt statement)
+    {
+        SQLiteOptions options = Database.Options;
+        foreach (SQLiteParameter parameter in Parameters)
+        {
+            CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);
         }
     }
 }

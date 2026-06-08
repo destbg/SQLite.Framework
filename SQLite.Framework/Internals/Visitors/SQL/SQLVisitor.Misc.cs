@@ -179,7 +179,7 @@ internal partial class SQLVisitor
     private void AssignPragma(IPragmaTableSource pragma)
     {
         Type entityType = pragma.ElementType;
-        char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+        char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
         string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
 
         TableMapping mapping = Database.TableMapping(entityType);
@@ -200,7 +200,7 @@ internal partial class SQLVisitor
         CteRegistry ??= new CteRegistry();
 
         Type elementType = cte.ElementType;
-        char aliasChar = char.ToLowerInvariant(elementType.Name[0]);
+        char aliasChar = char.ToLowerInvariant(elementType.Name.FirstOrDefault(char.IsLetter, 't'));
         string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
 
         string? cachedName = CteRegistry.TryGetName(cte);

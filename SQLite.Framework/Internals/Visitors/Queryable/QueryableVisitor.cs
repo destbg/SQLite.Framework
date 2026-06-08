@@ -124,7 +124,7 @@ internal partial class QueryableVisitor
             && pragmaCall.Method.GetCustomAttribute<SQLitePragmaFunctionAttribute>() is { } pragmaAttr)
         {
             entityType = pragmaCall.Method.ReturnType.GetGenericArguments()[0];
-            char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+            char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
             string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
             TableMapping pragmaMapping = database.TableMapping(entityType);
@@ -149,7 +149,7 @@ internal partial class QueryableVisitor
             BaseSQLiteTable resultTable = (BaseSQLiteTable)methodCall.Method.Invoke(obj, null)!;
 
             entityType = resultTable.ElementType;
-            char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+            char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
             string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
             TableMapping tableMapping = database.TableMapping(entityType);
@@ -167,7 +167,7 @@ internal partial class QueryableVisitor
                 visitor.CteRegistry ??= new CteRegistry();
 
                 Type cteElementType = cte.ElementType;
-                char cteAliasChar = char.ToLowerInvariant(cteElementType.Name[0]);
+                char cteAliasChar = char.ToLowerInvariant(cteElementType.Name.FirstOrDefault(char.IsLetter, 't'));
                 string cteAlias = $"{cteAliasChar}{visitor.Counters.NextTableIndex(cteAliasChar)}";
 
                 string? cachedName = visitor.CteRegistry.TryGetName(cte);
@@ -223,7 +223,7 @@ internal partial class QueryableVisitor
             else if (innerValue is BaseSQLiteTable table)
             {
                 entityType = table.ElementType;
-                char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+                char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
                 string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
                 TableMapping tableMapping = database.TableMapping(entityType);
@@ -240,7 +240,7 @@ internal partial class QueryableVisitor
         else if (body is ParameterExpression paramBody && visitor.CteParameters.TryGetValue(paramBody, out (string Alias, Dictionary<string, Expression> Columns) cteParamRef))
         {
             entityType = body.Type.GetGenericArguments()[0];
-            char aliasChar = char.ToLowerInvariant(entityType.Name[0]);
+            char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
             string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
             newTableColumns = cteParamRef.Columns

@@ -16,4 +16,17 @@ internal static class FtsHelpers
             state.ReleaseBuffer();
         }
     }
+
+    public static string FormatColumnFilter(string columnName)
+    {
+        foreach (char c in columnName)
+        {
+            if (!char.IsAsciiLetterOrDigit(c))
+            {
+                return "\"" + columnName.Replace("\"", "\"\"") + "\"";
+            }
+        }
+
+        return columnName;
+    }
 }

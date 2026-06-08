@@ -80,7 +80,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             string queryString = (string)ExpressionHelpers.GetConstantValue(second)!;
             if (columnName != null)
             {
-                queryString = "{" + columnName + "} : " + queryString;
+                queryString = "{" + FtsHelpers.FormatColumnFilter(columnName) + "} : " + queryString;
             }
 
             string pName = visitor.Counters.NextParamName();
@@ -100,7 +100,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         if (!hasDynamic)
         {
             string body = string.Concat(parts.Select(p => p.LiteralText));
-            string queryString = columnName != null ? "{" + columnName + "} : (" + body + ")" : body;
+            string queryString = columnName != null ? "{" + FtsHelpers.FormatColumnFilter(columnName) + "} : (" + body + ")" : body;
             string pName = visitor.Counters.NextParamName();
             SQLiteParameter parameter = new() { Name = pName, Value = queryString };
             return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(), $"\"{tableName}\" MATCH {pName}", [parameter]);
@@ -111,7 +111,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
 
         if (columnName != null)
         {
-            string prefixLiteral = "{" + columnName + "} : (";
+            string prefixLiteral = "{" + FtsHelpers.FormatColumnFilter(columnName) + "} : (";
             AppendLiteralPart(visitor, operand, ref parameters, prefixLiteral);
         }
 

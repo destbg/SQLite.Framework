@@ -36,6 +36,16 @@ public static class EntityMaterializerEmitter
         sb.AppendLine("    /// <summary>Generated entity and select materializers. Populated onto a builder via <see cref=\"SQLiteFrameworkGeneratedMaterializers.UseGeneratedMaterializers\"/>.</summary>");
         sb.AppendLine("    internal static class SQLiteFrameworkGeneratedMaterializers");
         sb.AppendLine("    {");
+        sb.AppendLine("        private static int FindColumnIndex(global::System.Collections.Generic.Dictionary<string, int> columns, string name)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            if (columns.TryGetValue(name, out int idx)) { return idx; }");
+        sb.AppendLine("            foreach (global::System.Collections.Generic.KeyValuePair<string, int> column in columns)");
+        sb.AppendLine("            {");
+        sb.AppendLine("                if (string.Equals(column.Key, name, global::System.StringComparison.OrdinalIgnoreCase)) { return column.Value; }");
+        sb.AppendLine("            }");
+        sb.AppendLine("            return -1;");
+        sb.AppendLine("        }");
+        sb.AppendLine();
         sb.AppendLine("        /// <summary>Registers every emitted materializer onto <paramref name=\"builder\"/>.</summary>");
         sb.AppendLine("        internal static SQLiteOptionsBuilder UseGeneratedMaterializers(this SQLiteOptionsBuilder builder)");
         sb.AppendLine("        {");
@@ -73,6 +83,12 @@ public static class EntityMaterializerEmitter
                 case EmitStrategy.Positional:
                 {
                     sb.Append("            builder.EntityMaterializers[typeof(").Append(entity.ToDisplayString()).Append(")] = ").Append(methodName).AppendLine(";");
+                    break;
+                }
+                case EmitStrategy.PositionalReflection:
+                {
+                    string typeField = $"s_type_{methodName}";
+                    sb.Append("            builder.EntityMaterializers[").Append(typeField).Append("] = ").Append(methodName).AppendLine(";");
                     break;
                 }
             }
@@ -150,6 +166,9 @@ public static class EntityMaterializerEmitter
                     break;
                 case EmitStrategy.Positional:
                     EmitPositionalMaterializer(sb, entity, methodName);
+                    break;
+                case EmitStrategy.PositionalReflection:
+                    EmitPositionalReflectionMaterializer(sb, entity, methodName);
                     break;
             }
         }
@@ -248,26 +267,31 @@ public static class EntityMaterializerEmitter
         if (!hasAnyParameterlessCtor)
         {
             IMethodSymbol? positional = TryFindPositionalConstructor(entity);
-            if (positional != null && IsReachableFromGeneratedCode(entity))
+            if (positional == null)
             {
-                foreach (IParameterSymbol parameter in positional.Parameters)
-                {
-                    if (!IsEmittablePropertyType(parameter.Type))
-                    {
-                        return false;
-                    }
-
-                    if (!IsReachableFromGeneratedCode(parameter.Type))
-                    {
-                        return false;
-                    }
-                }
-
-                strategy = EmitStrategy.Positional;
-                return true;
+                return false;
             }
 
-            return false;
+            foreach (IParameterSymbol parameter in positional.Parameters)
+            {
+                if (!IsEmittablePropertyType(parameter.Type))
+                {
+                    return false;
+                }
+            }
+
+            bool membersReachable = positional.Parameters.All(p => IsReachableFromGeneratedCode(p.Type))
+                && EnumerateInstanceProperties(entity)
+                    .Where(p => p.DeclaredAccessibility == Accessibility.Public && p.SetMethod != null)
+                    .All(p => IsReachableFromGeneratedCode(p.Type) && IsEmittablePropertyType(p.Type));
+
+            if (!membersReachable)
+            {
+                return false;
+            }
+
+            strategy = IsReachableFromGeneratedCode(entity) ? EmitStrategy.Positional : EmitStrategy.PositionalReflection;
+            return true;
         }
 
         bool canNameEntity = IsReachableFromGeneratedCode(entity);
@@ -296,6 +320,19 @@ public static class EntityMaterializerEmitter
             ? EmitStrategy.Reflection
             : EmitStrategy.Direct;
         return true;
+    }
+
+    private static bool HasPublicParameterlessConstructor(INamedTypeSymbol entity)
+    {
+        foreach (IMethodSymbol ctor in entity.InstanceConstructors)
+        {
+            if (ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static IMethodSymbol? TryFindPositionalConstructor(INamedTypeSymbol entity)
@@ -572,6 +609,7 @@ public static class EntityMaterializerEmitter
         }
 
         List<string> propValueLocals = new();
+        List<string> nonNullChecks = new();
         foreach (IPropertySymbol prop in writableProps)
         {
             string propColumn = columnPrefix + prop.Name;
@@ -585,10 +623,15 @@ public static class EntityMaterializerEmitter
             if (shouldRecurse && nestedStripped != null)
             {
                 EmitCompositePropertyReadLocal(sb, preamble, preambleIndent, prop.Type, nestedStripped, propColumn, valueLocal, localSuffix, indent, ref counter, entitySet, nestedInitSet);
+                if (nestedStripped.IsReferenceType)
+                {
+                    nonNullChecks.Add("(" + valueLocal + " != null)");
+                }
             }
             else
             {
                 EmitSimpleColumnReadLocal(sb, preamble, preambleIndent, prop.Type, propColumn, valueLocal, localSuffix, indent);
+                nonNullChecks.Add("(__idx_" + localSuffix + " >= 0 && !reader.IsDBNull(__idx_" + localSuffix + "))");
             }
 
             propValueLocals.Add(valueLocal);
@@ -613,27 +656,96 @@ public static class EntityMaterializerEmitter
 
         string typeName = entity.ToDisplayString();
         List<IPropertySymbol> requiredNotMapped = GetRequiredNotMappedProperties(entity);
-        int totalEntries = writableProps.Count + requiredNotMapped.Count;
 
-        sb.Append(indent).Append(typeName).Append(" ").Append(resultLocalName).AppendLine(" = new()");
-        sb.Append(indent).AppendLine("{");
+        IMethodSymbol? positionalCtor = HasPublicParameterlessConstructor(entity) ? null : TryFindPositionalConstructor(entity);
 
-        int written = 0;
-        for (int i = 0; i < writableProps.Count; i++)
+        if (positionalCtor != null)
         {
-            sb.Append(indent).Append("    ").Append(writableProps[i].Name).Append(" = ").Append(propValueLocals[i]);
-            written++;
-            sb.AppendLine(written == totalEntries ? "" : ",");
+            HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
+            foreach (IParameterSymbol parameter in positionalCtor.Parameters)
+            {
+                ctorParameterNames.Add(parameter.Name);
+            }
+
+            sb.Append(indent).Append(typeName).Append(" ").Append(resultLocalName).Append(" = new ").Append(typeName).Append("(");
+            for (int pi = 0; pi < positionalCtor.Parameters.Length; pi++)
+            {
+                if (pi > 0)
+                {
+                    sb.Append(", ");
+                }
+
+                int sourceIndex = writableProps.FindIndex(p => string.Equals(p.Name, positionalCtor.Parameters[pi].Name, StringComparison.OrdinalIgnoreCase));
+                sb.Append(sourceIndex >= 0 ? propValueLocals[sourceIndex] : "default");
+            }
+
+            sb.Append(")");
+
+            List<int> extraIndexes = new();
+            for (int i = 0; i < writableProps.Count; i++)
+            {
+                if (!ctorParameterNames.Contains(writableProps[i].Name))
+                {
+                    extraIndexes.Add(i);
+                }
+            }
+
+            if (extraIndexes.Count > 0 || requiredNotMapped.Count > 0)
+            {
+                sb.Append(" { ");
+                bool first = true;
+                foreach (int ei in extraIndexes)
+                {
+                    if (!first)
+                    {
+                        sb.Append(", ");
+                    }
+                    first = false;
+                    sb.Append(writableProps[ei].Name).Append(" = ").Append(propValueLocals[ei]);
+                }
+                foreach (IPropertySymbol prop in requiredNotMapped)
+                {
+                    if (!first)
+                    {
+                        sb.Append(", ");
+                    }
+                    first = false;
+                    sb.Append(prop.Name).Append(" = default!");
+                }
+                sb.Append(" }");
+            }
+
+            sb.AppendLine(";");
+        }
+        else
+        {
+            int totalEntries = writableProps.Count + requiredNotMapped.Count;
+
+            sb.Append(indent).Append(typeName).Append(" ").Append(resultLocalName).AppendLine(" = new()");
+            sb.Append(indent).AppendLine("{");
+
+            int written = 0;
+            for (int i = 0; i < writableProps.Count; i++)
+            {
+                sb.Append(indent).Append("    ").Append(writableProps[i].Name).Append(" = ").Append(propValueLocals[i]);
+                written++;
+                sb.AppendLine(written == totalEntries ? "" : ",");
+            }
+
+            foreach (IPropertySymbol prop in requiredNotMapped)
+            {
+                sb.Append(indent).Append("    ").Append(prop.Name).Append(" = default!");
+                written++;
+                sb.AppendLine(written == totalEntries ? "" : ",");
+            }
+
+            sb.Append(indent).AppendLine("};");
         }
 
-        foreach (IPropertySymbol prop in requiredNotMapped)
+        if (columnPrefix.Length > 0 && entity.IsReferenceType && nonNullChecks.Count > 0)
         {
-            sb.Append(indent).Append("    ").Append(prop.Name).Append(" = default!");
-            written++;
-            sb.AppendLine(written == totalEntries ? "" : ",");
+            sb.Append(indent).Append("if (!(").Append(string.Join(" || ", nonNullChecks)).Append(")) ").Append(resultLocalName).AppendLine(" = null;");
         }
-
-        sb.Append(indent).AppendLine("};");
     }
 
     private static List<IPropertySymbol> GetRequiredNotMappedProperties(INamedTypeSymbol entity)
@@ -670,7 +782,7 @@ public static class EntityMaterializerEmitter
         return result;
     }
 
-    private static void EmitSimpleColumnReadLocal(StringBuilder sb, StringBuilder preamble, string preambleIndent, ITypeSymbol propType, string columnName, string valueLocal, string localSuffix, string indent)
+    private static void EmitSimpleColumnReadLocal(StringBuilder sb, StringBuilder preamble, string preambleIndent, ITypeSymbol propType, string columnName, string valueLocal, string localSuffix, string indent, bool caseInsensitive = false)
     {
         string propTypeDisplay = propType.ToDisplayString();
         string strippedDisplay = StripNullable(propTypeDisplay);
@@ -679,8 +791,16 @@ public static class EntityMaterializerEmitter
         string idxTemp = "__i_" + localSuffix;
         bool isEnum = StripNullableSymbol(propType).TypeKind == TypeKind.Enum;
 
-        preamble.Append(preambleIndent).Append("int ").Append(idxLocal)
-            .Append(" = columns.TryGetValue(\"").Append(safeColumn).Append("\", out int ").Append(idxTemp).Append(") ? ").Append(idxTemp).AppendLine(" : -1;");
+        if (caseInsensitive)
+        {
+            preamble.Append(preambleIndent).Append("int ").Append(idxLocal)
+                .Append(" = FindColumnIndex(columns, \"").Append(safeColumn).AppendLine("\");");
+        }
+        else
+        {
+            preamble.Append(preambleIndent).Append("int ").Append(idxLocal)
+                .Append(" = columns.TryGetValue(\"").Append(safeColumn).Append("\", out int ").Append(idxTemp).Append(") ? ").Append(idxTemp).AppendLine(" : -1;");
+        }
 
         sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).Append(" = default");
         if (propType.IsReferenceType || propType.NullableAnnotation == NullableAnnotation.Annotated)
@@ -751,6 +871,12 @@ public static class EntityMaterializerEmitter
         IMethodSymbol ctor = TryFindPositionalConstructor(entity)!;
         string typeName = entity.ToDisplayString();
 
+        HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
+        foreach (IParameterSymbol parameter in ctor.Parameters)
+        {
+            ctorParameterNames.Add(parameter.Name);
+        }
+
         StringBuilder preamble = new();
         StringBuilder rowBody = new();
 
@@ -762,7 +888,22 @@ public static class EntityMaterializerEmitter
             counter++;
             string argLocal = "__arg_" + suffix;
             argLocals.Add(argLocal);
-            EmitSimpleColumnReadLocal(rowBody, preamble, "            ", parameter.Type, parameter.Name, argLocal, suffix, "                ");
+            EmitSimpleColumnReadLocal(rowBody, preamble, "            ", parameter.Type, parameter.Name, argLocal, suffix, "                ", caseInsensitive: true);
+        }
+
+        List<(string Property, string Local)> extras = new();
+        foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
+        {
+            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null || ctorParameterNames.Contains(prop.Name))
+            {
+                continue;
+            }
+
+            string suffix = counter.ToString();
+            counter++;
+            string valueLocal = "__ext_" + suffix;
+            EmitSimpleColumnReadLocal(rowBody, preamble, "            ", prop.Type, prop.Name, valueLocal, suffix, "                ", caseInsensitive: true);
+            extras.Add((prop.Name, valueLocal));
         }
 
         sb.Append("        private static global::System.Func<SQLite.Framework.Models.SQLiteQueryContext, object?> ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
@@ -779,10 +920,131 @@ public static class EntityMaterializerEmitter
             if (i > 0) sb.Append(", ");
             sb.Append(argLocals[i]);
         }
-        sb.AppendLine(");");
+        sb.Append(")");
+        if (extras.Count > 0)
+        {
+            sb.Append(" { ");
+            for (int i = 0; i < extras.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append(extras[i].Property).Append(" = ").Append(extras[i].Local);
+            }
+            sb.Append(" }");
+        }
+        sb.AppendLine(";");
         sb.AppendLine("            };");
         sb.AppendLine("        }");
         sb.AppendLine();
+    }
+
+    private static void EmitPositionalReflectionMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName)
+    {
+        IMethodSymbol ctor = TryFindPositionalConstructor(entity)!;
+        string typeField = $"s_type_{methodName}";
+        string ctorField = $"s_ctor_{methodName}";
+        string qualifiedName = GetMetadataFullName(entity) + ", " + (entity.ContainingAssembly?.Name ?? string.Empty);
+
+        sb.Append("        private static readonly global::System.Type ").Append(typeField)
+            .Append(" = global::System.Type.GetType(").Append(EscapeStringLiteral(qualifiedName)).AppendLine(", throwOnError: true)!;");
+        sb.Append("        private static readonly global::System.Reflection.ConstructorInfo ").Append(ctorField)
+            .Append(" = global::System.Array.Find(").Append(typeField).Append(".GetConstructors(), c => c.GetParameters().Length == ").Append(ctor.Parameters.Length).AppendLine(")!;");
+
+        HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
+        foreach (IParameterSymbol parameter in ctor.Parameters)
+        {
+            ctorParameterNames.Add(parameter.Name);
+        }
+
+        List<IPropertySymbol> extras = new();
+        foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
+        {
+            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null || ctorParameterNames.Contains(prop.Name))
+            {
+                continue;
+            }
+
+            extras.Add(prop);
+        }
+
+        foreach (IPropertySymbol prop in extras)
+        {
+            sb.Append("        private static readonly global::System.Reflection.PropertyInfo s_prop_").Append(methodName).Append("_").Append(prop.Name)
+                .Append(" = ").Append(typeField).Append(".GetProperty(\"").Append(prop.Name).AppendLine("\", global::System.Reflection.BindingFlags.Instance | global::System.Reflection.BindingFlags.Public | global::System.Reflection.BindingFlags.NonPublic)!;");
+        }
+
+        sb.AppendLine();
+
+        StringBuilder preamble = new();
+        StringBuilder rowBody = new();
+        int counter = 0;
+        List<string> argLocals = new();
+        foreach (IParameterSymbol parameter in ctor.Parameters)
+        {
+            string suffix = counter.ToString();
+            counter++;
+            string argLocal = "__arg_" + suffix;
+            argLocals.Add(argLocal);
+            EmitReflectionConvertedRead(rowBody, preamble, parameter.Type, parameter.Name, argLocal, suffix);
+        }
+
+        List<(string Property, string Local)> extraReads = new();
+        foreach (IPropertySymbol prop in extras)
+        {
+            string suffix = counter.ToString();
+            counter++;
+            string valueLocal = "__ext_" + suffix;
+            EmitReflectionConvertedRead(rowBody, preamble, prop.Type, prop.Name, valueLocal, suffix);
+            extraReads.Add((prop.Name, valueLocal));
+        }
+
+        sb.Append("        private static global::System.Func<SQLite.Framework.Models.SQLiteQueryContext, object?> ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var columns = ctx.Columns!;");
+        sb.Append(preamble);
+        sb.AppendLine("            return rowCtx =>");
+        sb.AppendLine("            {");
+        sb.AppendLine("                var reader = rowCtx.Reader!;");
+        sb.Append(rowBody);
+        sb.Append("                object?[] __args = new object?[] { ");
+        for (int i = 0; i < argLocals.Count; i++)
+        {
+            if (i > 0) sb.Append(", ");
+            sb.Append(argLocals[i]);
+        }
+        sb.AppendLine(" };");
+        sb.Append("                object __instance = ").Append(ctorField).AppendLine(".Invoke(__args)!;");
+        foreach ((string property, string local) in extraReads)
+        {
+            sb.Append("                if (").Append(local).AppendLine(" != null)");
+            sb.AppendLine("                {");
+            sb.Append("                    s_prop_").Append(methodName).Append("_").Append(property).Append(".SetValue(__instance, ").Append(local).AppendLine(");");
+            sb.AppendLine("                }");
+        }
+        sb.AppendLine("                return __instance;");
+        sb.AppendLine("            };");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+    }
+
+    private static void EmitReflectionConvertedRead(StringBuilder body, StringBuilder preamble, ITypeSymbol type, string columnName, string valueLocal, string suffix)
+    {
+        ITypeSymbol stripped = StripNullableSymbol(type);
+        string strippedDisplay = stripped.ToDisplayString();
+        string safeColumn = columnName.Replace("\"", "\\\"");
+        string idxLocal = "__ridx_" + suffix;
+
+        preamble.Append("            int ").Append(idxLocal)
+            .Append(" = FindColumnIndex(columns, \"").Append(safeColumn).AppendLine("\");");
+
+        body.Append("                object? ").Append(valueLocal).AppendLine(" = null;");
+        body.Append("                if (").Append(idxLocal).AppendLine(" >= 0)");
+        body.AppendLine("                {");
+        body.Append("                    object? __raw_").Append(suffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
+        body.Append("                    if (__raw_").Append(suffix).AppendLine(" != null)");
+        body.AppendLine("                    {");
+        body.Append("                        ").Append(valueLocal).Append(" = __raw_").Append(suffix).AppendLine(";");
+        body.AppendLine("                    }");
+        body.AppendLine("                }");
     }
 
     private static void EmitReflectionMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)

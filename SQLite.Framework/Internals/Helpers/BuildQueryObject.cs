@@ -244,13 +244,15 @@ internal static class BuildQueryObject
             ConstructorInfo? positional = FindPositionalConstructor(type);
             if (positional != null)
             {
+                MaterializerPlan positionalPlan = ReflectionMaterializerCache.GetPlan(type, options);
                 ParameterInfo[] parameters = positional.GetParameters();
                 PositionalSlot[] positionalSlots = new PositionalSlot[parameters.Length];
+                HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
                 for (int i = 0; i < parameters.Length; i++)
                 {
                     ParameterInfo p = parameters[i];
-                    string columnName = prefix + p.Name;
-                    int columnIndex = columns.TryGetValue(columnName, out int idx) ? idx : NotPresentSentinel;
+                    ctorParameterNames.Add(p.Name!);
+                    int columnIndex = FindColumnIndex(columns, prefix + p.Name);
                     Type targetType = Nullable.GetUnderlyingType(p.ParameterType) ?? p.ParameterType;
                     positionalSlots[i] = new PositionalSlot
                     {
@@ -262,11 +264,26 @@ internal static class BuildQueryObject
                     };
                 }
 
+                List<SlotPlan> extraSlotPlans = new();
+                foreach (PropertySlot slot in positionalPlan.Slots)
+                {
+                    if (ctorParameterNames.Contains(slot.Property.Name))
+                    {
+                        continue;
+                    }
+
+                    string columnName = prefix.Length == 0 ? slot.Name : prefix + slot.Name;
+                    extraSlotPlans.Add(BuildSlotPlan(slot, columnName, reader, columns, options));
+                }
+
                 ConstructorInfo capturedCtor = positional;
+                SlotPlan[] extras = extraSlotPlans.ToArray();
+                bool trackPositionalNulls = prefix.Length > 0;
                 return ctx =>
                 {
                     SQLiteDataReader r = ctx.Reader!;
                     object?[] args = new object?[positionalSlots.Length];
+                    bool anyNonNull = false;
                     for (int i = 0; i < positionalSlots.Length; i++)
                     {
                         PositionalSlot s = positionalSlots[i];
@@ -281,18 +298,19 @@ internal static class BuildQueryObject
                             continue;
                         }
 
-                        if (s.IsEnum)
-                        {
-                            object underlyingType = Convert.ChangeType(value, s.EnumUnderlyingType!);
-                            args[i] = Enum.ToObject(s.TargetType, underlyingType);
-                        }
-                        else
-                        {
-                            args[i] = Convert.ChangeType(value, s.TargetType);
-                        }
+                        anyNonNull = true;
+                        args[i] = s.IsEnum
+                            ? Enum.ToObject(s.TargetType, Convert.ChangeType(value, s.EnumUnderlyingType!))
+                            : Convert.ChangeType(value, s.TargetType);
                     }
 
-                    return capturedCtor.Invoke(args);
+                    object instance = capturedCtor.Invoke(args);
+                    for (int i = 0; i < extras.Length; i++)
+                    {
+                        anyNonNull |= ApplySlotPlan(in extras[i], ctx, r, instance, trackPositionalNulls);
+                    }
+
+                    return trackPositionalNulls && !anyNonNull ? null : instance;
                 };
             }
         }
@@ -302,45 +320,13 @@ internal static class BuildQueryObject
         SlotPlan[] slotPlans = new SlotPlan[slots.Length];
         for (int s = 0; s < slots.Length; s++)
         {
-            PropertySlot slot = slots[s];
-            string columnName = prefix.Length == 0 ? slot.Name : prefix + slot.Name;
-
-            if (slot.IsSimple)
-            {
-                slotPlans[s] = new SlotPlan
-                {
-                    Slot = slot,
-                    ColumnIndex = columns.TryGetValue(columnName, out int idx) ? idx : NotPresentSentinel,
-                    NestedMaterializer = null,
-                };
-            }
-            else
-            {
-                string nestedPrefix = columnName + ".";
-                bool hasNested = false;
-                int fieldCount = reader.FieldCount;
-                for (int j = 0; j < fieldCount; j++)
-                {
-                    if (reader.GetName(j).StartsWith(nestedPrefix, StringComparison.Ordinal))
-                    {
-                        hasNested = true;
-                        break;
-                    }
-                }
-
-                slotPlans[s] = new SlotPlan
-                {
-                    Slot = slot,
-                    ColumnIndex = NotPresentSentinel,
-                    NestedMaterializer = hasNested
-                        ? BuildReflective(slot.PropertyType, nestedPrefix, reader, columns, options)
-                        : null,
-                };
-            }
+            string columnName = prefix.Length == 0 ? slots[s].Name : prefix + slots[s].Name;
+            slotPlans[s] = BuildSlotPlan(slots[s], columnName, reader, columns, options);
         }
 
         IInstanceFactory? factory = plan.Factory;
         Type capturedFallback = type;
+        bool trackNulls = prefix.Length > 0;
         return ctx =>
         {
             SQLiteDataReader r = ctx.Reader!;
@@ -348,53 +334,112 @@ internal static class BuildQueryObject
                 ? factory.Create()
                 : Activator.CreateInstance(capturedFallback, nonPublic: true)!;
 
+            bool anyNonNull = false;
             for (int i = 0; i < slotPlans.Length; i++)
             {
-                SlotPlan sp = slotPlans[i];
-                PropertySlot slot = sp.Slot;
-                int columnIndex = sp.ColumnIndex;
-
-                if (slot.IsSimple)
-                {
-                    if (columnIndex < 0)
-                    {
-                        continue;
-                    }
-
-                    if (slot.Assigner != null)
-                    {
-                        slot.Assigner(r.Statement, columnIndex, instance);
-                    }
-                    else
-                    {
-                        object? val = r.GetValue(columnIndex, r.GetColumnType(columnIndex), slot.PropertyType);
-                        if (val != null)
-                        {
-                            object? convertedValue;
-
-                            if (slot.IsEnum)
-                            {
-                                object underlyingType = Convert.ChangeType(val, slot.EnumUnderlyingType!);
-                                convertedValue = Enum.ToObject(slot.TargetType, underlyingType);
-                            }
-                            else
-                            {
-                                convertedValue = Convert.ChangeType(val, slot.TargetType);
-                            }
-
-                            slot.Setter(instance, convertedValue);
-                        }
-                    }
-                }
-                else if (sp.NestedMaterializer != null)
-                {
-                    object? nestedObj = sp.NestedMaterializer(ctx);
-                    slot.Setter(instance, nestedObj);
-                }
+                anyNonNull |= ApplySlotPlan(in slotPlans[i], ctx, r, instance, trackNulls);
             }
 
-            return instance;
+            return trackNulls && !anyNonNull ? null : instance;
         };
+    }
+
+    private static int FindColumnIndex(Dictionary<string, int> columns, string columnName)
+    {
+        if (columns.TryGetValue(columnName, out int idx))
+        {
+            return idx;
+        }
+
+        foreach (KeyValuePair<string, int> column in columns)
+        {
+            if (string.Equals(column.Key, columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return column.Value;
+            }
+        }
+
+        return NotPresentSentinel;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Nested entity type comes from the entity surface.")]
+    private static SlotPlan BuildSlotPlan(PropertySlot slot, string columnName, SQLiteDataReader reader, Dictionary<string, int> columns, SQLiteOptions options)
+    {
+        if (slot.IsSimple)
+        {
+            return new SlotPlan
+            {
+                Slot = slot,
+                ColumnIndex = columns.TryGetValue(columnName, out int idx) ? idx : NotPresentSentinel,
+                NestedMaterializer = null,
+            };
+        }
+
+        string nestedPrefix = columnName + ".";
+        bool hasNested = false;
+        int fieldCount = reader.FieldCount;
+        for (int j = 0; j < fieldCount; j++)
+        {
+            if (reader.GetName(j).StartsWith(nestedPrefix, StringComparison.Ordinal))
+            {
+                hasNested = true;
+                break;
+            }
+        }
+
+        return new SlotPlan
+        {
+            Slot = slot,
+            ColumnIndex = NotPresentSentinel,
+            NestedMaterializer = hasNested
+                ? BuildReflective(slot.PropertyType, nestedPrefix, reader, columns, options)
+                : null,
+        };
+    }
+
+    private static bool ApplySlotPlan(in SlotPlan sp, SQLiteQueryContext ctx, SQLiteDataReader r, object instance, bool trackNonNull)
+    {
+        PropertySlot slot = sp.Slot;
+        int columnIndex = sp.ColumnIndex;
+
+        if (slot.IsSimple)
+        {
+            if (columnIndex < 0)
+            {
+                return false;
+            }
+
+            if (slot.Assigner != null)
+            {
+                bool nonNull = trackNonNull && r.GetColumnType(columnIndex) != SQLiteColumnType.Null;
+                slot.Assigner(r.Statement, columnIndex, instance);
+                return nonNull;
+            }
+
+            object? val = r.GetValue(columnIndex, r.GetColumnType(columnIndex), slot.PropertyType);
+            if (val == null)
+            {
+                return false;
+            }
+
+            object? convertedValue = slot.IsEnum
+                ? Enum.ToObject(slot.TargetType, Convert.ChangeType(val, slot.EnumUnderlyingType!))
+                : Convert.ChangeType(val, slot.TargetType);
+            slot.Setter(instance, convertedValue);
+            return true;
+        }
+
+        if (sp.NestedMaterializer != null)
+        {
+            object? nestedObj = sp.NestedMaterializer(ctx);
+            if (nestedObj != null)
+            {
+                slot.Setter(instance, nestedObj);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsAnonymousType(Type type)

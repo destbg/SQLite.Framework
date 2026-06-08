@@ -142,95 +142,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2095", Justification = "The method has the right attributes to be preserved.")]
-    IQueryable<TElement> IQueryProvider.CreateQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
-    {
-        return new Queryable<TElement>(this, expression);
-    }
-
-    IQueryable IQueryProvider.CreateQuery(Expression expression)
-    {
-        throw new NotSupportedException("Only generic queries are supported.");
-    }
-
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of the client assemblies.")]
-    [UnconditionalSuppressMessage("AOT", "IL2076", Justification = "The type should be part of the client assemblies.")]
-    [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Type does meet the requirements as it starts from SQLiteTable<T>.")]
-    TResult IQueryProvider.Execute<TResult>(Expression expression)
-    {
-        // Build SQL + parameters
-        SQLTranslator translator = new(this);
-        SQLQuery query = translator.Translate(expression);
-
-        if (typeof(TResult) == typeof(IEnumerable) && ExpressionHelpers.IsConstant(expression))
-        {
-            BaseSQLiteQueryable table = (BaseSQLiteQueryable)ExpressionHelpers.GetConstantValue(expression)!;
-            SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
-            return (TResult)command.ExecuteQueryUntypedInternal(query, table.ElementType);
-        }
-
-        Type elementType = expression.Type;
-        SQLiteCommand cmd = CreateCommand(query.Sql, query.Parameters);
-
-        using SQLiteDataReader reader = cmd.ExecuteReader();
-
-        if (query.ThrowOnMoreThanOne)
-        {
-            if (reader.Read())
-            {
-                Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
-                SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
-                object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
-
-                if (reader.Read())
-                {
-                    throw new InvalidOperationException("Query returned more than one row");
-                }
-
-                return CoerceScalar<TResult>(raw);
-            }
-        }
-        else if (reader.Read())
-        {
-            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
-            SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
-            object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
-
-            if (raw == null
-                && typeof(TResult).IsValueType
-                && Nullable.GetUnderlyingType(typeof(TResult)) == null
-                && !query.IsRowSelector)
-            {
-                throw new InvalidOperationException("Query sequence contains no elements");
-            }
-
-            return CoerceScalar<TResult>(raw);
-        }
-
-        if (query.ThrowOnEmpty)
-        {
-            if (query.ElementAtSemantic)
-            {
-                throw new ArgumentOutOfRangeException("index",
-                    "ElementAt index is out of range. The sequence does not contain that many elements.");
-            }
-
-            throw new InvalidOperationException("Query returned no rows");
-        }
-
-        if (query.HasDefaultValue)
-        {
-            return (TResult)query.DefaultValue!;
-        }
-
-        return default!;
-    }
-
-    object IQueryProvider.Execute(Expression expression)
-    {
-        throw new NotSupportedException("Only generic queries are supported.");
-    }
-
     /// <summary>
     /// Creates a new table for the specified type.
     /// </summary>
@@ -1168,6 +1079,95 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <param name="builder">Builds the model.</param>
     protected virtual void OnModelCreating(SQLiteModelBuilder builder)
     {
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2095", Justification = "The method has the right attributes to be preserved.")]
+    IQueryable<TElement> IQueryProvider.CreateQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
+    {
+        return new Queryable<TElement>(this, expression);
+    }
+
+    IQueryable IQueryProvider.CreateQuery(Expression expression)
+    {
+        throw new NotSupportedException("Only generic queries are supported.");
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of the client assemblies.")]
+    [UnconditionalSuppressMessage("AOT", "IL2076", Justification = "The type should be part of the client assemblies.")]
+    [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Type does meet the requirements as it starts from SQLiteTable<T>.")]
+    TResult IQueryProvider.Execute<TResult>(Expression expression)
+    {
+        // Build SQL + parameters
+        SQLTranslator translator = new(this);
+        SQLQuery query = translator.Translate(expression);
+
+        if (typeof(TResult) == typeof(IEnumerable) && ExpressionHelpers.IsConstant(expression))
+        {
+            BaseSQLiteQueryable table = (BaseSQLiteQueryable)ExpressionHelpers.GetConstantValue(expression)!;
+            SQLiteCommand command = CreateCommand(query.Sql, query.Parameters);
+            return (TResult)command.ExecuteQueryUntypedInternal(query, table.ElementType);
+        }
+
+        Type elementType = expression.Type;
+        SQLiteCommand cmd = CreateCommand(query.Sql, query.Parameters);
+
+        using SQLiteDataReader reader = cmd.ExecuteReader();
+
+        if (query.ThrowOnMoreThanOne)
+        {
+            if (reader.Read())
+            {
+                Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+                SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
+                object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
+
+                if (reader.Read())
+                {
+                    throw new InvalidOperationException("Query returned more than one row");
+                }
+
+                return CoerceScalar<TResult>(raw);
+            }
+        }
+        else if (reader.Read())
+        {
+            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+            SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
+            object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
+
+            if (raw == null
+                && typeof(TResult).IsValueType
+                && Nullable.GetUnderlyingType(typeof(TResult)) == null
+                && !query.IsRowSelector)
+            {
+                throw new InvalidOperationException("Query sequence contains no elements");
+            }
+
+            return CoerceScalar<TResult>(raw);
+        }
+
+        if (query.ThrowOnEmpty)
+        {
+            if (query.ElementAtSemantic)
+            {
+                throw new ArgumentOutOfRangeException("index",
+                    "ElementAt index is out of range. The sequence does not contain that many elements.");
+            }
+
+            throw new InvalidOperationException("Query returned no rows");
+        }
+
+        if (query.HasDefaultValue)
+        {
+            return (TResult)query.DefaultValue!;
+        }
+
+        return default!;
+    }
+
+    object IQueryProvider.Execute(Expression expression)
+    {
+        throw new NotSupportedException("Only generic queries are supported.");
     }
 
     private Task? TryGetReadGate()

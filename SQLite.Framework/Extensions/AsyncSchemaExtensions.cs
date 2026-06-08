@@ -31,6 +31,110 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
+    /// Reconciles the live table for <typeparamref name="T" /> with the model in place. Adds and drops
+    /// columns with <c>ALTER TABLE</c> so referencing tables are never touched, and falls back to a
+    /// rebuild for changes <c>ALTER TABLE</c> cannot express. Needs SQLite 3.35.0. Takes the database
+    /// lock for the duration so it is safe to call from async code.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<int> MigrateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.Migrate<T>();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reconciles the live table for <typeparamref name="T" /> with the model, filling or overriding
+    /// columns from the values declared with <paramref name="fill" />. A fill always rebuilds. Takes the
+    /// database lock for the duration so it is safe to call from async code.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<int> MigrateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.Migrate(fill);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reconciles the live table for <paramref name="type" /> with the model in place, the same way as
+    /// the generic overload. Takes the database lock for the duration so it is safe to call from async
+    /// code.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<int> MigrateAsync(this SQLiteSchema schema, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.Migrate(type);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reconciles the live table for <typeparamref name="T" /> with the model by rebuilding it. Creates
+    /// it when missing, rebuilds it on drift preserving rows, and reconciles indexes and triggers. Works
+    /// on any SQLite version. Takes the database lock for the duration so it is safe to call from async
+    /// code.
+    /// </summary>
+    public static Task<int> MigrateByRebuildAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.MigrateByRebuild<T>();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reconciles the live table for <typeparamref name="T" /> with the model by rebuilding it, filling
+    /// or overriding columns from the values declared with <paramref name="fill" />. Takes the database
+    /// lock for the duration so it is safe to call from async code.
+    /// </summary>
+    public static Task<int> MigrateByRebuildAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.MigrateByRebuild(fill);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reconciles the live table for <paramref name="type" /> with the model by rebuilding it, the same
+    /// way as the generic overload. Takes the database lock for the duration so it is safe to call from
+    /// async code.
+    /// </summary>
+    public static Task<int> MigrateByRebuildAsync(this SQLiteSchema schema, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await schema.Database.LockAsync(ct);
+            return schema.MigrateByRebuild(type);
+        }, ct);
+    }
+
+    /// <summary>
     /// Drops the table for <typeparamref name="T" /> if it exists.
     /// </summary>
     public static Task<int> DropTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)
@@ -426,10 +530,17 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
-    /// Reconciles the live table with the model: creates it when missing, rebuilds it on drift
-    /// preserving rows, and reconciles indexes and triggers. Takes the database lock for the
+    /// Reconciles the live table with the model in place. Adds and drops columns with
+    /// <c>ALTER TABLE</c> so referencing tables are never touched, and falls back to a rebuild for
+    /// changes <c>ALTER TABLE</c> cannot express. Needs SQLite 3.35.0. Takes the database lock for the
     /// duration so it is safe to call from async code.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
     public static Task<int> MigrateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableSchema<T> builder, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
@@ -440,16 +551,50 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
-    /// Reconciles the live table with the model, filling or overriding columns during a rebuild from
-    /// the values declared with <paramref name="fill" />. Takes the database lock for the duration so
+    /// Reconciles the live table with the model, filling or overriding columns from the values declared
+    /// with <paramref name="fill" />. A fill always rebuilds. Takes the database lock for the duration so
     /// it is safe to call from async code.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
     public static Task<int> MigrateAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableSchema<T> builder, Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await builder.Database.LockAsync(ct);
             return builder.Migrate(fill);
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reconciles the live table with the model by rebuilding it. Creates it when missing, rebuilds it
+    /// on drift preserving rows, and reconciles indexes and triggers. Works on any SQLite version. Takes
+    /// the database lock for the duration so it is safe to call from async code.
+    /// </summary>
+    public static Task<int> MigrateByRebuildAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableSchema<T> builder, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await builder.Database.LockAsync(ct);
+            return builder.MigrateByRebuild();
+        }, ct);
+    }
+
+    /// <summary>
+    /// Reconciles the live table with the model by rebuilding it, filling or overriding columns from
+    /// the values declared with <paramref name="fill" />. Takes the database lock for the duration so it
+    /// is safe to call from async code.
+    /// </summary>
+    public static Task<int> MigrateByRebuildAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteTableSchema<T> builder, Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await builder.Database.LockAsync(ct);
+            return builder.MigrateByRebuild(fill);
         }, ct);
     }
 }

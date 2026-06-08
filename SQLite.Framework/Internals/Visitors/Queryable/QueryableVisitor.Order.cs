@@ -6,7 +6,28 @@ internal partial class QueryableVisitor
     {
         ThrowIfReverse(node.Method.Name);
 
-        int n = Math.Max(0, (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!);
+        object value = ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+        if (value is Range range)
+        {
+            if (range.Start.IsFromEnd || range.End.IsFromEnd)
+            {
+                throw new NotSupportedException(
+                    $"{node.Method.Name} with a Range that indexes from the end is not supported because the row count is not known before the query runs.");
+            }
+
+            int start = range.Start.Value;
+            int length = Math.Max(0, range.End.Value - start);
+            Skip = (Skip ?? 0) + start;
+            if (Take.HasValue)
+            {
+                Take = Math.Max(0, Take.Value - start);
+            }
+
+            Take = Take.HasValue ? Math.Min(Take.Value, length) : length;
+            return node;
+        }
+
+        int n = Math.Max(0, (int)value);
         Take = Take.HasValue ? Math.Min(Take.Value, n) : n;
         return node;
     }

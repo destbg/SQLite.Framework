@@ -16,11 +16,20 @@ internal static class Constants
     public const string GroupingElementPrefix = "$elem.";
 
     /// <summary>
+    /// Unicode whitespace code points that .NET treats as whitespace.
+    /// </summary>
+    public static readonly int[] WhitespaceCodePoints =
+    [
+        9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197,
+        8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288,
+    ];
+
+    /// <summary>
     /// SQLite <c>CHAR(...)</c> list of the Unicode whitespace code points that .NET treats as whitespace.
     /// Passed as the second argument to TRIM, LTRIM and RTRIM so the result matches .NET Trim and the
     /// whitespace checks.
     /// </summary>
-    public const string WhitespaceChars = "CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)";
+    public static readonly string WhitespaceChars = $"CHAR({string.Join(", ", WhitespaceCodePoints)})";
 
     /// <summary>
     /// Bit mask for 16 unsigned bits (ushort.MaxValue, 0xFFFF). Keeps a char code point inside the

@@ -1,4 +1,4 @@
-﻿namespace SQLite.Framework;
+namespace SQLite.Framework;
 
 /// <summary>
 /// Represents a data reader for reading a forward-only stream of rows from a SQLite database.
@@ -28,13 +28,6 @@ public class SQLiteDataReader : IDisposable
     public SQLiteDatabase Database { get; }
 
     /// <summary>
-    /// When set, the statement is returned to the database statement pool on dispose instead of being
-    /// finalized, so the next query with the same SQL can reuse it. Left null for readers created
-    /// directly through the public constructor, which keep the finalize on dispose behavior.
-    /// </summary>
-    internal string? PooledSql { get; init; }
-
-    /// <summary>
     /// The storage options used by the data reader, which may affect how certain types are read from the database.
     /// </summary>
     public SQLiteOptions Options => Database.Options;
@@ -43,6 +36,13 @@ public class SQLiteDataReader : IDisposable
     /// The number of columns in the current row.
     /// </summary>
     public int FieldCount => raw.sqlite3_column_count(Statement);
+
+    /// <summary>
+    /// When set, the statement is returned to the database statement pool on dispose instead of being
+    /// finalized, so the next query with the same SQL can reuse it. Left null for readers created
+    /// directly through the public constructor, which keep the finalize on dispose behavior.
+    /// </summary>
+    internal string? PooledSql { get; init; }
 
     /// <inheritdoc />
     public void Dispose()

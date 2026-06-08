@@ -166,13 +166,25 @@ internal static class EnumMemberVisitor
             string[] enumNames = Enum.GetNames(enumType);
 
             SQLiteExpression stringArgExpr = stringArg.SQLiteExpression!;
+            SQLiteExpression strippedExpr = stringArgExpr;
+            foreach (int code in Constants.WhitespaceCodePoints)
+            {
+                if (code > 32)
+                {
+                    continue;
+                }
 
-            return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [stringArgExpr], v =>
+                strippedExpr = SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "REPLACE(", strippedExpr, $", CHAR({code}), '')", strippedExpr.Parameters);
+            }
+
+            strippedExpr = SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "TRIM(", strippedExpr, $", {Constants.WhitespaceChars})", strippedExpr.Parameters);
+
+            return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [strippedExpr], v =>
             {
                 string vsql = v[0].ToString();
                 string norm = ignoreCase
-                    ? $"LOWER(',' || REPLACE({vsql}, ' ', '') || ',')"
-                    : $"(',' || REPLACE({vsql}, ' ', '') || ',')";
+                    ? $"LOWER(',' || {vsql} || ',')"
+                    : $"(',' || {vsql} || ',')";
 
                 List<SQLiteParameter> tokenParameters = new();
                 List<string> parts = new();

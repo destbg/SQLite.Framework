@@ -26,8 +26,41 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
             return node;
         }
 
-        Type entityType = table.ElementType;
-        Expression result = node;
+        return InjectFilters(node, table.ElementType);
+    }
+
+    protected override Expression VisitMethodCall(MethodCallExpression node)
+    {
+        if (IsIgnoreQueryFiltersCall(node))
+        {
+            bool previous = ignoreFilters;
+            ignoreFilters = true;
+            try
+            {
+                return Visit(node.Arguments[0]);
+            }
+            finally
+            {
+                ignoreFilters = previous;
+            }
+        }
+
+        if (!ignoreFilters
+            && typeof(BaseSQLiteTable).IsAssignableFrom(node.Type)
+            && node.Type.IsGenericType)
+        {
+            Type entityType = node.Type.GetGenericArguments()[0];
+            return InjectFilters(node, entityType);
+        }
+
+        return base.VisitMethodCall(node);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The element type comes from a SQLiteTable<T> instance whose type was preserved via DynamicallyAccessedMembers.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Queryable.Where is rooted by user code that already calls Where.")]
+    private Expression InjectFilters(Expression source, Type entityType)
+    {
+        Expression result = source;
 
         foreach (KeyValuePair<Type, IReadOnlyList<LambdaExpression>> kvp in options.QueryFilters)
         {
@@ -49,25 +82,6 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
         }
 
         return result;
-    }
-
-    protected override Expression VisitMethodCall(MethodCallExpression node)
-    {
-        if (IsIgnoreQueryFiltersCall(node))
-        {
-            bool previous = ignoreFilters;
-            ignoreFilters = true;
-            try
-            {
-                return Visit(node.Arguments[0]);
-            }
-            finally
-            {
-                ignoreFilters = previous;
-            }
-        }
-
-        return base.VisitMethodCall(node);
     }
 
     public static Expression Inject(Expression source, SQLiteOptions options)

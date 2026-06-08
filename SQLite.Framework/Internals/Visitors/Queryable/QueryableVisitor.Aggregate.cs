@@ -47,12 +47,7 @@ internal partial class QueryableVisitor
                     ThrowOnMultiColumnDistinct(node);
                 }
 
-                Type resultType = node.Method.ReturnType;
-                bool wrapWithCoalesce = function == "SUM";
-                SQLiteExpression innerExpr = sqlExpression;
-                select = wrapWithCoalesce
-                    ? SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"COALESCE({function}({distinctPrefix}", innerExpr, "), 0)", sqlExpression.Parameters)
-                    : SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"{function}({distinctPrefix}", innerExpr, ")", sqlExpression.Parameters);
+                select = BuildScalarAggregate(function, node.Method.ReturnType, sqlExpression, distinctPrefix);
             }
         }
         else if (function == "COUNT")
@@ -69,12 +64,7 @@ internal partial class QueryableVisitor
         }
         else if (Selects.Count == 1)
         {
-            Type resultType = node.Method.ReturnType;
-            bool wrapWithCoalesce = function == "SUM";
-            SQLiteExpression innerExpr = Selects[0];
-            select = wrapWithCoalesce
-                ? SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"COALESCE({function}({distinctPrefix}", innerExpr, "), 0)", Selects[0].Parameters)
-                : SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"{function}({distinctPrefix}", innerExpr, ")", Selects[0].Parameters);
+            select = BuildScalarAggregate(function, node.Method.ReturnType, Selects[0], distinctPrefix);
         }
         else
         {
@@ -221,6 +211,23 @@ internal partial class QueryableVisitor
         return select;
     }
 
+    private SQLiteExpression BuildScalarAggregate(string function, Type resultType, SQLiteExpression innerExpr, string distinctPrefix)
+    {
+        Type innerType = Nullable.GetUnderlyingType(innerExpr.Type) ?? innerExpr.Type;
+        if (function is "MAX" or "MIN" && innerType == typeof(ulong))
+        {
+            string nonMatchSide = function == "MAX" ? "< 0" : ">= 0";
+            return SQLiteExpression.Multi(resultType, visitor.Counters.NextIdentifier(),
+                [$"COALESCE({function}(CASE WHEN ", $" {nonMatchSide} THEN ", $" END), {function}(", "))"],
+                [innerExpr, innerExpr, innerExpr],
+                innerExpr.Parameters);
+        }
+
+        return function == "SUM"
+            ? SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"COALESCE({function}({distinctPrefix}", innerExpr, "), 0)", innerExpr.Parameters)
+            : SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"{function}({distinctPrefix}", innerExpr, ")", innerExpr.Parameters);
+    }
+
     private SQLiteExpression NullAwareDistinctCount(Type type, SQLiteExpression column)
     {
         return SQLiteExpression.Multi(
@@ -259,6 +266,11 @@ internal partial class QueryableVisitor
 
         SelectVisitor groupByVisitor = new(GroupBys);
         Expression groupByExpression = visitor.Visit(lambda.Body);
+
+        if (groupByExpression is SQLiteExpression keyExpression)
+        {
+            groupByExpression = visitor.CoalesceLiftedOrderComparison(lambda.Body, keyExpression);
+        }
 
         if (groupByExpression is not SQLiteExpression && groupByExpression is not NewExpression)
         {

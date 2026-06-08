@@ -5,8 +5,10 @@ namespace SQLite.Framework.Tests;
 
 public class SchemaMigrationTests
 {
-    [Fact]
-    public void MigrateSetWithDateTimeLiteralDoesNotCrash()
+    [Theory]
+    [InlineData(MigrateMode.InPlace)]
+    [InlineData(MigrateMode.Rebuild)]
+    public void MigrateSetWithDateTimeLiteralDoesNotCrash(MigrateMode mode)
     {
         using TestDatabase db = new();
         db.Table<Author>().Schema.CreateTable();
@@ -19,7 +21,7 @@ public class SchemaMigrationTests
         });
 
         Exception? ex = Record.Exception(() =>
-            db.Schema.Migrate<Author>(m => m.Set(a => a.BirthDate, new DateTime(2000, 1, 1))));
+            db.Schema.Table<Author>().Migrate(mode, m => m.Set(a => a.BirthDate, new DateTime(2000, 1, 1))));
 
         Assert.Null(ex);
     }

@@ -40,7 +40,7 @@ internal static class QueryableMemberVisitor
         SQLiteParameter[]? parameters = queryParams == null
             ? argParams
             : argParams == null ? queryParams : [.. queryParams, .. argParams];
-        string containsColumn = translator.Selects[0].IdentifierText;
+        string containsColumn = ContainsColumnName(translator);
         return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
             $"EXISTS ({Environment.NewLine}SELECT 1 FROM ({Environment.NewLine}{querySql}{Environment.NewLine}) WHERE \"{containsColumn}\" IS ", firstArg, ")", parameters);
     }
@@ -296,6 +296,19 @@ internal static class QueryableMemberVisitor
 
         expression = null;
         return false;
+    }
+
+    private static string ContainsColumnName(SQLTranslator translator)
+    {
+        if (translator.Selects.Count > 0)
+        {
+            return translator.Selects[0].IdentifierText;
+        }
+
+        string columnSql = translator.Visitor.TableColumns.Values.First().ToString()!;
+        int end = columnSql.LastIndexOf('"');
+        int start = columnSql.LastIndexOf('"', end - 1) + 1;
+        return columnSql[start..end];
     }
 
     private static SQLiteExpression BuildCountExpression(SQLVisitor visitor, MethodCallExpression node, SQLiteExpression? filterExpression)

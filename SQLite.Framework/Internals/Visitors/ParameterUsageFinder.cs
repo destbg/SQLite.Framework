@@ -15,13 +15,6 @@ internal sealed class ParameterUsageFinder : ExpressionVisitor
         this.parameter = parameter;
     }
 
-    public static bool Uses(LambdaExpression lambda)
-    {
-        ParameterUsageFinder finder = new(lambda.Parameters[0]);
-        finder.Visit(lambda.Body);
-        return finder.found;
-    }
-
     protected override Expression VisitParameter(ParameterExpression node)
     {
         if (node == parameter)
@@ -30,5 +23,12 @@ internal sealed class ParameterUsageFinder : ExpressionVisitor
         }
 
         return node;
+    }
+
+    public static bool Uses(LambdaExpression lambda)
+    {
+        ParameterUsageFinder finder = new(lambda.Parameters[0]);
+        finder.Visit(lambda.Body);
+        return finder.found;
     }
 }

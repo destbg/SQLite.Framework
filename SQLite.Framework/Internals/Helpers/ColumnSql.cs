@@ -6,7 +6,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class ColumnSql
 {
-    public static string GetCreateColumnSql(TableColumn column, bool emitInlinePrimaryKey = true, string? defaultOverride = null)
+    public static string GetCreateColumnSql(TableColumn column, bool emitInlinePrimaryKey = true, string? defaultOverride = null, bool emitForeignKey = true)
     {
         string columnType = column.ColumnType.ToString().ToUpperInvariant();
         bool inlinePk = emitInlinePrimaryKey && column.IsPrimaryKey;
@@ -42,7 +42,7 @@ internal static class ColumnSql
             sb.Append(' ');
             sb.Append(autoIncrement);
         }
-        if (column.ForeignKey != null)
+        if (column.ForeignKey != null && emitForeignKey)
         {
             sb.Append(' ');
             ForeignKeySql.WriteSql(column.ForeignKey, sb, inline: true);

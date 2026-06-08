@@ -27,21 +27,54 @@ public sealed class SQLiteTableSchema<[DynamicallyAccessedMembers(DynamicallyAcc
     }
 
     /// <summary>
-    /// Reconciles the live table with the model: creates it when missing, rebuilds it on drift while
-    /// preserving rows, and reconciles indexes and triggers. Returns the number of statements run.
+    /// Reconciles the live table with the model in place. Adds and drops columns with
+    /// <c>ALTER TABLE</c> so referencing tables are never touched, and falls back to
+    /// <see cref="MigrateByRebuild()" /> for changes <c>ALTER TABLE</c> cannot express. Needs SQLite
+    /// 3.35.0. Returns the number of statements run.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
     public int Migrate()
     {
         return Database.Schema.Migrate<T>();
     }
 
     /// <summary>
-    /// Reconciles the live table with the model, filling or overriding columns during a rebuild from
-    /// the values declared with <paramref name="fill" />. Returns the number of statements run.
+    /// Reconciles the live table with the model, filling or overriding columns from the values declared
+    /// with <paramref name="fill" />. A fill always rebuilds. Returns the number of statements run.
     /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("android")]
+    [SupportedOSPlatform("android34.0")]
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
     public int Migrate(Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill)
     {
         return Database.Schema.Migrate(fill);
+    }
+
+    /// <summary>
+    /// Reconciles the live table with the model by rebuilding it. Creates it when missing, rebuilds it
+    /// on drift while preserving rows, and reconciles indexes and triggers. Works on any SQLite version.
+    /// Returns the number of statements run.
+    /// </summary>
+    public int MigrateByRebuild()
+    {
+        return Database.Schema.MigrateByRebuild<T>();
+    }
+
+    /// <summary>
+    /// Reconciles the live table with the model by rebuilding it, filling or overriding columns from
+    /// the values declared with <paramref name="fill" />. Returns the number of statements run.
+    /// </summary>
+    public int MigrateByRebuild(Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill)
+    {
+        return Database.Schema.MigrateByRebuild(fill);
     }
 
     /// <summary>

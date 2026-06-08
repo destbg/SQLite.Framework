@@ -84,14 +84,21 @@ internal partial class JsonCollectionVisitor
             bool needsSubquery = orderBys.Count > 0 || limit != null || offset != null;
             if (needsSubquery)
             {
-                List<string> arrayClauses = clauses;
+                bool projectionIsValueColumn = selectExpr.EndsWith("\"value\"");
+                string arrayColumn = projectionIsValueColumn ? "\"value\"" : "\"item\"";
+                List<string> arrayClauses = [.. clauses];
+                if (!projectionIsValueColumn)
+                {
+                    arrayClauses[0] = $"SELECT {distinctKeyword}{selectExpr} AS {arrayColumn}";
+                }
+
                 if (orderBys.Count > 0 && limit == null && offset == null && fromOverride != null)
                 {
-                    arrayClauses = [.. clauses, "LIMIT -1"];
+                    arrayClauses.Add("LIMIT -1");
                 }
 
                 string innerSelect2 = string.Join(nl + sp2, arrayClauses);
-                return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}\"value\"){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
+                return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}{arrayColumn}){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
             }
 
             clauses[0] = $"SELECT json_group_array({distinctKeyword}{selectExpr})";

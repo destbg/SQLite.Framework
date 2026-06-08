@@ -15,6 +15,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
 - `Parse` and narrowing casts over a column map to `CAST` and do not validate or throw.
+- `Math.Clamp` with `min` greater than `max` returns `min` instead of throwing.
 
 ## Strings
 
@@ -42,9 +43,14 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 ## Dates, times and storage
 
+- `AddMonths` and `AddYears` whose result lands in December of year 9999 return the default date, since the date math overflows past SQLite's maximum date.
 - `DateTimeOffset` drops its offset.
 - Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
 - A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal`, and the `HasFlag`, bitwise, comparison and cast operators on a `Text`-stored enum.
+
+## R-Tree
+
+- On the default `Float` storage, coordinates are 32-bit floats, so values above 2^24 lose precision. Use `SQLiteRTreeStorage.Int32` for exact integer coordinates.
 
 ## Functions and JSON collections
 

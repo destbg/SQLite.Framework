@@ -43,6 +43,7 @@ internal partial class QueryableVisitor
         IEnumerable<object> arguments = (IEnumerable<object>)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
         SQLiteParameter[] parameters = arguments.Select(a => (SQLiteParameter)a).ToArray();
 
+        visitor.Counters.ReserveParamNames(parameters.Select(p => p.Name));
         visitor.AssignTable(genericType, SQLiteExpression.Leaf(genericType, -1, sql, parameters.Length == 0 ? null : parameters));
         return node;
     }

@@ -37,13 +37,15 @@ file sealed class MigSetRow
 
 public class MigrateSetStorageTests
 {
-    [Fact]
-    public void MigrateSet_IntegerAndDefaultStorage_FormatsEveryType()
+    [Theory]
+    [InlineData(MigrateMode.InPlace)]
+    [InlineData(MigrateMode.Rebuild)]
+    public void MigrateSet_IntegerAndDefaultStorage_FormatsEveryType(MigrateMode mode)
     {
         using TestDatabase db = new();
         db.Table<MigSetRow>().Schema.CreateTable();
 
-        Exception? ex = Record.Exception(() => db.Schema.Migrate<MigSetRow>(m => m
+        Exception? ex = Record.Exception(() => db.Schema.Table<MigSetRow>().Migrate(mode, m => m
             .Set(r => r.Dt, new DateTime(2000, 1, 2, 3, 4, 5))
             .Set(r => r.Dto, new DateTimeOffset(2000, 1, 2, 3, 4, 5, TimeSpan.Zero))
             .Set(r => r.Ts, TimeSpan.FromMinutes(90))
@@ -59,8 +61,10 @@ public class MigrateSetStorageTests
         Assert.Null(ex);
     }
 
-    [Fact]
-    public void MigrateSet_TextStorage_FormatsTextModes()
+    [Theory]
+    [InlineData(MigrateMode.InPlace)]
+    [InlineData(MigrateMode.Rebuild)]
+    public void MigrateSet_TextStorage_FormatsTextModes(MigrateMode mode)
     {
         using TestDatabase db = new(b => b
             .UseDateTimeStorage(DateTimeStorageMode.TextFormatted)
@@ -72,7 +76,7 @@ public class MigrateSetStorageTests
             .UseEnumStorage(EnumStorageMode.Text));
         db.Table<MigSetRow>().Schema.CreateTable();
 
-        Exception? ex = Record.Exception(() => db.Schema.Migrate<MigSetRow>(m => m
+        Exception? ex = Record.Exception(() => db.Schema.Table<MigSetRow>().Migrate(mode, m => m
             .Set(r => r.Dt, new DateTime(2000, 1, 2, 3, 4, 5))
             .Set(r => r.Dto, new DateTimeOffset(2000, 1, 2, 3, 4, 5, TimeSpan.Zero))
             .Set(r => r.Ts, TimeSpan.FromMinutes(90))
@@ -84,15 +88,17 @@ public class MigrateSetStorageTests
         Assert.Null(ex);
     }
 
-    [Fact]
-    public void MigrateSet_TextTicksAndUtcTicks_Formats()
+    [Theory]
+    [InlineData(MigrateMode.InPlace)]
+    [InlineData(MigrateMode.Rebuild)]
+    public void MigrateSet_TextTicksAndUtcTicks_Formats(MigrateMode mode)
     {
         using TestDatabase db = new(b => b
             .UseDateTimeStorage(DateTimeStorageMode.TextTicks)
             .UseDateTimeOffsetStorage(DateTimeOffsetStorageMode.UtcTicks));
         db.Table<MigSetRow>().Schema.CreateTable();
 
-        Exception? ex = Record.Exception(() => db.Schema.Migrate<MigSetRow>(m => m
+        Exception? ex = Record.Exception(() => db.Schema.Table<MigSetRow>().Migrate(mode, m => m
             .Set(r => r.Dt, new DateTime(2000, 1, 2, 3, 4, 5))
             .Set(r => r.Dto, new DateTimeOffset(2000, 1, 2, 3, 4, 5, TimeSpan.Zero))));
 

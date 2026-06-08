@@ -56,14 +56,14 @@ public class SQLiteCte<[DynamicallyAccessedMembers(DynamicallyAccessedMemberType
     {
     }
 
-    IEnumerator<T> IEnumerable<T>.GetEnumerator()
-    {
-        return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
-    }
-
     /// <inheritdoc />
     public override IEnumerator GetEnumerator()
     {
         return ((IEnumerable<T>)this).GetEnumerator();
+    }
+
+    IEnumerator<T> IEnumerable<T>.GetEnumerator()
+    {
+        return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
     }
 }

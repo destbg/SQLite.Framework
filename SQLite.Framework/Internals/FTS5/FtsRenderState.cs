@@ -252,7 +252,7 @@ internal sealed class FtsRenderState
     {
         string columnName = ResolveColumnName(columnArg);
         AppendLiteral('{');
-        AppendLiteral(columnName);
+        AppendLiteral(FtsHelpers.FormatColumnFilter(columnName));
         AppendLiteral("} : ");
         Write(bodyArg, 4);
     }

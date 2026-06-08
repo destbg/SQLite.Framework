@@ -24,4 +24,10 @@ public enum EmitStrategy
     /// Construct through a positional constructor.
     /// </summary>
     Positional,
+
+    /// <summary>
+    /// Construct through a positional constructor invoked by reflection, for types that the
+    /// generated code cannot name (for example file-local types).
+    /// </summary>
+    PositionalReflection,
 }

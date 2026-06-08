@@ -23,6 +23,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     private static readonly MethodInfo BinaryRightShiftOperator;
     private static readonly Dictionary<(Type, MethodInfo), MethodInfo> ConcreteMethodCache = [];
 
+    private readonly IReadOnlyCollection<ParameterExpression>? inputParameters;
+    private readonly SQLiteOptions options;
+
     [DynamicDependency(DynamicallyAccessedMemberTypes.NonPublicMethods, typeof(QueryCompilerVisitor))]
     static QueryCompilerVisitor()
     {
@@ -38,9 +41,6 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         BinaryLeftShiftOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryLeftShiftOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
         BinaryRightShiftOperator = typeof(QueryCompilerVisitor).GetMethod(nameof(ApplyBinaryRightShiftOperator), BindingFlags.Static | BindingFlags.NonPublic)!;
     }
-
-    private readonly IReadOnlyCollection<ParameterExpression>? inputParameters;
-    private readonly SQLiteOptions options;
 
     public QueryCompilerVisitor(SQLiteOptions options, IReadOnlyCollection<ParameterExpression>? inputParameters = null)
     {

@@ -83,8 +83,7 @@ public class EntityProjectionInJoinTests
         var row = Assert.Single(rows);
         Assert.Equal("Orphan Book", row.Book.Title);
         Assert.Equal(999, row.Book.AuthorId);
-        Assert.Equal(0, row.Author.Id);
-        Assert.Null(row.Author.Name);
+        Assert.Null(row.Author);
     }
 
     [Fact]
