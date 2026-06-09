@@ -25,6 +25,12 @@ internal static class TypeHelpers
                || type == typeof(object);
     }
 
+    public static Type UnsignedIntegerKey(Type type)
+    {
+        Type underlying = Nullable.GetUnderlyingType(type) ?? type;
+        return underlying.IsEnum ? Enum.GetUnderlyingType(underlying) : underlying;
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Interface lookup is only used for known collection types with registered converters.")]
     public static Type? GetEnumerableElementType(Type type)
     {

@@ -190,7 +190,7 @@ internal partial class SQLVisitor
             return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", concatLeft, " || ", concatRight, "", ParameterHelpers.CombineParameters(concatLeft, concatRight));
         }
 
-        if (UnsignedIntegerKey(leftNode.Type) == typeof(ulong) && UnsignedIntegerKey(rightNode.Type) == typeof(ulong))
+        if (TypeHelpers.UnsignedIntegerKey(leftNode.Type) == typeof(ulong) && TypeHelpers.UnsignedIntegerKey(rightNode.Type) == typeof(ulong))
         {
             switch (node.NodeType)
             {
@@ -202,7 +202,7 @@ internal partial class SQLVisitor
             }
         }
 
-        if (UnsignedIntegerKey(leftNode.Type) == typeof(uint) && UnsignedIntegerKey(rightNode.Type) == typeof(uint))
+        if (TypeHelpers.UnsignedIntegerKey(leftNode.Type) == typeof(uint) && TypeHelpers.UnsignedIntegerKey(rightNode.Type) == typeof(uint))
         {
             switch (node.NodeType)
             {
@@ -387,13 +387,6 @@ internal partial class SQLVisitor
         return needsBrackets
             ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
             : expr;
-    }
-
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Enum underlying type is always preserved for enum types reachable from user code.")]
-    private static Type UnsignedIntegerKey(Type type)
-    {
-        Type underlying = Nullable.GetUnderlyingType(type) ?? type;
-        return underlying.IsEnum ? Enum.GetUnderlyingType(underlying) : underlying;
     }
 
     private static bool MayBeNull(Expression operand)

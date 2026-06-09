@@ -217,8 +217,7 @@ internal partial class QueryableVisitor
 
     private SQLiteExpression BuildScalarAggregate(string function, Type resultType, SQLiteExpression innerExpr, string distinctPrefix)
     {
-        Type innerType = Nullable.GetUnderlyingType(innerExpr.Type) ?? innerExpr.Type;
-        if (function is "MAX" or "MIN" && innerType == typeof(ulong))
+        if (function is "MAX" or "MIN" && TypeHelpers.UnsignedIntegerKey(innerExpr.Type) == typeof(ulong))
         {
             string nonMatchSide = function == "MAX" ? "< 0" : ">= 0";
             return SQLiteExpression.Multi(resultType, visitor.Counters.NextIdentifier(),

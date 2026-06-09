@@ -351,14 +351,21 @@ internal static class QueryableMemberVisitor
 
         bool coalesce = aggregateFunction == "SUM";
 
-        Type targetType = Nullable.GetUnderlyingType(target.Type) ?? target.Type;
-        if (aggregateFunction is "MAX" or "MIN" && targetType == typeof(ulong) && filterExpression == null)
+        if (aggregateFunction is "MAX" or "MIN" && TypeHelpers.UnsignedIntegerKey(target.Type) == typeof(ulong))
         {
             string nonMatchSide = aggregateFunction == "MAX" ? "< 0" : ">= 0";
+            if (filterExpression == null)
+            {
+                return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                    [$"COALESCE({aggregateFunction}(CASE WHEN ", $" {nonMatchSide} THEN ", $" END), {aggregateFunction}(", "))"],
+                    [target, target, target],
+                    target.Parameters);
+            }
+
             return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                [$"COALESCE({aggregateFunction}(CASE WHEN ", $" {nonMatchSide} THEN ", $" END), {aggregateFunction}(", "))"],
-                [target, target, target],
-                target.Parameters);
+                [$"COALESCE({aggregateFunction}(CASE WHEN ", $" {nonMatchSide} THEN ", " END) FILTER (WHERE ", $"), {aggregateFunction}(", ") FILTER (WHERE ", "))"],
+                [target, target, filterExpression, target, filterExpression],
+                ParameterHelpers.CombineParameters(target, filterExpression));
         }
 
         if (filterExpression == null)
