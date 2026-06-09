@@ -340,7 +340,7 @@ public class MethodCallTests
         SQLiteCommand command = query.ToSqlCommand();
 
         Assert.Equal(2, command.Parameters.Count);
-        Assert.Equal(' ', command.Parameters[0].Value);
+        Assert.Equal(" ", command.Parameters[0].Value);
         Assert.Equal("be", command.Parameters[1].Value);
         Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE TRIM(b0.\"BookTitle\", @p0) = @p1", command.CommandText.Replace("\r\n", "\n"));
 

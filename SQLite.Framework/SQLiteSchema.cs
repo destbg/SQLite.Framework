@@ -386,8 +386,16 @@ public class SQLiteSchema
                 "Recreate the table with the new schema instead.");
         }
 
+        if (column.ForeignKey != null && defaultValue != null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot add the foreign key column '{propertyName}' to the existing table '{mapping.TableName}' with a non-null default value. " +
+                "SQLite requires a column added with a REFERENCES clause to default to NULL. " +
+                "Add the column with a null default, or recreate the table with the new schema instead.");
+        }
+
         string? defaultOverride = defaultValue == null ? null : SqlLiteralHelper.FormatLiteral(defaultValue, Database.Options);
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: defaultOverride, emitForeignKey: defaultOverride == null)}";
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: defaultOverride, emitForeignKey: true)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -447,8 +455,16 @@ public class SQLiteSchema
                 "Recreate the table with the new schema instead.");
         }
 
+        if (column.ForeignKey != null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot add the foreign key column '{propertyName}' to the existing table '{mapping.TableName}' with a default expression. " +
+                "SQLite requires a column added with a REFERENCES clause to default to NULL. " +
+                "Recreate the table with the new schema instead.");
+        }
+
         string defaultSql = TranslateDefaultExpression(defaultExpression);
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: $"({defaultSql})", emitForeignKey: false)}";
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: $"({defaultSql})", emitForeignKey: true)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 

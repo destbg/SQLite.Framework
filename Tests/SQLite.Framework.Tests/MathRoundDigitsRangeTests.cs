@@ -3,7 +3,7 @@ using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
 
-public class MathRoundDigitsRangeParityTests
+public class MathRoundDigitsRangeTests
 {
     [Fact]
     public void Round_DecimalColumn_DigitsUpToTwentyEight_MatchesDotNet()
@@ -19,7 +19,7 @@ public class MathRoundDigitsRangeParityTests
     }
 
     [Fact]
-    public void Round_NegativeDigits_MatchesDotNet()
+    public void Round_NegativeDigits_EvaluatesInSqlWhereDotNetThrows()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
@@ -27,12 +27,13 @@ public class MathRoundDigitsRangeParityTests
 
         List<double> seed = [123.45];
         Assert.Throws<ArgumentOutOfRangeException>(() => seed.Select(p => Math.Round(p, -1)).ToList());
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            db.Table<Book>().Select(b => Math.Round(b.Price, -1)).ToList());
+
+        double actual = db.Table<Book>().Select(b => Math.Round(b.Price, -1)).First();
+        Assert.Equal(120.0, actual);
     }
 
     [Fact]
-    public void Round_DigitsAboveFifteen_MatchesDotNet()
+    public void Round_DigitsAboveFifteen_EvaluatesInSqlWhereDotNetThrows()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
@@ -40,7 +41,8 @@ public class MathRoundDigitsRangeParityTests
 
         List<double> seed = [123.45];
         Assert.Throws<ArgumentOutOfRangeException>(() => seed.Select(p => Math.Round(p, 20)).ToList());
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            db.Table<Book>().Select(b => Math.Round(b.Price, 20)).ToList());
+
+        double actual = db.Table<Book>().Select(b => Math.Round(b.Price, 20)).First();
+        Assert.Equal(123.45, actual);
     }
 }

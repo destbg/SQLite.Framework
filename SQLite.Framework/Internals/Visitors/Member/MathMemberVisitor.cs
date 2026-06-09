@@ -131,16 +131,6 @@ internal static class MathMemberVisitor
                 "and round-half-to-even (MidpointRounding.ToEven, the .NET default).");
         }
 
-        if (digits is { IsConstant: true, Constant: int constantDigits })
-        {
-            int maxDigits = node.Method.ReturnType == typeof(decimal) ? 28 : 15;
-            if (constantDigits < 0 || constantDigits > maxDigits)
-            {
-                return visitor.NotTranslatable(node,
-                    $"Math.Round digits must be between 0 and {maxDigits} to translate to SQL.");
-            }
-        }
-
         SQLiteParameter[]? parameters = digits is null
             ? value.SQLiteExpression!.Parameters
             : ParameterHelpers.CombineParameters(value.SQLiteExpression!, digits.Value.SQLiteExpression!);

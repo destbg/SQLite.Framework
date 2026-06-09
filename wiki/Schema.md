@@ -265,6 +265,8 @@ await db.Schema.AddColumnAsync<Book>(b => b.Genre, defaultValue: "Unknown");
 
 SQLite does not let you use parameters inside DDL statements like `ALTER TABLE`. The framework writes `defaultValue` straight into the SQL text. Only numbers, `bool`, and `string` are accepted. Single quotes inside strings are doubled, so a value with quotes in it cannot escape from the string and run other SQL.
 
+SQLite requires a column added with a foreign key to default to NULL. Adding a foreign key column with a non-null `defaultValue` or a default expression throws. Add it with a null default, or recreate the table with the new schema instead.
+
 A second overload takes a translated SQL expression:
 
 ```csharp
