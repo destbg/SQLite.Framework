@@ -44,6 +44,13 @@ internal static class NumericMemberVisitor
 
         if (node.Method.Name == "Parse")
         {
+            if (node.Arguments.Count != 1)
+            {
+                return visitor.NotTranslatable(node,
+                    $"{node.Method.DeclaringType!.Name}.Parse with a NumberStyles or IFormatProvider argument is not translatable to SQL. " +
+                    "Only the single-string overload maps to CAST(... AS INTEGER), which reads a base-10 value.");
+            }
+
             return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", arguments[0].SQLiteExpression!, " AS INTEGER)", arguments[0].Parameters);
         }
 
@@ -86,6 +93,13 @@ internal static class NumericMemberVisitor
 
         if (node.Method.Name == "Parse")
         {
+            if (node.Arguments.Count != 1)
+            {
+                return visitor.NotTranslatable(node,
+                    $"{node.Method.DeclaringType!.Name}.Parse with a NumberStyles or IFormatProvider argument is not translatable to SQL. " +
+                    "Only the single-string overload maps to CAST(... AS REAL), which reads an invariant-culture value.");
+            }
+
             return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", arguments[0].SQLiteExpression!, " AS REAL)", arguments[0].Parameters);
         }
 

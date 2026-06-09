@@ -258,6 +258,8 @@ internal static class DateTimeMemberVisitor
             nameof(DateTime.Minute) => ResolveDateFormat(visitor, type, node, "M", "DATETIME"),
             nameof(DateTime.Second) => ResolveDateFormat(visitor, type, node, "S", "DATETIME"),
             nameof(DateTime.Millisecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMillisecond, 1000),
+            nameof(DateTime.Microsecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, 1000),
+            nameof(DateTime.Nanosecond) => ModMulExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, TimeSpan.NanosecondsPerTick),
             nameof(DateTime.Ticks) => node,
             nameof(DateTime.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME"),
             nameof(DateTime.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
@@ -288,6 +290,8 @@ internal static class DateTimeMemberVisitor
             nameof(DateTimeOffset.Minute) => ResolveDateFormat(visitor, type, node, "M", "DATETIME"),
             nameof(DateTimeOffset.Second) => ResolveDateFormat(visitor, type, node, "S", "DATETIME"),
             nameof(DateTimeOffset.Millisecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMillisecond, 1000),
+            nameof(DateTimeOffset.Microsecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, 1000),
+            nameof(DateTimeOffset.Nanosecond) => ModMulExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, TimeSpan.NanosecondsPerTick),
             nameof(DateTimeOffset.Ticks) => node,
             nameof(DateTimeOffset.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME"),
             nameof(DateTimeOffset.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
@@ -363,6 +367,7 @@ internal static class DateTimeMemberVisitor
             nameof(TimeOnly.Second) => ResolveTimeFormat(visitor, type, node, "S"),
             nameof(TimeOnly.Millisecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMillisecond, 1000),
             nameof(TimeOnly.Microsecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, 1000),
+            nameof(TimeOnly.Nanosecond) => ModMulExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, TimeSpan.NanosecondsPerTick),
             _ => node
         };
     }

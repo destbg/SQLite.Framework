@@ -17,6 +17,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
 - `Parse` and a narrowing cast of an integer column map to `CAST` and do not validate or throw. A narrowing cast of a floating-point column to a smaller integer type throws `OverflowException` when the value is out of the target range, where .NET would saturate or wrap.
+- Only the single-string `int.Parse`/`double.Parse` maps to `CAST`. The `NumberStyles`/`IFormatProvider` overloads (such as hex parsing) run in memory in a `Select` and throw in a `Where`.
 - `Math.Clamp` with `min` greater than `max` returns `min` instead of throwing.
 - `Math.Abs(long.MinValue)` throws a `SQLiteException`, since its result does not fit a signed 64-bit integer.
 
@@ -29,6 +30,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `ToUpper` and `ToLower` fold only ASCII unless the SQLite build has ICU.
 - Case-insensitive `Equals` and `Compare` (`OrdinalIgnoreCase`) also fold only ASCII.
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text), matching EF Core.
+- `Enum.Parse` strips ASCII whitespace anywhere in the string, so the spaced `[Flags]` form like `"Read, Write"` parses but a name with embedded whitespace like `"News\tpaper"` matches `"Newspaper"` where .NET would throw.
 
 ## Ordering and set operations
 

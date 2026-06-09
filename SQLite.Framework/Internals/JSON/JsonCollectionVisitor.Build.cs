@@ -45,7 +45,7 @@ internal partial class JsonCollectionVisitor
         if (singleSemantic)
         {
             List<string> countClauses = [.. clauses];
-            countClauses[0] = "SELECT COUNT(*)";
+            countClauses[0] = distinct ? $"SELECT COUNT(DISTINCT {selectExpr})" : "SELECT COUNT(*)";
             countClauses.Add("LIMIT 2");
             string countSelect = string.Join(nl + sp2, countClauses);
 
