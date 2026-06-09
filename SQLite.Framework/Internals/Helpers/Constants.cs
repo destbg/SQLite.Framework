@@ -62,6 +62,13 @@ internal static class Constants
     public const long Int64SignMask = 9223372036854775807;
 
     /// <summary>
+    /// Two to the power 64 as a real literal (18446744073709551616.0). A <c>ulong</c> is stored as the
+    /// signed bit pattern, so a value at or above 2 to the power 63 reads back negative. Adding this
+    /// offset to such a value recovers the real (unsigned) magnitude when casting to a floating type.
+    /// </summary>
+    public const string UInt64ToRealOffset = "18446744073709551616.0";
+
+    /// <summary>
     /// Mask for a 32-bit shift count (0x1F). C# masks the shift amount to 0-31 for 32-bit operands,
     /// so the generated SQL does the same.
     /// </summary>

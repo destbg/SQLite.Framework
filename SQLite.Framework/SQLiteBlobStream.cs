@@ -22,8 +22,8 @@ public sealed class SQLiteBlobStream : Stream
     private readonly SQLiteDatabase database;
     private readonly IDisposable connectionLock;
     private readonly bool writable;
-    private readonly int length;
 
+    private int length;
     private sqlite3_blob? handle;
     private long position;
 
@@ -74,13 +74,14 @@ public sealed class SQLiteBlobStream : Stream
 
     /// <summary>
     /// Reopens the underlying blob handle to point at a different row in the same column. The
-    /// new row must have a blob of the same length as the current blob. The stream's
-    /// <see cref="Position" /> resets to 0.
+    /// stream's <see cref="Length" /> updates to the new row's blob size and <see cref="Position" />
+    /// resets to 0.
     /// </summary>
     public void Reopen(long rowid)
     {
         ThrowIfDisposed();
         ThrowOnError((SQLiteResult)raw.sqlite3_blob_reopen(handle!, rowid));
+        length = raw.sqlite3_blob_bytes(handle);
         position = 0;
     }
 

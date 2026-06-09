@@ -97,6 +97,15 @@ internal partial class SQLVisitor
                 ResolvedModel nullableObj = ResolveExpression(node.Object);
                 if (nullableObj.SQLiteExpression != null)
                 {
+                    if (nullableUnderlying == typeof(ulong))
+                    {
+                        SQLiteExpression u = nullableObj.SQLiteExpression;
+                        return SQLiteExpression.Multi(typeof(string), Counters.NextIdentifier(),
+                            ["(CASE WHEN ", " IS NULL THEN '' ELSE printf('%llu', ", ") END)"],
+                            [u, u],
+                            u.Parameters);
+                    }
+
                     return SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(),
                         "COALESCE(CAST(", nullableObj.SQLiteExpression, " AS TEXT), '')", nullableObj.SQLiteExpression.Parameters);
                 }

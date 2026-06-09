@@ -87,6 +87,10 @@ public class MarkerMethodsThrowTests
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((byte)1));
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((sbyte)1));
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((ushort)1));
+        Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((uint)1));
+        Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((ulong)1));
+        Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((uint?)1));
+        Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((ulong?)1));
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((short?)1));
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((byte?)1));
         Assert.Throws<InvalidOperationException>(() => SQLiteWindowFunctions.Avg((sbyte?)1));

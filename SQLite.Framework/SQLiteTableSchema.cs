@@ -215,17 +215,17 @@ public sealed class SQLiteTableSchema<[DynamicallyAccessedMembers(DynamicallyAcc
     /// Creates a trigger on the table from a raw SQL body and an optional <c>WHEN</c> predicate.
     /// Issues <c>CREATE TRIGGER IF NOT EXISTS</c>.
     /// </summary>
-    public int CreateTrigger(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string body, string? when = null, bool forEachRow = true)
+    public int CreateTrigger(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string body, string? when = null)
     {
-        return Database.Schema.CreateTrigger<T>(name, timing, @event, body, when, forEachRow);
+        return Database.Schema.CreateTrigger<T>(name, timing, @event, body, when);
     }
 
     /// <summary>
     /// Creates a trigger on the table whose body is built from typed LINQ statements. Issues
     /// <c>CREATE TRIGGER IF NOT EXISTS</c>.
     /// </summary>
-    public int CreateTrigger(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build, bool forEachRow = true)
+    public int CreateTrigger(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build)
     {
-        return Database.Schema.CreateTrigger(name, timing, @event, build, forEachRow);
+        return Database.Schema.CreateTrigger(name, timing, @event, build);
     }
 }

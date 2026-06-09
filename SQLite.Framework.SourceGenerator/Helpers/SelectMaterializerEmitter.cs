@@ -640,10 +640,16 @@ public static class SelectMaterializerEmitter
                 bool expand = !IsFrameworkTranslatedMethod(method);
                 if (expand)
                 {
-                    if (invoke.Expression is MemberAccessExpressionSyntax recvMa
-                        && SelectSignatureWriter.IsRowLikeReference(recvMa.Expression, ctx.WriterCtx))
+                    if (invoke.Expression is MemberAccessExpressionSyntax recvMa)
                     {
-                        if (!RegisterRowExpansion(recvMa.Expression, ctx))
+                        if (SelectSignatureWriter.IsRowLikeReference(recvMa.Expression, ctx.WriterCtx))
+                        {
+                            if (!RegisterRowExpansion(recvMa.Expression, ctx))
+                            {
+                                return false;
+                            }
+                        }
+                        else if (!CollectLeaves(recvMa.Expression, ctx))
                         {
                             return false;
                         }
@@ -661,15 +667,6 @@ public static class SelectMaterializerEmitter
                         }
 
                         if (!CollectLeaves(arg.Expression, ctx))
-                        {
-                            return false;
-                        }
-                    }
-
-                    if (invoke.Expression is MemberAccessExpressionSyntax recv2
-                        && !SelectSignatureWriter.IsRowLikeReference(recv2.Expression, ctx.WriterCtx))
-                    {
-                        if (!CollectLeaves(recv2.Expression, ctx))
                         {
                             return false;
                         }

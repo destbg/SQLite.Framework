@@ -146,6 +146,14 @@ internal partial class SQLVisitor
             {
                 return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), wrapBefore!, resolved.SQLiteExpression, wrapAfter!, resolved.SQLiteExpression.Parameters);
             }
+            else if (resolved.SQLiteExpression.Type == typeof(ulong) && (node.Type == typeof(double) || node.Type == typeof(float)))
+            {
+                SQLiteExpression inner = resolved.SQLiteExpression;
+                return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+                    ["(CAST(", " AS REAL) + (CASE WHEN ", $" < 0 THEN {Constants.UInt64ToRealOffset} ELSE 0 END))"],
+                    [inner, inner],
+                    inner.Parameters);
+            }
             else
             {
                 string sqliteType = TypeHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
@@ -294,7 +302,8 @@ internal partial class SQLVisitor
             || target == typeof(byte)
             || target == typeof(short)
             || target == typeof(ushort)
-            || target == typeof(int);
+            || target == typeof(int)
+            || target == typeof(uint);
     }
 
     private static bool TryGetIntegerInfo(Type type, out int bits, out bool signed)

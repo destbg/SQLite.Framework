@@ -409,8 +409,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
     /// <param name="timing">When the trigger fires, relative to the row change.</param>
     /// <param name="event">The row change that fires the trigger.</param>
     /// <param name="build">Builds the body and the optional <c>When</c> guard.</param>
-    /// <param name="forEachRow">When <see langword="true" /> (the default), it fires once per row.</param>
-    public SQLiteEntityTypeBuilder<T> Trigger(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build, bool forEachRow = true)
+    public SQLiteEntityTypeBuilder<T> Trigger(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(build);
@@ -423,7 +422,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
         }
 
         string body = string.Join("; ", triggerBuilder.Statements);
-        mapping.AddTrigger(new TriggerSpec(name, timing, @event, forEachRow, triggerBuilder.WhenSql, body));
+        mapping.AddTrigger(new TriggerSpec(name, timing, @event, triggerBuilder.WhenSql, body));
         return this;
     }
 

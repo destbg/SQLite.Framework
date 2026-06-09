@@ -373,6 +373,12 @@ internal class SQLTranslator
     {
         bool first = true;
 
+        if (QueryType is QueryType.Delete or QueryType.Update && (q.Take != null || q.Skip != null))
+        {
+            throw new NotSupportedException(
+                $"{QueryType} with Take or Skip is not supported, because SQLite does not allow a row limit on DELETE or UPDATE.");
+        }
+
         // SELECT
         if (QueryType == QueryType.Select)
         {
@@ -552,7 +558,7 @@ internal class SQLTranslator
         }
 
         // ORDER BY
-        if (q.OrderBys.Count > 0 && !useExists)
+        if (q.OrderBys.Count > 0 && !useExists && QueryType == QueryType.Select)
         {
             AppendSpacingNewline(sb, spacing, ref first);
             sb.Append("ORDER BY ");

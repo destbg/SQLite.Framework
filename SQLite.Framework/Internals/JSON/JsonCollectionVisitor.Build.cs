@@ -69,14 +69,14 @@ internal partial class JsonCollectionVisitor
             if (distinct && reverseApplied)
             {
                 string positionAggregate = distinctSeenReverse ? "MAX" : "MIN";
-                List<string> comboClauses = ["SELECT \"value\"", $"FROM {fromClause}"];
+                List<string> comboClauses = [$"SELECT {selectExpr} AS \"value\"", $"FROM {fromClause}"];
                 if (wheres.Count > 0)
                 {
                     comboClauses.Add("WHERE " + string.Join(" AND ", wheres));
                 }
 
-                comboClauses.Add("GROUP BY \"value\"");
-                comboClauses.Add($"ORDER BY {positionAggregate}(\"key\") DESC");
+                comboClauses.Add($"GROUP BY {selectExpr}");
+                comboClauses.Add($"ORDER BY {positionAggregate}({keyColumn}) DESC");
                 string comboInner = string.Join(nl + sp2, comboClauses);
                 return $"({nl}{sp}SELECT json_group_array(\"value\"){nl}{sp}FROM ({nl}{sp2}{comboInner}{nl}{sp}){nl})";
             }

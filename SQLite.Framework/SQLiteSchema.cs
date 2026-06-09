@@ -625,15 +625,13 @@ public class SQLiteSchema
     /// separated by <c>;</c>.</param>
     /// <param name="when">An optional <c>WHEN</c> predicate. Only rows for which this
     /// expression is true fire the trigger body.</param>
-    /// <param name="forEachRow">When <see langword="true" /> (the default), the trigger
-    /// fires once per row. When <see langword="false" />, it fires once per statement.</param>
-    public virtual int CreateTrigger<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string body, string? when = null, bool forEachRow = true)
+    public virtual int CreateTrigger<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string body, string? when = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentException.ThrowIfNullOrEmpty(body);
 
         string tableName = Database.TableMapping<T>().TableName;
-        string sql = SchemaSqlBuilder.BuildCreateTrigger(tableName, name, timing, @event, forEachRow, when, body, ifNotExists: true);
+        string sql = SchemaSqlBuilder.BuildCreateTrigger(tableName, name, timing, @event, when, body, ifNotExists: true);
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -646,9 +644,7 @@ public class SQLiteSchema
     /// <param name="timing">When the trigger fires, relative to the row change.</param>
     /// <param name="event">The row change that fires the trigger.</param>
     /// <param name="build">Builds the body and the optional <c>When</c> guard.</param>
-    /// <param name="forEachRow">When <see langword="true" /> (the default), the trigger fires once
-    /// per row.</param>
-    public virtual int CreateTrigger<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build, bool forEachRow = true)
+    public virtual int CreateTrigger<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(build);
@@ -661,7 +657,7 @@ public class SQLiteSchema
         }
 
         string body = string.Join("; ", builder.Statements);
-        return CreateTrigger<T>(name, timing, @event, body, builder.WhenSql, forEachRow);
+        return CreateTrigger<T>(name, timing, @event, body, builder.WhenSql);
     }
 
     /// <summary>
@@ -1275,9 +1271,17 @@ public class SQLiteSchema
     private static string StripWhitespace(string value)
     {
         StringBuilder builder = new(value.Length);
+        bool inLiteral = false;
         foreach (char c in value)
         {
-            if (!char.IsWhiteSpace(c))
+            if (c == '\'')
+            {
+                inLiteral = !inLiteral;
+                builder.Append(c);
+                continue;
+            }
+
+            if (inLiteral || !char.IsWhiteSpace(c))
             {
                 builder.Append(c);
             }

@@ -482,25 +482,25 @@ public static class AsyncSchemaExtensions
     /// <summary>
     /// Creates a trigger on the table for <typeparamref name="T" />.
     /// </summary>
-    public static Task<int> CreateTriggerAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string body, string? when = null, bool forEachRow = true, CancellationToken ct = default)
+    public static Task<int> CreateTriggerAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string body, string? when = null, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await schema.Database.LockAsync(ct);
-            return schema.CreateTrigger<T>(name, timing, @event, body, when, forEachRow);
+            return schema.CreateTrigger<T>(name, timing, @event, body, when);
         }, ct);
     }
 
     /// <summary>
     /// Creates a trigger on the table for <typeparamref name="T" /> from a LINQ-typed body. See
-    /// <see cref="SQLiteSchema.CreateTrigger{T}(string, SQLiteTriggerTiming, SQLiteTriggerEvent, Action{SQLiteTriggerBuilder{T}}, bool)" />.
+    /// <see cref="SQLiteSchema.CreateTrigger{T}(string, SQLiteTriggerTiming, SQLiteTriggerEvent, Action{SQLiteTriggerBuilder{T}})" />.
     /// </summary>
-    public static Task<int> CreateTriggerAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build, bool forEachRow = true, CancellationToken ct = default)
+    public static Task<int> CreateTriggerAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Action<SQLiteTriggerBuilder<T>> build, CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await schema.Database.LockAsync(ct);
-            return schema.CreateTrigger<T>(name, timing, @event, build, forEachRow);
+            return schema.CreateTrigger<T>(name, timing, @event, build);
         }, ct);
     }
 

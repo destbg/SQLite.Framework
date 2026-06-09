@@ -11,8 +11,8 @@ public static class SQLiteFunctions
     private const string OutsideQuery = "SQLiteFunctions methods can only be used inside a LINQ query.";
 
     /// <summary>
-    /// Returns a pseudo-random number between 0 and 1, exclusive of both ends. Translates to
-    /// SQLite's <c>RANDOM()</c>.
+    /// Returns a pseudo-random signed 64-bit integer from SQLite's <c>RANDOM()</c>, between
+    /// <c>-9223372036854775808</c> and <c>9223372036854775807</c>. The value is returned as a <see cref="double" />.
     /// </summary>
     public static double Random()
     {

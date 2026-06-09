@@ -6,12 +6,11 @@ namespace SQLite.Framework.Internals.Models;
 /// </summary>
 internal sealed class TriggerSpec
 {
-    public TriggerSpec(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, bool forEachRow, string? whenSql, string bodySql)
+    public TriggerSpec(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string? whenSql, string bodySql)
     {
         Name = name;
         Timing = timing;
         Event = @event;
-        ForEachRow = forEachRow;
         WhenSql = whenSql;
         BodySql = bodySql;
     }
@@ -19,7 +18,6 @@ internal sealed class TriggerSpec
     public string Name { get; }
     public SQLiteTriggerTiming Timing { get; }
     public SQLiteTriggerEvent Event { get; }
-    public bool ForEachRow { get; }
     public string? WhenSql { get; }
     public string BodySql { get; }
 }

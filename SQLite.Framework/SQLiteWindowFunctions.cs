@@ -105,6 +105,26 @@ public static class SQLiteWindowFunctions
     }
 
     /// <summary>
+    /// Computes the average of a <see cref="uint" /> column over the window as a <see cref="double" />,
+    /// so the fractional result is kept. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double> Avg(uint value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a <see cref="ulong" /> column over the window as a <see cref="double" />,
+    /// so the fractional result is kept. Translates to <c>AVG(value) OVER (...)</c>. A <c>ulong</c> value
+    /// at or above 2 to the power 63 is stored signed, so the average of such values is not exact. See
+    /// the Limitations page.
+    /// </summary>
+    public static SQLiteWindow<double> Avg(ulong value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
     /// Computes the average of a nullable <see cref="short" /> column over the window as a nullable
     /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>.
     /// </summary>
@@ -136,6 +156,25 @@ public static class SQLiteWindowFunctions
     /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>.
     /// </summary>
     public static SQLiteWindow<double?> Avg(ushort? value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a nullable <see cref="uint" /> column over the window as a nullable
+    /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>.
+    /// </summary>
+    public static SQLiteWindow<double?> Avg(uint? value)
+    {
+        throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
+    }
+
+    /// <summary>
+    /// Computes the average of a nullable <see cref="ulong" /> column over the window as a nullable
+    /// <see cref="double" />. Translates to <c>AVG(value) OVER (...)</c>. A <c>ulong</c> value at or
+    /// above 2 to the power 63 is stored signed, so the average of such values is not exact.
+    /// </summary>
+    public static SQLiteWindow<double?> Avg(ulong? value)
     {
         throw new InvalidOperationException("SQLiteWindowFunctions methods can only be used inside a LINQ query.");
     }

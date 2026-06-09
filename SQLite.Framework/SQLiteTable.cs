@@ -447,7 +447,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     internal (TableColumn[] Columns, string Sql) FilterUpsertInfoForItemInternal(Action<SQLiteUpsertBuilder<T>> configure, T item, TableColumn[] baseColumns, string baseSql)
     {
-        if (IsItemMethodOverridden(nameof(GetUpsertInfo)))
+        if (IsItemMethodOverridden(nameof(GetUpsertInfo)) || UpsertHasDoUpdate(configure))
         {
             return (baseColumns, baseSql);
         }
@@ -829,7 +829,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual int DefaultUpsert(T item, Action<SQLiteUpsertBuilder<T>> configure)
     {
         (TableColumn[] columns, string sql) = GetUpsertInfo(configure);
-        if (!IsItemMethodOverridden(nameof(GetUpsertInfo)))
+        if (!IsItemMethodOverridden(nameof(GetUpsertInfo)) && !UpsertHasDoUpdate(configure))
         {
             TableColumn[] filtered = FilterColumnsForDefaults(columns, item);
             if (filtered.Length != columns.Length)
@@ -1052,6 +1052,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     private string BuildAddSql(TableColumn[] columns)
     {
         (string columnList, string paramList) = BuildWriteLists(columns);
+        if (columnList.Length == 0)
+        {
+            return $"INSERT INTO \"{Table.TableName}\" DEFAULT VALUES";
+        }
+
         return $"INSERT INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
     }
 
@@ -1233,6 +1238,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         configure(builder);
         SQLiteUpsertConflictTarget<T> target = builder.Build();
         return UpsertSqlBuilder.Build(Database, Table, target, (c, p) => WrapParam(p, c), ExtraWriteColumns, insertOverride).Sql;
+    }
+
+    private static bool UpsertHasDoUpdate(Action<SQLiteUpsertBuilder<T>> configure)
+    {
+        SQLiteUpsertBuilder<T> builder = new();
+        configure(builder);
+        return builder.Build().ResolvedAction.Kind != UpsertActionKind.DoNothing;
     }
 
     private static bool HasColumnHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks)

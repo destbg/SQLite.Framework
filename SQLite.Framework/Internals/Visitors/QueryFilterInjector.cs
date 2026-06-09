@@ -29,6 +29,22 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
         return InjectFilters(node, table.ElementType);
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The element type comes from a SQLiteTable<T> instance whose type was preserved via DynamicallyAccessedMembers.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Queryable.Where is rooted by user code that already calls Where.")]
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if (!ignoreFilters
+            && typeof(BaseSQLiteTable).IsAssignableFrom(node.Type)
+            && node.Type.IsGenericType
+            && ExpressionHelpers.IsConstant(node))
+        {
+            Type entityType = node.Type.GetGenericArguments()[0];
+            return InjectFilters(node, entityType);
+        }
+
+        return base.VisitMember(node);
+    }
+
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         if (IsIgnoreQueryFiltersCall(node))

@@ -12,6 +12,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits. SQLite has no 32-bit float type.
 - Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
+- A `uint` multiplication that is then widened to a larger type, such as `(long)(a * b)`, keeps the full 64-bit product instead of the 32-bit wrapped value. Read the result back as `uint` to get the wrapped value.
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
@@ -34,11 +35,13 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Chained `OrderBy` keeps only the last key, like EF Core. Use `ThenBy` to keep both.
 - `Union`, `Distinct`, `Intersect` and `Except` dedup by value, not by reference.
 - `Union`, `Intersect` and `Except` return rows in sorted order, not the first-appearance order that LINQ-to-Objects keeps. `Distinct` and `Concat` do keep first-appearance order.
+- `Union`, `Intersect` and `Except` over a `ulong` column sort by the signed stored value, so a value at or above 2^63 sorts before a smaller value.
 - `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
 
 ## Joins and SelectMany
 
 - A correlated subquery used directly as a second `from` source, for example `from a in db.Table<Author>() from b in db.Table<Book>().Where(b => b.AuthorId == a.Id)`, is not supported, since SQLite has no `LATERAL` join. Put the correlation in a `where` after the join instead.
+- In a recursive common table expression, write the recursive term as a member initializer such as `new T { A = ..., B = ... }`, or pass constructor arguments in the same order as the entity's properties. A positional constructor whose parameter order differs from the property order lines the columns up wrong.
 
 ## Null comparisons
 
@@ -49,6 +52,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Aggregates
 
 - A grouped `Min`, `Max` or `Average` over a per-group filter that matches no rows returns the type default instead of throwing. `Sum` returns `0`, the same as LINQ.
+- A window `Max`, `Min` or `Average` over a `ulong` column is not correct for values at or above 2^63, since the value is stored as a signed integer. A window `Average` over a `uint` column is exact.
 
 ## Dates, times and storage
 
@@ -59,7 +63,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 ## R-Tree
 
-- On the default `Float` storage, coordinates are 32-bit floats, so values above 2^24 lose precision. Use `SQLiteRTreeStorage.Int32` for exact integer coordinates.
+- On the default `Float` storage, coordinates are stored as 32-bit floats. A value above 2^24, or a fractional value that a 32-bit float cannot hold exactly such as `0.2`, loses precision and can miss an exact boundary match. Use `SQLiteRTreeStorage.Int32` for exact integer coordinates.
 
 ## Functions and JSON collections
 

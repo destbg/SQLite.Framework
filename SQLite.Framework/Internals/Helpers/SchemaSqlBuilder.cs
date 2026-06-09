@@ -142,13 +142,13 @@ internal static class SchemaSqlBuilder
         List<(string, string)> statements = [];
         foreach (TriggerSpec trigger in mapping.Triggers)
         {
-            statements.Add((trigger.Name, BuildCreateTrigger(tableName, trigger.Name, trigger.Timing, trigger.Event, trigger.ForEachRow, trigger.WhenSql, trigger.BodySql, ifNotExists)));
+            statements.Add((trigger.Name, BuildCreateTrigger(tableName, trigger.Name, trigger.Timing, trigger.Event, trigger.WhenSql, trigger.BodySql, ifNotExists)));
         }
 
         return statements;
     }
 
-    public static string BuildCreateTrigger(string tableName, string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, bool forEachRow, string? when, string body, bool ifNotExists)
+    public static string BuildCreateTrigger(string tableName, string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string? when, string body, bool ifNotExists)
     {
         StringBuilder sb = new();
         sb.Append("CREATE TRIGGER ");
@@ -177,10 +177,7 @@ internal static class SchemaSqlBuilder
         sb.Append(" ON \"");
         sb.Append(tableName);
         sb.Append('"');
-        if (forEachRow)
-        {
-            sb.Append(" FOR EACH ROW");
-        }
+        sb.Append(" FOR EACH ROW");
         if (!string.IsNullOrEmpty(when))
         {
             sb.Append(" WHEN ");

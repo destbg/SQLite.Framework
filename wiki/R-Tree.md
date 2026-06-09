@@ -54,7 +54,7 @@ public class GridCell
 }
 ```
 
-The default `SQLiteRTreeStorage.Float` uses `rtree` and accepts `float`, `double`, or `int` properties. SQLite always stores REAL as 8 bytes, so picking `float` and `double` is purely a CLR-side choice.
+The default `SQLiteRTreeStorage.Float` uses `rtree`, which stores every coordinate as a 32-bit float. A `float`, `double`, or `int` property is accepted, but the value is rounded to a 32-bit float on write, so a value above 2^24 or a fraction that a 32-bit float cannot hold exactly, such as `0.2`, loses precision. Use `SQLiteRTreeStorage.Int32` for exact 32-bit integer coordinates. See [Limitations](Limitations).
 
 ## Querying
 

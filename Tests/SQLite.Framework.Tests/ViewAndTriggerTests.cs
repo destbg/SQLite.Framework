@@ -162,8 +162,7 @@ public class ViewAndTriggerTests
             name: "trg_block",
             timing: SQLiteTriggerTiming.Before,
             @event: SQLiteTriggerEvent.Insert,
-            body: "SELECT RAISE(ABORT, 'nope') WHERE NEW.BookPrice < 0",
-            forEachRow: true);
+            body: "SELECT RAISE(ABORT, 'nope') WHERE NEW.BookPrice < 0");
 
         Assert.ThrowsAny<Exception>(() =>
             db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = -1 }));
@@ -210,7 +209,7 @@ public class ViewAndTriggerTests
     }
 
     [Fact]
-    public void CreateTrigger_NotForEachRow_Works()
+    public void CreateTrigger_AfterInsert_FiresAndRoundTrips()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
@@ -220,8 +219,7 @@ public class ViewAndTriggerTests
             name: "trg_stmt",
             timing: SQLiteTriggerTiming.After,
             @event: SQLiteTriggerEvent.Insert,
-            body: "INSERT INTO BookHistory(\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (-1, 0, 0)",
-            forEachRow: false);
+            body: "INSERT INTO BookHistory(\"BookId\", \"OldPrice\", \"NewPrice\") VALUES (-1, 0, 0)");
 
         db.Table<Book>().Add(new Book { Id = 1, Title = "T", AuthorId = 1, Price = 5 });
 
