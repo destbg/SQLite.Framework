@@ -12,7 +12,7 @@
     <ItemGroup>
         <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
         <PackageReference Include="BenchmarkDotNet.Diagnostics.dotTrace" Version="0.15.8" />
-        <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="10.0.8" />
+        <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="10.0.9" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
         <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
     </ItemGroup>
