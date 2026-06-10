@@ -28,6 +28,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing.
 - `Replace("", ...)` returns the original string.
 - `ToUpper` and `ToLower` fold only ASCII unless the SQLite build has ICU.
+- The `CultureInfo` overloads of `ToUpper` and `ToLower`, on both `string` and `char` throw in a `Where`.
 - Case-insensitive `Equals` and `Compare` (`OrdinalIgnoreCase`) also fold only ASCII.
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text), matching EF Core.
 - `Enum.Parse` strips ASCII whitespace anywhere in the string, so the spaced `[Flags]` form like `"Read, Write"` parses but a name with embedded whitespace like `"News\tpaper"` matches `"Newspaper"` where .NET would throw.

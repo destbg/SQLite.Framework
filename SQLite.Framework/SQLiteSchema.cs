@@ -1045,7 +1045,7 @@ public class SQLiteSchema
         int count = 0;
         string intended = SchemaSqlBuilder.BuildCreateTable(Database, mapping, mapping.TableName, ifNotExists: false);
         string? live = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}'");
-        if (!string.Equals(intended, live, StringComparison.Ordinal) || sets.Count > 0)
+        if (sets.Count > 0 || !string.Equals(StripWhitespace(intended), StripWhitespace(live!), StringComparison.Ordinal))
         {
             count += RebuildTable(mapping, sets);
         }

@@ -137,8 +137,8 @@ var results = await db.Table<Book>()
 
 | C# | SQL |
 |---|---|
-| `char.ToLower(c)` | `LOWER(c)` |
-| `char.ToUpper(c)` | `UPPER(c)` |
+| `char.ToLower(c)` / `char.ToLowerInvariant(c)` | `LOWER(c)` |
+| `char.ToUpper(c)` / `char.ToUpperInvariant(c)` | `UPPER(c)` |
 | `char.IsWhiteSpace(c)` | `TRIM(c, CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = ''` |
 | `char.IsAsciiDigit(c)` | `c BETWEEN '0' AND '9'` |
 | `char.IsAsciiLetter(c)` | `LOWER(c) BETWEEN 'a' AND 'z'` |

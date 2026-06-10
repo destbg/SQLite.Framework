@@ -1072,6 +1072,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             _ => "OR REPLACE ",
         };
         (string columnList, string paramList) = BuildWriteLists(columns);
+        if (columnList.Length == 0)
+        {
+            return $"INSERT {action}INTO \"{Table.TableName}\" DEFAULT VALUES";
+        }
+
         return $"INSERT {action}INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
     }
 

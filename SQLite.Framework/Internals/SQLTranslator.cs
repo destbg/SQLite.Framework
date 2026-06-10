@@ -197,7 +197,7 @@ internal class SQLTranslator
             }
         }
 
-        if (level == 0 && cteRegistry?.Ctes.Count > 0)
+        if (level == 0 && !isInnerQuery && cteRegistry?.Ctes.Count > 0)
         {
 #if SQLITE_FRAMEWORK_VERSION_AWARE
             database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_8_3, "Common table expressions (WITH ... AS)");
@@ -702,8 +702,19 @@ internal class SQLTranslator
 
         if (!wrappedAsSubquery && IsTerminalCountOverGroupBy(methodCalls))
         {
-            Expression innerExpr = methodCalls[0].Arguments[0];
+            MethodCallExpression countCall = methodCalls[0];
+            Expression innerExpr = countCall.Arguments[0];
             Type groupingType = innerExpr.Type.GetGenericArguments()[0];
+
+            if (countCall.Arguments.Count == 2)
+            {
+                innerExpr = Expression.Call(
+                    typeof(Queryable),
+                    nameof(Queryable.Where),
+                    [groupingType],
+                    innerExpr,
+                    countCall.Arguments[1]);
+            }
 
             ParameterExpression groupingParam = Expression.Parameter(groupingType, "g");
             LambdaExpression selector = Expression.Lambda(Expression.Constant(1), groupingParam);
@@ -725,6 +736,12 @@ internal class SQLTranslator
             Visitor.TableColumns = new Dictionary<string, Expression>();
 
             methodCalls.RemoveRange(1, methodCalls.Count - 1);
+            if (countCall.Arguments.Count == 2)
+            {
+                methodCalls[0] = countCall.Method.Name == nameof(Queryable.LongCount)
+                    ? Expression.Call(typeof(Queryable), nameof(Queryable.LongCount), [typeof(int)], projectedInner)
+                    : Expression.Call(typeof(Queryable), nameof(Queryable.Count), [typeof(int)], projectedInner);
+            }
             wrappedAsSubquery = true;
         }
 
@@ -859,11 +876,6 @@ internal class SQLTranslator
         MethodCallExpression outer = methodCalls[0];
         string outerName = outer.Method.Name;
         if (outerName != nameof(Queryable.Count) && outerName != nameof(Queryable.LongCount))
-        {
-            return false;
-        }
-
-        if (outer.Arguments.Count != 1)
         {
             return false;
         }

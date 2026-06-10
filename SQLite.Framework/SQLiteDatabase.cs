@@ -265,6 +265,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
             if (result != SQLiteResult.OK)
             {
+                IsConnecting = false;
                 throw new SQLiteException(result, "Unable to open database", null);
             }
 

@@ -113,6 +113,14 @@ public static class SelectMaterializerEmitter
             }
         }
 
+        foreach (LeafInfo guardLeaf in emitCtx.Leaves)
+        {
+            if (!guardLeaf.IsReflected && ContainsAnonymousType(guardLeaf.Type))
+            {
+                return false;
+            }
+        }
+
         sb.Append("        private static object? ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
         sb.AppendLine("        {");
         sb.AppendLine("            var reader = ctx.Reader!;");
@@ -690,6 +698,32 @@ public static class SelectMaterializerEmitter
         }
 
         return true;
+    }
+
+    private static bool ContainsAnonymousType(ITypeSymbol type)
+    {
+        if (type.IsAnonymousType)
+        {
+            return true;
+        }
+
+        if (type is IArrayTypeSymbol array)
+        {
+            return ContainsAnonymousType(array.ElementType);
+        }
+
+        if (type is INamedTypeSymbol named)
+        {
+            foreach (ITypeSymbol arg in named.TypeArguments)
+            {
+                if (ContainsAnonymousType(arg))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool IsRowReference(IdentifierNameSyntax ident, EmitContext ctx)

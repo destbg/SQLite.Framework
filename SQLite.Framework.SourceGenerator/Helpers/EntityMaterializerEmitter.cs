@@ -348,11 +348,14 @@ public static class EntityMaterializerEmitter
 
         IMethodSymbol ctor = publicCtors[0];
         HashSet<string> propertyNames = new(StringComparer.OrdinalIgnoreCase);
-        foreach (IPropertySymbol p in entity.GetMembers().OfType<IPropertySymbol>())
+        for (INamedTypeSymbol? current = entity; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
         {
-            if (p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic && !p.IsIndexer)
+            foreach (IPropertySymbol p in current.GetMembers().OfType<IPropertySymbol>())
             {
-                propertyNames.Add(p.Name);
+                if (p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic && !p.IsIndexer)
+                {
+                    propertyNames.Add(p.Name);
+                }
             }
         }
 

@@ -599,9 +599,6 @@ public class GroupByTests
     [Fact]
     public void GroupBy_TerminalCount_WithPredicate_ThrowsOrUsesNonWrapPath()
     {
-        // Count with a predicate is the non-parameterless form. The wrap only kicks in for
-        // the parameterless overload, so this exercises the false branch of the
-        // Arguments.Count != 1 check.
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
         db.Table<Book>().AddRange(new[]

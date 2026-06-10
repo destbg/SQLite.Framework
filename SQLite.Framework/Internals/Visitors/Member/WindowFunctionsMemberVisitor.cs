@@ -59,6 +59,11 @@ internal static class WindowFunctionsMemberVisitor
             .Cast<SQLiteExpression>()
             .ToArray());
 
+        if (node.Method.Name is nameof(SQLiteWindow<>.ThenPartitionBy) or nameof(SQLiteWindow<>.ThenOrderBy) or nameof(SQLiteWindow<>.ThenOrderByDescending))
+        {
+            RequireWindowChainPredecessor(node);
+        }
+
         Type t = node.Type;
         int id = visitor.Counters.NextIdentifier();
         return node.Method.Name switch
@@ -167,6 +172,31 @@ internal static class WindowFunctionsMemberVisitor
     private static bool IsFrameMethod(string name)
     {
         return name is nameof(SQLiteWindow<>.Rows) or nameof(SQLiteWindow<>.Range) or nameof(SQLiteWindow<>.Groups);
+    }
+
+    private static void RequireWindowChainPredecessor(MethodCallExpression node)
+    {
+        bool orderChain = node.Method.Name is nameof(SQLiteWindow<>.ThenOrderBy) or nameof(SQLiteWindow<>.ThenOrderByDescending);
+
+        MethodCallExpression call = (MethodCallExpression)node.Object!;
+        while (call.Method.Name is nameof(SQLiteWindow<>.Over) or nameof(SQLiteWindow<>.Filter))
+        {
+            call = (MethodCallExpression)call.Object!;
+        }
+
+        bool satisfied = orderChain
+            ? call.Method.Name is nameof(SQLiteWindow<>.OrderBy) or nameof(SQLiteWindow<>.OrderByDescending) or nameof(SQLiteWindow<>.ThenOrderBy) or nameof(SQLiteWindow<>.ThenOrderByDescending)
+            : call.Method.Name is nameof(SQLiteWindow<>.PartitionBy) or nameof(SQLiteWindow<>.ThenPartitionBy);
+
+        if (satisfied)
+        {
+            return;
+        }
+
+        string required = orderChain
+            ? "OrderBy, OrderByDescending, ThenOrderBy, or ThenOrderByDescending"
+            : "PartitionBy or ThenPartitionBy";
+        throw new NotSupportedException($"{node.Method.Name} must come right after {required} in the window chain.");
     }
 
     private static void WriteOverChain(StringBuilder sb, ResolvedModel prev, string sep, ResolvedModel arg)

@@ -91,7 +91,7 @@ public sealed class SQLiteBlobStream : Stream
         ArgumentNullException.ThrowIfNull(buffer);
         ArgumentOutOfRangeException.ThrowIfNegative(offset);
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        if (offset + count > buffer.Length)
+        if (count > buffer.Length - offset)
         {
             throw new ArgumentException("offset + count exceeds buffer length.", nameof(count));
         }
@@ -119,7 +119,7 @@ public sealed class SQLiteBlobStream : Stream
         ArgumentNullException.ThrowIfNull(buffer);
         ArgumentOutOfRangeException.ThrowIfNegative(offset);
         ArgumentOutOfRangeException.ThrowIfNegative(count);
-        if (offset + count > buffer.Length)
+        if (count > buffer.Length - offset)
         {
             throw new ArgumentException("offset + count exceeds buffer length.", nameof(count));
         }

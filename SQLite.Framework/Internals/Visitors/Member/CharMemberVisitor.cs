@@ -22,11 +22,13 @@ internal static class CharMemberVisitor
                 : a0;
             switch (node.Method.Name)
             {
-                case nameof(char.ToLower):
+                case nameof(char.ToLower) when node.Arguments.Count == 1:
+                case nameof(char.ToLowerInvariant):
                     return integerChar
                         ? SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UNICODE(LOWER(CHAR(", a0, ")))", parameters)
                         : SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOWER(", a0, ")", parameters);
-                case nameof(char.ToUpper):
+                case nameof(char.ToUpper) when node.Arguments.Count == 1:
+                case nameof(char.ToUpperInvariant):
                     return integerChar
                         ? SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UNICODE(UPPER(CHAR(", a0, ")))", parameters)
                         : SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UPPER(", a0, ")", parameters);

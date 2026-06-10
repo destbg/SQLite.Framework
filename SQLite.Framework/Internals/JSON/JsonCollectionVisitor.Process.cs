@@ -103,6 +103,7 @@ internal partial class JsonCollectionVisitor
                 or nameof(Enumerable.Distinct)
                 or nameof(Enumerable.Skip)
                 or nameof(Enumerable.ElementAt)
+                or nameof(Enumerable.SelectMany)
                 or nameof(Enumerable.First) or nameof(Enumerable.FirstOrDefault)
                 or nameof(Enumerable.Single) or nameof(Enumerable.SingleOrDefault) => true,
             nameof(Enumerable.Take) => limit != null,
@@ -194,6 +195,17 @@ internal partial class JsonCollectionVisitor
     private void HandleSelectMany(MethodCallExpression call, Type elementType)
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1]);
+        if (fromOverride != null)
+        {
+            string innerSql = VisitLambda(call.Arguments[1], elementType);
+            string overrideJoinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
+            fromOverride = $"{fromOverride}, json_each({innerSql}) {overrideJoinAlias}";
+            selectExpr = $"{overrideJoinAlias}.\"value\"";
+            keyColumn = $"{overrideJoinAlias}.\"key\"";
+            currentElementType = TypeHelpers.GetEnumerableElementType(lambda.ReturnType)!;
+            return;
+        }
+
         string outerAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         string selSql = VisitLambdaAliased(call.Arguments[1], elementType, outerAlias);
         string joinAlias = $"j{visitor.Counters.NextTableIndex('j')}";

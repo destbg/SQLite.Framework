@@ -18,6 +18,16 @@ internal sealed class CapturedQueryableInliner : ExpressionVisitor
         return base.VisitMember(node);
     }
 
+    protected override Expression VisitConstant(ConstantExpression node)
+    {
+        if (node.Value is IChainQueryable chain)
+        {
+            return Visit(((BaseSQLiteQueryable)chain).Expression);
+        }
+
+        return base.VisitConstant(node);
+    }
+
     public static Expression Inline(Expression node)
     {
         return new CapturedQueryableInliner().Visit(node);

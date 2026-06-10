@@ -64,7 +64,17 @@ internal static class UpsertSqlBuilder
             case UpsertActionKind.DoUpdateAll:
             {
                 IEnumerable<TableColumn> setColumns = insertColumns.Where(c => !c.IsPrimaryKey && !target.ConflictColumns.Contains(c.PropertyInfo.Name) && !target.ConflictColumns.Contains(c.Name));
-                AppendUpdate(sb, database, table, setColumns, action);
+                List<string>? extraSetColumns = null;
+                if (extraColumns is { Count: > 0 })
+                {
+                    HashSet<string> conflictNames = target.ConflictColumns.Select(name => ResolveSqlName(table, name)).ToHashSet();
+                    HashSet<string> primaryKeyNames = table.Columns.Where(c => c.IsPrimaryKey).Select(c => c.Name).ToHashSet();
+                    extraSetColumns = extraColumns
+                        .Where(e => !conflictNames.Contains(e.Column) && !primaryKeyNames.Contains(e.Column))
+                        .Select(e => e.Column)
+                        .ToList();
+                }
+                AppendUpdate(sb, database, table, setColumns, action, extraSetColumns);
                 break;
             }
 
@@ -94,23 +104,28 @@ internal static class UpsertSqlBuilder
         return (valueColumns, sb.ToString());
     }
 
-    private static void AppendUpdate<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, IEnumerable<TableColumn> setColumns, SQLiteUpsertAction<T> action)
+    private static void AppendUpdate<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, IEnumerable<TableColumn> setColumns, SQLiteUpsertAction<T> action, List<string>? extraSetColumns = null)
     {
-        TableColumn[] columns = setColumns.ToArray();
-        if (columns.Length == 0)
+        List<string> names = setColumns.Select(c => c.Name).ToList();
+        if (extraSetColumns != null)
+        {
+            names.AddRange(extraSetColumns);
+        }
+
+        if (names.Count == 0)
         {
             sb.Append(" DO NOTHING");
             return;
         }
 
         sb.Append(" DO UPDATE SET ");
-        for (int i = 0; i < columns.Length; i++)
+        for (int i = 0; i < names.Count; i++)
         {
             if (i > 0)
             {
                 sb.Append(", ");
             }
-            string quoted = IdentifierGuard.Quote(columns[i].Name);
+            string quoted = IdentifierGuard.Quote(names[i]);
             sb.Append(quoted);
             sb.Append(" = excluded.");
             sb.Append(quoted);

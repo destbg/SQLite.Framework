@@ -188,7 +188,7 @@ internal partial class QueryableVisitor
 
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
-                if (tableColumn.Key.StartsWith(memberExpression.Member.Name))
+                if (tableColumn.Key.StartsWith(memberExpression.Member.Name + '.'))
                 {
                     string path = tableColumn.Key[(memberExpression.Member.Name.Length + 1)..];
                     result.Add(path, tableColumn.Value);

@@ -188,12 +188,12 @@ internal static class StringMemberVisitor
                         return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, " + 1)", parameters);
                     }
                 }
-                case nameof(string.ToUpper):
+                case nameof(string.ToUpper) when node.Arguments.Count == 0:
                 case nameof(string.ToUpperInvariant):
                 {
                     return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "UPPER(", obj.SQLiteExpression!, ")", obj.Parameters);
                 }
-                case nameof(string.ToLower):
+                case nameof(string.ToLower) when node.Arguments.Count == 0:
                 case nameof(string.ToLowerInvariant):
                 {
                     return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "LOWER(", obj.SQLiteExpression!, ")", obj.Parameters);

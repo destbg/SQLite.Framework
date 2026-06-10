@@ -99,6 +99,7 @@ internal partial class SQLVisitor : ExpressionVisitor
 
     public SQLTranslator CloneDeeper(int innerLevel)
     {
+        CteRegistry ??= new CteRegistry();
         return new SQLTranslator(Database, Counters, innerLevel, true)
         {
             MethodArguments = MethodArguments,
