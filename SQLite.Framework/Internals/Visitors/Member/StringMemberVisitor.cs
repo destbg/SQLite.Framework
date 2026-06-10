@@ -380,10 +380,10 @@ internal static class StringMemberVisitor
                         _ => ""
                     };
 
-                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", arguments[0].SQLiteExpression!, " = ", arguments[1].SQLiteExpression!, $"{collation})", ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!));
+                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", arguments[0].SQLiteExpression!, " IS ", arguments[1].SQLiteExpression!, $"{collation})", ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!));
                 }
 
-                return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", arguments[0].SQLiteExpression!, " = ", arguments[1].SQLiteExpression!, ")", ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!));
+                return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", arguments[0].SQLiteExpression!, " IS ", arguments[1].SQLiteExpression!, ")", ParameterHelpers.CombineParameters(arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!));
             default:
                 return visitor.NotTranslatable(node, $"string.{node.Method.Name} is not translatable to SQL.");
         }
@@ -566,6 +566,26 @@ internal static class StringMemberVisitor
             }
 
             return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(), parts, children, parameters);
+        }
+        else if (node.Arguments[0].Type == typeof(char[]))
+        {
+            char[]? chars = (char[]?)arguments[0].Constant;
+            if (chars == null || chars.Length == 0)
+            {
+                return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{trimType}(", obj, $", {Constants.WhitespaceChars})", obj.Parameters);
+            }
+
+            SQLiteParameter parameter = new()
+            {
+                Name = visitor.Counters.NextParamName(),
+                Value = new string(chars)
+            };
+
+            SQLiteParameter[] parameters = obj.Parameters == null
+                ? [parameter]
+                : [.. obj.Parameters, parameter];
+
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{trimType}(", obj, $", {parameter.Name})", parameters);
         }
         else
         {

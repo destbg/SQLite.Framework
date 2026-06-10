@@ -169,7 +169,99 @@ internal static class ExpressionHelpers
             return Enum.ToObject(underlying, numeric);
         }
 
+        if (TryUncheckedIntegerConvert(value, underlying, out object? wrapped))
+        {
+            return wrapped;
+        }
+
         return Convert.ChangeType(value, underlying);
+    }
+
+    private static bool TryUncheckedIntegerConvert(object value, Type target, out object? result)
+    {
+        result = null;
+
+        long bits;
+        switch (value)
+        {
+            case sbyte sb:
+                bits = sb;
+                break;
+            case byte b:
+                bits = b;
+                break;
+            case short s:
+                bits = s;
+                break;
+            case ushort us:
+                bits = us;
+                break;
+            case int i:
+                bits = i;
+                break;
+            case uint ui:
+                bits = ui;
+                break;
+            case long l:
+                bits = l;
+                break;
+            case ulong ul:
+                bits = unchecked((long)ul);
+                break;
+            case char c:
+                bits = c;
+                break;
+            default:
+                return false;
+        }
+
+        if (target == typeof(sbyte))
+        {
+            result = unchecked((sbyte)bits);
+            return true;
+        }
+        if (target == typeof(byte))
+        {
+            result = unchecked((byte)bits);
+            return true;
+        }
+        if (target == typeof(short))
+        {
+            result = unchecked((short)bits);
+            return true;
+        }
+        if (target == typeof(ushort))
+        {
+            result = unchecked((ushort)bits);
+            return true;
+        }
+        if (target == typeof(int))
+        {
+            result = unchecked((int)bits);
+            return true;
+        }
+        if (target == typeof(uint))
+        {
+            result = unchecked((uint)bits);
+            return true;
+        }
+        if (target == typeof(long))
+        {
+            result = bits;
+            return true;
+        }
+        if (target == typeof(ulong))
+        {
+            result = unchecked((ulong)bits);
+            return true;
+        }
+        if (target == typeof(char))
+        {
+            result = unchecked((char)bits);
+            return true;
+        }
+
+        return false;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of user assembly")]

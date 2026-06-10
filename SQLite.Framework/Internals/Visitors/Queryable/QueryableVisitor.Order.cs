@@ -58,6 +58,7 @@ internal partial class QueryableVisitor
         if (node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.OrderByDescending))
         {
             OrderBys.Clear();
+            Reverse = false;
         }
 
         string baseDirection = node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.ThenBy)
