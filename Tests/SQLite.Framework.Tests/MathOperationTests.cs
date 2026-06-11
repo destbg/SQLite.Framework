@@ -382,7 +382,7 @@ public class MathOperationTests
 
         Assert.Single(command.Parameters);
         Assert.Equal(2d, command.Parameters[0].Value);
-        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       (LOG(b0.\"BookPrice\") / LOG(@p0)) AS \"Log\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       LOG(@p0, b0.\"BookPrice\") AS \"Log\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
 
         var results = query.ToList();
         Assert.Equal(2, results.Count);

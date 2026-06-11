@@ -5,7 +5,9 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Numbers
 
 - Divide or modulo by zero is `NULL` (reads back `0` for a non-nullable result, `null` for a nullable one).
-- `Math.Sqrt`, `Math.Log` and `Math.Acos` out of domain are `NULL`. SQLite has no `NaN` or infinity.
+- A math call whose .NET result is `NaN` reads back as `null`, for example `Math.Sqrt(-1)`, `Math.Acos(2)` or `Math.Pow(-2, 0.5)`. A result that is infinity, such as `Math.Exp(1000)` or `Math.Atanh(1)`, comes back correct.
+- `Math.Log`, `Math.Log2` and `Math.Log10` of zero read back as `null` where .NET returns negative infinity. `Math.Log(a, base)` reads back as `null` when the value is zero or the base is 0, 1 or negative.
+- `Math.Cbrt` is computed through `POWER`, so the result can differ from .NET in the last bits. An exact cube such as `Math.Cbrt(64)` can read back just below the exact root.
 - Float `ToString()` keeps at most 15 significant digits, prints a value at or above 1e15 in scientific notation, prints negative zero as `"0"`, and prints infinity as `"INF"`.
 - `decimal` is not exact: `Real` storage is a 64-bit float, `Text` storage casts to float for compare and order.
 - On `Real` decimal storage, `ToString()` formats like a `double`: trailing zeros such as `10.50` are dropped, and a very small or very large value prints in scientific notation. `Text` storage returns the stored .NET string.
@@ -28,9 +30,9 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Ordering and comparison use byte value (`BINARY`), so `"B"` sorts before `"a"`.
 - `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing.
 - `Replace("", ...)` returns the original string.
-- `ToUpper` and `ToLower` fold only ASCII unless the SQLite build has ICU.
+- `ToUpper` and `ToLower`, on both `string` and `char`, fold only ASCII unless the SQLite build has ICU.
 - The `CultureInfo` overloads of `ToUpper` and `ToLower`, on both `string` and `char` throw in a `Where`.
-- Case-insensitive `Equals` and `Compare` (`OrdinalIgnoreCase`) also fold only ASCII.
+- Case-insensitive `Equals`, `Compare`, `Contains`, `StartsWith` and `EndsWith` (`OrdinalIgnoreCase`) also fold only ASCII.
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text), matching EF Core.
 - `Enum.Parse` strips ASCII whitespace anywhere in the string, so the spaced `[Flags]` form like `"Read, Write"` parses but a name with embedded whitespace like `"News\tpaper"` matches `"Newspaper"` where .NET would throw.
 

@@ -42,8 +42,8 @@ A few arithmetic and comparison cases have SQLite-specific behavior, such as div
 | `Math.Sqrt(x)` | `SQRT(x)` |
 | `Math.Cbrt(x)` | `CASE WHEN x >= 0 THEN POWER(x, 1.0/3.0) ELSE -POWER(-x, 1.0/3.0) END` |
 | `Math.Exp(x)` | `EXP(x)` |
-| `Math.Log(x)` | `LOG(x)` |
-| `Math.Log(x, base)` | `LOG(x) / LOG(base)` |
+| `Math.Log(x)` | `LN(x)` |
+| `Math.Log(x, base)` | `LOG(base, x)` |
 | `Math.Log10(x)` | `LOG10(x)` |
 | `Math.Log2(x)` | `LOG2(x)` |
 | `Math.Sign(x)` | `CASE WHEN x > 0 THEN 1 WHEN x < 0 THEN -1 ELSE 0 END` |
