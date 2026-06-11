@@ -51,7 +51,7 @@
     font-weight: 400;
 }
 
-.docs-sidebar-close {
+.docs-sidebar .docs-sidebar-close {
     display: none;
 }
 
@@ -745,7 +745,7 @@ html[data-theme="light"] .icon-moon {
         box-shadow: var(--shadow-pop);
     }
 
-    .docs-sidebar-close {
+    .docs-sidebar .docs-sidebar-close {
         display: inline-flex;
     }
 
