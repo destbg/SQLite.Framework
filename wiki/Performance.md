@@ -8,36 +8,36 @@ Against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 10
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
-| **SQLite.Framework + SourceGenerator** | **34.1 μs** | **22.9 KB** |
-| SQLite.Framework | 35.8 μs | 23.0 KB |
-| sqlite-net-pcl | 43.3 μs | 15.4 KB |
-| EF Core 10 (`AsNoTracking`) | 71.9 μs | 47.6 KB |
+| **SQLite.Framework + SourceGenerator** | **32.6 μs** | **22.9 KB** |
+| SQLite.Framework | 33.7 μs | 23.0 KB |
+| sqlite-net-pcl | 43.7 μs | 15.4 KB |
+| EF Core 10 (`AsNoTracking`) | 71.3 μs | 47.6 KB |
 
 **Bulk insert 100 rows (single transaction):**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
-| **SQLite.Framework + SourceGenerator** | **130.8 μs** | **13.2 KB** |
-| SQLite.Framework | 142.4 μs | 22.5 KB |
-| sqlite-net-pcl (`InsertAll`) | 142.4 μs | 20.6 KB |
-| EF Core 10 (`AddRange` + `SaveChanges`) | 2,070 μs | 915.9 KB |
+| **SQLite.Framework + SourceGenerator** | **123.2 μs** | **5.4 KB** |
+| SQLite.Framework | 142.3 μs | 14.7 KB |
+| sqlite-net-pcl (`InsertAll`) | 144.9 μs | 20.6 KB |
+| EF Core 10 (`AddRange` + `SaveChanges`) | 2,069 μs | 915.9 KB |
 
 **Bulk update 100 rows by predicate:**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
-| **SQLite.Framework (`ExecuteUpdate`)** | **143.5 μs** | **16.2 KB** |
-| EF Core 10 (`ExecuteUpdate`) | 169.3 μs | 17.0 KB |
-| sqlite-net-pcl (`UpdateAll`) | 436.1 μs | 198.3 KB |
+| **SQLite.Framework (`ExecuteUpdate`)** | **150.8 μs** | **16.2 KB** |
+| EF Core 10 (`ExecuteUpdate`) | 163.7 μs | 17.0 KB |
+| sqlite-net-pcl (`UpdateAll`) | 426.7 μs | 198.3 KB |
 
 **Join + project (1000 Books and 50 Authors, filter `Price > 50`, sort, project to a DTO with a sub-query in the projection):**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
-| **SQLite.Framework** | **74.0 μs** | **39.6 KB** |
-| SQLite.Framework + SourceGenerator | 78.5 μs | 45.1 KB |
-| EF Core 10 | 126.3 μs | 76.3 KB |
-| sqlite-net-pcl | 687.2 μs | 203.9 KB |
+| **SQLite.Framework** | **76.0 μs** | **40.6 KB** |
+| SQLite.Framework + SourceGenerator | 76.2 μs | 47.7 KB |
+| EF Core 10 | 124.4 μs | 76.1 KB |
+| sqlite-net-pcl | 678.9 μs | 203.9 KB |
 
 sqlite-net-pcl's `TableQuery<T>` is `IEnumerable<T>`, not `IQueryable<T>`, so the LINQ join binds to `Enumerable.Join`. The whole `Books` and `Authors` tables load into memory before the filter and join run client-side.
 

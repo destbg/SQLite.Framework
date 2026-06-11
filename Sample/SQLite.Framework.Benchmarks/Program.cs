@@ -451,6 +451,24 @@ public class InsertBenchmarks
         ef.Books.AddRange(payload);
         ef.SaveChanges();
     }
+
+    [Benchmark(Baseline = true), BenchmarkCategory("InsertSingle100")]
+    public void Framework_InsertSingle100()
+    {
+        foreach (Book book in payload) frameworkDb.Table<Book>().Add(book);
+    }
+
+    [Benchmark, BenchmarkCategory("InsertSingle100")]
+    public void FrameworkGen_InsertSingle100()
+    {
+        foreach (Book book in payload) frameworkDbGen.Table<Book>().Add(book);
+    }
+
+    [Benchmark, BenchmarkCategory("InsertSingle100")]
+    public void SqliteNet_InsertSingle100()
+    {
+        foreach (Book book in payload) sqliteNet.Insert(book);
+    }
 }
 
 [MemoryDiagnoser]
@@ -463,11 +481,13 @@ public class UpdateBenchmarks
     private SqliteNet.SQLiteConnection sqliteNet = null!;
     private BookContext ef = null!;
     private string a = null!, b = null!, c = null!, d = null!;
+    private List<Book> payload = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
         _ = BenchHelpers.RowsPerQuery;
+        payload = BenchHelpers.NewBooks(BenchHelpers.RowsPerQuery);
     }
 
     [IterationSetup]
@@ -532,6 +552,24 @@ public class UpdateBenchmarks
     public int Ef_Update100() =>
         ef.Books.Where(b => b.AuthorId == 5)
             .ExecuteUpdate(s => s.SetProperty(b => b.Price, b => b.Price + 1.0));
+
+    [Benchmark(Baseline = true), BenchmarkCategory("UpdateSingle100")]
+    public void Framework_UpdateSingle100()
+    {
+        foreach (Book book in payload) frameworkDb.Table<Book>().Update(book);
+    }
+
+    [Benchmark, BenchmarkCategory("UpdateSingle100")]
+    public void FrameworkGen_UpdateSingle100()
+    {
+        foreach (Book book in payload) frameworkDbGen.Table<Book>().Update(book);
+    }
+
+    [Benchmark, BenchmarkCategory("UpdateSingle100")]
+    public void SqliteNet_UpdateSingle100()
+    {
+        foreach (Book book in payload) sqliteNet.Update(book);
+    }
 }
 
 [MemoryDiagnoser]

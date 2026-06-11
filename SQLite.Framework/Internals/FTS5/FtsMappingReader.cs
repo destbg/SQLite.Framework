@@ -74,9 +74,7 @@ internal static class FtsMappingReader
     {
         Unicode61TokenizerAttribute? unicode = type.GetCustomAttribute<Unicode61TokenizerAttribute>();
         PorterTokenizerAttribute? porter = type.GetCustomAttribute<PorterTokenizerAttribute>();
-#if SQLITECIPHER
-        object? trigram = null;
-#else
+#if !SQLITECIPHER
         TrigramTokenizerAttribute? trigram = type.GetCustomAttribute<TrigramTokenizerAttribute>();
 #endif
         AsciiTokenizerAttribute? ascii = type.GetCustomAttribute<AsciiTokenizerAttribute>();

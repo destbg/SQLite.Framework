@@ -27,7 +27,7 @@ public class PagingSetOpTests
         db.Table<MoneyRow>().Add(new MoneyRow { Id = 3, Amount = null });
 
         List<int> ids = db.Table<MoneyRow>()
-            .Where(m => m.Amount.Value > 10.00m)
+            .Where(m => m.Amount!.Value > 10.00m)
             .OrderBy(m => m.Id)
             .Select(m => m.Id)
             .ToList();

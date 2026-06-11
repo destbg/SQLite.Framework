@@ -20,9 +20,8 @@ internal sealed class PreparedStatementPool
 
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object gate = new();
-    private readonly Dictionary<string, sqlite3_stmt> free = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (sqlite3_stmt Statement, LinkedListNode<string> Node)> free = new(StringComparer.Ordinal);
     private readonly LinkedList<string> lru = new();
-    private readonly Dictionary<string, LinkedListNode<string>> lruNodes = new(StringComparer.Ordinal);
     private bool disposed;
 
     /// <summary>
@@ -33,11 +32,11 @@ internal sealed class PreparedStatementPool
     {
         lock (gate)
         {
-            if (free.TryGetValue(sql, out statement!))
+            if (free.TryGetValue(sql, out (sqlite3_stmt Statement, LinkedListNode<string> Node) entry))
             {
                 free.Remove(sql);
-                lru.Remove(lruNodes[sql]);
-                lruNodes.Remove(sql);
+                lru.Remove(entry.Node);
+                statement = entry.Statement;
                 return true;
             }
         }
@@ -65,8 +64,7 @@ internal sealed class PreparedStatementPool
             }
             else
             {
-                free[sql] = statement;
-                lruNodes[sql] = lru.AddFirst(sql);
+                free[sql] = (statement, lru.AddFirst(sql));
                 toFinalize = free.Count > MaxStatements ? EvictLeastRecentlyUsed() : null;
             }
         }
@@ -87,10 +85,12 @@ internal sealed class PreparedStatementPool
         lock (gate)
         {
             disposed = true;
-            toFinalize.AddRange(free.Values);
+            foreach ((sqlite3_stmt statement, LinkedListNode<string> _) in free.Values)
+            {
+                toFinalize.Add(statement);
+            }
             free.Clear();
             lru.Clear();
-            lruNodes.Clear();
         }
 
         foreach (sqlite3_stmt statement in toFinalize)
@@ -104,10 +104,9 @@ internal sealed class PreparedStatementPool
     private sqlite3_stmt EvictLeastRecentlyUsed()
     {
         string key = lru.Last!.Value;
-        sqlite3_stmt evicted = free[key];
+        sqlite3_stmt evicted = free[key].Statement;
         free.Remove(key);
         lru.RemoveLast();
-        lruNodes.Remove(key);
         return evicted;
     }
 }

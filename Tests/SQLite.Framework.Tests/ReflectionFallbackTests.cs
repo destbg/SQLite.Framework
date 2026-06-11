@@ -113,8 +113,8 @@ public class ReflectionFallbackTests : IDisposable
         db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
         db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (2, 'B', 1, 20)");
 
-        List<string?> normal = db.Table<Book>().OrderBy(b => b.Id).Select(b => b.Title).ToList();
-        List<string?> via = db.Table<Book>().OrderBy(b => b.Id).Select(b => b.Title).UseReflectionMaterializer().ToList();
+        List<string> normal = db.Table<Book>().OrderBy(b => b.Id).Select(b => b.Title).ToList();
+        List<string> via = db.Table<Book>().OrderBy(b => b.Id).Select(b => b.Title).UseReflectionMaterializer().ToList();
 
         Assert.Equal(normal, via);
     }
@@ -131,7 +131,7 @@ public class ReflectionFallbackTests : IDisposable
         db.Table<Book>().Schema.CreateTable();
         db.Execute("INSERT INTO Books (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (1, 'A', 1, 10)");
 
-        List<string?> result = db.Table<Book>().Select(b => b.Title).UseReflectionMaterializer().ToList();
+        List<string> result = db.Table<Book>().Select(b => b.Title).UseReflectionMaterializer().ToList();
 
         Assert.Equal(["A"], result);
     }

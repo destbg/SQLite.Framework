@@ -21,7 +21,7 @@ public class StringSearchSemanticsTests
 
         List<Book> rows = db.Table<Book>().Where(b => b.Title.Contains("WORLD")).ToList();
 
-        Assert.False("Hello World".Contains("WORLD"));
+        Assert.DoesNotContain("WORLD", "Hello World");
         Assert.Empty(rows);
     }
 

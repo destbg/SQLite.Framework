@@ -175,6 +175,17 @@ public class SQLiteDataReader : IDisposable
     }
 
     /// <summary>
+    /// Reads a BLOB column as a read-only span over SQLite's own buffer, without copying the
+    /// bytes into a new array. The span is only valid while the reader stays on the current row,
+    /// so consume it before the next <see cref="Read" /> or <see cref="Dispose" /> call. NULL
+    /// and empty BLOB columns return an empty span.
+    /// </summary>
+    public ReadOnlySpan<byte> GetBlobSpan(int index)
+    {
+        return raw.sqlite3_column_blob(Statement, index);
+    }
+
+    /// <summary>
     /// Reads a <see cref="DateTime" /> column without boxing. A NULL column returns the default value.
     /// Honors the database <see cref="SQLiteOptions.DateTimeStorage" /> mode, the same as the generic
     /// <see cref="GetValue(int, SQLiteColumnType, Type)" /> path.

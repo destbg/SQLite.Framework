@@ -21,7 +21,7 @@ public class StringNonAsciiCaseInsensitiveBehaviorTests
     {
         using TestDatabase db = SeedTitles("Ä");
 
-        Assert.True("Ä".Equals("ä", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("Ä", "ä", ignoreCase: true);
         bool actual = db.Table<Book>().Select(b => b.Title.Equals("ä", StringComparison.OrdinalIgnoreCase)).First();
 
         Assert.False(actual);
@@ -43,7 +43,7 @@ public class StringNonAsciiCaseInsensitiveBehaviorTests
     {
         using TestDatabase db = SeedTitles("Ä");
 
-        Assert.True(string.Equals("Ä", "ä", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("Ä", "ä", ignoreCase: true);
         bool actual = db.Table<Book>().Select(b => string.Equals(b.Title, "ä", StringComparison.OrdinalIgnoreCase)).First();
 
         Assert.False(actual);
@@ -65,7 +65,7 @@ public class StringNonAsciiCaseInsensitiveBehaviorTests
     {
         using TestDatabase db = SeedTitles("Äpfel");
 
-        Assert.True("Äpfel".StartsWith("ä", StringComparison.OrdinalIgnoreCase));
+        Assert.StartsWith("ä", "Äpfel", StringComparison.OrdinalIgnoreCase);
         bool actual = db.Table<Book>().Where(b => b.Title.StartsWith("ä", StringComparison.OrdinalIgnoreCase)).Any();
 
         Assert.False(actual);
@@ -76,7 +76,7 @@ public class StringNonAsciiCaseInsensitiveBehaviorTests
     {
         using TestDatabase db = SeedTitles("straÄ");
 
-        Assert.True("straÄ".EndsWith("ä", StringComparison.OrdinalIgnoreCase));
+        Assert.EndsWith("ä", "straÄ", StringComparison.OrdinalIgnoreCase);
         bool actual = db.Table<Book>().Where(b => b.Title.EndsWith("ä", StringComparison.OrdinalIgnoreCase)).Any();
 
         Assert.False(actual);

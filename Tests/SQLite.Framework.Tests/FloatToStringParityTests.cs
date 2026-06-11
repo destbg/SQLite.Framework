@@ -102,8 +102,8 @@ public class FloatToStringParityTests
         db.Table<NullableRealRow>().Add(new NullableRealRow { Id = 3, DoubleValue = 5.5 });
 
         double?[] source = [10.0, null, 5.5];
-        List<string> expected = source.Select(v => v.ToString()).ToList();
-        List<string> actual = db.Table<NullableRealRow>()
+        List<string?> expected = source.Select(v => v.ToString()).ToList();
+        List<string?> actual = db.Table<NullableRealRow>()
             .OrderBy(r => r.Id)
             .Select(r => r.DoubleValue.ToString())
             .ToList();
@@ -121,8 +121,8 @@ public class FloatToStringParityTests
         db.Table<NullableRealRow>().Add(new NullableRealRow { Id = 3, FloatValue = 5.5f });
 
         float?[] source = [10f, null, 5.5f];
-        List<string> expected = source.Select(v => v.ToString()).ToList();
-        List<string> actual = db.Table<NullableRealRow>()
+        List<string?> expected = source.Select(v => v.ToString()).ToList();
+        List<string?> actual = db.Table<NullableRealRow>()
             .OrderBy(r => r.Id)
             .Select(r => r.FloatValue.ToString())
             .ToList();
@@ -140,8 +140,8 @@ public class FloatToStringParityTests
         db.Table<NullableRealRow>().Add(new NullableRealRow { Id = 3, DecimalValue = 5.5m });
 
         decimal?[] source = [10m, null, 5.5m];
-        List<string> expected = source.Select(v => v.ToString()).ToList();
-        List<string> actual = db.Table<NullableRealRow>()
+        List<string?> expected = source.Select(v => v.ToString()).ToList();
+        List<string?> actual = db.Table<NullableRealRow>()
             .OrderBy(r => r.Id)
             .Select(r => r.DecimalValue.ToString())
             .ToList();
@@ -159,8 +159,8 @@ public class FloatToStringParityTests
         db.Table<NullableRealRow>().Add(new NullableRealRow { Id = 3, DecimalValue = 10.50m });
 
         decimal?[] source = [10m, null, 10.50m];
-        List<string> expected = source.Select(v => v.ToString()).ToList();
-        List<string> actual = db.Table<NullableRealRow>()
+        List<string?> expected = source.Select(v => v.ToString()).ToList();
+        List<string?> actual = db.Table<NullableRealRow>()
             .OrderBy(r => r.Id)
             .Select(r => r.DecimalValue.ToString())
             .ToList();

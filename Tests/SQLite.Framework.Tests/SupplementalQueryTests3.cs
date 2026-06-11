@@ -345,10 +345,11 @@ public class SupplementalQueryTests3
         using TestDatabase db = new(b => b.ExplicitAutoIncrementKeysPreserved = true);
         db.Table<Article>().Schema.CreateTable();
 
-        Article inserted = db.Table<Article>()
+        Article? inserted = db.Table<Article>()
             .Returning()
             .Add(new Article { Id = 42, Title = "x", Body = "y", PublishedAt = DateTime.UtcNow });
 
+        Assert.NotNull(inserted);
         Assert.Equal(42, inserted.Id);
     }
 

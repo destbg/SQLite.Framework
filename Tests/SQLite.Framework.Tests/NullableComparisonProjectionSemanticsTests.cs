@@ -35,8 +35,9 @@ public class NullableComparisonProjectionSemanticsTests
     {
         using TestDatabase db = Seed((1, null));
 
+        int? source = null;
         bool actual = db.Table<NullableEntity>().Where(x => x.Id == 1).Select(x => x.Value == 5).First();
-        bool oracle = ((int?)null) == 5;
+        bool oracle = source == 5;
 
         Assert.Equal(oracle, actual);
     }
@@ -46,8 +47,9 @@ public class NullableComparisonProjectionSemanticsTests
     {
         using TestDatabase db = Seed((1, null));
 
+        int? source = null;
         bool actual = db.Table<NullableEntity>().Where(x => x.Id == 1).Select(x => x.Value > 5).First();
-        bool oracle = ((int?)null) > 5;
+        bool oracle = source > 5;
 
         Assert.Equal(oracle, actual);
     }

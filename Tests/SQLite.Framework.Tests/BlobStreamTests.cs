@@ -212,12 +212,14 @@ public class BlobStreamTests
 
         using SQLiteBlobStream stream = db.OpenBlobStream<NumericType>(1, n => n.BlobValue);
         byte[] firstRow = new byte[4];
-        stream.Read(firstRow);
+        int firstRead = stream.Read(firstRow);
+        Assert.Equal(4, firstRead);
         Assert.Equal(new byte[] { 1, 2, 3, 4 }, firstRow);
 
         stream.Reopen(2);
         byte[] secondRow = new byte[4];
-        stream.Read(secondRow);
+        int secondRead = stream.Read(secondRow);
+        Assert.Equal(4, secondRead);
         Assert.Equal(new byte[] { 9, 8, 7, 6 }, secondRow);
     }
 

@@ -139,6 +139,12 @@ public class TableMapping
     /// </summary>
     internal IReadOnlyList<ShadowColumnSpec> ShadowColumns => shadowColumns;
 
+    /// <summary>
+    /// Holds the lazily built write cache for the single-item write fast path. Only read and
+    /// written by <see cref="SQLiteTable{T}" /> after the model is frozen.
+    /// </summary>
+    internal TableWriteCache? SingleWriteCache { get; set; }
+
     internal void AddCompositeForeignKey(ForeignKeyInfo info)
     {
         compositeForeignKeys.Add(info);

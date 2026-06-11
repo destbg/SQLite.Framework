@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace SQLite.Framework;
 
 /// <summary>
@@ -16,8 +18,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
     private readonly AsyncLocal<bool> holdsConnectionLock = new();
     private readonly SemaphoreSlim walWriterGate = new(1, 1);
-    private readonly Dictionary<Type, TableMapping> tableMappings = [];
+    private readonly ConcurrentDictionary<Type, TableMapping> tableMappings = [];
     private readonly PreparedStatementPool statementPool = new();
+    private volatile bool modelFrozen;
     private bool modelCreated;
     private int walWriterCount;
     private int activeTransactionCount;
@@ -67,16 +70,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Returns the cached table mappings in the current database instance.
     /// </summary>
-    public IReadOnlyCollection<TableMapping> TableMappings
-    {
-        get
-        {
-            lock (tableMappingsLock)
-            {
-                return tableMappings.Values.ToArray();
-            }
-        }
-    }
+    public IReadOnlyCollection<TableMapping> TableMappings => tableMappings.Values.ToArray();
 
     /// <summary>
     /// The configuration for the database. Pass an <see cref="SQLiteOptions" /> built
@@ -122,6 +116,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     internal bool HoldsConnectionLock => holdsConnectionLock.Value;
 
+    /// <summary>
+    /// True once <see cref="OnModelCreating" /> has completed, after which table mappings no
+    /// longer change. The single-item write fast path only caches SQL while this is set.
+    /// </summary>
+    internal bool ModelFrozen => modelFrozen;
+
     /// <inheritdoc />
     public virtual void Dispose()
     {
@@ -148,16 +148,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public virtual TableMapping TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
     {
         EnsureModelCreated();
-        lock (tableMappingsLock)
+        if (tableMappings.TryGetValue(type, out TableMapping? table))
         {
-            if (!tableMappings.TryGetValue(type, out TableMapping? table))
-            {
-                table = new TableMapping(type, Options);
-                tableMappings.Add(type, table);
-            }
-
             return table;
         }
+
+        return tableMappings.GetOrAdd(type, new TableMapping(type, Options));
     }
 
     /// <summary>
@@ -166,16 +162,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public virtual TableMapping TableMapping<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
     {
         EnsureModelCreated();
-        lock (tableMappingsLock)
+        if (tableMappings.TryGetValue(typeof(T), out TableMapping? table))
         {
-            if (!tableMappings.TryGetValue(typeof(T), out TableMapping? table))
-            {
-                table = new TableMapping(typeof(T), Options);
-                tableMappings.Add(typeof(T), table);
-            }
-
             return table;
         }
+
+        return tableMappings.GetOrAdd(typeof(T), new TableMapping(typeof(T), Options));
     }
 
     /// <summary>
@@ -873,10 +865,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     internal bool TryGetCachedTableMapping(Type type, [NotNullWhen(true)] out TableMapping? mapping)
     {
-        lock (tableMappingsLock)
-        {
-            return tableMappings.TryGetValue(type, out mapping);
-        }
+        return tableMappings.TryGetValue(type, out mapping);
     }
 
     internal sqlite3_stmt RentStatement(string sql)
@@ -1274,6 +1263,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     private void EnsureModelCreated()
     {
+        if (modelFrozen)
+        {
+            return;
+        }
+
         lock (tableMappingsLock)
         {
             if (modelCreated)
@@ -1291,6 +1285,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 modelCreated = false;
                 throw;
             }
+
+            modelFrozen = true;
         }
     }
 

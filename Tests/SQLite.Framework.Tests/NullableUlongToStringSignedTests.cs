@@ -34,8 +34,8 @@ public class NullableUlongToStringSignedTests
             db.Table<NullableUlongRow>().Add(new NullableUlongRow { Id = id, Value = value });
         }
 
-        List<string> expected = Seed.OrderBy(r => r.Id).Select(r => r.Value.ToString()).ToList();
-        List<string> actual = db.Table<NullableUlongRow>()
+        List<string?> expected = Seed.OrderBy(r => r.Id).Select(r => r.Value.ToString()).ToList();
+        List<string?> actual = db.Table<NullableUlongRow>()
             .OrderBy(r => r.Id)
             .Select(r => r.Value.ToString())
             .ToList();

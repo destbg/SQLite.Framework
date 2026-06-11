@@ -666,6 +666,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item)
     {
+        if (hooks.Count == 0)
+        {
+            return true;
+        }
+
         return RunHooks(hooks, item, new Dictionary<string, object?>());
     }
 
@@ -774,6 +779,16 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual int DefaultAdd(T item)
     {
+        TableWriteCache<T>? cache = ResolveWriteCache();
+        if (cache != null)
+        {
+            TableWriteCacheEntry<T> entry = cache.Add ??= BuildAddEntry();
+            TableColumn[] filtered = FilterColumnsForDefaults(entry.Columns, item);
+            return ReferenceEquals(filtered, entry.Columns)
+                ? ExecutePreparedWrite(entry.Sql, entry.BindRow, item, entry.AutoIncrement)
+                : InsertItem(filtered, BuildAddSql(filtered), item);
+        }
+
         (TableColumn[] columns, string sql) = GetAddInfo();
         if (!IsItemMethodOverridden(nameof(GetAddInfo)))
         {
@@ -790,6 +805,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual int DefaultUpdate(T item)
     {
+        TableWriteCache<T>? cache = ResolveWriteCache();
+        if (cache != null)
+        {
+            TableWriteCacheEntry<T> entry = cache.Update ??= BuildUpdateEntry();
+            return ExecutePreparedWrite(entry.Sql, entry.BindRow, item, null);
+        }
+
         (TableColumn[] columns, TableColumn[] primaryKeyColumns, string sql) = GetUpdateInfo();
         return UpdateItem(columns, primaryKeyColumns, sql, item);
     }
@@ -801,6 +823,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual int DefaultRemove(T item)
     {
+        TableWriteCache<T>? cache = ResolveWriteCache();
+        if (cache != null)
+        {
+            TableWriteCacheEntry<T> entry = cache.Remove ??= BuildRemoveEntry();
+            return ExecutePreparedWrite(entry.Sql, entry.BindRow, item, null);
+        }
+
         (TableColumn[] primaryKeyColumns, string sql) = GetRemoveInfo();
         return AddOrRemoveItem(primaryKeyColumns, sql, item);
     }
@@ -812,6 +841,19 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual int DefaultAddOrUpdate(T item, SQLiteConflict conflict)
     {
+        TableWriteCache<T>? cache = ResolveWriteCache();
+        if (cache != null)
+        {
+            int slot = conflict >= SQLiteConflict.Replace && conflict <= SQLiteConflict.Rollback
+                ? (int)conflict
+                : (int)SQLiteConflict.Replace;
+            TableWriteCacheEntry<T> entry = cache.AddOrUpdate[slot] ??= BuildAddOrUpdateEntry(conflict);
+            TableColumn[] filtered = FilterColumnsForDefaults(entry.Columns, item);
+            return ReferenceEquals(filtered, entry.Columns)
+                ? ExecutePreparedWrite(entry.Sql, entry.BindRow, item, entry.AutoIncrement)
+                : InsertItem(filtered, BuildAddOrUpdateSql(filtered, conflict), item);
+        }
+
         (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
         if (!IsItemMethodOverridden(nameof(GetAddOrUpdateInfo)))
         {
@@ -970,6 +1012,111 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         MethodInfo method = runtime.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!;
         return method.DeclaringType != typeof(SQLiteTable<T>);
+    }
+
+    private TableWriteCache<T>? ResolveWriteCache()
+    {
+        if (GetType() != typeof(SQLiteTable<T>)
+            || !Database.ModelFrozen
+            || Database.Options.CommandInterceptors.Count != 0)
+        {
+            return null;
+        }
+
+        if (Table.SingleWriteCache is TableWriteCache<T> cache && ReferenceEquals(cache.Options, Database.Options))
+        {
+            return cache;
+        }
+
+        TableWriteCache<T> created = new(Database.Options);
+        Table.SingleWriteCache = created;
+        return created;
+    }
+
+    private TableWriteCacheEntry<T> BuildAddEntry()
+    {
+        (TableColumn[] columns, string sql) = GetAddInfo();
+        TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        return new TableWriteCacheEntry<T>
+        {
+            Columns = columns,
+            Sql = sql,
+            BindRow = ResolveInsertBindRow(columns, autoIncrement, Database.Options),
+            AutoIncrement = autoIncrement,
+        };
+    }
+
+    private TableWriteCacheEntry<T> BuildAddOrUpdateEntry(SQLiteConflict conflict)
+    {
+        (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
+        TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        return new TableWriteCacheEntry<T>
+        {
+            Columns = columns,
+            Sql = sql,
+            BindRow = ResolveInsertBindRow(columns, autoIncrement, Database.Options),
+            AutoIncrement = autoIncrement,
+        };
+    }
+
+    private TableWriteCacheEntry<T> BuildUpdateEntry()
+    {
+        (TableColumn[] columns, TableColumn[] primaryKeyColumns, string sql) = GetUpdateInfo();
+        Action<sqlite3_stmt, T> bindData = ResolveBindRow(columns, 0, Database.Options);
+        Action<sqlite3_stmt, T> bindKeys = ResolveBindRow(primaryKeyColumns, columns.Length, Database.Options);
+        return new TableWriteCacheEntry<T>
+        {
+            Columns = columns,
+            Sql = sql,
+            BindRow = (stmt, item) =>
+            {
+                bindData(stmt, item);
+                bindKeys(stmt, item);
+            },
+        };
+    }
+
+    private TableWriteCacheEntry<T> BuildRemoveEntry()
+    {
+        (TableColumn[] primaryKeyColumns, string sql) = GetRemoveInfo();
+        return new TableWriteCacheEntry<T>
+        {
+            Columns = primaryKeyColumns,
+            Sql = sql,
+            BindRow = ResolveBindRow(primaryKeyColumns, 0, Database.Options),
+        };
+    }
+
+    private int ExecutePreparedWrite(string sql, Action<sqlite3_stmt, T> bindRow, T item, TableColumn? autoIncrement)
+    {
+        Database.OpenConnection();
+        using IDisposable _ = Database.Lock();
+
+        sqlite3 handle = Database.GetActiveHandle();
+        sqlite3_stmt statement = Database.RentStatement(sql);
+        try
+        {
+            bindRow(statement, item);
+
+            SQLiteResult stepResult = (SQLiteResult)raw.sqlite3_step(statement);
+            if (stepResult != SQLiteResult.Done)
+            {
+                throw new SQLiteException(stepResult, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
+            }
+
+            int changes = raw.sqlite3_changes(handle);
+            if (autoIncrement != null && changes > 0)
+            {
+                long rowId = raw.sqlite3_last_insert_rowid(handle);
+                autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
+            }
+
+            return changes;
+        }
+        finally
+        {
+            Database.ReturnStatement(sql, statement);
+        }
     }
 
     private bool HasAnyDatabaseDefault()

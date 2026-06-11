@@ -36,14 +36,14 @@ public class NullableEnumToStringBehaviorTests
         Assert.Equal(oracle, actual);
     }
 
-    private static void Run(Func<IQueryable<NullableEnumRow>, IQueryable<string>> project)
+    private static void Run(Func<IQueryable<NullableEnumRow>, IQueryable<string?>> project)
     {
         using TestDatabase db = new();
         db.Table<NullableEnumRow>().Schema.CreateTable();
         db.Table<NullableEnumRow>().AddRange(Data());
 
-        List<string> oracle = project(Data().AsQueryable().OrderBy(r => r.Id)).ToList();
-        List<string> actual = project(db.Table<NullableEnumRow>().OrderBy(r => r.Id)).ToList();
+        List<string?> oracle = project(Data().AsQueryable().OrderBy(r => r.Id)).ToList();
+        List<string?> actual = project(db.Table<NullableEnumRow>().OrderBy(r => r.Id)).ToList();
 
         Assert.Equal(oracle, actual);
     }

@@ -21,4 +21,12 @@
         <ProjectReference Include="..\..\SQLite.Framework.SourceGenerator\SQLite.Framework.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
+    <Target Name="StripNativeFileReferencesWithoutWasmTools"
+            BeforeTargets="_CheckBrowserWorkloadNeededButNotAvailable"
+            Condition="'$(WasmNativeWorkloadAvailable)' != 'true'">
+        <ItemGroup>
+            <NativeFileReference Remove="@(NativeFileReference)" />
+        </ItemGroup>
+    </Target>
+
 </Project>
