@@ -62,7 +62,8 @@ After that, any model with a `Money` property is handled automatically:
 ```csharp
 public class Product
 {
-    [PrimaryKey, AutoIncrement]
+    [Key]
+    [AutoIncrement]
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public Money Price { get; set; } = new(0, "USD");

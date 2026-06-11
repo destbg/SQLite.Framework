@@ -1,79 +1,36 @@
 <!doctype html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon"
-          href="/favicon.ico"
-          sizes="any" />
-    <link rel="icon"
-          type="image/svg+xml"
-          href="/favicon.svg" />
-    <link rel="icon"
-          type="image/png"
-          sizes="96x96"
-          href="/favicon-96x96.png" />
-    <link rel="icon"
-          type="image/png"
-          sizes="192x192"
-          href="/web-app-manifest-192x192.png" />
-    <link rel="icon"
-          type="image/png"
-          sizes="512x512"
-          href="/web-app-manifest-512x512.png" />
-    <link rel="apple-touch-icon"
-          sizes="180x180"
-          href="/apple-touch-icon.png" />
-    <link rel="search"
-          type="application/opensearchdescription+xml"
-          title="SQLite.Framework Docs"
-          href="/opensearch.xml" />
-    <link rel="manifest"
-          href="/manifest.webmanifest" />
-    <link rel="canonical"
-          href="https://sqlite-framework.net/Docs/" />
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color"
-          content="#0d1117" />
-    <meta name="description"
-          content="SQLite.Framework documentation. A LINQ-friendly ORM for SQLite in .NET 8, 9, and 10 with IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
-    <meta name="keywords"
-          content="SQLite, .NET, ORM, LINQ, IQueryable, EF Core alternative, sqlite-net-pcl alternative, MAUI, Avalonia, Native AOT, FTS5, JSON, source generator" />
-    <meta name="author"
-          content="Nikolay Kostadinov" />
-    <meta name="creator"
-          content="destbg" />
-    <meta name="publisher"
-          content="https://github.com/destbg/SQLite.Framework" />
-    <meta name="robots"
-          content="index, follow" />
-    <meta name="title"
-          content="SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET</title>
-
-    <meta property="og:site_name"
-          content="SQLite.Framework" />
-    <meta property="og:title"
-          content="SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET" />
-    <meta property="og:description"
-          content="Documentation for SQLite.Framework, a LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
-    <meta property="og:image"
-          content="https://sqlite-framework.net/SQLite.Framework.png" />
-    <meta property="og:type"
-          content="website" />
-    <meta property="og:url"
-          content="https://sqlite-framework.net/Docs/" />
-
-    <meta name="twitter:card"
-          content="summary" />
-    <meta name="twitter:title"
-          content="SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET" />
-    <meta name="twitter:description"
-          content="Documentation for SQLite.Framework, a LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
-    <meta name="twitter:image"
-          content="https://sqlite-framework.net/SQLite.Framework.png" />
-
+    <meta name="title" content="SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET" />
+    <meta name="description" content="Documentation for SQLite.Framework. Getting started, querying, advanced SQLite features, data types, performance, and migration guides." />
+    <meta name="keywords" content="SQLite, .NET, ORM, LINQ, IQueryable, EF Core alternative, sqlite-net-pcl alternative, MAUI, Avalonia, Native AOT, FTS5, JSON, source generator" />
+    <meta name="author" content="Nikolay Kostadinov" />
+    <meta name="creator" content="destbg" />
+    <meta name="publisher" content="https://github.com/destbg/SQLite.Framework" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="canonical" href="https://sqlite-framework.net/Docs/" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/web-app-manifest-512x512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="search" type="application/opensearchdescription+xml" title="SQLite.Framework Docs" href="/opensearch.xml" />
+    <meta property="og:site_name" content="SQLite.Framework" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sqlite-framework.net/Docs/" />
+    <meta property="og:title" content="SQLite.Framework Docs" />
+    <meta property="og:description" content="Documentation for SQLite.Framework. Getting started, querying, advanced SQLite features, data types, performance, and migration guides." />
+    <meta property="og:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="SQLite.Framework Docs" />
+    <meta name="twitter:description" content="Documentation for SQLite.Framework. Getting started, querying, advanced SQLite features, data types, performance, and migration guides." />
+    <meta name="twitter:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -84,31 +41,22 @@
         "inLanguage": "en"
     }
     </script>
-
+    <script>
+        try { if (localStorage.theme === "light") document.documentElement.dataset.theme = "light"; } catch (e) { }
+    </script>
     <script>
         (function () {
-            var l = window.location;
-            if (l.search.indexOf('p=') !== -1) {
-                var params = {};
-                l.search.slice(1).split('&').forEach(function (kv) {
-                    var i = kv.indexOf('=');
-                    if (i > 0) params[kv.slice(0, i)] = kv.slice(i + 1);
-                });
-                if (params.p !== undefined) {
-                    var path = '/Docs/' + decodeURIComponent(params.p);
-                    var query = params.q ? '?' + decodeURIComponent(params.q) : '';
-                    window.history.replaceState(null, '', path + query + l.hash);
-                }
+            var params = new URLSearchParams(location.search);
+            var path = params.get("p");
+            if (path) {
+                var query = params.get("q");
+                history.replaceState(null, "", "/Docs/" + path + (query ? "?" + query : "") + location.hash);
             }
         })();
     </script>
-    <script>if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');</script>
 </head>
-
 <body>
     <div id="root"></div>
-    <script type="module"
-            src="/src/docs/main.tsx"></script>
+    <script type="module" src="/src/docs/main.tsx"></script>
 </body>
-
 </html>

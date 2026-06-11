@@ -423,8 +423,8 @@ function tokenizeBash(code: string): Token[] {
     return tokens;
 }
 
-export function highlight(code: string, lang: string): string {
-    switch (lang) {
+export function highlight(code: string, lang: string | undefined): string {
+    switch (lang?.toLowerCase()) {
         case "csharp":
         case "cs":
             return render(tokenizeCSharp(code));
@@ -440,4 +440,8 @@ export function highlight(code: string, lang: string): string {
         default:
             return escapeHtml(code);
     }
+}
+
+export function highlightInto(el: HTMLElement, code: string, lang: string | undefined): void {
+    el.innerHTML = highlight(code, lang);
 }

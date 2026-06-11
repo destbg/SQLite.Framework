@@ -1,77 +1,102 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { type Page } from "../pages";
-import PageLayer from "./PageLayer";
-import PageNavigation from "./PageNavigation";
+import { useEffect, useRef, type ReactNode } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Link } from "react-router-dom";
+import { CodeBlock } from "../../highlight/CodeBlock";
+import { findPage } from "../pages";
+import { extractText, slugifyHeading } from "../utils";
 
-const FADE_DURATION = 200;
-const HEIGHT_LOCK_DURATION = 700;
-
-interface Props {
-    page: Page;
+interface MarkdownPageProps {
+    markdown: string;
 }
 
-export default function MarkdownPage({ page }: Props) {
-    const navigate = useNavigate();
-    const articleRef = useRef<HTMLElement>(null);
-    const prevPageRef = useRef(page);
-    const [displayPage, setDisplayPage] = useState(page);
-    const [outgoingPage, setOutgoingPage] = useState<Page | null>(null);
-    const [lockedHeight, setLockedHeight] = useState<number | null>(null);
+function Heading({ level, children }: { level: 2 | 3; children?: ReactNode }) {
+    const text = extractText(children);
+    const id = slugifyHeading(text);
+    const Tag = `h${level}` as const;
+    return (
+        <Tag id={id}>
+            {children}
+            <a className="docs-anchor" href={`#${id}`} aria-label={`Link to ${text}`}>
+                #
+            </a>
+        </Tag>
+    );
+}
+
+function DocLink({ href, children }: { href?: string; children?: ReactNode }) {
+    if (!href) return <a>{children}</a>;
+    if (href.startsWith("#")) return <a href={href}>{children}</a>;
+    if (/^https?:\/\//.test(href)) {
+        return (
+            <a href={href} target="_blank" rel="noopener noreferrer">
+                {children}
+            </a>
+        );
+    }
+    if (href.startsWith("/Docs/")) {
+        return <Link to={href.slice("/Docs".length)}>{children}</Link>;
+    }
+    if (href.startsWith("/")) return <a href={href}>{children}</a>;
+
+    const target = href.replace(/^\.\//, "").replace(/\.md$/, "").split("#");
+    const page = findPage(target[0]);
+    if (page) {
+        const hash = target[1] ? `#${target[1]}` : "";
+        return <Link to={`/${page.slug}${hash}`}>{children}</Link>;
+    }
+    return <a href={href}>{children}</a>;
+}
+
+export function MarkdownPage({ markdown }: MarkdownPageProps) {
+    const rootRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (page.slug === prevPageRef.current.slug) return;
-
-        const outgoing = prevPageRef.current;
-        prevPageRef.current = page;
-
-        const currentHeight = articleRef.current?.offsetHeight ?? 0;
-        setLockedHeight(currentHeight);
-        setOutgoingPage(outgoing);
-        setDisplayPage(page);
-
-        const raf = requestAnimationFrame(() => {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-        });
-
-        const fadeTimer = window.setTimeout(() => {
-            setOutgoingPage(null);
-        }, FADE_DURATION);
-
-        const heightTimer = window.setTimeout(() => {
-            setLockedHeight(null);
-        }, HEIGHT_LOCK_DURATION);
-
-        return () => {
-            cancelAnimationFrame(raf);
-            window.clearTimeout(fadeTimer);
-            window.clearTimeout(heightTimer);
-        };
-    }, [page]);
-
-    const handleLinkClick = (href: string) =>
-        navigate(href === "Home" ? "/" : `/${href}`);
+        const root = rootRef.current;
+        if (!root) return;
+        for (const table of root.querySelectorAll("table")) {
+            const headers = Array.from(table.querySelectorAll("thead th")).map(
+                (th) => th.textContent ?? "",
+            );
+            for (const row of table.querySelectorAll("tbody tr")) {
+                row.querySelectorAll("td").forEach((td, i) => {
+                    if (headers[i]) td.setAttribute("data-label", headers[i]);
+                });
+            }
+        }
+    }, [markdown]);
 
     return (
-        <article
-            ref={articleRef}
-            className="markdown-content page-stage"
-            style={lockedHeight != null ? { minHeight: lockedHeight } : undefined}
-        >
-            <div key={displayPage.slug} className="page-layer page-layer--in">
-                <PageLayer page={displayPage} onLinkClick={handleLinkClick} />
-                <PageNavigation slug={displayPage.slug} />
-            </div>
-            {outgoingPage && (
-                <div
-                    key={outgoingPage.slug}
-                    className="page-layer page-layer--out"
-                    aria-hidden="true"
-                >
-                    <PageLayer page={outgoingPage} onLinkClick={handleLinkClick} />
-                    <PageNavigation slug={outgoingPage.slug} />
-                </div>
-            )}
-        </article>
+        <div className="docs-markdown" ref={rootRef}>
+            <Markdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                    pre: ({ children }) => <>{children}</>,
+                    code: ({ className, children }) => {
+                        const match = /language-([\w-]+)/.exec(className ?? "");
+                        const text = String(children ?? "");
+                        if (match || text.includes("\n")) {
+                            return (
+                                <CodeBlock
+                                    code={text.replace(/\n$/, "")}
+                                    language={match?.[1]}
+                                />
+                            );
+                        }
+                        return <code className="docs-inline-code">{text}</code>;
+                    },
+                    h2: ({ children }) => <Heading level={2}>{children}</Heading>,
+                    h3: ({ children }) => <Heading level={3}>{children}</Heading>,
+                    a: ({ href, children }) => <DocLink href={href}>{children}</DocLink>,
+                    table: ({ children }) => (
+                        <div className="docs-table-scroll">
+                            <table>{children}</table>
+                        </div>
+                    ),
+                }}
+            >
+                {markdown}
+            </Markdown>
+        </div>
     );
 }

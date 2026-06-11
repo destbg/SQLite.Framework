@@ -1,15 +1,24 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import WalkthroughIndex from "./WalkthroughIndex";
-import ResolvedWalkthrough from "./ResolvedWalkthrough";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
+import "../shared/tokens.css";
+import "../highlight/syntax.css";
+import "./walkthrough.css";
+import { findWalkthrough } from "./walkthroughs";
+import { WalkthroughIndex } from "./WalkthroughIndex";
+import { WalkthroughPlayer } from "./WalkthroughPlayer";
 
-export default function App() {
+export function App() {
     return (
-        <BrowserRouter basename="/Walkthrough">
-            <Routes>
-                <Route path="/" element={<WalkthroughIndex />} />
-                <Route path="/:slug" element={<ResolvedWalkthrough />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        </BrowserRouter>
+        <Routes>
+            <Route path="/" element={<WalkthroughIndex />} />
+            <Route path="/:slug" element={<ResolvedWalkthrough />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
     );
+}
+
+function ResolvedWalkthrough() {
+    const { slug } = useParams();
+    const walkthrough = findWalkthrough(slug);
+    if (!walkthrough) return <Navigate to="/" replace />;
+    return <WalkthroughPlayer key={walkthrough.slug} walkthrough={walkthrough} />;
 }

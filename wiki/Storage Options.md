@@ -56,7 +56,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 
 `TextFormatted` uses `DateTimeOffsetFormat` as the format string when reading and writing values.
 
-> LINQ property access (`Year`, `Month`, `Day`, etc.) is not supported with `TextFormatted`. Switch to `Ticks` if you need it.
+> The same rule as `DateTime` applies. Property access like `Year` or `Month` in a query needs one of the tick modes, not `TextFormatted`.
 
 ---
 
@@ -74,7 +74,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 
 `Text` uses `DateOnlyFormat` as the format string when reading and writing values.
 
-> LINQ property access (`Year`, `Month`, `Day`, etc.) is not supported with `Text`. Switch to `Integer` if you need it.
+> With `Text` storage, `Year`, `Month`, and `Day` cannot be used inside `Where` or `OrderBy`. Use `Integer` to query date parts.
 
 ---
 
@@ -92,7 +92,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 
 `Text` uses `TimeOnlyFormat` as the format string when reading and writing values.
 
-> LINQ property access (`Hour`, `Minute`, `Second`) is not supported with `Text`. Switch to `Integer` if you need it.
+> `Hour`, `Minute`, and `Second` only translate to SQL under `Integer` storage.
 
 ---
 
@@ -110,7 +110,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 
 `Text` uses `TimeSpanFormat` as the format string. The default `"c"` is the standard constant (invariant) format.
 
-> LINQ property access (`Days`, `Hours`, `TotalDays`, etc.) is not supported with `Text`. Switch to `Integer` if you need it.
+> Component properties such as `Days` and `TotalHours` do not translate under `Text` storage. Pick `Integer` when queries read them.
 
 ---
 

@@ -57,7 +57,7 @@ The enum is available on `SQLite.Framework` (where the loaded SQLite comes from 
 
 Use `FileSystem.AppDataDirectory` to get a path that works on every platform.
 
-Add the optional [`SQLite.Framework.DependencyInjection`](Dependency%20Injection) package and call `AddSQLiteDatabase` in `MauiProgram.cs`. The DI container creates the database once (`ServiceLifetime.Singleton` a good choice for mobile apps) and shares it across your app.
+Add the optional [`SQLite.Framework.DependencyInjection`](Dependency%20Injection) package and call `AddSQLiteDatabase` in `MauiProgram.cs`. The DI container creates the database once (`ServiceLifetime.Singleton` is a good choice for mobile apps) and shares it across your app.
 
 ```csharp
 // MauiProgram.cs

@@ -1,113 +1,88 @@
-import { urlSlug } from "./utils";
-
-export interface Page {
+export interface DocPage {
+    title: string;
     slug: string;
-    title: string;
+    fileName: string;
 }
 
-export interface Section {
-    title: string;
-    pages: Page[];
+export interface DocGroup {
+    title: string | null;
+    pages: DocPage[];
 }
 
-function makePage(title: string, slug?: string): Page {
-    return { slug: slug ?? urlSlug(title), title };
+function page(title: string): DocPage {
+    return { title, slug: title.replaceAll(" ", "-"), fileName: title };
 }
 
-export const ungrouped: Page[] = [{ slug: "Home", title: "Home" }];
-
-export const sections: Section[] = [
+export const docGroups: DocGroup[] = [
+    {
+        title: null,
+        pages: [{ title: "Home", slug: "", fileName: "Home" }],
+    },
     {
         title: "Getting Started",
-        pages: [
-            makePage("Overview"),
-            makePage("Getting Started"),
-            makePage("Defining Models"),
-            makePage("Samples"),
-        ],
+        pages: [page("Overview"), page("Getting Started"), page("Defining Models"), page("Samples")],
     },
     {
         title: "Querying",
         pages: [
-            makePage("CRUD Operations"),
-            makePage("Querying"),
-            makePage("Expressions"),
-            makePage("Subqueries"),
-            makePage("Joins"),
-            makePage("Grouping and Aggregates"),
-            makePage("Bulk Operations"),
+            page("CRUD Operations"),
+            page("Querying"),
+            page("Expressions"),
+            page("Subqueries"),
+            page("Joins"),
+            page("Grouping and Aggregates"),
+            page("Bulk Operations"),
         ],
     },
     {
         title: "Advanced",
         pages: [
-            makePage("Transactions"),
-            makePage("Multi-threading"),
-            makePage("Raw SQL"),
-            makePage("Common Table Expressions"),
-            makePage("Full Text Search"),
-            makePage("R-Tree"),
-            makePage("JSON and JSONB"),
-            makePage("Window Functions"),
-            makePage("SQLite Functions"),
-            makePage("Pragmas"),
-            makePage("Backup"),
-            makePage("Attached Databases"),
-            makePage("Schema"),
-            makePage("Limitations"),
+            page("Transactions"),
+            page("Multi-threading"),
+            page("Raw SQL"),
+            page("Common Table Expressions"),
+            page("Full Text Search"),
+            page("R-Tree"),
+            page("JSON and JSONB"),
+            page("Window Functions"),
+            page("SQLite Functions"),
+            page("Pragmas"),
+            page("Backup"),
+            page("Attached Databases"),
+            page("Schema"),
+            page("Limitations"),
         ],
     },
     {
         title: "Data Types",
-        pages: [
-            makePage("Data Types"),
-            makePage("Storage Options"),
-            makePage("Custom Converters"),
-        ],
+        pages: [page("Data Types"), page("Storage Options"), page("Custom Converters")],
     },
     {
         title: "Extra Packages",
-        pages: [makePage("Dependency Injection")],
+        pages: [page("Dependency Injection")],
     },
     {
         title: "Deployment",
-        pages: [
-            makePage("Performance"),
-            makePage("Logging"),
-            makePage("Native AOT"),
-            makePage("Source Generator"),
-        ],
+        pages: [page("Performance"), page("Logging"), page("Native AOT"), page("Source Generator")],
     },
     {
         title: "Migration Guides",
-        pages: [
-            makePage("Migrating from sqlite-net-pcl"),
-            makePage("Migrating from EF Core"),
-        ],
+        pages: [page("Migrating from sqlite-net-pcl"), page("Migrating from EF Core")],
     },
     {
         title: "Tooling",
-        pages: [makePage("AI Assistance")],
+        pages: [page("AI Assistance")],
     },
 ];
 
-export const pages: Page[] = [
-    ...ungrouped,
-    ...sections.flatMap((s) => s.pages),
-];
+export const allPages: DocPage[] = docGroups.flatMap((group) => group.pages);
 
-export function findPageBySlug(slug: string): Page | undefined {
-    return pages.find((p) => p.slug === slug);
-}
-
-export function findPageByLink(href: string): Page | undefined {
-    const decoded = decodeURIComponent(href).trim();
-    if (!decoded) return undefined;
-    const lower = decoded.toLowerCase();
+export function findPage(rawSlug: string | undefined): DocPage | null {
+    const slug = decodeURIComponent(rawSlug ?? "").replaceAll(" ", "-").toLowerCase();
+    if (slug === "") return allPages[0];
     return (
-        pages.find((p) => p.title === decoded) ??
-        pages.find((p) => p.slug === decoded) ??
-        pages.find((p) => p.title.toLowerCase() === lower) ??
-        pages.find((p) => p.slug.toLowerCase() === lower)
+        allPages.find(
+            (p) => p.slug.toLowerCase() === slug || p.title.toLowerCase() === slug,
+        ) ?? null
     );
 }

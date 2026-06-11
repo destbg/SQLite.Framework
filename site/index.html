@@ -1,79 +1,36 @@
 <!doctype html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon"
-          href="/favicon.ico"
-          sizes="any" />
-    <link rel="icon"
-          type="image/svg+xml"
-          href="/favicon.svg" />
-    <link rel="icon"
-          type="image/png"
-          sizes="96x96"
-          href="/favicon-96x96.png" />
-    <link rel="icon"
-          type="image/png"
-          sizes="192x192"
-          href="/web-app-manifest-192x192.png" />
-    <link rel="icon"
-          type="image/png"
-          sizes="512x512"
-          href="/web-app-manifest-512x512.png" />
-    <link rel="apple-touch-icon"
-          sizes="180x180"
-          href="/apple-touch-icon.png" />
-    <link rel="search"
-          type="application/opensearchdescription+xml"
-          title="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET"
-          href="/opensearch.xml" />
-    <link rel="manifest"
-          href="/manifest.webmanifest" />
-    <link rel="canonical"
-          href="https://sqlite-framework.net/" />
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color"
-          content="#0d1117" />
-    <meta name="description"
-          content="SQLite.Framework is a LINQ-friendly ORM for SQLite in .NET 8, 9, and 10. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
-    <meta name="keywords"
-          content="SQLite, .NET, ORM, LINQ, IQueryable, EF Core alternative, sqlite-net-pcl alternative, MAUI, Avalonia, Native AOT, FTS5, JSON, source generator" />
-    <meta name="author"
-          content="Nikolay Kostadinov" />
-    <meta name="creator"
-          content="destbg" />
-    <meta name="publisher"
-          content="https://github.com/destbg/SQLite.Framework" />
-    <meta name="robots"
-          content="index, follow" />
-    <meta name="title"
-          content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SQLite.Framework - LINQ-friendly ORM for SQLite in .NET</title>
-
-    <meta property="og:site_name"
-          content="SQLite.Framework" />
-    <meta property="og:title"
-          content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
-    <meta property="og:description"
-          content="A LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
-    <meta property="og:image"
-          content="https://sqlite-framework.net/SQLite.Framework.png" />
-    <meta property="og:type"
-          content="website" />
-    <meta property="og:url"
-          content="https://sqlite-framework.net/" />
-
-    <meta name="twitter:card"
-          content="summary" />
-    <meta name="twitter:title"
-          content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
-    <meta name="twitter:description"
-          content="A LINQ-friendly ORM for SQLite in .NET. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
-    <meta name="twitter:image"
-          content="https://sqlite-framework.net/SQLite.Framework.png" />
-
+    <meta name="description" content="SQLite.Framework is a LINQ-friendly ORM for SQLite in .NET 8, 9, and 10. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
+    <meta name="keywords" content="SQLite, .NET, ORM, LINQ, IQueryable, EF Core alternative, sqlite-net-pcl alternative, MAUI, Avalonia, Native AOT, FTS5, JSON, source generator" />
+    <meta name="title" content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
+    <meta name="author" content="Nikolay Kostadinov" />
+    <meta name="creator" content="destbg" />
+    <meta name="publisher" content="https://github.com/destbg/SQLite.Framework" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="canonical" href="https://sqlite-framework.net/" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/web-app-manifest-512x512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="search" type="application/opensearchdescription+xml" title="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" href="/opensearch.xml" />
+    <meta property="og:site_name" content="SQLite.Framework" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sqlite-framework.net/" />
+    <meta property="og:title" content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
+    <meta property="og:description" content="Write LINQ. Query SQLite. Typed tables, async queries, and Native AOT support for .NET 8, 9, and 10." />
+    <meta property="og:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
+    <meta name="twitter:description" content="Write LINQ. Query SQLite. Typed tables, async queries, and Native AOT support for .NET 8, 9, and 10." />
+    <meta name="twitter:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -108,176 +65,64 @@
         }
     }
     </script>
-
-    <script>if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');</script>
+    <script>
+        try { if (localStorage.theme === "light") document.documentElement.dataset.theme = "light"; } catch (e) { }
+    </script>
 </head>
-
 <body>
-    <div class="bg-grid"
-         aria-hidden="true"></div>
     <header class="site-header">
-        <a class="brand"
-           href="/"
-           aria-label="SQLite.Framework home">
-            <img src="/SQLite.Framework.png"
-                 alt=""
-                 class="brand-logo" />
-            <span class="brand-name">SQLite.Framework</span>
-        </a>
-        <nav class="site-nav">
-            <a href="/Docs/"
-               class="nav-link">Docs</a>
-            <a href="/Walkthrough/"
-               class="nav-link">Walkthroughs</a>
-            <a href="/Why/"
-               class="nav-link">Why</a>
-            <a href="https://www.nuget.org/packages/SQLite.Framework/"
-               class="nav-link"
-               target="_blank"
-               rel="noopener noreferrer">NuGet</a>
-            <a href="https://github.com/destbg/SQLite.Framework"
-               class="nav-link"
-               target="_blank"
-               rel="noopener noreferrer">GitHub</a>
-            <button id="theme-toggle"
-                    class="theme-toggle"
-                    aria-label="Toggle theme"
-                    title="Toggle theme">
-                <svg class="icon icon-sun"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     stroke-width="2"
-                     stroke-linecap="round"
-                     stroke-linejoin="round"
-                     aria-hidden="true">
-                    <circle cx="12"
-                            cy="12"
-                            r="5" />
-                    <line x1="12"
-                          y1="1"
-                          x2="12"
-                          y2="3" />
-                    <line x1="12"
-                          y1="21"
-                          x2="12"
-                          y2="23" />
-                    <line x1="4.22"
-                          y1="4.22"
-                          x2="5.64"
-                          y2="5.64" />
-                    <line x1="18.36"
-                          y1="18.36"
-                          x2="19.78"
-                          y2="19.78" />
-                    <line x1="1"
-                          y1="12"
-                          x2="3"
-                          y2="12" />
-                    <line x1="21"
-                          y1="12"
-                          x2="23"
-                          y2="12" />
-                    <line x1="4.22"
-                          y1="19.78"
-                          x2="5.64"
-                          y2="18.36" />
-                    <line x1="18.36"
-                          y1="5.64"
-                          x2="19.78"
-                          y2="4.22" />
-                </svg>
-                <svg class="icon icon-moon"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     stroke-width="2"
-                     stroke-linecap="round"
-                     stroke-linejoin="round"
-                     aria-hidden="true">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-            </button>
-        </nav>
+        <div class="container site-header-inner">
+            <a class="brand" href="/">
+                <img src="/SQLite.Framework.png" alt="" width="30" height="30" />
+                <span>SQLite.Framework</span>
+            </a>
+            <nav class="site-nav" aria-label="Main">
+                <a href="/Docs/">Docs</a>
+                <a href="/Walkthrough/">Walkthroughs</a>
+                <a href="/Why/" class="nav-extra">Why</a>
+                <a href="https://www.nuget.org/packages/SQLite.Framework/" target="_blank" rel="noopener" class="nav-extra">NuGet</a>
+                <a href="https://github.com/destbg/SQLite.Framework" target="_blank" rel="noopener">GitHub</a>
+                <button type="button" class="theme-toggle" aria-label="Toggle theme">
+                    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+                </button>
+            </nav>
+        </div>
     </header>
 
     <main>
         <section class="hero">
-            <div class="hero-glow"
-                 aria-hidden="true">
-                <span class="aurora aurora-1"></span>
-                <span class="aurora aurora-2"></span>
-                <span class="aurora aurora-3"></span>
-            </div>
-            <div class="hero-inner">
-                <span class="hero-eyebrow hero-fade"
-                      style="--fade-delay: 0ms">Lightweight ORM for SQLite on .NET</span>
-                <h1 class="hero-title hero-fade"
-                    style="--fade-delay: 80ms">
-                    Write <span class="accent">LINQ</span>.<br />
-                    Query SQLite.<br />
-                </h1>
-                <p class="hero-subtitle hero-fade"
-                   style="--fade-delay: 160ms">
-                    SQLite.Framework gives you typed tables, async queries, and a familiar EF-style API,
-                    built for MAUI, Avalonia, and Native AOT.
-                </p>
-                <div class="hero-cta hero-fade"
-                     style="--fade-delay: 240ms">
-                    <a href="/Docs/"
-                       class="btn btn-primary">
-                        Read the Docs
-                        <svg viewBox="0 0 24 24"
-                             fill="none"
-                             stroke="currentColor"
-                             stroke-width="2"
-                             stroke-linecap="round"
-                             stroke-linejoin="round"
-                             aria-hidden="true">
-                            <line x1="5"
-                                  y1="12"
-                                  x2="19"
-                                  y2="12" />
-                            <polyline points="12 5 19 12 12 19" />
-                        </svg>
-                    </a>
-                    <a href="/Walkthrough/"
-                       class="btn btn-secondary">Try a Walkthrough</a>
-                    <a href="https://github.com/destbg/SQLite.Framework"
-                       class="btn btn-ghost"
-                       target="_blank"
-                       rel="noopener noreferrer">
-                        <svg viewBox="0 0 24 24"
-                             width="18"
-                             height="18"
-                             fill="currentColor"
-                             aria-hidden="true">
-                            <path
-                                  d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.92.58.1.79-.25.79-.56 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.35.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.9-.39.99 0 1.98.13 2.9.39 2.21-1.49 3.18-1.18 3.18-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.42-2.7 5.39-5.27 5.68.41.36.77 1.06.77 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.67.79.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z" />
-                        </svg>
-                        GitHub
-                    </a>
-                </div>
-                <div class="hero-meta hero-fade"
-                     style="--fade-delay: 320ms">
-                    <span class="meta-item">.NET 8, 9, 10</span>
-                    <span class="meta-dot"></span>
-                    <span class="meta-item">Native AOT ready</span>
-                    <span class="meta-dot"></span>
-                    <span class="meta-item">MIT licensed</span>
-                </div>
-            </div>
-            <div class="hero-code hero-fade"
-                 style="--fade-delay: 200ms">
-                <div class="code-window"
-                     id="hero-code-window">
-                    <div class="code-header">
-                        <span class="code-dot code-dot-red"></span>
-                        <span class="code-dot code-dot-yellow"></span>
-                        <span class="code-dot code-dot-green"></span>
-                        <span class="code-filename">Program.cs</span>
+            <div class="hero-backdrop" aria-hidden="true"></div>
+            <div class="container hero-inner">
+                <div class="hero-copy">
+                    <p class="eyebrow">lightweight ORM for SQLite on .NET</p>
+                    <h1>Write <span class="accent">LINQ</span>.<br />Query SQLite.</h1>
+                    <p class="hero-sub">
+                        Typed tables, async queries, and a familiar EF-style API that translates
+                        your whole IQueryable to SQL. Built for MAUI, Avalonia, and Native AOT.
+                    </p>
+                    <div class="hero-install">
+                        <pre data-copy><code data-lang="bash">dotnet add package SQLite.Framework</code></pre>
                     </div>
-                    <pre class="code-block"><code class="language-csharp">var options = new SQLiteOptionsBuilder("books.db")
+                    <div class="hero-ctas">
+                        <a class="btn btn-primary" href="/Docs/">Read the Docs</a>
+                        <a class="btn btn-outline" href="/Walkthrough/">Try a Walkthrough</a>
+                        <a class="btn btn-ghost" href="https://github.com/destbg/SQLite.Framework" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+                            GitHub
+                        </a>
+                    </div>
+                    <p class="hero-meta">
+                        <span>.NET 8, 9, 10</span><span>Native AOT ready</span><span>MIT licensed</span>
+                    </p>
+                </div>
+                <div class="hero-code" data-tilt>
+                    <div class="code-window">
+                        <div class="code-window-head">
+                            <span class="code-window-file">Program.cs</span>
+                            <span class="code-window-lang">C#</span>
+                        </div>
+                        <pre data-copy><code data-lang="csharp">var options = new SQLiteOptionsBuilder("books.db")
     .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
     .Build();
 
@@ -295,160 +140,61 @@ var topAuthors = await (
         Titles = g.Count(),
         Revenue = g.Sum(b =&gt; b.Sales),
     }
-).Take(5).ToListAsync();
-</code></pre>
+).Take(5).ToListAsync();</code></pre>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <section class="usedfor"
-                 data-reveal>
-            <p class="usedfor-label">Runs anywhere .NET runs</p>
-            <div class="usedfor-row">
-                <a class="usedfor-item"
-                   href="/Walkthrough/console">
-                    <svg viewBox="0 0 24 24"
-                         fill="none"
-                         stroke="currentColor"
-                         stroke-width="1.8"
-                         stroke-linecap="round"
-                         stroke-linejoin="round"
-                         aria-hidden="true">
-                        <polyline points="4 17 10 11 4 5" />
-                        <line x1="12"
-                              y1="19"
-                              x2="20"
-                              y2="19" />
-                    </svg>
-                    Console
-                </a>
-                <a class="usedfor-item"
-                   href="/Walkthrough/maui">
-                    <svg viewBox="0 0 24 24"
-                         fill="none"
-                         stroke="currentColor"
-                         stroke-width="1.8"
-                         stroke-linecap="round"
-                         stroke-linejoin="round"
-                         aria-hidden="true">
-                        <rect x="6"
-                              y="2"
-                              width="12"
-                              height="20"
-                              rx="2.5" />
-                        <line x1="11"
-                              y1="18"
-                              x2="13"
-                              y2="18" />
-                    </svg>
-                    MAUI
-                </a>
-                <a class="usedfor-item"
-                   href="/Walkthrough/avalonia">
-                    <svg viewBox="0 0 24 24"
-                         fill="none"
-                         stroke="currentColor"
-                         stroke-width="1.8"
-                         stroke-linecap="round"
-                         stroke-linejoin="round"
-                         aria-hidden="true">
-                        <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                        <polyline points="2 17 12 22 22 17" />
-                        <polyline points="2 12 12 17 22 12" />
-                    </svg>
-                    Avalonia
-                </a>
-                <a class="usedfor-item"
-                   href="/Walkthrough/aspnet">
-                    <svg viewBox="0 0 24 24"
-                         fill="none"
-                         stroke="currentColor"
-                         stroke-width="1.8"
-                         stroke-linecap="round"
-                         stroke-linejoin="round"
-                         aria-hidden="true">
-                        <rect x="2"
-                              y="3"
-                              width="20"
-                              height="8"
-                              rx="2" />
-                        <rect x="2"
-                              y="13"
-                              width="20"
-                              height="8"
-                              rx="2" />
-                        <line x1="6"
-                              y1="7"
-                              x2="6.01"
-                              y2="7" />
-                        <line x1="6"
-                              y1="17"
-                              x2="6.01"
-                              y2="17" />
-                    </svg>
-                    ASP.NET
-                </a>
-                <a class="usedfor-item"
-                   href="/Walkthrough/blazor">
-                    <svg viewBox="0 0 24 24"
-                         fill="none"
-                         stroke="currentColor"
-                         stroke-width="1.8"
-                         stroke-linecap="round"
-                         stroke-linejoin="round"
-                         aria-hidden="true">
-                        <circle cx="12"
-                                cy="12"
-                                r="10" />
-                        <line x1="2"
-                              y1="12"
-                              x2="22"
-                              y2="12" />
-                        <path
-                              d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                    </svg>
-                    Blazor
-                </a>
+        <section class="hosts">
+            <div class="container">
+                <p class="hosts-label">Runs anywhere .NET runs</p>
+                <div class="hosts-grid" data-reveal>
+                    <a href="/Walkthrough/console">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m6 9 3 3-3 3M12 15h6"/></svg>
+                        <span>Console</span>
+                    </a>
+                    <a href="/Walkthrough/maui">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+                        <span>MAUI</span>
+                    </a>
+                    <a href="/Walkthrough/avalonia">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="13" rx="2"/><path d="M8 21h8M12 16v5"/></svg>
+                        <span>Avalonia</span>
+                    </a>
+                    <a href="/Walkthrough/aspnet">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/></svg>
+                        <span>ASP.NET</span>
+                    </a>
+                    <a href="/Walkthrough/blazor">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 4-2 6 1 9 2-1 2-2.5 2-4 3 2.5 4 5 4 7a7 7 0 0 1-14 0c0-3 2-5.5 4-7.5C10 5 10 3.5 12 2z"/></svg>
+                        <span>Blazor</span>
+                    </a>
+                </div>
             </div>
         </section>
 
-        <section class="translate">
-            <div class="section-head"
-                 data-reveal>
-                <h2>You write LINQ. It ships SQL.</h2>
-                <p>Your query is read and turned into plain SQLite SQL. <br>
-                    Pick a feature to see the SQL it generates.</p>
-            </div>
-            <div class="tab-bar"
-                 data-reveal
-                 role="tablist"
-                 aria-label="Query examples">
-                <button class="tab-btn tab-btn--active"
-                        type="button"
-                        role="tab"
-                        data-example="group">Group by</button>
-                <button class="tab-btn"
-                        type="button"
-                        role="tab"
-                        data-example="join">Joins</button>
-                <button class="tab-btn"
-                        type="button"
-                        role="tab"
-                        data-example="subquery">Subqueries</button>
-                <button class="tab-btn"
-                        type="button"
-                        role="tab"
-                        data-example="cte">CTEs</button>
-            </div>
-            <div class="translate-flow">
-                <div class="translate-panel translate-linq"
-                     data-reveal>
-                    <div class="translate-label">
-                        <span class="translate-badge translate-badge-cs">C#</span>
-                        LINQ query
-                    </div>
-                    <pre class="code-block"><code class="language-csharp"
-      id="linq-code">var topAuthors = await (
+        <section class="translate" id="translate">
+            <div class="container">
+                <p class="eyebrow" data-reveal>translation</p>
+                <h2 data-reveal>You write LINQ. It ships SQL.</h2>
+                <p class="section-sub" data-reveal>
+                    Your query is read and turned into plain SQLite SQL.
+                    Pick a feature to see the SQL it generates.
+                </p>
+                <div class="translate-tabs" role="tablist" aria-label="Query examples" data-reveal>
+                    <button type="button" role="tab" data-tab="group" aria-selected="true" class="is-active">Group by</button>
+                    <button type="button" role="tab" data-tab="join" aria-selected="false">Joins</button>
+                    <button type="button" role="tab" data-tab="subquery" aria-selected="false">Subqueries</button>
+                    <button type="button" role="tab" data-tab="cte" aria-selected="false">CTEs</button>
+                </div>
+                <div class="translate-panels" data-reveal>
+                    <div class="translate-panel">
+                        <div class="translate-panel-head">
+                            <span class="lang-badge">C#</span>
+                            <span>LINQ query</span>
+                        </div>
+                        <pre data-copy><code data-lang="csharp" id="tab-linq">var topAuthors = await (
     from b in db.Table&lt;Book&gt;()
     join a in db.Table&lt;Author&gt;()
         on b.AuthorId equals a.Id
@@ -462,35 +208,17 @@ var topAuthors = await (
         Revenue = g.Sum(b =&gt; b.Sales),
     }
 ).Take(5).ToListAsync();</code></pre>
-                </div>
-                <div class="translate-arrow"
-                     data-reveal
-                     aria-hidden="true">
-                    <span class="translate-pill">compiles to</span>
-                    <svg class="translate-arrow-icon"
-                         viewBox="0 0 24 24"
-                         fill="none"
-                         stroke="currentColor"
-                         stroke-width="2"
-                         stroke-linecap="round"
-                         stroke-linejoin="round">
-                        <line x1="5"
-                              y1="12"
-                              x2="19"
-                              y2="12" />
-                        <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                </div>
-                <div class="translate-panel translate-sql"
-                     data-reveal
-                     id="sql-panel">
-                    <div class="translate-label">
-                        <span class="translate-badge translate-badge-sql">SQL</span>
-                        Generated SQLite
                     </div>
-                    <div class="sql-reveal">
-                        <pre class="code-block"><code class="language-sql"
-      id="sql-code">SELECT a0."AuthorName" AS "Author",
+                    <div class="translate-arrow" aria-hidden="true">
+                        <span>compiles to</span>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                    </div>
+                    <div class="translate-panel translate-panel-sql">
+                        <div class="translate-panel-head">
+                            <span class="lang-badge lang-badge-sql">SQL</span>
+                            <span>Generated SQLite</span>
+                        </div>
+                        <pre data-copy><code data-lang="sql" id="tab-sql">SELECT a0."AuthorName" AS "Author",
        COUNT(*) AS "Titles",
        SUM(b0."BookSales") AS "Revenue"
 FROM "Books" AS b0
@@ -499,475 +227,255 @@ INNER JOIN "Authors" AS a0
 WHERE b0."BookPrice" &lt; @p0
 GROUP BY a0."AuthorName"
 ORDER BY SUM(b0."BookSales") DESC
-LIMIT 5;</code></pre>
-                        <span class="sql-scanline"
-                              aria-hidden="true"></span>
+LIMIT @p1;</code></pre>
                     </div>
                 </div>
             </div>
         </section>
 
         <section class="features">
-            <div class="section-head"
-                 data-reveal>
-                <h2>Built for real apps</h2>
-                <p>Everything you expect from a modern ORM, sized for embedded SQLite.</p>
-            </div>
-            <div class="feature-grid">
-                <div class="feature-card"
-                     data-reveal>
-                    <div class="feature-icon"
-                         aria-hidden="true">
-                        <svg viewBox="0 0 24 24"
-                             fill="none"
-                             stroke="currentColor"
-                             stroke-width="2"
-                             stroke-linecap="round"
-                             stroke-linejoin="round">
-                            <polyline points="16 18 22 12 16 6" />
-                            <polyline points="8 6 2 12 8 18" />
-                        </svg>
-                    </div>
-                    <h3>LINQ first</h3>
-                    <p>Full IQueryable support. Joins, group by, subqueries, window functions, and CTEs all translate to
-                        SQL.</p>
-                </div>
-                <div class="feature-card"
-                     data-reveal>
-                    <div class="feature-icon"
-                         aria-hidden="true">
-                        <svg viewBox="0 0 24 24"
-                             fill="none"
-                             stroke="currentColor"
-                             stroke-width="2"
-                             stroke-linecap="round"
-                             stroke-linejoin="round">
-                            <path d="M21 12a9 9 0 1 1-6.22-8.56" />
-                            <polyline points="21 4 21 10 15 10" />
-                        </svg>
-                    </div>
-                    <h3>Async everywhere</h3>
-                    <p>Every operation has an async sibling. ToListAsync, FirstOrDefaultAsync, ExecuteUpdateAsync, and
-                        more.</p>
-                </div>
-                <div class="feature-card"
-                     data-reveal>
-                    <div class="feature-icon"
-                         aria-hidden="true">
-                        <svg viewBox="0 0 24 24"
-                             fill="none"
-                             stroke="currentColor"
-                             stroke-width="2"
-                             stroke-linecap="round"
-                             stroke-linejoin="round">
-                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                        </svg>
-                    </div>
-                    <h3>Native AOT</h3>
-                    <p>The framework never generates code at runtime. An optional source generator emits materializers
-                        at build time, so it ships clean under Native AOT.</p>
-                </div>
-                <div class="feature-card"
-                     data-reveal>
-                    <div class="feature-icon"
-                         aria-hidden="true">
-                        <svg viewBox="0 0 24 24"
-                             fill="none"
-                             stroke="currentColor"
-                             stroke-width="2"
-                             stroke-linecap="round"
-                             stroke-linejoin="round">
-                            <circle cx="11"
-                                    cy="11"
-                                    r="8" />
-                            <line x1="21"
-                                  y1="21"
-                                  x2="16.65"
-                                  y2="16.65" />
-                        </svg>
-                    </div>
-                    <h3>FTS5 and R-Tree</h3>
-                    <p>First-class bindings for SQLite's full-text search and spatial modules. Type-safe, no raw SQL
-                        needed.</p>
-                </div>
-                <div class="feature-card"
-                     data-reveal>
-                    <div class="feature-icon"
-                         aria-hidden="true">
-                        <svg viewBox="0 0 24 24"
-                             fill="none"
-                             stroke="currentColor"
-                             stroke-width="2"
-                             stroke-linecap="round"
-                             stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                        </svg>
-                    </div>
-                    <h3>JSON and JSONB</h3>
-                    <p>Query into JSON columns with LINQ. SQLite 3.45 JSONB is supported when your runtime has it.</p>
-                </div>
-                <div class="feature-card"
-                     data-reveal>
-                    <div class="feature-icon"
-                         aria-hidden="true">
-                        <svg viewBox="0 0 24 24"
-                             fill="none"
-                             stroke="currentColor"
-                             stroke-width="2"
-                             stroke-linecap="round"
-                             stroke-linejoin="round">
-                            <rect x="3"
-                                  y="3"
-                                  width="18"
-                                  height="18"
-                                  rx="2" />
-                            <line x1="3"
-                                  y1="9"
-                                  x2="21"
-                                  y2="9" />
-                            <line x1="9"
-                                  y1="21"
-                                  x2="9"
-                                  y2="9" />
-                        </svg>
-                    </div>
-                    <h3>Bulk operations</h3>
-                    <p>ExecuteDelete and ExecuteUpdate let you change thousands of rows in one round trip.</p>
+            <div class="container">
+                <p class="eyebrow" data-reveal>features</p>
+                <h2 data-reveal>Built for real apps</h2>
+                <p class="section-sub" data-reveal>
+                    Everything you expect from a modern ORM, sized for embedded SQLite.
+                </p>
+                <div class="features-grid">
+                    <article class="feature-card" data-reveal>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+                        <h3>LINQ first</h3>
+                        <p>Full IQueryable support. Joins, group by, subqueries, window functions, and CTEs all translate to SQL.</p>
+                    </article>
+                    <article class="feature-card" data-reveal>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+                        <h3>Async everywhere</h3>
+                        <p>Every operation has an async sibling. ToListAsync, FirstOrDefaultAsync, ExecuteUpdateAsync, and more.</p>
+                    </article>
+                    <article class="feature-card" data-reveal>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9zM4 9h-2M4 15h-2M22 9h-2M22 15h-2M9 4V2M15 4V2M9 22v-2M15 22v-2"/></svg>
+                        <h3>Native AOT</h3>
+                        <p>The framework never generates code at runtime. An optional source generator emits materializers at build time, so it ships clean under Native AOT.</p>
+                    </article>
+                    <article class="feature-card" data-reveal>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                        <h3>FTS5 and R-Tree</h3>
+                        <p>First-class bindings for SQLite's full-text search and spatial modules. Type-safe, no raw SQL needed.</p>
+                    </article>
+                    <article class="feature-card" data-reveal>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"/></svg>
+                        <h3>JSON and JSONB</h3>
+                        <p>Query into JSON columns with LINQ. SQLite 3.45 JSONB is supported when your runtime has it.</p>
+                    </article>
+                    <article class="feature-card" data-reveal>
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg>
+                        <h3>Bulk operations</h3>
+                        <p>ExecuteDelete and ExecuteUpdate let you change thousands of rows in one round trip.</p>
+                    </article>
                 </div>
             </div>
         </section>
 
-        <section class="how"
-                 data-reveal>
-            <div class="section-head">
-                <h2>No code generated at runtime</h2>
-                <p>How does a typed query work without emitting code at runtime?</p>
-            </div>
-            <div class="how-grid">
-                <ol class="how-steps">
-                    <li class="how-step">
-                        <span class="how-num">1</span>
-                        <div>
+        <section class="how">
+            <div class="container">
+                <p class="eyebrow" data-reveal>under the hood</p>
+                <h2 data-reveal>No code generated at runtime</h2>
+                <p class="section-sub" data-reveal>How does a typed query work without emitting code at runtime?</p>
+                <div class="how-grid">
+                    <ol class="how-steps">
+                        <li data-reveal>
                             <h3>You write LINQ</h3>
-                            <p>A normal query against a typed table. The C# compiler turns it into an expression
-                                tree.</p>
-                        </div>
-                    </li>
-                    <li class="how-step">
-                        <span class="how-num">2</span>
-                        <div>
+                            <p>A normal query against a typed table. The C# compiler turns it into an expression tree.</p>
+                        </li>
+                        <li data-reveal>
                             <h3>The tree becomes SQL</h3>
-                            <p>The framework walks that expression tree and writes plain SQLite SQL with bound
-                                parameters. No IL is emitted.</p>
-                        </div>
-                    </li>
-                    <li class="how-step">
-                        <span class="how-num">3</span>
-                        <div>
+                            <p>The framework walks that expression tree and writes plain SQLite SQL with bound parameters. No IL is emitted.</p>
+                        </li>
+                        <li data-reveal>
                             <h3>SQLite returns rows</h3>
                             <p>The SQL runs and SQLite hands back a row reader.</p>
-                        </div>
-                    </li>
-                    <li class="how-step">
-                        <span class="how-num">4</span>
-                        <div>
+                        </li>
+                        <li data-reveal>
                             <h3>A materializer fills your objects</h3>
-                            <p>A small reader maps each column to a property and builds your object using
-                                Method.Invoke and PropertyInfo.SetValue. No
-                                Reflection.Emit, no runtime code generation.</p>
+                            <p>A small reader maps each column to a property and builds your object using Method.Invoke and PropertyInfo.SetValue. No Reflection.Emit, no runtime code generation.</p>
+                        </li>
+                    </ol>
+                    <div class="how-visual" data-reveal aria-hidden="true">
+                        <div class="how-table">
+                            <div class="how-table-name">Books</div>
+                            <div class="how-table-row"><span>Id</span><span>Title</span><span>Price</span></div>
+                            <div class="how-table-row"><span>1</span><span>Clean Code</span><span>29.99</span></div>
+                            <div class="how-table-row"><span>2</span><span>Pragmatic...</span><span>39.99</span></div>
                         </div>
-                    </li>
-                </ol>
-                <div class="how-visual"
-                     aria-hidden="true">
-                    <div class="how-table">
-                        <div class="how-table-head">Books</div>
-                        <span class="how-row"></span>
-                        <span class="how-row"></span>
-                        <span class="how-row"></span>
-                        <span class="how-row"></span>
-                        <span class="how-row"></span>
-                    </div>
-                    <svg class="how-pipe"
-                         viewBox="0 0 24 24"
-                         fill="none"
-                         stroke="currentColor"
-                         stroke-width="2"
-                         stroke-linecap="round"
-                         stroke-linejoin="round">
-                        <line x1="5"
-                              y1="12"
-                              x2="19"
-                              y2="12" />
-                        <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                    <div class="how-object">
-                        <span class="how-object-title">Book</span>
-                        <span class="how-object-line"></span>
-                        <span class="how-object-line"></span>
-                        <span class="how-object-line"></span>
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                        <div class="how-object">
+                            <div class="how-object-name">Book</div>
+                            <div><span class="tok-type">string</span> Title</div>
+                            <div><span class="tok-type">decimal</span> Price</div>
+                        </div>
                     </div>
                 </div>
+                <p class="how-note" data-reveal>
+                    Want the framework to be AOT safe? The optional source generator writes those
+                    materializers at build time, so there is no reflection on your hot path and the
+                    trimmer keeps every type.
+                    <a href="/Docs/Source%20Generator">Read about the source generator</a>
+                </p>
             </div>
-            <p class="how-note">
-                Want the framework to be AOT safe? The optional source generator writes those materializers at build
-                time, so there is no reflection on your hot path and the trimmer keeps every type.
-                <a href="/Docs/Source%20Generator">Read about the source generator</a>.
-            </p>
         </section>
 
-        <section class="pace"
-                 data-reveal>
-            <div class="pace-card">
-                <div class="pace-head">
-                    <div class="pace-intro">
-                        <h2 class="pace-title">Save Pace Stream</h2>
-                        <p class="pace-sub">Each dot is one save of 100 rows. The gap before the next dot is how
-                            long that save took. Times come from the
-                            BenchmarkDotNet.</p>
-                    </div>
-                    <div class="pace-legend">
-                        <div class="pace-chip pace-chip-ef">
-                            <span class="pace-chip-top">
-                                <span class="pace-key pace-key-ef"></span>
-                                EF Core 10
-                            </span>
-                            <span class="pace-chip-sub">AddRange + SaveChanges</span>
-                        </div>
-                        <div class="pace-chip pace-chip-fw">
-                            <span class="pace-chip-top">
-                                <span class="pace-key pace-key-fw"></span>
-                                SQLite.Framework
-                            </span>
-                            <span class="pace-chip-sub">AddRange</span>
-                        </div>
-                    </div>
+        <section class="pace">
+            <div class="container">
+                <p class="eyebrow" data-reveal>benchmarks</p>
+                <h2 data-reveal>Save Pace Stream</h2>
+                <p class="section-sub" data-reveal>
+                    Each dot is one save of 100 rows. The gap before the next dot is how long
+                    that save took. The times come from real BenchmarkDotNet runs.
+                </p>
+                <div class="pace-legend" data-reveal>
+                    <span class="pace-chip pace-chip-ef"><i></i>EF Core 10 <small>AddRange + SaveChanges</small></span>
+                    <span class="pace-chip pace-chip-fw"><i></i>SQLite.Framework <small>AddRange</small></span>
                 </div>
-                <div class="pace-stage">
-                    <span class="pace-time-label">TIME</span>
-                    <canvas class="pace-canvas"
-                            id="pace-canvas"></canvas>
-                    <span class="pace-lane-pill pace-lane-pill-ef">EF Core</span>
-                    <span class="pace-lane-pill pace-lane-pill-fw">SQLite.Framework</span>
+                <div class="pace-stage" data-reveal>
+                    <span class="pace-axis">TIME</span>
                     <span class="pace-badge">15x faster</span>
+                    <span class="pace-lane-label pace-lane-ef">EF Core</span>
+                    <span class="pace-lane-label pace-lane-fw">SQLite.Framework</span>
+                    <canvas id="pace-canvas"></canvas>
                 </div>
             </div>
         </section>
 
         <section class="compare">
-            <div class="section-head"
-                 data-reveal>
-                <h2>How it compares</h2>
-                <p>Where SQLite.Framework sits next to EF Core and sqlite-net-pcl.<br>
-                    Based on the default setup of each library.</p>
-            </div>
-            <div class="compare-wrap"
-                 data-reveal>
-                <table class="compare-table">
-                    <thead>
-                        <tr>
-                            <th>Feature</th>
-                            <th class="compare-col-us">SQLite.Framework</th>
-                            <th>EF Core 10</th>
-                            <th>sqlite-net-pcl</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>LINQ IQueryable translation</td>
-                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-no">No</span></td>
-                        </tr>
-                        <tr>
-                            <td>Select projection to SQL</td>
-                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-no">No</span></td>
-                        </tr>
-                        <tr>
-                            <td>Async API</td>
-                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-yes">Yes</span></td>
-                        </tr>
-                        <tr>
-                            <td>Native AOT ready</td>
-                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-no">No</span></td>
-                            <td><span class="cmp cmp-partial">Partial</span></td>
-                        </tr>
-                        <tr>
-                            <td>Bulk update and delete by predicate</td>
-                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-no">No</span></td>
-                        </tr>
-                        <tr>
-                            <td>Full text search (FTS5)</td>
-                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-no">No</span></td>
-                            <td><span class="cmp cmp-partial">Partial</span></td>
-                        </tr>
-                        <tr>
-                            <td>JSON columns</td>
-                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-no">No</span></td>
-                        </tr>
-                        <tr>
-                            <td>Window functions and CTEs</td>
-                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-partial">Partial</span></td>
-                            <td><span class="cmp cmp-no">No</span></td>
-                        </tr>
-                        <tr>
-                            <td>Encryption (SQLCipher)</td>
-                            <td class="compare-col-us"><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-no">No</span></td>
-                            <td><span class="cmp cmp-yes">Yes</span></td>
-                        </tr>
-                        <tr>
-                            <td>Change tracking and migrations</td>
-                            <td class="compare-col-us"><span class="cmp cmp-partial">Partial</span></td>
-                            <td><span class="cmp cmp-yes">Yes</span></td>
-                            <td><span class="cmp cmp-no">No</span></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <section class="faq">
-            <div class="section-head"
-                 data-reveal>
-                <h2>Questions</h2>
-            </div>
-            <div class="faq-list"
-                 data-reveal>
-                <details class="faq-item">
-                    <summary>Does it support Native AOT?</summary>
-                    <p>Yes. The framework never generates code at runtime. Add the optional source generator and
-                        call UseGeneratedMaterializers, and queries run with no reflection on the materialization path,
-                        so the
-                        trimmer keeps every type. See <a href="/Docs/Native%20AOT">Native AOT</a>.</p>
-                </details>
-                <details class="faq-item">
-                    <summary>Is it safe to use from multiple threads?</summary>
-                    <p>Yes. Create one SQLiteDatabase and share it across the app. Commands take a connection lock
-                        automatically. Turn on WAL mode so reads and writes do not block each other. See
-                        <a href="/Docs/Multi-threading">Multi-threading</a>.
-                    </p>
-                </details>
-                <details class="faq-item">
-                    <summary>Can I encrypt the database?</summary>
-                    <p>Yes. Use the SQLite.Framework.Cipher package, which ships SQLCipher, and call
-                        UseEncryptionKey on the options builder.</p>
-                </details>
-                <details class="faq-item">
-                    <summary>Which .NET and SQLite versions are supported?</summary>
-                    <p>.NET 8, 9, and 10. It uses the SQLite that ships with your OS by default, and you can set a
-                        minimum version on the builder or ship a pinned binary with the Bundled package.</p>
-                </details>
-                <details class="faq-item">
-                    <summary>Does it have a change tracker or migrations?</summary>
-                    <p>It does not have a change tracker like EF Core, and it's by design, it has lightweight
-                        stand-ins. Write hooks
-                        (<code>OnAdd</code>/<code>OnUpdate</code>) run before a save for audit and derived values,
-                        and <code>Migrate</code> with the <code>db.Pragmas.UserVersion</code> pragma reconciles and
-                        versions the schema. There is no automatic change tracker, unit of work, or lazy loading.</p>
-                </details>
-                <details class="faq-item">
-                    <summary>How is it different from EF Core or sqlite-net-pcl?</summary>
-                    <p>It translates full LINQ, including Select projections, to SQL like EF Core, but stays light
-                        and AOT friendly. Unlike sqlite-net-pcl it does not read whole rows into memory to run a
-                        projection. See <a href="/Docs/Migrating%20from%20EF%20Core">Migrating from EF Core</a> and
-                        <a href="/Docs/Migrating%20from%20sqlite-net-pcl">Migrating from sqlite-net-pcl</a>.
-                    </p>
-                </details>
+            <div class="container">
+                <p class="eyebrow" data-reveal>comparison</p>
+                <h2 data-reveal>How it compares</h2>
+                <p class="section-sub" data-reveal>
+                    Where SQLite.Framework sits next to EF Core and sqlite-net-pcl.
+                    Based on the default setup of each library.
+                </p>
+                <div class="compare-scroll" data-reveal>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th class="compare-us">SQLite.Framework</th>
+                                <th>EF Core 10</th>
+                                <th>sqlite-net-pcl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>LINQ IQueryable translation</td><td class="compare-us"><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-no">No</span></td></tr>
+                            <tr><td>Select projection to SQL</td><td class="compare-us"><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-no">No</span></td></tr>
+                            <tr><td>Async API</td><td class="compare-us"><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-yes">Yes</span></td></tr>
+                            <tr><td>Native AOT ready</td><td class="compare-us"><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-no">No</span></td><td><span class="pill pill-partial">Partial</span></td></tr>
+                            <tr><td>Bulk update and delete by predicate</td><td class="compare-us"><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-no">No</span></td></tr>
+                            <tr><td>Full text search (FTS5)</td><td class="compare-us"><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-no">No</span></td><td><span class="pill pill-partial">Partial</span></td></tr>
+                            <tr><td>JSON columns</td><td class="compare-us"><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-no">No</span></td></tr>
+                            <tr><td>Window functions and CTEs</td><td class="compare-us"><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-partial">Partial</span></td><td><span class="pill pill-no">No</span></td></tr>
+                            <tr><td>Encryption (SQLCipher)</td><td class="compare-us"><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-no">No</span></td><td><span class="pill pill-yes">Yes</span></td></tr>
+                            <tr><td>Change tracking and migrations</td><td class="compare-us"><span class="pill pill-partial">Partial</span></td><td><span class="pill pill-yes">Yes</span></td><td><span class="pill pill-no">No</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
         <section class="packages">
-            <div class="section-head"
-                 data-reveal>
-                <h2>One API, four flavors</h2>
-                <p>Pick the package that matches how SQLite is shipped in your app.</p>
-            </div>
-            <div class="package-grid">
-                <div class="package-card"
-                     data-reveal>
-                    <h3 class="package-name">SQLite.Framework</h3>
-                    <p>Uses the SQLite version that ships with the OS. The right default for most apps.</p>
-                </div>
-                <div class="package-card"
-                     data-reveal>
-                    <h3 class="package-name">SQLite.Framework.Bundled</h3>
-                    <p>Ships its own SQLite binary. Use when the OS SQLite is too old or you want a pinned version.</p>
-                </div>
-                <div class="package-card"
-                     data-reveal>
-                    <h3 class="package-name">SQLite.Framework.Cipher</h3>
-                    <p>Uses SQLCipher for encrypted databases. Call UseEncryptionKey on the options builder to enable.
-                    </p>
-                </div>
-                <div class="package-card"
-                     data-reveal>
-                    <h3 class="package-name">SQLite.Framework.Base</h3>
-                    <p>No provider included. Bring your own SQLitePCLRaw bundle and stay in control.</p>
+            <div class="container">
+                <p class="eyebrow" data-reveal>packages</p>
+                <h2 data-reveal>One API, four flavors</h2>
+                <p class="section-sub" data-reveal>Pick the package that matches how SQLite is shipped in your app.</p>
+                <div class="packages-grid">
+                    <article class="package-card" data-reveal>
+                        <h3>SQLite.Framework</h3>
+                        <p>Uses the SQLite version that ships with the OS. The right default for most apps.</p>
+                    </article>
+                    <article class="package-card" data-reveal>
+                        <h3>SQLite.Framework<span class="package-suffix">.Bundled</span></h3>
+                        <p>Ships its own SQLite binary. Use when the OS SQLite is too old or you want a pinned version.</p>
+                    </article>
+                    <article class="package-card" data-reveal>
+                        <h3>SQLite.Framework<span class="package-suffix">.Cipher</span></h3>
+                        <p>Uses SQLCipher for encrypted databases. Call UseEncryptionKey on the options builder to enable.</p>
+                    </article>
+                    <article class="package-card" data-reveal>
+                        <h3>SQLite.Framework<span class="package-suffix">.Base</span></h3>
+                        <p>No provider included. Bring your own SQLitePCLRaw bundle and stay in control.</p>
+                    </article>
                 </div>
             </div>
         </section>
 
-        <section class="cta">
-            <div class="cta-inner"
-                 data-reveal>
+        <section class="faq">
+            <div class="container">
+                <p class="eyebrow" data-reveal>faq</p>
+                <h2 data-reveal>Questions</h2>
+                <div class="faq-list" data-reveal>
+                    <details>
+                        <summary>Does it support Native AOT?</summary>
+                        <p>Yes. The framework never generates code at runtime. Add the optional source generator and call UseGeneratedMaterializers, and queries run with no reflection on the materialization path, so the trimmer keeps every type. See <a href="/Docs/Native%20AOT">Native AOT</a>.</p>
+                    </details>
+                    <details>
+                        <summary>Is it safe to use from multiple threads?</summary>
+                        <p>Yes. Create one SQLiteDatabase and share it across the app. Commands take a connection lock automatically. Turn on WAL mode so reads and writes do not block each other. See <a href="/Docs/Multi-threading">Multi-threading</a>.</p>
+                    </details>
+                    <details>
+                        <summary>Can I encrypt the database?</summary>
+                        <p>Yes. Use the SQLite.Framework.Cipher package, which ships SQLCipher, and call UseEncryptionKey on the options builder.</p>
+                    </details>
+                    <details>
+                        <summary>Which .NET and SQLite versions are supported?</summary>
+                        <p>.NET 8, 9, and 10. It uses the SQLite that ships with your OS by default, and you can set a minimum version on the builder or ship a pinned binary with the Bundled package.</p>
+                    </details>
+                    <details>
+                        <summary>Does it have a change tracker or migrations?</summary>
+                        <p>It does not have a change tracker like EF Core. That is by design. It has lightweight stand-ins instead. Write hooks (OnAdd and OnUpdate) run before a save for audit and derived values. Migrate with the db.Pragmas.UserVersion pragma reconciles and versions the schema. There is no automatic change tracker, unit of work, or lazy loading.</p>
+                    </details>
+                    <details>
+                        <summary>How is it different from EF Core or sqlite-net-pcl?</summary>
+                        <p>It translates full LINQ, including Select projections, to SQL like EF Core, but stays light and AOT friendly. Unlike sqlite-net-pcl it does not read whole rows into memory to run a projection. See <a href="/Docs/Migrating%20from%20EF%20Core">Migrating from EF Core</a> and <a href="/Docs/Migrating%20from%20sqlite-net-pcl">Migrating from sqlite-net-pcl</a>.</p>
+                    </details>
+                </div>
+            </div>
+        </section>
+
+        <section class="final-cta">
+            <div class="container" data-reveal>
                 <h2>Ready to try it?</h2>
-                <p>Pick the host you ship on and step through a guided setup. <br>
-                    Console, MAUI, Avalonia, ASP.NET, or Blazor.</p>
-                <div class="hero-cta">
-                    <a href="/Walkthrough/"
-                       class="btn btn-primary">Browse Walkthroughs</a>
-                    <a href="/Docs/"
-                       class="btn btn-secondary">Read the Docs</a>
+                <p>
+                    Pick the host you ship on and step through a guided setup.
+                    Console, MAUI, Avalonia, ASP.NET, or Blazor.
+                </p>
+                <div class="hero-ctas">
+                    <a class="btn btn-primary" href="/Walkthrough/">Browse Walkthroughs</a>
+                    <a class="btn btn-outline" href="/Docs/">Read the Docs</a>
                 </div>
             </div>
         </section>
     </main>
 
     <footer class="site-footer">
-        <div class="footer-inner">
-            <div class="footer-brand">
-                <img src="/SQLite.Framework.png"
-                     alt=""
-                     class="footer-logo" />
+        <div class="container site-footer-inner">
+            <a class="brand" href="/">
+                <img src="/SQLite.Framework.png" alt="" width="26" height="26" />
                 <span>SQLite.Framework</span>
-            </div>
-            <div class="footer-links">
+            </a>
+            <nav class="site-footer-links" aria-label="Footer">
                 <a href="/Docs/">Docs</a>
                 <a href="/Walkthrough/">Walkthroughs</a>
                 <a href="/Why/">Why</a>
                 <a href="/Docs/Getting%20Started">Getting Started</a>
                 <a href="/Docs/Samples">Samples</a>
-                <a href="https://www.nuget.org/packages/SQLite.Framework/"
-                   target="_blank"
-                   rel="noopener noreferrer">NuGet</a>
-                <a href="https://github.com/destbg/SQLite.Framework"
-                   target="_blank"
-                   rel="noopener noreferrer">GitHub</a>
-                <a href="https://github.com/destbg/SQLite.Framework/blob/main/LICENSE"
-                   target="_blank"
-                   rel="noopener noreferrer">License</a>
-            </div>
-            <p class="footer-meta">MIT licensed. Built by <a href="https://github.com/destbg"
-                   target="_blank"
-                   rel="noopener noreferrer">Nikolay Kostadinov</a>.</p>
+                <a href="https://www.nuget.org/packages/SQLite.Framework/" target="_blank" rel="noopener">NuGet</a>
+                <a href="https://github.com/destbg/SQLite.Framework" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://github.com/destbg/SQLite.Framework/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+            </nav>
+            <p class="site-footer-meta">
+                MIT licensed. Built by <a href="https://github.com/destbg" target="_blank" rel="noopener">Nikolay Kostadinov</a>.
+            </p>
         </div>
     </footer>
 
-    <script type="module"
-            src="/src/landing/main.ts"></script>
+    <script type="module" src="/src/landing/main.ts"></script>
 </body>
-
 </html>

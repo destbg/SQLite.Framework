@@ -1,75 +1,35 @@
 <!doctype html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon"
-          href="/favicon.ico"
-          sizes="any" />
-    <link rel="icon"
-          type="image/svg+xml"
-          href="/favicon.svg" />
-    <link rel="icon"
-          type="image/png"
-          sizes="96x96"
-          href="/favicon-96x96.png" />
-    <link rel="icon"
-          type="image/png"
-          sizes="192x192"
-          href="/web-app-manifest-192x192.png" />
-    <link rel="icon"
-          type="image/png"
-          sizes="512x512"
-          href="/web-app-manifest-512x512.png" />
-    <link rel="apple-touch-icon"
-          sizes="180x180"
-          href="/apple-touch-icon.png" />
-    <link rel="manifest"
-          href="/manifest.webmanifest" />
-    <link rel="canonical"
-          href="https://sqlite-framework.net/Why/" />
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color"
-          content="#0d1117" />
-    <meta name="description"
-          content="Why SQLite.Framework was made. The story and goals behind a LINQ-friendly ORM for SQLite in .NET." />
-    <meta name="keywords"
-          content="SQLite, .NET, ORM, LINQ, IQueryable, EF Core alternative, sqlite-net-pcl alternative, MAUI, Avalonia, Native AOT" />
-    <meta name="author"
-          content="Nikolay Kostadinov" />
-    <meta name="creator"
-          content="destbg" />
-    <meta name="publisher"
-          content="https://github.com/destbg/SQLite.Framework" />
-    <meta name="robots"
-          content="index, follow" />
-    <meta name="title"
-          content="Why SQLite.Framework" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Why SQLite.Framework</title>
-
-    <meta property="og:site_name"
-          content="SQLite.Framework" />
-    <meta property="og:title"
-          content="Why SQLite.Framework" />
-    <meta property="og:description"
-          content="Why SQLite.Framework was made. The story and goals behind a LINQ-friendly ORM for SQLite in .NET." />
-    <meta property="og:image"
-          content="https://sqlite-framework.net/SQLite.Framework.png" />
-    <meta property="og:type"
-          content="article" />
-    <meta property="og:url"
-          content="https://sqlite-framework.net/Why/" />
-
-    <meta name="twitter:card"
-          content="summary" />
-    <meta name="twitter:title"
-          content="Why SQLite.Framework" />
-    <meta name="twitter:description"
-          content="Why SQLite.Framework was made. The story and goals behind a LINQ-friendly ORM for SQLite in .NET." />
-    <meta name="twitter:image"
-          content="https://sqlite-framework.net/SQLite.Framework.png" />
-
+    <meta name="title" content="Why SQLite.Framework" />
+    <meta name="description" content="Why SQLite.Framework was made. The story and goals behind a LINQ-friendly ORM for SQLite in .NET." />
+    <meta name="keywords" content="SQLite, .NET, ORM, LINQ, IQueryable, EF Core alternative, sqlite-net-pcl alternative, MAUI, Avalonia, Native AOT" />
+    <meta name="author" content="Nikolay Kostadinov" />
+    <meta name="creator" content="destbg" />
+    <meta name="publisher" content="https://github.com/destbg/SQLite.Framework" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="canonical" href="https://sqlite-framework.net/Why/" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/web-app-manifest-512x512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta property="og:site_name" content="SQLite.Framework" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://sqlite-framework.net/Why/" />
+    <meta property="og:title" content="Why SQLite.Framework" />
+    <meta property="og:description" content="Why SQLite.Framework was made. The story and goals behind a LINQ-friendly ORM for SQLite in .NET." />
+    <meta property="og:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Why SQLite.Framework" />
+    <meta name="twitter:description" content="Why SQLite.Framework was made. The story and goals behind a LINQ-friendly ORM for SQLite in .NET." />
+    <meta name="twitter:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -95,274 +55,182 @@
         }
     }
     </script>
-
-    <script>if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');</script>
+    <script>
+        try { if (localStorage.theme === "light") document.documentElement.dataset.theme = "light"; } catch (e) { }
+    </script>
 </head>
-
 <body>
-    <div class="bg-grid"
-         aria-hidden="true"></div>
     <header class="site-header">
-        <a class="brand"
-           href="/"
-           aria-label="SQLite.Framework home">
-            <img src="/SQLite.Framework.png"
-                 alt=""
-                 class="brand-logo" />
-            <span class="brand-name">SQLite.Framework</span>
-        </a>
-        <nav class="site-nav">
-            <a href="/Docs/"
-               class="nav-link">Docs</a>
-            <a href="/Walkthrough/"
-               class="nav-link">Walkthroughs</a>
-            <a href="/Why/"
-               class="nav-link"
-               aria-current="page">Why</a>
-            <a href="https://www.nuget.org/packages/SQLite.Framework/"
-               class="nav-link"
-               target="_blank"
-               rel="noopener noreferrer">NuGet</a>
-            <a href="https://github.com/destbg/SQLite.Framework"
-               class="nav-link"
-               target="_blank"
-               rel="noopener noreferrer">GitHub</a>
-            <button id="theme-toggle"
-                    class="theme-toggle"
-                    aria-label="Toggle theme"
-                    title="Toggle theme">
-                <svg class="icon icon-sun"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     stroke-width="2"
-                     stroke-linecap="round"
-                     stroke-linejoin="round"
-                     aria-hidden="true">
-                    <circle cx="12"
-                            cy="12"
-                            r="5" />
-                    <line x1="12"
-                          y1="1"
-                          x2="12"
-                          y2="3" />
-                    <line x1="12"
-                          y1="21"
-                          x2="12"
-                          y2="23" />
-                    <line x1="4.22"
-                          y1="4.22"
-                          x2="5.64"
-                          y2="5.64" />
-                    <line x1="18.36"
-                          y1="18.36"
-                          x2="19.78"
-                          y2="19.78" />
-                    <line x1="1"
-                          y1="12"
-                          x2="3"
-                          y2="12" />
-                    <line x1="21"
-                          y1="12"
-                          x2="23"
-                          y2="12" />
-                    <line x1="4.22"
-                          y1="19.78"
-                          x2="5.64"
-                          y2="18.36" />
-                    <line x1="18.36"
-                          y1="5.64"
-                          x2="19.78"
-                          y2="4.22" />
-                </svg>
-                <svg class="icon icon-moon"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     stroke-width="2"
-                     stroke-linecap="round"
-                     stroke-linejoin="round"
-                     aria-hidden="true">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-            </button>
-        </nav>
+        <div class="container site-header-inner">
+            <a class="brand" href="/">
+                <img src="/SQLite.Framework.png" alt="" width="30" height="30" />
+                <span>SQLite.Framework</span>
+            </a>
+            <nav class="site-nav" aria-label="Main">
+                <a href="/Docs/">Docs</a>
+                <a href="/Walkthrough/">Walkthroughs</a>
+                <a href="/Why/" class="nav-extra" aria-current="page">Why</a>
+                <a href="https://www.nuget.org/packages/SQLite.Framework/" target="_blank" rel="noopener" class="nav-extra">NuGet</a>
+                <a href="https://github.com/destbg/SQLite.Framework" target="_blank" rel="noopener">GitHub</a>
+                <button type="button" class="theme-toggle" aria-label="Toggle theme">
+                    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+                </button>
+            </nav>
+        </div>
     </header>
 
-    <main>
-        <article class="story">
-            <span class="hero-eyebrow"
-                  data-reveal>The story</span>
-            <h1 class="story-title"
-                data-reveal>Why SQLite.Framework was made</h1>
-            <p class="story-lead"
-               data-reveal>
-                I want to start far back, because it helps explain my frustration with the SQLite tools for mobile
-                that exist today.
-            </p>
-            <div class="story-body">
+    <main class="why">
+        <article class="container why-article">
+            <header class="why-head" data-reveal>
+                <p class="eyebrow">the story</p>
+                <h1>Why SQLite.Framework was made</h1>
+                <p class="why-lead">
+                    I want to start far back, because it helps explain my frustration with the
+                    SQLite tools for mobile that exist today.
+                </p>
+            </header>
+
+            <div class="why-body">
                 <p data-reveal>
-                    When I started working, I was put on mobile Xamarin apps that needed a strong offline mode. My
-                    technical lead told me to use Entity Framework, because that is what we used on the backend.
+                    When I started working, I was put on mobile Xamarin apps that needed a strong
+                    offline mode. My technical lead told me to use Entity Framework, because that
+                    is what we used on the backend.
                 </p>
                 <p data-reveal>
-                    There was a problem. To make the offline mode work, we had to store large amounts of data in the
-                    database. On the Nexus 5 phone we used for testing, that load took over 10 minutes with Entity
-                    Framework. Slow Entity Framework on mobile is a known problem that others have reported too, like
-                    <a href="https://github.com/dotnet/efcore/issues/12087"
-                       target="_blank"
-                       rel="noopener noreferrer">this issue</a>.
+                    There was a problem. To make the offline mode work, we had to store large
+                    amounts of data in the database. On the Nexus 5 phone we used for testing,
+                    that load took over 10 minutes with Entity Framework. Slow Entity Framework
+                    on mobile is a known problem that others have reported too, like
+                    <a href="https://github.com/dotnet/efcore/issues/12087" target="_blank" rel="noopener">this issue</a>.
                 </p>
                 <p data-reveal>
-                    My lead did not want us to write raw SQL for queries or inserts. So we switched to sqlite-net-pcl.
-                    It worked well. The app had no complex queries, and we ran them in sync on a background thread. I
-                    was naive back then, and did not notice that most queries were read into memory first, then
-                    projected or joined in C# instead of in SQLite.
+                    My lead did not want us to write raw SQL for queries or inserts. So we
+                    switched to sqlite-net-pcl. It worked well. The app had no complex queries,
+                    and we ran them in sync on a background thread. I was naive back then, and
+                    did not notice that most queries were read into memory first, then projected
+                    or joined in C# instead of in SQLite.
                 </p>
                 <p data-reveal>
-                    That did not change on the next few projects. Then a few years passed with no new mobile app. And at
-                    some point I realized:
+                    That did not change on the next few projects. Then a few years passed with no
+                    new mobile app. And at some point I realized:
                 </p>
-                <blockquote class="story-quote story-quote-cited"
-                            data-reveal>
-                    If you know the framework and know your data, you need not fear the result of a hundred releases.
-                    <cite class="story-quote-cite">Sun Tzu, The Art of Code</cite>
+                <blockquote data-reveal>
+                    <p>
+                        If you know the framework and know your data, you need not fear the
+                        result of a hundred releases.
+                    </p>
+                    <cite>Sun Tzu, The Art of Code</cite>
                 </blockquote>
                 <p data-reveal>
-                    Then a new app changed everything. It had very complex queries. Administrators had to pull
-                    millions of rows (think of every road in a country). By then we had forgotten why we stopped
-                    using Entity Framework, so we tried it again. We found out that an administrator needed over 30
-                    minutes to log in once all that data loaded. This time we decided to use custom inserts to fix the
-                    speed.
+                    Then a new app changed everything. It had very complex queries.
+                    Administrators had to pull millions of rows (think of every road in a
+                    country). By then we had forgotten why we stopped using Entity Framework, so
+                    we tried it again. We found out that an administrator needed over 30 minutes
+                    to log in once all that data loaded. This time we decided to use custom
+                    inserts to fix the speed.
                 </p>
                 <p data-reveal>
-                    But life gave us another blocker we could not solve. On iOS, the code that Entity Framework builds
-                    at runtime broke in release mode. We were not alone in this. Other developers reported the same
-                    crash, for example
-                    <a href="https://github.com/dotnet/maui/issues/9176"
-                       target="_blank"
-                       rel="noopener noreferrer">this one</a>
-                    and
-                    <a href="https://github.com/dotnet/macios/issues/17194"
-                       target="_blank"
-                       rel="noopener noreferrer">this one</a>. You can enable the interpreter, but that has a huge
-                    performance cost, and it broke some other parts of the app.
+                    But life gave us another blocker we could not solve. On iOS, the code that
+                    Entity Framework builds at runtime broke in release mode. We were not alone
+                    in this. Other developers reported the same crash, for example
+                    <a href="https://github.com/dotnet/maui/issues/9176" target="_blank" rel="noopener">this one</a> and
+                    <a href="https://github.com/dotnet/macios/issues/17194" target="_blank" rel="noopener">this one</a>.
+                    You can enable the interpreter, but that has a huge performance cost, and it
+                    broke some other parts of the app.
                 </p>
                 <p data-reveal>
-                    So we went back to sqlite-net-pcl. But it still loads whole tables into memory and joins them in C#,
-                    not in SQLite. Joining the roads to their regions took over a minute for the administrators.
+                    So we went back to sqlite-net-pcl. But it still loads whole tables into
+                    memory and joins them in C#, not in SQLite. Joining the roads to their
+                    regions took over a minute for the administrators.
                 </p>
                 <p data-reveal>
-                    Don't get me wrong, there are ways to fix this, and I do not mean raw SQL, because that defeats the
-                    point of an ORM. I instead started asking myself a different question:
+                    Don't get me wrong, there are ways to fix this, and I do not mean raw SQL,
+                    because that defeats the point of an ORM. I instead started asking myself a
+                    different question:
                 </p>
-                <blockquote class="story-quote"
-                            data-reveal>
-                    Why did we deal with any of this in the first place?
+                <blockquote data-reveal>
+                    <p>Why did we deal with any of this in the first place?</p>
                 </blockquote>
                 <p data-reveal>
-                    This all happened in the middle of 2024. That is when I started building SQLite.Framework on the
-                    side as a hobby, the main idea at the time was to have something similar to sqlite-net-pcl, but
-                    with full IQueryable support and no dynamic code generation.
+                    This all happened in the middle of 2024. That is when I started building
+                    SQLite.Framework on the side as a hobby, the main idea at the time was to
+                    have something similar to sqlite-net-pcl, but with full IQueryable support
+                    and no dynamic code generation.
                 </p>
                 <p data-reveal>
-                    Half a year later I had a working solution and released it on NuGet, so other people could give
-                    their feedback.
+                    Half a year later I had a working solution and released it on NuGet, so other
+                    people could give their feedback.
                 </p>
                 <p data-reveal>
-                    I decided to let the framework run as little code as possible and let the database handle the heavy
-                    lifting. I made it resilient enough that it even works with PublishAot, while also supporting
-                    features like JSON, JSONB, FTS5, R-Tree, window functions and more.
+                    I decided to let the framework run as little code as possible and let the
+                    database handle the heavy lifting. I made it resilient enough that it even
+                    works with PublishAot, while also supporting features like JSON, JSONB, FTS5,
+                    R-Tree, window functions and more.
                 </p>
                 <p data-reveal>
-                    The work paid off. With SQLite.Framework, the login that once took over 30 minutes now takes about
-                    3 minutes. And 2 of those 3 minutes are just pulling the data, not the database work.
+                    The work paid off. With SQLite.Framework, the login that once took over 30
+                    minutes now takes about 3 minutes. And 2 of those 3 minutes are just pulling
+                    the data, not the database work.
                 </p>
-                <div class="story-stat"
-                     data-reveal>
-                    <div class="story-stat-item">
-                        <span class="story-stat-num before">30 min</span>
-                        <span class="story-stat-label">login with the old setup</span>
+
+                <div class="why-stat" data-reveal>
+                    <div class="why-stat-cell">
+                        <strong>30 min</strong>
+                        <span>login with the old setup</span>
                     </div>
-                    <svg class="story-stat-arrow"
-                         viewBox="0 0 24 24"
-                         fill="none"
-                         stroke="currentColor"
-                         stroke-width="2"
-                         stroke-linecap="round"
-                         stroke-linejoin="round"
-                         aria-hidden="true">
-                        <line x1="5"
-                              y1="12"
-                              x2="19"
-                              y2="12" />
-                        <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                    <div class="story-stat-item">
-                        <span class="story-stat-num after">3 min</span>
-                        <span class="story-stat-label">login with SQLite.Framework</span>
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                    <div class="why-stat-cell why-stat-now">
+                        <strong>3 min</strong>
+                        <span>login with SQLite.Framework</span>
                     </div>
                 </div>
-                <p class="story-stat-note"
-                   data-reveal>
-                    And it is not just this app. In our benchmarks, bulk inserts run about 16 times faster than EF
-                    Core (on a computer without using AOT). See the
+
+                <p data-reveal>
+                    And it is not just this app. In our benchmarks, bulk inserts run about 16
+                    times faster than EF Core (on a computer without using AOT). See the
                     <a href="/Docs/Performance">benchmarks</a>, or
-                    <a href="https://github.com/destbg/SQLite.Framework/tree/main/Sample/SQLite.Framework.Benchmarks"
-                       target="_blank"
-                       rel="noopener noreferrer">run them yourself</a>.
+                    <a href="https://github.com/destbg/SQLite.Framework/tree/main/Sample/SQLite.Framework.Benchmarks" target="_blank" rel="noopener">run them yourself</a>.
                 </p>
                 <p data-reveal>
-                    Who is it for? Offline mobile apps, MAUI and Avalonia, and anything you ship with Native AOT. If
-                    you recognize your own setup here, the migration guides show the move step by step, from
+                    Who is it for? Offline mobile apps, MAUI and Avalonia, and anything you ship
+                    with Native AOT. If you recognize your own setup here, the migration guides
+                    show the move step by step, from
                     <a href="/Docs/Migrating-from-EF-Core">EF Core</a> and from
                     <a href="/Docs/Migrating-from-sqlite-net-pcl">sqlite-net-pcl</a>.
                 </p>
-            </div>
-            <div class="story-cta hero-cta"
-                 data-reveal>
-                <a href="/Docs/Performance"
-                   class="btn btn-primary">See the performance</a>
-                <a href="/Docs/Native-AOT"
-                   class="btn btn-secondary">Native AOT and PublishAot</a>
-                <a href="/Docs/Getting-Started"
-                   class="btn btn-ghost">Get started</a>
+
+                <div class="why-ctas" data-reveal>
+                    <a class="btn btn-primary" href="/Docs/Performance">See the performance</a>
+                    <a class="btn btn-outline" href="/Docs/Native-AOT">Native AOT and PublishAot</a>
+                    <a class="btn btn-ghost" href="/Docs/Getting-Started">Get started</a>
+                </div>
             </div>
         </article>
     </main>
 
     <footer class="site-footer">
-        <div class="footer-inner">
-            <div class="footer-brand">
-                <img src="/SQLite.Framework.png"
-                     alt=""
-                     class="footer-logo" />
+        <div class="container site-footer-inner">
+            <a class="brand" href="/">
+                <img src="/SQLite.Framework.png" alt="" width="26" height="26" />
                 <span>SQLite.Framework</span>
-            </div>
-            <div class="footer-links">
+            </a>
+            <nav class="site-footer-links" aria-label="Footer">
                 <a href="/Docs/">Docs</a>
                 <a href="/Walkthrough/">Walkthroughs</a>
                 <a href="/Why/">Why</a>
                 <a href="/Docs/Getting-Started">Getting Started</a>
                 <a href="/Docs/Samples">Samples</a>
-                <a href="https://www.nuget.org/packages/SQLite.Framework/"
-                   target="_blank"
-                   rel="noopener noreferrer">NuGet</a>
-                <a href="https://github.com/destbg/SQLite.Framework"
-                   target="_blank"
-                   rel="noopener noreferrer">GitHub</a>
-                <a href="https://github.com/destbg/SQLite.Framework/blob/main/LICENSE"
-                   target="_blank"
-                   rel="noopener noreferrer">License</a>
-            </div>
-            <p class="footer-meta">MIT licensed. Built by <a href="https://github.com/destbg"
-                   target="_blank"
-                   rel="noopener noreferrer">Nikolay Kostadinov</a>.</p>
+                <a href="https://www.nuget.org/packages/SQLite.Framework/" target="_blank" rel="noopener">NuGet</a>
+                <a href="https://github.com/destbg/SQLite.Framework" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://github.com/destbg/SQLite.Framework/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+            </nav>
+            <p class="site-footer-meta">
+                MIT licensed. Built by <a href="https://github.com/destbg" target="_blank" rel="noopener">Nikolay Kostadinov</a>.
+            </p>
         </div>
     </footer>
 
-    <script type="module"
-            src="/src/why/main.ts"></script>
+    <script type="module" src="/src/why/main.ts"></script>
 </body>
-
 </html>

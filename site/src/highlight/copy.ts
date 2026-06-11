@@ -1,25 +1,33 @@
-export function addCopyButtons(root: ParentNode = document): void {
-    root.querySelectorAll<HTMLElement>("pre").forEach((pre) => {
-        const code = pre.querySelector("code");
-        if (!code || pre.querySelector(".copy-btn")) return;
+export async function copyText(text: string): Promise<void> {
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+    }
+}
+
+export function attachCopyButtons(root: ParentNode): void {
+    for (const pre of root.querySelectorAll<HTMLPreElement>("pre[data-copy]")) {
+        if (pre.querySelector(".copy-btn")) continue;
         const button = document.createElement("button");
         button.type = "button";
         button.className = "copy-btn";
         button.textContent = "Copy";
-        button.setAttribute("aria-label", "Copy code");
-        button.addEventListener("click", () => {
-            navigator.clipboard
-                .writeText(code.textContent ?? "")
-                .then(() => {
-                    button.textContent = "Copied";
-                    button.classList.add("copy-btn--copied");
-                    window.setTimeout(() => {
-                        button.textContent = "Copy";
-                        button.classList.remove("copy-btn--copied");
-                    }, 1500);
-                })
-                .catch(() => undefined);
+        button.addEventListener("click", async () => {
+            const code = pre.querySelector("code");
+            await copyText(code?.textContent ?? "");
+            button.textContent = "Copied";
+            button.classList.add("is-copied");
+            window.setTimeout(() => {
+                button.textContent = "Copy";
+                button.classList.remove("is-copied");
+            }, 1500);
         });
         pre.appendChild(button);
-    });
+    }
 }

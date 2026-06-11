@@ -1,0 +1,125 @@
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: var(--bg-overlay);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+}
+
+.site-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 62px;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    color: var(--text);
+    font-size: 1.02rem;
+}
+
+.brand:hover {
+    text-decoration: none;
+}
+
+.brand img {
+    border-radius: 7px;
+}
+
+.site-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.site-nav a {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    font-weight: 500;
+    padding: 7px 11px;
+    border-radius: 8px;
+}
+
+.site-nav a:hover {
+    color: var(--text);
+    background: var(--surface-2);
+    text-decoration: none;
+}
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin-left: 6px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.theme-toggle:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+}
+
+.icon-sun {
+    display: none;
+}
+
+html[data-theme="light"] .icon-sun {
+    display: block;
+}
+
+html[data-theme="light"] .icon-moon {
+    display: none;
+}
+
+.site-footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 0;
+    margin-top: 30px;
+}
+
+.site-footer-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    align-items: center;
+    text-align: center;
+}
+
+.site-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 20px;
+}
+
+.site-footer-links a {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.site-footer-links a:hover {
+    color: var(--text);
+}
+
+.site-footer-meta {
+    margin: 0;
+    color: var(--text-faint);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 620px) {
+    .nav-extra {
+        display: none;
+    }
+}

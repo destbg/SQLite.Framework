@@ -1,356 +1,222 @@
-interface LaneSpec {
-    mean: number;
-    std: number;
-    min: number;
-    max: number;
+interface Lane {
+    x: number;
+    meanUs: number;
+    stdUs: number;
+    minUs: number;
+    maxUs: number;
     spikeChance: number;
-    spikeMin: number;
-    spikeMax: number;
-    tMin: number;
-    tMax: number;
     labelEvery: number;
-    staticCount: number;
+    color: () => string;
+    dots: Dot[];
+    nextSpawnAt: number;
+    spawned: number;
 }
 
-interface PaceDot {
-    lane: number;
-    t: number;
-    x: number;
+interface Dot {
+    xFrac: number;
     y: number;
-    radius: number;
-    spike: boolean;
     label: string | null;
 }
 
-const LANES: LaneSpec[] = [
-    {
-        mean: 2160.3, std: 68.9, min: 2049, max: 2351,
-        spikeChance: 0.07, spikeMin: 2300, spikeMax: 2351,
-        tMin: 1920, tMax: 2400, labelEvery: 1, staticCount: 5,
-    },
-    {
-        mean: 130.9, std: 8.9, min: 118.9, max: 154,
-        spikeChance: 0.06, spikeMin: 148, spikeMax: 154,
-        tMin: 105, tMax: 160, labelEvery: 16, staticCount: 60,
-    },
-];
-
-const LANE_PAD = 0.12;
-const FALL = 170;
-const GAP_PER_US = 0.5;
+const FALL_SPEED = 170;
+const MS_PER_US = 0.5;
 const PHONE_FACTOR = 100;
+const LANE_HALF_SPREAD = 0.11;
 
-function clamp(value: number, min: number, max: number): number {
-    return value < min ? min : value > max ? max : value;
+function spreadFrac(lane: Lane, durationUs: number): number {
+    const t = (durationUs - lane.minUs) / (lane.maxUs - lane.minUs);
+    return lane.x + (Math.min(1, Math.max(0, t)) - 0.5) * LANE_HALF_SPREAD * 2;
 }
 
-function gauss(mean: number, std: number): number {
+function gaussian(): number {
     let u = 0;
     let v = 0;
     while (u === 0) u = Math.random();
     while (v === 0) v = Math.random();
-    const n = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-    return mean + n * std;
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
-function sample(spec: LaneSpec): { t: number; spike: boolean } {
-    if (Math.random() < spec.spikeChance) {
-        return { t: spec.spikeMin + Math.random() * (spec.spikeMax - spec.spikeMin), spike: true };
-    }
-    return { t: clamp(gauss(spec.mean, spec.std), spec.min, spec.max), spike: false };
+function sampleDuration(lane: Lane): number {
+    let us = lane.meanUs + gaussian() * lane.stdUs;
+    if (Math.random() < lane.spikeChance) us += lane.stdUs * 4;
+    return Math.min(lane.maxUs, Math.max(lane.minUs, us));
 }
 
-function tipLabel(us: number): string {
-    return Math.round((us / 1000) * PHONE_FACTOR) + " ms";
-}
-
-function readColors() {
-    const styles = getComputedStyle(document.documentElement);
-    const accent = styles.getPropertyValue("--accent").trim() || "#58a6ff";
-    const light = document.documentElement.getAttribute("data-theme") === "light";
-    return {
-        ef: light ? "#b9791f" : "#e0a94a",
-        fw: accent,
-        grid: light ? "rgba(15,23,42,0.12)" : "rgba(110,118,129,0.22)",
-        labelText: light ? "#1f2328" : "#e6edf3",
-        labelBg: light ? "rgba(255,255,255,0.94)" : "rgba(22,27,34,0.92)",
-    };
+function cssVar(name: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 export function initSavePace(): void {
     const canvas = document.getElementById("pace-canvas") as HTMLCanvasElement | null;
-    if (!canvas) {
-        return;
-    }
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-        return;
-    }
+    const stage = canvas?.parentElement;
+    if (!canvas || !stage) return;
 
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let colors = readColors();
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
     let width = 0;
     let height = 0;
+    let efColor = "#f87171";
+    let fwColor = "#58a6ff";
+    let labelColor = "#93a59b";
 
-    function resize() {
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        width = canvas!.clientWidth;
-        height = canvas!.clientHeight;
-        canvas!.width = Math.round(width * dpr);
-        canvas!.height = Math.round(height * dpr);
-        ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
+    const lanes: Lane[] = [
+        {
+            x: 0.3,
+            meanUs: 2160.3,
+            stdUs: 68.9,
+            minUs: 2049,
+            maxUs: 2351,
+            spikeChance: 0.07,
+            labelEvery: 1,
+            color: () => efColor,
+            dots: [],
+            nextSpawnAt: 0,
+            spawned: 0,
+        },
+        {
+            x: 0.7,
+            meanUs: 130.9,
+            stdUs: 8.9,
+            minUs: 118.9,
+            maxUs: 154,
+            spikeChance: 0.06,
+            labelEvery: 16,
+            color: () => fwColor,
+            dots: [],
+            nextSpawnAt: 0,
+            spawned: 0,
+        },
+    ];
 
-    function layout() {
-        const topPad = 44;
-        const bottomPad = 20;
-        const mid = width / 2;
-        return {
-            topPad,
-            bottomPad,
-            mid,
-            laneTop: topPad,
-            laneBottom: height - bottomPad,
-            lanes: [
-                { x0: 44, x1: mid - 16 },
-                { x0: mid + 16, x1: width - 18 },
-            ],
-        };
-    }
+    const readColors = () => {
+        efColor = cssVar("--no") || efColor;
+        fwColor = cssVar("--accent") || fwColor;
+        labelColor = cssVar("--text-muted") || labelColor;
+    };
 
-    function timeToX(lane: number, t: number): number {
-        const l = layout().lanes[lane];
-        const spec = LANES[lane];
-        const frac = clamp((t - spec.tMin) / (spec.tMax - spec.tMin), 0, 1);
-        return l.x0 + (LANE_PAD + frac * (1 - 2 * LANE_PAD)) * (l.x1 - l.x0);
-    }
+    const resize = () => {
+        const rect = stage.getBoundingClientRect();
+        width = rect.width;
+        height = rect.height;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
 
-    function makeDot(lane: number, y: number, s: { t: number; spike: boolean }, labeled: boolean): PaceDot {
-        return {
-            lane,
-            t: s.t,
-            x: timeToX(lane, s.t),
-            y,
-            radius: s.spike ? 4.6 : 3.1,
-            spike: s.spike,
-            label: labeled ? tipLabel(s.t) : null,
-        };
-    }
-
-    function roundRect(x: number, y: number, w: number, h: number, r: number) {
-        ctx!.beginPath();
-        ctx!.moveTo(x + r, y);
-        ctx!.arcTo(x + w, y, x + w, y + h, r);
-        ctx!.arcTo(x + w, y + h, x, y + h, r);
-        ctx!.arcTo(x, y + h, x, y, r);
-        ctx!.arcTo(x, y, x + w, y, r);
-        ctx!.closePath();
-    }
-
-    function dotAlpha(dot: PaceDot): number {
-        const lay = layout();
-        const fadeIn = clamp((dot.y - lay.laneTop) / 24, 0, 1);
-        const fadeOut = clamp((lay.laneBottom - dot.y) / 40, 0, 1);
-        return fadeIn * fadeOut;
-    }
-
-    function drawBackground() {
-        const lay = layout();
-        ctx!.clearRect(0, 0, width, height);
-        ctx!.strokeStyle = colors.grid;
-        ctx!.lineWidth = 1;
-        ctx!.beginPath();
-        ctx!.moveTo(lay.mid, lay.topPad - 8);
-        ctx!.lineTo(lay.mid, lay.laneBottom + 8);
-        ctx!.stroke();
-    }
-
-    function drawDot(dot: PaceDot) {
-        const alpha = dotAlpha(dot);
-        const color = dot.lane === 0 ? colors.ef : colors.fw;
-
-        ctx!.save();
-        ctx!.globalAlpha = alpha;
-        if (dot.spike) {
-            ctx!.shadowColor = color;
-            ctx!.shadowBlur = 14;
+    const drawDot = (lane: Lane, dot: Dot) => {
+        const x = dot.xFrac * width;
+        ctx.beginPath();
+        ctx.arc(x, dot.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = lane.color();
+        ctx.fill();
+        if (dot.label) {
+            ctx.fillStyle = labelColor;
+            ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+            ctx.textBaseline = "middle";
+            ctx.fillText(dot.label, x + 12, dot.y);
         }
-        ctx!.fillStyle = color;
-        ctx!.beginPath();
-        ctx!.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
-        ctx!.fill();
-        ctx!.restore();
-    }
+    };
 
-    function drawLabel(dot: PaceDot) {
-        if (!dot.label) {
-            return;
-        }
-        const alpha = dotAlpha(dot);
-        if (alpha <= 0.05) {
-            return;
-        }
-        const color = dot.lane === 0 ? colors.ef : colors.fw;
-        ctx!.font = "600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-        const tw = ctx!.measureText(dot.label).width;
-        const padX = 8;
-        const h = 20;
-        const w = tw + padX * 2;
-        const gap = 12;
-        let bx = dot.lane === 0 ? dot.x - gap - w : dot.x + gap;
-        bx = clamp(bx, 4, width - w - 4);
-        const by = dot.y - h / 2;
-        const connectX = dot.lane === 0 ? bx + w : bx;
+    const labelFor = (lane: Lane, durationUs: number): string | null => {
+        if (lane.spawned % lane.labelEvery !== 0) return null;
+        const ms = (durationUs / 1000) * PHONE_FACTOR;
+        return `${ms.toFixed(0)} ms`;
+    };
 
-        ctx!.save();
-        ctx!.globalAlpha = alpha * 0.45;
-        ctx!.strokeStyle = color;
-        ctx!.lineWidth = 1;
-        ctx!.beginPath();
-        ctx!.moveTo(dot.x, dot.y);
-        ctx!.lineTo(connectX, dot.y);
-        ctx!.stroke();
-        ctx!.restore();
-
-        ctx!.save();
-        ctx!.globalAlpha = alpha;
-        roundRect(bx, by, w, h, 7);
-        ctx!.fillStyle = colors.labelBg;
-        ctx!.fill();
-        ctx!.strokeStyle = color;
-        ctx!.lineWidth = 1;
-        ctx!.stroke();
-        ctx!.fillStyle = colors.labelText;
-        ctx!.textAlign = "center";
-        ctx!.textBaseline = "middle";
-        ctx!.fillText(dot.label, bx + w / 2, by + h / 2 + 0.5);
-        ctx!.restore();
-        ctx!.textAlign = "left";
-        ctx!.textBaseline = "alphabetic";
-    }
-
-    if (reduceMotion) {
-        const paint = () => {
-            resize();
-            drawBackground();
-            const lay = layout();
-            const span = lay.laneBottom - lay.laneTop - 12;
-            const placed: PaceDot[] = [];
-            for (let lane = 0; lane < 2; lane++) {
-                const count = LANES[lane].staticCount;
-                for (let i = 0; i < count; i++) {
-                    const y = lay.laneTop + 6 + (i / (count - 1)) * span;
-                    const labeled = i % LANES[lane].labelEvery === 0;
-                    const dot = makeDot(lane, y, sample(LANES[lane]), labeled);
-                    drawDot(dot);
-                    if (dot.label) {
-                        placed.push(dot);
-                    }
-                }
+    const drawStatic = () => {
+        readColors();
+        resize();
+        ctx.clearRect(0, 0, width, height);
+        for (const lane of lanes) {
+            let y = 20;
+            lane.spawned = 0;
+            while (y < height - 10) {
+                const duration = sampleDuration(lane);
+                lane.spawned += 1;
+                drawDot(lane, {
+                    xFrac: spreadFrac(lane, duration),
+                    y,
+                    label: labelFor(lane, duration),
+                });
+                y += Math.max(14, duration * MS_PER_US * (FALL_SPEED / 1000));
             }
-            for (const dot of placed) {
-                drawLabel(dot);
-            }
-        };
-        paint();
-        window.addEventListener("resize", paint);
+        }
+    };
+
+    if (reduced) {
+        drawStatic();
+        window.addEventListener("resize", drawStatic);
         return;
     }
 
-    const dots: PaceDot[] = [];
-    const gapTimer = [0, 0];
-    const currentGap = [LANES[0].mean * GAP_PER_US, LANES[1].mean * GAP_PER_US];
-    const spawnCount = [0, 0];
-    let lastTime = 0;
     let running = false;
-    let started = false;
+    let lastTime = 0;
+    let frame = 0;
 
-    function frame(now: number) {
-        if (!running) {
-            return;
-        }
-        const dt = lastTime === 0 ? 0 : Math.min((now - lastTime) / 1000, 0.05);
-        lastTime = now;
+    const step = (time: number) => {
+        if (!running) return;
+        const dt = Math.min(0.05, (time - lastTime) / 1000);
+        lastTime = time;
 
-        const lay = layout();
-        for (let lane = 0; lane < 2; lane++) {
-            gapTimer[lane] += dt * 1000;
-            while (gapTimer[lane] >= currentGap[lane]) {
-                gapTimer[lane] -= currentGap[lane];
-                const s = sample(LANES[lane]);
-                spawnCount[lane]++;
-                const labeled = spawnCount[lane] % LANES[lane].labelEvery === 0;
-                dots.push(makeDot(lane, lay.laneTop, s, labeled));
-                currentGap[lane] = s.t * GAP_PER_US;
+        ctx.clearRect(0, 0, width, height);
+        for (const lane of lanes) {
+            lane.nextSpawnAt -= dt * 1000;
+            if (lane.nextSpawnAt <= 0) {
+                const duration = sampleDuration(lane);
+                lane.spawned += 1;
+                lane.dots.push({
+                    xFrac: spreadFrac(lane, duration),
+                    y: -8,
+                    label: labelFor(lane, duration),
+                });
+                lane.nextSpawnAt = duration * MS_PER_US;
             }
-        }
-
-        for (let i = dots.length - 1; i >= 0; i--) {
-            dots[i].y += FALL * dt;
-            if (dots[i].y > lay.laneBottom + 6) {
-                dots.splice(i, 1);
+            for (const dot of lane.dots) {
+                dot.y += FALL_SPEED * dt;
+                drawDot(lane, dot);
             }
+            lane.dots = lane.dots.filter((d) => d.y < height + 10);
         }
+        frame = requestAnimationFrame(step);
+    };
 
-        drawBackground();
-        for (const dot of dots) {
-            drawDot(dot);
-        }
-        for (const dot of dots) {
-            drawLabel(dot);
-        }
-        requestAnimationFrame(frame);
-    }
-
-    function start() {
-        if (running) {
-            return;
-        }
+    const start = () => {
+        if (running) return;
         running = true;
-        lastTime = 0;
-        if (!started) {
-            started = true;
-            resize();
-        }
-        requestAnimationFrame(frame);
-    }
+        lastTime = performance.now();
+        readColors();
+        resize();
+        frame = requestAnimationFrame(step);
+    };
 
-    function stop() {
+    const stop = () => {
         running = false;
-    }
+        cancelAnimationFrame(frame);
+    };
+
+    const visibility = new IntersectionObserver(
+        (entries) => {
+            for (const entry of entries) {
+                if (entry.isIntersecting) start();
+                else stop();
+            }
+        },
+        { threshold: 0.1 },
+    );
+    visibility.observe(stage);
 
     window.addEventListener("resize", () => {
-        if (started) {
-            resize();
-            for (const dot of dots) {
-                dot.x = timeToX(dot.lane, dot.t);
-            }
-        }
+        if (running) resize();
     });
 
-    const themeObserver = new MutationObserver(() => {
-        colors = readColors();
-    });
-    themeObserver.observe(document.documentElement, {
+    new MutationObserver(readColors).observe(document.documentElement, {
         attributes: true,
         attributeFilter: ["data-theme"],
     });
-
-    if ("IntersectionObserver" in window) {
-        const io = new IntersectionObserver(
-            (entries) => {
-                for (const entry of entries) {
-                    if (entry.isIntersecting) {
-                        start();
-                    } else {
-                        stop();
-                    }
-                }
-            },
-            { threshold: 0.1 },
-        );
-        io.observe(canvas);
-    } else {
-        start();
-    }
 }

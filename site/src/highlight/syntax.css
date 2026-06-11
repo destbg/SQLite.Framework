@@ -86,18 +86,18 @@
     color: #1f2328;
 }
 
-.copy-btn--copied {
+.copy-btn.is-copied {
     color: #3fb950;
     border-color: rgba(63, 185, 80, 0.4);
 }
 
-:root[data-theme="light"] .copy-btn--copied {
+:root[data-theme="light"] .copy-btn.is-copied {
     color: #1a7f37;
 }
 
 pre:hover .copy-btn,
-.wt-code-window:hover .copy-btn,
-.copy-btn:focus-visible {
+.copy-btn:focus-visible,
+.copy-btn.is-copied {
     opacity: 1;
 }
 

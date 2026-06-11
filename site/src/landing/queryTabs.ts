@@ -1,11 +1,11 @@
-import { highlight } from "../highlight/highlighter";
+import { highlightInto } from "../highlight/highlighter";
 
-interface Example {
+interface QueryTab {
     linq: string;
     sql: string;
 }
 
-const EXAMPLES: Record<string, Example> = {
+const tabs: Record<string, QueryTab> = {
     group: {
         linq: `var topAuthors = await (
     from b in db.Table<Book>()
@@ -87,33 +87,46 @@ FROM cte0 AS b0;`,
 };
 
 export function initQueryTabs(): void {
-    const linqCode = document.getElementById("linq-code");
-    const sqlCode = document.getElementById("sql-code");
-    const sqlPanel = document.getElementById("sql-panel");
-    const tabs = document.querySelectorAll<HTMLButtonElement>(".tab-btn");
-    if (!linqCode || !sqlCode || tabs.length === 0) return;
+    const buttons = Array.from(
+        document.querySelectorAll<HTMLButtonElement>(".translate-tabs [data-tab]"),
+    );
+    const linqEl = document.getElementById("tab-linq");
+    const sqlEl = document.getElementById("tab-sql");
+    const sqlPanel = document.querySelector<HTMLElement>(".translate-panel-sql");
+    if (!linqEl || !sqlEl || buttons.length === 0) return;
 
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const apply = (key: string) => {
+        const tab = tabs[key];
+        if (!tab) return;
+        highlightInto(linqEl, tab.linq, "csharp");
+        highlightInto(sqlEl, tab.sql, "sql");
+        if (sqlPanel) {
+            sqlPanel.classList.remove("is-revealing");
+            void sqlPanel.offsetWidth;
+            sqlPanel.classList.add("is-revealing");
+        }
+    };
 
-    tabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
-            const key = tab.dataset.example;
-            const example = key ? EXAMPLES[key] : undefined;
-            if (!example) return;
-
-            tabs.forEach((t) => t.classList.toggle("tab-btn--active", t === tab));
-            linqCode.innerHTML = highlight(example.linq, "csharp");
-            sqlCode.innerHTML = highlight(example.sql, "sql");
-
-            if (sqlPanel && !reduceMotion) {
-                const block = sqlPanel.querySelector<HTMLElement>(".code-block");
-                sqlPanel.classList.remove("sql-panel-revealed");
-                if (block) {
-                    void block.offsetWidth;
-                    sqlPanel.style.setProperty("--sql-height", `${block.offsetHeight}px`);
-                }
-                requestAnimationFrame(() => sqlPanel.classList.add("sql-panel-revealed"));
+    for (const button of buttons) {
+        button.addEventListener("click", () => {
+            for (const other of buttons) {
+                other.classList.toggle("is-active", other === button);
+                other.setAttribute("aria-selected", other === button ? "true" : "false");
             }
+            apply(button.dataset.tab ?? "");
         });
-    });
+    }
+
+    const observer = new IntersectionObserver(
+        (entries) => {
+            for (const entry of entries) {
+                if (entry.isIntersecting && sqlPanel) {
+                    sqlPanel.classList.add("is-revealing");
+                    observer.disconnect();
+                }
+            }
+        },
+        { threshold: 0.4 },
+    );
+    if (sqlPanel) observer.observe(sqlPanel);
 }

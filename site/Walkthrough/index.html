@@ -1,72 +1,50 @@
 <!doctype html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon"
-          href="/favicon.ico"
-          sizes="any" />
-    <link rel="icon"
-          type="image/svg+xml"
-          href="/favicon.svg" />
-    <link rel="icon"
-          type="image/png"
-          sizes="96x96"
-          href="/favicon-96x96.png" />
-    <link rel="apple-touch-icon"
-          sizes="180x180"
-          href="/apple-touch-icon.png" />
-    <link rel="manifest"
-          href="/manifest.webmanifest" />
-    <link rel="canonical"
-          href="https://sqlite-framework.net/Walkthrough/" />
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color"
-          content="#0d1117" />
-    <meta name="description"
-          content="Step-by-step interactive walkthroughs for adding SQLite.Framework to your .NET app." />
-    <meta name="robots"
-          content="index, follow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SQLite.Framework Walkthroughs</title>
-
-    <meta property="og:site_name"
-          content="SQLite.Framework" />
-    <meta property="og:title"
-          content="SQLite.Framework Walkthroughs" />
-    <meta property="og:description"
-          content="Step-by-step interactive walkthroughs for adding SQLite.Framework to your .NET app." />
-    <meta property="og:image"
-          content="https://sqlite-framework.net/SQLite.Framework.png" />
-    <meta property="og:type"
-          content="website" />
-    <meta property="og:url"
-          content="https://sqlite-framework.net/Walkthrough/" />
-
+    <meta name="title" content="SQLite.Framework Walkthroughs" />
+    <meta name="description" content="Step-by-step interactive walkthroughs for adding SQLite.Framework to your .NET app." />
+    <meta name="author" content="Nikolay Kostadinov" />
+    <meta name="creator" content="destbg" />
+    <meta name="publisher" content="https://github.com/destbg/SQLite.Framework" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="canonical" href="https://sqlite-framework.net/Walkthrough/" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/web-app-manifest-512x512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta property="og:site_name" content="SQLite.Framework" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sqlite-framework.net/Walkthrough/" />
+    <meta property="og:title" content="SQLite.Framework Walkthroughs" />
+    <meta property="og:description" content="Step-by-step interactive walkthroughs for adding SQLite.Framework to your .NET app." />
+    <meta property="og:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="SQLite.Framework Walkthroughs" />
+    <meta name="twitter:description" content="Step-by-step interactive walkthroughs for adding SQLite.Framework to your .NET app." />
+    <meta name="twitter:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
+    <script>
+        try { if (localStorage.theme === "light") document.documentElement.dataset.theme = "light"; } catch (e) { }
+    </script>
     <script>
         (function () {
-            var l = window.location;
-            if (l.search.indexOf('p=') !== -1) {
-                var params = {};
-                l.search.slice(1).split('&').forEach(function (kv) {
-                    var i = kv.indexOf('=');
-                    if (i > 0) params[kv.slice(0, i)] = kv.slice(i + 1);
-                });
-                if (params.p !== undefined) {
-                    var path = '/Walkthrough/' + decodeURIComponent(params.p);
-                    var query = params.q ? '?' + decodeURIComponent(params.q) : '';
-                    window.history.replaceState(null, '', path + query + l.hash);
-                }
+            var params = new URLSearchParams(location.search);
+            var path = params.get("p");
+            if (path) {
+                var query = params.get("q");
+                history.replaceState(null, "", "/Walkthrough/" + path + (query ? "?" + query : "") + location.hash);
             }
         })();
     </script>
-    <script>if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');</script>
 </head>
-
 <body>
     <div id="root"></div>
-    <script type="module"
-            src="/src/walkthrough/main.tsx"></script>
+    <script type="module" src="/src/walkthrough/main.tsx"></script>
 </body>
-
 </html>

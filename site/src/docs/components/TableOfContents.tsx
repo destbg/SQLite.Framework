@@ -1,75 +1,70 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { parseHeadings } from "../utils";
-import { findPageBySlug } from "../pages";
-import { loadContent } from "../markdownFiles";
-import OpenInButton from "./OpenInButton";
+import { useEffect, useMemo, useState } from "react";
+import { extractHeadings } from "../utils";
 
-export default function TableOfContents() {
-    const location = useLocation();
-    const slug = decodeURIComponent(
-        location.pathname === "/" ? "Home" : location.pathname.slice(1),
-    );
-    const page = findPageBySlug(slug);
-    const content = page ? loadContent(page.title) : "";
-    const headings = parseHeadings(content);
-    const [activeId, setActiveId] = useState("");
+interface TableOfContentsProps {
+    markdown: string;
+    pageKey: string;
+}
+
+export function TableOfContents({ markdown, pageKey }: TableOfContentsProps) {
+    const headings = useMemo(() => extractHeadings(markdown), [markdown]);
+    const [activeId, setActiveId] = useState<string | null>(null);
 
     useEffect(() => {
-        setActiveId("");
-        const updateActive = () => {
-            const els = Array.from(
-                document.querySelectorAll<HTMLElement>(
-                    ".markdown-content h2, .markdown-content h3",
-                ),
-            );
-            if (!els.length) return;
-            const scrollY = window.scrollY + 88;
-            let active = els[0].id;
-            for (const el of els) {
-                if (el.offsetTop <= scrollY) active = el.id;
-            }
-            setActiveId(active);
-        };
-        window.addEventListener("scroll", updateActive, { passive: true });
-        updateActive();
-        return () => window.removeEventListener("scroll", updateActive);
-    }, [slug]);
+        setActiveId(headings[0]?.id ?? null);
+        if (headings.length === 0) return;
+
+        const visible = new Set<string>();
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) visible.add(entry.target.id);
+                    else visible.delete(entry.target.id);
+                }
+                for (const heading of headings) {
+                    if (visible.has(heading.id)) {
+                        setActiveId(heading.id);
+                        return;
+                    }
+                }
+            },
+            { rootMargin: "-70px 0px -65% 0px" },
+        );
+
+        for (const heading of headings) {
+            const el = document.getElementById(heading.id);
+            if (el) observer.observe(el);
+        }
+        return () => observer.disconnect();
+    }, [headings, pageKey]);
 
     if (headings.length === 0) return null;
 
+    const onClick = (e: React.MouseEvent, id: string) => {
+        e.preventDefault();
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth" });
+        history.replaceState(null, "", `#${id}`);
+        setActiveId(id);
+    };
+
     return (
-        <aside className="toc">
-            <div className="toc-header">
-                <p className="toc-title">On this page</p>
-                <OpenInButton fileName={page?.title ?? slug} markdown={content} />
-            </div>
-            {headings.length > 0 && (
-                <ul className="toc-list">
-                    {headings.map((h) => (
-                        <li key={h.id}>
-                            <a
-                                href={`#${h.id}`}
-                                className={[
-                                    "toc-link",
-                                    h.level === 3 ? "toc-link--h3" : "",
-                                    activeId === h.id ? "toc-link--active" : "",
-                                ]
-                                    .filter(Boolean)
-                                    .join(" ")}
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    document
-                                        .getElementById(h.id)
-                                        ?.scrollIntoView({ behavior: "smooth" });
-                                }}
-                            >
-                                {h.text}
-                            </a>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </aside>
+        <nav className="docs-toc" aria-label="On this page">
+            <p className="docs-toc-title">On this page</p>
+            <ul>
+                {headings.map((heading) => (
+                    <li key={heading.id} className={heading.depth === 3 ? "is-sub" : undefined}>
+                        <a
+                            href={`#${heading.id}`}
+                            className={activeId === heading.id ? "is-active" : undefined}
+                            onClick={(e) => onClick(e, heading.id)}
+                        >
+                            {heading.text}
+                        </a>
+                    </li>
+                ))}
+            </ul>
+        </nav>
     );
 }

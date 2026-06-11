@@ -1,125 +1,97 @@
-import { pages } from "./pages";
-import { loadContent } from "./markdownFiles";
+import { allPages, type DocPage } from "./pages";
+import { markdownFor } from "./markdownFiles";
+import { extractHeadings } from "./utils";
 
-export interface SearchHit {
-    slug: string;
-    title: string;
-    matchedHeading?: string;
+export interface SearchResult {
+    page: DocPage;
+    heading: string | null;
     snippet: string;
     score: number;
 }
 
-const MAX_RESULTS = 30;
-const SNIPPET_PAD = 60;
-
-interface PageIndex {
-    slug: string;
-    title: string;
+interface IndexEntry {
+    page: DocPage;
     titleLower: string;
-    content: string;
-    contentLower: string;
-    headings: string[];
+    headings: { text: string; lower: string }[];
+    body: string;
+    bodyLower: string;
 }
 
-let cachedIndex: PageIndex[] | null = null;
+let index: IndexEntry[] | null = null;
 
-function buildIndex(): PageIndex[] {
-    if (cachedIndex) return cachedIndex;
-    cachedIndex = pages.map((page) => {
-        const content = loadContent(page.title);
-        const headings: string[] = [];
-        for (const line of content.split("\n")) {
-            const m = line.match(/^#{1,6}\s+(.+?)\s*$/);
-            if (m) headings.push(m[1]);
-        }
-        return {
-            slug: page.slug,
-            title: page.title,
+function buildIndex(): IndexEntry[] {
+    const entries: IndexEntry[] = [];
+    for (const page of allPages) {
+        const markdown = markdownFor(page.fileName);
+        if (markdown == null) continue;
+        const body = markdown
+            .replace(/```[\s\S]*?```/g, " ")
+            .replace(/[#`*_>|]/g, "")
+            .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+            .replace(/\s+/g, " ");
+        entries.push({
+            page,
             titleLower: page.title.toLowerCase(),
-            content,
-            contentLower: content.toLowerCase(),
-            headings,
-        };
-    });
-    return cachedIndex;
+            headings: extractHeadings(markdown).map((h) => ({
+                text: h.text,
+                lower: h.text.toLowerCase(),
+            })),
+            body,
+            bodyLower: body.toLowerCase(),
+        });
+    }
+    return entries;
 }
 
-function buildSnippet(content: string, idx: number, queryLen: number): string {
-    const start = Math.max(0, idx - SNIPPET_PAD);
-    const end = Math.min(content.length, idx + queryLen + SNIPPET_PAD * 2);
-    let slice = content.slice(start, end);
-    slice = slice
-        .replace(/```[\s\S]*?```/g, " ")
-        .replace(/[*_`#>]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-    return (start > 0 ? "… " : "") + slice + (end < content.length ? " …" : "");
+function snippetAround(body: string, position: number): string {
+    const start = Math.max(0, position - 50);
+    const end = Math.min(body.length, position + 110);
+    let snippet = body.slice(start, end).trim();
+    if (start > 0) snippet = `...${snippet}`;
+    if (end < body.length) snippet = `${snippet}...`;
+    return snippet;
 }
 
-export function search(rawQuery: string): SearchHit[] {
-    const query = rawQuery.trim().toLowerCase();
-    if (!query) return [];
-
-    const tokens = query.split(/\s+/).filter(Boolean);
+export function searchDocs(query: string): SearchResult[] {
+    const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (tokens.length === 0) return [];
+    index ??= buildIndex();
 
-    const index = buildIndex();
-    const hits: SearchHit[] = [];
+    const results: SearchResult[] = [];
+    for (const entry of index) {
+        let score = 0;
+        let heading: string | null = null;
+        let firstBodyMatch = -1;
+        let missed = false;
 
-    for (const page of index) {
-        let allFound = true;
         for (const token of tokens) {
-            if (
-                !page.contentLower.includes(token) &&
-                !page.titleLower.includes(token)
-            ) {
-                allFound = false;
+            let tokenScore = 0;
+            if (entry.titleLower.includes(token)) tokenScore += 100;
+            const headingMatch = entry.headings.find((h) => h.lower.includes(token));
+            if (headingMatch) {
+                tokenScore += 50;
+                heading ??= headingMatch.text;
+            }
+            const bodyPos = entry.bodyLower.indexOf(token);
+            if (bodyPos >= 0) {
+                tokenScore += Math.max(0, 30 - bodyPos / 500);
+                if (firstBodyMatch < 0 || bodyPos < firstBodyMatch) firstBodyMatch = bodyPos;
+            }
+            if (tokenScore === 0) {
+                missed = true;
                 break;
             }
-        }
-        if (!allFound) continue;
-
-        let score = 0;
-        for (const token of tokens) {
-            if (page.titleLower.includes(token)) score += 100;
+            score += tokenScore;
         }
 
-        let matchedHeading: string | undefined;
-        for (const heading of page.headings) {
-            const headingLower = heading.toLowerCase();
-            let allInHeading = true;
-            for (const token of tokens) {
-                if (!headingLower.includes(token)) {
-                    allInHeading = false;
-                    break;
-                }
-            }
-            if (allInHeading) {
-                score += 50;
-                if (!matchedHeading) matchedHeading = heading;
-            }
-        }
-
-        const firstIdx = page.contentLower.indexOf(tokens[0]);
-        if (firstIdx >= 0) score += Math.max(1, 30 - Math.floor(firstIdx / 200));
-
-        let snippet: string;
-        if (firstIdx >= 0) {
-            snippet = buildSnippet(page.content, firstIdx, tokens[0].length);
-        } else if (matchedHeading) {
-            snippet = matchedHeading;
-        } else {
-            snippet = page.title;
-        }
-
-        hits.push({
-            slug: page.slug,
-            title: page.title,
-            matchedHeading,
-            snippet,
+        if (missed) continue;
+        results.push({
+            page: entry.page,
+            heading,
+            snippet: snippetAround(entry.body, Math.max(0, firstBodyMatch)),
             score,
         });
     }
 
-    return hits.sort((a, b) => b.score - a.score).slice(0, MAX_RESULTS);
+    return results.sort((a, b) => b.score - a.score).slice(0, 30);
 }

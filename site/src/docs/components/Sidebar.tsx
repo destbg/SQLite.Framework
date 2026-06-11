@@ -1,197 +1,100 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { sections, ungrouped } from "../pages";
+import { docGroups } from "../pages";
+import { toggleTheme } from "../../shared/theme";
 
-interface Props {
-    onOpenSearch: () => void;
+interface SidebarProps {
+    open: boolean;
+    onClose: () => void;
+    onSearch: () => void;
 }
 
-export default function Sidebar({ onOpenSearch }: Props) {
-    const [mobileOpen, setMobileOpen] = useState(false);
-    const [isDark, setIsDark] = useState(
-        () => localStorage.getItem("theme") !== "light",
-    );
-    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+export function Sidebar({ open, onClose, onSearch }: SidebarProps) {
+    const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        if (isDark) {
-            document.documentElement.removeAttribute("data-theme");
-            localStorage.removeItem("theme");
-        } else {
-            document.documentElement.setAttribute("data-theme", "light");
-            localStorage.setItem("theme", "light");
-        }
-    }, [isDark]);
-
-    function toggleSection(section: string) {
-        setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }));
-    }
+    const toggleGroup = (title: string) => {
+        setCollapsed((prev) => {
+            const next = new Set(prev);
+            if (next.has(title)) next.delete(title);
+            else next.add(title);
+            return next;
+        });
+    };
 
     return (
-        <>
-            <button
-                className="mobile-menu-btn"
-                onClick={() => setMobileOpen((o) => !o)}
-                aria-label="Toggle navigation"
-            >
-                <span />
-                <span />
-                <span />
+        <aside className={open ? "docs-sidebar is-open" : "docs-sidebar"}>
+            <div className="docs-sidebar-head">
+                <a className="docs-sidebar-brand" href="/">
+                    <img src="/SQLite.Framework.png" alt="" width="28" height="28" />
+                    <span>
+                        SQLite.Framework
+                        <small>Docs</small>
+                    </span>
+                </a>
+                <button
+                    type="button"
+                    className="docs-iconbtn docs-sidebar-close"
+                    aria-label="Close navigation"
+                    onClick={onClose}
+                >
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <button type="button" className="docs-search-trigger" onClick={onSearch}>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+                <span>Search docs</span>
+                <kbd>type to search</kbd>
             </button>
-
-            <aside className={`sidebar${mobileOpen ? " sidebar--open" : ""}`}>
-                <div className="sidebar-header">
-                    <NavLink
-                        to="/"
-                        className="sidebar-title"
-                        onClick={() => setMobileOpen(false)}
-                    >
-                        <img
-                            src="/SQLite.Framework.png"
-                            alt=""
-                            className="sidebar-logo"
-                        />
-                        <span>SQLite.Framework</span>
-                        <span className="sidebar-subtitle">Docs</span>
-                    </NavLink>
-                </div>
-
-                <nav className="sidebar-nav">
-                    {ungrouped.map((page) => (
-                        <NavLink
-                            key={page.slug}
-                            to="/"
-                            end
-                            className={({ isActive }) =>
-                                `nav-item${isActive ? " nav-item--active" : ""}`
-                            }
-                            onClick={() => setMobileOpen(false)}
-                        >
-                            {page.title}
-                        </NavLink>
-                    ))}
-
-                    {sections.map(({ title, pages: sectionPages }) => (
-                        <div key={title} className="nav-section">
-                            <button
-                                className="nav-section-header"
-                                onClick={() => toggleSection(title)}
-                                aria-expanded={!collapsed[title]}
-                            >
-                                <span>{title}</span>
-                                <svg
-                                    className={`nav-section-chevron${collapsed[title] ? " nav-section-chevron--collapsed" : ""}`}
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <polyline points="6 9 12 15 18 9" />
-                                </svg>
-                            </button>
-
-                            {!collapsed[title] &&
-                                sectionPages.map((page) => (
-                                    <NavLink
-                                        key={page.slug}
-                                        to={`/${page.slug}`}
-                                        className={({ isActive }) =>
-                                            `nav-item nav-item--indented${isActive ? " nav-item--active" : ""}`
-                                        }
-                                        onClick={() => setMobileOpen(false)}
-                                    >
-                                        {page.title}
+            <nav className="docs-nav" aria-label="Documentation">
+                {docGroups.map((group) =>
+                    group.title === null ? (
+                        <ul key="root" className="docs-nav-list">
+                            {group.pages.map((p) => (
+                                <li key={p.slug}>
+                                    <NavLink to={`/${p.slug}`} end>
+                                        {p.title}
                                     </NavLink>
-                                ))}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <div key={group.title} className="docs-nav-group">
+                            <button
+                                type="button"
+                                className="docs-nav-grouphead"
+                                aria-expanded={!collapsed.has(group.title)}
+                                onClick={() => toggleGroup(group.title!)}
+                            >
+                                <span>{group.title}</span>
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                            </button>
+                            {!collapsed.has(group.title) && (
+                                <ul className="docs-nav-list">
+                                    {group.pages.map((p) => (
+                                        <li key={p.slug}>
+                                            <NavLink to={`/${p.slug}`} end>
+                                                {p.title}
+                                            </NavLink>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
-                    ))}
-                </nav>
-
-                <div className="sidebar-footer">
-                    <a
-                        href="https://github.com/destbg/SQLite.Framework"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="sidebar-link"
-                    >
-                        GitHub
-                    </a>
-                    <a
-                        href="https://www.nuget.org/packages/SQLite.Framework/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="sidebar-link"
-                    >
-                        NuGet
-                    </a>
-                    <button
-                        className="sidebar-icon-btn sidebar-search-btn"
-                        onClick={() => {
-                            setMobileOpen(false);
-                            onOpenSearch();
-                        }}
-                        aria-label="Search the docs"
-                        title="Search (or press any letter)"
-                    >
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <circle cx="11" cy="11" r="7" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                    </button>
-                    <button
-                        className="sidebar-icon-btn theme-toggle"
-                        onClick={() => setIsDark((d) => !d)}
-                        aria-label={
-                            isDark ? "Switch to light theme" : "Switch to dark theme"
-                        }
-                    >
-                        {isDark ? (
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <circle cx="12" cy="12" r="5" />
-                                <line x1="12" y1="1" x2="12" y2="3" />
-                                <line x1="12" y1="21" x2="12" y2="23" />
-                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                                <line x1="1" y1="12" x2="3" y2="12" />
-                                <line x1="21" y1="12" x2="23" y2="12" />
-                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                            </svg>
-                        ) : (
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                            </svg>
-                        )}
-                    </button>
-                </div>
-            </aside>
-
-            {mobileOpen && (
-                <div className="sidebar-overlay" onClick={() => setMobileOpen(false)} />
-            )}
-        </>
+                    ),
+                )}
+            </nav>
+            <div className="docs-sidebar-foot">
+                <a href="https://github.com/destbg/SQLite.Framework" target="_blank" rel="noopener noreferrer">
+                    GitHub
+                </a>
+                <a href="https://www.nuget.org/packages/SQLite.Framework/" target="_blank" rel="noopener noreferrer">
+                    NuGet
+                </a>
+                <button type="button" className="docs-iconbtn" aria-label="Toggle theme" onClick={toggleTheme}>
+                    <svg className="icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+                    <svg className="icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+                </button>
+            </div>
+        </aside>
     );
 }

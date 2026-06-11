@@ -5,7 +5,7 @@ import { avaloniaWalkthrough } from "./avalonia";
 import { aspnetWalkthrough } from "./aspnet";
 import { blazorWalkthrough } from "./blazor";
 
-export const walkthroughList: Walkthrough[] = [
+export const walkthroughs: Walkthrough[] = [
     consoleWalkthrough,
     mauiWalkthrough,
     avaloniaWalkthrough,
@@ -13,6 +13,8 @@ export const walkthroughList: Walkthrough[] = [
     blazorWalkthrough,
 ];
 
-export const walkthroughs: Record<string, Walkthrough> = Object.fromEntries(
-    walkthroughList.map((w) => [w.slug, w]),
-);
+export function findWalkthrough(slug: string | undefined): Walkthrough | null {
+    if (!slug) return null;
+    const lower = slug.toLowerCase();
+    return walkthroughs.find((w) => w.slug === lower) ?? null;
+}

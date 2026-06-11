@@ -23,8 +23,7 @@ dotnet add package SQLite.Framework.Bundled`,
         },
         {
             title: "Define your model",
-            description:
-                "A small Todo type is enough to see the round trip.",
+            description: "A small Todo type is enough to see the round trip.",
             code: {
                 language: "csharp",
                 filename: "Models/Todo.cs",

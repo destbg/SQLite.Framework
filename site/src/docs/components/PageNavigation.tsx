@@ -1,51 +1,30 @@
-import { NavLink } from "react-router-dom";
-import { pages } from "../pages";
+import { Link } from "react-router-dom";
+import { allPages, type DocPage } from "../pages";
 
-interface Props {
-    slug: string;
+interface PageNavigationProps {
+    current: DocPage;
 }
 
-export default function PageNavigation({ slug }: Props) {
-    const index = pages.findIndex((p) => p.slug === slug);
-    if (index === -1) return null;
-
-    const prev = index > 0 ? pages[index - 1] : null;
-    const next = index < pages.length - 1 ? pages[index + 1] : null;
-
-    if (!prev && !next) return null;
+export function PageNavigation({ current }: PageNavigationProps) {
+    const index = allPages.findIndex((p) => p.slug === current.slug);
+    const prev = index > 0 ? allPages[index - 1] : null;
+    const next = index >= 0 && index < allPages.length - 1 ? allPages[index + 1] : null;
 
     return (
-        <nav className="page-nav" aria-label="Page navigation">
+        <nav className="docs-pagenav" aria-label="Page navigation">
             {prev ? (
-                <NavLink
-                    to={prev.slug === "Home" ? "/" : `/${prev.slug}`}
-                    className="page-nav-link page-nav-link--prev"
-                >
-                    <span className="page-nav-arrow" aria-hidden="true">
-                        &larr;
-                    </span>
-                    <span className="page-nav-text">
-                        <span className="page-nav-label">Previous</span>
-                        <span className="page-nav-title">{prev.title}</span>
-                    </span>
-                </NavLink>
+                <Link to={`/${prev.slug}`} className="docs-pagenav-link docs-pagenav-prev">
+                    <small>Previous</small>
+                    <span>{prev.title}</span>
+                </Link>
             ) : (
                 <span />
             )}
-
             {next ? (
-                <NavLink
-                    to={next.slug === "Home" ? "/" : `/${next.slug}`}
-                    className="page-nav-link page-nav-link--next"
-                >
-                    <span className="page-nav-text">
-                        <span className="page-nav-label">Next</span>
-                        <span className="page-nav-title">{next.title}</span>
-                    </span>
-                    <span className="page-nav-arrow" aria-hidden="true">
-                        &rarr;
-                    </span>
-                </NavLink>
+                <Link to={`/${next.slug}`} className="docs-pagenav-link docs-pagenav-next">
+                    <small>Next</small>
+                    <span>{next.title}</span>
+                </Link>
             ) : (
                 <span />
             )}

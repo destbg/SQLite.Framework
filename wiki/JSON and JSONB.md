@@ -68,7 +68,8 @@ After that, any model with an `Address` property is handled automatically:
 ```csharp
 public class Contact
 {
-    [PrimaryKey, AutoIncrement]
+    [Key]
+    [AutoIncrement]
     public int Id { get; set; }
 
     public string Name { get; set; } = string.Empty;

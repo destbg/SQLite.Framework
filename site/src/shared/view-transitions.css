@@ -2,30 +2,29 @@
     navigation: auto;
 }
 
-::view-transition-old(root) {
-    animation: page-out 180ms ease both;
-}
-
-::view-transition-new(root) {
-    animation: page-in 260ms ease both;
-}
-
-@keyframes page-out {
+@keyframes vt-out {
     to {
         opacity: 0;
         transform: translateY(-8px);
     }
 }
 
-@keyframes page-in {
+@keyframes vt-in {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(8px);
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
+::view-transition-old(root) {
+    animation: vt-out 0.18s ease both;
+}
 
+::view-transition-new(root) {
+    animation: vt-in 0.22s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
     ::view-transition-old(root),
     ::view-transition-new(root) {
         animation: none;

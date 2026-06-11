@@ -1,50 +1,52 @@
-import { resolve } from 'node:path'
-import { defineConfig, type Connect, type PluginOption } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig, type Plugin } from "vite";
+import react from "@vitejs/plugin-react";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const SPA_DIRS = [
-    { prefix: '/Walkthrough/', html: '/Walkthrough/index.html' },
-    { prefix: '/Docs/', html: '/Docs/index.html' },
-]
+const rootDir = dirname(fileURLToPath(import.meta.url));
 
-const subdirSpaFallback = (): PluginOption => {
-    const handler: Connect.NextHandleFunction = (req, _res, next) => {
-        const url = req.url ?? '/'
-        if (!(req.headers.accept ?? '').includes('text/html')) return next()
-        const path = url.split('?')[0]
-        for (const { prefix, html } of SPA_DIRS) {
-            if (path.startsWith(prefix) && path !== prefix && path !== html) {
-                const rest = path.slice(prefix.length)
-                if (!/\.[a-zA-Z0-9]+$/.test(rest)) {
-                    req.url = html
-                }
-                break
+function subdirSpaFallback(): Plugin {
+    const rewrite = (url: string | undefined): string | null => {
+        if (!url) return null;
+        const path = url.split("?")[0];
+        for (const dir of ["/Docs/", "/Walkthrough/"]) {
+            if (path.startsWith(dir) && !path.slice(dir.length).includes(".")) {
+                return `${dir}index.html`;
             }
         }
-        next()
-    }
+        return null;
+    };
+
     return {
-        name: 'subdir-spa-fallback',
+        name: "subdir-spa-fallback",
         configureServer(server) {
-            server.middlewares.use(handler)
+            server.middlewares.use((req, _res, next) => {
+                const target = rewrite(req.url);
+                if (target) req.url = target;
+                next();
+            });
         },
         configurePreviewServer(server) {
-            server.middlewares.use(handler)
+            server.middlewares.use((req, _res, next) => {
+                const target = rewrite(req.url);
+                if (target) req.url = target;
+                next();
+            });
         },
-    }
+    };
 }
 
 export default defineConfig({
+    base: "/",
     plugins: [react(), subdirSpaFallback()],
-    base: '/',
     build: {
         rollupOptions: {
             input: {
-                landing: resolve(__dirname, 'index.html'),
-                docs: resolve(__dirname, 'Docs/index.html'),
-                walkthrough: resolve(__dirname, 'Walkthrough/index.html'),
-                why: resolve(__dirname, 'Why/index.html'),
+                landing: resolve(rootDir, "index.html"),
+                docs: resolve(rootDir, "Docs/index.html"),
+                walkthrough: resolve(rootDir, "Walkthrough/index.html"),
+                why: resolve(rootDir, "Why/index.html"),
             },
         },
     },
-})
+});
