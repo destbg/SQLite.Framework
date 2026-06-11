@@ -36,4 +36,20 @@ public class UpsertSqlBuilderTests
 
         Assert.Throws<InvalidOperationException>(() => UpsertSqlBuilder.Build(db, mapping, target, (_, p) => p));
     }
+
+    [Fact]
+    public void Build_DoUpdateAll_WithoutExtraColumns_EmitsSetForNonConflictColumns()
+    {
+        using TestDatabase db = new();
+        TableMapping mapping = db.TableMapping(typeof(Book));
+
+        SQLiteUpsertConflictTarget<Book> target = new(["BookId"]);
+        target.DoUpdateAll();
+
+        (TableColumn[] _, string sql) = UpsertSqlBuilder.Build(db, mapping, target, (_, p) => p);
+
+        Assert.Equal(
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookTitle\" = excluded.\"BookTitle\", \"BookAuthorId\" = excluded.\"BookAuthorId\", \"BookPrice\" = excluded.\"BookPrice\""),
+            N(sql));
+    }
 }

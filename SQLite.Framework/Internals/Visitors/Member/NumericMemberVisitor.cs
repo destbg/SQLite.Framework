@@ -82,7 +82,12 @@ internal static class NumericMemberVisitor
                     return visitor.NotTranslatable(node, $"{node.Method.DeclaringType!.Name}.ToString with a format string is not translatable to SQL.");
                 }
 
-                return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", obj.SQLiteExpression!, " AS TEXT)", obj.Parameters);
+                if (node.Object!.Type == typeof(decimal) && visitor.Database.Options.DecimalStorage == DecimalStorageMode.Text)
+                {
+                    return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", obj.SQLiteExpression!, " AS TEXT)", obj.Parameters);
+                }
+
+                return BuildRealToString(visitor, node.Method.ReturnType, obj.SQLiteExpression!);
             }
         }
 
@@ -126,5 +131,10 @@ internal static class NumericMemberVisitor
         }
 
         return visitor.NotTranslatable(node, $"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL.");
+    }
+
+    public static SQLiteExpression BuildRealToString(SQLVisitor visitor, Type returnType, SQLiteExpression value)
+    {
+        return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UPPER(printf('%.15g', ", value, "))", value.Parameters);
     }
 }

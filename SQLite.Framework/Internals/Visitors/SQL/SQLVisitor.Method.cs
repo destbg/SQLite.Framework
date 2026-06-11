@@ -106,6 +106,17 @@ internal partial class SQLVisitor
                             u.Parameters);
                     }
 
+                    if (nullableUnderlying == typeof(double) || nullableUnderlying == typeof(float)
+                        || (nullableUnderlying == typeof(decimal) && Database.Options.DecimalStorage == DecimalStorageMode.Real))
+                    {
+                        SQLiteExpression r = nullableObj.SQLiteExpression;
+                        SQLiteExpression formatted = NumericMemberVisitor.BuildRealToString(this, typeof(string), r);
+                        return SQLiteExpression.Multi(typeof(string), Counters.NextIdentifier(),
+                            ["(CASE WHEN ", " IS NULL THEN '' ELSE ", " END)"],
+                            [r, formatted],
+                            r.Parameters);
+                    }
+
                     return SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(),
                         "COALESCE(CAST(", nullableObj.SQLiteExpression, " AS TEXT), '')", nullableObj.SQLiteExpression.Parameters);
                 }

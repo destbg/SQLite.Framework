@@ -422,7 +422,7 @@ public class SupplementalQueryTests
             .Where(b => b.Price.ToString() == "5")
             .ToSqlCommand();
 
-        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE CAST(b0.\"BookPrice\" AS TEXT) = @p0", cmd.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE UPPER(printf('%.15g', b0.\"BookPrice\")) = @p0", cmd.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

@@ -153,7 +153,7 @@ public class MethodVisitorTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT CAST(b0."BookPrice" AS TEXT) AS "5"
+                     SELECT UPPER(printf('%.15g', b0."BookPrice")) AS "5"
                      FROM "Books" AS b0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

@@ -6,10 +6,11 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - Divide or modulo by zero is `NULL` (reads back `0` for a non-nullable result, `null` for a nullable one).
 - `Math.Sqrt`, `Math.Log` and `Math.Acos` out of domain are `NULL`. SQLite has no `NaN` or infinity.
-- Float `ToString()` keeps the decimal point, so `1.0` becomes `"1.0"`.
+- Float `ToString()` keeps at most 15 significant digits, prints a value at or above 1e15 in scientific notation, prints negative zero as `"0"`, and prints infinity as `"INF"`.
 - `decimal` is not exact: `Real` storage is a 64-bit float, `Text` storage casts to float for compare and order.
+- On `Real` decimal storage, `ToString()` formats like a `double`: trailing zeros such as `10.50` are dropped, and a very small or very large value prints in scientific notation. `Text` storage returns the stored .NET string.
 - On `Text` decimal storage, `Distinct`, the set operators, and a subquery `Contains` compare the stored text. Two equal values with a different scale, such as `10.0` and `10.00`, are then treated as different.
-- `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits. SQLite has no 32-bit float type.
+- `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits, and `ToString()` on a fractional `float` prints the digits of the stored 64-bit value. SQLite has no 32-bit float type.
 - Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
 - A `uint` multiplication that is then widened to a larger type, such as `(long)(a * b)`, keeps the full 64-bit product instead of the 32-bit wrapped value. Read the result back as `uint` to get the wrapped value.

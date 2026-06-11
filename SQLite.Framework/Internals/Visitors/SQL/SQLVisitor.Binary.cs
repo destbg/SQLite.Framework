@@ -327,7 +327,17 @@ internal partial class SQLVisitor
 
     public static SQLiteExpression CoalesceNullableStringOperand(SQLVisitor visitor, Expression operand, ResolvedModel resolved, SQLiteExpression expr)
     {
-        return StringConcatOperandMayBeNull(operand, resolved)
+        bool mayBeNull = StringConcatOperandMayBeNull(operand, resolved);
+
+        if ((Nullable.GetUnderlyingType(expr.Type) ?? expr.Type) == typeof(char)
+            && visitor.Database.Options.CharStorage == CharStorageMode.Integer)
+        {
+            return mayBeNull
+                ? SQLiteExpression.Binary(typeof(string), visitor.Counters.NextIdentifier(), "(CASE WHEN ", expr, " IS NULL THEN '' ELSE CHAR(", expr, ") END)", expr.Parameters)
+                : SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "CHAR(", expr, ")", expr.Parameters);
+        }
+
+        return mayBeNull
             ? SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "COALESCE(", expr, ", '')", expr.Parameters)
             : expr;
     }

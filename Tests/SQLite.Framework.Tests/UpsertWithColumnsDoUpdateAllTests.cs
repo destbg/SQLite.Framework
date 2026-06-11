@@ -80,4 +80,25 @@ public class UpsertWithColumnsDoUpdateAllTests
         Assert.Equal("updated", updated.Title);
         Assert.Equal(5, updated.Price);
     }
+
+    [Fact]
+    public void WithColumns_Empty_DoUpdateAll_BehavesLikePlainTable()
+    {
+        using TestDatabase db = new();
+        db.Table<Book>().Schema.CreateTable();
+
+        db.Table<Book>().Add(new Book { Id = 1, Title = "original", AuthorId = 1, Price = 5 });
+
+        db.Table<Book>()
+            .WithColumns(_ => { })
+            .Upsert(
+                new Book { Id = 1, Title = "updated", AuthorId = 2, Price = 6 },
+                c => c.OnConflict(b => b.Id).DoUpdateAll());
+
+        Book updated = db.Table<Book>().Single();
+        Assert.Equal(1, updated.Id);
+        Assert.Equal("updated", updated.Title);
+        Assert.Equal(2, updated.AuthorId);
+        Assert.Equal(6, updated.Price);
+    }
 }

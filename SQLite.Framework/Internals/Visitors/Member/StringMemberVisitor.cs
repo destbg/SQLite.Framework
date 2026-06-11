@@ -149,7 +149,13 @@ internal static class StringMemberVisitor
                 case "get_Chars":
                 {
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, " + 1, 1)", parameters);
+                    SQLiteExpression charExpr = SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, " + 1, 1)", parameters);
+                    if (visitor.Database.Options.CharStorage == CharStorageMode.Integer)
+                    {
+                        charExpr = SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "UNICODE(", charExpr, ")", parameters);
+                    }
+
+                    return charExpr;
                 }
                 case nameof(string.CompareTo):
                 {

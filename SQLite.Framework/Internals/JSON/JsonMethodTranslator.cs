@@ -218,7 +218,7 @@ internal static class JsonMethodTranslator
                 $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1), -1)", combined)
                 .WithJsonSource(),
             _ => SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                $"NOT EXISTS (SELECT 1 FROM json_each({src}) WHERE NOT ({predSql}))", combined)
+                $"NOT EXISTS (SELECT 1 FROM json_each({src}) WHERE ({predSql}) IS NOT 1)", combined)
                 .WithJsonSource(),
         };
     }
@@ -256,7 +256,7 @@ internal static class JsonMethodTranslator
                         $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1), -1)", combined)
                         .WithJsonSource(),
                     nameof(Array.TrueForAll) => SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                        $"NOT EXISTS (SELECT 1 FROM json_each({src}) WHERE NOT ({predSql}))", combined)
+                        $"NOT EXISTS (SELECT 1 FROM json_each({src}) WHERE ({predSql}) IS NOT 1)", combined)
                         .WithJsonSource(),
                     _ => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
                         $"(SELECT json_group_array({predSql}) FROM json_each({src}))", combined)

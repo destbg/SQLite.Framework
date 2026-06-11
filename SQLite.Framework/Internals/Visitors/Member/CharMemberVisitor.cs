@@ -11,6 +11,19 @@ internal static class CharMemberVisitor
             .Select(visitor.ResolveExpression)
             .ToList();
 
+        if (node.Object != null && node.Method.Name == nameof(char.ToString) && node.Arguments.Count == 0)
+        {
+            ResolvedModel obj = visitor.ResolveExpression(node.Object);
+            if (obj.SQLiteExpression == null)
+            {
+                return Expression.Call(obj.Expression, node.Method);
+            }
+
+            return visitor.Database.Options.CharStorage == CharStorageMode.Integer
+                ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CHAR(", obj.SQLiteExpression, ")", obj.Parameters)
+                : SQLiteExpression.Alias(node.Method.ReturnType, visitor.Counters.NextIdentifier(), obj.SQLiteExpression, obj.Parameters);
+        }
+
         if (arguments.Count > 0 && arguments[0].SQLiteExpression != null)
         {
             SQLiteExpression a0 = arguments[0].SQLiteExpression!;

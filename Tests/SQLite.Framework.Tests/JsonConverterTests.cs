@@ -13,6 +13,7 @@ namespace SQLite.Framework.Tests;
 [JsonSerializable(typeof(List<Person>))]
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(List<PersonWithTags>))]
+[JsonSerializable(typeof(List<int?>))]
 internal partial class TestJsonContext : JsonSerializerContext;
 
 public class JsonConverterTests
