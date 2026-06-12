@@ -142,6 +142,11 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
         }
 
+        if (SelectMaterializerEmitter.IsInaccessibleStaticCapture(node, ctx))
+        {
+            return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
+        }
+
         SymbolInfo info = ctx.Model.GetSymbolInfo(node);
         ISymbol? symbol = info.Symbol;
 

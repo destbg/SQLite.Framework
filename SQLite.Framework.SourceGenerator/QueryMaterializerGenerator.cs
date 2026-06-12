@@ -983,7 +983,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         string name = symbol.ConstructedFrom.ToDisplayString();
-        return name == "System.Tuple<T1, T2>"
+        return name.StartsWith("System.Tuple<", StringComparison.Ordinal)
             || name == "System.Collections.Generic.KeyValuePair<TKey, TValue>";
     }
 

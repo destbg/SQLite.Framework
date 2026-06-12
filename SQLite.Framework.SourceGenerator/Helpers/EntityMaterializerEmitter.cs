@@ -227,7 +227,7 @@ public static class EntityMaterializerEmitter
                 }
             }
 
-            strategy = EmitStrategy.Positional;
+            strategy = ArePositionalExtrasAssignable(entity, structPositional) ? EmitStrategy.Positional : EmitStrategy.PositionalReflection;
             return true;
         }
 
@@ -290,7 +290,9 @@ public static class EntityMaterializerEmitter
                 return false;
             }
 
-            strategy = IsReachableFromGeneratedCode(entity) ? EmitStrategy.Positional : EmitStrategy.PositionalReflection;
+            strategy = IsReachableFromGeneratedCode(entity) && ArePositionalExtrasAssignable(entity, positional)
+                ? EmitStrategy.Positional
+                : EmitStrategy.PositionalReflection;
             return true;
         }
 
@@ -314,6 +316,11 @@ public static class EntityMaterializerEmitter
             {
                 anyPropNeedsReflection = true;
             }
+
+            if (prop.DeclaredAccessibility == Accessibility.Public && !IsSetterAccessibleFromGeneratedCode(prop))
+            {
+                anyPropNeedsReflection = true;
+            }
         }
 
         strategy = (!canNameEntity || !hasPublicParameterlessCtor || anyPropNeedsReflection)
@@ -333,6 +340,39 @@ public static class EntityMaterializerEmitter
         }
 
         return false;
+    }
+
+    private static bool IsSetterAccessibleFromGeneratedCode(IPropertySymbol prop)
+    {
+        return prop.SetMethod == null
+            || prop.SetMethod.DeclaredAccessibility is Accessibility.Public
+                or Accessibility.Internal
+                or Accessibility.ProtectedOrInternal
+                or Accessibility.NotApplicable;
+    }
+
+    private static bool ArePositionalExtrasAssignable(INamedTypeSymbol entity, IMethodSymbol ctor)
+    {
+        HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
+        foreach (IParameterSymbol parameter in ctor.Parameters)
+        {
+            ctorParameterNames.Add(parameter.Name);
+        }
+
+        foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
+        {
+            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null || ctorParameterNames.Contains(prop.Name))
+            {
+                continue;
+            }
+
+            if (!IsSetterAccessibleFromGeneratedCode(prop))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static IMethodSymbol? TryFindPositionalConstructor(INamedTypeSymbol entity)
@@ -661,6 +701,7 @@ public static class EntityMaterializerEmitter
         List<IPropertySymbol> requiredNotMapped = GetRequiredNotMappedProperties(entity);
 
         IMethodSymbol? positionalCtor = HasPublicParameterlessConstructor(entity) ? null : TryFindPositionalConstructor(entity);
+        List<int> inaccessibleIndexes = new();
 
         if (positionalCtor != null)
         {
@@ -687,9 +728,18 @@ public static class EntityMaterializerEmitter
             List<int> extraIndexes = new();
             for (int i = 0; i < writableProps.Count; i++)
             {
-                if (!ctorParameterNames.Contains(writableProps[i].Name))
+                if (ctorParameterNames.Contains(writableProps[i].Name))
+                {
+                    continue;
+                }
+
+                if (IsSetterAccessibleFromGeneratedCode(writableProps[i]))
                 {
                     extraIndexes.Add(i);
+                }
+                else
+                {
+                    inaccessibleIndexes.Add(i);
                 }
             }
 
@@ -722,13 +772,26 @@ public static class EntityMaterializerEmitter
         }
         else
         {
-            int totalEntries = writableProps.Count + requiredNotMapped.Count;
+            List<int> initializerIndexes = new();
+            for (int i = 0; i < writableProps.Count; i++)
+            {
+                if (IsSetterAccessibleFromGeneratedCode(writableProps[i]))
+                {
+                    initializerIndexes.Add(i);
+                }
+                else
+                {
+                    inaccessibleIndexes.Add(i);
+                }
+            }
+
+            int totalEntries = initializerIndexes.Count + requiredNotMapped.Count;
 
             sb.Append(indent).Append(typeName).Append(" ").Append(resultLocalName).AppendLine(" = new()");
             sb.Append(indent).AppendLine("{");
 
             int written = 0;
-            for (int i = 0; i < writableProps.Count; i++)
+            foreach (int i in initializerIndexes)
             {
                 sb.Append(indent).Append("    ").Append(writableProps[i].Name).Append(" = ").Append(propValueLocals[i]);
                 written++;
@@ -745,9 +808,44 @@ public static class EntityMaterializerEmitter
             sb.Append(indent).AppendLine("};");
         }
 
+        EmitInaccessibleSetterAssignments(sb, preamble, preambleIndent, indent, entity, typeName, resultLocalName, resultSuffix, writableProps, propValueLocals, inaccessibleIndexes);
+
         if (columnPrefix.Length > 0 && entity.IsReferenceType && nonNullChecks.Count > 0)
         {
             sb.Append(indent).Append("if (!(").Append(string.Join(" || ", nonNullChecks)).Append(")) ").Append(resultLocalName).AppendLine(" = null;");
+        }
+    }
+
+    private static void EmitInaccessibleSetterAssignments(StringBuilder sb, StringBuilder preamble, string preambleIndent, string indent, INamedTypeSymbol entity, string typeName, string resultLocalName, string resultSuffix, List<IPropertySymbol> writableProps, List<string> propValueLocals, List<int> indexes)
+    {
+        if (indexes.Count == 0)
+        {
+            return;
+        }
+
+        foreach (int i in indexes)
+        {
+            preamble.Append(preambleIndent).Append("global::System.Reflection.PropertyInfo __pset_").Append(resultSuffix).Append('_').Append(i)
+                .Append(" = typeof(").Append(typeName).Append(").GetProperty(\"").Append(writableProps[i].Name)
+                .AppendLine("\", global::System.Reflection.BindingFlags.Instance | global::System.Reflection.BindingFlags.Public | global::System.Reflection.BindingFlags.NonPublic)!;");
+        }
+
+        if (entity.IsValueType)
+        {
+            string boxLocal = "__box_" + resultSuffix;
+            sb.Append(indent).Append("object ").Append(boxLocal).Append(" = ").Append(resultLocalName).AppendLine(";");
+            foreach (int i in indexes)
+            {
+                sb.Append(indent).Append("__pset_").Append(resultSuffix).Append('_').Append(i).Append(".SetValue(").Append(boxLocal).Append(", ").Append(propValueLocals[i]).AppendLine(");");
+            }
+            sb.Append(indent).Append(resultLocalName).Append(" = (").Append(typeName).Append(')').Append(boxLocal).AppendLine(";");
+        }
+        else
+        {
+            foreach (int i in indexes)
+            {
+                sb.Append(indent).Append("__pset_").Append(resultSuffix).Append('_').Append(i).Append(".SetValue(").Append(resultLocalName).Append(", ").Append(propValueLocals[i]).AppendLine(");");
+            }
         }
     }
 

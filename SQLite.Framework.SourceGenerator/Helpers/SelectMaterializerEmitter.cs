@@ -239,6 +239,36 @@ public static class SelectMaterializerEmitter
     }
 
     /// <summary>
+    /// Tells whether a member access reads a static field or property that the generated
+    /// code cannot reference directly and must read as a captured value instead.
+    /// </summary>
+    public static bool IsInaccessibleStaticCapture(MemberAccessExpressionSyntax access, EmitContext ctx)
+    {
+        if (access.Kind() != SyntaxKind.SimpleMemberAccessExpression)
+        {
+            return false;
+        }
+
+        if (ctx.Model.GetConstantValue(access).HasValue)
+        {
+            return false;
+        }
+
+        ISymbol? symbol = ctx.Model.GetSymbolInfo(access).Symbol;
+        if (symbol is not (IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true }))
+        {
+            return false;
+        }
+
+        if (ctx.Model.GetSymbolInfo(access.Expression).Symbol is not ITypeSymbol)
+        {
+            return false;
+        }
+
+        return !IsSymbolAccessibleFromGenerator(symbol, ctx.GeneratorAssembly);
+    }
+
+    /// <summary>
     /// Tells whether a symbol is accessible from the generator assembly.
     /// </summary>
     public static bool IsSymbolAccessibleFromGenerator(ISymbol? symbol, IAssemblySymbol? generatorAssembly)
@@ -477,22 +507,267 @@ public static class SelectMaterializerEmitter
         string elementTypeText = FormatType(elementType, ctx.WriterCtx.TypeArgSubstitutions);
 
         StringBuilder bodyBuilder = new();
+        FullyQualifiedRewriter rewriter = new(ctx);
         bodyBuilder.Append("new ").Append(elementTypeText).Append("[] { ");
         for (int i = 0; i < initializer.Expressions.Count; i++)
         {
-            int idx = ctx.Leaves.Count;
-            string varName = "__leaf_" + idx;
-            ctx.Leaves.Add(new LeafInfo(initializer.Expressions[i], elementType, varName, isNullableElement));
-
             if (i > 0)
             {
                 bodyBuilder.Append(", ");
             }
-            bodyBuilder.Append('(').Append(elementTypeText).Append(')').Append(varName);
+
+            ExpressionSyntax element = initializer.Expressions[i];
+            if (!ContainsClientEvalCall(element, ctx))
+            {
+                int idx = ctx.Leaves.Count;
+                string varName = "__leaf_" + idx;
+                ctx.Leaves.Add(new LeafInfo(element, elementType, varName, isNullableElement));
+                bodyBuilder.Append('(').Append(elementTypeText).Append(')').Append(varName);
+                continue;
+            }
+
+            if (!TryCollectClientElementLeaves(element, ctx))
+            {
+                return null;
+            }
+
+            SyntaxNode? rewritten = rewriter.Visit(element);
+            if (rewriter.Failed || rewritten is not ExpressionSyntax rewrittenElement)
+            {
+                return null;
+            }
+
+            bodyBuilder.Append('(').Append(elementTypeText).Append(")(")
+                .Append(rewrittenElement.NormalizeWhitespace(indentation: "", eol: " ").ToFullString())
+                .Append(')');
         }
         bodyBuilder.Append(" }");
 
         return bodyBuilder.ToString();
+    }
+
+    private static bool ContainsClientEvalCall(SyntaxNode node, EmitContext ctx)
+    {
+        if (node is IdentifierNameSyntax substIdent
+            && ctx.Model.GetSymbolInfo(substIdent).Symbol is { } substSym
+            && ctx.WriterCtx.ParameterSubstitutions.TryGetValue(substSym, out ExpressionSyntax? substExpr))
+        {
+            return ContainsClientEvalCall(substExpr, ctx);
+        }
+
+        if (node is InvocationExpressionSyntax invoke
+            && ctx.Model.GetSymbolInfo(invoke).Symbol is IMethodSymbol method
+            && IsClientEvalMethod(method))
+        {
+            return true;
+        }
+
+        foreach (SyntaxNode child in node.ChildNodes())
+        {
+            if (ContainsClientEvalCall(child, ctx))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsClientEvalMethod(IMethodSymbol method)
+    {
+        if (IsSqlOnlyCallable(method) || IsFrameworkTranslatedMethod(method))
+        {
+            return false;
+        }
+
+        INamedTypeSymbol? containing = method.ContainingType;
+        if (containing == null)
+        {
+            return false;
+        }
+
+        if (containing.TypeKind == TypeKind.Enum)
+        {
+            return false;
+        }
+
+        if (containing.IsGenericType && containing.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
+        {
+            return false;
+        }
+
+        switch (containing.SpecialType)
+        {
+            case SpecialType.System_Object:
+            case SpecialType.System_Enum:
+            case SpecialType.System_String:
+            case SpecialType.System_Char:
+            case SpecialType.System_SByte:
+            case SpecialType.System_Byte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+            case SpecialType.System_Single:
+            case SpecialType.System_Double:
+            case SpecialType.System_Decimal:
+                return false;
+        }
+
+        string display = containing.ToDisplayString();
+        return display is not ("System.Math"
+            or "System.DateTime"
+            or "System.DateTimeOffset"
+            or "System.TimeSpan"
+            or "System.DateOnly"
+            or "System.TimeOnly"
+            or "System.Guid");
+    }
+
+    private static bool TryCollectClientElementLeaves(ExpressionSyntax node, EmitContext ctx)
+    {
+        while (node is ParenthesizedExpressionSyntax paren)
+        {
+            node = paren.Expression;
+        }
+
+        if (node is IdentifierNameSyntax substIdent
+            && ctx.Model.GetSymbolInfo(substIdent).Symbol is { } substSym
+            && ctx.WriterCtx.ParameterSubstitutions.TryGetValue(substSym, out ExpressionSyntax? substExpr))
+        {
+            return TryCollectClientElementLeaves(substExpr, ctx);
+        }
+
+        switch (node)
+        {
+            case InvocationExpressionSyntax invoke:
+            {
+                if (ctx.Model.GetSymbolInfo(invoke).Symbol is not IMethodSymbol method || !IsClientEvalMethod(method))
+                {
+                    return false;
+                }
+
+                if (invoke.Expression is MemberAccessExpressionSyntax recvMa)
+                {
+                    if (ctx.Model.GetSymbolInfo(recvMa.Expression).Symbol is not ITypeSymbol
+                        && !TryCollectClientOperand(recvMa.Expression, ctx))
+                    {
+                        return false;
+                    }
+                }
+                else if (!method.IsStatic)
+                {
+                    return false;
+                }
+
+                foreach (ArgumentSyntax arg in invoke.ArgumentList.Arguments)
+                {
+                    if (!TryCollectClientOperand(arg.Expression, ctx))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            case BinaryExpressionSyntax bin:
+                if (bin.Kind() == SyntaxKind.AsExpression || bin.Kind() == SyntaxKind.IsExpression)
+                {
+                    return false;
+                }
+
+                return TryCollectClientOperand(bin.Left, ctx)
+                    && TryCollectClientOperand(bin.Right, ctx);
+
+            case PrefixUnaryExpressionSyntax unary
+                when unary.Kind() == SyntaxKind.LogicalNotExpression || unary.Kind() == SyntaxKind.UnaryMinusExpression:
+                return TryCollectClientOperand(unary.Operand, ctx);
+
+            case CastExpressionSyntax cast:
+                return ContainsClientEvalCall(cast.Expression, ctx)
+                    && TryCollectClientOperand(cast.Expression, ctx);
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryCollectClientOperand(ExpressionSyntax node, EmitContext ctx)
+    {
+        while (node is ParenthesizedExpressionSyntax paren)
+        {
+            node = paren.Expression;
+        }
+
+        if (node is IdentifierNameSyntax substIdent
+            && ctx.Model.GetSymbolInfo(substIdent).Symbol is { } substSym
+            && ctx.WriterCtx.ParameterSubstitutions.TryGetValue(substSym, out ExpressionSyntax? substExpr))
+        {
+            return TryCollectClientOperand(substExpr, ctx);
+        }
+
+        if (ContainsClientEvalCall(node, ctx))
+        {
+            return TryCollectClientElementLeaves(node, ctx);
+        }
+
+        if (SelectSignatureWriter.IsRowLikeReference(node, ctx.WriterCtx))
+        {
+            return RegisterRowExpansion(node, ctx);
+        }
+
+        if (SelectSignatureWriter.IsStableConstantSubtree(node, ctx.WriterCtx))
+        {
+            return true;
+        }
+
+        if (node is MemberAccessExpressionSyntax access
+            && access.Kind() == SyntaxKind.SimpleMemberAccessExpression
+            && access.Expression is IdentifierNameSyntax rowIdent
+            && IsRowReference(rowIdent, ctx)
+            && !SelectSignatureWriter.IsNotMappedMember(ctx.Model.GetSymbolInfo(access).Symbol))
+        {
+            return TryRegisterRowMemberLeaf(access, rowIdent, ctx, allowReflected: false);
+        }
+
+        return false;
+    }
+
+    private static bool TryRegisterRowMemberLeaf(MemberAccessExpressionSyntax access, IdentifierNameSyntax rowIdent, EmitContext ctx, bool allowReflected)
+    {
+        ITypeSymbol? declaredLeafType = ctx.Model.GetTypeInfo(access).Type;
+        ITypeSymbol? convertedLeafType = ctx.Model.GetTypeInfo(access).ConvertedType;
+        ITypeSymbol? leafType = declaredLeafType is { IsValueType: true }
+            && convertedLeafType is { IsValueType: false }
+            ? declaredLeafType
+            : convertedLeafType ?? declaredLeafType;
+        if (leafType == null)
+        {
+            return false;
+        }
+
+        bool isReflected = !IsTypeAccessibleFromGenerator(leafType, ctx.GeneratorAssembly);
+        if (isReflected && !allowReflected)
+        {
+            return false;
+        }
+
+        bool isNullable = IsNullableRangeVarIdentifier(rowIdent, ctx);
+        int idx = ctx.Leaves.Count;
+        string varName = "__leaf_" + idx;
+        ctx.Leaves.Add(new LeafInfo(access, leafType, varName, isNullable, isReflected));
+        ctx.LeafIndexBySyntax[access] = idx;
+        if (isNullable
+            && ctx.Model.GetSymbolInfo(rowIdent).Symbol is { } rowSym
+            && !ctx.NullableRangeFirstLeaf.ContainsKey(rowSym))
+        {
+            ctx.NullableRangeFirstLeaf[rowSym] = idx;
+        }
+
+        return true;
     }
 
     private static bool CollectLeaves(SyntaxNode node, EmitContext ctx)
@@ -563,30 +838,16 @@ public static class SelectMaterializerEmitter
                         return RegisterRowExpansion(access.Expression, ctx);
                     }
 
-                    ITypeSymbol? declaredLeafType = ctx.Model.GetTypeInfo(access).Type;
-                    ITypeSymbol? convertedLeafType = ctx.Model.GetTypeInfo(access).ConvertedType;
-                    ITypeSymbol? leafType = declaredLeafType is { IsValueType: true }
-                        && convertedLeafType is { IsValueType: false }
-                        ? declaredLeafType
-                        : convertedLeafType ?? declaredLeafType;
-                    if (leafType == null)
-                    {
-                        return false;
-                    }
+                    return TryRegisterRowMemberLeaf(access, rowIdent, ctx, allowReflected: true);
+                }
 
-                    bool isReflected = !IsTypeAccessibleFromGenerator(leafType, ctx.GeneratorAssembly);
-                    bool isNullable = IsNullableRangeVarIdentifier(rowIdent, ctx);
-                    int idx = ctx.Leaves.Count;
-                    string varName = "__leaf_" + idx;
-                    ctx.Leaves.Add(new LeafInfo(access, leafType, varName, isNullable, isReflected));
-                    ctx.LeafIndexBySyntax[access] = idx;
-                    if (isNullable && ctx.Model.GetSymbolInfo(rowIdent).Symbol is { } rowSym)
-                    {
-                        if (!ctx.NullableRangeFirstLeaf.ContainsKey(rowSym))
-                        {
-                            ctx.NullableRangeFirstLeaf[rowSym] = idx;
-                        }
-                    }
+                if (SelectSignatureWriter.IsCapturedValue(access, ctx.WriterCtx))
+                {
+                    return true;
+                }
+
+                if (IsInaccessibleStaticCapture(access, ctx))
+                {
                     return true;
                 }
 
@@ -628,6 +889,11 @@ public static class SelectMaterializerEmitter
                     && ident.Parent is MemberAccessExpressionSyntax typeReceiverMa
                     && typeReceiverMa.Expression == ident
                     && typeReceiverMa.Parent is InvocationExpressionSyntax)
+                {
+                    return true;
+                }
+
+                if (SelectSignatureWriter.IsCapturedValue(ident, ctx.WriterCtx))
                 {
                     return true;
                 }
