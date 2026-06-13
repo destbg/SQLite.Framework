@@ -26,7 +26,7 @@ internal static class ComparerArgumentGuard
         }
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "The comparer type comes from a user-supplied LINQ argument and is only inspected to throw a clear NotSupportedException.")]
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Comparer type is only inspected to throw NotSupportedException.")]
     private static bool IsEqualityComparerType(Type type)
     {
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEqualityComparer<>))

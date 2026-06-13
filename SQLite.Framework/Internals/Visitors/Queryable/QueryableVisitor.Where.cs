@@ -143,7 +143,14 @@ internal partial class QueryableVisitor
                     throw new NotSupportedException($"Unsupported WHERE expression {lambda.Body}");
                 }
 
-                Wheres.Add(sqlExpression);
+                if (GroupBys.Count != 0)
+                {
+                    Havings.Add(sqlExpression);
+                }
+                else
+                {
+                    Wheres.Add(sqlExpression);
+                }
             }
             else
             {

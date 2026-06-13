@@ -112,7 +112,7 @@ internal partial class QueryableVisitor
 
 
 
-    [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Pragma function entity types are referenced by user code, so their public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Pragma entity types are rooted by user code.")]
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "The type is an entity.")]
@@ -253,17 +253,30 @@ internal partial class QueryableVisitor
             visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
             sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteParamRef.Alias} AS {alias}");
         }
-        else if (body.Type.IsGenericType && body.Type.GetGenericTypeDefinition() == typeof(IQueryable<>))
+        else if (TryGetQueryableElementType(body.Type) is { } queryableElementType)
         {
             SQLTranslator innerVisitor = visitor.CloneDeeper(visitor.Level + 1);
             SQLQuery query = innerVisitor.Translate(body);
 
-            entityType = body.Type.GetGenericArguments()[0];
+            entityType = queryableElementType;
             char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
             string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
-            newTableColumns = entityType.GetProperties()
-                .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+            if (TypeHelpers.IsSimple(entityType, database.Options) && innerVisitor.Selects.Count == 1)
+            {
+                KeyValuePair<string, Expression> shape = innerVisitor.Visitor.TableColumns.First();
+                string columnName = innerVisitor.Selects[0].IdentifierText;
+                newTableColumns = new Dictionary<string, Expression>
+                {
+                    [shape.Key] = SQLiteExpression.Leaf(entityType, visitor.Counters.NextIdentifier(), $"{alias}.\"{columnName}\"")
+                };
+            }
+            else
+            {
+                newTableColumns = entityType.GetProperties()
+                    .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+            }
+
             visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
             sql = SQLiteExpression.Leaf(
                 body.Type,
@@ -278,5 +291,18 @@ internal partial class QueryableVisitor
         }
 
         return (newTableColumns, entityType, sql);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Reads the IQueryable<> interface only.")]
+    private static Type? TryGetQueryableElementType(Type type)
+    {
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IQueryable<>))
+        {
+            return type.GetGenericArguments()[0];
+        }
+
+        Type? queryableInterface = type.GetInterfaces()
+            .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IQueryable<>));
+        return queryableInterface?.GetGenericArguments()[0];
     }
 }

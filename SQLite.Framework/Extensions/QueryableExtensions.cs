@@ -176,7 +176,7 @@ public static class QueryableExtensions
     /// <summary>
     /// Executes the query and updates the records in the database.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The From type comes from a Table<T>() in the queryable chain, so its public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "From type is rooted by the user Table<T>().")]
     public static int ExecuteUpdate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this IQueryable<T> source, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
     {
         if (source is not BaseSQLiteQueryable table)
@@ -275,7 +275,7 @@ public static class QueryableExtensions
     /// projection goes through the same pipeline as <c>Select</c>, so a matching
     /// source-generated materializer is used when one is registered.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The From type comes from a Table<T>() in the queryable chain, so its public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "From type is rooted by the user Table<T>().")]
     public static List<TResult> ExecuteUpdate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningQueryable<T, TResult> returning, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
     {
         ArgumentNullException.ThrowIfNull(returning);
@@ -372,7 +372,7 @@ public static class QueryableExtensions
     /// Overrides the global source-generated materializer for this specific query and uses
     /// runtime reflection to materialize results instead.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The method reference is only used to build an Expression tree, it is never invoked by the translator.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Method reference only builds an Expression tree.")]
     public static IQueryable<T> UseReflectionMaterializer<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IQueryable<T> source)
     {
         ArgumentNullException.ThrowIfNull(source);

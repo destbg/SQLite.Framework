@@ -5,7 +5,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class RowParameterExpander
 {
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The returned LambdaExpression is consumed as an expression tree by the translator, never compiled into a delegate.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Result is used as an expression tree, never compiled.")]
     public static LambdaExpression ExpandRowsInMethodCalls(LambdaExpression lambda, IEnumerable<ParameterExpression> rowParameters)
     {
         HashSet<ParameterExpression> set = [.. rowParameters];

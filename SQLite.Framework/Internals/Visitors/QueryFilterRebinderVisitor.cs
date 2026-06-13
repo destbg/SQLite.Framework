@@ -27,7 +27,7 @@ internal sealed class QueryFilterRebinderVisitor : ExpressionVisitor
         return base.VisitParameter(node);
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Entity types reach the rebinder via the user's Table<T>() reference, which preserves public properties and fields.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Entity types are preserved by the user Table<T>().")]
     protected override Expression VisitMember(MemberExpression node)
     {
         Expression? expression = node.Expression != null ? Visit(node.Expression) : null;

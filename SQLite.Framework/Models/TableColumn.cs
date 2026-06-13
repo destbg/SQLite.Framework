@@ -12,7 +12,7 @@ public class TableColumn
     /// <summary>
     /// Initializes a new instance of the <see cref="TableColumn"/> class.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Activator.CreateInstance is only called for value types, which always have a public parameterless constructor.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Value types always have a parameterless constructor.")]
     public TableColumn(PropertyInfo property, SQLiteOptions options, bool isFtsRowId = false)
     {
         ColumnAttribute? columnAttribute = property.GetCustomAttribute<ColumnAttribute>();

@@ -11,7 +11,7 @@ internal static class NullableMemberVisitor
         };
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "underlying is the unwrapped value type from a Nullable<T>, which always has a public parameterless constructor.")]
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Nullable<T> underlying value type has a parameterless constructor.")]
     public static Expression HandleGetValueOrDefault(SQLVisitor visitor, MethodCallExpression node, Type underlying)
     {
         ResolvedModel obj = visitor.ResolveExpression(node.Object!);

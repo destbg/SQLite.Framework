@@ -892,7 +892,7 @@ public sealed class SQLiteOptionsBuilder
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075",
-        Justification = "JsonSerializerContext subclasses are produced by the System.Text.Json source generator, which keeps their public JsonTypeInfo<T> properties rooted.")]
+        Justification = "JsonSerializerContext members are rooted by the JSON source generator.")]
     private static IEnumerable<JsonTypeInfo> EnumerateContextRoots(JsonSerializerContext context)
     {
         foreach (PropertyInfo pi in context.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))

@@ -65,7 +65,7 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
         return false;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Row types are preserved via DynamicallyAccessedMembers on the Queryable<T> type parameter.")]
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Row types are preserved by Queryable<T>.")]
     private static bool IsConstructibleEntityType(Type type)
     {
         if (type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(decimal))
@@ -94,8 +94,8 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
             || declaringType.Namespace == "SQLite.Framework.Extensions";
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Row types are preserved via DynamicallyAccessedMembers on the Queryable<T> type parameter.")]
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Row types are preserved via DynamicallyAccessedMembers on the Queryable<T> type parameter.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Row types are preserved by Queryable<T>.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Row types are preserved by Queryable<T>.")]
     private static MemberInitExpression BuildMaterialization(Expression rowReference)
     {
         Type type = rowReference.Type;

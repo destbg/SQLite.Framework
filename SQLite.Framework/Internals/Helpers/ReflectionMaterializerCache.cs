@@ -58,8 +58,8 @@ internal static class ReflectionMaterializerCache
         };
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Falls back to Activator.CreateInstance when MakeGenericType is unsupported under NativeAOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL2055", Justification = "Falls back to Activator.CreateInstance when MakeGenericType is unsupported under NativeAOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Falls back to Activator.CreateInstance under NativeAOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL2055", Justification = "Falls back to Activator.CreateInstance under NativeAOT.")]
     private static IInstanceFactory? CreateFactory([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type)
     {
         if (type.IsValueType || !RuntimeFeature.IsDynamicCodeSupported)
@@ -76,8 +76,8 @@ internal static class ReflectionMaterializerCache
         return (IInstanceFactory)Activator.CreateInstance(factoryType)!;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Falls back to the boxed setter when MakeGenericMethod is unsupported under NativeAOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Falls back to the boxed setter when MakeGenericMethod is unsupported under NativeAOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Falls back to the boxed setter under NativeAOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Falls back to the boxed setter under NativeAOT.")]
     private static Action<sqlite3_stmt, int, object>? CreateAssigner(PropertyInfo prop, Type propType, Type targetType, SQLiteOptions options)
     {
         Type declaringType = prop.DeclaringType!;
@@ -157,8 +157,8 @@ internal static class ReflectionMaterializerCache
         };
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Falls back to PropertyInfo.SetValue when MakeGenericType is unsupported under NativeAOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL2055", Justification = "Falls back to PropertyInfo.SetValue when MakeGenericType is unsupported under NativeAOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Falls back to PropertyInfo.SetValue under NativeAOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL2055", Justification = "Falls back to PropertyInfo.SetValue under NativeAOT.")]
     private static Action<object, object?> CreateSetter(PropertyInfo prop)
     {
         Type declaringType = prop.DeclaringType!;

@@ -5,7 +5,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class QueryFilterRebinder
 {
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Func<TEntity, bool> is constructed for entity types preserved by the user's Table<T>() reference.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Entity types are preserved by the user Table<T>().")]
     public static LambdaExpression Rebind(LambdaExpression source, Type entityType)
     {
         ParameterExpression oldP = source.Parameters[0];

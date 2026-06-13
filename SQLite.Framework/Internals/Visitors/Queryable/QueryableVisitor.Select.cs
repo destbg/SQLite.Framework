@@ -161,12 +161,24 @@ internal partial class QueryableVisitor
         return expression;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Builds an expression tree for the translator.")]
     private MethodCallExpression VisitSelectMany(MethodCallExpression node)
     {
         ThrowIfSetOperations(node.Method.Name);
 
         LambdaExpression selector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
-        LambdaExpression resultSelector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[2]);
+        LambdaExpression resultSelector;
+        if (node.Arguments.Count >= 3)
+        {
+            resultSelector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[2]);
+        }
+        else
+        {
+            Type innerElementType = selector.Body.Type.GetGenericArguments()[^1];
+            ParameterExpression outerParam = Expression.Parameter(selector.Parameters[0].Type, "s");
+            ParameterExpression innerParam = Expression.Parameter(innerElementType, "x");
+            resultSelector = Expression.Lambda(innerParam, outerParam, innerParam);
+        }
 
         if (selector.Body is MethodCallExpression { Method.Name: nameof(Enumerable.DefaultIfEmpty) } methodCallExpression)
         {

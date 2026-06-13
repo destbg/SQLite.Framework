@@ -1020,7 +1020,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "The methods being looked up are protected on this class; reflecting on the runtime subclass is only used to detect that an override exists and falls back to the per-row code path that already routes through the overridden method via the regular virtual call.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Reflects the subclass only to detect a protected override.")]
     private bool IsItemMethodOverridden(string methodName)
     {
         Type runtime = GetType();

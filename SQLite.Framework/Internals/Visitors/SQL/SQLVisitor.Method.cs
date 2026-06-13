@@ -220,7 +220,7 @@ internal partial class SQLVisitor
             "Migrate expression.");
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The value type is the generic argument of SQLiteColumn.Of, which the caller declares.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Value type is the caller SQLiteColumn.Of argument.")]
     private SQLiteExpression BuildShadowColumnLeaf(Type type, string? aliasPrefix, string name)
     {
         string colSql = aliasPrefix != null

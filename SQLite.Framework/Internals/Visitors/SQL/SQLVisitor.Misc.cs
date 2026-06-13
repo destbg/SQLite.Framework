@@ -190,7 +190,7 @@ internal partial class SQLVisitor
         };
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Pragma entity types are referenced by user code, so their public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Pragma entity types are rooted by user code.")]
     private void AssignPragma(IPragmaTableSource pragma)
     {
         Type entityType = pragma.ElementType;

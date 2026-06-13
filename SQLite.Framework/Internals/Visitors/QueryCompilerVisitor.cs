@@ -643,8 +643,8 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return InvokeOperator(fallbackOpen, left, right, options)!;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback for non-primitive user types under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback for non-primitive user types under AOT.")]
     private static object? InvokeOperator(MethodInfo openMethod, object left, object right, SQLiteOptions options)
     {
         if (openMethod == BinaryAdditionOperator)
@@ -808,8 +808,8 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return InvokeGenericOperator(openMethod, left, right, options);
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback for non-primitive user types under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback for non-primitive user types under AOT.")]
     private static object? InvokeUnaryOperator(MethodInfo openMethod, object operand, SQLiteOptions options)
     {
         if (openMethod == BinaryNegationOperator)
@@ -830,8 +830,8 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return InvokeGenericUnaryOperator(openMethod, operand, options);
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; user types implementing IAdditionOperators etc. must supply DynamicDependency hints under AOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; user types implementing IAdditionOperators etc. must supply DynamicDependency hints under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback for non-primitive user operator types under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback for non-primitive user operator types under AOT.")]
     private static object? InvokeGenericOperator(MethodInfo openMethod, object left, object right, SQLiteOptions options)
     {
         Type type = left.GetType();
@@ -849,8 +849,8 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return concrete.Invoke(null, [left, right]);
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; user types implementing IUnaryNegationOperators must supply DynamicDependency hints under AOT.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback path for non-primitive types; user types implementing IUnaryNegationOperators must supply DynamicDependency hints under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback for non-primitive user operator types under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Fallback for non-primitive user operator types under AOT.")]
     private static object? InvokeGenericUnaryOperator(MethodInfo openMethod, object operand, SQLiteOptions options)
     {
         Type type = operand.GetType();

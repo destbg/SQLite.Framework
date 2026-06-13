@@ -832,7 +832,7 @@ public class SQLiteSchema
     /// Returns the SQL table name of the source content table for an external-content FTS5 table.
     /// Override to change how the source table name is resolved.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
     protected virtual string ResolveContentTableName(FtsTableInfo fts)
     {
         Type sourceType = fts.Attribute.ContentTable!;
@@ -846,7 +846,7 @@ public class SQLiteSchema
     /// <see cref="FullTextSearchAttribute.ContentRowIdColumn" /> when set. Override to choose a
     /// different column.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
     protected virtual string ResolveContentRowIdColumn(FtsTableInfo fts, TableMapping mapping)
     {
         Type sourceType = fts.Attribute.ContentTable!;
@@ -879,7 +879,7 @@ public class SQLiteSchema
     /// virtual table aligned with its external content table. Override to change the trigger
     /// shape, for example to add a <c>WHERE</c> clause or use partial triggers.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
     protected virtual IEnumerable<string> BuildTriggerSql(FtsTableInfo fts, TableMapping mapping)
     {
         string ftsName = mapping.TableName;

@@ -907,8 +907,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 #endif
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "IGrouping<TKey, TElement> is referenced by user code; TKey and TElement are already rooted by their own code.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<TKey, TElement> is referenced by user code; TKey and TElement are already rooted by their own code.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "IGrouping<TKey, TElement> is rooted by user code.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<TKey, TElement> is rooted by user code.")]
     internal IEnumerable<T> ExecuteSequenceQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression expression)
     {
         if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(IGrouping<,>))
@@ -1324,8 +1324,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2073", Justification = "BaseSQLiteQueryable.ElementType comes from Queryable<T> / SQLiteTable<T>, which already require PublicProperties and PublicConstructors via DynamicallyAccessedMembers on T.")]
-    [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "The fallback path is unreachable in practice, every framework queryable chain bottoms out at a BaseSQLiteQueryable constant. The fallback exists only for defensiveness.")]
+    [UnconditionalSuppressMessage("AOT", "IL2073", Justification = "ElementType is preserved by Queryable<T>/SQLiteTable<T>.")]
+    [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "Defensive fallback; chains bottom out at a BaseSQLiteQueryable constant.")]
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)]
     private static Type FindRootElementType(Expression expression)
     {
@@ -1349,7 +1349,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Parameter objects are user-provided; callers using an anonymous object must preserve its properties (anonymous types declared in user code are preserved automatically).")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Parameter objects are user-provided and rooted by user code.")]
     private static List<SQLiteParameter> ToParameterList(object parameters)
     {
         return parameters switch
