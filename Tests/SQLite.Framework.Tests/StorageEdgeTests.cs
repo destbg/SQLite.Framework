@@ -28,6 +28,19 @@ file sealed class DefaultEnumRow
     public DStatus Status { get; set; }
 }
 
+[Table("TwoArgDefaultEnumRows")]
+file sealed class TwoArgDefaultEnumRow
+{
+    [Key]
+    [AutoIncrement]
+    public int Id { get; set; }
+
+    public required string Name { get; set; }
+
+    [DefaultValue(typeof(DStatus), "Active")]
+    public DStatus Status { get; set; }
+}
+
 public class StorageEdgeTests
 {
     [Fact]
@@ -54,5 +67,17 @@ public class StorageEdgeTests
             .ToList();
 
         Assert.Single(active);
+    }
+
+    [Fact]
+    public void TwoArgEnumDefaultLiteralApplies()
+    {
+        using TestDatabase db = new(b => b.UseEnumStorage(EnumStorageMode.Text));
+        db.Table<TwoArgDefaultEnumRow>().Schema.CreateTable();
+        db.Table<TwoArgDefaultEnumRow>().Add(new TwoArgDefaultEnumRow { Name = "defaulted" });
+
+        DStatus stored = db.Table<TwoArgDefaultEnumRow>().Single().Status;
+
+        Assert.Equal(DStatus.Active, stored);
     }
 }

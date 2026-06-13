@@ -82,4 +82,12 @@ public readonly struct SelectSignatureCtx
     {
         return new SelectSignatureCtx(OuterRowType, RowBindings, Model, TypeArgSubstitutions, ParameterSubstitutions, NullableRangeVars, isInChecked: true);
     }
+
+    /// <summary>
+    /// Returns a copy of this context with <see cref="IsInChecked"/> set to <see langword="false"/>.
+    /// </summary>
+    public SelectSignatureCtx WithUnchecked()
+    {
+        return new SelectSignatureCtx(OuterRowType, RowBindings, Model, TypeArgSubstitutions, ParameterSubstitutions, NullableRangeVars, isInChecked: false);
+    }
 }

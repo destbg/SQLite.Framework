@@ -47,6 +47,53 @@ public static class ClientEvalTestFunctions
     {
         return value == 2 ? null : true;
     }
+
+    public static uint PassUInt(uint value)
+    {
+        return value;
+    }
+
+    public static ulong PassULong(ulong value)
+    {
+        return value;
+    }
+
+    public static float PassFloat(float value)
+    {
+        return value;
+    }
+
+    public static double PassDouble(double value)
+    {
+        return value;
+    }
+
+    public static uint? ToNullableUInt(uint value)
+    {
+        return value == 2 ? null : value;
+    }
+
+    public static bool? ToNullableFalseBool(int value)
+    {
+        return value == 2 ? null : false;
+    }
+
+    public static ProjColorA PassColorA(ProjColorA value)
+    {
+        return value;
+    }
+}
+
+public enum ProjColorA
+{
+    Red = 1,
+    Blue = 2
+}
+
+public enum ProjColorB
+{
+    Dark = 1,
+    Light = 2
 }
 
 public class ClientEvalReceiverMemberProjectionTests

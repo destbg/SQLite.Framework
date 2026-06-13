@@ -263,6 +263,11 @@ internal partial class SQLVisitor
             return SQLiteExpression.Leaf(typeof(long), Counters.NextIdentifier(), Counters.NextParamName(), ts.Ticks);
         }
 
+        if (current.Parameters is { Length: 1 } && current.Parameters[0].Value is TimeSpan paramTs)
+        {
+            return SQLiteExpression.Leaf(typeof(long), Counters.NextIdentifier(), Counters.NextParamName(), paramTs.Ticks);
+        }
+
         return current;
     }
 

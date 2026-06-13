@@ -425,7 +425,6 @@ public static class SelectSignatureWriter
         if (declaredType != null
             && convertedType != null
             && !SymbolEqualityComparer.Default.Equals(declaredType, convertedType)
-            && node is not LiteralExpressionSyntax
             && node is not CastExpressionSyntax)
         {
             Conversion conversion = ctx.Model.ClassifyConversion(node, convertedType);
@@ -435,7 +434,9 @@ public static class SelectSignatureWriter
                 || conversion.IsUserDefined
                 || conversion.IsNullable
                 || (conversion.IsExplicit && !conversion.IsReference);
-            if (needsTreeConvert)
+
+            bool literalAllowed = node is not LiteralExpressionSyntax || conversion.IsNullable || conversion.IsBoxing;
+            if (needsTreeConvert && literalAllowed)
             {
                 return AppendConvertChain(sb, convertedType, declaredType, () => AppendWithType(sb, node, declaredType, ctx), ctx);
             }
@@ -534,6 +535,9 @@ public static class SelectSignatureWriter
 
             case CheckedExpressionSyntax checkedExpr when checkedExpr.Kind() == SyntaxKind.CheckedExpression:
                 return AppendWithType(sb, checkedExpr.Expression, type, ctx.WithChecked());
+
+            case CheckedExpressionSyntax uncheckedExpr when uncheckedExpr.Kind() == SyntaxKind.UncheckedExpression:
+                return AppendWithType(sb, uncheckedExpr.Expression, type, ctx.WithUnchecked());
         }
 
         return false;
@@ -623,7 +627,7 @@ public static class SelectSignatureWriter
 
     private static bool AppendBinary(StringBuilder sb, BinaryExpressionSyntax bin, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        string? nodeType = MapBinaryKind(bin.Kind(), ctx.IsInChecked);
+        string? nodeType = MapBinaryKind(bin.Kind(), ctx.IsInChecked && IsCheckedRelevantType(type));
         if (nodeType == null)
         {
             return false;
@@ -696,8 +700,9 @@ public static class SelectSignatureWriter
     {
         string? nodeType = unary.Kind() switch
         {
-            SyntaxKind.UnaryMinusExpression => ctx.IsInChecked ? "NegateChecked" : "Negate",
+            SyntaxKind.UnaryMinusExpression => ctx.IsInChecked && IsCheckedRelevantType(type) ? "NegateChecked" : "Negate",
             SyntaxKind.LogicalNotExpression => "Not",
+            SyntaxKind.BitwiseNotExpression => "Not",
             _ => null
         };
 
@@ -1492,6 +1497,16 @@ public static class SelectSignatureWriter
         }
         sb.Append(')');
         return true;
+    }
+
+    private static bool IsCheckedRelevantType(ITypeSymbol? type)
+    {
+        ITypeSymbol? t = GetNullableUnderlying(type) ?? type;
+        return t?.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
+            or SpecialType.System_UInt32 or SpecialType.System_UInt64
+            or SpecialType.System_Int16 or SpecialType.System_UInt16
+            or SpecialType.System_Byte or SpecialType.System_SByte
+            or SpecialType.System_Char or SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
     }
 
     private static ITypeSymbol? GetNullableUnderlying(ITypeSymbol? type)

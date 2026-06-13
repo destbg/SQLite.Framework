@@ -42,10 +42,9 @@ public class TableColumn
         ReferencesTableAttribute = property.GetCustomAttribute<ReferencesTableAttribute>();
         ForeignKeyAttribute = property.GetCustomAttribute<ForeignKeyAttribute>();
 
-        DefaultValueAttribute? defaultValueAttribute = property.GetCustomAttribute<DefaultValueAttribute>();
-        if (defaultValueAttribute != null)
+        if (TryReadDefaultValue(property, out object? defaultValue))
         {
-            DefaultSql = SqlLiteralHelper.FormatLiteral(defaultValueAttribute.Value, options);
+            DefaultSql = SqlLiteralHelper.FormatLiteral(defaultValue, options);
         }
 
         if (ReferencesTableAttribute != null && ForeignKeyAttribute != null)
@@ -149,4 +148,39 @@ public class TableColumn
     /// default.
     /// </summary>
     internal object? ClrDefaultBox { get; }
+
+    [UnconditionalSuppressMessage("AOT", "IL2057", Justification = "DefaultValue types are rooted by user code.")]
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Reads attribute metadata, never instantiates the attribute.")]
+    private static bool TryReadDefaultValue(PropertyInfo property, out object? value)
+    {
+        foreach (CustomAttributeData data in property.GetCustomAttributesData())
+        {
+            if (data.AttributeType != typeof(DefaultValueAttribute))
+            {
+                continue;
+            }
+
+            IList<CustomAttributeTypedArgument> arguments = data.ConstructorArguments;
+            if (arguments.Count == 1)
+            {
+                CustomAttributeTypedArgument argument = arguments[0];
+                value = argument.ArgumentType.IsEnum && argument.Value != null
+                    ? Enum.ToObject(argument.ArgumentType, argument.Value)
+                    : argument.Value;
+                return true;
+            }
+
+            if (arguments.Count == 2 && arguments[0].Value is Type type && arguments[1].Value is string text)
+            {
+                Type underlying = Nullable.GetUnderlyingType(type) ?? type;
+                value = underlying.IsEnum
+                    ? Enum.Parse(underlying, text)
+                    : Convert.ChangeType(text, underlying, CultureInfo.InvariantCulture);
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
+    }
 }

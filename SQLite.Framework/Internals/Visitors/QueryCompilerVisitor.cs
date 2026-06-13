@@ -135,16 +135,15 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             {
                 ExpressionType.ExclusiveOr => InvokeOperator(BinaryExclusiveOrOperator, leftValue, rightValue, options),
                 ExpressionType.Add => InvokeOperator(BinaryAdditionOperator, leftValue, rightValue, options),
-                ExpressionType.AddChecked => InvokeCheckedArithmetic(ExpressionType.Add, leftValue, rightValue, BinaryAdditionOperator, options),
+                ExpressionType.AddChecked => InvokeCheckedArithmetic(ExpressionType.Add, leftValue, rightValue),
                 ExpressionType.Subtract => InvokeOperator(BinarySubtractionOperator, leftValue, rightValue, options),
-                ExpressionType.SubtractChecked => InvokeCheckedArithmetic(ExpressionType.Subtract, leftValue, rightValue, BinarySubtractionOperator, options),
+                ExpressionType.SubtractChecked => InvokeCheckedArithmetic(ExpressionType.Subtract, leftValue, rightValue),
                 ExpressionType.Multiply => InvokeOperator(BinaryMultiplyOperator, leftValue, rightValue, options),
-                ExpressionType.MultiplyChecked => InvokeCheckedArithmetic(ExpressionType.Multiply, leftValue, rightValue, BinaryMultiplyOperator, options),
+                ExpressionType.MultiplyChecked => InvokeCheckedArithmetic(ExpressionType.Multiply, leftValue, rightValue),
                 ExpressionType.Divide => InvokeOperator(BinaryDivisionOperator, leftValue, rightValue, options),
                 ExpressionType.Modulo => InvokeOperator(BinaryModulusOperator, leftValue, rightValue, options),
                 ExpressionType.LeftShift => InvokeOperator(BinaryLeftShiftOperator, leftValue, rightValue, options),
-                ExpressionType.RightShift => InvokeOperator(BinaryRightShiftOperator, leftValue, rightValue, options),
-                _ => throw new NotSupportedException($"The binary operator '{node.NodeType}' is not supported.")
+                _ => InvokeOperator(BinaryRightShiftOperator, leftValue, rightValue, options)
             };
         });
     }
@@ -294,7 +293,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
             if (operandValue == null
                 && node.NodeType is ExpressionType.Negate or ExpressionType.NegateChecked
-                or ExpressionType.Not or ExpressionType.OnesComplement)
+                or ExpressionType.Not)
             {
                 return null;
             }
@@ -305,7 +304,6 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                     ? InvokeUnwrapped(node.Method, null, [operandValue])
                     : InvokeUnaryOperator(BinaryNegationOperator, operandValue!, options),
                 ExpressionType.Not => operandValue is bool b ? !b : ApplyOnesComplement(operandValue!),
-                ExpressionType.OnesComplement => ApplyOnesComplement(operandValue!),
                 ExpressionType.Convert => ConvertOperand(operandValue, node.Type, checkedConversion: false),
                 ExpressionType.ConvertChecked => ConvertOperand(operandValue, node.Type, checkedConversion: true),
                 ExpressionType.TypeAs => node.Type.IsInstanceOfType(operandValue) ? operandValue : null,
@@ -440,9 +438,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                     nameof(object.GetHashCode) => boxed?.GetHashCode() ?? 0,
                     nameof(object.Equals) => Equals(boxed, arguments.Length == 1 ? arguments[0].Call(ctx) : null),
                     nameof(object.ToString) => boxed?.ToString() ?? string.Empty,
-                    _ => boxed == null
-                        ? throw new InvalidOperationException("Nullable object must have a value.")
-                        : InvokeUnwrapped(node.Method, boxed, arguments.Select(arg => arg.Call(ctx)).ToArray()),
+                    _ => InvokeUnwrapped(node.Method, boxed, arguments.Select(arg => arg.Call(ctx)).ToArray()),
                 };
             });
         }
@@ -603,19 +599,12 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return InvokeOperator(openMethod, left, right, options);
     }
 
-    private static object InvokeCheckedArithmetic(ExpressionType op, object left, object right, MethodInfo fallbackOpen, SQLiteOptions options)
+    private static object InvokeCheckedArithmetic(ExpressionType op, object left, object right)
     {
         checked
         {
             switch (left)
             {
-                case int l:
-                    return op switch
-                    {
-                        ExpressionType.Add => l + (int)right,
-                        ExpressionType.Subtract => l - (int)right,
-                        _ => l * (int)right
-                    };
                 case long l:
                     return op switch
                     {
@@ -637,10 +626,16 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                         ExpressionType.Subtract => l - (ulong)right,
                         _ => l * (ulong)right
                     };
+                default:
+                    int li = (int)left;
+                    return op switch
+                    {
+                        ExpressionType.Add => li + (int)right,
+                        ExpressionType.Subtract => li - (int)right,
+                        _ => li * (int)right
+                    };
             }
         }
-
-        return InvokeOperator(fallbackOpen, left, right, options)!;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback for non-primitive user types under AOT.")]
@@ -1013,15 +1008,10 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     {
         return operand switch
         {
-            int o => ~o,
             long o => ~o,
             uint o => ~o,
             ulong o => ~o,
-            short o => ~o,
-            ushort o => ~o,
-            byte o => ~o,
-            sbyte o => ~o,
-            _ => throw new NotSupportedException($"Cannot apply the complement operator to type '{operand.GetType()}'.")
+            _ => ~(int)operand
         };
     }
 

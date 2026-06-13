@@ -48,19 +48,6 @@ internal static class ForeignKeyResolver
         return (targetTable, targetColumns[0]);
     }
 
-    public static (string TargetTable, string[] TargetColumns) ResolveTargets(string sourceTable, IReadOnlyList<string> sourceColumns, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type targetType, IReadOnlyList<string>? targetColumnNames)
-    {
-        string targetTable = GetTableName(targetType);
-        string[] targetColumns = ResolveTargetColumns(sourceTable, sourceColumns[0], targetType, targetColumnNames);
-        if (targetColumns.Length != sourceColumns.Count)
-        {
-            throw new InvalidOperationException(
-                $"Foreign key on \"{sourceTable}\" references \"{targetTable}\" with {sourceColumns.Count} local column(s) " +
-                $"but {targetColumns.Length} target column(s). Local and target column counts must match.");
-        }
-        return (targetTable, targetColumns);
-    }
-
     public static (string TargetTable, string[] TargetColumns) ResolveTargets(string sourceTable, IReadOnlyList<string> sourceColumns, TableMapping targetMapping, IReadOnlyList<string>? targetPropertyNames)
     {
         string targetTable = targetMapping.TableName;

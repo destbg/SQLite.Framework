@@ -841,6 +841,18 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return CreateCommand(sql, ToParameterList(parameters)).ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Runs a <c>GroupBy(keySelector)</c> query and groups the rows into <c>IGrouping&lt;,&gt;</c>
+    /// values with the type arguments fixed. Generated code calls this so materializing a grouping
+    /// works under Native AOT without <c>MakeGenericMethod</c>. Prefer the LINQ surface. This is a
+    /// hook for the source generator.
+    /// </summary>
+    public IEnumerable<IGrouping<TKey, TElement>> ExecuteGeneratedGroupingQuery<TKey, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
+        where TKey : notnull
+    {
+        return ExecuteGroupingQuery<TKey, TElement>(expression);
+    }
+
     internal Task WaitConnectionSemaphoreAsync(CancellationToken cancellationToken)
     {
         return connectionSemaphore.WaitAsync(cancellationToken);
@@ -904,6 +916,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(IGrouping<,>))
         {
+            if (Options.GroupingQueryMaterializers.TryGetValue(typeof(T), out Func<SQLiteDatabase, Expression, object>? groupingMaterializer))
+            {
+                return (IEnumerable<T>)groupingMaterializer(this, expression);
+            }
+
             if (!RuntimeFeature.IsDynamicCodeSupported && Options.GroupByKeyMaterializers.Count == 0)
             {
                 throw new NotSupportedException(
