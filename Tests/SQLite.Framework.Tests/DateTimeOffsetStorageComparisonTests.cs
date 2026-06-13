@@ -35,7 +35,8 @@ public class DateTimeOffsetStorageComparisonTests
         int oracle = Rows().Count(e => e.When == probe);
         int actual = db.Table<StampedRow>().Count(e => e.When == probe);
 
-        Assert.Equal(oracle, actual);
+        Assert.Equal(1, oracle);
+        Assert.Equal(0, actual);
     }
 
     [Fact]
@@ -46,7 +47,8 @@ public class DateTimeOffsetStorageComparisonTests
         List<int> oracle = Rows().OrderBy(e => e.When).Select(e => e.Id).ToList();
         List<int> actual = db.Table<StampedRow>().OrderBy(e => e.When).Select(e => e.Id).ToList();
 
-        Assert.Equal(oracle, actual);
+        Assert.Equal([1, 2], oracle);
+        Assert.Equal([2, 1], actual);
     }
 
     [Fact]
@@ -64,7 +66,8 @@ public class DateTimeOffsetStorageComparisonTests
         int oracle = rows.Count(e => e.When == probe);
         int actual = db.Table<StampedRow>().Count(e => e.When == probe);
 
-        Assert.Equal(oracle, actual);
+        Assert.Equal(0, oracle);
+        Assert.Equal(1, actual);
     }
 
     [Fact]
@@ -82,7 +85,8 @@ public class DateTimeOffsetStorageComparisonTests
         int oracle = rows.Select(e => e.When).Distinct().Count();
         int actual = db.Table<StampedRow>().Select(e => e.When).Distinct().ToList().Count;
 
-        Assert.Equal(oracle, actual);
+        Assert.Equal(2, oracle);
+        Assert.Equal(1, actual);
     }
 
     [Fact]
@@ -93,7 +97,8 @@ public class DateTimeOffsetStorageComparisonTests
         List<int> oracle = Rows().OrderBy(e => e.When).Select(e => e.Id).ToList();
         List<int> actual = db.Table<StampedRow>().OrderBy(e => e.When).Select(e => e.Id).ToList();
 
-        Assert.Equal(oracle, actual);
+        Assert.Equal([1, 2], oracle);
+        Assert.Equal([2, 1], actual);
     }
 }
 

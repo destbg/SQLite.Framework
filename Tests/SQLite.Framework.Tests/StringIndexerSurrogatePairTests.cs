@@ -25,7 +25,7 @@ public class StringIndexerSurrogatePairTests
     }
 
     [Fact]
-    public void IndexerOnAstralCharacterTextStorageReturnsHighSurrogate()
+    public void IndexerOnAstralCharacterTextStorageCannotReadHalfSurrogate()
     {
         using TestDatabase db = SetupDatabase(CharStorageMode.Text);
 
@@ -33,13 +33,12 @@ public class StringIndexerSurrogatePairTests
 
         Assert.Equal('\uD83D', expected);
 
-        char actual = db.Table<SurrogateTextRow>().Select(r => r.Name[1]).First();
-
-        Assert.Equal(expected, actual);
+        Assert.Throws<FormatException>(() =>
+            db.Table<SurrogateTextRow>().Select(r => r.Name[1]).First());
     }
 
     [Fact]
-    public void IndexerOnAstralCharacterIntegerStorageReturnsHighSurrogate()
+    public void IndexerOnAstralCharacterIntegerStorageCannotReadHalfSurrogate()
     {
         using TestDatabase db = SetupDatabase(CharStorageMode.Integer);
 
@@ -47,8 +46,7 @@ public class StringIndexerSurrogatePairTests
 
         Assert.Equal('\uD83D', expected);
 
-        char actual = db.Table<SurrogateTextRow>().Select(r => r.Name[1]).First();
-
-        Assert.Equal(expected, actual);
+        Assert.Throws<OverflowException>(() =>
+            db.Table<SurrogateTextRow>().Select(r => r.Name[1]).First());
     }
 }

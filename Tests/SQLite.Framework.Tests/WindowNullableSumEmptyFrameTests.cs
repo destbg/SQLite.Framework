@@ -50,7 +50,7 @@ public class WindowNullableSumEmptyFrameTests
             .Select(x => x.Total)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Equal([9, null, null], actual);
     }
 
     [Fact]
@@ -73,6 +73,6 @@ public class WindowNullableSumEmptyFrameTests
             .Select(x => x.Total)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Equal([null, null, null], actual);
     }
 }

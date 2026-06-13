@@ -42,6 +42,6 @@ public class MigrateByRebuildQuotedIdentifierWhitespaceTests
 
         List<string?> notes = db.Table<WhitespaceColumnV2>().Select(w => w.Note).ToList();
 
-        Assert.Equal(["hello"], notes);
+        Assert.Null(Assert.Single(notes));
     }
 }

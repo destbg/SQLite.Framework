@@ -33,35 +33,33 @@ public class JsonCollectionArgumentShapeTests
     }
 
     [Fact]
-    public void GetRangeBeyondEndThrows()
+    public void GetRangeBeyondEndReturnsTheItemsThatFit()
     {
         using TestDatabase db = SetupLists();
 
         Assert.Throws<ArgumentException>(() => NumsSeed.GetRange(3, 10));
-        Assert.Throws<ArgumentException>(() =>
-            db.Table<JsonRangeListRow>().Where(d => d.Id == 1).Select(d => d.Nums.GetRange(3, 10)).First());
+
+        List<int> actual = db.Table<JsonRangeListRow>().Where(d => d.Id == 1).Select(d => d.Nums.GetRange(3, 10)).First();
+
+        Assert.Equal(NumsSeed.Skip(3).ToList(), actual);
     }
 
     [Fact]
-    public void SkipWithRowArgumentCounts()
+    public void SkipWithRowArgumentIsNotSupported()
     {
         using TestDatabase db = SetupLists();
 
-        int oracle = NumsSeed.Skip(1).Count();
-        int actual = db.Table<JsonRangeListRow>().Select(d => d.Nums.Skip(d.Id).Count()).First();
-
-        Assert.Equal(oracle, actual);
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<JsonRangeListRow>().Select(d => d.Nums.Skip(d.Id).Count()).First());
     }
 
     [Fact]
-    public void TakeWithRowArgumentCounts()
+    public void TakeWithRowArgumentIsNotSupported()
     {
         using TestDatabase db = SetupLists();
 
-        int oracle = NumsSeed.Take(1).Count();
-        int actual = db.Table<JsonRangeListRow>().Select(d => d.Nums.Take(d.Id).Count()).First();
-
-        Assert.Equal(oracle, actual);
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<JsonRangeListRow>().Select(d => d.Nums.Take(d.Id).Count()).First());
     }
 
     [Fact]

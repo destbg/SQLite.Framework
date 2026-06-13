@@ -1299,16 +1299,24 @@ public class SQLiteSchema
     {
         StringBuilder builder = new(value.Length);
         bool inLiteral = false;
+        bool inQuote = false;
         foreach (char c in value)
         {
-            if (c == '\'')
+            if (c == '\'' && !inQuote)
             {
                 inLiteral = !inLiteral;
                 builder.Append(c);
                 continue;
             }
 
-            if (inLiteral || !char.IsWhiteSpace(c))
+            if (c == '"' && !inLiteral)
+            {
+                inQuote = !inQuote;
+                builder.Append(c);
+                continue;
+            }
+
+            if (inLiteral || inQuote || !char.IsWhiteSpace(c))
             {
                 builder.Append(c);
             }

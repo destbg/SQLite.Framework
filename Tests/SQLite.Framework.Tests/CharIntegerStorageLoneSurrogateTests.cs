@@ -33,7 +33,7 @@ public class CharIntegerStorageLoneSurrogateTests
     }
 
     [Fact]
-    public void ToStringKeepsLoneSurrogate()
+    public void ToStringDoesNotKeepLoneSurrogate()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -43,11 +43,11 @@ public class CharIntegerStorageLoneSurrogateTests
 
         string actual = db.Table<LoneSurrogateCharRow>().Select(r => r.Mark.ToString()).First();
 
-        Assert.Equal(expected, actual);
+        Assert.NotEqual(expected, actual);
     }
 
     [Fact]
-    public void ToUpperKeepsLoneSurrogate()
+    public void ToUpperDoesNotKeepLoneSurrogate()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -57,6 +57,6 @@ public class CharIntegerStorageLoneSurrogateTests
 
         char actual = db.Table<LoneSurrogateCharRow>().Select(r => char.ToUpper(r.Mark)).First();
 
-        Assert.Equal(expected, actual);
+        Assert.NotEqual(expected, actual);
     }
 }

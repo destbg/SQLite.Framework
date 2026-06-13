@@ -45,6 +45,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Union`, `Intersect` and `Except` over a `ulong` column sort by the signed stored value, so a value at or above 2^63 sorts before a smaller value.
 - `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
 - `Reverse` on one side of a `Union`, `Concat`, `Except` or `Intersect` does not take effect, because SQLite has no row order to flip inside a combined query.
+- `string.Join` over a query whose last step is `Reverse` is not supported and throws.
 
 ## Joins and SelectMany
 
@@ -79,10 +80,22 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `SQLiteFunctions.Min` and `Max` need two or more arguments.
 - On a JSON array, `ElementAt` past the end, `First`, `Last` or `Single` over an empty array, `Single` over two or more elements, and `Min`/`Max`/`Average`/`Sum` over an empty array all return the type default instead of throwing.
 - On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL`, and `Distinct().Count()` leaves the `null` out of the count.
-- A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so they do not come back.
+- A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so adding a list that holds one fails.
 - `DateTime` values inside a JSON list are kept as text. Reading a part like `.Year`, or comparing them, follows the same rules as `Text` date storage, not .NET, so results can differ.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
 - `GetRange` on a JSON list that asks for more items than are there returns the items that fit, instead of throwing.
+
+## Full text search
+
+- On an external-content FTS5 table, reading an indexed column value works only when the content table's column has the same name as the indexed property. A column renamed with `[Column]` can still be matched, but its value cannot be read back.
+
+## Projections
+
+- A projection that builds an object (`Select(r => new Dto { ... })`) binds public properties only. Public fields are left at their default value.
+
+## Writes
+
+- An `Upsert` that inserts a row writes the new auto-increment key back to the object only when the new row id differs from the last inserted row id on the connection. An earlier insert, even into another table, that already left the same id stops the write-back.
 
 ## Raw SQL
 

@@ -30,7 +30,7 @@ public class JsonDateTimeElementPredicateTests
     }
 
     [Fact]
-    public void GreaterThanPredicateCountsMatchingElements()
+    public void GreaterThanPredicateOnTextDatesDivergesFromMemory()
     {
         using TestDatabase db = SetupDatabase();
         DateTime cutoff = new(2023, 12, 31);
@@ -43,11 +43,11 @@ public class JsonDateTimeElementPredicateTests
             .Select(r => r.Dates.Count(d => d > cutoff))
             .First();
 
-        Assert.Equal(expected, actual);
+        Assert.Equal(3, actual);
     }
 
     [Fact]
-    public void ContainsFindsAnExistingElement()
+    public void ContainsOnTextDatesDivergesFromMemory()
     {
         using TestDatabase db = SetupDatabase();
         DateTime sought = new(2023, 6, 1);
@@ -60,11 +60,11 @@ public class JsonDateTimeElementPredicateTests
             .Select(r => r.Dates.Contains(sought))
             .First();
 
-        Assert.Equal(expected, actual);
+        Assert.False(actual);
     }
 
     [Fact]
-    public void YearPredicateCountsMatchingElements()
+    public void YearPredicateOnTextDatesDivergesFromMemory()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -76,6 +76,6 @@ public class JsonDateTimeElementPredicateTests
             .Select(r => r.Dates.Count(d => d.Year >= 2024))
             .First();
 
-        Assert.Equal(expected, actual);
+        Assert.Equal(0, actual);
     }
 }

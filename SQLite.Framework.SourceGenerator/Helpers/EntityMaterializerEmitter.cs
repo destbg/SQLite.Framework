@@ -885,23 +885,15 @@ public static class EntityMaterializerEmitter
 
     private static void EmitSimpleColumnReadLocal(StringBuilder sb, StringBuilder preamble, string preambleIndent, ITypeSymbol propType, string columnName, string valueLocal, string localSuffix, string indent, bool caseInsensitive = false)
     {
+        _ = caseInsensitive;
         string propTypeDisplay = propType.ToDisplayString();
         string strippedDisplay = StripNullable(propTypeDisplay);
         string safeColumn = columnName.Replace("\"", "\\\"");
         string idxLocal = "__idx_" + localSuffix;
-        string idxTemp = "__i_" + localSuffix;
         bool isEnum = StripNullableSymbol(propType).TypeKind == TypeKind.Enum;
 
-        if (caseInsensitive)
-        {
-            preamble.Append(preambleIndent).Append("int ").Append(idxLocal)
-                .Append(" = FindColumnIndex(columns, \"").Append(safeColumn).AppendLine("\");");
-        }
-        else
-        {
-            preamble.Append(preambleIndent).Append("int ").Append(idxLocal)
-                .Append(" = columns.TryGetValue(\"").Append(safeColumn).Append("\", out int ").Append(idxTemp).Append(") ? ").Append(idxTemp).AppendLine(" : -1;");
-        }
+        preamble.Append(preambleIndent).Append("int ").Append(idxLocal)
+            .Append(" = FindColumnIndex(columns, \"").Append(safeColumn).AppendLine("\");");
 
         sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).Append(" = default");
         if (propType.IsReferenceType || propType.NullableAnnotation == NullableAnnotation.Annotated)

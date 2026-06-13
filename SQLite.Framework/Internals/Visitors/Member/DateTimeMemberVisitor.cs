@@ -380,23 +380,26 @@ internal static class DateTimeMemberVisitor
             Value = multiplyBy
         };
 
-        SQLiteParameter[] combinedParameters = [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter];
+        SQLiteExpression argExpression = arguments[0].IsConstant && arguments[0].Constant is TimeSpan ts
+            ? SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), ts.Ticks)
+            : arguments[0].SQLiteExpression!;
+
+        SQLiteParameter[] combinedParameters = [.. obj.Parameters ?? [], .. argExpression.Parameters ?? [], parameter];
 
         if (multiplyBy == 1)
         {
             return SQLiteExpression.Binary(
                 method.ReturnType,
                 visitor.Counters.NextIdentifier(),
-                "CAST(", obj, " + (", arguments[0].SQLiteExpression!, $" * {parameter.Name}) AS 'INTEGER')",
+                "CAST(", obj, " + (", argExpression, $" * {parameter.Name}) AS 'INTEGER')",
                 combinedParameters
             );
         }
 
-        SQLiteExpression arg = arguments[0].SQLiteExpression!;
         return SQLiteExpression.Binary(
             method.ReturnType,
             visitor.Counters.NextIdentifier(),
-            "(", obj, " + CAST((", arg, $") * {parameter.Name} AS INTEGER))",
+            "(", obj, " + CAST((", argExpression, $") * {parameter.Name} AS INTEGER))",
             combinedParameters
         );
     }

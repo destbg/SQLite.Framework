@@ -11,6 +11,7 @@ internal partial class JsonCollectionVisitor
     private readonly List<SQLiteParameter> parameters = [];
     private string selectExpr = "\"value\"";
     private string keyColumn = "\"key\"";
+    private string? groupKeySql;
     private Type currentElementType = typeof(object);
     private string baseSource = "";
     private string baseJoinSuffix = "";
@@ -80,6 +81,16 @@ internal partial class JsonCollectionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
     private void BindParameter(ParameterExpression param, Type elementType, string valueSql)
     {
+        if (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(IGrouping<,>) && groupKeySql != null)
+        {
+            Type keyType = elementType.GetGenericArguments()[0];
+            visitor.MethodArguments[param] = new Dictionary<string, Expression>
+            {
+                [nameof(IGrouping<,>.Key)] = SQLiteExpression.Leaf(keyType, -1, groupKeySql, null)
+            };
+            return;
+        }
+
         if (TypeHelpers.IsSimple(elementType, options))
         {
             SQLiteExpression valueExpr = SQLiteExpression.Leaf(elementType, -1, valueSql, null);

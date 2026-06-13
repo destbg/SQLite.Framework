@@ -12,7 +12,6 @@ public readonly struct SQLiteLockAwaiter : ICriticalNotifyCompletion
     private readonly SQLiteDatabase database;
     private readonly Task acquireTask;
     private readonly bool isReentrant;
-    private readonly bool isWal;
 
     internal SQLiteLockAwaiter(SQLiteDatabase database, CancellationToken cancellationToken)
     {
@@ -21,16 +20,12 @@ public readonly struct SQLiteLockAwaiter : ICriticalNotifyCompletion
         if (database.HoldsConnectionLock)
         {
             isReentrant = true;
-            isWal = false;
             acquireTask = Task.CompletedTask;
             return;
         }
 
         isReentrant = false;
-        isWal = database.Options.IsWalMode;
-        acquireTask = isWal
-            ? database.AcquireWalWriteAsync(cancellationToken)
-            : database.WaitConnectionSemaphoreAsync(cancellationToken);
+        acquireTask = database.WaitConnectionSemaphoreAsync(cancellationToken);
     }
 
     /// <summary>
@@ -68,8 +63,6 @@ public readonly struct SQLiteLockAwaiter : ICriticalNotifyCompletion
 
         database.SetConnectionLock();
 
-        return isWal
-            ? new WalWriteLockObject(database)
-            : new ConnectionSemaphoreLockObject(database);
+        return new ConnectionSemaphoreLockObject(database);
     }
 }

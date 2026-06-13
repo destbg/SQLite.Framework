@@ -180,9 +180,15 @@ internal partial class JsonCollectionVisitor
         orderBys.Add($"{VisitLambda(call.Arguments[1], elementType)} {direction}");
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<,> is rooted by user code.")]
     private void HandleGroupBy(MethodCallExpression call, Type elementType)
     {
-        groupBys.Add(VisitLambda(call.Arguments[1], elementType));
+        string keySql = VisitLambda(call.Arguments[1], elementType);
+        groupBys.Add(keySql);
+        groupKeySql = keySql;
+
+        Type keyType = ((LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1])).ReturnType;
+        currentElementType = typeof(IGrouping<,>).MakeGenericType(keyType, elementType);
     }
 
     private void HandleSelect(MethodCallExpression call, Type elementType)

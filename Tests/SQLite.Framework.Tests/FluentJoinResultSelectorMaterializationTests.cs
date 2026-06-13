@@ -115,7 +115,7 @@ public class FluentJoinResultSelectorMaterializationTests
         oracle.Sort();
 
         var rows = db.Table<RosterTeam>()
-            .LeftJoin(db.Table<RosterPlayer>(), t => t.Id, p => p.TeamId, (t, p) => new { t.Name, Alias = (string?)p.Alias })
+            .LeftJoin(db.Table<RosterPlayer>(), t => t.Id, p => p.TeamId, (t, p) => new { t.Name, Alias = (string?)p!.Alias })
             .ToList();
 
         List<(string, string?)> actual = rows.Select(r => (r.Name, r.Alias)).ToList();

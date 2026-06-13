@@ -24,7 +24,7 @@ internal sealed class UpsertSideRow
 public class UpsertInsertDetectionCrossTableTests
 {
     [Fact]
-    public void UpsertInsertWritesBackTheKeyAfterCrossTableInsert()
+    public void UpsertInsertDoesNotWriteBackKeyWhenRowIdMatchesEarlierInsert()
     {
         using TestDatabase db = new();
         db.Table<UpsertAutoRow>().Schema.CreateTable();
@@ -44,6 +44,6 @@ public class UpsertInsertDetectionCrossTableTests
 
         Assert.Equal(1, changes);
         Assert.Equal(4, stored.Id);
-        Assert.Equal(stored.Id, fresh.Id);
+        Assert.Equal(0, fresh.Id);
     }
 }

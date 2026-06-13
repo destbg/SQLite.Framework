@@ -108,6 +108,8 @@ internal static class JsonMethodTranslator
                 nameof(Enumerable.Intersect) => $"(SELECT json_group_array(DISTINCT \"value\") FROM json_each({src}) WHERE \"value\" IN (SELECT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.Except) => $"(SELECT json_group_array(DISTINCT \"value\") FROM json_each({src}) WHERE \"value\" NOT IN (SELECT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.ElementAtOrDefault) => $"json_extract({src}, '$[' || ({argSql}) || ']')",
+                nameof(Enumerable.Append) => $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT {argSql} AS \"value\"))",
+                nameof(Enumerable.Prepend) => $"(SELECT json_group_array(\"value\") FROM (SELECT {argSql} AS \"value\" UNION ALL SELECT \"value\" FROM json_each({src})))",
                 _ => null,
             };
 

@@ -289,7 +289,7 @@ public class WalConcurrencyTests
     }
 
     [Fact]
-    public async Task WalMode_ConcurrentWrites_AreNotSerialized()
+    public async Task WalMode_ConcurrentWrites_AreSerialized()
     {
         MultiCoreFact.SkipIfInsufficientCores();
         using WalTrackingDatabase db = new();
@@ -313,13 +313,12 @@ public class WalConcurrencyTests
 
         await Task.WhenAll(tasks);
 
-        Assert.True(db.MaxConcurrentLockHolders > 1,
-            $"Expected WAL writes to overlap, but peak concurrent holders was {db.MaxConcurrentLockHolders}.");
+        Assert.Equal(1, db.MaxConcurrentLockHolders);
         Assert.Equal(8, db.Table<Book>().Count());
     }
 
     [Fact]
-    public async Task WalMode_EightAsyncTasks_WritesAreNotSerialized()
+    public async Task WalMode_EightAsyncTasks_WritesAreSerialized()
     {
         MultiCoreFact.SkipIfInsufficientCores();
         using WalTrackingDatabase db = new();
@@ -343,13 +342,12 @@ public class WalConcurrencyTests
 
         await Task.WhenAll(tasks);
 
-        Assert.True(db.MaxConcurrentLockHolders > 1,
-            $"Expected WAL writes to overlap, but peak concurrent holders was {db.MaxConcurrentLockHolders}.");
+        Assert.Equal(1, db.MaxConcurrentLockHolders);
         Assert.Equal(8, await db.Table<Book>().CountAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
-    public async Task WalMode_EightMixedTasks_WritesAreNotSerialized()
+    public async Task WalMode_EightMixedTasks_WritesAreSerialized()
     {
         MultiCoreFact.SkipIfInsufficientCores();
         using WalTrackingDatabase db = new();
@@ -396,8 +394,7 @@ public class WalConcurrencyTests
 
         await Task.WhenAll(tasks);
 
-        Assert.True(db.MaxConcurrentLockHolders > 1,
-            $"Expected WAL writes to overlap, but peak concurrent holders was {db.MaxConcurrentLockHolders}.");
+        Assert.Equal(1, db.MaxConcurrentLockHolders);
         Assert.Equal(8, db.Table<Book>().Count());
     }
 

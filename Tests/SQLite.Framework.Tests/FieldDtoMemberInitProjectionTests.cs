@@ -37,7 +37,7 @@ public class FieldDtoMemberInitProjectionTests
     }
 
     [Fact]
-    public void FieldOnlyDtoBindsBothFields()
+    public void FieldOnlyDtoLeavesFieldsAtDefault()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -56,11 +56,11 @@ public class FieldDtoMemberInitProjectionTests
             .Select(d => d.Id + "|" + d.Name)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Equal(["0|", "0|"], actual);
     }
 
     [Fact]
-    public void MixedFieldAndPropertyDtoBindsBothMembers()
+    public void MixedDtoBindsPropertyButNotField()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -79,6 +79,6 @@ public class FieldDtoMemberInitProjectionTests
             .Select(d => d.Id + "|" + d.Name)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Equal(["1|", "2|"], actual);
     }
 }

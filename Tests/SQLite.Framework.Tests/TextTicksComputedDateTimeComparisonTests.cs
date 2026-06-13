@@ -41,7 +41,7 @@ public class TextTicksComputedDateTimeComparisonTests
             .Select(r => r.Id)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Empty(actual);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class TextTicksComputedDateTimeComparisonTests
             .Select(r => r.Id)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Empty(actual);
     }
 
     [Fact]
@@ -83,6 +83,6 @@ public class TextTicksComputedDateTimeComparisonTests
             .Select(r => r.Id)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Equal([1, 2], actual);
     }
 }

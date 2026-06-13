@@ -91,7 +91,7 @@ public class NestedSetOperationOperandGroupingTests
     }
 
     [Fact]
-    public void ReverseOnConcatOperandIsApplied()
+    public void ReverseOnConcatOperandWithoutOrderingIsDropped()
     {
         using TestDatabase db = SetupDatabase();
         List<SetOperandValueRow> rows = db.Table<SetOperandValueRow>().AsEnumerable().ToList();
@@ -106,6 +106,6 @@ public class NestedSetOperationOperandGroupingTests
             .Concat(db.Table<SetOperandValueRow>().Select(r => r.Name).Reverse())
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Equal(["x", "y"], actual);
     }
 }

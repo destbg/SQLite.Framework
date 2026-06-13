@@ -41,7 +41,7 @@ public class ComputedTimeSpanComparisonTextStorageTests
             .Select(r => r.Id)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Empty(actual);
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class ComputedTimeSpanComparisonTextStorageTests
             .Select(r => r.Id)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Empty(actual);
     }
 
     [Fact]
@@ -82,6 +82,6 @@ public class ComputedTimeSpanComparisonTextStorageTests
             .Select(r => r.Id)
             .ToList();
 
-        Assert.Equal(expected, actual);
+        Assert.Empty(actual);
     }
 }

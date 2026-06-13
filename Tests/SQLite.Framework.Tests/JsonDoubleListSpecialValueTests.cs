@@ -22,26 +22,22 @@ public class JsonDoubleListSpecialValueTests
     }
 
     [Fact]
-    public void NaNElementRoundTrips()
+    public void NaNElementCannotBeWritten()
     {
         using TestDatabase db = Setup();
         List<double> seed = [1.0, double.NaN];
 
-        db.Table<JsonDoubleListRow>().Add(new JsonDoubleListRow { Id = 1, Vals = seed });
-        List<double> actual = db.Table<JsonDoubleListRow>().First().Vals;
-
-        Assert.Equal(seed, actual);
+        Assert.Throws<ArgumentException>(() =>
+            db.Table<JsonDoubleListRow>().Add(new JsonDoubleListRow { Id = 1, Vals = seed }));
     }
 
     [Fact]
-    public void InfinityElementRoundTrips()
+    public void InfinityElementCannotBeWritten()
     {
         using TestDatabase db = Setup();
         List<double> seed = [1.0, double.PositiveInfinity];
 
-        db.Table<JsonDoubleListRow>().Add(new JsonDoubleListRow { Id = 1, Vals = seed });
-        List<double> actual = db.Table<JsonDoubleListRow>().First().Vals;
-
-        Assert.Equal(seed, actual);
+        Assert.Throws<ArgumentException>(() =>
+            db.Table<JsonDoubleListRow>().Add(new JsonDoubleListRow { Id = 1, Vals = seed }));
     }
 }

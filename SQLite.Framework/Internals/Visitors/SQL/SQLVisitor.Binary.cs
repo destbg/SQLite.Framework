@@ -94,6 +94,14 @@ internal partial class SQLVisitor
         SQLiteExpression left = BracketBinaryOperand(leftNode, resolvedLeft.SQLiteExpression);
         SQLiteExpression right = BracketBinaryOperand(rightNode, resolvedRight.SQLiteExpression);
 
+        if (isArithmeticOp
+            && Database.Options.TimeSpanStorage == TimeSpanStorageMode.Text
+            && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(DateTime))
+        {
+            left = CoerceConstantTimeSpanToTicks(resolvedLeft, left);
+            right = CoerceConstantTimeSpanToTicks(resolvedRight, right);
+        }
+
         SQLiteParameter[]? bothParameters = ParameterHelpers.CombineParameters(left, right);
 
         Type nodeUnderlyingType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
@@ -246,6 +254,16 @@ internal partial class SQLVisitor
         }
 
         return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", left, sqlOp, right, "", bothParameters);
+    }
+
+    private SQLiteExpression CoerceConstantTimeSpanToTicks(ResolvedModel resolved, SQLiteExpression current)
+    {
+        if (resolved.IsConstant && resolved.Constant is TimeSpan ts)
+        {
+            return SQLiteExpression.Leaf(typeof(long), Counters.NextIdentifier(), Counters.NextParamName(), ts.Ticks);
+        }
+
+        return current;
     }
 
     private SQLiteExpression BuildUnsignedWrap32(Type resultType, string sqlOp, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)

@@ -45,14 +45,12 @@ public class CorrelatedSubqueryReverseOrderingTests
 
         Assert.Equal("c,a,b", expected);
 
-        string actual = db.Table<ReverseJoinParentRow>()
+        Assert.Throws<NotSupportedException>(() => db.Table<ReverseJoinParentRow>()
             .Select(p => string.Join(",", db.Table<ReverseJoinChildRow>()
                 .Where(c => c.ParentId == p.Id)
                 .OrderBy(c => c.Rank)
                 .Select(c => c.Tag)
                 .Reverse()))
-            .First();
-
-        Assert.Equal(expected, actual);
+            .First());
     }
 }
