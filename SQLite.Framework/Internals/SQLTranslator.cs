@@ -46,6 +46,8 @@ internal class SQLTranslator
         || queryableMethodVisitor.Take != null
         || queryableMethodVisitor.Skip != null;
 
+    public bool HasSetOperations => queryableMethodVisitor.SetOperations.Count > 0;
+
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
     {
         init => Visitor.MethodArguments = value;
@@ -80,7 +82,11 @@ internal class SQLTranslator
     public void Visit(Expression node)
     {
         node = CapturedQueryableInliner.Inline(node);
-        node = QueryFilterInjector.Inject(node, Visitor.Database.Options);
+
+        if (!isInnerQuery)
+        {
+            node = QueryFilterInjector.Inject(node, Visitor.Database.Options);
+        }
         if (node is MethodCallExpression mce)
         {
             selectMethodExpression = TranslateMethodExpression(mce);

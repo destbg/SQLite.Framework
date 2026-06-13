@@ -15,7 +15,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits, and `ToString()` on a fractional `float` prints the digits of the stored 64-bit value. SQLite has no 32-bit float type.
 - Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
-- A `uint` multiplication that is then widened to a larger type, such as `(long)(a * b)`, keeps the full 64-bit product instead of the 32-bit wrapped value. Read the result back as `uint` to get the wrapped value.
+- A `uint` multiplication that is then widened to a larger type, such as `(long)(a * b)`, keeps the full 64-bit product instead of the 32-bit wrapped value.
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
@@ -33,21 +33,23 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `ToUpper` and `ToLower`, on both `string` and `char`, fold only ASCII unless the SQLite build has ICU.
 - The `CultureInfo` overloads of `ToUpper` and `ToLower`, on both `string` and `char` throw in a `Where`.
 - Case-insensitive `Equals`, `Compare`, `Contains`, `StartsWith` and `EndsWith` (`OrdinalIgnoreCase`) also fold only ASCII.
-- Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text), matching EF Core.
+- Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text).
+- A `char` taken from a string can be half of a character that needs two slots in .NET, such as an emoji. SQLite stores whole characters only, so reading that half on its own does not come back the same and can throw.
 - `Enum.Parse` strips ASCII whitespace anywhere in the string, so the spaced `[Flags]` form like `"Read, Write"` parses but a name with embedded whitespace like `"News\tpaper"` matches `"Newspaper"` where .NET would throw.
 
 ## Ordering and set operations
 
-- Chained `OrderBy` keeps only the last key, like EF Core. Use `ThenBy` to keep both.
+- Chained `OrderBy` keeps only the last key, so a second `OrderBy` drops the first key.
 - `Union`, `Distinct`, `Intersect` and `Except` dedup by value, not by reference.
 - `Union`, `Intersect` and `Except` return rows in sorted order, not the first-appearance order that LINQ-to-Objects keeps. `Distinct` and `Concat` do keep first-appearance order.
 - `Union`, `Intersect` and `Except` over a `ulong` column sort by the signed stored value, so a value at or above 2^63 sorts before a smaller value.
 - `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
+- `Reverse` on one side of a `Union`, `Concat`, `Except` or `Intersect` does not take effect, because SQLite has no row order to flip inside a combined query.
 
 ## Joins and SelectMany
 
-- A correlated subquery used directly as a second `from` source, for example `from a in db.Table<Author>() from b in db.Table<Book>().Where(b => b.AuthorId == a.Id)`, is not supported, since SQLite has no `LATERAL` join. Put the correlation in a `where` after the join instead.
-- In a recursive common table expression, write the recursive term as a member initializer such as `new T { A = ..., B = ... }`, or pass constructor arguments in the same order as the entity's properties. A positional constructor whose parameter order differs from the property order lines the columns up wrong.
+- A correlated subquery used directly as a second `from` source, for example `from a in db.Table<Author>() from b in db.Table<Book>().Where(b => b.AuthorId == a.Id)`, is not supported, since SQLite has no `LATERAL` join.
+- In a recursive common table expression, a positional constructor whose parameter order differs from the entity's property order lines the columns up wrong.
 
 ## Null comparisons
 
@@ -59,6 +61,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - A grouped `Min`, `Max` or `Average` over a per-group filter that matches no rows returns the type default instead of throwing. `Sum` returns `0`, the same as LINQ.
 - A window `Max`, `Min` or `Average` over a `ulong` column is not correct for values at or above 2^63, since the value is stored as a signed integer. A window `Average` over a `uint` column is exact.
+- A window `Sum` that sees no rows, because the frame is empty or a `Filter` removes every row, reads back as `NULL`, not `0`.
 
 ## Dates, times and storage
 
@@ -69,14 +72,18 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 ## R-Tree
 
-- On the default `Float` storage, coordinates are stored as 32-bit floats. A value above 2^24, or a fractional value that a 32-bit float cannot hold exactly such as `0.2`, loses precision and can miss an exact boundary match. Use `SQLiteRTreeStorage.Int32` for exact integer coordinates.
+- On the default `Float` storage, coordinates are stored as 32-bit floats. A value above 2^24, or a fractional value that a 32-bit float cannot hold exactly such as `0.2`, loses precision and can miss an exact boundary match.
 
 ## Functions and JSON collections
 
 - `SQLiteFunctions.Min` and `Max` need two or more arguments.
 - On a JSON array, `ElementAt` past the end, `First`, `Last` or `Single` over an empty array, `Single` over two or more elements, and `Min`/`Max`/`Average`/`Sum` over an empty array all return the type default instead of throwing.
 - On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL`, and `Distinct().Count()` leaves the `null` out of the count.
+- A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so they do not come back.
+- `DateTime` values inside a JSON list are kept as text. Reading a part like `.Year`, or comparing them, follows the same rules as `Text` date storage, not .NET, so results can differ.
+- `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
+- `GetRange` on a JSON list that asks for more items than are there returns the items that fit, instead of throwing.
 
 ## Raw SQL
 
-- Two `FromSql` fragments composed in the same query that use the same parameter name share one bound value, so the last value wins. Give each fragment its own parameter names.
+- Two `FromSql` fragments composed in the same query that use the same parameter name share one bound value, so the last value wins.

@@ -1173,9 +1173,15 @@ public class SQLiteSchema
                 Database.Execute($"DROP TRIGGER \"{((string)trigger["name"]!).Replace("\"", "\"\"")}\"");
             }
 
+            List<string> insertableColumns = Database
+                .Query<Dictionary<string, object?>>($"PRAGMA table_xinfo(\"{childEscaped}\")")
+                .Where(col => Convert.ToInt64(col["hidden"], CultureInfo.InvariantCulture) is not (2 or 3))
+                .Select(col => (string)col["name"]!)
+                .ToList();
+
             Database.Execute($"CREATE TABLE \"{child}__sqlitefw_hold\" AS SELECT * FROM \"{child}\"");
             Database.Execute($"DELETE FROM \"{child}\"");
-            saved.Add(new SavedTable { Name = child, Triggers = triggerSql });
+            saved.Add(new SavedTable { Name = child, Triggers = triggerSql, InsertableColumns = insertableColumns });
         }
 
         return saved;
@@ -1186,7 +1192,8 @@ public class SQLiteSchema
         for (int i = saved.Count - 1; i >= 0; i--)
         {
             SavedTable child = saved[i];
-            Database.Execute($"INSERT INTO \"{child.Name}\" SELECT * FROM \"{child.Name}__sqlitefw_hold\"");
+            string columnList = string.Join(", ", child.InsertableColumns.Select(c => $"\"{c.Replace("\"", "\"\"")}\""));
+            Database.Execute($"INSERT INTO \"{child.Name}\" ({columnList}) SELECT {columnList} FROM \"{child.Name}__sqlitefw_hold\"");
             Database.Execute($"DROP TABLE \"{child.Name}__sqlitefw_hold\"");
             foreach (string trigger in child.Triggers)
             {

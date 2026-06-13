@@ -445,6 +445,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     internal (TableColumn[] Columns, string Sql) GetUpsertInfoInternal(Action<SQLiteUpsertBuilder<T>> configure) => GetUpsertInfo(configure);
     internal bool RunHooksInternal(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item) => RunHooks(hooks, item);
 
+    internal SQLiteAction RunActionHooksInternal(T item, SQLiteAction startingAction) => RunActionHooks(item, startingAction);
+
     internal (TableColumn[] Columns, string Sql) FilterUpsertInfoForItemInternal(Action<SQLiteUpsertBuilder<T>> configure, T item, TableColumn[] baseColumns, string baseSql)
     {
         if (IsItemMethodOverridden(nameof(GetUpsertInfo)) || UpsertHasDoUpdate(configure))
@@ -487,11 +489,16 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             Database.OpenConnection();
             using IDisposable _ = Database.Lock();
 
+            SQLiteCommand command = Database.CreateCommand(sql, []);
+            command.NotifyExecuting();
+
             sqlite3 handle = Database.GetActiveHandle();
             SQLiteResult prepareResult = (SQLiteResult)raw.sqlite3_prepare_v2(handle, sql, out sqlite3_stmt? stmt);
             if (prepareResult != SQLiteResult.OK)
             {
-                throw new SQLiteException(prepareResult, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
+                SQLiteException prepareException = new(prepareResult, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
+                command.NotifyFailed(prepareException);
+                throw prepareException;
             }
 
             try
@@ -530,6 +537,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
                     raw.sqlite3_reset(stmt);
                 }
+
+                command.NotifyExecuted(count);
+            }
+            catch (Exception exception)
+            {
+                command.NotifyFailed(exception);
+                throw;
             }
             finally
             {

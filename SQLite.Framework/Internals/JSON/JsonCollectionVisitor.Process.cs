@@ -218,14 +218,12 @@ internal partial class JsonCollectionVisitor
 
     private void HandleSkip(MethodCallExpression call)
     {
-        int n = Math.Max(0, (int)ExpressionHelpers.GetConstantValue(call.Arguments[1])!);
-        offset = n.ToString(CultureInfo.InvariantCulture);
+        offset = ResolveCountArgument(call.Arguments[1]);
     }
 
     private void HandleTake(MethodCallExpression call)
     {
-        int n = Math.Max(0, (int)ExpressionHelpers.GetConstantValue(call.Arguments[1])!);
-        limit = n.ToString(CultureInfo.InvariantCulture);
+        limit = ResolveCountArgument(call.Arguments[1]);
     }
 
     private void AddOptionalPredicate(MethodCallExpression call, Type elementType)
@@ -391,5 +389,16 @@ internal partial class JsonCollectionVisitor
         selectExpr = "1";
         limit = "1";
         wrapInArray = false;
+    }
+
+    private static string ResolveCountArgument(Expression arg)
+    {
+        if (ExpressionHelpers.IsConstant(arg) && ExpressionHelpers.GetConstantValue(arg) is int n)
+        {
+            return Math.Max(0, n).ToString(CultureInfo.InvariantCulture);
+        }
+
+        throw new NotSupportedException(
+            "Skip and Take on a JSON array support a constant or captured value, not a column of the outer row.");
     }
 }

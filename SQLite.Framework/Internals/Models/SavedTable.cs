@@ -9,4 +9,5 @@ internal class SavedTable
 {
     public required string Name { get; init; }
     public required List<string> Triggers { get; init; }
+    public required List<string> InsertableColumns { get; init; }
 }

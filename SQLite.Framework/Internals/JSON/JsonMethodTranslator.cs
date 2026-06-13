@@ -16,7 +16,9 @@ internal static class JsonMethodTranslator
         bool sourceIsEnumerableChain = sourceExpr is MethodCallExpression mce
             && mce.Method.DeclaringType == typeof(Enumerable);
         if (!sourceIsEnumerableChain
-            && (sourceExpr == null || !IsJsonCollection(sourceExpr.Type, visitor.Database.Options)))
+            && (sourceExpr == null
+                || (!IsJsonCollection(sourceExpr.Type, visitor.Database.Options)
+                    && !IsJsonDictionaryProjection(sourceExpr, visitor.Database.Options))))
         {
             return null;
         }
@@ -40,7 +42,20 @@ internal static class JsonMethodTranslator
             return TryArray(node, visitor);
         }
 
+        if (node.Object != null && IsJsonDictionaryProjection(node.Object, visitor.Database.Options))
+        {
+            return TryList(node, visitor);
+        }
+
         return null;
+    }
+
+    private static bool IsJsonDictionaryProjection(Expression expression, SQLiteOptions options)
+    {
+        return expression is MemberExpression { Member.Name: "Keys" or "Values", Expression: { } receiver }
+            && receiver.Type.IsGenericType
+            && receiver.Type.GetGenericTypeDefinition() == typeof(Dictionary<,>)
+            && options.HasJsonConverter(receiver.Type);
     }
 
     private static SQLiteExpression? TryEnumerable(MethodCallExpression node, SQLVisitor visitor)
@@ -56,6 +71,7 @@ internal static class JsonMethodTranslator
 
         if (node.Arguments.Count == 1)
         {
+            string arrayElem = BoolArrayElement(source.SQLiteExpression.Type);
             string? sql = node.Method.Name switch
             {
                 nameof(Enumerable.Any) => $"json_array_length({src}) > 0",
@@ -69,8 +85,8 @@ internal static class JsonMethodTranslator
                 nameof(Enumerable.Max) => $"(SELECT MAX(\"value\") FROM json_each({src}))",
                 nameof(Enumerable.Sum) => $"(SELECT COALESCE(SUM(\"value\"), 0) FROM json_each({src}))",
                 nameof(Enumerable.Average) => $"(SELECT AVG(\"value\") FROM json_each({src}))",
-                nameof(Enumerable.Distinct) => $"(SELECT json_group_array(DISTINCT \"value\") FROM json_each({src}))",
-                nameof(Enumerable.Reverse) => $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) ORDER BY \"key\" DESC))",
+                nameof(Enumerable.Distinct) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM json_each({src}))",
+                nameof(Enumerable.Reverse) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT \"value\" FROM json_each({src}) ORDER BY \"key\" DESC))",
                 _ => null,
             };
 
@@ -91,6 +107,7 @@ internal static class JsonMethodTranslator
                 nameof(Enumerable.Union) => $"(SELECT json_group_array(\"value\") FROM (SELECT DISTINCT \"value\" FROM json_each({src}) UNION SELECT DISTINCT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.Intersect) => $"(SELECT json_group_array(DISTINCT \"value\") FROM json_each({src}) WHERE \"value\" IN (SELECT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.Except) => $"(SELECT json_group_array(DISTINCT \"value\") FROM json_each({src}) WHERE \"value\" NOT IN (SELECT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.ElementAtOrDefault) => $"json_extract({src}, '$[' || ({argSql}) || ']')",
                 _ => null,
             };
 
@@ -402,6 +419,18 @@ internal static class JsonMethodTranslator
         }
 
         return declaredType;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type comes from a JSON collection in the client assembly.")]
+    private static string BoolArrayElement(Type collectionType)
+    {
+        Type? element = TypeHelpers.GetEnumerableElementType(collectionType);
+        if (element != null && (Nullable.GetUnderlyingType(element) ?? element) == typeof(bool))
+        {
+            return "(CASE WHEN \"value\" IS NULL THEN NULL WHEN \"value\" THEN json('true') ELSE json('false') END)";
+        }
+
+        return "\"value\"";
     }
 
     private static bool IsJsonCollection(Type type, SQLiteOptions options)
