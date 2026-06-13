@@ -88,7 +88,22 @@ public class SQLiteCommand
     public virtual int ExecuteNonQuery()
     {
         using IDisposable _ = Database.Lock();
+        return ExecuteNonQueryCore();
+    }
 
+    /// <summary>
+    /// Executes the command and returns the number of rows affected together with the
+    /// connection's <c>last_insert_rowid</c> value. The rowid is read inside the same lock as
+    /// the INSERT, so a concurrent writer cannot replace it before the read.
+    /// </summary>
+    public virtual (int Changes, long RowId) ExecuteWithLastRowId()
+    {
+        using IDisposable _ = Database.Lock();
+        return ExecuteWithLastRowIdCore();
+    }
+
+    internal int ExecuteNonQueryCore()
+    {
         NotifyExecuting();
         try
         {
@@ -151,15 +166,8 @@ public class SQLiteCommand
         }
     }
 
-    /// <summary>
-    /// Executes the command and returns the number of rows affected together with the
-    /// connection's <c>last_insert_rowid</c> value. The rowid is read inside the same lock as
-    /// the INSERT, so a concurrent writer cannot replace it before the read.
-    /// </summary>
-    public virtual (int Changes, long RowId) ExecuteWithLastRowId()
+    internal (int Changes, long RowId) ExecuteWithLastRowIdCore()
     {
-        using IDisposable _ = Database.Lock();
-
         NotifyExecuting();
         try
         {

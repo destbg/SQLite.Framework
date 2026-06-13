@@ -104,6 +104,7 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitDistinct(MethodCallExpression node)
     {
         ThrowIfSetOperations(node.Method.Name);
+        ComparerArgumentGuard.ThrowIfComparer(node);
 
         IsDistinct = true;
         return node;

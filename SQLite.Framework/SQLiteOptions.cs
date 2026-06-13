@@ -180,6 +180,15 @@ public sealed class SQLiteOptions
     public required IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> GroupByKeyMaterializers { get; init; }
 
     /// <summary>
+    /// Generated typed grouping executors, keyed by the closed <see cref="IGrouping{TKey,TElement}" />
+    /// type. Each entry runs a <c>GroupBy(keySelector)</c> query and groups the rows without
+    /// <c>MakeGenericMethod</c>, so materializing an <c>IGrouping&lt;,&gt;</c> works under Native AOT.
+    /// Populated by the <c>UseGeneratedMaterializers</c> extension emitted by
+    /// <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public required IReadOnlyDictionary<Type, Func<SQLiteDatabase, Expression, object>> GroupingQueryMaterializers { get; init; }
+
+    /// <summary>
     /// Generated entity column writers, keyed by the entity's CLR type. The inner dictionary maps a
     /// property name to a delegate that binds that column on a prepared statement, replacing the
     /// reflection-based <see cref="PropertyInfo.GetValue(object?)" /> path used by <c>AddRange</c>,

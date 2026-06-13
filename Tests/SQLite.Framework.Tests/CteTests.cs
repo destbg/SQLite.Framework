@@ -542,14 +542,14 @@ public class CteTests
                    (INSTR(s1."Sud", @p2) - 1 + @p3) AS "Ind"
                 FROM cte0 AS s1
                 UNION ALL
-                    SELECT SUBSTR(s3."S", @p34 + 1, (s3."Ind" - @p35)) || s4."Z" || SUBSTR(s3."S", s3."Ind" + 1) AS "S",
-                   (INSTR(SUBSTR(s3."S", @p37 + 1, (s3."Ind" - @p38)) || s4."Z" || SUBSTR(s3."S", s3."Ind" + 1), @p36) - 1 + @p39) AS "Ind"
+                    SELECT SUBSTR(s3."S", @p34 + 1, (s3."Ind" - @p35)) || s4."Z" || SUBSTR(s3."S", MAX(s3."Ind", 0) + 1) AS "S",
+                   (INSTR(SUBSTR(s3."S", @p37 + 1, (s3."Ind" - @p38)) || s4."Z" || SUBSTR(s3."S", MAX(s3."Ind", 0) + 1), @p36) - 1 + @p39) AS "Ind"
                 FROM cte2 AS s3
                 CROSS JOIN cte1 AS s4
                 WHERE s3."Ind" > @p11 AND NOT EXISTS (
                     SELECT 1
                     FROM cte1 AS s7
-                    WHERE s4."Z" = SUBSTR(s3."S", (((((s3."Ind" - @p12) / @p13) * @p14) + s7."Lp") - @p15) + 1, @p16) OR s4."Z" = SUBSTR(s3."S", (((s3."Ind" - @p17) % @p18) + ((s7."Lp" - @p19) * @p20)) + 1, @p21) OR s4."Z" = SUBSTR(s3."S", ((((((((s3."Ind" - @p22) / @p23) % @p24) * @p25) + (((s3."Ind" - @p26) / @p27) * @p28)) + s7."Lp") + (((s7."Lp" - @p29) / @p30) * @p31)) - @p32) + 1, @p33)
+                    WHERE s4."Z" = SUBSTR(s3."S", MAX((((((s3."Ind" - @p12) / @p13) * @p14) + s7."Lp") - @p15), 0) + 1, @p16) OR s4."Z" = SUBSTR(s3."S", MAX((((s3."Ind" - @p17) % @p18) + ((s7."Lp" - @p19) * @p20)), 0) + 1, @p21) OR s4."Z" = SUBSTR(s3."S", MAX(((((((((s3."Ind" - @p22) / @p23) % @p24) * @p25) + (((s3."Ind" - @p26) / @p27) * @p28)) + s7."Lp") + (((s7."Lp" - @p29) / @p30) * @p31)) - @p32), 0) + 1, @p33)
             )
             )
             SELECT s0."S" AS "S"

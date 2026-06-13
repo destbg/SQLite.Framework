@@ -832,7 +832,7 @@ public class SQLiteSchema
     /// Returns the SQL table name of the source content table for an external-content FTS5 table.
     /// Override to change how the source table name is resolved.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
     protected virtual string ResolveContentTableName(FtsTableInfo fts)
     {
         Type sourceType = fts.Attribute.ContentTable!;
@@ -846,16 +846,20 @@ public class SQLiteSchema
     /// <see cref="FullTextSearchAttribute.ContentRowIdColumn" /> when set. Override to choose a
     /// different column.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
     protected virtual string ResolveContentRowIdColumn(FtsTableInfo fts, TableMapping mapping)
     {
-        if (!string.IsNullOrEmpty(fts.Attribute.ContentRowIdColumn))
-        {
-            return fts.Attribute.ContentRowIdColumn!;
-        }
-
         Type sourceType = fts.Attribute.ContentTable!;
         TableMapping sourceMapping = Database.TableMapping(sourceType);
+
+        if (!string.IsNullOrEmpty(fts.Attribute.ContentRowIdColumn))
+        {
+            string configured = fts.Attribute.ContentRowIdColumn!;
+            TableColumn? mapped = sourceMapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == configured)
+                ?? sourceMapping.Columns.FirstOrDefault(c => c.Name == configured);
+            return mapped?.Name ?? configured;
+        }
+
         TableColumn[] pks = sourceMapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
         if (pks.Length == 1)
         {
@@ -875,7 +879,7 @@ public class SQLiteSchema
     /// virtual table aligned with its external content table. Override to change the trigger
     /// shape, for example to add a <c>WHERE</c> clause or use partial triggers.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
     protected virtual IEnumerable<string> BuildTriggerSql(FtsTableInfo fts, TableMapping mapping)
     {
         string ftsName = mapping.TableName;
@@ -1169,9 +1173,15 @@ public class SQLiteSchema
                 Database.Execute($"DROP TRIGGER \"{((string)trigger["name"]!).Replace("\"", "\"\"")}\"");
             }
 
+            List<string> insertableColumns = Database
+                .Query<Dictionary<string, object?>>($"PRAGMA table_xinfo(\"{childEscaped}\")")
+                .Where(col => Convert.ToInt64(col["hidden"], CultureInfo.InvariantCulture) is not (2 or 3))
+                .Select(col => (string)col["name"]!)
+                .ToList();
+
             Database.Execute($"CREATE TABLE \"{child}__sqlitefw_hold\" AS SELECT * FROM \"{child}\"");
             Database.Execute($"DELETE FROM \"{child}\"");
-            saved.Add(new SavedTable { Name = child, Triggers = triggerSql });
+            saved.Add(new SavedTable { Name = child, Triggers = triggerSql, InsertableColumns = insertableColumns });
         }
 
         return saved;
@@ -1182,7 +1192,8 @@ public class SQLiteSchema
         for (int i = saved.Count - 1; i >= 0; i--)
         {
             SavedTable child = saved[i];
-            Database.Execute($"INSERT INTO \"{child.Name}\" SELECT * FROM \"{child.Name}__sqlitefw_hold\"");
+            string columnList = string.Join(", ", child.InsertableColumns.Select(c => $"\"{c.Replace("\"", "\"\"")}\""));
+            Database.Execute($"INSERT INTO \"{child.Name}\" ({columnList}) SELECT {columnList} FROM \"{child.Name}__sqlitefw_hold\"");
             Database.Execute($"DROP TABLE \"{child.Name}__sqlitefw_hold\"");
             foreach (string trigger in child.Triggers)
             {
@@ -1288,16 +1299,24 @@ public class SQLiteSchema
     {
         StringBuilder builder = new(value.Length);
         bool inLiteral = false;
+        bool inQuote = false;
         foreach (char c in value)
         {
-            if (c == '\'')
+            if (c == '\'' && !inQuote)
             {
                 inLiteral = !inLiteral;
                 builder.Append(c);
                 continue;
             }
 
-            if (inLiteral || !char.IsWhiteSpace(c))
+            if (c == '"' && !inLiteral)
+            {
+                inQuote = !inQuote;
+                builder.Append(c);
+                continue;
+            }
+
+            if (inLiteral || inQuote || !char.IsWhiteSpace(c))
             {
                 builder.Append(c);
             }

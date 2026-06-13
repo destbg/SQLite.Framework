@@ -174,6 +174,13 @@ public sealed class SQLiteOptionsBuilder
     public Dictionary<string, Func<SQLiteQueryContext, object?>> GroupByKeyMaterializers { get; } = [];
 
     /// <summary>
+    /// Generated typed grouping executors, keyed by the closed <see cref="IGrouping{TKey,TElement}" />
+    /// type, so materializing an <c>IGrouping&lt;,&gt;</c> works under Native AOT. Populated by the
+    /// <c>UseGeneratedMaterializers</c> extension emitted by <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public Dictionary<Type, Func<SQLiteDatabase, Expression, object>> GroupingQueryMaterializers { get; } = [];
+
+    /// <summary>
     /// Generated entity column writers, keyed by the entity's CLR type. The inner dictionary maps a
     /// property name to a delegate that binds that column on a prepared statement, removing the
     /// reflection cost of <c>PropertyInfo.GetValue</c> on <c>AddRange</c> / <c>UpdateRange</c> /
@@ -590,7 +597,7 @@ public sealed class SQLiteOptionsBuilder
     /// <summary>
     /// Registers a function that runs before every <c>Add</c> for <typeparamref name="T" />. The
     /// <c>columns</c> dictionary collects values for columns that have no CLR property (shadow
-    /// columns declared with <see cref="SQLiteEntityTypeBuilder{T}.Column" />); they are written in
+    /// columns declared with <see cref="SQLiteEntityTypeBuilder{T}.Column" />). They are written in
     /// the same INSERT. Return <see langword="false" /> to skip the default INSERT.
     /// </summary>
     public SQLiteOptionsBuilder OnAdd<T>(Func<SQLiteDatabase, T, IDictionary<string, object?>, bool> hook)
@@ -624,7 +631,7 @@ public sealed class SQLiteOptionsBuilder
     /// <summary>
     /// Registers a function that runs before every <c>Update</c> for <typeparamref name="T" />. The
     /// <c>columns</c> dictionary collects values for columns that have no CLR property (shadow
-    /// columns declared with <see cref="SQLiteEntityTypeBuilder{T}.Column" />); they are written in
+    /// columns declared with <see cref="SQLiteEntityTypeBuilder{T}.Column" />). They are written in
     /// the same UPDATE. Return <see langword="false" /> to skip the default UPDATE.
     /// </summary>
     public SQLiteOptionsBuilder OnUpdate<T>(Func<SQLiteDatabase, T, IDictionary<string, object?>, bool> hook)
@@ -815,6 +822,7 @@ public sealed class SQLiteOptionsBuilder
             EntityMaterializers = new Dictionary<Type, Func<SQLiteQueryContext, Func<SQLiteQueryContext, object?>>>(EntityMaterializers),
             SelectMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(SelectMaterializers),
             GroupByKeyMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(GroupByKeyMaterializers),
+            GroupingQueryMaterializers = new Dictionary<Type, Func<SQLiteDatabase, Expression, object>>(GroupingQueryMaterializers),
             EntityWriters = new Dictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>>(EntityWriters),
             ReflectionFallbackDisabled = ReflectionFallbackDisabled,
             ExplicitAutoIncrementKeysPreserved = ExplicitAutoIncrementKeysPreserved,
@@ -892,7 +900,7 @@ public sealed class SQLiteOptionsBuilder
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075",
-        Justification = "JsonSerializerContext subclasses are produced by the System.Text.Json source generator, which keeps their public JsonTypeInfo<T> properties rooted.")]
+        Justification = "JsonSerializerContext members are rooted by the JSON source generator.")]
     private static IEnumerable<JsonTypeInfo> EnumerateContextRoots(JsonSerializerContext context)
     {
         foreach (PropertyInfo pi in context.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))

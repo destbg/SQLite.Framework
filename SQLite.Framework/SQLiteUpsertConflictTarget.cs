@@ -41,7 +41,7 @@ public sealed class SQLiteUpsertConflictTarget<T>
     /// </summary>
     public SQLiteUpsertAction<T> DoNothing()
     {
-        return Set(SQLiteUpsertAction<T>.DoNothing());
+        return Set(UpsertActionFactory.DoNothing<T>());
     }
 
     /// <summary>
@@ -49,7 +49,7 @@ public sealed class SQLiteUpsertConflictTarget<T>
     /// </summary>
     public SQLiteUpsertAction<T> DoUpdateAll()
     {
-        return Set(SQLiteUpsertAction<T>.DoUpdateAll());
+        return Set(UpsertActionFactory.DoUpdateAll<T>());
     }
 
     /// <summary>
@@ -63,7 +63,7 @@ public sealed class SQLiteUpsertConflictTarget<T>
         }
 
         IReadOnlyList<string> names = UpsertExpressionParser.ResolveColumnList(columns);
-        return Set(SQLiteUpsertAction<T>.DoUpdate(names));
+        return Set(UpsertActionFactory.DoUpdate<T>(names));
     }
 
     /// <summary>
@@ -81,7 +81,7 @@ public sealed class SQLiteUpsertConflictTarget<T>
             throw new ArgumentException("DoUpdate requires at least one Set(...) call. Use DoUpdateAll for every column or DoNothing to keep the existing row.", nameof(configure));
         }
 
-        return Set(SQLiteUpsertAction<T>.DoUpdateSet(builder.Setters));
+        return Set(UpsertActionFactory.DoUpdateSet<T>(builder.Setters));
     }
 
     private SQLiteUpsertAction<T> Set(SQLiteUpsertAction<T> next)

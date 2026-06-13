@@ -142,6 +142,11 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
         }
 
+        if (SelectMaterializerEmitter.IsInaccessibleStaticCapture(node, ctx))
+        {
+            return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
+        }
+
         SymbolInfo info = ctx.Model.GetSymbolInfo(node);
         ISymbol? symbol = info.Symbol;
 
@@ -212,6 +217,19 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         }
 
         return base.VisitIdentifierName(node);
+    }
+
+    /// <summary>
+    /// Rewrites a generic type name into a fully qualified form.
+    /// </summary>
+    public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
+    {
+        if (ctx.Model.GetSymbolInfo(node).Symbol is ITypeSymbol typeSymbol)
+        {
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol, ctx.WriterCtx.TypeArgSubstitutions));
+        }
+
+        return base.VisitGenericName(node);
     }
 
     /// <summary>

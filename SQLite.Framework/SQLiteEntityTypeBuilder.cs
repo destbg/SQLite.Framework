@@ -443,7 +443,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
         (string targetTable, string[] targetColumns) = ForeignKeyResolver.ResolveTargets(
             sourceTable: mapping.TableName,
             sourceColumns: sourceColumnNames,
-            typeof(TParent),
+            database.TableMapping<TParent>(),
             targetPropertyNames);
 
         ForeignKeyResolver.ValidateSetNullCompatibility(

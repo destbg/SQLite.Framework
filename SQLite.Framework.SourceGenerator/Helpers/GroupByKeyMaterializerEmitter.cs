@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SQLite.Framework.SourceGenerator.Models;
+using SQLite.Framework.SourceGenerator.Writers;
 
 namespace SQLite.Framework.SourceGenerator.Helpers;
 
@@ -17,63 +18,87 @@ public static class GroupByKeyMaterializerEmitter
     /// </summary>
     public static bool TryEmit(StringBuilder sb, string methodName, GroupByKeyInvocation invocation, SemanticModel model)
     {
-        if (invocation.ParameterSymbol.Type is ITypeParameterSymbol)
+        if (invocation.ParameterType is ITypeParameterSymbol)
         {
             return false;
         }
 
-        if (!IsEmittable(invocation.Body, invocation.ParameterSymbol, model))
+        Dictionary<ISymbol, RowBinding> bindings = new(SymbolEqualityComparer.Default)
+        {
+            [invocation.ParameterSymbol] = new RowBinding((string?)null, invocation.ParameterType)
+        };
+        SelectSignatureCtx writerCtx = new(invocation.ParameterType, bindings, model);
+
+        if (!IsEmittable(invocation.Body, invocation.ParameterSymbol, writerCtx))
         {
             return false;
         }
 
-        string paramName = invocation.ParameterSyntax.Identifier.ValueText;
-        string paramType = SelectMaterializerEmitter.FormatType(invocation.ParameterSymbol.Type);
+        GroupKeyBodyRewriter rewriter = new(writerCtx);
+        if (rewriter.Visit(invocation.Body) is not ExpressionSyntax rewrittenBody)
+        {
+            return false;
+        }
+
+        string paramName = invocation.ParameterName;
+        string paramType = SelectMaterializerEmitter.FormatType(invocation.ParameterType);
 
         sb.Append("        private static object? ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
         sb.AppendLine("        {");
         sb.Append("            ").Append(paramType).Append(" ").Append(paramName).Append(" = (")
             .Append(paramType).AppendLine(")ctx.Input!;");
-        sb.Append("            return ").Append(invocation.Body.ToString()).AppendLine(";");
+        sb.Append("            return ").Append(rewrittenBody.ToString()).AppendLine(";");
         sb.AppendLine("        }");
         sb.AppendLine();
         return true;
     }
 
-    private static bool IsEmittable(ExpressionSyntax node, IParameterSymbol parameter, SemanticModel model)
+    private static bool IsEmittable(ExpressionSyntax node, ISymbol parameter, SelectSignatureCtx ctx)
     {
         switch (node)
         {
             case ParenthesizedExpressionSyntax paren:
-                return IsEmittable(paren.Expression, parameter, model);
+                return IsEmittable(paren.Expression, parameter, ctx);
 
             case LiteralExpressionSyntax:
                 return true;
 
             case IdentifierNameSyntax ident:
-                return SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(ident).Symbol, parameter);
+                if (SymbolEqualityComparer.Default.Equals(ctx.Model.GetSymbolInfo(ident).Symbol, parameter))
+                {
+                    return true;
+                }
+                return SelectSignatureWriter.IsCapturedValue(ident, ctx);
 
             case MemberAccessExpressionSyntax ma when ma.Kind() == SyntaxKind.SimpleMemberAccessExpression:
-                return IsEmittable(ma.Expression, parameter, model);
+                if (SelectSignatureWriter.IsCapturedValue(ma, ctx))
+                {
+                    return true;
+                }
+                if (ctx.Model.GetSymbolInfo(ma).Symbol is IFieldSymbol { ContainingType.TypeKind: TypeKind.Enum })
+                {
+                    return true;
+                }
+                return IsEmittable(ma.Expression, parameter, ctx);
 
             case BinaryExpressionSyntax bin:
-                return IsEmittable(bin.Left, parameter, model) && IsEmittable(bin.Right, parameter, model);
+                return IsEmittable(bin.Left, parameter, ctx) && IsEmittable(bin.Right, parameter, ctx);
 
             case PrefixUnaryExpressionSyntax prefix:
-                return IsEmittable(prefix.Operand, parameter, model);
+                return IsEmittable(prefix.Operand, parameter, ctx);
 
             case PostfixUnaryExpressionSyntax postfix:
-                return IsEmittable(postfix.Operand, parameter, model);
+                return IsEmittable(postfix.Operand, parameter, ctx);
 
             case ConditionalExpressionSyntax cond:
-                return IsEmittable(cond.Condition, parameter, model)
-                    && IsEmittable(cond.WhenTrue, parameter, model)
-                    && IsEmittable(cond.WhenFalse, parameter, model);
+                return IsEmittable(cond.Condition, parameter, ctx)
+                    && IsEmittable(cond.WhenTrue, parameter, ctx)
+                    && IsEmittable(cond.WhenFalse, parameter, ctx);
 
             case AnonymousObjectCreationExpressionSyntax anon:
                 foreach (AnonymousObjectMemberDeclaratorSyntax init in anon.Initializers)
                 {
-                    if (!IsEmittable(init.Expression, parameter, model))
+                    if (!IsEmittable(init.Expression, parameter, ctx))
                     {
                         return false;
                     }
@@ -83,7 +108,7 @@ public static class GroupByKeyMaterializerEmitter
             case TupleExpressionSyntax tuple:
                 foreach (ArgumentSyntax arg in tuple.Arguments)
                 {
-                    if (!IsEmittable(arg.Expression, parameter, model))
+                    if (!IsEmittable(arg.Expression, parameter, ctx))
                     {
                         return false;
                     }
@@ -91,8 +116,8 @@ public static class GroupByKeyMaterializerEmitter
                 return true;
 
             case CastExpressionSyntax cast:
-                return IsBuiltInType(model.GetTypeInfo(cast.Type).Type)
-                    && IsEmittable(cast.Expression, parameter, model);
+                return IsBuiltInType(ctx.Model.GetTypeInfo(cast.Type).Type)
+                    && IsEmittable(cast.Expression, parameter, ctx);
 
             default:
                 return false;

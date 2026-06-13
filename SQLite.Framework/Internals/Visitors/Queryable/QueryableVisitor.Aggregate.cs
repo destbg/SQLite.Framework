@@ -97,6 +97,13 @@ internal partial class QueryableVisitor
 
         ThrowIfSetOperations(node.Method.Name);
 
+        if (Reverse)
+        {
+            throw new NotSupportedException(
+                "string.Join over a Reverse() queryable is not supported. " +
+                "Use OrderByDescending instead of OrderBy().Reverse() so SQLite can order the values.");
+        }
+
         if (Selects.Count != 1)
         {
             throw new NotSupportedException(
@@ -256,6 +263,7 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitGroupBy(MethodCallExpression node)
     {
         ThrowIfSetOperations(node.Method.Name);
+        ComparerArgumentGuard.ThrowIfComparer(node);
 
         if (GroupBys.Count != 0)
         {

@@ -16,12 +16,12 @@ public sealed class UnresolvedGenericSelect
     /// <summary>
     /// Creates a new unresolved generic select.
     /// </summary>
-    public UnresolvedGenericSelect(ExpressionSyntax body, SelectSignatureCtx baseCtx, SemanticModel model, ITypeParameterSymbol projectionParam, IMethodSymbol? enclosingMethod, INamedTypeSymbol? enclosingType)
+    public UnresolvedGenericSelect(ExpressionSyntax body, SelectSignatureCtx baseCtx, SemanticModel model, ITypeSymbol projectionType, IMethodSymbol? enclosingMethod, INamedTypeSymbol? enclosingType)
     {
         Body = body;
         BaseCtx = baseCtx;
         Model = model;
-        ProjectionParam = projectionParam;
+        ProjectionType = projectionType;
         EnclosingMethod = enclosingMethod;
         EnclosingType = enclosingType;
     }
@@ -42,9 +42,9 @@ public sealed class UnresolvedGenericSelect
     public SemanticModel Model { get; }
 
     /// <summary>
-    /// The open type parameter of the projection.
+    /// The projection type that still references open type parameters.
     /// </summary>
-    public ITypeParameterSymbol ProjectionParam { get; }
+    public ITypeSymbol ProjectionType { get; }
 
     /// <summary>
     /// The enclosing generic method, if any.

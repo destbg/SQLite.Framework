@@ -336,6 +336,62 @@ public static class SelectSignatureWriter
         return symbol;
     }
 
+    /// <summary>
+    /// Tells if the expression reads only literals, captured values, and types.
+    /// </summary>
+    public static bool IsStableConstantSubtree(ExpressionSyntax expression, SelectSignatureCtx ctx)
+    {
+        while (expression is ParenthesizedExpressionSyntax paren)
+        {
+            expression = paren.Expression;
+        }
+
+        switch (expression)
+        {
+            case LiteralExpressionSyntax:
+                return true;
+            case IdentifierNameSyntax ident:
+                if (TryGetRowBinding(ident, ctx, out _))
+                {
+                    return false;
+                }
+                return IsCapturedValue(ident, ctx) || ctx.Model.GetSymbolInfo(ident).Symbol is ITypeSymbol;
+            case MemberAccessExpressionSyntax ma:
+                return IsCapturedValue(ma, ctx) || IsStableConstantSubtree(ma.Expression, ctx);
+            case CastExpressionSyntax cast:
+                return IsStableConstantSubtree(cast.Expression, ctx);
+            case PrefixUnaryExpressionSyntax pre:
+                return IsStableConstantSubtree(pre.Operand, ctx);
+            case BinaryExpressionSyntax bin:
+                return IsStableConstantSubtree(bin.Left, ctx) && IsStableConstantSubtree(bin.Right, ctx);
+            case ObjectCreationExpressionSyntax oc:
+                if (oc.ArgumentList != null)
+                {
+                    foreach (ArgumentSyntax a in oc.ArgumentList.Arguments)
+                    {
+                        if (!IsStableConstantSubtree(a.Expression, ctx))
+                        {
+                            return false;
+                        }
+                    }
+                }
+                return oc.Initializer == null
+                    || oc.Initializer.Expressions.All(e => IsStableConstantSubtree(e, ctx));
+            case ImplicitObjectCreationExpressionSyntax ioc:
+                foreach (ArgumentSyntax a in ioc.ArgumentList.Arguments)
+                {
+                    if (!IsStableConstantSubtree(a.Expression, ctx))
+                    {
+                        return false;
+                    }
+                }
+                return ioc.Initializer == null
+                    || ioc.Initializer.Expressions.All(e => IsStableConstantSubtree(e, ctx));
+            default:
+                return false;
+        }
+    }
+
     private static ITypeSymbol? ElementTypeOf(ITypeSymbol? source) => source switch
     {
         INamedTypeSymbol nt when nt.IsGenericType => nt.TypeArguments.FirstOrDefault(),
@@ -369,7 +425,6 @@ public static class SelectSignatureWriter
         if (declaredType != null
             && convertedType != null
             && !SymbolEqualityComparer.Default.Equals(declaredType, convertedType)
-            && node is not LiteralExpressionSyntax
             && node is not CastExpressionSyntax)
         {
             Conversion conversion = ctx.Model.ClassifyConversion(node, convertedType);
@@ -379,7 +434,9 @@ public static class SelectSignatureWriter
                 || conversion.IsUserDefined
                 || conversion.IsNullable
                 || (conversion.IsExplicit && !conversion.IsReference);
-            if (needsTreeConvert)
+
+            bool literalAllowed = node is not LiteralExpressionSyntax || conversion.IsNullable || conversion.IsBoxing;
+            if (needsTreeConvert && literalAllowed)
             {
                 return AppendConvertChain(sb, convertedType, declaredType, () => AppendWithType(sb, node, declaredType, ctx), ctx);
             }
@@ -478,6 +535,9 @@ public static class SelectSignatureWriter
 
             case CheckedExpressionSyntax checkedExpr when checkedExpr.Kind() == SyntaxKind.CheckedExpression:
                 return AppendWithType(sb, checkedExpr.Expression, type, ctx.WithChecked());
+
+            case CheckedExpressionSyntax uncheckedExpr when uncheckedExpr.Kind() == SyntaxKind.UncheckedExpression:
+                return AppendWithType(sb, uncheckedExpr.Expression, type, ctx.WithUnchecked());
         }
 
         return false;
@@ -567,20 +627,68 @@ public static class SelectSignatureWriter
 
     private static bool AppendBinary(StringBuilder sb, BinaryExpressionSyntax bin, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        string? nodeType = MapBinaryKind(bin.Kind(), ctx.IsInChecked);
+        string? nodeType = MapBinaryKind(bin.Kind(), ctx.IsInChecked && IsCheckedRelevantType(type));
         if (nodeType == null)
         {
             return false;
         }
 
+        bool lowerEnums = IsComparisonKind(bin.Kind());
+
         sb.Append('(').Append(nodeType).Append(' ').Append(FormatType(type, ctx.TypeArgSubstitutions));
         sb.Append(' ');
-        if (!TryAppend(sb, bin.Left, ctx))
+        if (!AppendBinaryOperand(sb, bin.Left, lowerEnums, ctx))
         {
             return false;
         }
         sb.Append(' ');
-        if (!TryAppend(sb, bin.Right, ctx))
+        if (!AppendBinaryOperand(sb, bin.Right, lowerEnums, ctx))
+        {
+            return false;
+        }
+        sb.Append(')');
+        return true;
+    }
+
+    private static bool IsComparisonKind(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.EqualsExpression
+            or SyntaxKind.NotEqualsExpression
+            or SyntaxKind.GreaterThanExpression
+            or SyntaxKind.LessThanExpression
+            or SyntaxKind.GreaterThanOrEqualExpression
+            or SyntaxKind.LessThanOrEqualExpression;
+    }
+
+    private static bool AppendBinaryOperand(StringBuilder sb, ExpressionSyntax operand, bool lowerEnums, SelectSignatureCtx ctx)
+    {
+        if (!lowerEnums)
+        {
+            return TryAppend(sb, operand, ctx);
+        }
+
+        ExpressionSyntax stripped = operand;
+        while (stripped is ParenthesizedExpressionSyntax paren)
+        {
+            stripped = paren.Expression;
+        }
+
+        ITypeSymbol? operandType = Substitute(ctx.Model.GetTypeInfo(stripped).Type, ctx.TypeArgSubstitutions);
+        if (operandType is not INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlying })
+        {
+            return TryAppend(sb, operand, ctx);
+        }
+
+        if (ctx.Model.GetSymbolInfo(stripped).Symbol is IFieldSymbol { HasConstantValue: true } enumField
+            && enumField.ContainingType.TypeKind == TypeKind.Enum)
+        {
+            sb.Append("(Constant ").Append(FormatType(underlying, ctx.TypeArgSubstitutions)).Append(' ')
+                .Append(FormatConstant(enumField.ConstantValue)).Append(')');
+            return true;
+        }
+
+        sb.Append("(Convert ").Append(FormatType(underlying, ctx.TypeArgSubstitutions)).Append(' ');
+        if (!TryAppend(sb, stripped, ctx))
         {
             return false;
         }
@@ -592,8 +700,9 @@ public static class SelectSignatureWriter
     {
         string? nodeType = unary.Kind() switch
         {
-            SyntaxKind.UnaryMinusExpression => ctx.IsInChecked ? "NegateChecked" : "Negate",
+            SyntaxKind.UnaryMinusExpression => ctx.IsInChecked && IsCheckedRelevantType(type) ? "NegateChecked" : "Negate",
             SyntaxKind.LogicalNotExpression => "Not",
+            SyntaxKind.BitwiseNotExpression => "Not",
             _ => null
         };
 
@@ -634,9 +743,11 @@ public static class SelectSignatureWriter
 
     private static bool AppendMemberAccess(StringBuilder sb, MemberAccessExpressionSyntax access, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        string memberName = access.Name.Identifier.ValueText;
-
         ISymbol? memberSym = ctx.Model.GetSymbolInfo(access).Symbol;
+
+        string memberName = memberSym is IFieldSymbol { CorrespondingTupleField: { } tupleField }
+            ? tupleField.Name
+            : access.Name.Identifier.ValueText;
         bool isStatic = memberSym switch
         {
             IPropertySymbol p => p.IsStatic,
@@ -1070,59 +1181,6 @@ public static class SelectSignatureWriter
         return true;
     }
 
-    private static bool IsStableConstantSubtree(ExpressionSyntax expression, SelectSignatureCtx ctx)
-    {
-        while (expression is ParenthesizedExpressionSyntax paren)
-        {
-            expression = paren.Expression;
-        }
-
-        switch (expression)
-        {
-            case LiteralExpressionSyntax:
-                return true;
-            case IdentifierNameSyntax ident:
-                if (TryGetRowBinding(ident, ctx, out _))
-                {
-                    return false;
-                }
-                return IsCapturedValue(ident, ctx) || ctx.Model.GetSymbolInfo(ident).Symbol is ITypeSymbol;
-            case MemberAccessExpressionSyntax ma:
-                return IsCapturedValue(ma, ctx) || IsStableConstantSubtree(ma.Expression, ctx);
-            case CastExpressionSyntax cast:
-                return IsStableConstantSubtree(cast.Expression, ctx);
-            case PrefixUnaryExpressionSyntax pre:
-                return IsStableConstantSubtree(pre.Operand, ctx);
-            case BinaryExpressionSyntax bin:
-                return IsStableConstantSubtree(bin.Left, ctx) && IsStableConstantSubtree(bin.Right, ctx);
-            case ObjectCreationExpressionSyntax oc:
-                if (oc.ArgumentList != null)
-                {
-                    foreach (ArgumentSyntax a in oc.ArgumentList.Arguments)
-                    {
-                        if (!IsStableConstantSubtree(a.Expression, ctx))
-                        {
-                            return false;
-                        }
-                    }
-                }
-                return oc.Initializer == null
-                    || oc.Initializer.Expressions.All(e => IsStableConstantSubtree(e, ctx));
-            case ImplicitObjectCreationExpressionSyntax ioc:
-                foreach (ArgumentSyntax a in ioc.ArgumentList.Arguments)
-                {
-                    if (!IsStableConstantSubtree(a.Expression, ctx))
-                    {
-                        return false;
-                    }
-                }
-                return ioc.Initializer == null
-                    || ioc.Initializer.Expressions.All(e => IsStableConstantSubtree(e, ctx));
-            default:
-                return false;
-        }
-    }
-
     private static bool AppendArrayCreation(StringBuilder sb, ArrayCreationExpressionSyntax node, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
         if (node.Initializer == null)
@@ -1255,7 +1313,7 @@ public static class SelectSignatureWriter
             switch (content)
             {
                 case InterpolatedStringTextSyntax text:
-                    format.Append(text.TextToken.Text);
+                    format.Append(text.TextToken.ValueText);
                     break;
                 case InterpolationSyntax hole:
                     format.Append('{').Append(holes.Count);
@@ -1275,14 +1333,21 @@ public static class SelectSignatureWriter
             }
         }
 
-        if (holes.Count is 0 or > 3)
+        if (holes.Count == 0)
         {
             return false;
         }
 
+        bool asArray = holes.Count > 3;
+
         sb.Append("(Call System.String System.String.Format (Constant System.String ")
             .Append(FormatConstant(format.ToString()))
             .Append(')');
+
+        if (asArray)
+        {
+            sb.Append(" (NewArrayInit System.Object[]");
+        }
 
         foreach (InterpolationSyntax hole in holes)
         {
@@ -1303,6 +1368,11 @@ public static class SelectSignatureWriter
             {
                 sb.Append(')');
             }
+        }
+
+        if (asArray)
+        {
+            sb.Append(')');
         }
 
         sb.Append(')');
@@ -1427,6 +1497,16 @@ public static class SelectSignatureWriter
         }
         sb.Append(')');
         return true;
+    }
+
+    private static bool IsCheckedRelevantType(ITypeSymbol? type)
+    {
+        ITypeSymbol? t = GetNullableUnderlying(type) ?? type;
+        return t?.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
+            or SpecialType.System_UInt32 or SpecialType.System_UInt64
+            or SpecialType.System_Int16 or SpecialType.System_UInt16
+            or SpecialType.System_Byte or SpecialType.System_SByte
+            or SpecialType.System_Char or SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
     }
 
     private static ITypeSymbol? GetNullableUnderlying(ITypeSymbol? type)

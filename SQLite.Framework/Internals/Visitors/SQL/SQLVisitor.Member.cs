@@ -176,6 +176,32 @@ internal partial class SQLVisitor
 
         if (Database.Options.HasJsonConverter(node.Expression.Type) || sqlExpression.IsJsonSource)
         {
+            string member = node.Member.Name;
+            Type receiverType = node.Expression.Type;
+            bool isDictionary = receiverType.IsGenericType
+                && receiverType.GetGenericTypeDefinition() == typeof(Dictionary<,>);
+
+            if (member == "Count" && isDictionary)
+            {
+                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(),
+                    "(SELECT COUNT(*) FROM json_each(", sqlExpression, "))", sqlExpression.Parameters);
+            }
+
+            if (member is "Count" or "Length" or "LongLength"
+                && TypeHelpers.GetEnumerableElementType(receiverType) != null)
+            {
+                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(),
+                    "json_array_length(", sqlExpression, ")", sqlExpression.Parameters);
+            }
+
+            if (member is "Keys" or "Values" && isDictionary)
+            {
+                string column = member == "Keys" ? "\"key\"" : "\"value\"";
+                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(),
+                        $"(SELECT json_group_array({column}) FROM json_each(", sqlExpression, "))", sqlExpression.Parameters)
+                    .WithJsonSource();
+            }
+
             return InternJsonExtract(sqlExpression, node.Member.Name, node.Type);
         }
 

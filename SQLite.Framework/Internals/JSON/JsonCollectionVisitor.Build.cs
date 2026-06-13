@@ -2,6 +2,17 @@ namespace SQLite.Framework.Internals.JSON;
 
 internal partial class JsonCollectionVisitor
 {
+    private string ArrayElementExpr(string column)
+    {
+        Type element = Nullable.GetUnderlyingType(currentElementType) ?? currentElementType;
+        if (element == typeof(bool))
+        {
+            return $"(CASE WHEN {column} IS NULL THEN NULL WHEN {column} THEN json('true') ELSE json('false') END)";
+        }
+
+        return column;
+    }
+
     private string BuildSql(string sourceSql)
     {
         string sp = new(' ', (visitor.Level + 1) * 4);
@@ -63,7 +74,7 @@ internal partial class JsonCollectionVisitor
                 List<string> groupedClauses = [.. clauses];
                 groupedClauses[0] = $"SELECT {distinctKeyword}{selectExpr} AS \"value\"";
                 string groupedInner = string.Join(nl + sp2, groupedClauses);
-                return $"({nl}{sp}SELECT json_group_array(\"value\"){nl}{sp}FROM ({nl}{sp2}{groupedInner}{nl}{sp}){nl})";
+                return $"({nl}{sp}SELECT json_group_array({ArrayElementExpr("\"value\"")}){nl}{sp}FROM ({nl}{sp2}{groupedInner}{nl}{sp}){nl})";
             }
 
             if (distinct && reverseApplied)
@@ -78,7 +89,7 @@ internal partial class JsonCollectionVisitor
                 comboClauses.Add($"GROUP BY {selectExpr}");
                 comboClauses.Add($"ORDER BY {positionAggregate}({keyColumn}) DESC");
                 string comboInner = string.Join(nl + sp2, comboClauses);
-                return $"({nl}{sp}SELECT json_group_array(\"value\"){nl}{sp}FROM ({nl}{sp2}{comboInner}{nl}{sp}){nl})";
+                return $"({nl}{sp}SELECT json_group_array({ArrayElementExpr("\"value\"")}){nl}{sp}FROM ({nl}{sp2}{comboInner}{nl}{sp}){nl})";
             }
 
             bool needsSubquery = orderBys.Count > 0 || limit != null || offset != null;
@@ -98,10 +109,10 @@ internal partial class JsonCollectionVisitor
                 }
 
                 string innerSelect2 = string.Join(nl + sp2, arrayClauses);
-                return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}{arrayColumn}){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
+                return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}{ArrayElementExpr(arrayColumn)}){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
             }
 
-            clauses[0] = $"SELECT json_group_array({distinctKeyword}{selectExpr})";
+            clauses[0] = $"SELECT json_group_array({distinctKeyword}{ArrayElementExpr(selectExpr)})";
             string simpleSelect = string.Join(nl + sp, clauses);
             return $"({nl}{sp}{simpleSelect}{nl})";
         }

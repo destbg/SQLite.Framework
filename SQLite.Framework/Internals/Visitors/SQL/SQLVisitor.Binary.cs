@@ -47,32 +47,25 @@ internal partial class SQLVisitor
             or ExpressionType.GreaterThan or ExpressionType.LessThan
             or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual;
 
-        if (charComparisonOp && Database.Options.CharStorage != CharStorageMode.Integer && rightNode.Type == typeof(int) && leftNode is UnaryExpression leftUnary && leftUnary.Operand.Type == typeof(char))
+        if (charComparisonOp && Database.Options.CharStorage != CharStorageMode.Integer)
         {
-            leftNode = leftUnary.Operand;
+            bool leftIsCharConvert = leftNode is UnaryExpression { NodeType: ExpressionType.Convert } lcc && lcc.Operand.Type == typeof(char);
+            bool rightIsCharConvert = rightNode is UnaryExpression { NodeType: ExpressionType.Convert } rcc && rcc.Operand.Type == typeof(char);
 
-            if (ExpressionHelpers.IsConstant(rightNode))
+            if (leftIsCharConvert && rightIsCharConvert)
             {
-                int value = (int)ExpressionHelpers.GetConstantValue(rightNode)!;
-                rightNode = Expression.Constant(((char)value).ToString());
+                leftNode = ((UnaryExpression)leftNode).Operand;
+                rightNode = ((UnaryExpression)rightNode).Operand;
             }
-            else
+            else if (leftIsCharConvert && TryGetInRangeCharText(rightNode, out string? rightText))
             {
-                rightNode = Expression.MakeUnary(ExpressionType.Convert, rightNode, typeof(char));
+                leftNode = ((UnaryExpression)leftNode).Operand;
+                rightNode = Expression.Constant(rightText);
             }
-        }
-        else if (charComparisonOp && Database.Options.CharStorage != CharStorageMode.Integer && leftNode.Type == typeof(int) && rightNode is UnaryExpression rightUnary && rightUnary.Operand.Type == typeof(char))
-        {
-            rightNode = rightUnary.Operand;
-
-            if (ExpressionHelpers.IsConstant(leftNode))
+            else if (rightIsCharConvert && TryGetInRangeCharText(leftNode, out string? leftText))
             {
-                int value = (int)ExpressionHelpers.GetConstantValue(leftNode)!;
-                leftNode = Expression.Constant(((char)value).ToString());
-            }
-            else
-            {
-                leftNode = Expression.MakeUnary(ExpressionType.Convert, leftNode, typeof(char));
+                rightNode = ((UnaryExpression)rightNode).Operand;
+                leftNode = Expression.Constant(leftText);
             }
         }
 
@@ -90,11 +83,24 @@ internal partial class SQLVisitor
         if (resolvedLeft.SQLiteExpression == null || resolvedRight.SQLiteExpression == null
             || (isArithmeticOp && eitherSideStoredAsTextOrBlob))
         {
-            return Expression.MakeBinary(node.NodeType, resolvedLeft.Expression, resolvedRight.Expression, node.IsLiftedToNull, node.Method);
+            return Expression.MakeBinary(
+                node.NodeType,
+                CoerceClientExpression(resolvedLeft.Expression, leftNode.Type),
+                CoerceClientExpression(resolvedRight.Expression, rightNode.Type),
+                node.IsLiftedToNull,
+                node.Method);
         }
 
         SQLiteExpression left = BracketBinaryOperand(leftNode, resolvedLeft.SQLiteExpression);
         SQLiteExpression right = BracketBinaryOperand(rightNode, resolvedRight.SQLiteExpression);
+
+        if (isArithmeticOp
+            && Database.Options.TimeSpanStorage == TimeSpanStorageMode.Text
+            && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(DateTime))
+        {
+            left = CoerceConstantTimeSpanToTicks(resolvedLeft, left);
+            right = CoerceConstantTimeSpanToTicks(resolvedRight, right);
+        }
 
         SQLiteParameter[]? bothParameters = ParameterHelpers.CombineParameters(left, right);
 
@@ -184,8 +190,8 @@ internal partial class SQLVisitor
 
         if (node.NodeType is ExpressionType.Add && node.Type == typeof(string))
         {
-            SQLiteExpression concatLeft = CoalesceNullableStringOperand(this, leftNode, resolvedLeft, BracketConcatOperand(leftNode, resolvedLeft.SQLiteExpression!));
-            SQLiteExpression concatRight = CoalesceNullableStringOperand(this, rightNode, resolvedRight, BracketConcatOperand(rightNode, resolvedRight.SQLiteExpression!));
+            SQLiteExpression concatLeft = CoalesceNullableStringOperand(leftNode, resolvedLeft, BracketConcatOperand(leftNode, resolvedLeft.SQLiteExpression!));
+            SQLiteExpression concatRight = CoalesceNullableStringOperand(rightNode, resolvedRight, BracketConcatOperand(rightNode, resolvedRight.SQLiteExpression!));
 
             return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", concatLeft, " || ", concatRight, "", ParameterHelpers.CombineParameters(concatLeft, concatRight));
         }
@@ -248,6 +254,21 @@ internal partial class SQLVisitor
         }
 
         return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", left, sqlOp, right, "", bothParameters);
+    }
+
+    private SQLiteExpression CoerceConstantTimeSpanToTicks(ResolvedModel resolved, SQLiteExpression current)
+    {
+        if (resolved.IsConstant && resolved.Constant is TimeSpan ts)
+        {
+            return SQLiteExpression.Leaf(typeof(long), Counters.NextIdentifier(), Counters.NextParamName(), ts.Ticks);
+        }
+
+        if (current.Parameters is { Length: 1 } && current.Parameters[0].Value is TimeSpan paramTs)
+        {
+            return SQLiteExpression.Leaf(typeof(long), Counters.NextIdentifier(), Counters.NextParamName(), paramTs.Ticks);
+        }
+
+        return current;
     }
 
     private SQLiteExpression BuildUnsignedWrap32(Type resultType, string sqlOp, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)
@@ -325,21 +346,35 @@ internal partial class SQLVisitor
             parameters);
     }
 
-    public static SQLiteExpression CoalesceNullableStringOperand(SQLVisitor visitor, Expression operand, ResolvedModel resolved, SQLiteExpression expr)
+    public SQLiteExpression CoalesceNullableStringOperand(Expression operand, ResolvedModel resolved, SQLiteExpression expr)
     {
         bool mayBeNull = StringConcatOperandMayBeNull(operand, resolved);
 
         if ((Nullable.GetUnderlyingType(expr.Type) ?? expr.Type) == typeof(char)
-            && visitor.Database.Options.CharStorage == CharStorageMode.Integer)
+            && Database.Options.CharStorage == CharStorageMode.Integer)
         {
             return mayBeNull
-                ? SQLiteExpression.Binary(typeof(string), visitor.Counters.NextIdentifier(), "(CASE WHEN ", expr, " IS NULL THEN '' ELSE CHAR(", expr, ") END)", expr.Parameters)
-                : SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "CHAR(", expr, ")", expr.Parameters);
+                ? SQLiteExpression.Binary(typeof(string), Counters.NextIdentifier(), "(CASE WHEN ", expr, " IS NULL THEN '' ELSE CHAR(", expr, ") END)", expr.Parameters)
+                : SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(), "CHAR(", expr, ")", expr.Parameters);
         }
 
         return mayBeNull
-            ? SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "COALESCE(", expr, ", '')", expr.Parameters)
+            ? SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(), "COALESCE(", expr, ", '')", expr.Parameters)
             : expr;
+    }
+
+    private static bool TryGetInRangeCharText(Expression node, out string? text)
+    {
+        text = null;
+        if (node.Type == typeof(int) && ExpressionHelpers.IsConstant(node)
+            && ExpressionHelpers.GetConstantValue(node) is int value
+            && value is >= 0 and <= char.MaxValue)
+        {
+            text = ((char)value).ToString();
+            return true;
+        }
+
+        return false;
     }
 
     private static bool IsLiftedOrderComparisonThatMayBeNull(Expression operand)

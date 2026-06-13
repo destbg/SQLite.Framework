@@ -4,11 +4,11 @@ namespace SQLite.Framework.Internals.Visitors;
 /// Expands table-row references that appear as method-call arguments into
 /// <see cref="MemberInitExpression" />s that reconstruct the row from its individual members.
 /// </summary>
-internal sealed class RowParameterExpander : ExpressionVisitor
+internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
 {
     private readonly HashSet<ParameterExpression> rowParameters;
 
-    private RowParameterExpander(HashSet<ParameterExpression> rowParameters)
+    public RowParameterExpanderVisitor(HashSet<ParameterExpression> rowParameters)
     {
         this.rowParameters = rowParameters;
     }
@@ -65,22 +65,7 @@ internal sealed class RowParameterExpander : ExpressionVisitor
         return false;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The returned LambdaExpression is consumed as an expression tree by the translator, never compiled into a delegate.")]
-    public static LambdaExpression ExpandRowsInMethodCalls(LambdaExpression lambda, IEnumerable<ParameterExpression> rowParameters)
-    {
-        HashSet<ParameterExpression> set = [.. rowParameters];
-
-        if (set.Count == 0)
-        {
-            return lambda;
-        }
-
-        RowParameterExpander expander = new(set);
-        Expression body = expander.Visit(lambda.Body);
-        return body == lambda.Body ? lambda : Expression.Lambda(body, lambda.Parameters);
-    }
-
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Row types are preserved via DynamicallyAccessedMembers on the Queryable<T> type parameter.")]
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Row types are preserved by Queryable<T>.")]
     private static bool IsConstructibleEntityType(Type type)
     {
         if (type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(decimal))
@@ -109,8 +94,8 @@ internal sealed class RowParameterExpander : ExpressionVisitor
             || declaringType.Namespace == "SQLite.Framework.Extensions";
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Row types are preserved via DynamicallyAccessedMembers on the Queryable<T> type parameter.")]
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Row types are preserved via DynamicallyAccessedMembers on the Queryable<T> type parameter.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Row types are preserved by Queryable<T>.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Row types are preserved by Queryable<T>.")]
     private static MemberInitExpression BuildMaterialization(Expression rowReference)
     {
         Type type = rowReference.Type;

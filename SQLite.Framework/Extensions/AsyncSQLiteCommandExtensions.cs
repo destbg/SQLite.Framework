@@ -52,17 +52,7 @@ public static class AsyncSQLiteCommandExtensions
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await command.Database.LockAsync(cancellationToken);
-
-            sqlite3_stmt statement = command.CreateStatement();
-            SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
-            raw.sqlite3_finalize(statement);
-
-            if (result != SQLiteResult.Done)
-            {
-                throw new SQLiteException(result, raw.sqlite3_errmsg(command.Database.GetActiveHandle()).utf8_to_string(), command.CommandText);
-            }
-
-            return raw.sqlite3_changes(command.Database.GetActiveHandle());
+            return command.ExecuteNonQueryCore();
         }, cancellationToken);
     }
 
@@ -74,18 +64,7 @@ public static class AsyncSQLiteCommandExtensions
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await command.Database.LockAsync(cancellationToken);
-
-            sqlite3_stmt statement = command.CreateStatement();
-            SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
-            raw.sqlite3_finalize(statement);
-
-            if (result != SQLiteResult.Done)
-            {
-                throw new SQLiteException(result, raw.sqlite3_errmsg(command.Database.GetActiveHandle()).utf8_to_string(), command.CommandText);
-            }
-
-            sqlite3 handle = command.Database.GetActiveHandle();
-            return (raw.sqlite3_changes(handle), raw.sqlite3_last_insert_rowid(handle));
+            return command.ExecuteWithLastRowIdCore();
         }, cancellationToken);
     }
 }

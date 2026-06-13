@@ -93,12 +93,19 @@ internal class AliasVisitor
                     string alias = CheckPrefix(prefix, parameter.Name!);
                     Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[parameterExpression];
 
-                    foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
+                    if (TypeHelpers.IsSimple(parameterExpression.Type, database.Options))
                     {
-                        result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
+                        result.Add(alias, parameterTableColumns.Values.First());
                     }
+                    else
+                    {
+                        foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
+                        {
+                            result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
+                        }
 
-                    CarrySubPaths(alias, parameterTableColumns);
+                        CarrySubPaths(alias, parameterTableColumns);
+                    }
                 }
                 else if (argument is MemberExpression memberExpression
                     && !TypeHelpers.IsSimple(memberExpression.Type, database.Options))

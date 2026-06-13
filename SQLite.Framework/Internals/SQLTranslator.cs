@@ -46,6 +46,8 @@ internal class SQLTranslator
         || queryableMethodVisitor.Take != null
         || queryableMethodVisitor.Skip != null;
 
+    public bool HasSetOperations => queryableMethodVisitor.SetOperations.Count > 0;
+
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
     {
         init => Visitor.MethodArguments = value;
@@ -80,7 +82,11 @@ internal class SQLTranslator
     public void Visit(Expression node)
     {
         node = CapturedQueryableInliner.Inline(node);
-        node = QueryFilterInjector.Inject(node, Visitor.Database.Options);
+
+        if (!isInnerQuery)
+        {
+            node = QueryFilterInjector.Inject(node, Visitor.Database.Options);
+        }
         if (node is MethodCallExpression mce)
         {
             selectMethodExpression = TranslateMethodExpression(mce);
@@ -286,7 +292,8 @@ internal class SQLTranslator
         }
         else if (selectMethodExpression is null
             or ParameterExpression
-            or MemberExpression { Expression: not SQLiteExpression }
+            || (selectMethodExpression is MemberExpression { Expression: not SQLiteExpression } memberSelect
+                && IsRawColumnPassthroughMember(memberSelect))
             || (selectMethodExpression is MethodCallExpression mce
                 && (mce.Method.DeclaringType == typeof(Queryable)
                     || mce.Method.DeclaringType == typeof(Enumerable))))
@@ -495,11 +502,13 @@ internal class SQLTranslator
             }
         }
 
-        if (wheres.Count > 0 || q.AllPredicate != null)
+        bool allPredicateInWhere = q.AllPredicate != null && q.GroupBys.Count == 0;
+
+        if (wheres.Count > 0 || allPredicateInWhere)
         {
             AppendSpacingNewline(sb, spacing, ref first);
             sb.Append("WHERE ");
-            int termCount = wheres.Count + (q.AllPredicate != null ? 1 : 0);
+            int termCount = wheres.Count + (allPredicateInWhere ? 1 : 0);
             bool needAnd = false;
             for (int i = 0; i < wheres.Count; i++)
             {
@@ -509,11 +518,11 @@ internal class SQLTranslator
                 needAnd = true;
             }
 
-            if (q.AllPredicate != null)
+            if (allPredicateInWhere)
             {
                 if (needAnd) sb.Append(" AND ");
                 sb.Append('(');
-                q.AllPredicate.WriteSqlTo(sb);
+                q.AllPredicate!.WriteSqlTo(sb);
                 sb.Append(") IS NOT 1");
             }
         }
@@ -531,15 +540,28 @@ internal class SQLTranslator
         }
 
         // HAVING
-        if (q.Havings.Count > 0)
+        bool allPredicateInHaving = q.AllPredicate != null && q.GroupBys.Count > 0;
+
+        if (q.Havings.Count > 0 || allPredicateInHaving)
         {
             AppendSpacingNewline(sb, spacing, ref first);
             sb.Append("HAVING ");
+            int havingCount = q.Havings.Count + (allPredicateInHaving ? 1 : 0);
+            bool needAnd = false;
             for (int i = 0; i < q.Havings.Count; i++)
             {
-                if (i > 0) sb.Append(" AND ");
-                SQLiteExpression having = q.Havings.Count > 1 ? ExpressionHelpers.BracketIfNeeded(q.Havings[i]) : q.Havings[i];
+                if (needAnd) sb.Append(" AND ");
+                SQLiteExpression having = havingCount > 1 ? ExpressionHelpers.BracketIfNeeded(q.Havings[i]) : q.Havings[i];
                 having.WriteSqlTo(sb);
+                needAnd = true;
+            }
+
+            if (allPredicateInHaving)
+            {
+                if (needAnd) sb.Append(" AND ");
+                sb.Append('(');
+                q.AllPredicate!.WriteSqlTo(sb);
+                sb.Append(") IS NOT 1");
             }
         }
 
@@ -612,7 +634,7 @@ internal class SQLTranslator
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "We are checking the Queryable class")]
-    [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "Entity types come from user-rooted IQueryable<T> so their public properties are preserved.")]
+    [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "Entity types are preserved by user-rooted IQueryable<T>.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "We are calling the Queryable.Select method on user-rooted IQueryable<T>.")]
     private Expression? TranslateMethodExpression(MethodCallExpression mce)
     {
@@ -642,6 +664,12 @@ internal class SQLTranslator
                 break;
             }
 
+            if (TryDesugarGroupByResultSelector(callExpression, out MethodCallExpression groupByCall, out MethodCallExpression selectCall))
+            {
+                methodCalls.Add(selectCall);
+                callExpression = groupByCall;
+            }
+
             methodCalls.Add(callExpression);
             if (callExpression.Arguments.Count == 0)
             {
@@ -658,7 +686,20 @@ internal class SQLTranslator
             }
         }
 
-        int wrapIdx = FindSubqueryBoundary(methodCalls);
+        bool[] isWindowSelect = new bool[methodCalls.Count];
+        for (int i = 0; i < methodCalls.Count; i++)
+        {
+            MethodCallExpression candidate = methodCalls[i];
+            if (candidate.Method.Name == nameof(Queryable.Select)
+                && candidate.Arguments.Count >= 2
+                && ExpressionHelpers.StripQuotes(candidate.Arguments[1]) is LambdaExpression selectLambda
+                && WindowCallDetector.Contains(selectLambda.Body))
+            {
+                isWindowSelect[i] = true;
+            }
+        }
+
+        int wrapIdx = FindSubqueryBoundary(methodCalls, isWindowSelect);
         bool wrappedAsSubquery = false;
 
         if (wrapIdx >= 0)
@@ -742,6 +783,46 @@ internal class SQLTranslator
                     ? Expression.Call(typeof(Queryable), nameof(Queryable.LongCount), [typeof(int)], projectedInner)
                     : Expression.Call(typeof(Queryable), nameof(Queryable.Count), [typeof(int)], projectedInner);
             }
+            wrappedAsSubquery = true;
+        }
+
+        if (!wrappedAsSubquery && IsTerminalScalarAggregateOverGroupBy(methodCalls, out string aggregateName))
+        {
+            MethodCallExpression aggregateCall = methodCalls[0];
+            Expression projectedInner;
+            Type scalarType;
+
+            if (aggregateCall.Arguments.Count == 2)
+            {
+                Type groupingType = aggregateCall.Arguments[0].Type.GetGenericArguments()[0];
+                scalarType = ((LambdaExpression)ExpressionHelpers.StripQuotes(aggregateCall.Arguments[1])).Body.Type;
+                projectedInner = Expression.Call(typeof(Queryable), nameof(Queryable.Select), [groupingType, scalarType], aggregateCall.Arguments[0], aggregateCall.Arguments[1]);
+            }
+            else
+            {
+                projectedInner = aggregateCall.Arguments[0];
+                scalarType = projectedInner.Type.GetGenericArguments()[0];
+            }
+
+            SQLTranslator innerTranslator = Visitor.CloneDeeper(level + 1);
+            SQLQuery innerQuery = innerTranslator.Translate(projectedInner);
+
+            char aliasChar = 'g';
+            string alias = $"{aliasChar}{Visitor.Counters.NextTableIndex(aliasChar)}";
+
+            SQLiteParameter[]? innerParams = innerQuery.Parameters.Count == 0 ? null : innerQuery.Parameters.ToArray();
+            Visitor.From = SQLiteExpression.Leaf(scalarType, -1, $"({Environment.NewLine}{innerQuery.Sql}{Environment.NewLine}) AS {alias}", innerParams);
+
+            string columnName = innerTranslator.Selects[0].IdentifierText;
+            SQLiteExpression columnExpr = SQLiteExpression.Leaf(scalarType, Visitor.Counters.NextIdentifier(), $"{alias}.\"{columnName}\"");
+            Visitor.TableColumns = new Dictionary<string, Expression> { [string.Empty] = columnExpr };
+            queryableMethodVisitor.Selects.Clear();
+            queryableMethodVisitor.Selects.Add(columnExpr);
+
+            methodCalls.RemoveRange(1, methodCalls.Count - 1);
+            methodCalls[0] = aggregateName is nameof(Queryable.Max) or nameof(Queryable.Min)
+                ? Expression.Call(typeof(Queryable), aggregateName, [scalarType], projectedInner)
+                : Expression.Call(typeof(Queryable), aggregateName, Type.EmptyTypes, projectedInner);
             wrappedAsSubquery = true;
         }
 
@@ -891,7 +972,103 @@ internal class SQLTranslator
         return false;
     }
 
-    private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls)
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Builds an expression tree for the translator.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Builds an expression tree for the translator.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "IGrouping<,>.Key is rooted by the framework.")]
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Builds an expression tree, not compiled.")]
+    private static bool TryDesugarGroupByResultSelector(MethodCallExpression call, out MethodCallExpression groupByCall, out MethodCallExpression selectCall)
+    {
+        groupByCall = null!;
+        selectCall = null!;
+
+        if (call.Method.Name != nameof(Queryable.GroupBy) || call.Method.DeclaringType != typeof(Queryable))
+        {
+            return false;
+        }
+
+        Expression source = call.Arguments[0];
+        Expression keySelectorArg = call.Arguments[1];
+        LambdaExpression keySelector = (LambdaExpression)ExpressionHelpers.StripQuotes(keySelectorArg);
+
+        Type tSource = keySelector.Parameters[0].Type;
+        Type tKey = keySelector.Body.Type;
+        Type tElement;
+        LambdaExpression resultSelector;
+        Expression? elementSelectorArg = null;
+
+        if (call.Arguments.Count == 3)
+        {
+            if (ExpressionHelpers.StripQuotes(call.Arguments[2]) is not LambdaExpression second || second.Parameters.Count != 2)
+            {
+                return false;
+            }
+
+            resultSelector = second;
+            tElement = tSource;
+        }
+        else if (call.Arguments.Count == 4)
+        {
+            if (ExpressionHelpers.StripQuotes(call.Arguments[2]) is not LambdaExpression elementSelector
+                || ExpressionHelpers.StripQuotes(call.Arguments[3]) is not LambdaExpression resultLambda
+                || resultLambda.Parameters.Count != 2)
+            {
+                return false;
+            }
+
+            elementSelectorArg = call.Arguments[2];
+            tElement = elementSelector.Body.Type;
+            resultSelector = resultLambda;
+        }
+        else
+        {
+            return false;
+        }
+
+        groupByCall = elementSelectorArg == null
+            ? Expression.Call(typeof(Queryable), nameof(Queryable.GroupBy), [tSource, tKey], source, keySelectorArg)
+            : Expression.Call(typeof(Queryable), nameof(Queryable.GroupBy), [tSource, tKey, tElement], source, keySelectorArg, elementSelectorArg);
+
+        Type groupingType = typeof(IGrouping<,>).MakeGenericType(tKey, tElement);
+        ParameterExpression grp = Expression.Parameter(groupingType, "grp");
+        Expression keyAccess = Expression.Property(grp, nameof(IGrouping<,>.Key));
+
+        Expression rewrittenBody = new ParameterSubstitutor(resultSelector.Parameters[0], keyAccess).Visit(resultSelector.Body);
+        rewrittenBody = new ParameterSubstitutor(resultSelector.Parameters[1], grp).Visit(rewrittenBody);
+
+        LambdaExpression selectLambda = Expression.Lambda(rewrittenBody, grp);
+        selectCall = Expression.Call(typeof(Queryable), nameof(Queryable.Select), [groupingType, resultSelector.Body.Type], groupByCall, Expression.Quote(selectLambda));
+
+        return true;
+    }
+
+    private static bool IsTerminalScalarAggregateOverGroupBy(List<MethodCallExpression> methodCalls, out string aggregateName)
+    {
+        aggregateName = string.Empty;
+
+        if (methodCalls.Count < 2)
+        {
+            return false;
+        }
+
+        string name = methodCalls[0].Method.Name;
+        if (name is not (nameof(Queryable.Sum) or nameof(Queryable.Max) or nameof(Queryable.Min) or nameof(Queryable.Average)))
+        {
+            return false;
+        }
+
+        for (int i = 1; i < methodCalls.Count; i++)
+        {
+            if (methodCalls[i].Method.Name == nameof(Queryable.GroupBy))
+            {
+                aggregateName = name;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls, bool[] isWindowSelect)
     {
         QueryLevelParts level = QueryLevelParts.None;
         int boundary = -1;
@@ -899,28 +1076,32 @@ internal class SQLTranslator
         for (int i = methodCalls.Count - 1; i >= 0; i--)
         {
             string name = methodCalls[i].Method.Name;
+            bool windowSelect = isWindowSelect[i];
 
-            if (ConflictsWithLevel(name, level))
+            if (ConflictsWithLevel(name, level, windowSelect))
             {
                 boundary = i;
                 level = QueryLevelParts.None;
             }
 
-            level |= MethodParts(name);
+            level |= MethodParts(name, windowSelect);
         }
 
         return boundary;
     }
 
-    private static bool ConflictsWithLevel(string name, QueryLevelParts level)
+    private static bool ConflictsWithLevel(string name, QueryLevelParts level, bool windowSelect)
     {
         QueryLevelParts blockedBy = name switch
         {
-            nameof(Queryable.Where) => QueryLevelParts.Limit,
-            nameof(Queryable.Any) or nameof(Queryable.All) or nameof(Queryable.Contains) => QueryLevelParts.Limit,
+            nameof(Queryable.Where) => QueryLevelParts.Limit | QueryLevelParts.Window,
+            nameof(Queryable.Any) or nameof(Queryable.All) or nameof(Queryable.Contains) => QueryLevelParts.Limit | QueryLevelParts.Window,
+            nameof(Queryable.Count) or nameof(Queryable.LongCount) or nameof(Queryable.Sum)
+                or nameof(Queryable.Max) or nameof(Queryable.Min) or nameof(Queryable.Average) => QueryLevelParts.Window,
             nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
                 or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) => QueryLevelParts.Limit,
             nameof(Queryable.Distinct) => QueryLevelParts.Limit,
+            nameof(Queryable.Select) when windowSelect => QueryLevelParts.Distinct | QueryLevelParts.Limit,
             nameof(Queryable.Select) => QueryLevelParts.Distinct,
             nameof(Queryable.GroupBy) => QueryLevelParts.Limit | QueryLevelParts.Distinct,
             _ when IsJoinLikeMethod(name) => QueryLevelParts.Where | QueryLevelParts.Projection
@@ -931,9 +1112,9 @@ internal class SQLTranslator
         return (level & blockedBy) != QueryLevelParts.None;
     }
 
-    private static QueryLevelParts MethodParts(string name)
+    private static QueryLevelParts MethodParts(string name, bool windowSelect)
     {
-        return name switch
+        QueryLevelParts parts = name switch
         {
             nameof(Queryable.Where) => QueryLevelParts.Where,
             nameof(Queryable.Select) => QueryLevelParts.Projection,
@@ -949,6 +1130,13 @@ internal class SQLTranslator
             _ when IsJoinLikeMethod(name) => QueryLevelParts.Join,
             _ => QueryLevelParts.None
         };
+
+        if (windowSelect)
+        {
+            parts |= QueryLevelParts.Window;
+        }
+
+        return parts;
     }
 
     private static bool IsJoinLikeMethod(string name)
@@ -985,5 +1173,16 @@ internal class SQLTranslator
     private static bool IsSelectMethod(MethodInfo method)
     {
         return TranslationPatterns.IsSelectMethodName(method.Name);
+    }
+
+    private static bool IsRawColumnPassthroughMember(MemberExpression member)
+    {
+        Expression? current = member.Expression;
+        while (current is MemberExpression inner)
+        {
+            current = inner.Expression;
+        }
+
+        return current is not (NewExpression or MemberInitExpression or MethodCallExpression);
     }
 }

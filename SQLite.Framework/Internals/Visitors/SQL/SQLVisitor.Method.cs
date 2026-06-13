@@ -2,6 +2,21 @@ namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
+    public Expression CoerceClientExpression(Expression expr, Type targetType)
+    {
+        if (expr.Type == targetType)
+        {
+            return expr;
+        }
+
+        if (expr is SQLiteExpression sql)
+        {
+            return SQLiteExpression.Alias(targetType, Counters.NextIdentifier(), sql, sql.Parameters);
+        }
+
+        return Expression.Convert(expr, targetType);
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types have public properties.")]
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
@@ -133,7 +148,7 @@ internal partial class SQLVisitor
                 return QueryableMemberVisitor.HandleEnumerableMethod(this, node, enumerable, arguments);
             }
 
-            return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+            return Expression.Call(obj.Expression, node.Method, CoerceArguments(node.Method, arguments));
         }
 
         if (node.Arguments.Count > 0)
@@ -163,10 +178,22 @@ internal partial class SQLVisitor
                 return QueryableMemberVisitor.HandleEnumerableMethod(this, node, sourceEnumerable, arguments);
             }
 
-            return Expression.Call(node.Method, arguments.Select(f => f.Expression));
+            return Expression.Call(node.Method, CoerceArguments(node.Method, arguments));
         }
 
         return node;
+    }
+
+    private IEnumerable<Expression> CoerceArguments(MethodInfo method, List<ResolvedModel> arguments)
+    {
+        ParameterInfo[] parameters = method.GetParameters();
+        List<Expression> result = new(arguments.Count);
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            result.Add(CoerceClientExpression(arguments[i].Expression, parameters[i].ParameterType));
+        }
+
+        return result;
     }
 
     private SQLiteExpression ResolveColumnReference(MethodCallExpression node)
@@ -193,7 +220,7 @@ internal partial class SQLVisitor
             "Migrate expression.");
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The value type is the generic argument of SQLiteColumn.Of, which the caller declares.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Value type is the caller SQLiteColumn.Of argument.")]
     private SQLiteExpression BuildShadowColumnLeaf(Type type, string? aliasPrefix, string name)
     {
         string colSql = aliasPrefix != null

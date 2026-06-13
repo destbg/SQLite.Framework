@@ -30,6 +30,11 @@ internal static class SqlLiteralHelper
 
     public static string FormatLiteral(object? value, SQLiteOptions options)
     {
+        if (value != null && options.TypeConverters.TryGetValue(value.GetType(), out ISQLiteTypeConverter? converter))
+        {
+            value = converter.ToDatabase(value);
+        }
+
         return value switch
         {
             DateTime dt => options.DateTimeStorage switch
@@ -81,10 +86,30 @@ internal static class SqlLiteralHelper
             uint b => b.ToString(CultureInfo.InvariantCulture),
             long b => b.ToString(CultureInfo.InvariantCulture),
             ulong b => unchecked((long)b).ToString(CultureInfo.InvariantCulture),
-            float f => f.ToString("R", CultureInfo.InvariantCulture),
-            double d => d.ToString("R", CultureInfo.InvariantCulture),
+            float f => FormatReal(f),
+            double d => FormatReal(d),
             _ => throw new NotSupportedException(
                 $"Cannot inline value of type {value.GetType().Name} as a SQL literal. Use a simple constant in CHECK / Computed / partial-index / view / trigger expressions, or build the DDL with raw SQL."),
         };
+    }
+
+    private static string FormatReal(double value)
+    {
+        if (double.IsNaN(value))
+        {
+            return "NULL";
+        }
+
+        if (double.IsPositiveInfinity(value))
+        {
+            return "9e999";
+        }
+
+        if (double.IsNegativeInfinity(value))
+        {
+            return "-9e999";
+        }
+
+        return value.ToString("R", CultureInfo.InvariantCulture);
     }
 }

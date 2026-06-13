@@ -23,7 +23,7 @@ internal static class GuidMemberVisitor
                 case nameof(Guid.NewGuid):
                 {
                     return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                        "(LOWER(HEX(RANDOMBLOB(4))) || '-' || LOWER(HEX(RANDOMBLOB(2))) || '-' || LOWER(HEX(RANDOMBLOB(2))) || '-' || LOWER(HEX(RANDOMBLOB(2))) || '-' || LOWER(HEX(RANDOMBLOB(6))))");
+                        "(LOWER(HEX(RANDOMBLOB(4))) || '-' || LOWER(HEX(RANDOMBLOB(2))) || '-4' || LOWER(SUBSTR(HEX(RANDOMBLOB(2)), 2)) || '-' || SUBSTR('89ab', ABS(RANDOM()) % 4 + 1, 1) || LOWER(SUBSTR(HEX(RANDOMBLOB(2)), 2)) || '-' || LOWER(HEX(RANDOMBLOB(6))))");
                 }
             }
         }

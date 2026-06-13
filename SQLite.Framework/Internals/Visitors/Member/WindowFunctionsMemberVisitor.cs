@@ -64,6 +64,11 @@ internal static class WindowFunctionsMemberVisitor
             RequireWindowChainPredecessor(node);
         }
 
+        if (node.Method.Name is nameof(SQLiteWindow<>.PartitionBy))
+        {
+            RequirePartitionByFirst(node);
+        }
+
         Type t = node.Type;
         int id = visitor.Counters.NextIdentifier();
         return node.Method.Name switch
@@ -174,6 +179,28 @@ internal static class WindowFunctionsMemberVisitor
         return name is nameof(SQLiteWindow<>.Rows) or nameof(SQLiteWindow<>.Range) or nameof(SQLiteWindow<>.Groups);
     }
 
+    private static void RequirePartitionByFirst(MethodCallExpression node)
+    {
+        MethodCallExpression call = (MethodCallExpression)node.Object!;
+        while (call.Method.Name is nameof(SQLiteWindow<>.Over) or nameof(SQLiteWindow<>.Filter))
+        {
+            if (call.Object is not MethodCallExpression inner)
+            {
+                return;
+            }
+
+            call = inner;
+        }
+
+        if (call.Method.Name is nameof(SQLiteWindow<>.PartitionBy) or nameof(SQLiteWindow<>.ThenPartitionBy)
+            or nameof(SQLiteWindow<>.OrderBy) or nameof(SQLiteWindow<>.OrderByDescending)
+            or nameof(SQLiteWindow<>.ThenOrderBy) or nameof(SQLiteWindow<>.ThenOrderByDescending))
+        {
+            throw new NotSupportedException(
+                "PartitionBy must come right after Over. Use ThenPartitionBy to add more partition columns.");
+        }
+    }
+
     private static void RequireWindowChainPredecessor(MethodCallExpression node)
     {
         bool orderChain = node.Method.Name is nameof(SQLiteWindow<>.ThenOrderBy) or nameof(SQLiteWindow<>.ThenOrderByDescending);
@@ -234,7 +261,7 @@ internal static class WindowFunctionsMemberVisitor
     {
         int start = sb.Length;
         prev.SQLiteExpression!.WriteSqlTo(sb);
-        int overIndex = start + sb.ToString(start, sb.Length - start).IndexOf(" OVER ", StringComparison.Ordinal);
+        int overIndex = start + sb.ToString(start, sb.Length - start).IndexOf(" OVER (", StringComparison.Ordinal);
 
         StringBuilder clause = StringBuilderPool.Rent();
         clause.Append(" FILTER (WHERE ");

@@ -34,7 +34,7 @@ public readonly struct SQLiteWindow<T>
     /// Adds a <c>FILTER (WHERE ...)</c> clause so only rows matching <paramref name="predicate" />
     /// feed the aggregate. The clause is emitted between the function and <c>OVER</c>, so the
     /// chain order relative to the other window clauses does not matter. SQLite only allows
-    /// <c>FILTER</c> on aggregate window functions (SUM, AVG, MIN, MAX, COUNT); it rejects it on
+    /// <c>FILTER</c> on aggregate window functions (SUM, AVG, MIN, MAX, COUNT). It rejects it on
     /// ranking functions such as ROW_NUMBER.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE

@@ -47,6 +47,8 @@ internal static class QueryableMemberVisitor
 
     public static Expression HandleEnumerableMethod(SQLVisitor visitor, MethodCallExpression node, IEnumerable enumerable, List<ResolvedModel> arguments)
     {
+        ComparerArgumentGuard.ThrowIfComparer(node);
+
         int firstItemArgIndex = node.Object == null ? 1 : 0;
 
         if (arguments.Skip(firstItemArgIndex).Any(f => f.SQLiteExpression == null))
@@ -58,10 +60,26 @@ internal static class QueryableMemberVisitor
             && TypeHelpers.IsSimple(node.Method.ReturnType, visitor.Database.Options)
             && arguments.Skip(firstItemArgIndex).All(f => f.IsConstant))
         {
-            object? result = node.Method.Invoke(null, [
-                enumerable,
-                ..node.Arguments.Skip(1).Select(ExpressionHelpers.GetConstantValue)
-            ]);
+            ParameterInfo[] methodParameters = node.Method.GetParameters();
+            object? result;
+            if (methodParameters.Length > 0 && methodParameters[0].ParameterType.IsByRefLike)
+            {
+                result = node.Method.Name switch
+                {
+                    nameof(Enumerable.Contains) => enumerable.Cast<object?>().Contains(ExpressionHelpers.GetConstantValue(node.Arguments[1])),
+                    _ => throw new NotSupportedException(
+                        $"{node.Method.Name} over a constant collection is not translatable to SQL. " +
+                        "Materialize the collection into a List<T> first.")
+                };
+            }
+            else
+            {
+                result = node.Method.Invoke(null, [
+                    enumerable,
+                    ..node.Arguments.Skip(1).Select(ExpressionHelpers.GetConstantValue)
+                ]);
+            }
+
             string pName = visitor.Counters.NextParamName();
 
             return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), pName, result);
@@ -257,6 +275,11 @@ internal static class QueryableMemberVisitor
             if (kvp.Key.StartsWith(Constants.GroupingElementPrefix, StringComparison.Ordinal))
             {
                 newTableColumns[kvp.Key[Constants.GroupingElementPrefix.Length..]] = kvp.Value;
+                continue;
+            }
+
+            if (kvp.Key == nameof(IGrouping<,>.Key))
+            {
                 continue;
             }
 

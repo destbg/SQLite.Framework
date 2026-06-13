@@ -54,6 +54,11 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             return default;
         }
 
+        if (Source.RunActionHooksInternal(item, SQLiteAction.Add) == SQLiteAction.Skip)
+        {
+            return default;
+        }
+
         (TableColumn[] columns, string sql) = Source.GetAddInfoForItemInternal(item);
         TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
         List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
@@ -111,6 +116,11 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             return default;
         }
 
+        if (Source.RunActionHooksInternal(item, SQLiteAction.Update) == SQLiteAction.Skip)
+        {
+            return default;
+        }
+
         (TableColumn[] columns, TableColumn[] primaryColumns, string sql) = Source.GetUpdateInfoInternal();
         List<SQLiteParameter> parameters = BuildUpdateParameters(columns, primaryColumns, item);
 
@@ -147,6 +157,11 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     public virtual TResult? Remove(T item)
     {
         if (!Source.RunHooksInternal(Database.Options.RemoveHooks, item))
+        {
+            return default;
+        }
+
+        if (Source.RunActionHooksInternal(item, SQLiteAction.Remove) == SQLiteAction.Skip)
         {
             return default;
         }
@@ -258,6 +273,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             ReflectedConstructors = plan.Template.ReflectedConstructors,
         };
 
+        using IDisposable _ = Database.Lock();
         return Database.CreateCommand(finalSql, combinedParameters)
             .ExecuteQueryInternal<TResult>(query)
             .ToList();

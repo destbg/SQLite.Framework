@@ -11,12 +11,13 @@ public sealed class GroupByKeyInvocation
     /// <summary>
     /// Creates a new group-by key invocation.
     /// </summary>
-    public GroupByKeyInvocation(string signature, ExpressionSyntax body, ParameterSyntax parameterSyntax, IParameterSymbol parameterSymbol, ITypeSymbol keyType)
+    public GroupByKeyInvocation(string signature, ExpressionSyntax body, string parameterName, ISymbol parameterSymbol, ITypeSymbol parameterType, ITypeSymbol keyType)
     {
         Signature = signature;
         Body = body;
-        ParameterSyntax = parameterSyntax;
+        ParameterName = parameterName;
         ParameterSymbol = parameterSymbol;
+        ParameterType = parameterType;
         KeyType = keyType;
     }
 
@@ -31,14 +32,20 @@ public sealed class GroupByKeyInvocation
     public ExpressionSyntax Body { get; }
 
     /// <summary>
-    /// The syntax of the lambda parameter.
+    /// The name of the row variable the key selector body refers to.
     /// </summary>
-    public ParameterSyntax ParameterSyntax { get; }
+    public string ParameterName { get; }
 
     /// <summary>
-    /// The symbol of the lambda parameter.
+    /// The symbol of the row variable. A lambda parameter for fluent calls
+    /// and a range variable for query syntax.
     /// </summary>
-    public IParameterSymbol ParameterSymbol { get; }
+    public ISymbol ParameterSymbol { get; }
+
+    /// <summary>
+    /// The type of the row variable.
+    /// </summary>
+    public ITypeSymbol ParameterType { get; }
 
     /// <summary>
     /// The type of the group key.

@@ -7,17 +7,17 @@ namespace SQLite.Framework.Internals.Visitors;
 /// <see cref="QueryableExtensions.IgnoreQueryFilters{T}" /> is processed with injection disabled so
 /// the user can opt out per query, including inside subqueries (such as <c>Join</c>).
 /// </summary>
-internal sealed class QueryFilterInjector : ExpressionVisitor
+internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
 {
     private readonly SQLiteOptions options;
     private bool ignoreFilters;
 
-    private QueryFilterInjector(SQLiteOptions options)
+    public QueryFilterInjectorVisitor(SQLiteOptions options)
     {
         this.options = options;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The element type comes from a SQLiteTable<T> instance whose type was preserved via DynamicallyAccessedMembers.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Element type is preserved by SQLiteTable<T>.")]
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Queryable.Where is rooted by user code that already calls Where.")]
     protected override Expression VisitConstant(ConstantExpression node)
     {
@@ -29,7 +29,7 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
         return InjectFilters(node, table.ElementType);
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The element type comes from a SQLiteTable<T> instance whose type was preserved via DynamicallyAccessedMembers.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Element type is preserved by SQLiteTable<T>.")]
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Queryable.Where is rooted by user code that already calls Where.")]
     protected override Expression VisitMember(MemberExpression node)
     {
@@ -72,7 +72,7 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
         return base.VisitMethodCall(node);
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The element type comes from a SQLiteTable<T> instance whose type was preserved via DynamicallyAccessedMembers.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Element type is preserved by SQLiteTable<T>.")]
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Queryable.Where is rooted by user code that already calls Where.")]
     private Expression InjectFilters(Expression source, Type entityType)
     {
@@ -98,12 +98,6 @@ internal sealed class QueryFilterInjector : ExpressionVisitor
         }
 
         return result;
-    }
-
-    public static Expression Inject(Expression source, SQLiteOptions options)
-    {
-        QueryFilterInjector injector = new(options);
-        return injector.Visit(source);
     }
 
     private static bool IsIgnoreQueryFiltersCall(MethodCallExpression node)

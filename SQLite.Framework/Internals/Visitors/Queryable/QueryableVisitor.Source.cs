@@ -5,6 +5,7 @@ internal partial class QueryableVisitor
     private SQLiteExpression VisitSetOperation(MethodCallExpression node, string setType)
     {
         ThrowIfReverse(node.Method.Name);
+        ComparerArgumentGuard.ThrowIfComparer(node);
 
         if (OrderBys.Count > 0 || Take != null || Skip != null)
         {
@@ -24,10 +25,14 @@ internal partial class QueryableVisitor
                 "Materialize the ordered or paged operand into a list before combining.");
         }
 
+        string operandSql = sqlTranslator.HasSetOperations
+            ? $"SELECT * FROM ({query.Sql})"
+            : query.Sql;
+
         SQLiteExpression sqlExpression = SQLiteExpression.Leaf(
             node.Arguments[1].Type,
             visitor.Counters.NextIdentifier(),
-            query.Sql,
+            operandSql,
             query.Parameters.Count == 0 ? null : query.Parameters.ToArray()
         );
 

@@ -35,7 +35,7 @@ public class SQLitePragmas
     /// </summary>
     public virtual SQLiteJournalMode JournalMode
     {
-        get => ParseJournalMode(Database.ExecuteScalar<string>("PRAGMA journal_mode"));
+        get => PragmaValueParser.ParseJournalMode(Database.ExecuteScalar<string>("PRAGMA journal_mode"));
         set => Database.ExecuteScalar<string>($"PRAGMA journal_mode = {value switch
         {
             SQLiteJournalMode.Delete => "DELETE",
@@ -175,7 +175,7 @@ public class SQLitePragmas
     /// </summary>
     public virtual SQLiteEncoding Encoding
     {
-        get => ParseEncoding(Database.ExecuteScalar<string>("PRAGMA encoding"));
+        get => PragmaValueParser.ParseEncoding(Database.ExecuteScalar<string>("PRAGMA encoding"));
         set => Database.Execute($"PRAGMA encoding = '{value switch
         {
             SQLiteEncoding.Utf8 => "UTF-8",
@@ -194,7 +194,7 @@ public class SQLitePragmas
     /// </summary>
     public virtual SQLiteLockingMode LockingMode
     {
-        get => ParseLockingMode(Database.ExecuteScalar<string>("PRAGMA locking_mode"));
+        get => PragmaValueParser.ParseLockingMode(Database.ExecuteScalar<string>("PRAGMA locking_mode"));
         set => Database.ExecuteScalar<string>($"PRAGMA locking_mode = {value switch
         {
             SQLiteLockingMode.Normal => "NORMAL",
@@ -447,40 +447,5 @@ public class SQLitePragmas
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_16, "pragma_foreign_key_list() as a table-valued function");
 #endif
         return new SQLitePragmaTable<PragmaForeignKey>(Database, "pragma_foreign_key_list", tableName);
-    }
-
-    internal static SQLiteEncoding ParseEncoding(string? value)
-    {
-        return value switch
-        {
-            "UTF-8" => SQLiteEncoding.Utf8,
-            "UTF-16le" => SQLiteEncoding.Utf16le,
-            "UTF-16be" => SQLiteEncoding.Utf16be,
-            _ => throw new InvalidOperationException($"Unrecognized PRAGMA encoding value '{value ?? "<null>"}'."),
-        };
-    }
-
-    internal static SQLiteLockingMode ParseLockingMode(string? value)
-    {
-        return value switch
-        {
-            "normal" => SQLiteLockingMode.Normal,
-            "exclusive" => SQLiteLockingMode.Exclusive,
-            _ => throw new InvalidOperationException($"Unrecognized PRAGMA locking_mode value '{value ?? "<null>"}'."),
-        };
-    }
-
-    internal static SQLiteJournalMode ParseJournalMode(string? value)
-    {
-        return value switch
-        {
-            "delete" => SQLiteJournalMode.Delete,
-            "truncate" => SQLiteJournalMode.Truncate,
-            "persist" => SQLiteJournalMode.Persist,
-            "memory" => SQLiteJournalMode.Memory,
-            "wal" => SQLiteJournalMode.Wal,
-            "off" => SQLiteJournalMode.Off,
-            _ => throw new InvalidOperationException($"Unrecognized PRAGMA journal_mode value '{value ?? "<null>"}'."),
-        };
     }
 }

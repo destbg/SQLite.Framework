@@ -29,6 +29,7 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitContains(MethodCallExpression node)
     {
         ThrowIfSetOperations(node.Method.Name);
+        ComparerArgumentGuard.ThrowIfComparer(node);
 
         if (visitor.TableColumns.Count != 1)
         {
@@ -142,7 +143,14 @@ internal partial class QueryableVisitor
                     throw new NotSupportedException($"Unsupported WHERE expression {lambda.Body}");
                 }
 
-                Wheres.Add(sqlExpression);
+                if (GroupBys.Count != 0)
+                {
+                    Havings.Add(sqlExpression);
+                }
+                else
+                {
+                    Wheres.Add(sqlExpression);
+                }
             }
             else
             {

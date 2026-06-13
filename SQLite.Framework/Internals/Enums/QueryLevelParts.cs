@@ -16,4 +16,5 @@ internal enum QueryLevelParts
     Limit = 1 << 5,
     Join = 1 << 6,
     Reverse = 1 << 7,
+    Window = 1 << 8,
 }

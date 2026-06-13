@@ -17,12 +17,10 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly object readGateLock = new();
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
     private readonly AsyncLocal<bool> holdsConnectionLock = new();
-    private readonly SemaphoreSlim walWriterGate = new(1, 1);
     private readonly ConcurrentDictionary<Type, TableMapping> tableMappings = [];
     private readonly PreparedStatementPool statementPool = new();
     private volatile bool modelFrozen;
     private bool modelCreated;
-    private int walWriterCount;
     private int activeTransactionCount;
     private TaskCompletionSource? readGateTcs;
 
@@ -582,13 +580,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return NoOpLockObject.Instance;
         }
 
-        if (Options.IsWalMode)
-        {
-            AcquireWalWrite();
-            SetConnectionLock();
-            return new WalWriteLockObject(this);
-        }
-
         return new LockObject(connectionSemaphore, holdsConnectionLock);
     }
 
@@ -850,6 +841,18 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return CreateCommand(sql, ToParameterList(parameters)).ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Runs a <c>GroupBy(keySelector)</c> query and groups the rows into <c>IGrouping&lt;,&gt;</c>
+    /// values with the type arguments fixed. Generated code calls this so materializing a grouping
+    /// works under Native AOT without <c>MakeGenericMethod</c>. Prefer the LINQ surface. This is a
+    /// hook for the source generator.
+    /// </summary>
+    public IEnumerable<IGrouping<TKey, TElement>> ExecuteGeneratedGroupingQuery<TKey, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
+        where TKey : notnull
+    {
+        return ExecuteGroupingQuery<TKey, TElement>(expression);
+    }
+
     internal Task WaitConnectionSemaphoreAsync(CancellationToken cancellationToken)
     {
         return connectionSemaphore.WaitAsync(cancellationToken);
@@ -907,12 +910,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 #endif
 
-    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "IGrouping<TKey, TElement> is referenced by user code; TKey and TElement are already rooted by their own code.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<TKey, TElement> is referenced by user code; TKey and TElement are already rooted by their own code.")]
+    [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "IGrouping<TKey, TElement> is rooted by user code.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<TKey, TElement> is rooted by user code.")]
     internal IEnumerable<T> ExecuteSequenceQuery<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression expression)
     {
         if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(IGrouping<,>))
         {
+            if (Options.GroupingQueryMaterializers.TryGetValue(typeof(T), out Func<SQLiteDatabase, Expression, object>? groupingMaterializer))
+            {
+                return (IEnumerable<T>)groupingMaterializer(this, expression);
+            }
+
             if (!RuntimeFeature.IsDynamicCodeSupported && Options.GroupByKeyMaterializers.Count == 0)
             {
                 throw new NotSupportedException(
@@ -989,58 +997,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return gate == null ? Task.CompletedTask : gate.WaitAsync(cancellationToken);
     }
 
-    internal void AcquireWalWrite()
-    {
-        walWriterGate.Wait();
-        walWriterCount++;
-        if (walWriterCount == 1)
-        {
-            connectionSemaphore.Wait();
-        }
-
-        walWriterGate.Release();
-    }
-
-    internal async Task AcquireWalWriteAsync(CancellationToken cancellationToken)
-    {
-        await walWriterGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            walWriterCount++;
-            if (walWriterCount == 1)
-            {
-                try
-                {
-                    await connectionSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch
-                {
-                    walWriterCount--;
-                    throw;
-                }
-            }
-        }
-        finally
-        {
-            walWriterGate.Release();
-        }
-    }
-
-    internal void ReleaseWalWrite()
-    {
-        holdsConnectionLock.Value = false;
-        walWriterGate.Wait();
-        walWriterCount--;
-        if (walWriterCount == 0)
-        {
-            walWriterGate.Release();
-            connectionSemaphore.Release();
-            return;
-        }
-
-        walWriterGate.Release();
-    }
-
     internal void SetConnectionLock()
     {
         holdsConnectionLock.Value = true;
@@ -1087,6 +1043,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Type does meet the requirements as it starts from SQLiteTable<T>.")]
     TResult IQueryProvider.Execute<TResult>(Expression expression)
     {
+        if (typeof(TResult).IsGenericType
+            && typeof(TResult).GetGenericTypeDefinition() == typeof(IGrouping<,>)
+            && expression is MethodCallExpression groupingScalar
+            && groupingScalar.Method.DeclaringType == typeof(Queryable)
+            && groupingScalar.Method.Name is nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)
+                or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault)
+            && groupingScalar.Arguments[0] is MethodCallExpression { Method.Name: nameof(Queryable.GroupBy) })
+        {
+            return ExecuteGroupingScalar<TResult>(groupingScalar);
+        }
+
         // Build SQL + parameters
         SQLTranslator translator = new(this);
         SQLQuery query = translator.Translate(expression);
@@ -1178,6 +1145,28 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Compiles a grouping predicate; the IGrouping path already needs dynamic code.")]
+    [UnconditionalSuppressMessage("AOT", "IL2091", Justification = "TResult is an IGrouping<,> rooted by user code.")]
+    private TResult ExecuteGroupingScalar<TResult>(MethodCallExpression scalarCall)
+    {
+        IEnumerable<TResult> groupings = ExecuteSequenceQuery<TResult>(scalarCall.Arguments[0]);
+
+        Func<TResult, bool>? predicate = null;
+        if (scalarCall.Arguments.Count == 2)
+        {
+            LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(scalarCall.Arguments[1]);
+            predicate = (Func<TResult, bool>)lambda.Compile();
+        }
+
+        return scalarCall.Method.Name switch
+        {
+            nameof(Queryable.First) => predicate != null ? groupings.First(predicate) : groupings.First(),
+            nameof(Queryable.FirstOrDefault) => predicate != null ? groupings.FirstOrDefault(predicate)! : groupings.FirstOrDefault()!,
+            nameof(Queryable.Single) => predicate != null ? groupings.Single(predicate) : groupings.Single(),
+            _ => predicate != null ? groupings.SingleOrDefault(predicate)! : groupings.SingleOrDefault()!,
+        };
+    }
+
     private IEnumerable<IGrouping<TKey, TElement>> ExecuteGroupingQuery<TKey, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TElement>(Expression expression)
         where TKey : notnull
     {
@@ -1213,10 +1202,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 
         CompiledExpression? compiledKey = null;
+        IReadOnlyList<object?>? keyCapturedValues = null;
         if (keyExtractor == null)
         {
             QueryCompilerVisitor compiler = new(Options, keyLambda.Parameters);
             compiledKey = (CompiledExpression)compiler.Visit(keyLambda.Body);
+        }
+        else
+        {
+            ReflectedBindingsCollector keyCollector = new();
+            keyCollector.Visit(keyLambda.Body);
+            keyCapturedValues = keyCollector.CapturedValues;
         }
 
         SQLTranslator translator = new(this);
@@ -1228,7 +1224,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         List<TKey> order = new();
         foreach (TElement row in command.ExecuteQueryInternal<TElement>(query))
         {
-            SQLiteQueryContext keyContext = new() { Input = row };
+            SQLiteQueryContext keyContext = new() { Input = row, CapturedValues = keyCapturedValues };
             TKey key = keyExtractor != null
                 ? (TKey)keyExtractor(keyContext)!
                 : (TKey)compiledKey!.Call(keyContext)!;
@@ -1317,8 +1313,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2073", Justification = "BaseSQLiteQueryable.ElementType comes from Queryable<T> / SQLiteTable<T>, which already require PublicProperties and PublicConstructors via DynamicallyAccessedMembers on T.")]
-    [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "The fallback path is unreachable in practice, every framework queryable chain bottoms out at a BaseSQLiteQueryable constant. The fallback exists only for defensiveness.")]
+    [UnconditionalSuppressMessage("AOT", "IL2073", Justification = "ElementType is preserved by Queryable<T>/SQLiteTable<T>.")]
+    [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "Defensive fallback; chains bottom out at a BaseSQLiteQueryable constant.")]
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)]
     private static Type FindRootElementType(Expression expression)
     {
@@ -1342,7 +1338,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Parameter objects are user-provided; callers using an anonymous object must preserve its properties (anonymous types declared in user code are preserved automatically).")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Parameter objects are user-provided and rooted by user code.")]
     private static List<SQLiteParameter> ToParameterList(object parameters)
     {
         return parameters switch
@@ -1359,5 +1355,4 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 .ToList()
         };
     }
-
 }
