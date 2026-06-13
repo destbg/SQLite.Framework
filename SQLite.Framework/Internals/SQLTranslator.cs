@@ -286,7 +286,8 @@ internal class SQLTranslator
         }
         else if (selectMethodExpression is null
             or ParameterExpression
-            or MemberExpression { Expression: not SQLiteExpression }
+            || (selectMethodExpression is MemberExpression { Expression: not SQLiteExpression } memberSelect
+                && IsRawColumnPassthroughMember(memberSelect))
             || (selectMethodExpression is MethodCallExpression mce
                 && (mce.Method.DeclaringType == typeof(Queryable)
                     || mce.Method.DeclaringType == typeof(Enumerable))))
@@ -985,5 +986,16 @@ internal class SQLTranslator
     private static bool IsSelectMethod(MethodInfo method)
     {
         return TranslationPatterns.IsSelectMethodName(method.Name);
+    }
+
+    private static bool IsRawColumnPassthroughMember(MemberExpression member)
+    {
+        Expression? current = member.Expression;
+        while (current is MemberExpression inner)
+        {
+            current = inner.Expression;
+        }
+
+        return current is not (NewExpression or MemberInitExpression or MethodCallExpression);
     }
 }

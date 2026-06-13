@@ -25,7 +25,7 @@ internal partial class JsonCollectionVisitor
     private string? existsWrapper;
     private string? crossJoin;
 
-    private JsonCollectionVisitor(SQLVisitor visitor, SQLiteOptions options)
+    public JsonCollectionVisitor(SQLVisitor visitor, SQLiteOptions options)
     {
         this.visitor = visitor;
         this.options = options;
@@ -120,101 +120,20 @@ internal partial class JsonCollectionVisitor
         }
     }
 
-    public static Expression? TryHandle(MethodCallExpression node, SQLVisitor sqlVisitor)
+    public (string Sql, SQLiteParameter[]? Parameters, Type ResultType) Run(SQLiteExpression sourceExpr, List<MethodCallExpression> chain, Type resultType)
     {
-        if (!IsChainedCollectionMethod(node))
-        {
-            return null;
-        }
+        parameters.AddRange(sourceExpr.Parameters ?? []);
 
-        List<MethodCallExpression> chain = [];
-        Expression source = UnwindChain(node, chain);
-
-        ResolvedModel sourceModel = sqlVisitor.ResolveExpression(source);
-        if (sourceModel.SQLiteExpression == null)
-        {
-            return null;
-        }
-
-        if (!IsJsonCollectionExpression(sourceModel.SQLiteExpression, sqlVisitor.Database.Options))
-        {
-            return null;
-        }
-
-        JsonCollectionVisitor jcv = new(sqlVisitor, sqlVisitor.Database.Options);
-        jcv.parameters.AddRange(sourceModel.SQLiteExpression.Parameters ?? []);
-
-        jcv.currentElementType = TypeHelpers.GetEnumerableElementType(sourceModel.SQLiteExpression.Type)!;
-        jcv.baseSource = sourceModel.SQLiteExpression.ToString();
-        Type resultType = node.Type;
+        currentElementType = TypeHelpers.GetEnumerableElementType(sourceExpr.Type)!;
+        baseSource = sourceExpr.ToString();
+        Type rt = resultType;
         foreach (MethodCallExpression call in chain)
         {
-            jcv.ProcessMethod(call);
-            resultType = call.Type;
+            ProcessMethod(call);
+            rt = call.Type;
         }
 
-        string sql = jcv.BuildSql(sourceModel.SQLiteExpression.ToString());
-        Type coercedType = CoerceType(resultType, sourceModel.SQLiteExpression.Type);
-        return SQLiteExpression.Leaf(coercedType, sqlVisitor.Counters.NextIdentifier(), sql,
-            jcv.parameters.Count > 0 ? jcv.parameters.ToArray() : null)
-            .WithJsonSource();
-    }
-
-    private static bool IsChainedCollectionMethod(MethodCallExpression node)
-    {
-        if (!TranslationPatterns.IsJsonCollectionMethod(node.Method.Name))
-        {
-            return false;
-        }
-
-        bool hasInnerChainCall = node.Arguments.Count > 0
-            && node.Arguments[0] is MethodCallExpression innerCall
-            && innerCall.Method.DeclaringType == typeof(Enumerable)
-            && TranslationPatterns.IsJsonCollectionMethod(innerCall.Method.Name);
-        bool takesPredicate = node.Arguments.Count >= 2;
-
-        return hasInnerChainCall || takesPredicate;
-    }
-
-    private static Expression UnwindChain(MethodCallExpression node, List<MethodCallExpression> chain)
-    {
-        Expression current = node;
-        while (current is MethodCallExpression call
-               && call.Method.DeclaringType == typeof(Enumerable)
-               && TranslationPatterns.IsJsonCollectionMethod(call.Method.Name))
-        {
-            chain.Insert(0, call);
-            current = call.Arguments[0];
-        }
-
-        return current;
-    }
-
-    private static bool IsJsonCollection(Type type, SQLiteOptions options)
-    {
-        return options.TypeConverters.ContainsKey(type)
-               && TypeHelpers.GetEnumerableElementType(type) != null;
-    }
-
-    private static bool IsJsonCollectionExpression(SQLiteExpression expr, SQLiteOptions options)
-    {
-        return expr.IsJsonSource || IsJsonCollection(expr.Type, options);
-    }
-
-    private static Type CoerceType(Type declaredType, Type sourceType)
-    {
-        if (declaredType.IsAssignableFrom(sourceType))
-        {
-            return sourceType;
-        }
-
-        if (TypeHelpers.GetEnumerableElementType(declaredType) is Type declaredElem
-            && TypeHelpers.GetEnumerableElementType(sourceType) is Type sourceElem
-            && declaredElem == sourceElem)
-        {
-            return sourceType;
-        }
-
-        return declaredType;
+        string sql = BuildSql(sourceExpr.ToString());
+        return (sql, parameters.Count > 0 ? parameters.ToArray() : null, rt);
     }
 }

@@ -629,14 +629,62 @@ public static class SelectSignatureWriter
             return false;
         }
 
+        bool lowerEnums = IsComparisonKind(bin.Kind());
+
         sb.Append('(').Append(nodeType).Append(' ').Append(FormatType(type, ctx.TypeArgSubstitutions));
         sb.Append(' ');
-        if (!TryAppend(sb, bin.Left, ctx))
+        if (!AppendBinaryOperand(sb, bin.Left, lowerEnums, ctx))
         {
             return false;
         }
         sb.Append(' ');
-        if (!TryAppend(sb, bin.Right, ctx))
+        if (!AppendBinaryOperand(sb, bin.Right, lowerEnums, ctx))
+        {
+            return false;
+        }
+        sb.Append(')');
+        return true;
+    }
+
+    private static bool IsComparisonKind(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.EqualsExpression
+            or SyntaxKind.NotEqualsExpression
+            or SyntaxKind.GreaterThanExpression
+            or SyntaxKind.LessThanExpression
+            or SyntaxKind.GreaterThanOrEqualExpression
+            or SyntaxKind.LessThanOrEqualExpression;
+    }
+
+    private static bool AppendBinaryOperand(StringBuilder sb, ExpressionSyntax operand, bool lowerEnums, SelectSignatureCtx ctx)
+    {
+        if (!lowerEnums)
+        {
+            return TryAppend(sb, operand, ctx);
+        }
+
+        ExpressionSyntax stripped = operand;
+        while (stripped is ParenthesizedExpressionSyntax paren)
+        {
+            stripped = paren.Expression;
+        }
+
+        ITypeSymbol? operandType = Substitute(ctx.Model.GetTypeInfo(stripped).Type, ctx.TypeArgSubstitutions);
+        if (operandType is not INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlying })
+        {
+            return TryAppend(sb, operand, ctx);
+        }
+
+        if (ctx.Model.GetSymbolInfo(stripped).Symbol is IFieldSymbol { HasConstantValue: true } enumField
+            && enumField.ContainingType.TypeKind == TypeKind.Enum)
+        {
+            sb.Append("(Constant ").Append(FormatType(underlying, ctx.TypeArgSubstitutions)).Append(' ')
+                .Append(FormatConstant(enumField.ConstantValue)).Append(')');
+            return true;
+        }
+
+        sb.Append("(Convert ").Append(FormatType(underlying, ctx.TypeArgSubstitutions)).Append(' ');
+        if (!TryAppend(sb, stripped, ctx))
         {
             return false;
         }
@@ -690,9 +738,11 @@ public static class SelectSignatureWriter
 
     private static bool AppendMemberAccess(StringBuilder sb, MemberAccessExpressionSyntax access, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        string memberName = access.Name.Identifier.ValueText;
-
         ISymbol? memberSym = ctx.Model.GetSymbolInfo(access).Symbol;
+
+        string memberName = memberSym is IFieldSymbol { CorrespondingTupleField: { } tupleField }
+            ? tupleField.Name
+            : access.Name.Identifier.ValueText;
         bool isStatic = memberSym switch
         {
             IPropertySymbol p => p.IsStatic,

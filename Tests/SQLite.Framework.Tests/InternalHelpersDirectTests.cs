@@ -11,7 +11,8 @@ using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 using QueryCompilerVisitor = SQLite.Framework.Internals.Visitors.QueryCompilerVisitor;
-using QueryFilterRebinder = SQLite.Framework.Internals.Visitors.QueryFilterRebinder;
+using QueryFilterRebinder = SQLite.Framework.Internals.Helpers.QueryFilterRebinder;
+using RowParameterExpander = SQLite.Framework.Internals.Helpers.RowParameterExpander;
 using CommandHelpers = SQLite.Framework.Internals.Helpers.CommandHelpers;
 using CommonHelpers = SQLite.Framework.Internals.FTS5.FtsHelpers;
 using ExpressionHelpers = SQLite.Framework.Internals.Helpers.ExpressionHelpers;
@@ -363,7 +364,7 @@ public class InternalHelpersDirectTests
             new SQLite.Framework.Models.SQLiteCounters(),
             level: 0);
 
-        Type aliasVisitorType = typeof(SQLite.Framework.Internals.Visitors.QueryFilterRebinder).Assembly
+        Type aliasVisitorType = typeof(SQLite.Framework.Internals.Helpers.QueryFilterRebinder).Assembly
             .GetType("SQLite.Framework.Internals.Visitors.AliasVisitor")!;
         object aliasVisitor = Activator.CreateInstance(aliasVisitorType, db, sqlVisitor)!;
 
@@ -642,7 +643,7 @@ public class InternalHelpersDirectTests
     [Fact]
     public void RowParameterExpander_IsFrameworkTranslatedMethod_NullDeclaringType_ReturnsFalse()
     {
-        MethodInfo isFrameworkTranslatedMethod = typeof(RowParameterExpander)
+        MethodInfo isFrameworkTranslatedMethod = typeof(RowParameterExpanderVisitor)
             .GetMethod("IsFrameworkTranslatedMethod", BindingFlags.Static | BindingFlags.NonPublic)!;
 
         bool result = (bool)isFrameworkTranslatedMethod.Invoke(null, [new NullDeclaringTypeMethodInfo()])!;

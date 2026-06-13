@@ -46,7 +46,7 @@ internal static class StringMemberVisitor
                     {
                         SQLiteExpression objExpr = obj.SQLiteExpression!;
                         SQLiteExpression needle = CharArgAsText(visitor, arguments[0]);
-                        SQLiteExpression start = arguments[1].SQLiteExpression!;
+                        SQLiteExpression start = ClampStartIndex(visitor, arguments[1]);
                         return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, needle, start], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["CASE WHEN INSTR(SUBSTR(", ", ", " + 1), ", ") = 0 THEN -1 ELSE INSTR(SUBSTR(", ", ", " + 1), ", ") - 1 + ", " END"],
@@ -128,7 +128,7 @@ internal static class StringMemberVisitor
                     SQLiteExpression newArg = CharArgAsText(visitor, arguments[1]);
                     if (node.Arguments[1].Type == typeof(string))
                     {
-                        newArg = SQLVisitor.CoalesceNullableStringOperand(visitor, node.Arguments[1], arguments[1], newArg);
+                        newArg = visitor.CoalesceNullableStringOperand(node.Arguments[1], arguments[1], newArg);
                     }
 
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, oldArg, newArg);
@@ -183,15 +183,16 @@ internal static class StringMemberVisitor
                 }
                 case nameof(string.Substring):
                 {
+                    SQLiteExpression substringStart = ClampStartIndex(visitor, arguments[0]);
                     if (node.Arguments.Count == 2)
                     {
-                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!, arguments[1].SQLiteExpression!);
-                        return SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, " + 1, ", arguments[1].SQLiteExpression!, ")", parameters);
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, substringStart, arguments[1].SQLiteExpression!);
+                        return SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", substringStart, " + 1, ", arguments[1].SQLiteExpression!, ")", parameters);
                     }
                     else
                     {
-                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", arguments[0].SQLiteExpression!, " + 1)", parameters);
+                        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, substringStart);
+                        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "SUBSTR(", obj.SQLiteExpression!, ", ", substringStart, " + 1)", parameters);
                     }
                 }
                 case nameof(string.ToUpper) when node.Arguments.Count == 0:
@@ -290,7 +291,7 @@ internal static class StringMemberVisitor
                     for (int i = 0; i < concatArray.Expressions.Count; i++)
                     {
                         ResolvedModel resolvedElement = visitor.ResolveExpression(concatArray.Expressions[i]);
-                        concatArgs[i] = SQLVisitor.CoalesceNullableStringOperand(visitor, concatArray.Expressions[i], resolvedElement, resolvedElement.SQLiteExpression!);
+                        concatArgs[i] = visitor.CoalesceNullableStringOperand(concatArray.Expressions[i], resolvedElement, resolvedElement.SQLiteExpression!);
                     }
                 }
                 else
@@ -298,7 +299,7 @@ internal static class StringMemberVisitor
                     concatArgs = new SQLiteExpression[arguments.Count];
                     for (int i = 0; i < arguments.Count; i++)
                     {
-                        concatArgs[i] = SQLVisitor.CoalesceNullableStringOperand(visitor, node.Arguments[i], arguments[i], arguments[i].SQLiteExpression!);
+                        concatArgs[i] = visitor.CoalesceNullableStringOperand(node.Arguments[i], arguments[i], arguments[i].SQLiteExpression!);
                     }
                 }
 
@@ -307,12 +308,12 @@ internal static class StringMemberVisitor
             case nameof(string.Join):
                 if (node.Arguments[1] is NewArrayExpression arrayExpr)
                 {
-                    SQLiteExpression sep = SQLVisitor.CoalesceNullableStringOperand(visitor, node.Arguments[0], arguments[0], arguments[0].SQLiteExpression!);
+                    SQLiteExpression sep = visitor.CoalesceNullableStringOperand(node.Arguments[0], arguments[0], arguments[0].SQLiteExpression!);
                     SQLiteExpression[] joinArgs = arrayExpr.Expressions
                         .Select(e =>
                         {
                             ResolvedModel resolvedElement = visitor.ResolveExpression(e);
-                            return SQLVisitor.CoalesceNullableStringOperand(visitor, e, resolvedElement, resolvedElement.SQLiteExpression!);
+                            return visitor.CoalesceNullableStringOperand(e, resolvedElement, resolvedElement.SQLiteExpression!);
                         })
                         .ToArray();
                     if (joinArgs.Length == 0)
@@ -372,7 +373,7 @@ internal static class StringMemberVisitor
 
                 SQLiteExpression a0 = arguments[0].SQLiteExpression!;
                 SQLiteExpression a1 = arguments[1].SQLiteExpression!;
-                bool ignoreCase = arguments.Count == 3 && IsCompareIgnoreCase(arguments[2].Constant);
+                bool ignoreCase = arguments.Skip(2).Any(arg => IsCompareIgnoreCase(arg.Constant));
                 return BuildCompare(visitor, node.Method.ReturnType, a0, a1, ignoreCase);
             }
             case nameof(string.Equals):
@@ -461,6 +462,17 @@ internal static class StringMemberVisitor
 
             return SQLiteExpression.Wrap(method.ReturnType, visitor.Counters.NextIdentifier(), "", obj, $" LIKE {valueSql} {rest}", parameters);
         }
+    }
+
+    private static SQLiteExpression ClampStartIndex(SQLVisitor visitor, ResolvedModel start)
+    {
+        SQLiteExpression startExpr = start.SQLiteExpression!;
+        if (start.IsConstant && start.Constant is int value && value >= 0)
+        {
+            return startExpr;
+        }
+
+        return SQLiteExpression.Wrap(startExpr.Type, visitor.Counters.NextIdentifier(), "MAX(", startExpr, ", 0)", startExpr.Parameters);
     }
 
     private static SQLiteExpression CharArgAsText(SQLVisitor visitor, ResolvedModel arg)
@@ -622,6 +634,7 @@ internal static class StringMemberVisitor
                 && c is StringComparison.OrdinalIgnoreCase
                     or StringComparison.CurrentCultureIgnoreCase
                     or StringComparison.InvariantCultureIgnoreCase)
-            || (constant is bool b && b);
+            || (constant is bool b && b)
+            || (constant is CompareOptions options && options.HasFlag(CompareOptions.IgnoreCase));
     }
 }

@@ -5,30 +5,24 @@ namespace SQLite.Framework.Internals.Visitors;
 /// tell a constant or function value (safe on an insert) apart from one that reads a column of the
 /// row, which SQLite cannot do while the row is being inserted.
 /// </summary>
-internal sealed class ParameterUsageFinder : ExpressionVisitor
+internal sealed class ParameterUsageFinderVisitor : ExpressionVisitor
 {
     private readonly ParameterExpression parameter;
-    private bool found;
 
-    private ParameterUsageFinder(ParameterExpression parameter)
+    public ParameterUsageFinderVisitor(ParameterExpression parameter)
     {
         this.parameter = parameter;
     }
+
+    public bool Found { get; private set; }
 
     protected override Expression VisitParameter(ParameterExpression node)
     {
         if (node == parameter)
         {
-            found = true;
+            Found = true;
         }
 
         return node;
-    }
-
-    public static bool Uses(LambdaExpression lambda)
-    {
-        ParameterUsageFinder finder = new(lambda.Parameters[0]);
-        finder.Visit(lambda.Body);
-        return finder.found;
     }
 }

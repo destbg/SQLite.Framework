@@ -114,7 +114,7 @@ internal partial class SQLVisitor
             return resolved.SQLiteExpression!;
         }
 
-        if (node.NodeType == ExpressionType.Convert)
+        if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked)
         {
             if (node.Type == typeof(object))
             {
@@ -146,7 +146,7 @@ internal partial class SQLVisitor
             {
                 return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), wrapBefore!, resolved.SQLiteExpression, wrapAfter!, resolved.SQLiteExpression.Parameters);
             }
-            else if (resolved.SQLiteExpression.Type == typeof(ulong) && (node.Type == typeof(double) || node.Type == typeof(float)))
+            else if (IsUlongSource(resolved.SQLiteExpression.Type) && IsRealTarget(node.Type))
             {
                 SQLiteExpression inner = resolved.SQLiteExpression;
                 return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
@@ -262,10 +262,29 @@ internal partial class SQLVisitor
             .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
     }
 
+    private static bool IsUlongSource(Type sourceType)
+    {
+        Type unwrapped = sourceType.IsEnum
+            ? Enum.GetUnderlyingType(sourceType)
+            : Nullable.GetUnderlyingType(sourceType) ?? sourceType;
+        return unwrapped == typeof(ulong);
+    }
+
+    private static bool IsRealTarget(Type targetType)
+    {
+        Type unwrapped = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        return unwrapped == typeof(double) || unwrapped == typeof(float) || unwrapped == typeof(decimal);
+    }
+
     private static bool TryGetNarrowingIntegerWrap(Type sourceType, Type targetType, out string? before, out string? after)
     {
         before = null;
         after = null;
+
+        if (sourceType.IsEnum)
+        {
+            sourceType = Enum.GetUnderlyingType(sourceType);
+        }
 
         if (!IsWrappableNarrowingTarget(targetType)
             || !TryGetIntegerInfo(sourceType, out int sourceBits, out bool sourceSigned)

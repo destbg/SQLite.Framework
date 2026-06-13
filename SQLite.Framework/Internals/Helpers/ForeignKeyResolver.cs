@@ -61,6 +61,50 @@ internal static class ForeignKeyResolver
         return (targetTable, targetColumns);
     }
 
+    public static (string TargetTable, string[] TargetColumns) ResolveTargets(string sourceTable, IReadOnlyList<string> sourceColumns, TableMapping targetMapping, IReadOnlyList<string>? targetPropertyNames)
+    {
+        string targetTable = targetMapping.TableName;
+        string[] targetColumns;
+
+        if (targetPropertyNames == null)
+        {
+            TableColumn[] pks = targetMapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
+            if (pks.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Foreign key on \"{sourceTable}\"(\"{sourceColumns[0]}\") targets \"{targetTable}\" but it has no primary key. " +
+                    "Add [Key] to the target's primary key, configure HasKey in the model, or specify the target column explicitly.");
+            }
+            if (pks.Length > 1 && pks.Length != sourceColumns.Count)
+            {
+                throw new InvalidOperationException(
+                    $"Foreign key on \"{sourceTable}\"(\"{sourceColumns[0]}\") targets \"{targetTable}\" which has a composite primary key. " +
+                    "Use the fluent ForeignKey overload that takes both local and target column selectors.");
+            }
+            targetColumns = pks.Select(c => c.Name).ToArray();
+        }
+        else
+        {
+            targetColumns = new string[targetPropertyNames.Count];
+            for (int i = 0; i < targetPropertyNames.Count; i++)
+            {
+                string name = targetPropertyNames[i];
+                TableColumn? column = targetMapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == name)
+                    ?? throw new InvalidOperationException($"Foreign key on \"{sourceTable}\" targets \"{targetTable}.{name}\" but it has no mapped property named \"{name}\".");
+                targetColumns[i] = column.Name;
+            }
+        }
+
+        if (targetColumns.Length != sourceColumns.Count)
+        {
+            throw new InvalidOperationException(
+                $"Foreign key on \"{sourceTable}\" references \"{targetTable}\" with {sourceColumns.Count} local column(s) " +
+                $"but {targetColumns.Length} target column(s). Local and target column counts must match.");
+        }
+
+        return (targetTable, targetColumns);
+    }
+
     public static void ValidateSetNullCompatibility(string sourceTable, IReadOnlyList<string> sourceColumns, IReadOnlyList<bool> sourceNullability, SQLiteForeignKeyAction onDelete, SQLiteForeignKeyAction onUpdate)
     {
         if (onDelete != SQLiteForeignKeyAction.SetNull && onUpdate != SQLiteForeignKeyAction.SetNull)

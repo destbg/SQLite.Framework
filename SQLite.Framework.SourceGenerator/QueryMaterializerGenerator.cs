@@ -210,8 +210,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             {
                 if (symbol != null
                     && !symbol.IsAbstract
-                    && ((!symbol.IsGenericType || symbol.IsAnonymousType) && !IsFrameworkType(symbol)
-                        || IsSupportedPositionalSystemType(symbol)))
+                    && IsRegistrableEntityShape(symbol))
                 {
                     unique.Add(symbol);
                 }
@@ -225,9 +224,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 }
                 foreach (INamedTypeSymbol concrete in ExpandTypeParameter(unresolved.TypeParameter, genericIndex))
                 {
-                    if (!concrete.IsAbstract
-                        && (!concrete.IsGenericType || concrete.IsAnonymousType)
-                        && !IsFrameworkType(concrete))
+                    if (!concrete.IsAbstract && IsRegistrableEntityShape(concrete))
                     {
                         unique.Add(concrete);
                     }
@@ -257,8 +254,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 
                         if (expanded.ProjectionType is INamedTypeSymbol expandedProjection
                             && !expandedProjection.IsAbstract
-                            && (!expandedProjection.IsGenericType || expandedProjection.IsAnonymousType)
-                            && !IsFrameworkType(expandedProjection))
+                            && IsRegistrableEntityShape(expandedProjection))
                         {
                             unique.Add(expandedProjection);
                         }
@@ -400,7 +396,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        return (new GroupByKeyInvocation(signature, bodyExpr, paramSyntax, rowSymbol, keyType), ctx.SemanticModel);
+        return (new GroupByKeyInvocation(signature, bodyExpr, paramSyntax.Identifier.ValueText, rowSymbol, rowSymbol.Type, keyType), ctx.SemanticModel);
     }
 
     private static (GroupByKeyInvocation Invocation, SemanticModel Model)? ExtractGroupFromQuery(GeneratorSyntaxContext ctx, QueryExpressionSyntax query, GroupClauseSyntax groupClause)
@@ -442,7 +438,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        return null;
+        return (new GroupByKeyInvocation(signature, bodyExpr, rangeVar.Name, rangeVar, rangeType, keyType), ctx.SemanticModel);
     }
 
     private static bool UpstreamContainsSelect(ExpressionSyntax expr, SemanticModel model)
@@ -496,6 +492,11 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
+        if (IsJoinMethodName(method.Name) || method.Name == "SelectMany")
+        {
+            return ExtractResultSelectorInvocation(ctx, invocation, method);
+        }
+
         if (method.Name != "Select" && method.Name != "Returning")
         {
             return null;
@@ -520,6 +521,10 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         ITypeSymbol projection = method.TypeArguments[1];
+        if (ContainsTypeParameter(projection))
+        {
+            return null;
+        }
 
         if (invocation.ArgumentList.Arguments.Count == 0)
         {
@@ -567,6 +572,78 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         SelectSignatureCtx writerCtx = BuildFluentCtx(rowSymbol, ctx.SemanticModel);
+        string? signature = SelectSignatureWriter.TryCompute(bodyExpr, writerCtx);
+        if (signature == null)
+        {
+            return null;
+        }
+
+        return new SelectInvocation(signature, bodyExpr, writerCtx, ctx.SemanticModel, projection);
+    }
+
+    private static SelectInvocation? ExtractResultSelectorInvocation(GeneratorSyntaxContext ctx, InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (method.Name == "SelectMany")
+        {
+            string containingType = method.ContainingType.ToDisplayString();
+            if (containingType is not ("System.Linq.Queryable" or "System.Linq.Enumerable"))
+            {
+                return null;
+            }
+        }
+        else if (!IsJoinContainingTypeValid(method))
+        {
+            return null;
+        }
+
+        if (method.TypeArguments.Length == 0
+            || method.TypeArguments[method.TypeArguments.Length - 1] is not (INamedTypeSymbol or IArrayTypeSymbol))
+        {
+            return null;
+        }
+
+        ITypeSymbol projection = method.TypeArguments[method.TypeArguments.Length - 1];
+        if (ContainsTypeParameter(projection))
+        {
+            return null;
+        }
+
+        if (invocation.ArgumentList.Arguments.Count == 0)
+        {
+            return null;
+        }
+
+        ExpressionSyntax selectorExpr = invocation.ArgumentList.Arguments[invocation.ArgumentList.Arguments.Count - 1].Expression;
+        while (selectorExpr is ParenthesizedExpressionSyntax paren)
+        {
+            selectorExpr = paren.Expression;
+        }
+
+        if (selectorExpr is not ParenthesizedLambdaExpressionSyntax lambda
+            || lambda.ParameterList.Parameters.Count != 2)
+        {
+            return null;
+        }
+
+        if (lambda.Body is not ExpressionSyntax bodyExpr)
+        {
+            return null;
+        }
+
+        Dictionary<ISymbol, RowBinding> bindings = new(SymbolEqualityComparer.Default);
+        ITypeSymbol? outerRowType = null;
+        foreach (ParameterSyntax param in lambda.ParameterList.Parameters)
+        {
+            if (ctx.SemanticModel.GetDeclaredSymbol(param) is not IParameterSymbol paramSymbol)
+            {
+                return null;
+            }
+
+            outerRowType ??= paramSymbol.Type;
+            bindings[paramSymbol] = new RowBinding((string?)null, paramSymbol.Type);
+        }
+
+        SelectSignatureCtx writerCtx = new(outerRowType!, bindings, ctx.SemanticModel);
         string? signature = SelectSignatureWriter.TryCompute(bodyExpr, writerCtx);
         if (signature == null)
         {
@@ -801,6 +878,8 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
         ranges.Add((primaryRange, primaryType));
 
+        QueryClauseSyntax? lastRangeClause = null;
+
         foreach (QueryClauseSyntax clause in body.Clauses)
         {
             switch (clause)
@@ -819,6 +898,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                         return null;
                     }
                     ranges.Add((joinRange, joinType));
+                    lastRangeClause = join;
                     continue;
                 case JoinClauseSyntax:
                     continue;
@@ -833,6 +913,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                         return null;
                     }
                     ranges.Add((nestedRange, nestedType));
+                    lastRangeClause = nestedFrom;
                     if (nestedFrom.Expression is InvocationExpressionSyntax nestedInv
                         && nestedInv.Expression is MemberAccessExpressionSyntax nestedMa
                         && nestedMa.Name.Identifier.ValueText == "DefaultIfEmpty")
@@ -853,6 +934,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         INamedTypeSymbol outerRowType;
         bool useMethodTypeArgs = false;
         bool isResultSelectorProjection = false;
+        bool bindThroughTransparentSource = false;
 
         if (method != null)
         {
@@ -866,7 +948,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             {
                 useMethodTypeArgs = true;
             }
-            else if (method.Name == "Join")
+            else if (method.Name == "Join" || method.Name == "SelectMany")
             {
                 isResultSelectorProjection = true;
             }
@@ -904,7 +986,20 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             }
             projection = projN;
 
-            if (ranges.Count == 1 && ranges[0].Type is INamedTypeSymbol singleOuter)
+            IMethodSymbol? resultSelectorMethod = method;
+            if (isResultSelectorProjection && resultSelectorMethod == null && lastRangeClause != null)
+            {
+                resultSelectorMethod = ctx.SemanticModel.GetQueryClauseInfo(lastRangeClause).OperationInfo.Symbol as IMethodSymbol;
+            }
+
+            if (isResultSelectorProjection
+                && resultSelectorMethod is { TypeArguments.Length: > 0 }
+                && resultSelectorMethod.TypeArguments[0] is INamedTypeSymbol { IsAnonymousType: true } transparentSource)
+            {
+                outerRowType = transparentSource;
+                bindThroughTransparentSource = true;
+            }
+            else if (ranges.Count == 1 && ranges[0].Type is INamedTypeSymbol singleOuter)
             {
                 outerRowType = singleOuter;
             }
@@ -924,9 +1019,24 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         Dictionary<ISymbol, RowBinding> bindings = new(SymbolEqualityComparer.Default);
-        if (ranges.Count == 1)
+        if (ranges.Count == 1 && !bindThroughTransparentSource)
         {
             bindings[ranges[0].Symbol] = new RowBinding((string?)null, ranges[0].Type);
+        }
+        else if (bindThroughTransparentSource)
+        {
+            for (int i = 0; i < ranges.Count - 1; i++)
+            {
+                List<(string Name, ITypeSymbol Type)>? path = FindMemberPath(outerRowType, ranges[i].Symbol.Name, ranges[i].Type);
+                if (path == null)
+                {
+                    return null;
+                }
+                bindings[ranges[i].Symbol] = new RowBinding(path, ranges[i].Type);
+            }
+
+            (IRangeVariableSymbol lastSym, ITypeSymbol lastType) = ranges[ranges.Count - 1];
+            bindings[lastSym] = new RowBinding((string?)null, lastType);
         }
         else if (isResultSelectorProjection)
         {
@@ -973,6 +1083,43 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         return new SelectInvocation(signature, bodyExpr, writerCtx, ctx.SemanticModel, projection);
+    }
+
+    private static bool ContainsTypeParameter(ITypeSymbol type)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol:
+                return true;
+            case IArrayTypeSymbol array:
+                return ContainsTypeParameter(array.ElementType);
+            case INamedTypeSymbol named:
+                foreach (ITypeSymbol arg in named.TypeArguments)
+                {
+                    if (ContainsTypeParameter(arg))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsRegistrableEntityShape(INamedTypeSymbol symbol)
+    {
+        if (IsSupportedPositionalSystemType(symbol))
+        {
+            return true;
+        }
+
+        if (IsFrameworkType(symbol))
+        {
+            return false;
+        }
+
+        return !symbol.IsGenericType || symbol.IsAnonymousType || !ContainsTypeParameter(symbol);
     }
 
     private static bool IsSupportedPositionalSystemType(INamedTypeSymbol symbol)
@@ -1075,7 +1222,23 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             _ => string.Empty
         };
 
-        return name == "Select" || name == "SelectMany" || name == "Returning";
+        return name == "Select" || name == "SelectMany" || name == "Returning" || IsJoinMethodName(name);
+    }
+
+    private static bool IsJoinMethodName(string name)
+    {
+        return name is "Join" or "LeftJoin" or "RightJoin" or "FullOuterJoin";
+    }
+
+    private static bool IsJoinContainingTypeValid(IMethodSymbol method)
+    {
+        string containingType = method.ContainingType.ToDisplayString();
+        if (method.Name == "FullOuterJoin")
+        {
+            return containingType == "SQLite.Framework.Extensions.QueryableExtensions";
+        }
+
+        return containingType is "System.Linq.Queryable" or "System.Linq.Enumerable";
     }
 
     private static INamedTypeSymbol? ExtractProjectionTypeFromSelect(GeneratorSyntaxContext ctx)
@@ -1086,13 +1249,20 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (method.Name != "Select" && method.Name != "SelectMany" && method.Name != "Returning")
+        if (method.Name != "Select" && method.Name != "SelectMany" && method.Name != "Returning" && !IsJoinMethodName(method.Name))
         {
             return null;
         }
 
         string containingType = method.ContainingType.ToDisplayString();
-        if (method.Name == "Returning")
+        if (IsJoinMethodName(method.Name))
+        {
+            if (!IsJoinContainingTypeValid(method))
+            {
+                return null;
+            }
+        }
+        else if (method.Name == "Returning")
         {
             if (containingType != "SQLite.Framework.Extensions.QueryableExtensions")
             {
@@ -1275,7 +1445,13 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (method.TypeArguments.Length < 2 || method.TypeArguments[1] is not ITypeParameterSymbol projectionParam)
+        if (method.TypeArguments.Length < 2)
+        {
+            return null;
+        }
+
+        ITypeSymbol projectionType = method.TypeArguments[1];
+        if (!ContainsTypeParameter(projectionType))
         {
             return null;
         }
@@ -1324,7 +1500,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 
         SelectSignatureCtx baseCtx = BuildFluentCtx(rowSymbol, ctx.SemanticModel);
 
-        return new UnresolvedGenericSelect(bodyExpr, baseCtx, ctx.SemanticModel, projectionParam, enclosingMethod?.OriginalDefinition, enclosingType);
+        return new UnresolvedGenericSelect(bodyExpr, baseCtx, ctx.SemanticModel, projectionType, enclosingMethod?.OriginalDefinition, enclosingType);
     }
 
     private static IEnumerable<SelectInvocation> ExpandUnresolvedSelect(UnresolvedGenericSelect unresolved, GenericInstantiationIndex index)
@@ -1332,8 +1508,8 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         HashSet<string> seenSignatures = new();
         foreach (Dictionary<ITypeParameterSymbol, ITypeSymbol> subs in EnumerateSubstitutionMaps(unresolved.EnclosingMethod, unresolved.EnclosingType, index))
         {
-            ITypeSymbol? mapped = SelectSignatureWriter.Substitute(unresolved.ProjectionParam, subs);
-            if (mapped is not INamedTypeSymbol concrete)
+            ITypeSymbol? mapped = SelectSignatureWriter.Substitute(unresolved.ProjectionType, subs);
+            if (mapped is not INamedTypeSymbol concrete || ContainsTypeParameter(concrete))
             {
                 continue;
             }

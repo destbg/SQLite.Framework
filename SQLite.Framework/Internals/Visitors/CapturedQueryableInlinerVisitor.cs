@@ -4,7 +4,7 @@ namespace SQLite.Framework.Internals.Visitors;
 /// Walks a LINQ expression tree before translation and replaces every reference to a
 /// <see cref="Queryable{T}" /> wrapper with the query expression the wrapper holds.
 /// </summary>
-internal sealed class CapturedQueryableInliner : ExpressionVisitor
+internal sealed class CapturedQueryableInlinerVisitor : ExpressionVisitor
 {
     protected override Expression VisitMember(MemberExpression node)
     {
@@ -26,10 +26,5 @@ internal sealed class CapturedQueryableInliner : ExpressionVisitor
         }
 
         return base.VisitConstant(node);
-    }
-
-    public static Expression Inline(Expression node)
-    {
-        return new CapturedQueryableInliner().Visit(node);
     }
 }

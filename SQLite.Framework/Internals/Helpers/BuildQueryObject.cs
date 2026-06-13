@@ -370,7 +370,7 @@ internal static class BuildQueryObject
             return new SlotPlan
             {
                 Slot = slot,
-                ColumnIndex = columns.TryGetValue(columnName, out int idx) ? idx : NotPresentSentinel,
+                ColumnIndex = FindColumnIndex(columns, columnName),
                 NestedMaterializer = null,
             };
         }

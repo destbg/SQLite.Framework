@@ -1,5 +1,5 @@
 using System.Linq.Expressions;
-using SQLite.Framework.Internals.Visitors;
+using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Interfaces;
 

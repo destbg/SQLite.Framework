@@ -29,6 +29,7 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitContains(MethodCallExpression node)
     {
         ThrowIfSetOperations(node.Method.Name);
+        ComparerArgumentGuard.ThrowIfComparer(node);
 
         if (visitor.TableColumns.Count != 1)
         {

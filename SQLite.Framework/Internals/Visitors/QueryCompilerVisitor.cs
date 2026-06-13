@@ -83,32 +83,67 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 throw new InvalidOperationException("Array index operation requires an array on the left and an integer index on the right.");
             }
 
+            switch (node.NodeType)
+            {
+                case ExpressionType.Equal:
+                    return Equals(leftValue, rightValue);
+                case ExpressionType.NotEqual:
+                    return !Equals(leftValue, rightValue);
+                case ExpressionType.Coalesce:
+                    return leftValue ?? rightValue;
+                case ExpressionType.AndAlso:
+                    return (bool)leftValue! && (bool)rightValue!;
+                case ExpressionType.OrElse:
+                    return (bool)leftValue! || (bool)rightValue!;
+                case ExpressionType.And:
+                    return ApplyLiftedBitwise(BinaryBitwiseAndOperator, leftValue, rightValue, options);
+                case ExpressionType.Or:
+                    return ApplyLiftedBitwise(BinaryBitwiseOrOperator, leftValue, rightValue, options);
+                case ExpressionType.GreaterThan:
+                    return leftValue != null && rightValue != null && CompareValues(leftValue, rightValue) > 0;
+                case ExpressionType.GreaterThanOrEqual:
+                    return leftValue != null && rightValue != null && CompareValues(leftValue, rightValue) >= 0;
+                case ExpressionType.LessThan:
+                    return leftValue != null && rightValue != null && CompareValues(leftValue, rightValue) < 0;
+                case ExpressionType.LessThanOrEqual:
+                    return leftValue != null && rightValue != null && CompareValues(leftValue, rightValue) <= 0;
+            }
+
+            bool isLiftedArithmetic = node.NodeType is ExpressionType.ExclusiveOr
+                or ExpressionType.Add or ExpressionType.AddChecked
+                or ExpressionType.Subtract or ExpressionType.SubtractChecked
+                or ExpressionType.Multiply or ExpressionType.MultiplyChecked
+                or ExpressionType.Divide or ExpressionType.Modulo
+                or ExpressionType.LeftShift or ExpressionType.RightShift;
+
+            if (!isLiftedArithmetic)
+            {
+                throw new NotSupportedException($"The binary operator '{node.NodeType}' is not supported.");
+            }
+
+            if (leftValue == null || rightValue == null)
+            {
+                return null;
+            }
+
             if (node.Method != null)
             {
-                return node.Method.Invoke(null, [leftValue, rightValue]);
+                return InvokeUnwrapped(node.Method, null, [leftValue, rightValue]);
             }
 
             return node.NodeType switch
             {
-                ExpressionType.Equal => Equals(leftValue, rightValue),
-                ExpressionType.NotEqual => !Equals(leftValue, rightValue),
-                ExpressionType.And => InvokeOperator(BinaryBitwiseAndOperator, leftValue!, rightValue!, options),
-                ExpressionType.Or => InvokeOperator(BinaryBitwiseOrOperator, leftValue!, rightValue!, options),
-                ExpressionType.ExclusiveOr => InvokeOperator(BinaryExclusiveOrOperator, leftValue!, rightValue!, options),
-                ExpressionType.AndAlso => (bool)leftValue! && (bool)rightValue!,
-                ExpressionType.OrElse => (bool)leftValue! || (bool)rightValue!,
-                ExpressionType.GreaterThan => CompareValues(leftValue, rightValue) > 0,
-                ExpressionType.GreaterThanOrEqual => CompareValues(leftValue, rightValue) >= 0,
-                ExpressionType.LessThan => CompareValues(leftValue, rightValue) < 0,
-                ExpressionType.LessThanOrEqual => CompareValues(leftValue, rightValue) <= 0,
-                ExpressionType.Add or ExpressionType.AddChecked => InvokeOperator(BinaryAdditionOperator, leftValue!, rightValue!, options),
-                ExpressionType.Subtract or ExpressionType.SubtractChecked => InvokeOperator(BinarySubtractionOperator, leftValue!, rightValue!, options),
-                ExpressionType.Multiply or ExpressionType.MultiplyChecked => InvokeOperator(BinaryMultiplyOperator, leftValue!, rightValue!, options),
-                ExpressionType.Divide => InvokeOperator(BinaryDivisionOperator, leftValue!, rightValue!, options),
-                ExpressionType.Modulo => InvokeOperator(BinaryModulusOperator, leftValue!, rightValue!, options),
-                ExpressionType.LeftShift => InvokeOperator(BinaryLeftShiftOperator, leftValue!, rightValue!, options),
-                ExpressionType.RightShift => InvokeOperator(BinaryRightShiftOperator, leftValue!, rightValue!, options),
-                ExpressionType.Coalesce => leftValue ?? rightValue,
+                ExpressionType.ExclusiveOr => InvokeOperator(BinaryExclusiveOrOperator, leftValue, rightValue, options),
+                ExpressionType.Add => InvokeOperator(BinaryAdditionOperator, leftValue, rightValue, options),
+                ExpressionType.AddChecked => InvokeCheckedArithmetic(ExpressionType.Add, leftValue, rightValue, BinaryAdditionOperator, options),
+                ExpressionType.Subtract => InvokeOperator(BinarySubtractionOperator, leftValue, rightValue, options),
+                ExpressionType.SubtractChecked => InvokeCheckedArithmetic(ExpressionType.Subtract, leftValue, rightValue, BinarySubtractionOperator, options),
+                ExpressionType.Multiply => InvokeOperator(BinaryMultiplyOperator, leftValue, rightValue, options),
+                ExpressionType.MultiplyChecked => InvokeCheckedArithmetic(ExpressionType.Multiply, leftValue, rightValue, BinaryMultiplyOperator, options),
+                ExpressionType.Divide => InvokeOperator(BinaryDivisionOperator, leftValue, rightValue, options),
+                ExpressionType.Modulo => InvokeOperator(BinaryModulusOperator, leftValue, rightValue, options),
+                ExpressionType.LeftShift => InvokeOperator(BinaryLeftShiftOperator, leftValue, rightValue, options),
+                ExpressionType.RightShift => InvokeOperator(BinaryRightShiftOperator, leftValue, rightValue, options),
                 _ => throw new NotSupportedException($"The binary operator '{node.NodeType}' is not supported.")
             };
         });
@@ -257,14 +292,22 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         {
             object? operandValue = operand.Call(ctx);
 
+            if (operandValue == null
+                && node.NodeType is ExpressionType.Negate or ExpressionType.NegateChecked
+                or ExpressionType.Not or ExpressionType.OnesComplement)
+            {
+                return null;
+            }
+
             return node.NodeType switch
             {
                 ExpressionType.Negate or ExpressionType.NegateChecked => node.Method != null
-                    ? node.Method.Invoke(null, [operandValue])
+                    ? InvokeUnwrapped(node.Method, null, [operandValue])
                     : InvokeUnaryOperator(BinaryNegationOperator, operandValue!, options),
-                ExpressionType.Not => !(bool)operandValue!,
-                ExpressionType.Convert => ConvertOperand(operandValue, node.Type),
-                ExpressionType.ConvertChecked => ConvertOperand(operandValue, node.Type),
+                ExpressionType.Not => operandValue is bool b ? !b : ApplyOnesComplement(operandValue!),
+                ExpressionType.OnesComplement => ApplyOnesComplement(operandValue!),
+                ExpressionType.Convert => ConvertOperand(operandValue, node.Type, checkedConversion: false),
+                ExpressionType.ConvertChecked => ConvertOperand(operandValue, node.Type, checkedConversion: true),
                 ExpressionType.TypeAs => node.Type.IsInstanceOfType(operandValue) ? operandValue : null,
                 _ => throw new NotSupportedException($"The unary operator '{node.NodeType}' is not supported.")
             };
@@ -387,16 +430,20 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         if (instance != null && IsNullableValueType(node.Object!.Type))
         {
             Type underlying = node.Object.Type.GetGenericArguments()[0];
-            bool isGetValueOrDefault = node.Method.Name == nameof(Nullable<int>.GetValueOrDefault);
+            string methodName = node.Method.Name;
             return new CompiledExpression(node.Type, ctx =>
             {
                 object? boxed = instance.Call(ctx);
-                if (isGetValueOrDefault)
+                return methodName switch
                 {
-                    return boxed ?? (arguments.Length == 1 ? arguments[0].Call(ctx) : Activator.CreateInstance(underlying));
-                }
-
-                return boxed?.ToString() ?? string.Empty;
+                    nameof(Nullable<int>.GetValueOrDefault) => boxed ?? (arguments.Length == 1 ? arguments[0].Call(ctx) : Activator.CreateInstance(underlying)),
+                    nameof(object.GetHashCode) => boxed?.GetHashCode() ?? 0,
+                    nameof(object.Equals) => Equals(boxed, arguments.Length == 1 ? arguments[0].Call(ctx) : null),
+                    nameof(object.ToString) => boxed?.ToString() ?? string.Empty,
+                    _ => boxed == null
+                        ? throw new InvalidOperationException("Nullable object must have a value.")
+                        : InvokeUnwrapped(node.Method, boxed, arguments.Select(arg => arg.Call(ctx)).ToArray()),
+                };
             });
         }
 
@@ -521,6 +568,79 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         {
             throw ex.InnerException;
         }
+    }
+
+    private static object? ApplyLiftedBitwise(MethodInfo openMethod, object? left, object? right, SQLiteOptions options)
+    {
+        if (left is bool || right is bool)
+        {
+            bool? leftBool = (bool?)left;
+            bool? rightBool = (bool?)right;
+
+            if (openMethod == BinaryBitwiseAndOperator)
+            {
+                if (leftBool == false || rightBool == false)
+                {
+                    return false;
+                }
+
+                return leftBool == null || rightBool == null ? null : true;
+            }
+
+            if (leftBool == true || rightBool == true)
+            {
+                return true;
+            }
+
+            return leftBool == null || rightBool == null ? null : false;
+        }
+
+        if (left == null || right == null)
+        {
+            return null;
+        }
+
+        return InvokeOperator(openMethod, left, right, options);
+    }
+
+    private static object InvokeCheckedArithmetic(ExpressionType op, object left, object right, MethodInfo fallbackOpen, SQLiteOptions options)
+    {
+        checked
+        {
+            switch (left)
+            {
+                case int l:
+                    return op switch
+                    {
+                        ExpressionType.Add => l + (int)right,
+                        ExpressionType.Subtract => l - (int)right,
+                        _ => l * (int)right
+                    };
+                case long l:
+                    return op switch
+                    {
+                        ExpressionType.Add => l + (long)right,
+                        ExpressionType.Subtract => l - (long)right,
+                        _ => l * (long)right
+                    };
+                case uint l:
+                    return op switch
+                    {
+                        ExpressionType.Add => l + (uint)right,
+                        ExpressionType.Subtract => l - (uint)right,
+                        _ => l * (uint)right
+                    };
+                case ulong l:
+                    return op switch
+                    {
+                        ExpressionType.Add => l + (ulong)right,
+                        ExpressionType.Subtract => l - (ulong)right,
+                        _ => l * (ulong)right
+                    };
+            }
+        }
+
+        return InvokeOperator(fallbackOpen, left, right, options)!;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback path for non-primitive types; may require user-supplied DynamicDependency hints under AOT.")]
@@ -849,7 +969,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return type is { IsGenericType: true } && type.GetGenericTypeDefinition() == typeof(Nullable<>);
     }
 
-    private static object? ConvertOperand(object? value, Type targetType)
+    private static object? ConvertOperand(object? value, Type targetType, bool checkedConversion)
     {
         if (value == null)
         {
@@ -862,12 +982,47 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             return value;
         }
 
+        if (underlying.IsEnum)
+        {
+            object numeric = value is Enum
+                ? Convert.ChangeType(value, Enum.GetUnderlyingType(value.GetType()), CultureInfo.InvariantCulture)
+                : value;
+            return Enum.ToObject(underlying, numeric);
+        }
+
         if (value is double d && IsIntegerType(underlying))
         {
             value = Math.Truncate(d);
         }
+        else if (value is float f && IsIntegerType(underlying))
+        {
+            value = (float)Math.Truncate(f);
+        }
+
+        if (!checkedConversion
+            && IsIntegerType(underlying)
+            && ExpressionHelpers.TryUncheckedIntegerConvert(value, underlying, out object? wrapped))
+        {
+            return wrapped;
+        }
 
         return Convert.ChangeType(value, underlying, CultureInfo.InvariantCulture);
+    }
+
+    private static object ApplyOnesComplement(object operand)
+    {
+        return operand switch
+        {
+            int o => ~o,
+            long o => ~o,
+            uint o => ~o,
+            ulong o => ~o,
+            short o => ~o,
+            ushort o => ~o,
+            byte o => ~o,
+            sbyte o => ~o,
+            _ => throw new NotSupportedException($"Cannot apply the complement operator to type '{operand.GetType()}'.")
+        };
     }
 
     private static bool IsIntegerType(Type type)

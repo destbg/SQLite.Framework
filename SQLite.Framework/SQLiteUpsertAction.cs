@@ -9,7 +9,7 @@ namespace SQLite.Framework;
 /// </summary>
 public sealed class SQLiteUpsertAction<T>
 {
-    private SQLiteUpsertAction(UpsertActionKind kind, IReadOnlyList<string>? columns)
+    internal SQLiteUpsertAction(UpsertActionKind kind, IReadOnlyList<string>? columns)
     {
         Kind = kind;
         Columns = columns;
@@ -19,7 +19,7 @@ public sealed class SQLiteUpsertAction<T>
 
     internal IReadOnlyList<string>? Columns { get; }
 
-    internal IReadOnlyList<(string Column, LambdaExpression Rhs)>? Setters { get; private init; }
+    internal IReadOnlyList<(string Column, LambdaExpression Rhs)>? Setters { get; init; }
 
     internal LambdaExpression? UpdateWhere { get; private set; }
 
@@ -63,25 +63,5 @@ public sealed class SQLiteUpsertAction<T>
 
         UpdateWhere = predicate;
         return this;
-    }
-
-    internal static SQLiteUpsertAction<T> DoNothing()
-    {
-        return new SQLiteUpsertAction<T>(UpsertActionKind.DoNothing, null);
-    }
-
-    internal static SQLiteUpsertAction<T> DoUpdateAll()
-    {
-        return new SQLiteUpsertAction<T>(UpsertActionKind.DoUpdateAll, null);
-    }
-
-    internal static SQLiteUpsertAction<T> DoUpdate(IReadOnlyList<string> columns)
-    {
-        return new SQLiteUpsertAction<T>(UpsertActionKind.DoUpdate, columns);
-    }
-
-    internal static SQLiteUpsertAction<T> DoUpdateSet(IReadOnlyList<(string Column, LambdaExpression Rhs)> setters)
-    {
-        return new SQLiteUpsertAction<T>(UpsertActionKind.DoUpdateSet, null) { Setters = setters };
     }
 }

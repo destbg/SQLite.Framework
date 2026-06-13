@@ -27,7 +27,7 @@ internal static class JsonMethodTranslator
 
         if (declaring == typeof(Enumerable))
         {
-            return JsonCollectionVisitor.TryHandle(node, visitor) ?? TryEnumerable(node, visitor);
+            return TryHandleChain(node, visitor) ?? TryEnumerable(node, visitor);
         }
 
         if (declaring.IsGenericType && declaring.GetGenericTypeDefinition() == typeof(List<>))
@@ -327,6 +327,81 @@ internal static class JsonMethodTranslator
             string sql = $"json_extract({valueSql}, '$.{prop.Name}')";
             dict[prop.Name] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null).WithJsonSource();
         }
+    }
+
+    private static Expression? TryHandleChain(MethodCallExpression node, SQLVisitor visitor)
+    {
+        if (!IsChainedCollectionMethod(node))
+        {
+            return null;
+        }
+
+        List<MethodCallExpression> chain = [];
+        Expression source = UnwindChain(node, chain);
+
+        ResolvedModel sourceModel = visitor.ResolveExpression(source);
+        if (sourceModel.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        if (!IsJsonCollectionExpression(sourceModel.SQLiteExpression, visitor.Database.Options))
+        {
+            return null;
+        }
+
+        JsonCollectionVisitor jcv = new(visitor, visitor.Database.Options);
+        (string sql, SQLiteParameter[]? parameters, Type resultType) = jcv.Run(sourceModel.SQLiteExpression, chain, node.Type);
+        Type coercedType = CoerceType(resultType, sourceModel.SQLiteExpression.Type);
+        return SQLiteExpression.Leaf(coercedType, visitor.Counters.NextIdentifier(), sql, parameters)
+            .WithJsonSource();
+    }
+
+    private static bool IsChainedCollectionMethod(MethodCallExpression node)
+    {
+        if (!TranslationPatterns.IsJsonCollectionMethod(node.Method.Name))
+        {
+            return false;
+        }
+
+        bool hasInnerChainCall = node.Arguments.Count > 0
+            && node.Arguments[0] is MethodCallExpression innerCall
+            && innerCall.Method.DeclaringType == typeof(Enumerable)
+            && TranslationPatterns.IsJsonCollectionMethod(innerCall.Method.Name);
+        bool takesPredicate = node.Arguments.Count >= 2;
+
+        return hasInnerChainCall || takesPredicate;
+    }
+
+    private static Expression UnwindChain(MethodCallExpression node, List<MethodCallExpression> chain)
+    {
+        Expression current = node;
+        while (current is MethodCallExpression call
+               && call.Method.DeclaringType == typeof(Enumerable)
+               && TranslationPatterns.IsJsonCollectionMethod(call.Method.Name))
+        {
+            chain.Insert(0, call);
+            current = call.Arguments[0];
+        }
+
+        return current;
+    }
+
+    private static Type CoerceType(Type declaredType, Type sourceType)
+    {
+        if (declaredType.IsAssignableFrom(sourceType))
+        {
+            return sourceType;
+        }
+
+        if (TypeHelpers.GetEnumerableElementType(declaredType) is Type declaredElem
+            && TypeHelpers.GetEnumerableElementType(sourceType) is Type sourceElem
+            && declaredElem == sourceElem)
+        {
+            return sourceType;
+        }
+
+        return declaredType;
     }
 
     private static bool IsJsonCollection(Type type, SQLiteOptions options)

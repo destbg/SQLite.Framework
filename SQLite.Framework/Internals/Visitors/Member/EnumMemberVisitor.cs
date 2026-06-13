@@ -8,7 +8,7 @@ internal static class EnumMemberVisitor
         SQLVisitor visitor = ctx.Visitor;
         MethodCallExpression node = (MethodCallExpression)ctx.Node;
         List<ResolvedModel> arguments = node.Arguments
-            .Select(visitor.ResolveExpression)
+            .Select(arg => visitor.ResolveExpression(StripEnumBoxing(arg)))
             .ToList();
 
         if (node.Object != null)
@@ -17,7 +17,7 @@ internal static class EnumMemberVisitor
 
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null))
             {
-                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(obj.Expression, node.Method, CoerceToParameterTypes(node.Method, arguments));
             }
 
             switch (node.Method.Name)
@@ -209,6 +209,31 @@ internal static class EnumMemberVisitor
         }
 
         return visitor.NotTranslatable(node, $"Enum.{node.Method.Name} is not translatable to SQL.");
+    }
+
+    private static IEnumerable<Expression> CoerceToParameterTypes(MethodInfo method, List<ResolvedModel> arguments)
+    {
+        ParameterInfo[] parameters = method.GetParameters();
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            Expression expr = arguments[i].Expression;
+            Type parameterType = parameters[i].ParameterType;
+            yield return expr.Type == parameterType
+                ? expr
+                : Expression.Convert(expr, parameterType);
+        }
+    }
+
+    private static Expression StripEnumBoxing(Expression argument)
+    {
+        if (argument is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert
+            && (convert.Type == typeof(Enum) || convert.Type == typeof(object))
+            && (convert.Operand.Type.IsEnum || Nullable.GetUnderlyingType(convert.Operand.Type)?.IsEnum == true))
+        {
+            return convert.Operand;
+        }
+
+        return argument;
     }
 
     private static long ToSignedNumeric(object enumValue, Type enumUnderlying)

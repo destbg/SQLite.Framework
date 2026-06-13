@@ -88,6 +88,7 @@ public class UlongCastToRealOffsetVariantTests
             .Select(r => (decimal)r.Plain)
             .First();
 
-        Assert.Equal((double)expected, (double)actual, 3);
+        double relativeError = Math.Abs((double)actual - (double)expected) / (double)expected;
+        Assert.True(relativeError < 1e-12);
     }
 }

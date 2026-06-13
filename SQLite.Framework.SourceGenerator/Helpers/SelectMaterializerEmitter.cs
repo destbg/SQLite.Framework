@@ -898,6 +898,13 @@ public static class SelectMaterializerEmitter
                     return true;
                 }
 
+                if (sym is ITypeSymbol identType)
+                {
+                    ITypeSymbol? substitutedType = SelectSignatureWriter.Substitute(identType, ctx.WriterCtx.TypeArgSubstitutions);
+                    return substitutedType is not (null or ITypeParameterSymbol)
+                        && IsTypeAccessibleFromGenerator(substitutedType, ctx.GeneratorAssembly);
+                }
+
                 return IsSymbolAccessibleFromGenerator(sym, ctx.GeneratorAssembly);
 
             case InvocationExpressionSyntax invoke:

@@ -110,6 +110,8 @@ internal partial class QueryableVisitor
         }
     }
 
+
+
     [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "Pragma function entity types are referenced by user code, so their public properties are rooted by the user.")]
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "All types should have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types should have public properties.")]

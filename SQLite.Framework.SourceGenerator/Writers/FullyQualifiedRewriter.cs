@@ -220,6 +220,19 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
+    /// Rewrites a generic type name into a fully qualified form.
+    /// </summary>
+    public override SyntaxNode? VisitGenericName(GenericNameSyntax node)
+    {
+        if (ctx.Model.GetSymbolInfo(node).Symbol is ITypeSymbol typeSymbol)
+        {
+            return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(typeSymbol, ctx.WriterCtx.TypeArgSubstitutions));
+        }
+
+        return base.VisitGenericName(node);
+    }
+
+    /// <summary>
     /// Rewrites a method call into a fully qualified or reflected form.
     /// </summary>
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)

@@ -1,6 +1,7 @@
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
+using PragmaValueParser = SQLite.Framework.Internals.Helpers.PragmaValueParser;
 
 namespace SQLite.Framework.Tests;
 
@@ -576,7 +577,7 @@ public class PragmaTests
     public void ParseEncoding_UnknownString_Throws()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
-            () => SQLitePragmas.ParseEncoding("garbage"));
+            () => PragmaValueParser.ParseEncoding("garbage"));
         Assert.Contains("garbage", ex.Message);
     }
 
@@ -584,7 +585,7 @@ public class PragmaTests
     public void ParseEncoding_Null_Throws()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
-            () => SQLitePragmas.ParseEncoding(null));
+            () => PragmaValueParser.ParseEncoding(null));
         Assert.Contains("<null>", ex.Message);
     }
 
@@ -592,7 +593,7 @@ public class PragmaTests
     public void ParseLockingMode_UnknownString_Throws()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
-            () => SQLitePragmas.ParseLockingMode("weird"));
+            () => PragmaValueParser.ParseLockingMode("weird"));
         Assert.Contains("weird", ex.Message);
     }
 
@@ -600,7 +601,7 @@ public class PragmaTests
     public void ParseLockingMode_Null_Throws()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
-            () => SQLitePragmas.ParseLockingMode(null));
+            () => PragmaValueParser.ParseLockingMode(null));
         Assert.Contains("<null>", ex.Message);
     }
 
@@ -608,7 +609,7 @@ public class PragmaTests
     public void ParseJournalMode_UnknownString_Throws()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
-            () => SQLitePragmas.ParseJournalMode("garbage"));
+            () => PragmaValueParser.ParseJournalMode("garbage"));
         Assert.Contains("garbage", ex.Message);
     }
 
@@ -616,7 +617,7 @@ public class PragmaTests
     public void ParseJournalMode_Null_Throws()
     {
         InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
-            () => SQLitePragmas.ParseJournalMode(null));
+            () => PragmaValueParser.ParseJournalMode(null));
         Assert.Contains("<null>", ex.Message);
     }
 

@@ -849,13 +849,17 @@ public class SQLiteSchema
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable is referenced by user code via [FullTextSearch(ContentTable = typeof(...))], so its public properties are rooted by the user.")]
     protected virtual string ResolveContentRowIdColumn(FtsTableInfo fts, TableMapping mapping)
     {
-        if (!string.IsNullOrEmpty(fts.Attribute.ContentRowIdColumn))
-        {
-            return fts.Attribute.ContentRowIdColumn!;
-        }
-
         Type sourceType = fts.Attribute.ContentTable!;
         TableMapping sourceMapping = Database.TableMapping(sourceType);
+
+        if (!string.IsNullOrEmpty(fts.Attribute.ContentRowIdColumn))
+        {
+            string configured = fts.Attribute.ContentRowIdColumn!;
+            TableColumn? mapped = sourceMapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == configured)
+                ?? sourceMapping.Columns.FirstOrDefault(c => c.Name == configured);
+            return mapped?.Name ?? configured;
+        }
+
         TableColumn[] pks = sourceMapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
         if (pks.Length == 1)
         {

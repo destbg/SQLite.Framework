@@ -11,7 +11,8 @@ internal partial class SQLVisitor
 
         if (sqlExpressions.Any(f => f.SQLiteExpression == null))
         {
-            return Expression.NewArrayInit(node.Type.GetElementType()!, sqlExpressions.Select(f => f.Expression));
+            Type elementType = node.Type.GetElementType()!;
+            return Expression.NewArrayInit(elementType, sqlExpressions.Select(f => CoerceClientExpression(f.Expression, elementType)));
         }
 
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParametersFromModels(sqlExpressions);

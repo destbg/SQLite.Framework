@@ -12,7 +12,7 @@ internal static class NullableMemberVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "underlying is the unwrapped value type from a Nullable<T>, which always has a public parameterless constructor.")]
-    public static SQLiteExpression HandleGetValueOrDefault(SQLVisitor visitor, MethodCallExpression node, Type underlying)
+    public static Expression HandleGetValueOrDefault(SQLVisitor visitor, MethodCallExpression node, Type underlying)
     {
         ResolvedModel obj = visitor.ResolveExpression(node.Object!);
 
@@ -21,7 +21,13 @@ internal static class NullableMemberVisitor
             : node.Arguments[0];
 
         ResolvedModel arg = visitor.ResolveExpression(defaultArg);
-        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression!, arg.SQLiteExpression!);
-        return SQLiteExpression.Binary(underlying, visitor.Counters.NextIdentifier(), "COALESCE(", obj.SQLiteExpression!, ", ", arg.SQLiteExpression!, ")", parameters);
+
+        if (obj.SQLiteExpression == null || arg.SQLiteExpression == null)
+        {
+            return Expression.Call(obj.Expression, node.Method, arg.Expression);
+        }
+
+        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arg.SQLiteExpression);
+        return SQLiteExpression.Binary(underlying, visitor.Counters.NextIdentifier(), "COALESCE(", obj.SQLiteExpression, ", ", arg.SQLiteExpression, ")", parameters);
     }
 }

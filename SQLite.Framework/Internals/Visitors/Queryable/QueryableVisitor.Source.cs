@@ -5,6 +5,7 @@ internal partial class QueryableVisitor
     private SQLiteExpression VisitSetOperation(MethodCallExpression node, string setType)
     {
         ThrowIfReverse(node.Method.Name);
+        ComparerArgumentGuard.ThrowIfComparer(node);
 
         if (OrderBys.Count > 0 || Take != null || Skip != null)
         {

@@ -130,54 +130,7 @@ internal static class ExpressionHelpers
             : node;
     }
 
-    private static object EvaluateUnary(UnaryExpression node)
-    {
-        object operand = GetConstantValue(node.Operand)!;
-        bool complement = node.NodeType is ExpressionType.Not;
-        return operand switch
-        {
-            bool b => !b,
-            int i => complement ? ~i : -i,
-            long l => complement ? ~l : -l,
-            uint u => ~u,
-            ulong ul => ~ul,
-            float f => -f,
-            double d => -d,
-            decimal m => -m,
-            _ => throw new NotSupportedException($"Cannot evaluate a constant {node.NodeType} expression on operand type {operand.GetType()}.")
-        };
-    }
-
-    private static object? ConvertConstant(object? value, Type targetType)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        Type underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        if (value.GetType() == underlying)
-        {
-            return value;
-        }
-
-        if (underlying.IsEnum)
-        {
-            object numeric = value is Enum
-                ? Convert.ChangeType(value, Enum.GetUnderlyingType(value.GetType()))
-                : value;
-            return Enum.ToObject(underlying, numeric);
-        }
-
-        if (TryUncheckedIntegerConvert(value, underlying, out object? wrapped))
-        {
-            return wrapped;
-        }
-
-        return Convert.ChangeType(value, underlying);
-    }
-
-    private static bool TryUncheckedIntegerConvert(object value, Type target, out object? result)
+    public static bool TryUncheckedIntegerConvert(object value, Type target, out object? result)
     {
         result = null;
 
@@ -262,6 +215,81 @@ internal static class ExpressionHelpers
         }
 
         return false;
+    }
+
+    private static object EvaluateUnary(UnaryExpression node)
+    {
+        object operand = GetConstantValue(node.Operand)!;
+        bool complement = node.NodeType is ExpressionType.Not;
+        return operand switch
+        {
+            bool b => !b,
+            int i => complement ? ~i : -i,
+            long l => complement ? ~l : -l,
+            uint u => ~u,
+            ulong ul => ~ul,
+            float f => -f,
+            double d => -d,
+            decimal m => -m,
+            _ => throw new NotSupportedException($"Cannot evaluate a constant {node.NodeType} expression on operand type {operand.GetType()}.")
+        };
+    }
+
+    private static object? ConvertConstant(object? value, Type targetType)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        Type underlying = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (value.GetType() == underlying)
+        {
+            return value;
+        }
+
+        if (underlying.IsEnum)
+        {
+            object numeric = value is Enum
+                ? Convert.ChangeType(value, Enum.GetUnderlyingType(value.GetType()))
+                : value;
+            return Enum.ToObject(underlying, numeric);
+        }
+
+        if (IsIntegerTarget(underlying))
+        {
+            if (value is double dbl)
+            {
+                value = Math.Truncate(dbl);
+            }
+            else if (value is float flt)
+            {
+                value = (float)Math.Truncate(flt);
+            }
+            else if (value is decimal dec)
+            {
+                value = Math.Truncate(dec);
+            }
+        }
+
+        if (TryUncheckedIntegerConvert(value, underlying, out object? wrapped))
+        {
+            return wrapped;
+        }
+
+        return Convert.ChangeType(value, underlying);
+    }
+
+    private static bool IsIntegerTarget(Type type)
+    {
+        return type == typeof(int)
+            || type == typeof(uint)
+            || type == typeof(long)
+            || type == typeof(ulong)
+            || type == typeof(short)
+            || type == typeof(ushort)
+            || type == typeof(byte)
+            || type == typeof(sbyte);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of user assembly")]

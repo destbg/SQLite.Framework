@@ -1213,10 +1213,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 
         CompiledExpression? compiledKey = null;
+        IReadOnlyList<object?>? keyCapturedValues = null;
         if (keyExtractor == null)
         {
             QueryCompilerVisitor compiler = new(Options, keyLambda.Parameters);
             compiledKey = (CompiledExpression)compiler.Visit(keyLambda.Body);
+        }
+        else
+        {
+            ReflectedBindingsCollector keyCollector = new();
+            keyCollector.Visit(keyLambda.Body);
+            keyCapturedValues = keyCollector.CapturedValues;
         }
 
         SQLTranslator translator = new(this);
@@ -1228,7 +1235,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         List<TKey> order = new();
         foreach (TElement row in command.ExecuteQueryInternal<TElement>(query))
         {
-            SQLiteQueryContext keyContext = new() { Input = row };
+            SQLiteQueryContext keyContext = new() { Input = row, CapturedValues = keyCapturedValues };
             TKey key = keyExtractor != null
                 ? (TKey)keyExtractor(keyContext)!
                 : (TKey)compiledKey!.Call(keyContext)!;
@@ -1359,5 +1366,4 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 .ToList()
         };
     }
-
 }

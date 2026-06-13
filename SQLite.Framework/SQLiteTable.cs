@@ -590,6 +590,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             setClause = setClause.Length == 0 ? extraClause : setClause + ", " + extraClause;
         }
 
+        if (setClause.Length == 0)
+        {
+            setClause = string.Join(", ", primaryKeyColumns.Select(c => $"{IdentifierGuard.Quote(c.Name)} = {IdentifierGuard.Quote(c.Name)}"));
+        }
+
         string primaryKeyClause = string.Join(" AND ",
             primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = @p{i + columns.Length}")
         );
