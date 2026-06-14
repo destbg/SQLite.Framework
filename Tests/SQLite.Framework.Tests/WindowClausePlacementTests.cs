@@ -129,6 +129,19 @@ public class WindowClausePlacementTests
     }
 
     [Fact]
+    public void CapturedDefaultWindowReceiverIsNotSupported()
+    {
+        using TestDatabase db = Setup();
+
+        SQLiteWindow<long> w = default;
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<WinClauseRow>()
+                .Select(r => new WinClauseResult { Id = r.Id, Total = w.Over().PartitionBy(r.Bucket) })
+                .ToList());
+    }
+
+    [Fact]
     public void WindowFunctionAlongsideStringMethodProjects()
     {
         using TestDatabase db = Setup();

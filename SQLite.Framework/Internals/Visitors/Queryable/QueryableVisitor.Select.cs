@@ -234,10 +234,13 @@ internal partial class QueryableVisitor
 
         bool isProjection = resultSelector.Body is NewExpression or MemberInitExpression;
 
-        if (isProjection && database.Options.SelectMaterializers.Count > 0)
+        if (isProjection)
         {
-            RawSelectSignature = SelectSignature.Compute(resultSelector.Body);
-            LastSelectLambdaBody = resultSelector.Body;
+            if (database.Options.SelectMaterializers.Count > 0)
+            {
+                RawSelectSignature = SelectSignature.Compute(resultSelector.Body);
+                LastSelectLambdaBody = resultSelector.Body;
+            }
         }
 
         return node;

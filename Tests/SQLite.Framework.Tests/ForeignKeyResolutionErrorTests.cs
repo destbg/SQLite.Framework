@@ -1,7 +1,25 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
+
+internal sealed class FkUnmappedTargetParent
+{
+    [Key]
+    public int Id { get; set; }
+
+    [NotMapped]
+    public int Ignored { get; set; }
+}
+
+internal sealed class FkUnmappedTargetChild
+{
+    [Key]
+    public int Id { get; set; }
+
+    public int ParentRef { get; set; }
+}
 
 internal sealed class KeylessFkParent
 {
@@ -64,6 +82,17 @@ public class ForeignKeyResolutionErrorTests
             using ModelTestDatabase db = new(model =>
                 model.Entity<ChildToCompositeParent>().ForeignKey<CompositeKeyFkParent>(c => c.ParentRef));
             db.Schema.CreateTable<ChildToCompositeParent>();
+        });
+    }
+
+    [Fact]
+    public void ForeignKeyToUnmappedTargetPropertyThrows()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            using ModelTestDatabase db = new(model =>
+                model.Entity<FkUnmappedTargetChild>().ForeignKey<FkUnmappedTargetParent>(c => c.ParentRef, p => p.Ignored));
+            db.Schema.CreateTable<FkUnmappedTargetChild>();
         });
     }
 

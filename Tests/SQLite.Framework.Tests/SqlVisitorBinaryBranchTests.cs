@@ -30,6 +30,17 @@ internal sealed class NullableDateArithmeticRow
     public DateTime? When { get; set; }
 }
 
+internal enum SqlBranchEnum
+{
+    First = 1,
+    Second = 2
+}
+
+internal enum SqlBranchLongEnum : long
+{
+    Two = 2
+}
+
 public class SqlVisitorBinaryBranchTests
 {
     [Fact]
@@ -73,6 +84,81 @@ public class SqlVisitorBinaryBranchTests
         List<int> actual = db.Table<TimeSpanTextArithmeticRow>()
             .Where(r => r.Value + 1 > 15)
             .Select(r => r.Value)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ConstantEnumCastToUnderlyingInComparison()
+    {
+        using TestDatabase db = new();
+        db.Table<TimeSpanTextArithmeticRow>().Schema.CreateTable();
+        db.Table<TimeSpanTextArithmeticRow>().Add(new TimeSpanTextArithmeticRow { Id = 1, Value = 2 });
+        db.Table<TimeSpanTextArithmeticRow>().Add(new TimeSpanTextArithmeticRow { Id = 2, Value = 5 });
+
+        SqlBranchEnum captured = SqlBranchEnum.Second;
+
+        List<int> expected = db.Table<TimeSpanTextArithmeticRow>().AsEnumerable()
+            .Where(r => r.Value == (int)captured)
+            .Select(r => r.Id)
+            .ToList();
+
+        Assert.Equal([1], expected);
+
+        List<int> actual = db.Table<TimeSpanTextArithmeticRow>()
+            .Where(r => r.Value == (int)captured)
+            .Select(r => r.Id)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ConstantNonEnumCastInComparison()
+    {
+        using TestDatabase db = new();
+        db.Table<TimeSpanTextArithmeticRow>().Schema.CreateTable();
+        db.Table<TimeSpanTextArithmeticRow>().Add(new TimeSpanTextArithmeticRow { Id = 1, Value = 2 });
+        db.Table<TimeSpanTextArithmeticRow>().Add(new TimeSpanTextArithmeticRow { Id = 2, Value = 5 });
+
+        int captured = 2;
+
+        List<int> expected = db.Table<TimeSpanTextArithmeticRow>().AsEnumerable()
+            .Where(r => r.Value == (long)captured)
+            .Select(r => r.Id)
+            .ToList();
+
+        Assert.Equal([1], expected);
+
+        List<int> actual = db.Table<TimeSpanTextArithmeticRow>()
+            .Where(r => r.Value == (long)captured)
+            .Select(r => r.Id)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ConstantEnumCastToNonUnderlyingInComparison()
+    {
+        using TestDatabase db = new();
+        db.Table<TimeSpanTextArithmeticRow>().Schema.CreateTable();
+        db.Table<TimeSpanTextArithmeticRow>().Add(new TimeSpanTextArithmeticRow { Id = 1, Value = 2 });
+        db.Table<TimeSpanTextArithmeticRow>().Add(new TimeSpanTextArithmeticRow { Id = 2, Value = 5 });
+
+        SqlBranchLongEnum captured = SqlBranchLongEnum.Two;
+
+        List<int> expected = db.Table<TimeSpanTextArithmeticRow>().AsEnumerable()
+            .Where(r => r.Value == (int)captured)
+            .Select(r => r.Id)
+            .ToList();
+
+        Assert.Equal([1], expected);
+
+        List<int> actual = db.Table<TimeSpanTextArithmeticRow>()
+            .Where(r => r.Value == (int)captured)
+            .Select(r => r.Id)
             .ToList();
 
         Assert.Equal(expected, actual);

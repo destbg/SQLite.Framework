@@ -20,6 +20,7 @@ namespace SQLite.Framework.Tests;
 [JsonSerializable(typeof(List<double>))]
 [JsonSerializable(typeof(Dictionary<string, int>))]
 [JsonSerializable(typeof(int[]))]
+[JsonSerializable(typeof(System.Collections.Immutable.ImmutableArray<int>))]
 internal partial class TestJsonContext : JsonSerializerContext;
 
 public class JsonConverterTests

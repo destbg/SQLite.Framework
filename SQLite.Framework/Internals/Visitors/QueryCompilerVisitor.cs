@@ -436,7 +436,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 {
                     nameof(Nullable<int>.GetValueOrDefault) => boxed ?? (arguments.Length == 1 ? arguments[0].Call(ctx) : Activator.CreateInstance(underlying)),
                     nameof(object.GetHashCode) => boxed?.GetHashCode() ?? 0,
-                    nameof(object.Equals) => Equals(boxed, arguments.Length == 1 ? arguments[0].Call(ctx) : null),
+                    nameof(object.Equals) => Equals(boxed, arguments[0].Call(ctx)),
                     nameof(object.ToString) => boxed?.ToString() ?? string.Empty,
                     _ => InvokeUnwrapped(node.Method, boxed, arguments.Select(arg => arg.Call(ctx)).ToArray()),
                 };

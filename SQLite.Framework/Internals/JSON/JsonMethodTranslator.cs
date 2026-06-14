@@ -71,6 +71,11 @@ internal static class JsonMethodTranslator
 
         if (node.Arguments.Count == 1)
         {
+            if (node.Method.Name == nameof(Enumerable.ToArray))
+            {
+                return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(), src, parameters).WithJsonSource();
+            }
+
             string arrayElem = BoolArrayElement(source.SQLiteExpression.Type);
             string? sql = node.Method.Name switch
             {

@@ -1049,9 +1049,20 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             && groupingScalar.Method.DeclaringType == typeof(Queryable)
             && groupingScalar.Method.Name is nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)
                 or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault)
+                or nameof(Queryable.Last) or nameof(Queryable.LastOrDefault)
+                or nameof(Queryable.ElementAt) or nameof(Queryable.ElementAtOrDefault)
             && groupingScalar.Arguments[0] is MethodCallExpression { Method.Name: nameof(Queryable.GroupBy) })
         {
             return ExecuteGroupingScalar<TResult>(groupingScalar);
+        }
+
+        if (typeof(TResult).IsGenericType
+            && typeof(TResult).GetGenericTypeDefinition() == typeof(IGrouping<,>))
+        {
+            throw new NotSupportedException(
+                "Returning an 'IGrouping<,>' is supported only for First, FirstOrDefault, Single, SingleOrDefault, " +
+                "Last, LastOrDefault, ElementAt or ElementAtOrDefault applied directly to a GroupBy(keySelector) call. " +
+                "Wrapping GroupBy in other operators before the terminal call is not supported.");
         }
 
         // Build SQL + parameters
@@ -1151,6 +1162,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         IEnumerable<TResult> groupings = ExecuteSequenceQuery<TResult>(scalarCall.Arguments[0]);
 
+        string methodName = scalarCall.Method.Name;
+
+        if (methodName is nameof(Queryable.ElementAt) or nameof(Queryable.ElementAtOrDefault))
+        {
+            int index = (int)ExpressionHelpers.GetConstantValue(scalarCall.Arguments[1])!;
+            return methodName == nameof(Queryable.ElementAt)
+                ? groupings.ElementAt(index)
+                : groupings.ElementAtOrDefault(index)!;
+        }
+
         Func<TResult, bool>? predicate = null;
         if (scalarCall.Arguments.Count == 2)
         {
@@ -1158,12 +1179,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             predicate = (Func<TResult, bool>)lambda.Compile();
         }
 
-        return scalarCall.Method.Name switch
+        return methodName switch
         {
             nameof(Queryable.First) => predicate != null ? groupings.First(predicate) : groupings.First(),
             nameof(Queryable.FirstOrDefault) => predicate != null ? groupings.FirstOrDefault(predicate)! : groupings.FirstOrDefault()!,
             nameof(Queryable.Single) => predicate != null ? groupings.Single(predicate) : groupings.Single(),
-            _ => predicate != null ? groupings.SingleOrDefault(predicate)! : groupings.SingleOrDefault()!,
+            nameof(Queryable.SingleOrDefault) => predicate != null ? groupings.SingleOrDefault(predicate)! : groupings.SingleOrDefault()!,
+            nameof(Queryable.Last) => predicate != null ? groupings.Last(predicate) : groupings.Last(),
+            _ => predicate != null ? groupings.LastOrDefault(predicate)! : groupings.LastOrDefault()!,
         };
     }
 

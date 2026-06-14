@@ -264,4 +264,16 @@ public class ClientEvalNumericTypeProjectionTests
             .Select(r => checked(-ClientEvalTestFunctions.ToNullableDecimal(r.IntA))));
         Assert.Equal([-5m, null], result);
     }
+
+    [Fact]
+    public void CheckedNegateOfNullInteger()
+    {
+        using TestDatabase db = Setup();
+        db.Table<NumericProjectionRow>().Add(new NumericProjectionRow { Id = 1, IntA = 5 });
+        db.Table<NumericProjectionRow>().Add(new NumericProjectionRow { Id = 2, IntA = 2 });
+
+        List<int?> result = Both(db, q => q.OrderBy(r => r.Id)
+            .Select(r => checked(-ClientEvalTestFunctions.ToNullable(r.IntA))));
+        Assert.Equal([-5, null], result);
+    }
 }

@@ -62,6 +62,26 @@ public class GroupByAggregateTerminalShapeTests
     }
 
     [Fact]
+    public void AllPredicateWithPriorHavingCondition()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        bool expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .Where(g => g.Count() > 1)
+            .All(g => g.Count() > 0);
+
+        Assert.True(expected);
+
+        bool actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .Where(g => g.Count() > 1)
+            .All(g => g.Count() > 0);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void MaxOfGroupCounts()
     {
         using TestDatabase db = SetupDatabase();
@@ -75,6 +95,64 @@ public class GroupByAggregateTerminalShapeTests
         int actual = db.Table<GroupedTerminalRow>()
             .GroupBy(r => r.Name)
             .Max(g => g.Count());
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void MinOfGroupCounts()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .Min(g => g.Count());
+
+        Assert.Equal(1, expected);
+
+        int actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .Min(g => g.Count());
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void MaxOfGroupCountsWithCapturedFilter()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        int threshold = 5;
+
+        int expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .Where(r => r.Value > threshold)
+            .GroupBy(r => r.Name)
+            .Max(g => g.Count());
+
+        Assert.Equal(2, expected);
+
+        int actual = db.Table<GroupedTerminalRow>()
+            .Where(r => r.Value > threshold)
+            .GroupBy(r => r.Name)
+            .Max(g => g.Count());
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void AverageOfGroupCounts()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        double expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .Average(g => g.Count());
+
+        Assert.Equal(1.5, expected);
+
+        double actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .Average(g => g.Count());
 
         Assert.Equal(expected, actual);
     }
@@ -265,15 +343,152 @@ public class GroupByAggregateTerminalShapeTests
     }
 
     [Fact]
-    public void FirstOverWrappedGroupingIsNotSupported()
+    public void LastWithoutPredicateReturnsLastGroupKey()
     {
         using TestDatabase db = SetupDatabase();
 
-        Assert.ThrowsAny<Exception>(() =>
+        string expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .Last()
+            .Key;
+
+        string actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .Last()
+            .Key;
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void LastWithPredicateReturnsLastMatchKey()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        string expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .Last(g => g.Count() >= 1)
+            .Key;
+
+        string actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .Last(g => g.Count() >= 1)
+            .Key;
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void LastOrDefaultWithoutPredicateReturnsLastGroupKey()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        string? expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .LastOrDefault()
+            ?.Key;
+
+        string? actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .LastOrDefault()
+            ?.Key;
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void LastOrDefaultWithPredicateNoMatchReturnsNull()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        IGrouping<string, GroupedTerminalRow>? expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .LastOrDefault(g => g.Count() > 5);
+
+        Assert.Null(expected);
+
+        IGrouping<string, GroupedTerminalRow>? actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .LastOrDefault(g => g.Count() > 5);
+
+        Assert.Null(actual);
+    }
+
+    [Fact]
+    public void ElementAtReturnsGroupAtIndexKey()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        string expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .ElementAt(1)
+            .Key;
+
+        string actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .ElementAt(1)
+            .Key;
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ElementAtOrDefaultOutOfRangeReturnsNull()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        IGrouping<string, GroupedTerminalRow>? expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .ElementAtOrDefault(9);
+
+        Assert.Null(expected);
+
+        IGrouping<string, GroupedTerminalRow>? actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .ElementAtOrDefault(9);
+
+        Assert.Null(actual);
+    }
+
+    [Fact]
+    public void ElementAtOrDefaultInRangeReturnsGroupKey()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        string? expected = db.Table<GroupedTerminalRow>().AsEnumerable()
+            .GroupBy(r => r.Name)
+            .ElementAtOrDefault(0)
+            ?.Key;
+
+        string? actual = db.Table<GroupedTerminalRow>()
+            .GroupBy(r => r.Name)
+            .ElementAtOrDefault(0)
+            ?.Key;
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void FirstOverWrappedGroupingThrowsNotSupported()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<NotSupportedException>(() =>
             db.Table<GroupedTerminalRow>()
                 .GroupBy(r => r.Name)
                 .Where(g => g.Count() > 0)
                 .First());
+    }
+
+    [Fact]
+    public void AggregateOverGroupingThrowsNotSupported()
+    {
+        using TestDatabase db = SetupDatabase();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<GroupedTerminalRow>()
+                .GroupBy(r => r.Name)
+                .Aggregate((a, b) => a));
     }
 
     private static TestDatabase SetupSingleGroupDatabase()

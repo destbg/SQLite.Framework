@@ -137,4 +137,22 @@ public class JsonCollectionMemberAccessTests
 
         Assert.Equal(oracle, actual);
     }
+
+    [Fact]
+    public void DictionaryKeysProjectionIsNotSupported()
+    {
+        using TestDatabase db = SetupMaps();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<JsonMapRow>().Select(d => d.Map.Keys).First());
+    }
+
+    [Fact]
+    public void DictionaryValuesProjectionIsNotSupported()
+    {
+        using TestDatabase db = SetupMaps();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<JsonMapRow>().Select(d => d.Map.Values).First());
+    }
 }

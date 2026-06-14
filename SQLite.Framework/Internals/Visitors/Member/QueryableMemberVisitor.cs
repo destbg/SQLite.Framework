@@ -308,7 +308,7 @@ internal static class QueryableMemberVisitor
 
         Type type = typeof(T);
 
-        if (node.Method.ReturnType.IsAssignableTo(type) && arguments.All(f => f.IsConstant))
+        if (node.Object == null && node.Method.ReturnType.IsAssignableTo(type) && arguments.All(f => f.IsConstant))
         {
             object? result = node.Method.Invoke(null, arguments.Select(f => f.Constant).ToArray());
 

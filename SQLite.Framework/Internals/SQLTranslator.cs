@@ -691,9 +691,7 @@ internal class SQLTranslator
         {
             MethodCallExpression candidate = methodCalls[i];
             if (candidate.Method.Name == nameof(Queryable.Select)
-                && candidate.Arguments.Count >= 2
-                && ExpressionHelpers.StripQuotes(candidate.Arguments[1]) is LambdaExpression selectLambda
-                && WindowCallDetector.Contains(selectLambda.Body))
+                && WindowCallDetector.Contains(((LambdaExpression)ExpressionHelpers.StripQuotes(candidate.Arguments[1])).Body))
             {
                 isWindowSelect[i] = true;
             }
@@ -1008,12 +1006,8 @@ internal class SQLTranslator
         }
         else if (call.Arguments.Count == 4)
         {
-            if (ExpressionHelpers.StripQuotes(call.Arguments[2]) is not LambdaExpression elementSelector
-                || ExpressionHelpers.StripQuotes(call.Arguments[3]) is not LambdaExpression resultLambda
-                || resultLambda.Parameters.Count != 2)
-            {
-                return false;
-            }
+            LambdaExpression elementSelector = (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[2]);
+            LambdaExpression resultLambda = (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[3]);
 
             elementSelectorArg = call.Arguments[2];
             tElement = elementSelector.Body.Type;

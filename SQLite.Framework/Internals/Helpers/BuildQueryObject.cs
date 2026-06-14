@@ -115,6 +115,12 @@ internal static class BuildQueryObject
 #endif
         }
 
+        if (IsCollectionResult(elementType))
+        {
+            throw new NotSupportedException(
+                $"Cannot read a query result into the collection type '{elementType.FullName}'.");
+        }
+
         bool isAnon = IsAnonymousType(elementType);
         bool hasParameterless = HasParameterlessConstructor(elementType);
         ConstructorInfo? positional = !isAnon && !hasParameterless ? FindPositionalConstructor(elementType) : null;
@@ -147,6 +153,12 @@ internal static class BuildQueryObject
     {
         Func<SQLiteQueryContext, object?> materializer = BuildMaterializer(context.Reader!, context.Columns!, query, elementType);
         return materializer(context);
+    }
+
+    private static bool IsCollectionResult(Type type)
+    {
+        return type.IsArray
+            || (type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(type));
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface; users keep their entities reachable.")]

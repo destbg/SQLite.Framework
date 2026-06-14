@@ -4,8 +4,7 @@ internal partial class JsonCollectionVisitor
 {
     private string ArrayElementExpr(string column)
     {
-        Type element = Nullable.GetUnderlyingType(currentElementType) ?? currentElementType;
-        if (element == typeof(bool))
+        if (currentElementType == typeof(bool) || currentElementType == typeof(bool?))
         {
             return $"(CASE WHEN {column} IS NULL THEN NULL WHEN {column} THEN json('true') ELSE json('false') END)";
         }

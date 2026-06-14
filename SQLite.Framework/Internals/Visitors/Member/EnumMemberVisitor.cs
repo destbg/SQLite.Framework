@@ -211,29 +211,23 @@ internal static class EnumMemberVisitor
         return visitor.NotTranslatable(node, $"Enum.{node.Method.Name} is not translatable to SQL.");
     }
 
-    private static IEnumerable<Expression> CoerceToParameterTypes(MethodInfo method, List<ResolvedModel> arguments)
+    private static List<Expression> CoerceToParameterTypes(MethodInfo method, List<ResolvedModel> arguments)
     {
         ParameterInfo[] parameters = method.GetParameters();
+        List<Expression> result = new(arguments.Count);
         for (int i = 0; i < arguments.Count; i++)
         {
-            Expression expr = arguments[i].Expression;
-            Type parameterType = parameters[i].ParameterType;
-            yield return expr.Type == parameterType
-                ? expr
-                : Expression.Convert(expr, parameterType);
+            result.Add(Expression.Convert(arguments[i].Expression, parameters[i].ParameterType));
         }
+
+        return result;
     }
 
     private static Expression StripEnumBoxing(Expression argument)
     {
-        if (argument is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert
-            && (convert.Type == typeof(Enum) || convert.Type == typeof(object))
-            && (convert.Operand.Type.IsEnum || Nullable.GetUnderlyingType(convert.Operand.Type)?.IsEnum == true))
-        {
-            return convert.Operand;
-        }
-
-        return argument;
+        return argument is UnaryExpression { NodeType: ExpressionType.Convert } convert
+            ? convert.Operand
+            : argument;
     }
 
     private static long ToSignedNumeric(object enumValue, Type enumUnderlying)

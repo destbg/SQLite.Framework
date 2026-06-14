@@ -606,7 +606,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         if (setClause.Length == 0)
         {
-            setClause = string.Join(", ", primaryKeyColumns.Select(c => $"{IdentifierGuard.Quote(c.Name)} = {IdentifierGuard.Quote(c.Name)}"));
+            string[] selfAssignments = new string[primaryKeyColumns.Length];
+            for (int i = 0; i < primaryKeyColumns.Length; i++)
+            {
+                string quoted = IdentifierGuard.Quote(primaryKeyColumns[i].Name);
+                selfAssignments[i] = quoted + " = " + quoted;
+            }
+
+            setClause = string.Join(", ", selfAssignments);
         }
 
         string primaryKeyClause = string.Join(" AND ",

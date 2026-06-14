@@ -23,6 +23,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Only the single-string `int.Parse`/`double.Parse` maps to `CAST`. The `NumberStyles`/`IFormatProvider` overloads (such as hex parsing) run in memory in a `Select` and throw in a `Where`.
 - `Math.Clamp` with `min` greater than `max` returns `min` instead of throwing.
 - `Math.Abs(long.MinValue)` throws a `SQLiteException`, since its result does not fit a signed 64-bit integer.
+- The bitwise complement `~` of a native integer (`nint` or `nuint`) is not supported.
 
 ## Strings
 
@@ -84,6 +85,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `DateTime` values inside a JSON list are kept as text. Reading a part like `.Year`, or comparing them, follows the same rules as `Text` date storage, not .NET, so results can differ.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
 - `GetRange` on a JSON list that asks for more items than are there returns the items that fit, instead of throwing.
+- Projecting a JSON dictionary's `Keys` or `Values` collection on its own is not supported.
+- Building a new collection from a JSON list with `ToArray` or `ToHashSet` is not supported.
 
 ## Full text search
 
@@ -92,6 +95,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Projections
 
 - A projection that builds an object (`Select(r => new Dto { ... })`) binds public properties only. Public fields are left at their default value.
+- Calling `GetType` on a value that is `null` throws a different error than LINQ-to-Objects.
 
 ## Writes
 

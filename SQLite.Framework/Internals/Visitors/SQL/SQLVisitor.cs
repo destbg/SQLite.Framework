@@ -161,14 +161,10 @@ internal partial class SQLVisitor : ExpressionVisitor
         if (isConstant)
         {
             constantValue = ExpressionHelpers.GetConstantValue(node);
-            if (node is UnaryExpression convertNode)
+            if (node is UnaryExpression convertNode
+                && ExpressionHelpers.GetConstantValue(convertNode.Operand) is Enum enumValue)
             {
-                object? innerValue = ExpressionHelpers.GetConstantValue(convertNode.Operand);
-                Type targetType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
-                if (innerValue?.GetType().IsEnum == true && targetType == Enum.GetUnderlyingType(innerValue.GetType()))
-                {
-                    constantValue = innerValue;
-                }
+                constantValue = enumValue;
             }
 
             sqlExpression = SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), constantValue);
