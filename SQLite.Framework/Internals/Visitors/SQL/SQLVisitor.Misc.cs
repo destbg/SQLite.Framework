@@ -229,6 +229,7 @@ internal partial class SQLVisitor
 
         LambdaExpression lambda = cte.Query;
         bool isRecursive = lambda.Parameters.Count == 1;
+        Expression cteBody = QueryFilterInjector.Inject(CapturedQueryableInliner.Inline(lambda.Body), Database.Options);
 
         string cteName;
 
@@ -245,7 +246,7 @@ internal partial class SQLVisitor
             MethodArguments[selfParam] = selfColumns;
 
             SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
-            SQLQuery bodyQuery = bodyTranslator.Translate(lambda.Body);
+            SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
             string finalName = $"cte{CteRegistry.Ctes.Count}";
             string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
@@ -258,7 +259,7 @@ internal partial class SQLVisitor
         else
         {
             SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
-            SQLQuery bodyQuery = bodyTranslator.Translate(lambda.Body);
+            SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
             cteName = CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: false, key: cte);
         }

@@ -402,21 +402,29 @@ public static class EntityMaterializerEmitter
         }
 
         IMethodSymbol ctor = publicCtors[0];
-        HashSet<string> propertyNames = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> memberNames = new(StringComparer.OrdinalIgnoreCase);
         for (INamedTypeSymbol? current = entity; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
         {
             foreach (IPropertySymbol p in current.GetMembers().OfType<IPropertySymbol>())
             {
                 if (p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic && !p.IsIndexer)
                 {
-                    propertyNames.Add(p.Name);
+                    memberNames.Add(p.Name);
+                }
+            }
+
+            foreach (IFieldSymbol f in current.GetMembers().OfType<IFieldSymbol>())
+            {
+                if (f.DeclaredAccessibility == Accessibility.Public && !f.IsStatic)
+                {
+                    memberNames.Add(f.Name);
                 }
             }
         }
 
         foreach (IParameterSymbol parameter in ctor.Parameters)
         {
-            if (!propertyNames.Contains(parameter.Name))
+            if (!memberNames.Contains(parameter.Name))
             {
                 return null;
             }
@@ -742,7 +750,7 @@ public static class EntityMaterializerEmitter
                 ctorParameterNames.Add(parameter.Name);
             }
 
-            sb.Append(indent).Append(typeName).Append(" ").Append(resultLocalName).Append(" = new ").Append(typeName).Append("(");
+            sb.Append(indent).Append(typeName).Append(" ").Append(resultLocalName).Append(" = new ").Append(FormatNewType(entity)).Append("(");
             for (int pi = 0; pi < positionalCtor.Parameters.Length; pi++)
             {
                 if (pi > 0)
@@ -995,10 +1003,34 @@ public static class EntityMaterializerEmitter
         sb.Append(indent).AppendLine("}");
     }
 
+    private static string FormatNewType(INamedTypeSymbol entity)
+    {
+        if (!entity.IsTupleType)
+        {
+            return entity.ToDisplayString();
+        }
+
+        INamedTypeSymbol underlying = entity.TupleUnderlyingType ?? entity;
+        StringBuilder sb = new();
+        sb.Append("global::System.ValueTuple<");
+        for (int i = 0; i < underlying.TypeArguments.Length; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            sb.Append(underlying.TypeArguments[i].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+        }
+
+        sb.Append('>');
+        return sb.ToString();
+    }
+
     private static void EmitPositionalMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName)
     {
         IMethodSymbol ctor = TryFindPositionalConstructor(entity)!;
-        string typeName = entity.ToDisplayString();
+        string typeName = FormatNewType(entity);
 
         HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
         foreach (IParameterSymbol parameter in ctor.Parameters)

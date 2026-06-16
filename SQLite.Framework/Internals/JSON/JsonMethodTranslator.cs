@@ -106,15 +106,17 @@ internal static class JsonMethodTranslator
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
 
+            string arrayElem = BoolArrayElement(source.SQLiteExpression.Type);
+
             string? sql = node.Method.Name switch
             {
-                nameof(Enumerable.Concat) => $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT \"value\" FROM json_each({argSql})))",
-                nameof(Enumerable.Union) => $"(SELECT json_group_array(\"value\") FROM (SELECT DISTINCT \"value\" FROM json_each({src}) UNION SELECT DISTINCT \"value\" FROM json_each({argSql})))",
-                nameof(Enumerable.Intersect) => $"(SELECT json_group_array(DISTINCT \"value\") FROM json_each({src}) WHERE \"value\" IN (SELECT \"value\" FROM json_each({argSql})))",
-                nameof(Enumerable.Except) => $"(SELECT json_group_array(DISTINCT \"value\") FROM json_each({src}) WHERE \"value\" NOT IN (SELECT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.Concat) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.Union) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT DISTINCT \"value\" FROM json_each({src}) UNION SELECT DISTINCT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.Intersect) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM json_each({src}) WHERE \"value\" IN (SELECT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.Except) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM json_each({src}) WHERE \"value\" NOT IN (SELECT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.ElementAtOrDefault) => $"json_extract({src}, '$[' || ({argSql}) || ']')",
-                nameof(Enumerable.Append) => $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT {argSql} AS \"value\"))",
-                nameof(Enumerable.Prepend) => $"(SELECT json_group_array(\"value\") FROM (SELECT {argSql} AS \"value\" UNION ALL SELECT \"value\" FROM json_each({src})))",
+                nameof(Enumerable.Append) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT {argSql} AS \"value\"))",
+                nameof(Enumerable.Prepend) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT {argSql} AS \"value\" UNION ALL SELECT \"value\" FROM json_each({src})))",
                 _ => null,
             };
 
@@ -172,8 +174,9 @@ internal static class JsonMethodTranslator
         {
             ResolvedModel idx = visitor.ResolveExpression(node.Arguments[0]);
             ResolvedModel cnt = visitor.ResolveExpression(node.Arguments[1]);
+            string rangeElem = BoolArrayElement(source.SQLiteExpression!.Type);
             return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) LIMIT {cnt.SQLiteExpression} OFFSET {idx.SQLiteExpression}))",
+                $"(SELECT json_group_array({rangeElem}) FROM (SELECT \"value\" FROM json_each({src}) LIMIT {cnt.SQLiteExpression} OFFSET {idx.SQLiteExpression}))",
                 CombineAll(source.SQLiteExpression, idx.SQLiteExpression, cnt.SQLiteExpression))
                 .WithJsonSource();
         }
@@ -183,8 +186,9 @@ internal static class JsonMethodTranslator
         {
             ResolvedModel idx = visitor.ResolveExpression(node.Arguments[0]);
             ResolvedModel cnt = visitor.ResolveExpression(node.Arguments[1]);
+            string sliceElem = BoolArrayElement(source.SQLiteExpression!.Type);
             return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT json_group_array(\"value\") FROM (SELECT \"value\" FROM json_each({src}) LIMIT {cnt.SQLiteExpression} OFFSET {idx.SQLiteExpression}))",
+                $"(SELECT json_group_array({sliceElem}) FROM (SELECT \"value\" FROM json_each({src}) LIMIT {cnt.SQLiteExpression} OFFSET {idx.SQLiteExpression}))",
                 CombineAll(source.SQLiteExpression, idx.SQLiteExpression, cnt.SQLiteExpression))
                 .WithJsonSource();
         }
@@ -230,7 +234,7 @@ internal static class JsonMethodTranslator
                 $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1)", combined)
                 .WithJsonSource(),
             nameof(List<>.FindAll) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT json_group_array(\"value\") FROM json_each({src}) WHERE {predSql})", combined)
+                $"(SELECT json_group_array({BoolArrayElement(source.Type)}) FROM json_each({src}) WHERE {predSql})", combined)
                 .WithJsonSource(),
             nameof(List<>.FindIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
                 $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1), -1)", combined)
@@ -268,7 +272,7 @@ internal static class JsonMethodTranslator
                         $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1)", combined)
                         .WithJsonSource(),
                     nameof(Array.FindAll) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT json_group_array(\"value\") FROM json_each({src}) WHERE {predSql})", combined)
+                        $"(SELECT json_group_array({BoolArrayElement(source.SQLiteExpression.Type)}) FROM json_each({src}) WHERE {predSql})", combined)
                         .WithJsonSource(),
                     nameof(Array.FindIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
                         $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1), -1)", combined)
@@ -283,7 +287,7 @@ internal static class JsonMethodTranslator
                         $"NOT EXISTS (SELECT 1 FROM json_each({src}) WHERE ({predSql}) IS NOT 1)", combined)
                         .WithJsonSource(),
                     _ => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT json_group_array({predSql}) FROM json_each({src}))", combined)
+                        $"(SELECT json_group_array({BoolArrayElement(node.Type, predSql)}) FROM json_each({src}))", combined)
                         .WithJsonSource(),
                 };
             }
@@ -429,15 +433,15 @@ internal static class JsonMethodTranslator
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type comes from a JSON collection in the client assembly.")]
-    private static string BoolArrayElement(Type collectionType)
+    private static string BoolArrayElement(Type collectionType, string valueSql = "\"value\"")
     {
         Type? element = TypeHelpers.GetEnumerableElementType(collectionType);
         if (element != null && (Nullable.GetUnderlyingType(element) ?? element) == typeof(bool))
         {
-            return "(CASE WHEN \"value\" IS NULL THEN NULL WHEN \"value\" THEN json('true') ELSE json('false') END)";
+            return $"(CASE WHEN {valueSql} IS NULL THEN NULL WHEN {valueSql} THEN json('true') ELSE json('false') END)";
         }
 
-        return "\"value\"";
+        return valueSql;
     }
 
     private static bool IsJsonCollection(Type type, SQLiteOptions options)

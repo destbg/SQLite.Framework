@@ -443,6 +443,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     internal (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfoInternal() => GetUpdateInfo();
     internal (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfoInternal() => GetRemoveInfo();
     internal (TableColumn[] Columns, string Sql) GetUpsertInfoInternal(Action<SQLiteUpsertBuilder<T>> configure) => GetUpsertInfo(configure);
+    internal (TableColumn[] Columns, string Sql) GetAddOrUpdateInfoInternal(SQLiteConflict conflict) => GetAddOrUpdateInfo(conflict);
     internal bool RunHooksInternal(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item) => RunHooks(hooks, item);
 
     internal SQLiteAction RunActionHooksInternal(T item, SQLiteAction startingAction) => RunActionHooks(item, startingAction);

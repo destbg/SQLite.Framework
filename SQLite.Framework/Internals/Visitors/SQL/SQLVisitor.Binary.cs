@@ -94,6 +94,12 @@ internal partial class SQLVisitor
         SQLiteExpression left = BracketBinaryOperand(leftNode, resolvedLeft.SQLiteExpression);
         SQLiteExpression right = BracketBinaryOperand(rightNode, resolvedRight.SQLiteExpression);
 
+        if (!IsInSelectProjection && Database.Options.DecimalStorage == DecimalStorageMode.Text)
+        {
+            left = CoerceDecimalConstantToReal(resolvedLeft, left);
+            right = CoerceDecimalConstantToReal(resolvedRight, right);
+        }
+
         if (isArithmeticOp
             && Database.Options.TimeSpanStorage == TimeSpanStorageMode.Text
             && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(DateTime))
@@ -202,7 +208,7 @@ internal partial class SQLVisitor
             {
                 case ExpressionType.GreaterThan or ExpressionType.LessThan
                     or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual:
-                    return BuildUnsignedComparison(node.NodeType, left, right, bothParameters);
+                    return BuildUnsignedComparison(node.NodeType, left, right, eitherOperandMayBeNull, bothParameters);
                 case ExpressionType.Divide or ExpressionType.Modulo:
                     return BuildUnsignedDivOrMod(node.NodeType == ExpressionType.Modulo, node.Type, left, right, bothParameters);
             }
@@ -256,6 +262,13 @@ internal partial class SQLVisitor
         return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "", left, sqlOp, right, "", bothParameters);
     }
 
+    private SQLiteExpression CoerceDecimalConstantToReal(ResolvedModel resolved, SQLiteExpression current)
+    {
+        return resolved.IsConstant && resolved.Constant is decimal
+            ? InternDecimalCast(current)
+            : current;
+    }
+
     private SQLiteExpression CoerceConstantTimeSpanToTicks(ResolvedModel resolved, SQLiteExpression current)
     {
         if (resolved.IsConstant && resolved.Constant is TimeSpan ts)
@@ -281,7 +294,7 @@ internal partial class SQLVisitor
             parameters);
     }
 
-    private SQLiteExpression BuildUnsignedComparison(ExpressionType nodeType, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)
+    private SQLiteExpression BuildUnsignedComparison(ExpressionType nodeType, SQLiteExpression a, SQLiteExpression b, bool mayBeNull, SQLiteParameter[]? parameters)
     {
         string signedOp = nodeType switch
         {
@@ -292,6 +305,16 @@ internal partial class SQLVisitor
         };
 
         SQLiteExpression elseOperand = nodeType is ExpressionType.GreaterThan or ExpressionType.GreaterThanOrEqual ? a : b;
+
+        if (mayBeNull)
+        {
+            return SQLiteExpression.Multi(
+                typeof(bool),
+                Counters.NextIdentifier(),
+                ["(CASE WHEN ", " IS NULL OR ", " IS NULL THEN NULL WHEN ((", " < 0) = (", " < 0)) THEN ", signedOp, " ELSE ", " < 0 END)"],
+                [a, b, a, b, a, b, elseOperand],
+                parameters);
+        }
 
         return SQLiteExpression.Multi(
             typeof(bool),

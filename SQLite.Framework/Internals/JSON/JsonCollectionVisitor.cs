@@ -23,6 +23,7 @@ internal partial class JsonCollectionVisitor
     private bool distinctSeenReverse;
     private bool wrapInArray = true;
     private bool singleSemantic;
+    private bool countsGroups;
     private string? existsWrapper;
     private string? crossJoin;
 

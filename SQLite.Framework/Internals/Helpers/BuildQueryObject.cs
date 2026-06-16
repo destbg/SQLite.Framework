@@ -183,14 +183,15 @@ internal static class BuildQueryObject
         ConstructorInfo ctor = ctors[0];
         ParameterInfo[] parameters = ctor.GetParameters();
 
-        HashSet<string> propertyNames = type
+        HashSet<string> memberNames = type
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Select(p => p.Name)
+            .Concat(type.GetFields(BindingFlags.Public | BindingFlags.Instance).Select(f => f.Name))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (ParameterInfo parameter in parameters)
         {
-            if (!propertyNames.Contains(parameter.Name!))
+            if (!memberNames.Contains(parameter.Name!))
             {
                 return null;
             }

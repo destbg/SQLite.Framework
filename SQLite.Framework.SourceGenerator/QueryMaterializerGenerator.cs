@@ -237,6 +237,13 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 if (invocation is { } sel && !uniqueSelects.ContainsKey(sel.Signature))
                 {
                     uniqueSelects[sel.Signature] = sel;
+
+                    if (sel.ProjectionType is INamedTypeSymbol projectionType
+                        && !projectionType.IsAbstract
+                        && IsSupportedPositionalSystemType(projectionType))
+                    {
+                        unique.Add(projectionType);
+                    }
                 }
             }
 
@@ -1124,6 +1131,11 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 
     private static bool IsSupportedPositionalSystemType(INamedTypeSymbol symbol)
     {
+        if (symbol.IsTupleType)
+        {
+            return true;
+        }
+
         if (!symbol.IsGenericType)
         {
             return false;
@@ -1131,6 +1143,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 
         string name = symbol.ConstructedFrom.ToDisplayString();
         return name.StartsWith("System.Tuple<", StringComparison.Ordinal)
+            || name.StartsWith("System.ValueTuple<", StringComparison.Ordinal)
             || name == "System.Collections.Generic.KeyValuePair<TKey, TValue>";
     }
 

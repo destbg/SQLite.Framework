@@ -54,27 +54,9 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             return default;
         }
 
-        if (Source.RunActionHooksInternal(item, SQLiteAction.Add) == SQLiteAction.Skip)
-        {
-            return default;
-        }
-
-        (TableColumn[] columns, string sql) = Source.GetAddInfoForItemInternal(item);
-        TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
-        List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
-
-        List<TResult> rows = ExecuteWithReturning(sql, parameters);
-        if (rows.Count == 0)
-        {
-            return default;
-        }
-
-        if (autoIncrement != null)
-        {
-            BackfillAutoIncrement(item, rows[0], autoIncrement);
-        }
-
-        return rows[0];
+        SQLiteAction action = Source.RunActionHooksInternal(item, SQLiteAction.Add);
+        List<TResult> rows = RunResolvedAction(action, item);
+        return rows.Count == 0 ? default : rows[0];
     }
 
     /// <summary>
@@ -90,6 +72,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         return RunRangeWithReturning(
             collection,
             Database.Options.AddHooks,
+            SQLiteAction.Add,
             runInTransaction,
             item =>
             {
@@ -116,15 +99,8 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             return default;
         }
 
-        if (Source.RunActionHooksInternal(item, SQLiteAction.Update) == SQLiteAction.Skip)
-        {
-            return default;
-        }
-
-        (TableColumn[] columns, TableColumn[] primaryColumns, string sql) = Source.GetUpdateInfoInternal();
-        List<SQLiteParameter> parameters = BuildUpdateParameters(columns, primaryColumns, item);
-
-        List<TResult> rows = ExecuteWithReturning(sql, parameters);
+        SQLiteAction action = Source.RunActionHooksInternal(item, SQLiteAction.Update);
+        List<TResult> rows = RunResolvedAction(action, item);
         return rows.Count == 0 ? default : rows[0];
     }
 
@@ -141,6 +117,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         return RunRangeWithReturning(
             collection,
             Database.Options.UpdateHooks,
+            SQLiteAction.Update,
             runInTransaction,
             item =>
             {
@@ -161,15 +138,8 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             return default;
         }
 
-        if (Source.RunActionHooksInternal(item, SQLiteAction.Remove) == SQLiteAction.Skip)
-        {
-            return default;
-        }
-
-        (TableColumn[] primaryColumns, string sql) = Source.GetRemoveInfoInternal();
-        List<SQLiteParameter> parameters = BuildKeyParameters(primaryColumns, item);
-
-        List<TResult> rows = ExecuteWithReturning(sql, parameters);
+        SQLiteAction action = Source.RunActionHooksInternal(item, SQLiteAction.Remove);
+        List<TResult> rows = RunResolvedAction(action, item);
         return rows.Count == 0 ? default : rows[0];
     }
 
@@ -186,6 +156,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         return RunRangeWithReturning(
             collection,
             Database.Options.RemoveHooks,
+            SQLiteAction.Remove,
             runInTransaction,
             item =>
             {
@@ -209,12 +180,10 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             return default;
         }
 
-        (TableColumn[] baseColumns, string baseSql) = Source.GetUpsertInfoInternal(configure);
-        (TableColumn[] columns, string sql) = Source.FilterUpsertInfoForItemInternal(configure, item, baseColumns, baseSql);
-        TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
-        List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
-
-        List<TResult> rows = UpsertWithReturning(sql, parameters, autoIncrement, item);
+        SQLiteAction action = Source.RunActionHooksInternal(item, SQLiteAction.AddOrUpdate);
+        List<TResult> rows = action == SQLiteAction.AddOrUpdate
+            ? RunConfiguredUpsert(configure, item)
+            : RunResolvedAction(action, item);
         return rows.Count == 0 ? default : rows[0];
     }
 
@@ -234,6 +203,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         return RunRangeWithReturning(
             collection,
             Database.Options.AddOrUpdateHooks,
+            SQLiteAction.AddOrUpdate,
             runInTransaction,
             item =>
             {
@@ -241,6 +211,58 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
                 return UpsertWithReturning(sql, parameters, autoIncrement, item);
             });
+    }
+
+    private List<TResult> RunConfiguredUpsert(Action<SQLiteUpsertBuilder<T>> configure, T item)
+    {
+        (TableColumn[] baseColumns, string baseSql) = Source.GetUpsertInfoInternal(configure);
+        (TableColumn[] columns, string sql) = Source.FilterUpsertInfoForItemInternal(configure, item, baseColumns, baseSql);
+        TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
+        return UpsertWithReturning(sql, parameters, autoIncrement, item);
+    }
+
+    private List<TResult> RunResolvedAction(SQLiteAction action, T item)
+    {
+        switch (action)
+        {
+            case SQLiteAction.Skip:
+                return [];
+            case SQLiteAction.Add:
+            {
+                (TableColumn[] columns, string sql) = Source.GetAddInfoForItemInternal(item);
+                TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+                List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
+                List<TResult> rows = ExecuteWithReturning(sql, parameters);
+                if (autoIncrement != null && rows.Count > 0)
+                {
+                    BackfillAutoIncrement(item, rows[0], autoIncrement);
+                }
+
+                return rows;
+            }
+            case SQLiteAction.Update:
+            {
+                (TableColumn[] columns, TableColumn[] primaryColumns, string sql) = Source.GetUpdateInfoInternal();
+                List<SQLiteParameter> parameters = BuildUpdateParameters(columns, primaryColumns, item);
+                return ExecuteWithReturning(sql, parameters);
+            }
+            case SQLiteAction.Remove:
+            {
+                (TableColumn[] primaryColumns, string sql) = Source.GetRemoveInfoInternal();
+                List<SQLiteParameter> parameters = BuildKeyParameters(primaryColumns, item);
+                return ExecuteWithReturning(sql, parameters);
+            }
+            case SQLiteAction.AddOrUpdate:
+            {
+                (TableColumn[] columns, string sql) = Source.GetAddOrUpdateInfoInternal(SQLiteConflict.Replace);
+                TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+                List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
+                return UpsertWithReturning(sql, parameters, autoIncrement, item);
+            }
+            default:
+                throw new InvalidOperationException($"Unsupported SQLiteAction value: {action}");
+        }
     }
 
     private List<TResult> ExecuteWithReturning(string entitySql, List<SQLiteParameter> entityParameters)
@@ -327,7 +349,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         };
     }
 
-    private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, Func<T, List<TResult>> writeOne)
+    private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, SQLiteAction startingAction, bool runInTransaction, Func<T, List<TResult>> writeUnchanged)
     {
         List<TResult> results = [];
 
@@ -352,7 +374,11 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
                 {
                     continue;
                 }
-                results.AddRange(writeOne(item));
+
+                SQLiteAction action = Source.RunActionHooksInternal(item, startingAction);
+                results.AddRange(action == startingAction
+                    ? writeUnchanged(item)
+                    : RunResolvedAction(action, item));
             }
         }
     }

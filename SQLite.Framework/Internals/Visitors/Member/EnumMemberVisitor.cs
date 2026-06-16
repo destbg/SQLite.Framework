@@ -60,6 +60,11 @@ internal static class EnumMemberVisitor
 
                     char formatChar = char.ToUpperInvariant(format[0]);
 
+                    if (formatChar is 'D' or 'X' && visitor.Database.Options.EnumStorage == EnumStorageMode.Text)
+                    {
+                        return BuildTextStorageNumericFormat(visitor, node, enumType, enumUnderlying, objExpr, formatChar);
+                    }
+
                     if (formatChar == 'D')
                     {
                         return isUlongBacked
@@ -235,6 +240,34 @@ internal static class EnumMemberVisitor
         return enumUnderlying == typeof(ulong)
             ? unchecked((long)(ulong)enumValue)
             : Convert.ToInt64(enumValue);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Enum type comes from the entity surface. Users keep their enums reachable.")]
+    private static SQLiteExpression BuildTextStorageNumericFormat(SQLVisitor visitor, MethodCallExpression node, Type enumType, Type enumUnderlying, SQLiteExpression objExpr, char formatChar)
+    {
+        Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
+        string[] enumNames = Enum.GetNames(enumType);
+        (int hexDigits, _, _) = HexFormatInfo(enumUnderlying);
+
+        StringBuilder caseSb = new();
+        List<SQLiteParameter> caseParams = new();
+        for (int i = 0; i < enumValuesArray.Length; i++)
+        {
+            object enumValue = enumValuesArray.GetValue(i)!;
+            string formatted = formatChar == 'D'
+                ? Convert.ToString(enumValue, CultureInfo.InvariantCulture)!
+                : ((IFormattable)enumValue).ToString("X" + hexDigits, CultureInfo.InvariantCulture);
+
+            SQLiteParameter nameParam = new() { Name = visitor.Counters.NextParamName(), Value = enumNames[i] };
+            SQLiteParameter valueParam = new() { Name = visitor.Counters.NextParamName(), Value = formatted };
+            caseParams.Add(nameParam);
+            caseParams.Add(valueParam);
+            caseSb.Append(" WHEN ").Append(nameParam.Name).Append(" THEN ").Append(valueParam.Name);
+        }
+
+        string elseOpen = caseSb.ToString() + " ELSE ";
+        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr], v =>
+            SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], " END)", [.. caseParams]));
     }
 
     private static (int Digits, long Mask, bool Use64) HexFormatInfo(Type enumUnderlying)

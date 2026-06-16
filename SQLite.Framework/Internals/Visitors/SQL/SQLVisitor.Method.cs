@@ -148,6 +148,11 @@ internal partial class SQLVisitor
                 return QueryableMemberVisitor.HandleEnumerableMethod(this, node, enumerable, arguments);
             }
 
+            if (RequiresClientEvalFallback(node, arguments, obj))
+            {
+                return NotTranslatable(node, $"{node.Method.Name} runs in memory because one of its arguments is more than a single column or value.");
+            }
+
             return Expression.Call(obj.Expression, node.Method, CoerceArguments(node.Method, arguments));
         }
 
@@ -178,10 +183,50 @@ internal partial class SQLVisitor
                 return QueryableMemberVisitor.HandleEnumerableMethod(this, node, sourceEnumerable, arguments);
             }
 
+            if (RequiresClientEvalFallback(node, arguments, null))
+            {
+                return NotTranslatable(node, $"{node.Method.Name} runs in memory because one of its arguments is more than a single column or value.");
+            }
+
             return Expression.Call(node.Method, CoerceArguments(node.Method, arguments));
         }
 
         return node;
+    }
+
+    private bool RequiresClientEvalFallback(MethodCallExpression node, List<ResolvedModel> resolvedArguments, ResolvedModel? resolvedInstance)
+    {
+        if (!ClientEvalAllowed)
+        {
+            return false;
+        }
+
+        if (node.Object != null && resolvedInstance is { } instanceModel && IsCompositeSqlOperand(node.Object, instanceModel))
+        {
+            return true;
+        }
+
+        for (int i = 0; i < resolvedArguments.Count; i++)
+        {
+            if (IsCompositeSqlOperand(node.Arguments[i], resolvedArguments[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsCompositeSqlOperand(Expression original, ResolvedModel resolved)
+    {
+        if (resolved.SQLiteExpression == null
+            || resolved.SQLiteExpression.IsJsonSource
+            || ExpressionHelpers.IsConstant(original))
+        {
+            return false;
+        }
+
+        return TryResolveColumnLeaf(original) == null;
     }
 
     private IEnumerable<Expression> CoerceArguments(MethodInfo method, List<ResolvedModel> arguments)

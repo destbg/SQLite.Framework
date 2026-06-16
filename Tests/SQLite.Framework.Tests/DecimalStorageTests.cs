@@ -194,7 +194,7 @@ public class DecimalStorageTests
                      SELECT t0."Id" AS "Id",
                             t0."Price" AS "Price"
                      FROM "TestEntity" AS t0
-                     WHERE CAST(t0."Price" AS REAL) > @p0
+                     WHERE CAST(t0."Price" AS REAL) > CAST(@p0 AS REAL)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

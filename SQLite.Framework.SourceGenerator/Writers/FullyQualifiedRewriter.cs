@@ -102,6 +102,10 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         {
             return BuildPrivateMemberInitCall(node);
         }
+        if (TryRewriteTupleCreation(node, node.ArgumentList) is { } tupleNode)
+        {
+            return tupleNode;
+        }
         return base.VisitObjectCreationExpression(node);
     }
 
@@ -117,6 +121,10 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         if (IsPrivateMemberInit(node))
         {
             return BuildPrivateMemberInitCall(node);
+        }
+        if (TryRewriteTupleCreation(node, node.ArgumentList) is { } tupleNode)
+        {
+            return tupleNode;
         }
         return base.VisitImplicitObjectCreationExpression(node);
     }
@@ -283,6 +291,50 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         }
 
         return base.VisitInvocationExpression(node);
+    }
+
+    private ExpressionSyntax? TryRewriteTupleCreation(BaseObjectCreationExpressionSyntax node, ArgumentListSyntax? argumentList)
+    {
+        if (argumentList == null)
+        {
+            return null;
+        }
+
+        ITypeSymbol? type = ctx.Model.GetTypeInfo(node).Type;
+        ITypeSymbol? effective = SelectSignatureWriter.Substitute(type, ctx.WriterCtx.TypeArgSubstitutions) ?? type;
+        if (effective is not INamedTypeSymbol { IsTupleType: true } tuple)
+        {
+            return null;
+        }
+
+        INamedTypeSymbol underlying = tuple.TupleUnderlyingType ?? tuple;
+        StringBuilder typeText = new();
+        typeText.Append("global::System.ValueTuple<");
+        for (int i = 0; i < underlying.TypeArguments.Length; i++)
+        {
+            if (i > 0)
+            {
+                typeText.Append(", ");
+            }
+            typeText.Append(SelectMaterializerEmitter.FormatType(underlying.TypeArguments[i], ctx.WriterCtx.TypeArgSubstitutions));
+        }
+        typeText.Append('>');
+
+        List<ArgumentSyntax> args = new();
+        foreach (ArgumentSyntax arg in argumentList.Arguments)
+        {
+            if (Visit(arg.Expression) is not ExpressionSyntax argExpr)
+            {
+                Failed = true;
+                return null;
+            }
+            args.Add(SyntaxFactory.Argument(argExpr));
+        }
+
+        return SyntaxFactory.ObjectCreationExpression(
+            SyntaxFactory.ParseTypeName(typeText.ToString()),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)),
+            null);
     }
 
     private bool IsPrivateMemberInit(BaseObjectCreationExpressionSyntax node)

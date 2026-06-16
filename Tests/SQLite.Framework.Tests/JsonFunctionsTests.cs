@@ -1797,8 +1797,11 @@ public class JsonFunctionsTests
         Assert.Equal("""
                      SELECT (
                          SELECT COUNT(*)
-                         FROM json_each(l0."Tags")
-                         GROUP BY "value"
+                         FROM (
+                             SELECT 1 AS "value"
+                             FROM json_each(l0."Tags")
+                             GROUP BY "value"
+                         )
                      ) AS "3"
                      FROM "ListRow" AS l0
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));

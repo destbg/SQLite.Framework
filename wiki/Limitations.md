@@ -15,7 +15,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits, and `ToString()` on a fractional `float` prints the digits of the stored 64-bit value. SQLite has no 32-bit float type.
 - Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
-- A `uint` multiplication that is then widened to a larger type, such as `(long)(a * b)`, keeps the full 64-bit product instead of the 32-bit wrapped value.
+- A `uint` multiplication keeps the full 64-bit product instead of the 32-bit wrapped value, both when widened (`(long)(a * b)`) and when used directly (`a * b == 0u`).
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
@@ -41,6 +41,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Ordering and set operations
 
 - Chained `OrderBy` keeps only the last key, so a second `OrderBy` drops the first key.
+- `OrderBy(...).Select(...).Distinct()` returns its results in an undefined order when the `Select` drops the column that `OrderBy` sorted on, for example `OrderBy(x => x.Date).Select(x => x.Name).Distinct()`.
 - `Union`, `Distinct`, `Intersect` and `Except` dedup by value, not by reference.
 - `Union`, `Intersect` and `Except` return rows in sorted order, not the first-appearance order that LINQ-to-Objects keeps. `Distinct` and `Concat` do keep first-appearance order.
 - `Union`, `Intersect` and `Except` over a `ulong` column sort by the signed stored value, so a value at or above 2^63 sorts before a smaller value.

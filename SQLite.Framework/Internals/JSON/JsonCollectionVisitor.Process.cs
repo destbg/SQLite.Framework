@@ -283,6 +283,11 @@ internal partial class JsonCollectionVisitor
     private void HandleCount(MethodCallExpression call, Type elementType)
     {
         AddOptionalPredicate(call, elementType);
+        if (groupBys.Count > 0)
+        {
+            countsGroups = true;
+        }
+
         selectExpr = distinct ? $"COUNT(DISTINCT {selectExpr})" : "COUNT(*)";
         distinct = false;
         wrapInArray = false;

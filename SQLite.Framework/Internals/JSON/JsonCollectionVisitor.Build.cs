@@ -116,6 +116,19 @@ internal partial class JsonCollectionVisitor
             return $"({nl}{sp}{simpleSelect}{nl})";
         }
 
+        if (countsGroups)
+        {
+            List<string> groupedClauses = ["SELECT 1 AS \"value\"", $"FROM {fromClause}"];
+            if (wheres.Count > 0)
+            {
+                groupedClauses.Add("WHERE " + string.Join(" AND ", wheres));
+            }
+
+            groupedClauses.Add("GROUP BY " + string.Join(", ", groupBys));
+            string groupedInner = string.Join(nl + sp2, groupedClauses);
+            return $"({nl}{sp}SELECT {selectExpr}{nl}{sp}FROM ({nl}{sp2}{groupedInner}{nl}{sp}){nl})";
+        }
+
         return $"({nl}{sp}{innerSelect}{nl})";
     }
 }
