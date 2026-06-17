@@ -74,27 +74,24 @@ internal partial class SQLVisitor : ExpressionVisitor
         TableColumns = columns;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
-    public void AssignTable(Type entityType, SQLiteExpression? sql = null)
+    public void AssignTable(BaseSQLiteTable table)
     {
-        TableMapping tableMapping = Database.TableMapping(entityType);
-        string tableName = tableMapping.TableName;
+        AssignTableCore(table.Table, QualifiedTableName(table), sql: null);
+    }
 
-        if (OmitTableAlias)
-        {
-            From = SQLiteExpression.Leaf(entityType, -1, $"\"{tableName}\"");
-            TableColumns = BuildTableColumns(tableMapping, prefix: null);
-            return;
-        }
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All entities have public properties.")]
+    public void AssignTable(Type entityType, SQLiteExpression sql)
+    {
+        TableMapping mapping = Database.TableMapping(entityType);
+        AssignTableCore(mapping, $"\"{mapping.TableName}\"", sql);
+    }
 
-        char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
-        string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
-
-        From = sql != null
-            ? SQLiteExpression.Wrap(entityType, -1, "(", sql, $") AS {alias}", sql.Parameters)
-            : SQLiteExpression.Leaf(entityType, -1, $"\"{tableName}\" AS {alias}");
-
-        TableColumns = BuildTableColumns(tableMapping, alias);
+    public string QualifiedTableName(BaseSQLiteTable table)
+    {
+        string? schema = ResolveSchema(table);
+        return schema != null
+            ? $"\"{schema}\".\"{table.Table.TableName}\""
+            : $"\"{table.Table.TableName}\"";
     }
 
     public SQLTranslator CloneDeeper(int innerLevel)
@@ -213,6 +210,41 @@ internal partial class SQLVisitor : ExpressionVisitor
         }
 
         return null;
+    }
+
+    private string? ResolveSchema(BaseSQLiteTable table)
+    {
+        if (table.SchemaName != null)
+        {
+            return table.SchemaName;
+        }
+
+        if (table.Database != Database
+            && Database.TryGetAttachedSchema(table.Database, out string? attachedSchema))
+        {
+            return attachedSchema;
+        }
+
+        return null;
+    }
+
+    private void AssignTableCore(TableMapping tableMapping, string qualifiedName, SQLiteExpression? sql)
+    {
+        if (OmitTableAlias)
+        {
+            From = SQLiteExpression.Leaf(tableMapping.Type, -1, qualifiedName);
+            TableColumns = BuildTableColumns(tableMapping, prefix: null);
+            return;
+        }
+
+        char aliasChar = char.ToLowerInvariant(tableMapping.Type.Name.FirstOrDefault(char.IsLetter, 't'));
+        string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
+
+        From = sql != null
+            ? SQLiteExpression.Wrap(tableMapping.Type, -1, "(", sql, $") AS {alias}", sql.Parameters)
+            : SQLiteExpression.Leaf(tableMapping.Type, -1, $"{qualifiedName} AS {alias}");
+
+        TableColumns = BuildTableColumns(tableMapping, alias);
     }
 
     private Dictionary<string, Expression> BuildTableColumns(TableMapping tableMapping, string? prefix)

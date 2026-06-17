@@ -22,7 +22,7 @@ internal partial class SQLVisitor
 
         if (value is BaseSQLiteTable table)
         {
-            AssignTable(table.ElementType);
+            AssignTable(table);
             return SQLiteExpression.Alias(node.Type, -1, From!, From!.Parameters);
         }
 

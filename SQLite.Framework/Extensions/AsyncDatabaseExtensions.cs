@@ -296,6 +296,19 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
+    /// Attaches the file behind another <see cref="SQLiteDatabase" /> to this connection and
+    /// remembers the link, so typed cross-database queries emit the schema-qualified name.
+    /// </summary>
+    public static Task AttachDatabaseAsync(this SQLiteDatabase database, SQLiteDatabase other, string schemaName, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await database.LockAsync(ct);
+            database.AttachDatabase(other, schemaName);
+        }, ct);
+    }
+
+    /// <summary>
     /// Opens a <see cref="SQLiteBlobStream" /> by table and column name, waiting for the
     /// connection asynchronously. The returned stream still holds the connection lock, so
     /// dispose it before issuing other operations.

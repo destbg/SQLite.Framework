@@ -143,22 +143,26 @@ internal partial class QueryableVisitor
             SQLiteParameter[]? pragmaParams = ParameterHelpers.CombineParameters(argExprs);
             sql = SQLiteExpression.Variadic(body.Type, -1, $"{pragmaAttr.SqlName}(", argExprs, ", ", $") AS {alias}", pragmaParams);
         }
-        else if (body is MethodCallExpression methodCall && methodCall.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
+        else if (body is MethodCallExpression methodCall
+                 && methodCall.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
         {
             object? obj = methodCall.Object != null
                 ? ExpressionHelpers.GetConstantValue(methodCall.Object!)
                 : null;
-            BaseSQLiteTable resultTable = (BaseSQLiteTable)methodCall.Method.Invoke(obj, null)!;
+            object?[]? methodArgs = methodCall.Arguments.Count == 0
+                ? null
+                : methodCall.Arguments.Select(ExpressionHelpers.GetConstantValue).ToArray();
+            BaseSQLiteTable resultTable = (BaseSQLiteTable)methodCall.Method.Invoke(obj, methodArgs)!;
 
             entityType = resultTable.ElementType;
             char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
             string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
-            TableMapping tableMapping = database.TableMapping(entityType);
+            TableMapping tableMapping = resultTable.Table;
             newTableColumns = tableMapping.Columns
                 .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
             visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
-            sql = SQLiteExpression.Leaf(body.Type, -1, $"\"{tableMapping.TableName}\" AS {alias}");
+            sql = SQLiteExpression.Leaf(body.Type, -1, $"{visitor.QualifiedTableName(resultTable)} AS {alias}");
         }
         else if (ExpressionHelpers.IsConstant(body))
         {
@@ -229,11 +233,11 @@ internal partial class QueryableVisitor
                 char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
                 string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
-                TableMapping tableMapping = database.TableMapping(entityType);
+                TableMapping tableMapping = table.Table;
                 newTableColumns = tableMapping.Columns
                     .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
                 visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
-                sql = SQLiteExpression.Leaf(body.Type, -1, $"\"{table.Table.TableName}\" AS {alias}");
+                sql = SQLiteExpression.Leaf(body.Type, -1, $"{visitor.QualifiedTableName(table)} AS {alias}");
             }
             else
             {

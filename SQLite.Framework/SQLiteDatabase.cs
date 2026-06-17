@@ -18,6 +18,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
     private readonly AsyncLocal<bool> holdsConnectionLock = new();
     private readonly ConcurrentDictionary<Type, TableMapping> tableMappings = [];
+    private readonly ConcurrentDictionary<SQLiteDatabase, string> attachedDatabases = new();
     private readonly PreparedStatementPool statementPool = new();
     private volatile bool modelFrozen;
     private bool modelCreated;
@@ -187,9 +188,24 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Returns a read-only queryable wrapper for the table mapped to <typeparamref name="T" /> in an
+    /// attached database. Reads emit the schema-qualified name <c>"schema"."Table"</c>, so you can
+    /// query and join against an attached file with the typed LINQ surface. The table must already be
+    /// attached with <see cref="AttachDatabase(string, string, string)" />. The result is read-only
+    /// because writes to attached tables are not supported through the typed API.
+    /// </summary>
+    /// <param name="schema">The name the database was attached with. Must be a plain identifier
+    /// (letters, digits, and underscores).</param>
+    public virtual ReadOnlySQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string schema)
+    {
+        ValidateSchemaName(schema);
+        return new ReadOnlySQLiteTable<T>(this, TableMapping<T>(), schema);
+    }
+
+    /// <summary>
     /// Returns a read-only queryable wrapper for the table mapped to <typeparamref name="T" />.
     /// The full LINQ surface (<c>Select</c>, <c>Where</c>, <c>Join</c>, etc.) works the same as
-    /// <see cref="Table{T}" />, but no mutation methods are exposed. Use this for SQLite system
+    /// <see cref="Table{T}()" />, but no mutation methods are exposed. Use this for SQLite system
     /// tables (such as <c>sqlite_master</c>) or any user table you want to expose as read-only.
     /// </summary>
     public virtual ReadOnlySQLiteTable<T> ReadOnlyTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
@@ -481,6 +497,31 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Attaches the file behind another <see cref="SQLiteDatabase" /> to this connection under the
+    /// given schema name, and remembers the link. After this call a typed query rooted on this
+    /// database that joins or reads <paramref name="database" /><c>.Table&lt;T&gt;()</c> emits the
+    /// schema-qualified name <c>"schemaName"."Table"</c> for those tables. On the SQLCipher build the
+    /// attached file reuses the encryption key from <paramref name="database" />.
+    /// </summary>
+    /// <param name="database">The database whose file is attached. Its
+    /// <see cref="SQLiteOptions.DatabasePath" /> is used as the attach path. Keep this instance alive
+    /// while it is attached. Run the cross-database query on the current database, not on
+    /// <paramref name="database" />, because the attach only exists on this connection.</param>
+    /// <param name="schemaName">The name to give the attached database. Must be a plain identifier
+    /// (letters, digits, and underscores).</param>
+    public virtual void AttachDatabase(SQLiteDatabase database, string schemaName)
+    {
+        ArgumentNullException.ThrowIfNull(database);
+
+        string? encryptionKey = null;
+#if SQLITECIPHER
+        encryptionKey = database.Options.EncryptionKey;
+#endif
+        AttachDatabase(database.Options.DatabasePath, schemaName, encryptionKey);
+        attachedDatabases[database] = schemaName;
+    }
+
+    /// <summary>
     /// Detaches a previously attached database from this connection.
     /// </summary>
     /// <param name="schemaName">The name the database was attached with.</param>
@@ -489,6 +530,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         ValidateSchemaName(schemaName);
 
         Execute($"DETACH DATABASE \"{schemaName}\"");
+
+        foreach (KeyValuePair<SQLiteDatabase, string> entry in attachedDatabases)
+        {
+            if (entry.Value == schemaName)
+            {
+                attachedDatabases.TryRemove(entry.Key, out _);
+            }
+        }
     }
 
     /// <summary>
@@ -506,7 +555,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <param name="writable">When <see langword="true" />, the stream can be written to. The
     /// underlying blob must not change size, see <see cref="SQLiteBlobStream" /> for details.</param>
     /// <param name="schema">The database schema name. Defaults to <c>main</c>. Use the name passed
-    /// to <see cref="AttachDatabase" /> to target an attached database.</param>
+    /// to <see cref="AttachDatabase(string, string, string)" /> to target an attached database.</param>
     public virtual SQLiteBlobStream OpenBlobStream(string tableName, string columnName, long rowid, bool writable = false, string schema = "main")
     {
         ArgumentException.ThrowIfNullOrEmpty(tableName);
@@ -869,6 +918,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     internal bool TryGetCachedTableMapping(Type type, [NotNullWhen(true)] out TableMapping? mapping)
     {
         return tableMappings.TryGetValue(type, out mapping);
+    }
+
+    internal bool TryGetAttachedSchema(SQLiteDatabase other, [NotNullWhen(true)] out string? schema)
+    {
+        return attachedDatabases.TryGetValue(other, out schema);
     }
 
     internal sqlite3_stmt RentStatement(string sql)

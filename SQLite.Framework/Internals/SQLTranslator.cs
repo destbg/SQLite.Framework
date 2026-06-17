@@ -826,22 +826,22 @@ internal class SQLTranslator
 
         if (!wrappedAsSubquery)
         {
-            if (callExpression.Arguments.Count == 0)
+            if (callExpression.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
             {
-                if (callExpression.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
-                {
-                    object? obj = callExpression.Object != null
-                        ? ExpressionHelpers.GetConstantValue(callExpression.Object)
-                        : null;
-                    BaseSQLiteTable resultTable = (BaseSQLiteTable)callExpression.Method.Invoke(obj, null)!;
+                object? obj = callExpression.Object != null
+                    ? ExpressionHelpers.GetConstantValue(callExpression.Object)
+                    : null;
+                object?[]? args = callExpression.Arguments.Count == 0
+                    ? null
+                    : callExpression.Arguments.Select(ExpressionHelpers.GetConstantValue).ToArray();
+                BaseSQLiteTable resultTable = (BaseSQLiteTable)callExpression.Method.Invoke(obj, args)!;
 
-                    Visitor.AssignTable(resultTable.ElementType);
-                    methodCalls.RemoveAt(methodCalls.Count - 1);
-                }
-                else
-                {
-                    throw new NotSupportedException($"Unsupported method: {callExpression.Method}");
-                }
+                Visitor.AssignTable(resultTable);
+                methodCalls.RemoveAt(methodCalls.Count - 1);
+            }
+            else if (callExpression.Arguments.Count == 0)
+            {
+                throw new NotSupportedException($"Unsupported method: {callExpression.Method}");
             }
             else
             {

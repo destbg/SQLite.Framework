@@ -17,6 +17,15 @@ public class ReadOnlySQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessed
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ReadOnlySQLiteTable{T}"/> class that reads from
+    /// an attached database schema.
+    /// </summary>
+    public ReadOnlySQLiteTable(SQLiteDatabase database, TableMapping table, string? schemaName)
+        : base(database, table, schemaName)
+    {
+    }
+
     /// <inheritdoc />
     public override Type ElementType => Table.Type;
 
