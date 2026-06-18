@@ -9,7 +9,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class ForeignKeyResolver
 {
-    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Foreign key target lookup by name; prefer [ReferencesTable(typeof(T))] under AOT.")]
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Foreign key target lookup by name. Prefer [ReferencesTable(typeof(T))] under AOT.")]
     [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "Same as above.")]
     [UnconditionalSuppressMessage("AOT", "IL2073", Justification = "Same as above.")]
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)]

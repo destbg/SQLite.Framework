@@ -173,6 +173,13 @@ internal partial class SQLVisitor
             Type modType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
             if (modType == typeof(double) || modType == typeof(float) || modType == typeof(decimal))
             {
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+                if (Database.Options.MinimumSqliteVersion != SQLiteMinimumVersion.Unspecified
+                    && Database.Options.OverMinimumVersion(SQLiteMinimumVersion.V3_35))
+                {
+                    return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "mod(", left, ", ", right, ")", bothParameters);
+                }
+#endif
                 return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
                     ["(", " - ", " * CAST(", " / ", " AS INTEGER))"],
                     [left, right, left, right],

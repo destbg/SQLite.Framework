@@ -7,7 +7,7 @@ namespace SQLite.Framework;
 /// Pass a <see cref="JsonTypeInfo{T}" /> from a <c>JsonSerializerContext</c> to keep the converter AOT-safe.
 /// </summary>
 #if SQLITECIPHER
-[Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support; otherwise switch to SQLiteJsonConverter<T> for plain JSON TEXT storage.", error: true)]
+[Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support. Otherwise switch to SQLiteJsonConverter<T> for plain JSON TEXT storage.", error: true)]
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
 [UnsupportedOSPlatform("android")]
 [SupportedOSPlatform("android36.0")]

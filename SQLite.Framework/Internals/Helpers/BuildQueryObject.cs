@@ -161,7 +161,7 @@ internal static class BuildQueryObject
             || (type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(type));
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface; users keep their entities reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface. Users keep their entities reachable.")]
     private static bool HasParameterlessConstructor(Type type)
     {
         return type.GetConstructor(
@@ -171,7 +171,7 @@ internal static class BuildQueryObject
             modifiers: null) != null;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface; users keep their entities reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface. Users keep their entities reachable.")]
     private static ConstructorInfo? FindPositionalConstructor(Type type)
     {
         ConstructorInfo[] ctors = type.GetConstructors();

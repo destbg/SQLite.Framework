@@ -164,6 +164,11 @@ internal partial class SQLVisitor
                 return QueryableMemberVisitor.HandleGroupingMethod(this, node);
             }
 
+            if (QueryableMemberVisitor.TryHandleConstantAnyPredicate(this, node) is { } anyHandled)
+            {
+                return anyHandled;
+            }
+
             List<ResolvedModel> arguments = node.Arguments
                 .Select(ResolveExpression)
                 .ToList();

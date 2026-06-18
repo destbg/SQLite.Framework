@@ -217,7 +217,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         TableMapping mapping = visitor.Database.TableMapping(entityType);
         if (mapping.FullTextSearch == null)
         {
-            throw new NotSupportedException($"SQLiteFTS5 method requires an entity with [FullTextSearch]; '{entityType.Name}' does not.");
+            throw new NotSupportedException($"SQLiteFTS5 method requires an entity with [FullTextSearch] '{entityType.Name}' does not.");
         }
 
         return mapping.TableName;
@@ -260,7 +260,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             }
         }
 
-        throw new NotSupportedException($"SQLiteFTS5 method requires a direct entity reference; got {entity}.");
+        throw new NotSupportedException($"SQLiteFTS5 method requires a direct entity reference, got {entity}.");
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]
@@ -271,7 +271,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         TableMapping mapping = visitor.Database.TableMapping(entityType);
         if (mapping.FullTextSearch == null)
         {
-            throw new NotSupportedException($"SQLiteFTS5 method requires an entity with [FullTextSearch]; '{entityType.Name}' does not.");
+            throw new NotSupportedException($"SQLiteFTS5 method requires an entity with [FullTextSearch] '{entityType.Name}' does not.");
         }
 
         string columnName = columnArg switch

@@ -1210,7 +1210,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Compiles a grouping predicate; the IGrouping path already needs dynamic code.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Compiles a grouping predicate. The IGrouping path already needs dynamic code.")]
     [UnconditionalSuppressMessage("AOT", "IL2091", Justification = "TResult is an IGrouping<,> rooted by user code.")]
     private TResult ExecuteGroupingScalar<TResult>(MethodCallExpression scalarCall)
     {
@@ -1391,7 +1391,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2073", Justification = "ElementType is preserved by Queryable<T>/SQLiteTable<T>.")]
-    [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "Defensive fallback; chains bottom out at a BaseSQLiteQueryable constant.")]
+    [UnconditionalSuppressMessage("AOT", "IL2063", Justification = "Defensive fallback. Chains bottom out at a BaseSQLiteQueryable constant.")]
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)]
     private static Type FindRootElementType(Expression expression)
     {

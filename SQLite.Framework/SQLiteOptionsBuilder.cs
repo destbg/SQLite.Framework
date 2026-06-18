@@ -510,7 +510,7 @@ public sealed class SQLiteOptionsBuilder
     /// <c>[JsonSerializable]</c> property.
     /// </remarks>
 #if SQLITECIPHER
-    [Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support; otherwise switch to AddJsonContext for plain JSON TEXT storage.", error: true)]
+    [Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support. Otherwise switch to AddJsonContext for plain JSON TEXT storage.", error: true)]
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("android")]
     [SupportedOSPlatform("android36.0")]

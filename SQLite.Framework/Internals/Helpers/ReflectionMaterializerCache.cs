@@ -12,14 +12,14 @@ internal static class ReflectionMaterializerCache
 {
     private static readonly ConcurrentDictionary<(Type Type, SQLiteOptions Options), MaterializerPlan> planCache = new();
 
-    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Type comes from the entity surface; users keep their entities reachable.")]
-    [UnconditionalSuppressMessage("AOT", "IL2077", Justification = "Type comes from the entity surface; users keep their entities reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Type comes from the entity surface. Users keep their entities reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL2077", Justification = "Type comes from the entity surface. Users keep their entities reachable.")]
     public static MaterializerPlan GetPlan([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type, SQLiteOptions options)
     {
         return planCache.GetOrAdd((type, options), static key => Build(key.Type, key.Options));
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface; users keep their entities reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface. Users keep their entities reachable.")]
     private static MaterializerPlan Build([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type, SQLiteOptions options)
     {
         PropertyInfo[] all = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);

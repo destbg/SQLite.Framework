@@ -89,83 +89,11 @@ internal static class QueryableMemberVisitor
         {
             case nameof(Enumerable.Contains):
             {
-                List<object?> values = enumerable.Cast<object?>().ToList();
-                bool hasNull = values.Any(v => v is null);
-                SQLiteParameter[] parameters = values
-                    .Where(v => v is not null)
-                    .Select(f => new SQLiteParameter
-                    {
-                        Name = visitor.Counters.NextParamName(),
-                        Value = f
-                    })
-                    .ToArray();
-
                 int itemIndex = node.Object == null ? 1 : 0;
-                ResolvedModel item = arguments[itemIndex];
-                SQLiteExpression itemExpr = item.SQLiteExpression!;
-
-                if (parameters.Length == 0 && !hasNull)
-                {
-                    // For an empty list, `IN ()` is invalid SQL and should always return false.
-                    // We use `0 = 1` to ensure the condition is never true.
-                    return SQLiteExpression.Leaf(
-                        node.Method.ReturnType,
-                        visitor.Counters.NextIdentifier(),
-                        "0 = 1",
-                        item.Parameters
-                    );
-                }
-
-                if (parameters.Length == 0)
-                {
-                    return SQLiteExpression.Wrap(
-                        node.Method.ReturnType,
-                        visitor.Counters.NextIdentifier(),
-                        "", itemExpr, " IS NULL",
-                        item.Parameters
-                    );
-                }
-
-                StringBuilder paramSb = new(" IN (");
-                for (int i = 0; i < parameters.Length; i++)
-                {
-                    if (i > 0) paramSb.Append(", ");
-                    paramSb.Append(parameters[i].Name);
-                }
-                paramSb.Append(')');
-
-                SQLiteParameter[] allParameters = [.. item.Parameters ?? [], .. parameters];
-
+                SQLiteExpression itemExpr = arguments[itemIndex].SQLiteExpression!;
                 Type itemType = node.Arguments[itemIndex].Type;
-                bool itemMayBeNull = !itemType.IsValueType || Nullable.GetUnderlyingType(itemType) != null;
-
-                if (!hasNull)
-                {
-                    if (itemMayBeNull)
-                    {
-                        return SQLiteExpression.Wrap(
-                            node.Method.ReturnType,
-                            visitor.Counters.NextIdentifier(),
-                            "((", itemExpr, paramSb.ToString() + ") IS 1)",
-                            allParameters
-                        );
-                    }
-
-                    return SQLiteExpression.Wrap(
-                        node.Method.ReturnType,
-                        visitor.Counters.NextIdentifier(),
-                        "", itemExpr, paramSb.ToString(),
-                        allParameters
-                    );
-                }
-
-                return SQLiteExpression.Multi(
-                    node.Method.ReturnType,
-                    visitor.Counters.NextIdentifier(),
-                    ["(", paramSb.ToString() + " OR ", " IS NULL)"],
-                    [itemExpr, itemExpr],
-                    allParameters
-                );
+                List<object?> values = enumerable.Cast<object?>().ToList();
+                return BuildScalarInExpression(visitor, node.Method.ReturnType, itemExpr, itemType, values);
             }
         }
 
@@ -321,6 +249,92 @@ internal static class QueryableMemberVisitor
         return false;
     }
 
+    public static Expression? TryHandleConstantAnyPredicate(SQLVisitor visitor, MethodCallExpression node)
+    {
+        if (node.Method.Name != nameof(Enumerable.Any)
+            || node.Arguments.Count != 2)
+        {
+            return null;
+        }
+
+        if (!ExpressionHelpers.IsConstant(node.Arguments[0])
+            || ExpressionHelpers.GetConstantValue(node.Arguments[0]) is not IEnumerable enumerable)
+        {
+            return null;
+        }
+
+        if (ExpressionHelpers.StripQuotes(node.Arguments[1]) is not LambdaExpression { Parameters.Count: 1 } lambda)
+        {
+            return null;
+        }
+
+        ParameterExpression element = lambda.Parameters[0];
+        List<Expression> conjuncts = [];
+        FlattenAndAlso(lambda.Body, conjuncts);
+
+        List<Expression> keySides = new(conjuncts.Count);
+        List<Expression> valueSides = new(conjuncts.Count);
+        foreach (Expression conjunct in conjuncts)
+        {
+            if (conjunct is not BinaryExpression { NodeType: ExpressionType.Equal } equality)
+            {
+                return null;
+            }
+
+            ParameterReferenceVisitor leftRefs = new(element);
+            leftRefs.Visit(equality.Left);
+            ParameterReferenceVisitor rightRefs = new(element);
+            rightRefs.Visit(equality.Right);
+
+            if (leftRefs.ReferencesTarget == rightRefs.ReferencesTarget)
+            {
+                return null;
+            }
+
+            bool leftIsValue = leftRefs.ReferencesTarget;
+            ParameterReferenceVisitor valueRefs = leftIsValue ? leftRefs : rightRefs;
+            if (valueRefs.ReferencesOther)
+            {
+                return null;
+            }
+
+            valueSides.Add(leftIsValue ? equality.Left : equality.Right);
+            keySides.Add(leftIsValue ? equality.Right : equality.Left);
+        }
+
+        List<object?[]>? rows = MaterializeRows(enumerable, valueSides, element);
+        if (rows == null)
+        {
+            return null;
+        }
+
+        List<SQLiteExpression> keyColumns = new(keySides.Count);
+        foreach (Expression keySide in keySides)
+        {
+            SQLiteExpression? keyColumn = visitor.TryResolveColumnLeaf(keySide);
+            if (keyColumn == null)
+            {
+                return null;
+            }
+
+            keyColumns.Add(keyColumn);
+        }
+
+        Type returnType = node.Method.ReturnType;
+        if (keyColumns.Count == 1)
+        {
+            List<object?> values = new(rows.Count);
+            foreach (object?[] row in rows)
+            {
+                values.Add(row[0]);
+            }
+
+            return BuildScalarInExpression(visitor, returnType, keyColumns[0], valueSides[0].Type, values);
+        }
+
+        return BuildRowValueInExpression(visitor, returnType, keyColumns, rows);
+    }
+
     private static string ContainsColumnName(SQLTranslator translator)
     {
         if (translator.Selects.Count > 0)
@@ -407,5 +421,221 @@ internal static class QueryableMemberVisitor
             filterExpression,
             coalesce ? "), 0)" : ")",
             ParameterHelpers.CombineParameters(target, filterExpression));
+    }
+
+    private static void FlattenAndAlso(Expression expression, List<Expression> conjuncts)
+    {
+        if (expression is BinaryExpression { NodeType: ExpressionType.AndAlso } andAlso)
+        {
+            FlattenAndAlso(andAlso.Left, conjuncts);
+            FlattenAndAlso(andAlso.Right, conjuncts);
+            return;
+        }
+
+        conjuncts.Add(expression);
+    }
+
+    private static List<object?[]>? MaterializeRows(IEnumerable enumerable, List<Expression> valueSides, ParameterExpression element)
+    {
+        List<object?[]> rows = [];
+        foreach (object? item in enumerable)
+        {
+            ParameterSubstitutor substitutor = new(element, Expression.Constant(item, element.Type));
+            object?[] row = new object?[valueSides.Count];
+            for (int i = 0; i < valueSides.Count; i++)
+            {
+                Expression resolved = substitutor.Visit(valueSides[i]);
+                if (!ExpressionHelpers.IsConstant(resolved))
+                {
+                    return null;
+                }
+
+                row[i] = ExpressionHelpers.GetConstantValue(resolved);
+            }
+
+            rows.Add(row);
+        }
+
+        return rows;
+    }
+
+    private static SQLiteExpression BuildScalarInExpression(SQLVisitor visitor, Type returnType, SQLiteExpression itemExpr, Type itemType, IReadOnlyList<object?> values)
+    {
+        bool hasNull = false;
+        List<SQLiteParameter> valueParameters = new(values.Count);
+        for (int i = 0; i < values.Count; i++)
+        {
+            if (values[i] is null)
+            {
+                hasNull = true;
+                continue;
+            }
+
+            valueParameters.Add(new SQLiteParameter
+            {
+                Name = visitor.Counters.NextParamName(),
+                Value = values[i]
+            });
+        }
+
+        SQLiteParameter[] parameters = valueParameters.ToArray();
+
+        if (parameters.Length == 0 && !hasNull)
+        {
+            return SQLiteExpression.Leaf(returnType, visitor.Counters.NextIdentifier(), "0 = 1", itemExpr.Parameters);
+        }
+
+        if (parameters.Length == 0)
+        {
+            return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "", itemExpr, " IS NULL", itemExpr.Parameters);
+        }
+
+        StringBuilder paramSb = new(" IN (");
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            if (i > 0) paramSb.Append(", ");
+            paramSb.Append(parameters[i].Name);
+        }
+
+        paramSb.Append(')');
+
+        SQLiteParameter[] allParameters = [.. itemExpr.Parameters ?? [], .. parameters];
+        bool itemMayBeNull = !itemType.IsValueType || Nullable.GetUnderlyingType(itemType) != null;
+
+        if (!hasNull)
+        {
+            if (itemMayBeNull)
+            {
+                return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "((", itemExpr, paramSb.ToString() + ") IS 1)", allParameters);
+            }
+
+            return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "", itemExpr, paramSb.ToString(), allParameters);
+        }
+
+        return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
+            ["(", paramSb.ToString() + " OR ", " IS NULL)"],
+            [itemExpr, itemExpr],
+            allParameters);
+    }
+
+    private static SQLiteExpression BuildRowValueInExpression(SQLVisitor visitor, Type returnType, List<SQLiteExpression> keyColumns, List<object?[]> rows)
+    {
+        int columnCount = keyColumns.Count;
+
+        List<object?[]> pureRows = [];
+        List<object?[]> nullRows = [];
+        foreach (object?[] row in rows)
+        {
+            bool rowHasNull = false;
+            for (int c = 0; c < columnCount; c++)
+            {
+                if (row[c] is null)
+                {
+                    rowHasNull = true;
+                    break;
+                }
+            }
+
+            (rowHasNull ? nullRows : pureRows).Add(row);
+        }
+
+        if (pureRows.Count == 0 && nullRows.Count == 0)
+        {
+            return SQLiteExpression.Leaf(returnType, visitor.Counters.NextIdentifier(), "0 = 1", ParameterHelpers.CombineParameters(keyColumns));
+        }
+
+        bool emitInClause = pureRows.Count > 0;
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        emitInClause = emitInClause && visitor.Database.Options.OverMinimumVersion(SQLiteMinimumVersion.V3_15);
+#endif
+
+        bool anyKeyNullable = false;
+        foreach (SQLiteExpression keyColumn in keyColumns)
+        {
+            Type keyType = keyColumn.Type;
+            if (!keyType.IsValueType || Nullable.GetUnderlyingType(keyType) != null)
+            {
+                anyKeyNullable = true;
+                break;
+            }
+        }
+
+        List<object?[]> orRows = emitInClause ? nullRows : rows;
+        bool wrapIsOne = emitInClause && anyKeyNullable;
+        int clauseCount = (emitInClause ? 1 : 0) + orRows.Count;
+
+        List<string> parts = [];
+        List<SQLiteExpression> children = [];
+        List<SQLiteParameter> valueParameters = [];
+        StringBuilder pending = StringBuilderPool.Rent();
+        pending.Append(wrapIsOne ? "((" : clauseCount >= 2 ? "(" : "");
+
+        bool firstClause = true;
+        if (emitInClause)
+        {
+            pending.Append('(');
+            for (int c = 0; c < columnCount; c++)
+            {
+                if (c > 0) pending.Append(", ");
+                parts.Add(pending.ToString());
+                pending.Clear();
+                children.Add(keyColumns[c]);
+            }
+
+            pending.Append(") IN (");
+            for (int r = 0; r < pureRows.Count; r++)
+            {
+                if (r > 0) pending.Append(", ");
+                pending.Append('(');
+                for (int c = 0; c < columnCount; c++)
+                {
+                    if (c > 0) pending.Append(", ");
+                    string paramName = visitor.Counters.NextParamName();
+                    valueParameters.Add(new SQLiteParameter
+                    {
+                        Name = paramName,
+                        Value = pureRows[r][c]
+                    });
+                    pending.Append(paramName);
+                }
+
+                pending.Append(')');
+            }
+
+            pending.Append(')');
+            firstClause = false;
+        }
+
+        foreach (object?[] row in orRows)
+        {
+            if (!firstClause) pending.Append(" OR ");
+            pending.Append('(');
+            for (int c = 0; c < columnCount; c++)
+            {
+                if (c > 0) pending.Append(" AND ");
+                parts.Add(pending.ToString());
+                pending.Clear();
+                children.Add(keyColumns[c]);
+                pending.Append(" IS ");
+                if (row[c] is null)
+                {
+                    pending.Append("NULL");
+                }
+                else
+                {
+                    string paramName = visitor.Counters.NextParamName();
+                    valueParameters.Add(new SQLiteParameter { Name = paramName, Value = row[c] });
+                    pending.Append(paramName);
+                }
+            }
+
+            pending.Append(')');
+            firstClause = false;
+        }
+
+        pending.Append(wrapIsOne ? ") IS 1)" : clauseCount >= 2 ? ")" : "");
+        parts.Add(StringBuilderPool.ToStringAndReturn(pending));
+
+        return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(), parts.ToArray(), children.ToArray(), valueParameters.ToArray());
     }
 }
