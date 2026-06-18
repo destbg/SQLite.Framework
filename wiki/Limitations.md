@@ -43,11 +43,16 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Chained `OrderBy` keeps only the last key, so a second `OrderBy` drops the first key.
 - `OrderBy(...).Select(...).Distinct()` returns its results in an undefined order when the `Select` drops the column that `OrderBy` sorted on, for example `OrderBy(x => x.Date).Select(x => x.Name).Distinct()`.
 - `Union`, `Distinct`, `Intersect` and `Except` dedup by value, not by reference.
-- `Union`, `Intersect` and `Except` return rows in sorted order, not the first-appearance order that LINQ-to-Objects keeps. `Distinct` and `Concat` do keep first-appearance order.
+- `Union`, `Intersect` and `Except` return rows in sorted order, not the first-appearance order that LINQ-to-Objects keeps. `Concat` keeps first-appearance order.
+- Without an explicit `OrderBy`, row order follows SQLite's query plan rather than insertion order. An index over the read column makes `Distinct` return its values in sorted order, and makes `First`, `FirstOrDefault`, `Single`, `ElementAt` and `Take` read the lowest indexed rows instead of the first inserted ones.
 - `Union`, `Intersect` and `Except` over a `ulong` column sort by the signed stored value, so a value at or above 2^63 sorts before a smaller value.
 - `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
 - `Reverse` on one side of a `Union`, `Concat`, `Except` or `Intersect` does not take effect, because SQLite has no row order to flip inside a combined query.
 - `string.Join` over a query whose last step is `Reverse` is not supported and throws.
+
+## Query operators
+
+- Some LINQ operators are not translated to SQL and throw `NotSupportedException` on a table query. These are `Last`, `LastOrDefault`, `Order`, `OrderDescending`, `MaxBy`, `MinBy`, `DistinctBy`, `SkipLast`, `TakeLast`, `Append`, `Prepend`, `Chunk`, `ExceptBy`, `UnionBy`, `IntersectBy`, `SkipWhile` and `TakeWhile`.
 
 ## Joins and SelectMany
 
@@ -70,6 +75,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - `AddMonths` and `AddYears` whose result lands in December of year 9999 return the default date, since the date math overflows past SQLite's maximum date.
 - `DateTimeOffset` drops its offset.
+- A `DateTime` stored as `Integer` or `Text` ticks reads back with `Kind` set to `Unspecified`, since the tick count carries no kind.
 - Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
 - A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal`, and the `HasFlag`, bitwise, comparison and cast operators on a `Text`-stored enum.
 

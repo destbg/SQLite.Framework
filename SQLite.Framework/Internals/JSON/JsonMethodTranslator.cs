@@ -118,7 +118,7 @@ internal static class JsonMethodTranslator
             string? sql = node.Method.Name switch
             {
                 nameof(Enumerable.Concat) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT \"value\" FROM json_each({argSql})))",
-                nameof(Enumerable.Union) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT DISTINCT \"value\" FROM json_each({src}) UNION SELECT DISTINCT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.Union) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.Intersect) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM json_each({src}) WHERE \"value\" IN (SELECT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.Except) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM json_each({src}) WHERE \"value\" NOT IN (SELECT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.ElementAtOrDefault) => $"json_extract({src}, '$[' || ({argSql}) || ']')",

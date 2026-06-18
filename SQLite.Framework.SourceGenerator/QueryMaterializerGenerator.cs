@@ -272,7 +272,9 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             Dictionary<string, (GroupByKeyInvocation Invocation, SemanticModel Model)> uniqueGroupKeys = new();
             foreach ((GroupByKeyInvocation Invocation, SemanticModel Model)? entry in groupKeys)
             {
-                if (entry is { } pair2 && !uniqueGroupKeys.ContainsKey(pair2.Invocation.Signature))
+                if (entry is { } pair2
+                    && IsAccessibleFromGeneratedCode(pair2.Invocation.ParameterType)
+                    && !uniqueGroupKeys.ContainsKey(pair2.Invocation.Signature))
                 {
                     uniqueGroupKeys[pair2.Invocation.Signature] = pair2;
                 }
@@ -286,6 +288,22 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             string generated = EntityMaterializerEmitter.Emit("SQLite.Framework.Generated", unique, uniqueSelects.Values, uniqueGroupKeys.Values, nestedInitSet);
             spc.AddSource("SQLiteFrameworkGeneratedMaterializers.g.cs", generated);
         });
+    }
+
+    private static bool IsAccessibleFromGeneratedCode(ITypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type as INamedTypeSymbol; current != null; current = current.ContainingType)
+        {
+            switch (current.DeclaredAccessibility)
+            {
+                case Accessibility.Private:
+                case Accessibility.Protected:
+                case Accessibility.ProtectedAndInternal:
+                    return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool IsCandidateGroupByInvocation(SyntaxNode node)

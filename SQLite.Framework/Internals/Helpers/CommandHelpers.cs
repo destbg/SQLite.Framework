@@ -125,7 +125,7 @@ internal static class CommandHelpers
             string dateString = raw.sqlite3_column_text(statement, index).utf8_to_string();
             if (options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
             {
-                return DateTime.ParseExact(dateString, options.DateTimeFormat, CultureInfo.InvariantCulture);
+                return DateTime.ParseExact(dateString, options.DateTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
             }
 
             if (long.TryParse(dateString, out long parsedTicks))
