@@ -298,8 +298,8 @@ internal static class QueryableMemberVisitor
                 return null;
             }
 
-            valueSides.Add(leftIsValue ? equality.Left : equality.Right);
-            keySides.Add(leftIsValue ? equality.Right : equality.Left);
+            valueSides.Add(StripConversions(leftIsValue ? equality.Left : equality.Right));
+            keySides.Add(StripConversions(leftIsValue ? equality.Right : equality.Left));
         }
 
         List<object?[]>? rows = MaterializeRows(enumerable, valueSides, element);
@@ -421,6 +421,16 @@ internal static class QueryableMemberVisitor
             filterExpression,
             coalesce ? "), 0)" : ")",
             ParameterHelpers.CombineParameters(target, filterExpression));
+    }
+
+    private static Expression StripConversions(Expression expression)
+    {
+        while (expression is UnaryExpression { NodeType: ExpressionType.Convert } convert)
+        {
+            expression = convert.Operand;
+        }
+
+        return expression;
     }
 
     private static void FlattenAndAlso(Expression expression, List<Expression> conjuncts)

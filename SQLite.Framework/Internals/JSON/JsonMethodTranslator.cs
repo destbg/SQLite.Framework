@@ -101,6 +101,13 @@ internal static class JsonMethodTranslator
         if (node.Arguments.Count == 2)
         {
             ResolvedModel arg = visitor.ResolveExpression(node.Arguments[1]);
+
+            if (node.Method.Name == nameof(Enumerable.ElementAtOrDefault)
+                && arg is { IsConstant: true, Constant: int negativeIndex } && negativeIndex < 0)
+            {
+                return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(), "NULL").WithJsonSource();
+            }
+
             string argSql = arg.SQLiteExpression!.ToString();
             SQLiteParameter[]? combined = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
