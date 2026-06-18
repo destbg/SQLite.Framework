@@ -40,6 +40,7 @@ class CoverageStats:
     lines_covered: int = 0
     branches_valid: int = 0
     branches_covered: int = 0
+    partials: list = field(default_factory=list)
 
     @property
     def line_rate(self) -> float:
@@ -289,17 +290,19 @@ def compute_stats(per_project_lines: list[LineCov]) -> CoverageStats:
         keys.update(lm.keys())
 
     out = CoverageStats()
-    for key in keys:
+    for key in sorted(keys):
         entries = [lm[key] for lm in per_project_lines if key in lm]
         hits = max(e[0] for e in entries)
-        full = any(e[0] > 0 and (e[2] == 0 or e[1] == e[2]) for e in entries)
         br_total = max(e[2] for e in entries)
-        br_cov = br_total if full else max(e[1] for e in entries)
+        br_cov = max(e[1] for e in entries)
+        partial = br_total > 0 and br_cov < br_total
         out.lines_valid += 1
-        if hits > 0 and full:
+        if hits > 0 and not partial:
             out.lines_covered += 1
         out.branches_valid += br_total
         out.branches_covered += br_cov
+        if hits > 0 and partial:
+            out.partials.append((key[0], key[1], br_cov, br_total))
     return out
 
 
@@ -566,6 +569,11 @@ def main() -> int:
             )
         )
         print()
+        if per_line_maps and combined.partials:
+            print(f"Partially covered branch lines ({len(combined.partials)}):")
+            for filename, num, br_cov, br_total in combined.partials:
+                print(f"  {filename}:{num}  branches {br_cov}/{br_total}")
+            print()
 
     notes = [(r.name, n) for r in results for n in r.notes]
     if notes:
