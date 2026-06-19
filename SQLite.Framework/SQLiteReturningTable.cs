@@ -67,7 +67,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     {
         ArgumentNullException.ThrowIfNull(collection);
 
-        TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
 
         return RunRangeWithReturning(
             collection,
@@ -198,7 +198,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         ArgumentNullException.ThrowIfNull(configure);
 
         (TableColumn[] baseColumns, string baseSql) = Source.GetUpsertInfoInternal(configure);
-        TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
 
         return RunRangeWithReturning(
             collection,
@@ -217,7 +217,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     {
         (TableColumn[] baseColumns, string baseSql) = Source.GetUpsertInfoInternal(configure);
         (TableColumn[] columns, string sql) = Source.FilterUpsertInfoForItemInternal(configure, item, baseColumns, baseSql);
-        TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
         List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
         return UpsertWithReturning(sql, parameters, autoIncrement, item);
     }
@@ -231,7 +231,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             case SQLiteAction.Add:
             {
                 (TableColumn[] columns, string sql) = Source.GetAddInfoForItemInternal(item);
-                TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+                TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
                 List<TResult> rows = ExecuteWithReturning(sql, parameters);
                 if (autoIncrement != null && rows.Count > 0)
@@ -256,7 +256,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             case SQLiteAction.AddOrUpdate:
             {
                 (TableColumn[] columns, string sql) = Source.GetAddOrUpdateInfoInternal(SQLiteConflict.Replace);
-                TableColumn? autoIncrement = Source.Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+                TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
                 return UpsertWithReturning(sql, parameters, autoIncrement, item);
             }

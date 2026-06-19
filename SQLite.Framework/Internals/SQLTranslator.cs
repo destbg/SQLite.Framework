@@ -290,13 +290,7 @@ internal class SQLTranslator
             reflectedMembers = anonCollector.Members;
             reflectedConstructors = anonCollector.Constructors;
         }
-        else if (selectMethodExpression is null
-            or ParameterExpression
-            || (selectMethodExpression is MemberExpression { Expression: not SQLiteExpression } memberSelect
-                && IsRawColumnPassthroughMember(memberSelect))
-            || (selectMethodExpression is MethodCallExpression mce
-                && (mce.Method.DeclaringType == typeof(Queryable)
-                    || mce.Method.DeclaringType == typeof(Enumerable))))
+        else if (UsesEntityMaterializer(selectMethodExpression))
         {
             createObject = null;
         }
@@ -315,7 +309,7 @@ internal class SQLTranslator
                 createObject = generated;
 
                 ReflectedBindingsCollector collector = new();
-                collector.Visit(selectMethodExpression);
+                collector.Visit(selectMethodExpression!);
                 reflectedMethods = collector.Methods;
                 reflectedInstances = collector.Instances;
                 capturedValues = collector.CapturedValues;
@@ -342,7 +336,7 @@ internal class SQLTranslator
                 }
 #endif
                 QueryCompilerVisitor compilerVisitor = new(database.Options);
-                CompiledExpression compiledExpression = (CompiledExpression)compilerVisitor.Visit(selectMethodExpression);
+                CompiledExpression compiledExpression = (CompiledExpression)compilerVisitor.Visit(selectMethodExpression!);
                 createObject = compiledExpression.Call;
             }
         }
@@ -1167,6 +1161,27 @@ internal class SQLTranslator
     private static bool IsSelectMethod(MethodInfo method)
     {
         return TranslationPatterns.IsSelectMethodName(method.Name);
+    }
+
+    private static bool UsesEntityMaterializer(Expression? selectMethodExpression)
+    {
+        if (selectMethodExpression is null or ParameterExpression)
+        {
+            return true;
+        }
+
+        if (selectMethodExpression is MemberExpression { Expression: not SQLiteExpression } memberSelect)
+        {
+            return IsRawColumnPassthroughMember(memberSelect);
+        }
+
+        if (selectMethodExpression is MethodCallExpression mce)
+        {
+            return mce.Method.DeclaringType == typeof(Queryable)
+                   || mce.Method.DeclaringType == typeof(Enumerable);
+        }
+
+        return false;
     }
 
     private static bool IsRawColumnPassthroughMember(MemberExpression member)

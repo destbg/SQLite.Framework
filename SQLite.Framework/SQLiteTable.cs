@@ -461,6 +461,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             : (baseColumns, baseSql);
     }
 
+    internal TableColumn? GetAutoIncrementColumn()
+    {
+        return Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+    }
+
     /// <summary>
     /// Prepares <paramref name="sql" /> once, then loops over <paramref name="items" /> and binds /
     /// steps / resets per row. The connection lock and (optional) transaction are held for the whole
@@ -1015,11 +1020,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
     {
         return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
-    }
-
-    private TableColumn? GetAutoIncrementColumn()
-    {
-        return Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
     }
 
     private void ThrowIfExtraWriteColumnsReferenceRowOnInsert()

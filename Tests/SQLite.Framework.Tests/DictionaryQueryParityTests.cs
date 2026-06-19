@@ -190,4 +190,24 @@ public class DictionaryQueryParityTests
         List<int> actual = db.Table<JdNestedDictRow>().Where(r => r.Holder.Inner.ContainsKey("a")).OrderBy(r => r.Id).Select(r => r.Id).ToList();
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void ConditionalReceiverContainsKeyFilters()
+    {
+        using TestDatabase db = MapDb();
+        SeedMaps(db);
+        var expected = MapSeed().Select((m, i) => (Id: i + 1, m)).Where(x => (x.Id > 5 ? x.m : x.m).ContainsKey("a")).Select(x => x.Id).ToList();
+        var actual = db.Table<JdEdgeMapRow>().Where(m => (m.Id > 5 ? m.Map : m.Map).ContainsKey("a")).OrderBy(m => m.Id).Select(m => m.Id).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ConditionalReceiverIndexerFilters()
+    {
+        using TestDatabase db = MapDb();
+        SeedMaps(db);
+        var expected = MapSeed().Select((m, i) => (Id: i + 1, m)).Where(x => x.m.ContainsKey("a") && x.m["a"] == 5).Select(x => x.Id).ToList();
+        var actual = db.Table<JdEdgeMapRow>().Where(m => (m.Id > 5 ? m.Map : m.Map)["a"] == 5).OrderBy(m => m.Id).Select(m => m.Id).ToList();
+        Assert.Equal(expected, actual);
+    }
 }

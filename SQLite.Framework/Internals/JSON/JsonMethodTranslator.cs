@@ -64,13 +64,7 @@ internal static class JsonMethodTranslator
             return null;
         }
 
-        ResolvedModel source = visitor.ResolveExpression(node.Object!);
-        if (source.SQLiteExpression == null)
-        {
-            return null;
-        }
-
-        SQLiteExpression src = source.SQLiteExpression;
+        SQLiteExpression src = visitor.ResolveExpression(node.Object!).SQLiteExpression!;
         string path = "$.\"" + key.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
         SQLiteParameter pathParameter = new()
         {
