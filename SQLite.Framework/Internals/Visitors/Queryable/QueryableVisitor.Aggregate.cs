@@ -12,6 +12,13 @@ internal partial class QueryableVisitor
 
         ThrowIfSetOperations(node.Method.Name);
 
+        if (Selects.Count == 0
+            && visitor.TableColumns.Count == 1
+            && visitor.TableColumns.Values.Single() is SQLiteExpression projectedScalar)
+        {
+            Selects.Add(projectedScalar);
+        }
+
         bool applyDistinct = IsDistinct && function != "MAX" && function != "MIN";
         string distinctPrefix = applyDistinct ? "DISTINCT " : string.Empty;
 

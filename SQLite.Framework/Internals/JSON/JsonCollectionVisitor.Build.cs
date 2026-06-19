@@ -9,6 +9,11 @@ internal partial class JsonCollectionVisitor
             return $"(CASE WHEN {column} IS NULL THEN NULL WHEN {column} THEN json('true') ELSE json('false') END)";
         }
 
+        if (!TypeHelpers.IsSimple(currentElementType, options))
+        {
+            return $"json({column})";
+        }
+
         return column;
     }
 

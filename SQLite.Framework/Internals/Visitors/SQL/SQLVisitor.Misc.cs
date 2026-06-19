@@ -121,6 +121,13 @@ internal partial class SQLVisitor
                 "json_array_length(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
         }
 
+        if (node.NodeType == ExpressionType.ArrayLength
+            && node.Operand.Type == typeof(byte[]))
+        {
+            return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(),
+                "LENGTH(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
+        }
+
         if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked)
         {
             if (node.Type == typeof(object))

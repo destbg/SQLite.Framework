@@ -79,6 +79,16 @@ internal partial class SQLVisitor
             return jsonHandled;
         }
 
+        if (node.Method.Name == nameof(Enumerable.SequenceEqual) && node.Arguments.Count == 2)
+        {
+            Expression seqLeft = StripSpanConversion(node.Arguments[0]);
+            Expression seqRight = StripSpanConversion(node.Arguments[1]);
+            if (seqLeft.Type == typeof(byte[]) && seqRight.Type == typeof(byte[]))
+            {
+                return Visit(Expression.Equal(seqLeft, seqRight));
+            }
+        }
+
         if (Database.Options.TryGetMethodTranslator(node.Method, out SQLiteMemberTranslator? memberTranslator))
         {
             return memberTranslator(ctx);
@@ -289,6 +299,25 @@ internal partial class SQLVisitor
     private static UnaryExpression BoxIfNeeded(Expression expr)
     {
         return Expression.Convert(expr, typeof(object));
+    }
+
+    private static Expression StripSpanConversion(Expression expr)
+    {
+        while (true)
+        {
+            if (expr is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
+            {
+                expr = convert.Operand;
+            }
+            else if (expr is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } implicitCall)
+            {
+                expr = implicitCall.Arguments[0];
+            }
+            else
+            {
+                return expr;
+            }
+        }
     }
 
     private static IEnumerable? TryGetImplicitlyConvertedConstantCollection(Expression expr)

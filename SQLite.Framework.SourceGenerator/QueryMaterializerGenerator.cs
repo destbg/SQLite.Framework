@@ -1253,7 +1253,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             _ => string.Empty
         };
 
-        return name == "Select" || name == "SelectMany" || name == "Returning" || IsJoinMethodName(name);
+        return name == "Select" || name == "SelectMany" || name == "Returning" || name == "GroupBy" || IsJoinMethodName(name);
     }
 
     private static bool IsJoinMethodName(string name)
@@ -1280,7 +1280,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (method.Name != "Select" && method.Name != "SelectMany" && method.Name != "Returning" && !IsJoinMethodName(method.Name))
+        if (method.Name != "Select" && method.Name != "SelectMany" && method.Name != "Returning" && method.Name != "GroupBy" && !IsJoinMethodName(method.Name))
         {
             return null;
         }

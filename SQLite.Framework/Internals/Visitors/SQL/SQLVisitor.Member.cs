@@ -86,7 +86,8 @@ internal partial class SQLVisitor
             }
         }
 
-        if (node.Expression is MemberExpression chainedExpression)
+        if (node.Expression is MemberExpression chainedExpression
+            && !Database.TryGetCachedTableMapping(node.Type, out _))
         {
             Expression visitedInner = Visit(chainedExpression);
             if (visitedInner is SQLiteExpression innerSqlExpression)
@@ -172,6 +173,12 @@ internal partial class SQLVisitor
         if (translatedSql != null)
         {
             return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), translatedSql, sqlExpression.Parameters);
+        }
+
+        if (node.Expression.Type == typeof(byte[]) && node.Member.Name is "Length" or "LongLength")
+        {
+            return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(),
+                "LENGTH(", sqlExpression, ")", sqlExpression.Parameters);
         }
 
         if (Database.Options.HasJsonConverter(node.Expression.Type) || sqlExpression.IsJsonSource)

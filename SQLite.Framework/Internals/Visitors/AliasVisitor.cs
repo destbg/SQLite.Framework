@@ -135,7 +135,7 @@ internal class AliasVisitor
                     };
                     Expression expression = innerVisitor.Visit(argument);
 
-                    result.Add(alias, expression);
+                    result.Add(alias, CoalesceIfLiftedComparison(argument, expression));
                 }
             }
         }
@@ -227,7 +227,7 @@ internal class AliasVisitor
                     ClientEvalAllowed = visitor.ClientEvalAllowed
                 };
                 Expression expression = innerVisitor.Visit(memberAssignment.Expression);
-                result.Add(alias, expression);
+                result.Add(alias, CoalesceIfLiftedComparison(memberAssignment.Expression, expression));
             }
         }
     }
@@ -280,7 +280,14 @@ internal class AliasVisitor
             ClientEvalAllowed = visitor.ClientEvalAllowed
         };
         Expression expression = innerVisitor.Visit(body);
-        result.Add(prefix, expression);
+        result.Add(prefix, CoalesceIfLiftedComparison(body, expression));
+    }
+
+    private Expression CoalesceIfLiftedComparison(Expression source, Expression resolved)
+    {
+        return resolved is SQLiteExpression sqlExpr
+            ? visitor.CoalesceLiftedOrderComparison(source, sqlExpr)
+            : resolved;
     }
 
     private static string CheckPrefix(string prefix, string path)

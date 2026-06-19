@@ -42,12 +42,53 @@ internal static class JsonMethodTranslator
             return TryArray(node, visitor);
         }
 
+        if (declaring.IsGenericType && declaring.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+        {
+            return TryDictionary(node, visitor);
+        }
+
         if (node.Object != null && IsJsonDictionaryProjection(node.Object, visitor.Database.Options))
         {
             return TryList(node, visitor);
         }
 
         return null;
+    }
+
+    private static SQLiteExpression? TryDictionary(MethodCallExpression node, SQLVisitor visitor)
+    {
+        if (node.Object == null
+            || node.Method.Name is not ("ContainsKey" or "get_Item")
+            || node.Arguments.Count != 1
+            || !ExpressionHelpers.IsConstant(node.Arguments[0])
+            || ExpressionHelpers.GetConstantValue(node.Arguments[0]) is not string key)
+        {
+            return null;
+        }
+
+        ResolvedModel source = visitor.ResolveExpression(node.Object);
+        if (source.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        SQLiteExpression src = source.SQLiteExpression;
+        string path = "$.\"" + key.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+        SQLiteParameter pathParameter = new()
+        {
+            Name = visitor.Counters.NextParamName(),
+            Value = path
+        };
+        SQLiteParameter[] parameters = [.. src.Parameters ?? [], pathParameter];
+
+        if (node.Method.Name == "ContainsKey")
+        {
+            return SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(),
+                "json_type(", src, $", {pathParameter.Name}) IS NOT NULL", parameters);
+        }
+
+        return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+            "json_extract(", src, $", {pathParameter.Name})", parameters);
     }
 
     private static bool IsJsonDictionaryProjection(Expression expression, SQLiteOptions options)
@@ -412,9 +453,19 @@ internal static class JsonMethodTranslator
     {
         Expression current = node;
         while (current is MethodCallExpression call
-               && call.Method.DeclaringType == typeof(Enumerable)
-               && TranslationPatterns.IsJsonCollectionMethod(call.Method.Name))
+               && call.Method.DeclaringType == typeof(Enumerable))
         {
+            if (call.Method.Name == nameof(Enumerable.AsEnumerable))
+            {
+                current = call.Arguments[0];
+                continue;
+            }
+
+            if (!TranslationPatterns.IsJsonCollectionMethod(call.Method.Name))
+            {
+                break;
+            }
+
             chain.Insert(0, call);
             current = call.Arguments[0];
         }

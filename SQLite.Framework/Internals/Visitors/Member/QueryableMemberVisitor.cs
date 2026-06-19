@@ -166,6 +166,8 @@ internal static class QueryableMemberVisitor
             nameof(Enumerable.Average) => AggregateExpression(visitor, node, "AVG", sqlExpression, filterExpression),
             nameof(Enumerable.Min) => AggregateExpression(visitor, node, "MIN", sqlExpression, filterExpression),
             nameof(Enumerable.Max) => AggregateExpression(visitor, node, "MAX", sqlExpression, filterExpression),
+            nameof(Enumerable.Any) => QuantifierExpression(visitor, node, "MAX", filterExpression),
+            nameof(Enumerable.All) => QuantifierExpression(visitor, node, "MIN", filterExpression),
             _ => throw new NotSupportedException($"Grouping aggregate {node.Method.Name} is not translatable to SQL.")
         };
     }
@@ -333,6 +335,35 @@ internal static class QueryableMemberVisitor
         }
 
         return BuildRowValueInExpression(visitor, returnType, keyColumns, rows);
+    }
+
+    private static SQLiteExpression QuantifierExpression(SQLVisitor visitor, MethodCallExpression node, string aggregateFunction, SQLiteExpression? filterExpression)
+    {
+        SQLiteExpression predicate;
+        if (node.Arguments.Count == 2)
+        {
+            LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+            Expression resolvedExpression = visitor.Visit(lambda.Body);
+            if (resolvedExpression is not SQLiteExpression sql)
+            {
+                throw new NotSupportedException($"{node.Method.Name} could not resolve the predicate.");
+            }
+            predicate = sql;
+        }
+        else
+        {
+            predicate = SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(), "1");
+        }
+
+        if (filterExpression == null)
+        {
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                $"{aggregateFunction}(CASE WHEN ", predicate, " THEN 1 ELSE 0 END)", predicate.Parameters);
+        }
+
+        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+            $"{aggregateFunction}(CASE WHEN ", predicate, " THEN 1 ELSE 0 END) FILTER (WHERE ", filterExpression, ")",
+            ParameterHelpers.CombineParameters(predicate, filterExpression));
     }
 
     private static string ContainsColumnName(SQLTranslator translator)

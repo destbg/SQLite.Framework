@@ -20,6 +20,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
 - `Parse` and a narrowing cast of an integer column map to `CAST` and do not validate or throw. A narrowing cast of a floating-point column to a smaller integer type throws `OverflowException` when the value is out of the target range, where .NET would saturate or wrap.
+- A cast of a floating-point value to `uint` or `ulong` does not throw and does not limit the value to the type range. A negative value, or a value above the range, wraps to a different number, where .NET clamps it to the nearest valid value.
 - Only the single-string `int.Parse`/`double.Parse` maps to `CAST`. The `NumberStyles`/`IFormatProvider` overloads (such as hex parsing) run in memory in a `Select` and throw in a `Where`.
 - `Math.Clamp` with `min` greater than `max` returns `min` instead of throwing.
 - `Math.Abs(long.MinValue)` throws a `SQLiteException`, since its result does not fit a signed 64-bit integer.
@@ -74,6 +75,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Dates, times and storage
 
 - `AddMonths` and `AddYears` whose result lands in December of year 9999 return the default date, since the date math overflows past SQLite's maximum date.
+- `AddSeconds`, `AddMinutes`, `AddHours`, `AddDays`, `AddMilliseconds` and the other `Add` methods that take a fractional amount can land one tick away from the .NET result. SQLite multiplies the amount by the tick scale in one floating-point step, while .NET reaches the tick count through a different intermediate unit, so the last tick can round the other way.
 - `DateTimeOffset` drops its offset.
 - A `DateTime` stored as `Integer` or `Text` ticks reads back with `Kind` set to `Unspecified`, since the tick count carries no kind.
 - Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
@@ -94,6 +96,12 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `GetRange` on a JSON list that asks for more items than are there returns the items that fit, instead of throwing.
 - Projecting a JSON dictionary's `Keys` or `Values` collection on its own is not supported.
 - Building a new collection from a JSON list with `ToArray` or `ToHashSet` is not supported.
+- `OrderBy` followed by `Reverse` on a JSON list keeps rows that share the same sort key in their first-seen order, not the reversed order that LINQ-to-Objects gives, because the reverse is done by sorting the other way.
+- On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable, and `Dictionary.Contains` of a whole key-value pair, are not supported there.
+
+## Binary data
+
+- A `byte[]` column supports `Length` and value equality (`==` and `SequenceEqual`) in a query. Reading a single byte by index, and `Contains` of a single byte, are not supported in a query.
 
 ## Full text search
 
@@ -103,6 +111,10 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - A projection that builds an object (`Select(r => new Dto { ... })`) binds public properties only. Public fields are left at their default value.
 - Calling `GetType` on a value that is `null` throws a different error than LINQ-to-Objects.
+
+## Custom converters
+
+- A custom converter's read method is not called for a `NULL` column on a non-nullable property. The property reads back as the type default instead of the value the converter would return for `null`.
 
 ## Writes
 

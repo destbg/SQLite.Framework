@@ -185,7 +185,12 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         if (identSym != null
             && ctx.WriterCtx.ParameterSubstitutions.TryGetValue(identSym, out ExpressionSyntax? substExpr))
         {
-            return Visit(substExpr);
+            SyntaxNode? substituted = Visit(substExpr);
+            if (substituted is ExpressionSyntax substitutedExpr && NeedsParentheses(substitutedExpr))
+            {
+                return SyntaxFactory.ParenthesizedExpression(substitutedExpr);
+            }
+            return substituted;
         }
 
         if (SelectSignatureWriter.IsCapturedValue(node, ctx.WriterCtx))
@@ -461,6 +466,28 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return false;
         }
         return SelectSignatureWriter.IsConstantCollectionInit(node, ctx.WriterCtx);
+    }
+
+    private static bool NeedsParentheses(ExpressionSyntax expr)
+    {
+        return !(expr.Kind() is SyntaxKind.IdentifierName
+            or SyntaxKind.GenericName
+            or SyntaxKind.QualifiedName
+            or SyntaxKind.AliasQualifiedName
+            or SyntaxKind.SimpleMemberAccessExpression
+            or SyntaxKind.PointerMemberAccessExpression
+            or SyntaxKind.InvocationExpression
+            or SyntaxKind.ElementAccessExpression
+            or SyntaxKind.ParenthesizedExpression
+            or SyntaxKind.TupleExpression
+            or SyntaxKind.ThisExpression
+            or SyntaxKind.BaseExpression
+            or SyntaxKind.NumericLiteralExpression
+            or SyntaxKind.StringLiteralExpression
+            or SyntaxKind.CharacterLiteralExpression
+            or SyntaxKind.TrueLiteralExpression
+            or SyntaxKind.FalseLiteralExpression
+            or SyntaxKind.NullLiteralExpression);
     }
 
     private string QualifyName(SimpleNameSyntax name)
