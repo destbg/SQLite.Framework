@@ -50,7 +50,7 @@ public sealed class SmcEdgeMaybeRow
 public sealed class ConverterNullReadParityTests
 {
     [Fact]
-    public void ConverterNotRunOnStoredNull()
+    public void ConverterFromDatabaseRunsOnStoredNull()
     {
         using ModelTestDatabase db = new(
             model => model.Entity<SmcEdgeMaybeRow>().IsRequired(r => r.Score, false),
@@ -58,11 +58,11 @@ public sealed class ConverterNullReadParityTests
         db.Table<SmcEdgeMaybeRow>().Schema.CreateTable();
         db.Execute("INSERT INTO SmcEdgeMaybeRow (\"Id\", \"Score\") VALUES (1, NULL)");
 
-        SmcEdgeMaybe expected = default;
+        SmcEdgeNullToValueConverter conv = new();
+        SmcEdgeMaybe expected = (SmcEdgeMaybe)conv.FromDatabase(null)!;
 
         SmcEdgeMaybe actual = db.Table<SmcEdgeMaybeRow>().Select(r => r.Score).First();
 
         Assert.Equal(expected, actual);
-        Assert.Equal(new SmcEdgeMaybe(false, 0), actual);
     }
 }

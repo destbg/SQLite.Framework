@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using SQLite.Framework.Attributes;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
@@ -15,6 +16,15 @@ internal sealed class RerouteCoverageRow
     public bool IsDeleted { get; set; }
 }
 
+internal sealed class RerouteAutoIncKeyRow
+{
+    [Key]
+    [AutoIncrement]
+    public int Id { get; set; }
+
+    public required string Name { get; set; }
+}
+
 public class ReturningActionHookRerouteCoverageTests
 {
     [Fact]
@@ -28,6 +38,21 @@ public class ReturningActionHookRerouteCoverageTests
         Assert.NotNull(returned);
         Assert.Equal("x", returned!.Name);
         Assert.Equal("x", db.Table<RerouteCoverageRow>().Single().Name);
+    }
+
+    [Fact]
+    public void ReturningAddRerouteToAddOrUpdateWithAutoIncrementKeyWritesRow()
+    {
+        using TestDatabase db = new(b => b.OnAction((_, _, a) => a == SQLiteAction.Add ? SQLiteAction.AddOrUpdate : a));
+        db.Table<RerouteAutoIncKeyRow>().Schema.CreateTable();
+
+        RerouteAutoIncKeyRow? returned = db.Table<RerouteAutoIncKeyRow>()
+            .Returning()
+            .Add(new RerouteAutoIncKeyRow { Name = "x" });
+
+        Assert.NotNull(returned);
+        Assert.Equal("x", returned!.Name);
+        Assert.Equal("x", db.Table<RerouteAutoIncKeyRow>().Single().Name);
     }
 
     [Fact]

@@ -303,21 +303,12 @@ internal partial class SQLVisitor
 
     private static Expression StripSpanConversion(Expression expr)
     {
-        while (true)
+        while (expr is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } implicitCall)
         {
-            if (expr is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
-            {
-                expr = convert.Operand;
-            }
-            else if (expr is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } implicitCall)
-            {
-                expr = implicitCall.Arguments[0];
-            }
-            else
-            {
-                return expr;
-            }
+            expr = implicitCall.Arguments[0];
         }
+
+        return expr;
     }
 
     private static IEnumerable? TryGetImplicitlyConvertedConstantCollection(Expression expr)

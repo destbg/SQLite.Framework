@@ -124,7 +124,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             && !HasAnyDatabaseDefault())
         {
             (TableColumn[] columns, string sql) = GetAddInfo();
-            TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+            TableColumn? autoIncrement = GetAutoIncrementColumn();
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
             return RunPreparedRange(sql, collection, Database.Options.AddHooks, runInTransaction, bindRow, autoIncrement);
@@ -251,7 +251,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             && !HasAnyDatabaseDefault())
         {
             (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
-            TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+            TableColumn? autoIncrement = GetAutoIncrementColumn();
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
             return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, bindRow, autoIncrement);
@@ -310,7 +310,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             && !HasAnyDatabaseDefault())
         {
             (TableColumn[] columns, string sql) = GetUpsertInfo(configure);
-            TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+            TableColumn? autoIncrement = GetAutoIncrementColumn();
             SQLiteOptions options = Database.Options;
             Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
             return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, bindRow, autoIncrement, detectInsertByRowIdChange: true);
@@ -938,7 +938,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual int InsertItem(TableColumn[] columns, string sql, T item, bool detectInsertByRowIdChange = false)
     {
-        TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        TableColumn? autoIncrement = GetAutoIncrementColumn();
 
         List<SQLiteParameter> parameters = columns
             .Select((c, i) =>
@@ -1012,6 +1012,16 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
     }
 
+    IEnumerator<T> IEnumerable<T>.GetEnumerator()
+    {
+        return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
+    }
+
+    private TableColumn? GetAutoIncrementColumn()
+    {
+        return Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+    }
+
     private void ThrowIfExtraWriteColumnsReferenceRowOnInsert()
     {
         if (ExtraWriteColumnsReferenceRow)
@@ -1021,11 +1031,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 "because the row does not exist yet. Use a constant or a function such as " +
                 "'_ => SQLiteFunctions.UnixEpoch()', or set the value on an Update instead.");
         }
-    }
-
-    IEnumerator<T> IEnumerable<T>.GetEnumerator()
-    {
-        return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Reflects the subclass only to detect a protected override.")]
@@ -1063,7 +1068,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     private TableWriteCacheEntry<T> BuildAddEntry()
     {
         (TableColumn[] columns, string sql) = GetAddInfo();
-        TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        TableColumn? autoIncrement = GetAutoIncrementColumn();
         return new TableWriteCacheEntry<T>
         {
             Columns = columns,
@@ -1076,7 +1081,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     private TableWriteCacheEntry<T> BuildAddOrUpdateEntry(SQLiteConflict conflict)
     {
         (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
-        TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        TableColumn? autoIncrement = GetAutoIncrementColumn();
         return new TableWriteCacheEntry<T>
         {
             Columns = columns,
@@ -1301,7 +1306,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         (TableColumn[] baseColumns, _) = GetAddInfo();
         baseColumns = FilterColumnsForDefaults(baseColumns, item);
 
-        TableColumn? autoIncrement = Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+        TableColumn? autoIncrement = GetAutoIncrementColumn();
         HashSet<string> overridden = extra.Keys.ToHashSet();
         TableColumn[] entityColumns = baseColumns.Where(c => !overridden.Contains(c.Name)).ToArray();
 

@@ -22,6 +22,13 @@ internal static class CommandHelpers
     {
         if (columnType == SQLiteColumnType.Null)
         {
+            if (type.IsValueType
+                && Nullable.GetUnderlyingType(type) == null
+                && options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? nullConverter))
+            {
+                return nullConverter.FromDatabase(null);
+            }
+
             return null;
         }
 

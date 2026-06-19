@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel.DataAnnotations;
@@ -11,6 +12,27 @@ namespace SQLite.Framework.Tests;
 [JsonSerializable(typeof(Dictionary<string, int>))]
 internal partial class JdEdgeJsonContext : JsonSerializerContext;
 
+[JsonSerializable(typeof(Dictionary<int, int>))]
+internal partial class JdEdgeIntJsonContext : JsonSerializerContext;
+
+[JsonSerializable(typeof(JdNestedHolder))]
+internal partial class JdNestedJsonContext : JsonSerializerContext;
+
+internal sealed class JdNestedHolder
+{
+    public Dictionary<string, int> Inner { get; set; } = new();
+}
+
+internal sealed class JdNestedDictRow
+{
+    [Key]
+    [Column]
+    public int Id { get; set; }
+
+    [Column]
+    public JdNestedHolder Holder { get; set; } = new();
+}
+
 internal sealed class JdEdgeMapRow
 {
     [Key]
@@ -19,6 +41,16 @@ internal sealed class JdEdgeMapRow
 
     [Column]
     public Dictionary<string, int> Map { get; set; } = new();
+}
+
+internal sealed class JdEdgeIntMapRow
+{
+    [Key]
+    [Column]
+    public int Id { get; set; }
+
+    [Column]
+    public Dictionary<int, int> Map { get; set; } = new();
 }
 
 public class DictionaryQueryParityTests
@@ -107,6 +139,55 @@ public class DictionaryQueryParityTests
         SeedMaps(db);
         var expected = MapSeed().Select((m, i) => (Id: i + 1, m)).OrderByDescending(x => x.m.ContainsKey("b")).ThenBy(x => x.Id).Select(x => x.Id).ToList();
         var actual = db.Table<JdEdgeMapRow>().OrderByDescending(m => m.Map.ContainsKey("b")).ThenBy(m => m.Id).Select(m => m.Id).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ContainsValueNotSupported()
+    {
+        using TestDatabase db = MapDb();
+        SeedMaps(db);
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<JdEdgeMapRow>().Where(m => m.Map.ContainsValue(5)).Select(m => m.Id).ToList());
+    }
+
+    [Fact]
+    public void ContainsKeyWithColumnDerivedKeyNotSupported()
+    {
+        using TestDatabase db = MapDb();
+        SeedMaps(db);
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<JdEdgeMapRow>().Where(m => m.Map.ContainsKey(m.Id.ToString())).Select(m => m.Id).ToList());
+    }
+
+    [Fact]
+    public void IntKeyDictionaryContainsKeyNotSupported()
+    {
+        using TestDatabase db = new(b => b.TypeConverters[typeof(Dictionary<int, int>)] =
+            new SQLiteJsonConverter<Dictionary<int, int>>(JdEdgeIntJsonContext.Default.DictionaryInt32Int32));
+        db.Table<JdEdgeIntMapRow>().Schema.CreateTable();
+        db.Table<JdEdgeIntMapRow>().Add(new JdEdgeIntMapRow { Id = 1, Map = new Dictionary<int, int> { [1] = 10 } });
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<JdEdgeIntMapRow>().Where(m => m.Map.ContainsKey(1)).Select(m => m.Id).ToList());
+    }
+
+    [Fact]
+    public void NestedDictionaryContainsKeyFilters()
+    {
+        using TestDatabase db = new(b => b.AddJsonContext(JdNestedJsonContext.Default));
+        db.Table<JdNestedDictRow>().Schema.CreateTable();
+        List<JdNestedDictRow> seed =
+        [
+            new JdNestedDictRow { Id = 1, Holder = new JdNestedHolder { Inner = new Dictionary<string, int> { ["a"] = 1 } } },
+            new JdNestedDictRow { Id = 2, Holder = new JdNestedHolder { Inner = new Dictionary<string, int> { ["b"] = 2 } } },
+        ];
+        foreach (JdNestedDictRow r in seed)
+        {
+            db.Table<JdNestedDictRow>().Add(r);
+        }
+
+        List<int> expected = seed.Where(r => r.Holder.Inner.ContainsKey("a")).Select(r => r.Id).OrderBy(i => i).ToList();
+        List<int> actual = db.Table<JdNestedDictRow>().Where(r => r.Holder.Inner.ContainsKey("a")).OrderBy(r => r.Id).Select(r => r.Id).ToList();
         Assert.Equal(expected, actual);
     }
 }

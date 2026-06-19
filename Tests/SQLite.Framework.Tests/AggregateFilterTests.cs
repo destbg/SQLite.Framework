@@ -478,6 +478,33 @@ public class AggregateFilterTests
     }
 
     [Fact]
+    public void HandleGroupingMethod_AnyPredicateNotSql_Throws()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
+
+        ParameterExpression groupingParam = Expression.Parameter(typeof(IGrouping<int, Book>), "g");
+        sqlVisitor.MethodArguments[groupingParam] = new Dictionary<string, Expression>
+        {
+            ["Key"] = SQLiteExpression.Leaf(typeof(int), 0, "b0.Id")
+        };
+
+        ParameterExpression bookParam = Expression.Parameter(typeof(Book), "x");
+        LambdaExpression predicate = Expression.Lambda(Expression.Default(typeof(bool)), bookParam);
+
+        MethodInfo anyMethod = typeof(Enumerable).GetMethods()
+            .First(m => m.Name == nameof(Enumerable.Any)
+                && m.GetParameters().Length == 2)
+            .MakeGenericMethod(typeof(Book));
+        MethodCallExpression anyCall = Expression.Call(anyMethod, groupingParam, predicate);
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            QueryableMemberVisitor.HandleGroupingMethod(sqlVisitor, anyCall));
+
+        Assert.Contains("could not resolve the predicate", ex.Message);
+    }
+
+    [Fact]
     public void HandleFunctionsTotal_FilterPredicateNotSql_Throws()
     {
         using TestDatabase db = new();

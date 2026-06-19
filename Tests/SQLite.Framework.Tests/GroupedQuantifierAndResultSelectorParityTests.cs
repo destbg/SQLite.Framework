@@ -68,4 +68,31 @@ public class GroupedQuantifierAndResultSelectorParityTests
         List<bool> actual = db.Table<GrpEdgeRow>().GroupBy(r => r.GroupKey).Select(g => g.All(x => x.NullableInt > 0)).ToList();
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void AnyWithoutPredicatePerGroup()
+    {
+        using TestDatabase db = Build(out List<GrpEdgeRow> mem, new[] { R(1, 1, i: 10), R(2, 1, i: 20), R(3, 2, i: 5) });
+        var expected = mem.GroupBy(r => r.GroupKey).Select(g => new { g.Key, HasAny = g.Any() }).OrderBy(x => x.Key).ToList();
+        var actual = db.Table<GrpEdgeRow>().GroupBy(r => r.GroupKey).Select(g => new { g.Key, HasAny = g.Any() }).OrderBy(x => x.Key).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void FilteredAnyPerGroup()
+    {
+        using TestDatabase db = Build(out List<GrpEdgeRow> mem, new[] { R(1, 1, i: 10), R(2, 1, i: 20), R(3, 2, i: 12) });
+        var expected = mem.GroupBy(r => r.GroupKey).Select(g => new { g.Key, AnyBig = g.Where(x => x.IntValue >= 10).Any(x => x.IntValue > 15) }).OrderBy(x => x.Key).ToList();
+        var actual = db.Table<GrpEdgeRow>().GroupBy(r => r.GroupKey).Select(g => new { g.Key, AnyBig = g.Where(x => x.IntValue >= 10).Any(x => x.IntValue > 15) }).OrderBy(x => x.Key).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void FilteredAllPerGroup()
+    {
+        using TestDatabase db = Build(out List<GrpEdgeRow> mem, new[] { R(1, 1, i: 10), R(2, 1, i: 20), R(3, 2, i: 12) });
+        var expected = mem.GroupBy(r => r.GroupKey).Select(g => new { g.Key, AllBig = g.Where(x => x.IntValue >= 10).All(x => x.IntValue > 15) }).OrderBy(x => x.Key).ToList();
+        var actual = db.Table<GrpEdgeRow>().GroupBy(r => r.GroupKey).Select(g => new { g.Key, AllBig = g.Where(x => x.IntValue >= 10).All(x => x.IntValue > 15) }).OrderBy(x => x.Key).ToList();
+        Assert.Equal(expected, actual);
+    }
 }

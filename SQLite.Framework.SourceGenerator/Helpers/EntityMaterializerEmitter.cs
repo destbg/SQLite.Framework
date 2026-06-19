@@ -927,6 +927,7 @@ public static class EntityMaterializerEmitter
         _ = caseInsensitive;
         string propTypeDisplay = propType.ToDisplayString();
         string strippedDisplay = StripNullable(propTypeDisplay);
+        string convReadDisplay = SelectMaterializerEmitter.IsNullableValueType(propType) ? propTypeDisplay : strippedDisplay;
         string safeColumn = columnName.Replace("\"", "\\\"");
         string idxLocal = "__idx_" + localSuffix;
         bool isEnum = StripNullableSymbol(propType).TypeKind == TypeKind.Enum;
@@ -951,7 +952,7 @@ public static class EntityMaterializerEmitter
             string castOpen = cast is null ? "" : "(" + cast + ")";
             sb.Append(indent).Append("    if (reader.HasConverter(typeof(").Append(strippedDisplay).AppendLine(")))");
             sb.Append(indent).AppendLine("    {");
-            sb.Append(indent).Append("        object? __raw_").Append(localSuffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
+            sb.Append(indent).Append("        object? __raw_").Append(localSuffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(convReadDisplay).AppendLine("));");
             sb.Append(indent).Append("        if (__raw_").Append(localSuffix).Append(" != null) ").Append(valueLocal).Append(" = (").Append(propTypeDisplay).Append(")__raw_").Append(localSuffix).AppendLine("!;");
             sb.Append(indent).AppendLine("    }");
             sb.Append(indent).AppendLine("    else");
@@ -970,7 +971,7 @@ public static class EntityMaterializerEmitter
             return;
         }
 
-        sb.Append(indent).Append("    object? __raw_").Append(localSuffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
+        sb.Append(indent).Append("    object? __raw_").Append(localSuffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(convReadDisplay).AppendLine("));");
         sb.Append(indent).Append("    if (__raw_").Append(localSuffix).AppendLine(" != null)");
         sb.Append(indent).AppendLine("    {");
         sb.Append(indent).Append("        ").Append(valueLocal).Append(" = (").Append(propTypeDisplay).Append(")__raw_").Append(localSuffix).AppendLine("!;");
@@ -1191,6 +1192,7 @@ public static class EntityMaterializerEmitter
     {
         ITypeSymbol stripped = StripNullableSymbol(type);
         string strippedDisplay = stripped.ToDisplayString();
+        string convReadDisplay = SelectMaterializerEmitter.IsNullableValueType(type) ? type.ToDisplayString() : strippedDisplay;
         string safeColumn = columnName.Replace("\"", "\\\"");
         string idxLocal = "__ridx_" + suffix;
 
@@ -1200,7 +1202,7 @@ public static class EntityMaterializerEmitter
         body.Append("                object? ").Append(valueLocal).AppendLine(" = null;");
         body.Append("                if (").Append(idxLocal).AppendLine(" >= 0)");
         body.AppendLine("                {");
-        body.Append("                    object? __raw_").Append(suffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
+        body.Append("                    object? __raw_").Append(suffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(convReadDisplay).AppendLine("));");
         body.Append("                    if (__raw_").Append(suffix).AppendLine(" != null)");
         body.AppendLine("                    {");
         body.Append("                        ").Append(valueLocal).Append(" = __raw_").Append(suffix).AppendLine(";");
@@ -1241,9 +1243,12 @@ public static class EntityMaterializerEmitter
                 string propMetadata = propStripped is INamedTypeSymbol named
                     ? GetMetadataFullName(named) + ", " + (named.ContainingAssembly?.Name ?? string.Empty)
                     : propStripped.ToDisplayString();
+                string strippedTypeExpr = "global::System.Type.GetType(" + EscapeStringLiteral(propMetadata) + ", throwOnError: true)!";
+                string fieldTypeExpr = SelectMaterializerEmitter.IsNullableValueType(prop.Type)
+                    ? "typeof(global::System.Nullable<>).MakeGenericType(" + strippedTypeExpr + ")"
+                    : strippedTypeExpr;
                 sb.Append("        private static readonly global::System.Type ").Append(propTypeField)
-                    .Append(" = global::System.Type.GetType(").Append(EscapeStringLiteral(propMetadata))
-                    .AppendLine(", throwOnError: true)!;");
+                    .Append(" = ").Append(fieldTypeExpr).AppendLine(";");
             }
         }
 
@@ -1274,7 +1279,9 @@ public static class EntityMaterializerEmitter
             string typeExpression;
             if (IsReachableFromGeneratedCode(propStripped))
             {
-                typeExpression = "typeof(" + propStripped.ToDisplayString() + ")";
+                typeExpression = SelectMaterializerEmitter.IsNullableValueType(prop.Type)
+                    ? "typeof(" + prop.Type.ToDisplayString() + ")"
+                    : "typeof(" + propStripped.ToDisplayString() + ")";
             }
             else
             {
@@ -1364,6 +1371,7 @@ public static class EntityMaterializerEmitter
             }
 
             string strippedDisplay = StripNullableSymbol(prop.Type).ToDisplayString();
+            string convReadDisplay = SelectMaterializerEmitter.IsNullableValueType(prop.Type) ? propTypeDisplay : strippedDisplay;
             preamble.Append("            int idx_").Append(propName)
                 .Append(" = FindColumnIndex(columns, \"").Append(propName).AppendLine("\");");
 
@@ -1385,7 +1393,7 @@ public static class EntityMaterializerEmitter
                 string castOpen = cast is null ? "" : "(" + cast + ")";
                 rowBody.Append("                    if (reader.HasConverter(typeof(").Append(strippedDisplay).AppendLine(")))");
                 rowBody.AppendLine("                    {");
-                rowBody.Append("                        object? raw_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
+                rowBody.Append("                        object? raw_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), typeof(").Append(convReadDisplay).AppendLine("));");
                 rowBody.Append("                        if (raw_").Append(propName).Append(" != null) value_").Append(propName).Append(" = (").Append(propTypeDisplay).Append(")raw_").Append(propName).AppendLine("!;");
                 rowBody.AppendLine("                    }");
                 rowBody.AppendLine("                    else");
@@ -1403,7 +1411,7 @@ public static class EntityMaterializerEmitter
             }
             else
             {
-                rowBody.Append("                    object? raw_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
+                rowBody.Append("                    object? raw_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), typeof(").Append(convReadDisplay).AppendLine("));");
                 rowBody.Append("                    if (raw_").Append(propName).AppendLine(" != null)");
                 rowBody.AppendLine("                    {");
                 rowBody.Append("                        value_").Append(propName).Append(" = (").Append(propTypeDisplay).Append(")raw_").Append(propName).AppendLine("!;");

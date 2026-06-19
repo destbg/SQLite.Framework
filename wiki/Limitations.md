@@ -112,10 +112,6 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - A projection that builds an object (`Select(r => new Dto { ... })`) binds public properties only. Public fields are left at their default value.
 - Calling `GetType` on a value that is `null` throws a different error than LINQ-to-Objects.
 
-## Custom converters
-
-- A custom converter's read method is not called for a `NULL` column on a non-nullable property. The property reads back as the type default instead of the value the converter would return for `null`.
-
 ## Writes
 
 - An `Upsert` that inserts a row writes the new auto-increment key back to the object only when the new row id differs from the last inserted row id on the connection. An earlier insert, even into another table, that already left the same id stops the write-back.

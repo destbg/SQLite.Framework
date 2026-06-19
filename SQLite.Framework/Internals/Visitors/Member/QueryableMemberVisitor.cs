@@ -265,7 +265,7 @@ internal static class QueryableMemberVisitor
             return null;
         }
 
-        if (ExpressionHelpers.StripQuotes(node.Arguments[1]) is not LambdaExpression { Parameters.Count: 1 } lambda)
+        if (ExpressionHelpers.StripQuotes(node.Arguments[1]) is not LambdaExpression lambda)
         {
             return null;
         }

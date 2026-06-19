@@ -57,16 +57,14 @@ internal static class JsonMethodTranslator
 
     private static SQLiteExpression? TryDictionary(MethodCallExpression node, SQLVisitor visitor)
     {
-        if (node.Object == null
-            || node.Method.Name is not ("ContainsKey" or "get_Item")
-            || node.Arguments.Count != 1
+        if (node.Method.Name is not ("ContainsKey" or "get_Item")
             || !ExpressionHelpers.IsConstant(node.Arguments[0])
             || ExpressionHelpers.GetConstantValue(node.Arguments[0]) is not string key)
         {
             return null;
         }
 
-        ResolvedModel source = visitor.ResolveExpression(node.Object);
+        ResolvedModel source = visitor.ResolveExpression(node.Object!);
         if (source.SQLiteExpression == null)
         {
             return null;

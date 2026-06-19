@@ -59,6 +59,16 @@ public class BlobQueryParityTests
     }
 
     [Fact]
+    public void BlobLongLengthInFilter()
+    {
+        using TestDatabase db = new();
+        List<DbbEdgeRow> rows = Seed(db);
+        List<int> expected = rows.Where(x => x.Data != null && x.Data.LongLength == 1).OrderBy(x => x.Id).Select(x => x.Id).ToList();
+        List<int> actual = db.Table<DbbEdgeRow>().Where(x => x.Data != null && x.Data.LongLength == 1).OrderBy(x => x.Id).Select(x => x.Id).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void BlobElementAccessByIndex()
     {
         using TestDatabase db = new();

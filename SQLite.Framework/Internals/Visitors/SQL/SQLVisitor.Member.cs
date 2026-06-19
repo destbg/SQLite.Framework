@@ -175,7 +175,7 @@ internal partial class SQLVisitor
             return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), translatedSql, sqlExpression.Parameters);
         }
 
-        if (node.Expression.Type == typeof(byte[]) && node.Member.Name is "Length" or "LongLength")
+        if (node.Member.Name == "LongLength" && node.Expression.Type == typeof(byte[]))
         {
             return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(),
                 "LENGTH(", sqlExpression, ")", sqlExpression.Parameters);
