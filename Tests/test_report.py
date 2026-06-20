@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
 DEFAULT_TFM = "net10.0"
 DEFAULT_CONFIG = "Release"
-COVERAGE_INCLUDE = "[SQLite.Framework]*"
+COVERAGE_INCLUDE = ["[SQLite.Framework]*", "[SQLite.Framework.DependencyInjection]*"]
 RESULTS_DIR = TESTS_DIR / "TestResults"
 
 
@@ -219,13 +219,13 @@ def run_coverage(
         "dotnet",
         "--targetargs",
         f"exec {dll}",
-        "--include",
-        COVERAGE_INCLUDE,
         "--format",
         "cobertura",
         "--output",
         str(out),
     ]
+    for pattern in COVERAGE_INCLUDE:
+        cmd.extend(["--include", pattern])
     res = run(cmd)
     if not out.exists():
         return None, (res.stderr or res.stdout or "coverlet did not produce output")
@@ -532,7 +532,7 @@ def main() -> int:
 
     if not args.no_coverage:
         print("=" * 78)
-        print("Coverage (assembly: SQLite.Framework)")
+        print("Coverage (assemblies: SQLite.Framework, SQLite.Framework.DependencyInjection)")
         print("=" * 78)
         per_line_maps: list[LineCov] = []
         cov_rows: list[list[str]] = []

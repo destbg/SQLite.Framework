@@ -31,6 +31,7 @@ jobs:
           - SQLite.Framework.Tests.Cipher
           - SQLite.Framework.Tests.Base
           - SQLite.Framework.Tests.SourceGenerator
+          - SQLite.Framework.Tests.DependencyInjection
     name: Test results (${{ matrix.project }})
     steps:
       - uses: actions/checkout@v7
@@ -90,6 +91,7 @@ jobs:
           - SQLite.Framework.Tests.Base
           - SQLite.Framework.Tests.NoOp
           - SQLite.Framework.Tests.SourceGenerator
+          - SQLite.Framework.Tests.DependencyInjection
     name: Coverage (${{ matrix.project }})
     steps:
       - uses: actions/checkout@v7
@@ -109,6 +111,7 @@ jobs:
             --target dotnet \
             --targetargs "exec Tests/${{ matrix.project }}/bin/Release/net10.0/${{ matrix.project }}.dll" \
             --include "[SQLite.Framework]*" \
+            --include "[SQLite.Framework.DependencyInjection]*" \
             --format cobertura \
             --output coverage.cobertura.xml
       - name: Upload coverage artifact

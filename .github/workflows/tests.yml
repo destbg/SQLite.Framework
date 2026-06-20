@@ -21,6 +21,7 @@ jobs:
           - SQLite.Framework.Tests.Cipher
           - SQLite.Framework.Tests.Base
           - SQLite.Framework.Tests.SourceGenerator
+          - SQLite.Framework.Tests.DependencyInjection
     name: ${{ matrix.project }}
     steps:
       - uses: actions/checkout@v7
