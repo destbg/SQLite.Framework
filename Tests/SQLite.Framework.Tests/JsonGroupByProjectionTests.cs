@@ -102,4 +102,24 @@ public class JsonGroupByProjectionTests
         Assert.Equal(3, oracle);
         Assert.Equal(oracle, actual);
     }
+
+    [Fact]
+    public void GroupBy_Then_Where_OnCount_FiltersGroups()
+    {
+        using TestDatabase db = CreateDb();
+        List<int> oracle = A.GroupBy(x => x).Where(g => g.Count() > 1).Select(g => g.Key).OrderBy(c => c).ToList();
+        List<int> actual = db.Table<JgpRow>().Select(r => r.Numbers.GroupBy(x => x).Where(g => g.Count() > 1).Select(g => g.Key)).First().OrderBy(c => c).ToList();
+        Assert.Equal([3, 5], oracle);
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void GroupBy_Then_Where_OnCount_ThenCount_CountsFilteredGroups()
+    {
+        using TestDatabase db = CreateDb();
+        int oracle = A.GroupBy(x => x).Where(g => g.Count() > 1).Count();
+        int actual = db.Table<JgpRow>().Select(r => r.Numbers.GroupBy(x => x).Where(g => g.Count() > 1).Count()).First();
+        Assert.Equal(2, oracle);
+        Assert.Equal(oracle, actual);
+    }
 }

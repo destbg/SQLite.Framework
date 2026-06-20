@@ -61,6 +61,19 @@ public class CapturedLocalConstantTests
     }
 
     [Fact]
+    public void CapturedListElement_MatchesDotNet()
+    {
+        int[] data = [1, 2, 3, 4, 5];
+        using TestDatabase db = SeededNums(data);
+        List<int> wanted = [3, 20, 30];
+
+        List<int> expected = data.Where(v => v == wanted[0]).OrderBy(v => v).ToList();
+        List<int> actual = db.Table<NumericType>().Where(n => n.IntValue == wanted[0]).Select(n => n.IntValue).OrderBy(v => v).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void CapturedNegatedIntLocal_MatchesDotNet()
     {
         int[] data = [-3, -1, 0, 3, 5];

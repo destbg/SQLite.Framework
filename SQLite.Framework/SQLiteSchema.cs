@@ -967,6 +967,11 @@ public class SQLiteSchema
                 continue;
             }
 
+            if (column.DefaultSql != null && column.DefaultSql.TrimStart().StartsWith('('))
+            {
+                continue;
+            }
+
             string columnSql = ColumnSql.GetCreateColumnSql(column, defaultOverride: null, emitForeignKey: column.DefaultSql == null);
             count += Database.CreateCommand($"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {columnSql}", []).ExecuteNonQuery();
             columnCount++;

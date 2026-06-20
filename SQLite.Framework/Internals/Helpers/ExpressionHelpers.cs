@@ -79,6 +79,8 @@ internal static class ExpressionHelpers
             NewExpression ne => ne.Arguments.All(IsConstant),
             ListInitExpression lie => IsConstant(lie.NewExpression)
                 && lie.Initializers.All(init => init.Arguments.All(IsConstant)),
+            MethodCallExpression { Method.Name: "get_Item" } mce =>
+                IsConstant(mce.Object!) && mce.Arguments.All(IsConstant),
             _ => false
         };
     }
@@ -101,6 +103,7 @@ internal static class ExpressionHelpers
             MemberInitExpression mie => CreateMember(mie),
             NewExpression ne => CreateNew(ne),
             ListInitExpression lie => CreateListInit(lie),
+            MethodCallExpression { Method.Name: "get_Item" } mce => InvokeIndexer(mce),
             _ => throw new NotSupportedException($"Cannot evaluate expression of type {node.NodeType}")
         };
     }
@@ -215,6 +218,13 @@ internal static class ExpressionHelpers
         }
 
         return false;
+    }
+
+    private static object? InvokeIndexer(MethodCallExpression node)
+    {
+        object? target = GetConstantValue(node.Object!);
+        object?[] arguments = [.. node.Arguments.Select(GetConstantValue)];
+        return node.Method.Invoke(target, arguments);
     }
 
     private static object EvaluateUnary(UnaryExpression node)

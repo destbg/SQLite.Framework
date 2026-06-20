@@ -40,10 +40,13 @@ internal partial class SQLVisitor
             return Expression.Condition(test.Expression, ifTrue.Expression, ifFalse.Expression);
         }
 
-        SQLiteParameter[]? allParameters =
-            ParameterHelpers.CombineParameters(test.SQLiteExpression, ifTrue.SQLiteExpression, ifFalse.SQLiteExpression);
+        SQLiteExpression ifTrueExpr = CoalesceLiftedOrderComparison(node.IfTrue, ifTrue.SQLiteExpression);
+        SQLiteExpression ifFalseExpr = CoalesceLiftedOrderComparison(node.IfFalse, ifFalse.SQLiteExpression);
 
-        return SQLiteExpression.Trinary(node.Type, Counters.NextIdentifier(), "(CASE WHEN ", test.SQLiteExpression!, " THEN ", ifTrue.SQLiteExpression!, " ELSE ", ifFalse.SQLiteExpression!, " END)", allParameters);
+        SQLiteParameter[]? allParameters =
+            ParameterHelpers.CombineParameters(test.SQLiteExpression, ifTrueExpr, ifFalseExpr);
+
+        return SQLiteExpression.Trinary(node.Type, Counters.NextIdentifier(), "(CASE WHEN ", test.SQLiteExpression!, " THEN ", ifTrueExpr, " ELSE ", ifFalseExpr, " END)", allParameters);
     }
 
     protected override Expression VisitParameter(ParameterExpression node)

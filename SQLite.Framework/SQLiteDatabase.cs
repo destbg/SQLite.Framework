@@ -558,36 +558,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// to <see cref="AttachDatabase(string, string, string)" /> to target an attached database.</param>
     public virtual SQLiteBlobStream OpenBlobStream(string tableName, string columnName, long rowid, bool writable = false, string schema = "main")
     {
-        ArgumentException.ThrowIfNullOrEmpty(tableName);
-        ArgumentException.ThrowIfNullOrEmpty(columnName);
-        ValidateSchemaName(schema);
-
-        OpenConnection();
-        IDisposable connectionLock = Lock();
-        try
-        {
-            SQLiteResult result = (SQLiteResult)raw.sqlite3_blob_open(
-                Handle!,
-                schema,
-                tableName,
-                columnName,
-                rowid,
-                writable ? 1 : 0,
-                out sqlite3_blob blobHandle);
-
-            if (result != SQLiteResult.OK)
-            {
-                string message = raw.sqlite3_errmsg(Handle!).utf8_to_string();
-                throw new SQLiteException(result, message, null);
-            }
-
-            return new SQLiteBlobStream(this, blobHandle, writable, connectionLock);
-        }
-        catch
-        {
-            connectionLock.Dispose();
-            throw;
-        }
+        return OpenBlobStreamWithLock(tableName, columnName, rowid, writable, schema, Lock());
     }
 
     /// <summary>
@@ -604,18 +575,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <param name="schema">The database schema name. Defaults to <c>main</c>.</param>
     public virtual SQLiteBlobStream OpenBlobStream<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(long rowid, Expression<Func<T, byte[]?>> columnSelector, bool writable = false, string schema = "main")
     {
-        ArgumentNullException.ThrowIfNull(columnSelector);
-
-        TableMapping mapping = TableMapping<T>();
-        if (columnSelector.Body is not MemberExpression member)
-        {
-            throw new ArgumentException("Expected a property access expression like b => b.Cover.", nameof(columnSelector));
-        }
-
-        TableColumn column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name)
-            ?? throw new ArgumentException($"Property '{member.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(columnSelector));
-
-        return OpenBlobStream(mapping.TableName, column.Name, rowid, writable, schema);
+        (string tableName, string columnName) = ResolveBlobColumn(columnSelector);
+        return OpenBlobStream(tableName, columnName, rowid, writable, schema);
     }
 
     /// <summary>
@@ -781,7 +742,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public T QueryFirst<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
     {
-        return QueryFirstOrDefault<T>(sql, parameters) ?? throw new InvalidOperationException("Query returned no rows.");
+        return CreateCommand(sql, [.. parameters]).ExecuteQuery<T>().First();
     }
 
     /// <summary>
@@ -789,7 +750,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public T QueryFirst<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
     {
-        return QueryFirstOrDefault<T>(sql, parameters) ?? throw new InvalidOperationException("Query returned no rows.");
+        return CreateCommand(sql, ToParameterList(parameters)).ExecuteQuery<T>().First();
     }
 
     /// <summary>
@@ -900,6 +861,54 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         where TKey : notnull
     {
         return ExecuteGroupingQuery<TKey, TElement>(expression);
+    }
+
+    internal SQLiteBlobStream OpenBlobStreamWithLock(string tableName, string columnName, long rowid, bool writable, string schema, IDisposable connectionLock)
+    {
+        try
+        {
+            ArgumentException.ThrowIfNullOrEmpty(tableName);
+            ArgumentException.ThrowIfNullOrEmpty(columnName);
+            ValidateSchemaName(schema);
+            OpenConnection();
+            SQLiteResult result = (SQLiteResult)raw.sqlite3_blob_open(
+                Handle!,
+                schema,
+                tableName,
+                columnName,
+                rowid,
+                writable ? 1 : 0,
+                out sqlite3_blob blobHandle);
+
+            if (result != SQLiteResult.OK)
+            {
+                string message = raw.sqlite3_errmsg(Handle!).utf8_to_string();
+                throw new SQLiteException(result, message, null);
+            }
+
+            return new SQLiteBlobStream(this, blobHandle, writable, connectionLock);
+        }
+        catch
+        {
+            connectionLock.Dispose();
+            throw;
+        }
+    }
+
+    internal (string TableName, string ColumnName) ResolveBlobColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Expression<Func<T, byte[]?>> columnSelector)
+    {
+        ArgumentNullException.ThrowIfNull(columnSelector);
+
+        TableMapping mapping = TableMapping<T>();
+        if (columnSelector.Body is not MemberExpression member)
+        {
+            throw new ArgumentException("Expected a property access expression like b => b.Cover.", nameof(columnSelector));
+        }
+
+        TableColumn column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name)
+            ?? throw new ArgumentException($"Property '{member.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(columnSelector));
+
+        return (mapping.TableName, column.Name);
     }
 
     internal Task WaitConnectionSemaphoreAsync(CancellationToken cancellationToken)

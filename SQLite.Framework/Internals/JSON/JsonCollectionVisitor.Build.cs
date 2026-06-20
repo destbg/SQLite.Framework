@@ -39,6 +39,11 @@ internal partial class JsonCollectionVisitor
             clauses.Add("GROUP BY " + string.Join(", ", groupBys));
         }
 
+        if (havings.Count > 0)
+        {
+            clauses.Add("HAVING " + string.Join(" AND ", havings));
+        }
+
         if (orderBys.Count > 0)
         {
             clauses.Add("ORDER BY " + string.Join(", ", orderBys));
@@ -130,6 +135,11 @@ internal partial class JsonCollectionVisitor
             }
 
             groupedClauses.Add("GROUP BY " + string.Join(", ", groupBys));
+            if (havings.Count > 0)
+            {
+                groupedClauses.Add("HAVING " + string.Join(" AND ", havings));
+            }
+
             string groupedInner = string.Join(nl + sp2, groupedClauses);
             return $"({nl}{sp}SELECT {selectExpr}{nl}{sp}FROM ({nl}{sp2}{groupedInner}{nl}{sp}){nl})";
         }

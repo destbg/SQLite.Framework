@@ -6,6 +6,7 @@ internal partial class JsonCollectionVisitor
     private readonly SQLiteOptions options;
 
     private readonly List<string> wheres = [];
+    private readonly List<string> havings = [];
     private readonly List<string> orderBys = [];
     private readonly List<string> groupBys = [];
     private readonly List<SQLiteParameter> parameters = [];

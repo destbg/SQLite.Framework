@@ -138,6 +138,7 @@ internal partial class JsonCollectionVisitor
         baseJoinSuffix = "";
         crossJoin = null;
         wheres.Clear();
+        havings.Clear();
         orderBys.Clear();
         limit = null;
         offset = null;
@@ -167,7 +168,15 @@ internal partial class JsonCollectionVisitor
 
     private void HandleWhere(MethodCallExpression call, Type elementType)
     {
-        wheres.Add(VisitLambda(call.Arguments[1], elementType));
+        string predicate = VisitLambda(call.Arguments[1], elementType);
+        if (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+        {
+            havings.Add(predicate);
+        }
+        else
+        {
+            wheres.Add(predicate);
+        }
     }
 
     private void HandleOrderBy(MethodCallExpression call, Type elementType, string direction, bool clear)
