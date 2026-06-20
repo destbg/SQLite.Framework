@@ -882,6 +882,7 @@ public sealed class SQLiteOptionsBuilder
         MemberTranslators[typeof(Queryable)] = QueryableMemberVisitor.HandleQueryableMethod;
         MemberTranslators[typeof(Enum)] = EnumMemberVisitor.HandleEnumMethod;
         MemberTranslators[typeof(char)] = CharMemberVisitor.HandleCharMethod;
+        MemberTranslators[typeof(Convert)] = ConvertMemberVisitor.HandleConvertMethod;
 
         SQLiteMemberTranslator integerHandler = NumericMemberVisitor.HandleIntegerMethod;
         MemberTranslators[typeof(int)] = integerHandler;

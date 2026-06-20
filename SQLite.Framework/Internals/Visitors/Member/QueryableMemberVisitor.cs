@@ -361,8 +361,9 @@ internal static class QueryableMemberVisitor
                 $"{aggregateFunction}(CASE WHEN ", predicate, " THEN 1 ELSE 0 END)", predicate.Parameters);
         }
 
+        string emptyValue = aggregateFunction == "MIN" ? "1" : "0";
         return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-            $"{aggregateFunction}(CASE WHEN ", predicate, " THEN 1 ELSE 0 END) FILTER (WHERE ", filterExpression, ")",
+            $"COALESCE({aggregateFunction}(CASE WHEN ", predicate, " THEN 1 ELSE 0 END) FILTER (WHERE ", filterExpression, $"), {emptyValue})",
             ParameterHelpers.CombineParameters(predicate, filterExpression));
     }
 

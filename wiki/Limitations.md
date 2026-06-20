@@ -22,7 +22,9 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Parse` and a narrowing cast of an integer column map to `CAST` and do not validate or throw. A narrowing cast of a floating-point column to a smaller integer type throws `OverflowException` when the value is out of the target range, where .NET would saturate or wrap.
 - A cast of a floating-point value to `uint` or `ulong` does not throw and does not limit the value to the type range. A negative value, or a value above the range, wraps to a different number, where .NET clamps it to the nearest valid value.
 - Only the single-string `int.Parse`/`double.Parse` maps to `CAST`. The `NumberStyles`/`IFormatProvider` overloads (such as hex parsing) run in memory in a `Select` and throw in a `Where`.
+- `Convert.ToInt32` and `Convert.ToInt64` of a `double` or `float` round half away from zero, where .NET rounds half to even, so a value such as `2.5` reads back as `3` instead of `2`. The other `Convert` methods run in memory in a `Select` and throw in a `Where`.
 - `Math.Clamp` with `min` greater than `max` returns `min` instead of throwing.
+- A cast of a floating-point value above the `decimal` range to `decimal`, such as `(decimal)1e30`, returns the largest or smallest `decimal` instead of throwing `OverflowException`.
 - `Math.Abs(long.MinValue)` throws a `SQLiteException`, since its result does not fit a signed 64-bit integer.
 - The bitwise complement `~` of a native integer (`nint` or `nuint`) is not supported.
 

@@ -223,6 +223,12 @@ internal class SQLTranslator
                 }
                 CteInfo cte = cteRegistry.Ctes[i];
                 cteSb.Append(cte.Name);
+                if (cte.ColumnNames != null)
+                {
+                    cteSb.Append('(');
+                    cteSb.Append(string.Join(", ", cte.ColumnNames.Select(IdentifierGuard.Quote)));
+                    cteSb.Append(')');
+                }
                 cteSb.Append(" AS ");
 #if SQLITE_FRAMEWORK_VERSION_AWARE
                 if (cte.Materialization != SQLiteCteMaterialization.Default)
@@ -1085,7 +1091,7 @@ internal class SQLTranslator
             nameof(Queryable.Where) => QueryLevelParts.Limit | QueryLevelParts.Window,
             nameof(Queryable.Any) or nameof(Queryable.All) or nameof(Queryable.Contains) => QueryLevelParts.Limit | QueryLevelParts.Window,
             nameof(Queryable.Count) or nameof(Queryable.LongCount) or nameof(Queryable.Sum)
-                or nameof(Queryable.Max) or nameof(Queryable.Min) or nameof(Queryable.Average) => QueryLevelParts.Window,
+                or nameof(Queryable.Max) or nameof(Queryable.Min) or nameof(Queryable.Average) => QueryLevelParts.Window | QueryLevelParts.Limit,
             nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
                 or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) => QueryLevelParts.Limit,
             nameof(Queryable.Distinct) => QueryLevelParts.Limit,

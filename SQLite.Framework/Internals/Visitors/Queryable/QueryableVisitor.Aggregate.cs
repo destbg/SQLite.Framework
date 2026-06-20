@@ -4,12 +4,6 @@ internal partial class QueryableVisitor
 {
     private SQLiteExpression VisitGroupFunction(MethodCallExpression node, string function)
     {
-        if (Take != null || Skip != null)
-        {
-            throw new NotSupportedException(
-                $"{node.Method.Name} after Take or Skip is not supported because it would require wrapping the query in a subquery.");
-        }
-
         ThrowIfSetOperations(node.Method.Name);
 
         if (Selects.Count == 0 && visitor.TableColumns.Count == 1)

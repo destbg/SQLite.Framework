@@ -2765,20 +2765,24 @@ public class QueryPatternTests
     }
 
     [Fact]
-    public void Aggregate_AfterTake_IsNotSupported()
+    public void Aggregate_AfterTake_MatchesObjects()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
-        db.Table<Book>().AddRange([
+        List<Book> books =
+        [
             new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
             new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
             new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 },
-        ]);
+        ];
+        db.Table<Book>().AddRange(books);
 
-        Assert.Throws<NotSupportedException>(() =>
+        Assert.Equal(
+            books.OrderBy(b => b.Id).Take(2).Count(),
             db.Table<Book>().OrderBy(b => b.Id).Take(2).Count());
 
-        Assert.Throws<NotSupportedException>(() =>
+        Assert.Equal(
+            books.OrderBy(b => b.Id).Take(2).Sum(b => b.Price),
             db.Table<Book>().OrderBy(b => b.Id).Take(2).Sum(b => b.Price));
     }
 

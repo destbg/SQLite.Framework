@@ -254,11 +254,11 @@ public class CteTests
         Assert.Equal(1, command.Parameters.Single(p => p.Name == "@p1").Value);
         Assert.Equal(
             N("""
-            WITH cte0 AS (
+            WITH cte0("Value") AS (
                 SELECT i1."column__1" AS "2"
                 FROM (SELECT @p1 AS "column__1") AS i1
             )
-            SELECT *
+            SELECT i0."Value" AS "4"
             FROM cte0 AS i0
             """), N(command.CommandText));
     }

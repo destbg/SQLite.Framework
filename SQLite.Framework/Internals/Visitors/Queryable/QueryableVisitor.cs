@@ -195,8 +195,7 @@ internal partial class QueryableVisitor
 
                         string placeholder = $"{cteAliasChar}__cte_self_{visitor.CteRegistry.Ctes.Count}__";
 
-                        Dictionary<string, Expression> selfColumns = cteElementType.GetProperties()
-                            .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{placeholder}.{IdentifierGuard.Quote(f.Name)}"));
+                        Dictionary<string, Expression> selfColumns = CteColumnMapper.BuildColumns(cteElementType, placeholder, database.Options, visitor.Counters);
 
                         visitor.CteParameters[selfParam] = (placeholder, selfColumns);
                         visitor.MethodArguments[selfParam] = selfColumns;
@@ -207,7 +206,7 @@ internal partial class QueryableVisitor
                         string finalName = $"cte{visitor.CteRegistry.Ctes.Count}";
                         string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
 
-                        cteName = visitor.CteRegistry.Register(fixedSql, bodyQuery.Parameters.ToArray(), isRecursive: true, key: cte);
+                        cteName = visitor.CteRegistry.Register(fixedSql, bodyQuery.Parameters.ToArray(), isRecursive: true, key: cte, columnNames: CteColumnMapper.ScalarColumnNames(cteElementType, database.Options));
 
                         visitor.CteParameters.Remove(selfParam);
                         visitor.MethodArguments.Remove(selfParam);
@@ -217,13 +216,12 @@ internal partial class QueryableVisitor
                         SQLTranslator bodyTranslator = visitor.CloneDeeper(visitor.Level + 1);
                         SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
-                        cteName = visitor.CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.ToArray(), isRecursive: false, key: cte);
+                        cteName = visitor.CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.ToArray(), isRecursive: false, key: cte, columnNames: CteColumnMapper.ScalarColumnNames(cteElementType, database.Options));
                     }
                 }
 
                 entityType = cteElementType;
-                newTableColumns = cteElementType.GetProperties()
-                    .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{cteAlias}.{IdentifierGuard.Quote(f.Name)}"));
+                newTableColumns = CteColumnMapper.BuildColumns(cteElementType, cteAlias, database.Options, visitor.Counters);
                 visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = cteAlias };
                 sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteName} AS {cteAlias}");
             }

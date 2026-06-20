@@ -229,8 +229,7 @@ internal partial class SQLVisitor
         if (cachedName != null)
         {
             From = SQLiteExpression.Leaf(elementType, -1, $"{cachedName} AS {alias}");
-            TableColumns = elementType.GetProperties()
-                .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+            TableColumns = CteColumnMapper.BuildColumns(elementType, alias, Database.Options, Counters);
             return;
         }
 
@@ -246,8 +245,7 @@ internal partial class SQLVisitor
 
             string placeholder = $"{aliasChar}__cte_self_{CteRegistry.Ctes.Count}__";
 
-            Dictionary<string, Expression> selfColumns = elementType.GetProperties()
-                .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{placeholder}.{IdentifierGuard.Quote(f.Name)}"));
+            Dictionary<string, Expression> selfColumns = CteColumnMapper.BuildColumns(elementType, placeholder, Database.Options, Counters);
 
             CteParameters[selfParam] = (placeholder, selfColumns);
             MethodArguments[selfParam] = selfColumns;
@@ -258,7 +256,7 @@ internal partial class SQLVisitor
             string finalName = $"cte{CteRegistry.Ctes.Count}";
             string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
 
-            cteName = CteRegistry.Register(fixedSql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: true, key: cte);
+            cteName = CteRegistry.Register(fixedSql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: true, key: cte, columnNames: CteColumnMapper.ScalarColumnNames(elementType, Database.Options));
 
             CteParameters.Remove(selfParam);
             MethodArguments.Remove(selfParam);
@@ -268,13 +266,12 @@ internal partial class SQLVisitor
             SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
             SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
-            cteName = CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: false, key: cte);
+            cteName = CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: false, key: cte, columnNames: CteColumnMapper.ScalarColumnNames(elementType, Database.Options));
         }
 
         From = SQLiteExpression.Leaf(elementType, -1, $"{cteName} AS {alias}");
 
-        TableColumns = elementType.GetProperties()
-            .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+        TableColumns = CteColumnMapper.BuildColumns(elementType, alias, Database.Options, Counters);
     }
 
     private static bool IsUlongSource(Type sourceType)
@@ -296,9 +293,16 @@ internal partial class SQLVisitor
         before = null;
         after = null;
 
+        sourceType = Nullable.GetUnderlyingType(sourceType) ?? sourceType;
         if (sourceType.IsEnum)
         {
             sourceType = Enum.GetUnderlyingType(sourceType);
+        }
+
+        targetType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (targetType.IsEnum)
+        {
+            targetType = Enum.GetUnderlyingType(targetType);
         }
 
         if (!IsWrappableNarrowingTarget(targetType)

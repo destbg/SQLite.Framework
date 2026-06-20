@@ -16,6 +16,13 @@ internal static class Constants
     public const string GroupingElementPrefix = "$elem.";
 
     /// <summary>
+    /// Column name a common table expression uses for its single value when the element type is a
+    /// scalar such as <c>int</c> or <c>string</c>. The CTE is declared with this column name so the
+    /// value can be read, filtered and ordered by.
+    /// </summary>
+    public const string CteScalarColumn = "Value";
+
+    /// <summary>
     /// Unicode whitespace code points that .NET treats as whitespace.
     /// </summary>
     public static readonly int[] WhitespaceCodePoints =
