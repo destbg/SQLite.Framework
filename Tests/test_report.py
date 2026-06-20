@@ -253,8 +253,18 @@ def parse_cobertura(path: Path) -> LineCov:
         root = ET.parse(path).getroot()
     except ET.ParseError:
         return line_map
+    source_roots = [s.text or "" for s in root.findall(".//sources/source")]
+
+    def normalize(name: str) -> str:
+        for src in source_roots:
+            try:
+                return str((Path(src) / name).resolve().relative_to(REPO_ROOT))
+            except (ValueError, OSError):
+                continue
+        return name
+
     for cls in root.findall(".//class"):
-        filename = cls.get("filename", "") or ""
+        filename = normalize(cls.get("filename", "") or "")
         for line in cls.findall(".//line"):
             try:
                 num = int(line.get("number", "0") or 0)
