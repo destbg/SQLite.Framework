@@ -41,6 +41,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text).
 - A `char` taken from a string can be half of a character that needs two slots in .NET, such as an emoji. SQLite stores whole characters only, so reading that half on its own does not come back the same and can throw.
 - `Enum.Parse` strips ASCII whitespace anywhere in the string, so the spaced `[Flags]` form like `"Read, Write"` parses but a name with embedded whitespace like `"News\tpaper"` matches `"Newspaper"` where .NET would throw.
+- When an enum is stored as Text, `ToString("D")` and `ToString("X")` return the stored member name for a value that is not one single defined member. A `[Flags]` combination such as `Read, Write`, or an undefined number, reads back as the stored text instead of the number or hex string.
 
 ## Ordering and set operations
 
@@ -101,10 +102,15 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Building a new collection from a JSON list with `ToArray` or `ToHashSet` is not supported.
 - `OrderBy` followed by `Reverse` on a JSON list keeps rows that share the same sort key in their first-seen order, not the reversed order that LINQ-to-Objects gives, because the reverse is done by sorting the other way.
 - On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable, and `Dictionary.Contains` of a whole key-value pair, are not supported there.
+- On a JSON dictionary, the indexer for a key that is not present returns the type default instead of throwing.
 
 ## Binary data
 
 - A `byte[]` column supports `Length` and value equality (`==` and `SequenceEqual`) in a query. Reading a single byte by index, and `Contains` of a single byte, are not supported in a query.
+
+## Custom converters
+
+- A `bool` column whose converter stores a non-numeric value, such as the text `yes`/`no`, does not work when used directly as a condition, for example `Where(r => r.Flag)` or `r.Flag && other`. SQLite reads the stored text as the number `0`, so the condition is always false.
 
 ## Full text search
 

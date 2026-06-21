@@ -85,7 +85,9 @@ internal class SQLTranslator
 
         if (!isInnerQuery)
         {
-            node = QueryFilterInjector.Inject(node, Visitor.Database.Options);
+            bool ignoreAll = QueryFilterInjector.ShouldIgnoreAll(node, Visitor.Database.Options);
+            Visitor.Counters.IgnoreQueryFilters = ignoreAll;
+            node = QueryFilterInjector.Inject(node, Visitor.Database.Options, ignoreAll);
         }
         if (node is MethodCallExpression mce)
         {

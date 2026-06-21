@@ -24,22 +24,29 @@ internal static class ModelValidator
             return issues;
         }
 
-        ValidateColumns(table, mapping, dbColumns, issues);
+        ValidateColumns(database, table, mapping, dbColumns, issues);
         ValidateIndexes(database, table, mapping, issues);
         ValidateForeignKeys(database, table, mapping, issues);
         ValidateTriggers(database, table, mapping, issues);
         return issues;
     }
 
-    private static void ValidateColumns(string table, TableMapping mapping, List<PragmaTableInfo> dbColumns, List<string> issues)
+    private static void ValidateColumns(SQLiteDatabase database, string table, TableMapping mapping, List<PragmaTableInfo> dbColumns, List<string> issues)
     {
         Dictionary<string, PragmaTableInfo> byName = dbColumns.ToDictionary(c => c.Name);
         HashSet<string> computedNames = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet();
+        HashSet<string>? generatedColumnNames = null;
 
         foreach (TableColumn column in mapping.Columns)
         {
             if (computedNames.Contains(column.Name))
             {
+                generatedColumnNames ??= ReadAllColumnNames(database, table);
+                if (!generatedColumnNames.Contains(column.Name))
+                {
+                    issues.Add($"Column '{table}'.'{column.Name}' is missing in the database.");
+                }
+
                 continue;
             }
 
@@ -122,10 +129,20 @@ internal static class ModelValidator
 
         foreach (IndexSpec index in mapping.Indexes)
         {
-            expected[index.Name] = (index.Columns.ToList(), index.Unique);
+            IReadOnlyList<string> indexColumns = index.Columns.Where((_, i) => !index.Expressions[i]).ToList();
+            expected[index.Name] = (indexColumns, index.Unique);
         }
 
         return expected;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in dictionary rows keeps their public members reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Querying built-in dictionary rows keeps their public members reachable.")]
+    private static HashSet<string> ReadAllColumnNames(SQLiteDatabase database, string table)
+    {
+        return database.Query<Dictionary<string, object?>>($"PRAGMA table_xinfo('{table.Replace("'", "''")}')")
+            .Select(row => (string)row["name"]!)
+            .ToHashSet();
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in dictionary rows keeps their public members reachable.")]

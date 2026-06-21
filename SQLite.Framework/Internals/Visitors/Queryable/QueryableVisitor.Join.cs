@@ -128,8 +128,13 @@ internal partial class QueryableVisitor
 
     private static string CompositeJoinKeyOperator(Type outerType, Type innerType)
     {
-        bool nullable = Nullable.GetUnderlyingType(outerType) != null || Nullable.GetUnderlyingType(innerType) != null;
+        bool nullable = IsNullableKeyComponent(outerType) || IsNullableKeyComponent(innerType);
         return nullable ? " IS " : " = ";
+    }
+
+    private static bool IsNullableKeyComponent(Type type)
+    {
+        return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
     }
 
     private static void EnsureGroupJoinResultSelectorIsPassthrough(LambdaExpression resultSelector)

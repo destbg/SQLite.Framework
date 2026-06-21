@@ -277,7 +277,15 @@ internal partial class JsonCollectionVisitor
     {
         if (call.Arguments.Count > 1)
         {
-            wheres.Add(VisitLambda(call.Arguments[1], elementType));
+            string predicate = VisitLambda(call.Arguments[1], elementType);
+            if (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+            {
+                havings.Add(predicate);
+            }
+            else
+            {
+                wheres.Add(predicate);
+            }
         }
     }
 

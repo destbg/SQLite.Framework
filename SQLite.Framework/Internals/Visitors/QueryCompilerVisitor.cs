@@ -100,13 +100,10 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 case ExpressionType.Or:
                     return ApplyLiftedBitwise(BinaryBitwiseOrOperator, leftValue, rightValue, options);
                 case ExpressionType.GreaterThan:
-                    return leftValue != null && rightValue != null && CompareValues(leftValue, rightValue) > 0;
                 case ExpressionType.GreaterThanOrEqual:
-                    return leftValue != null && rightValue != null && CompareValues(leftValue, rightValue) >= 0;
                 case ExpressionType.LessThan:
-                    return leftValue != null && rightValue != null && CompareValues(leftValue, rightValue) < 0;
                 case ExpressionType.LessThanOrEqual:
-                    return leftValue != null && rightValue != null && CompareValues(leftValue, rightValue) <= 0;
+                    return EvaluateRelational(node.NodeType, leftValue, rightValue);
             }
 
             bool isLiftedArithmetic = node.NodeType is ExpressionType.ExclusiveOr
@@ -873,6 +870,28 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 "Use the SQLite.Framework source generator and call UseGeneratedMaterializers, or rewrite the query so " +
                 "this operator is not invoked dynamically at runtime.");
         }
+    }
+
+    private static bool EvaluateRelational(ExpressionType op, object? left, object? right)
+    {
+        if (left == null || right == null || IsNaN(left) || IsNaN(right))
+        {
+            return false;
+        }
+
+        int comparison = CompareValues(left, right);
+        return op switch
+        {
+            ExpressionType.GreaterThan => comparison > 0,
+            ExpressionType.GreaterThanOrEqual => comparison >= 0,
+            ExpressionType.LessThan => comparison < 0,
+            _ => comparison <= 0,
+        };
+    }
+
+    private static bool IsNaN(object value)
+    {
+        return value is double d ? double.IsNaN(d) : value is float f && float.IsNaN(f);
     }
 
     private static int CompareValues(object? left, object? right)

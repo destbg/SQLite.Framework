@@ -30,6 +30,8 @@ public class SQLiteCounters
         this.paramPrefix = paramPrefix;
     }
 
+    internal bool IgnoreQueryFilters { get; set; }
+
     /// <summary>
     /// Returns the next unique number and adds one to the counter. The number gives a SQL
     /// expression a stable name that is used for caching and as a column alias.

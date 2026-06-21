@@ -238,7 +238,7 @@ internal partial class SQLVisitor
 
         LambdaExpression lambda = cte.Query;
         bool isRecursive = lambda.Parameters.Count == 1;
-        Expression cteBody = QueryFilterInjector.Inject(CommonHelpers.Inline(lambda.Body), Database.Options);
+        Expression cteBody = QueryFilterInjector.InjectCteBody(CommonHelpers.Inline(lambda.Body), Database.Options, Counters);
 
         string cteName;
 

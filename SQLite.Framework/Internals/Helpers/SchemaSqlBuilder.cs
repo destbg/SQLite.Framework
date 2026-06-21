@@ -129,7 +129,8 @@ internal static class SchemaSqlBuilder
         foreach (IndexSpec index in mapping.Indexes)
         {
             string uniqueClause = index.Unique ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", index.Columns.Select((c, i) => c + CommonHelpers.Clause(index.Collations[i]) + CommonHelpers.Clause(index.Directions[i])));
+            string columnList = string.Join(", ", index.Columns.Select((c, i) =>
+                (index.Expressions[i] ? c : IdentifierGuard.Quote(c)) + CommonHelpers.Clause(index.Collations[i]) + CommonHelpers.Clause(index.Directions[i])));
             string where = index.FilterSql == null ? string.Empty : $" WHERE {index.FilterSql}";
             statements.Add((index.Name, $"CREATE {uniqueClause}INDEX {existsClause}\"{index.Name.Replace("\"", "\"\"")}\" ON \"{tableName}\" ({columnList}){where}"));
         }

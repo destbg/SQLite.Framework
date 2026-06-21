@@ -83,6 +83,14 @@ internal static class JsonMethodTranslator
             "json_extract(", src, $", {pathParameter.Name})", parameters);
     }
 
+    private static bool IsNonStringDictionaryKeys(Expression? expression)
+    {
+        return expression is MemberExpression { Member.Name: "Keys", Expression: { } receiver }
+            && receiver.Type.IsGenericType
+            && receiver.Type.GetGenericTypeDefinition() == typeof(Dictionary<,>)
+            && receiver.Type.GetGenericArguments()[0] != typeof(string);
+    }
+
     private static bool IsJsonDictionaryProjection(Expression expression, SQLiteOptions options)
     {
         return expression is MemberExpression { Member.Name: "Keys" or "Values", Expression: { } receiver }
@@ -180,8 +188,11 @@ internal static class JsonMethodTranslator
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
+            string argSql = IsNonStringDictionaryKeys(node.Object)
+                ? $"CAST({arg.SQLiteExpression} AS TEXT)"
+                : arg.SQLiteExpression!.ToString();
             return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                $"EXISTS (SELECT 1 FROM json_each({src}) WHERE \"value\" IS {arg.SQLiteExpression})",
+                $"EXISTS (SELECT 1 FROM json_each({src}) WHERE \"value\" IS {argSql})",
                 parameters)
                 .WithJsonSource();
         }

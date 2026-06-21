@@ -93,9 +93,9 @@ internal static class ExpressionHelpers
             MemberExpression me => me.Member is FieldInfo fi
                 ? (me.Expression != null ? fi.GetValue(GetConstantValue(me.Expression)) : fi.GetValue(null))
                 : ((PropertyInfo)me.Member).GetValue(me.Expression != null ? GetConstantValue(me.Expression) : null),
-            UnaryExpression { NodeType: ExpressionType.Convert } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type),
+            UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type),
             UnaryExpression { NodeType: ExpressionType.ArrayLength } ue => ((Array)GetConstantValue(ue.Operand)!).Length,
-            UnaryExpression { NodeType: ExpressionType.Negate } ue => EvaluateUnary(ue),
+            UnaryExpression { NodeType: ExpressionType.Negate or ExpressionType.NegateChecked } ue => EvaluateUnary(ue),
             UnaryExpression { NodeType: ExpressionType.Not } ue => EvaluateUnary(ue),
             BinaryExpression { NodeType: ExpressionType.ArrayIndex } bi => ((Array)GetConstantValue(bi.Left)!)
                 .GetValue(Convert.ToInt32(GetConstantValue(bi.Right), CultureInfo.InvariantCulture)),

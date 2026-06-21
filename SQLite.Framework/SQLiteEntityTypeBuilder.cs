@@ -239,11 +239,13 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 
         ParameterExpression rowParameter = column.Parameters[0];
         string[] items;
+        bool[] expressions;
         string[]? plainColumnNames;
 
         if (body is NewExpression newExpr)
         {
             items = new string[newExpr.Arguments.Count];
+            expressions = new bool[newExpr.Arguments.Count];
             string[] memberNames = new string[newExpr.Arguments.Count];
             bool allPlain = true;
             for (int i = 0; i < newExpr.Arguments.Count; i++)
@@ -255,7 +257,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
                 {
                     TableColumn col = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == mem.Member.Name)
                         ?? throw new ArgumentException($"Property '{mem.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
-                    items[i] = IdentifierGuard.Quote(col.Name);
+                    items[i] = col.Name;
                     memberNames[i] = col.Name;
                 }
                 else
@@ -264,6 +266,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
                     database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "Expression indexes");
 #endif
                     items[i] = "(" + TranslateBareSql(rowParameter, arg) + ")";
+                    expressions[i] = true;
                     allPlain = false;
                 }
             }
@@ -273,7 +276,8 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
         {
             TableColumn target = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == plainMember.Member.Name)
                 ?? throw new ArgumentException($"Property '{plainMember.Member.Name}' is not mapped on {typeof(T).Name}.", nameof(column));
-            items = [IdentifierGuard.Quote(target.Name)];
+            items = [target.Name];
+            expressions = [false];
             plainColumnNames = [target.Name];
         }
         else
@@ -282,6 +286,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
             database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "Expression indexes");
 #endif
             items = ["(" + TranslateBareSql(rowParameter, body) + ")"];
+            expressions = [true];
             plainColumnNames = null;
         }
 
@@ -330,7 +335,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 
         string? filterSql = filter == null ? null : TranslateBareSql(filter);
 
-        mapping.AddIndex(new IndexSpec(items, columnCollations, columnDirections, indexName, unique, filterSql));
+        mapping.AddIndex(new IndexSpec(items, expressions, columnCollations, columnDirections, indexName, unique, filterSql));
         return this;
     }
 

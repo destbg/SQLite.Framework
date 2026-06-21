@@ -126,7 +126,7 @@ public class SQLiteCommand
                     break;
                 }
 
-                bool writesRows = raw.sqlite3_stmt_readonly(statement) == 0;
+                int totalChangesBefore = raw.sqlite3_total_changes(handle);
                 try
                 {
                     BindParameters(statement, ignoreMissing: !(first && tail.IsEmpty));
@@ -147,7 +147,7 @@ public class SQLiteCommand
                     raw.sqlite3_finalize(statement);
                 }
 
-                if (writesRows)
+                if (raw.sqlite3_total_changes(handle) != totalChangesBefore)
                 {
                     changes += raw.sqlite3_changes(handle);
                 }

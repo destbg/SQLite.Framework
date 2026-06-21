@@ -2,9 +2,10 @@ namespace SQLite.Framework.Internals.Models;
 
 internal sealed class IndexSpec
 {
-    public IndexSpec(string[] columns, SQLiteCollation[] collations, SQLiteIndexDirection[] directions, string name, bool unique, string? filterSql)
+    public IndexSpec(string[] columns, bool[] expressions, SQLiteCollation[] collations, SQLiteIndexDirection[] directions, string name, bool unique, string? filterSql)
     {
         Columns = columns;
+        Expressions = expressions;
         Collations = collations;
         Directions = directions;
         Name = name;
@@ -13,6 +14,7 @@ internal sealed class IndexSpec
     }
 
     public string[] Columns { get; }
+    public bool[] Expressions { get; }
     public SQLiteCollation[] Collations { get; }
     public SQLiteIndexDirection[] Directions { get; }
     public string Name { get; }

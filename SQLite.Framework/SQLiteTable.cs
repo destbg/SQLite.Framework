@@ -1504,12 +1504,12 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     private static object ConvertRowIdToType(long rowId, Type type)
     {
         return type == typeof(long) ? rowId
-            : type == typeof(int) ? (int)rowId
-            : type == typeof(short) ? (short)rowId
-            : type == typeof(byte) ? (byte)rowId
-            : type == typeof(sbyte) ? (sbyte)rowId
-            : type == typeof(uint) ? (uint)rowId
-            : type == typeof(ulong) ? (ulong)rowId
+            : type == typeof(int) ? checked((int)rowId)
+            : type == typeof(short) ? checked((short)rowId)
+            : type == typeof(byte) ? checked((byte)rowId)
+            : type == typeof(sbyte) ? checked((sbyte)rowId)
+            : type == typeof(uint) ? checked((uint)rowId)
+            : type == typeof(ulong) ? checked((ulong)rowId)
             : Convert.ChangeType(rowId, type, CultureInfo.InvariantCulture);
     }
 }

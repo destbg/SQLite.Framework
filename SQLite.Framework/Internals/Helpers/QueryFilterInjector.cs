@@ -5,11 +5,20 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class QueryFilterInjector
 {
-    public static Expression Inject(Expression source, SQLiteOptions options)
+    public static Expression Inject(Expression source, SQLiteOptions options, bool ignoreAll)
     {
-        bool ignoreAll = options.QueryFilters.Count > 0 && ContainsIgnoreFilters(source);
         QueryFilterInjectorVisitor injector = new(options, ignoreAll);
         return injector.Visit(source);
+    }
+
+    public static bool ShouldIgnoreAll(Expression source, SQLiteOptions options)
+    {
+        return options.QueryFilters.Count > 0 && ContainsIgnoreFilters(source);
+    }
+
+    public static Expression InjectCteBody(Expression body, SQLiteOptions options, SQLiteCounters counters)
+    {
+        return Inject(body, options, counters.IgnoreQueryFilters || ShouldIgnoreAll(body, options));
     }
 
     public static bool IsIgnoreQueryFiltersCall(MethodCallExpression node)
