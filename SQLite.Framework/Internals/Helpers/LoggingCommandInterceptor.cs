@@ -92,22 +92,27 @@ internal sealed class LoggingCommandInterceptor : ISQLiteCommandInterceptor
                 SQLiteParameter parameter = command.Parameters[i];
                 sb.Append(parameter.Name);
                 sb.Append('=');
-                sb.Append(sensitive ? FormatValue(parameter.Value) : "?");
+                sb.Append(sensitive ? FormatValue(parameter.Value, command.Database.Options) : "?");
             }
         }
 
         return sb.ToString();
     }
 
-    private static string FormatValue(object? value)
+    private static string FormatValue(object? value, SQLiteOptions options)
     {
-        return value switch
+        if (value is byte[] bytes)
         {
-            null => "NULL",
-            string s => "'" + s.Replace("'", "''") + "'",
-            bool b => b ? "1" : "0",
-            byte[] b => $"<{b.Length} bytes>",
-            _ => Convert.ToString(value, CultureInfo.InvariantCulture)!,
-        };
+            return $"<{bytes.Length} bytes>";
+        }
+
+        try
+        {
+            return SqlLiteralHelper.FormatLiteral(value, options);
+        }
+        catch (NotSupportedException)
+        {
+            return value!.GetType().Name;
+        }
     }
 }

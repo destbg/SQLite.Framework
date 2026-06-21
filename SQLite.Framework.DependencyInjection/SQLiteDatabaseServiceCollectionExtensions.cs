@@ -61,7 +61,11 @@ public static class SQLiteDatabaseServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configure);
 
         services.Add(new ServiceDescriptor(typeof(SQLiteOptions), sp => BuildOptions(sp, configure), lifetime));
-        services.Add(new ServiceDescriptor(typeof(TDatabase), sp => ActivatorUtilities.CreateInstance<TDatabase>(sp, sp.GetRequiredService<SQLiteOptions>()), lifetime));
+        services.Add(new ServiceDescriptor(typeof(TDatabase), sp => ActivatorUtilities.CreateInstance<TDatabase>(sp, BuildOptions(sp, configure)), lifetime));
+        if (typeof(TDatabase) != typeof(SQLiteDatabase))
+        {
+            services.Add(new ServiceDescriptor(typeof(SQLiteDatabase), sp => sp.GetRequiredService<TDatabase>(), lifetime));
+        }
 
         return services;
     }
@@ -94,7 +98,7 @@ public static class SQLiteDatabaseServiceCollectionExtensions
         services.Add(new ServiceDescriptor(typeof(SQLiteOptions), sp => BuildOptions(sp, configure), lifetime));
         services.Add(new ServiceDescriptor(
             typeof(ISQLiteDatabaseFactory<TDatabase>),
-            sp => new SQLiteDatabaseFactory<TDatabase>(sp, sp.GetRequiredService<SQLiteOptions>()),
+            sp => new SQLiteDatabaseFactory<TDatabase>(sp, BuildOptions(sp, configure)),
             lifetime));
 
         return services;

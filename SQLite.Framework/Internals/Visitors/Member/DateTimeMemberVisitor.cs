@@ -412,12 +412,16 @@ internal static class DateTimeMemberVisitor
             Value = multiplyBy
         };
 
+        SQLiteExpression argExpression = arguments[0].IsConstant && arguments[0].Constant is TimeSpan ts
+            ? SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), ts.Ticks)
+            : arguments[0].SQLiteExpression!;
+
         long day = TimeSpan.TicksPerDay;
         return SQLiteExpression.Binary(
             method.ReturnType,
             visitor.Counters.NextIdentifier(),
-            "CAST(((", obj, " + CAST((", arguments[0].SQLiteExpression!, $") * {parameter.Name} AS INTEGER)) % {day} + {day}) % {day} AS 'INTEGER')",
-            [.. obj.Parameters ?? [], .. arguments[0].Parameters ?? [], parameter]
+            "CAST(((", obj, " + CAST((", argExpression, $") * {parameter.Name} AS INTEGER)) % {day} + {day}) % {day} AS 'INTEGER')",
+            [.. obj.Parameters ?? [], .. argExpression.Parameters ?? [], parameter]
         );
     }
 

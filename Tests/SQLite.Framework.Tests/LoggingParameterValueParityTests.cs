@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel.DataAnnotations;
@@ -20,7 +21,7 @@ file sealed class LogParamRow
     public LogParamColor Color { get; set; }
 }
 
-public class LoggingEnumParameterParityTests
+public class LoggingParameterValueParityTests
 {
     [Fact]
     public void EnumParameter_LoggedValueMatchesStoredInteger()
@@ -34,5 +35,17 @@ public class LoggingEnumParameterParityTests
         string paramSection = insertLine[(insertLine.IndexOf(" | ") + 3)..];
 
         Assert.Equal("@p0=1 @p1=2", paramSection);
+    }
+
+    [Fact]
+    public void UnsupportedParameter_FailedCommand_LogsWithoutThrowingFromLogger()
+    {
+        List<string> lines = new();
+        using TestDatabase db = new(b => b.LogCommands(lines.Add).EnableSensitiveParameterLogging());
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.ExecuteScalar<int>("SELECT @p", new SQLiteParameter { Name = "@p", Value = new object() }));
+
+        Assert.NotEmpty(lines);
     }
 }

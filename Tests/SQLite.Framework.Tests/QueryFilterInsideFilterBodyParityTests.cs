@@ -26,6 +26,22 @@ file sealed class NestedFilterBook
     public bool IsDeleted { get; set; }
 }
 
+[Table("FilterCycleLefts")]
+file sealed class FilterCycleLeft
+{
+    [Key]
+    public int Id { get; set; }
+}
+
+[Table("FilterCycleRights")]
+file sealed class FilterCycleRight
+{
+    [Key]
+    public int Id { get; set; }
+
+    public int LeftId { get; set; }
+}
+
 public class QueryFilterInsideFilterBodyParityTests
 {
     [Fact]
@@ -69,5 +85,26 @@ public class QueryFilterInsideFilterBodyParityTests
 
         Assert.Equal(["a2"], expected);
         Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void MutuallyReferencingFilters_DoNotRecurseInfinitely()
+    {
+        TestDatabase? captured = null;
+        using TestDatabase db = new(b =>
+        {
+            b.AddQueryFilter<FilterCycleLeft>(l => captured!.Table<FilterCycleRight>().Any(r => r.LeftId == l.Id));
+            b.AddQueryFilter<FilterCycleRight>(r => captured!.Table<FilterCycleLeft>().Any(l => l.Id == r.LeftId));
+        });
+        captured = db;
+
+        db.Table<FilterCycleLeft>().Schema.CreateTable();
+        db.Table<FilterCycleRight>().Schema.CreateTable();
+        db.Table<FilterCycleLeft>().AddRange([new FilterCycleLeft { Id = 1 }, new FilterCycleLeft { Id = 2 }]);
+        db.Table<FilterCycleRight>().AddRange([new FilterCycleRight { Id = 1, LeftId = 1 }, new FilterCycleRight { Id = 2, LeftId = 2 }]);
+
+        List<int> actual = db.Table<FilterCycleLeft>().Select(l => l.Id).OrderBy(i => i).ToList();
+
+        Assert.Equal([1, 2], actual);
     }
 }

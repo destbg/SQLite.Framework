@@ -27,7 +27,16 @@ public class SQLitePropertyCalls<T>
     {
         string propertyName = GetPropertyName(propertyGetter);
         MemberExpression member = (MemberExpression)propertyGetter.Body;
-        SQLiteExpression expression = SQLiteExpression.Leaf(member.Type, visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), value);
+        string paramName = visitor.Counters.NextParamName();
+        string sql = paramName;
+        if (visitor.Database.Options.TypeConverters.TryGetValue(member.Type, out ISQLiteTypeConverter? converter)
+            && converter.ParameterSqlExpression is { } paramExpr)
+        {
+            sql = string.Format(paramExpr, paramName);
+        }
+
+        SQLiteExpression expression = SQLiteExpression.Leaf(member.Type, visitor.Counters.NextIdentifier(), sql,
+            [new SQLiteParameter { Name = paramName, Value = value }]);
 
         SetProperties.Add((propertyName, expression));
 

@@ -10,6 +10,7 @@ namespace SQLite.Framework.Internals.Visitors;
 internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
 {
     private readonly SQLiteOptions options;
+    private readonly HashSet<Type> injecting = [];
     private bool ignoreFilters;
 
     public QueryFilterInjectorVisitor(SQLiteOptions options)
@@ -76,28 +77,42 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Queryable.Where is rooted by user code that already calls Where.")]
     private Expression InjectFilters(Expression source, Type entityType)
     {
-        Expression result = source;
-
-        foreach (KeyValuePair<Type, IReadOnlyList<LambdaExpression>> kvp in options.QueryFilters)
+        if (!injecting.Add(entityType))
         {
-            if (!kvp.Key.IsAssignableFrom(entityType))
-            {
-                continue;
-            }
-
-            foreach (LambdaExpression filter in kvp.Value)
-            {
-                LambdaExpression rebound = QueryFilterRebinder.Rebind(filter, entityType);
-                result = Expression.Call(
-                    typeof(System.Linq.Queryable),
-                    nameof(System.Linq.Queryable.Where),
-                    [entityType],
-                    result,
-                    Expression.Quote(rebound));
-            }
+            return source;
         }
 
-        return result;
+        try
+        {
+            Expression result = source;
+
+            foreach (KeyValuePair<Type, IReadOnlyList<LambdaExpression>> kvp in options.QueryFilters)
+            {
+                if (!kvp.Key.IsAssignableFrom(entityType))
+                {
+                    continue;
+                }
+
+                foreach (LambdaExpression filter in kvp.Value)
+                {
+                    LambdaExpression rebound = QueryFilterRebinder.Rebind(filter, entityType);
+                    Expression injectedBody = Visit(rebound.Body);
+                    LambdaExpression injected = Expression.Lambda(injectedBody, rebound.Parameters);
+                    result = Expression.Call(
+                        typeof(System.Linq.Queryable),
+                        nameof(System.Linq.Queryable.Where),
+                        [entityType],
+                        result,
+                        Expression.Quote(injected));
+                }
+            }
+
+            return result;
+        }
+        finally
+        {
+            injecting.Remove(entityType);
+        }
     }
 
     private static bool IsIgnoreQueryFiltersCall(MethodCallExpression node)

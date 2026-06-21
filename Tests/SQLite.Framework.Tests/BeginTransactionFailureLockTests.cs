@@ -1,5 +1,7 @@
 using System;
+using System.Threading.Tasks;
 using SQLite.Framework;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -33,5 +35,13 @@ public class BeginTransactionFailureLockTests
         Assert.ThrowsAny<Exception>(() => db.BeginTransaction());
 
         Assert.False(db.HoldsConnectionLock);
+    }
+
+    [Fact]
+    public async Task BeginTransactionAsyncFailureReleasesConnectionLock()
+    {
+        using TestDatabase db = new(b => b.AddCommandInterceptor(new SavepointBlockingInterceptor()));
+
+        await Assert.ThrowsAnyAsync<Exception>(async () => await db.BeginTransactionAsync());
     }
 }

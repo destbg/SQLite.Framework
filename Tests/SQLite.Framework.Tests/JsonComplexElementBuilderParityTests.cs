@@ -109,6 +109,8 @@ public class JsonComplexElementBuilderParityTests
         {
             b.TypeConverters[typeof(List<Address>)] =
                 new SQLiteJsonConverter<List<Address>>(TestJsonContext.Default.ListAddress);
+            b.TypeConverters[typeof(Address)] =
+                new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address);
         });
         db.Table<ComplexElementListRow>().Schema.CreateTable();
         db.Table<ComplexElementListRow>().Add(new ComplexElementListRow

@@ -229,13 +229,24 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             holdsConnectionLock.Value = true;
         }
 
-        string savepointName = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
-        CreateCommand($"SAVEPOINT {savepointName}", []).ExecuteNonQuery();
-        if (ownsLock)
+        try
         {
-            NotifyTransactionStarted();
+            string savepointName = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
+            CreateCommand($"SAVEPOINT {savepointName}", []).ExecuteNonQuery();
+            if (ownsLock)
+            {
+                NotifyTransactionStarted();
+            }
+            return new SQLiteTransaction(this, savepointName, ownsLock);
         }
-        return new SQLiteTransaction(this, savepointName, ownsLock);
+        catch
+        {
+            if (ownsLock)
+            {
+                ReleaseLock();
+            }
+            throw;
+        }
     }
 
     /// <summary>
@@ -1069,7 +1080,15 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         await connectionSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         holdsConnectionLock.Value = true;
-        return CreateSavepoint();
+        try
+        {
+            return CreateSavepoint();
+        }
+        catch
+        {
+            ReleaseLock();
+            throw;
+        }
     }
 
     internal string CreateSavepoint()

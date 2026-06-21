@@ -16,26 +16,26 @@ file sealed class ReadOnlyMutationRow
 public class ReadOnlyTableMutationParityTests
 {
     [Fact]
-    public void ExecuteDelete_OnReadOnlyTable_DoesNotMutate()
+    public void ExecuteDelete_OnReadOnlyTable_Throws()
     {
         using TestDatabase db = new();
         db.Table<ReadOnlyMutationRow>().Schema.CreateTable();
         db.Table<ReadOnlyMutationRow>().Add(new ReadOnlyMutationRow { Id = 1, Name = "a" });
         db.Table<ReadOnlyMutationRow>().Add(new ReadOnlyMutationRow { Id = 2, Name = "b" });
 
-        db.ReadOnlyTable<ReadOnlyMutationRow>().ExecuteDelete();
+        Assert.Throws<NotSupportedException>(() => db.ReadOnlyTable<ReadOnlyMutationRow>().ExecuteDelete());
 
         Assert.Equal(2, db.Table<ReadOnlyMutationRow>().Count());
     }
 
     [Fact]
-    public void ExecuteUpdate_OnReadOnlyTable_DoesNotMutate()
+    public void ExecuteUpdate_OnReadOnlyTable_Throws()
     {
         using TestDatabase db = new();
         db.Table<ReadOnlyMutationRow>().Schema.CreateTable();
         db.Table<ReadOnlyMutationRow>().Add(new ReadOnlyMutationRow { Id = 1, Name = "a" });
 
-        db.ReadOnlyTable<ReadOnlyMutationRow>().ExecuteUpdate(s => s.Set(x => x.Name, "changed"));
+        Assert.Throws<NotSupportedException>(() => db.ReadOnlyTable<ReadOnlyMutationRow>().ExecuteUpdate(s => s.Set(x => x.Name, "changed")));
 
         Assert.Equal("a", db.Table<ReadOnlyMutationRow>().Single().Name);
     }

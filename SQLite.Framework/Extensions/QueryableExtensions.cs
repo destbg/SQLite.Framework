@@ -145,6 +145,8 @@ public static class QueryableExtensions
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
 
+        EnsureWritable(source.Expression);
+
         SQLTranslator translator = new(table.Database)
         {
             QueryType = QueryType.Delete,
@@ -163,6 +165,8 @@ public static class QueryableExtensions
         {
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
+
+        EnsureWritable(source.Expression);
 
         SQLTranslator translator = new(table.Database)
         {
@@ -183,6 +187,8 @@ public static class QueryableExtensions
         {
             throw new InvalidOperationException($"Queryable must be of type {typeof(BaseSQLiteQueryable)}.");
         }
+
+        EnsureWritable(source.Expression);
 
         SQLTranslator translator = new(table.Database)
         {
@@ -251,6 +257,7 @@ public static class QueryableExtensions
     public static List<TResult> ExecuteDelete<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningQueryable<T, TResult> returning)
     {
         ArgumentNullException.ThrowIfNull(returning);
+        EnsureWritable(returning.Source.Expression);
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         returning.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "RETURNING");
 #endif
@@ -279,6 +286,7 @@ public static class QueryableExtensions
     public static List<TResult> ExecuteUpdate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>(this SQLiteReturningQueryable<T, TResult> returning, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
     {
         ArgumentNullException.ThrowIfNull(returning);
+        EnsureWritable(returning.Source.Expression);
         ArgumentNullException.ThrowIfNull(setters);
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         returning.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "RETURNING");
@@ -544,5 +552,21 @@ public static class QueryableExtensions
         Expression callExpression = Expression.Call(marker, source.Expression, selector);
 
         return sqliteSource.Provider.Execute<double>(callExpression);
+    }
+
+    private static void EnsureWritable(Expression expression)
+    {
+        Expression current = expression;
+        while (current is MethodCallExpression { Arguments.Count: > 0 } call)
+        {
+            current = call.Arguments[0];
+        }
+
+        if (current is ConstantExpression { Value: BaseSQLiteTable and not SQLiteTable })
+        {
+            throw new NotSupportedException(
+                "ExecuteUpdate and ExecuteDelete are not supported on a read-only table, such as one returned by " +
+                "Table<T>(schema) or ReadOnlyTable<T>(). Writes to an attached database use raw SQL.");
+        }
     }
 }
