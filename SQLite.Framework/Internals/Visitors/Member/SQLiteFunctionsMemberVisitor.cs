@@ -300,7 +300,7 @@ internal static class SQLiteFunctionsMemberVisitor
     {
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
         SQLiteCollation collation = (SQLiteCollation)visitor.ResolveExpression(node.Arguments[1]).Constant!;
-        string clause = CollationHelper.Clause(collation);
+        string clause = CommonHelpers.Clause(collation);
         if (clause.Length == 0)
         {
             return value.SQLiteExpression!;

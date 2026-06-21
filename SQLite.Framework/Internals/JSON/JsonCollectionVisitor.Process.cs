@@ -197,7 +197,18 @@ internal partial class JsonCollectionVisitor
         groupKeySql = keySql;
 
         Type keyType = ((LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1])).ReturnType;
-        currentElementType = typeof(IGrouping<,>).MakeGenericType(keyType, elementType);
+        Type groupElementType = elementType;
+        if (call.Arguments.Count == 3)
+        {
+            groupElementSql = VisitLambda(call.Arguments[2], elementType);
+            groupElementType = ((LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[2])).ReturnType;
+        }
+        else
+        {
+            groupElementSql = selectExpr;
+        }
+
+        currentElementType = typeof(IGrouping<,>).MakeGenericType(keyType, groupElementType);
     }
 
     private void HandleSelect(MethodCallExpression call, Type elementType)
@@ -210,14 +221,19 @@ internal partial class JsonCollectionVisitor
     private void HandleSelectMany(MethodCallExpression call, Type elementType)
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1]);
+        Type innerElementType = TypeHelpers.GetEnumerableElementType(lambda.ReturnType)!;
+        LambdaExpression? resultSelector = call.Arguments.Count == 3
+            ? (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[2])
+            : null;
+
         if (fromOverride != null)
         {
+            string outerValueSql = selectExpr;
             string innerSql = VisitLambda(call.Arguments[1], elementType);
             string overrideJoinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
             fromOverride = $"{fromOverride}, json_each({innerSql}) {overrideJoinAlias}";
-            selectExpr = $"{overrideJoinAlias}.\"value\"";
             keyColumn = $"{overrideJoinAlias}.\"key\"";
-            currentElementType = TypeHelpers.GetEnumerableElementType(lambda.ReturnType)!;
+            ApplySelectManyProjection(resultSelector, outerValueSql, elementType, $"{overrideJoinAlias}.\"value\"", innerElementType);
             return;
         }
 
@@ -226,9 +242,25 @@ internal partial class JsonCollectionVisitor
         string joinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         baseJoinSuffix = $" {outerAlias}";
         crossJoin = $", json_each({selSql}) {joinAlias}";
-        selectExpr = $"{joinAlias}.\"value\"";
         keyColumn = $"{joinAlias}.\"key\"";
-        currentElementType = TypeHelpers.GetEnumerableElementType(lambda.ReturnType)!;
+        ApplySelectManyProjection(resultSelector, $"{outerAlias}.\"value\"", elementType, $"{joinAlias}.\"value\"", innerElementType);
+    }
+
+    private void ApplySelectManyProjection(LambdaExpression? resultSelector, string outerValueSql, Type outerElementType, string innerValueSql, Type innerElementType)
+    {
+        if (resultSelector == null)
+        {
+            selectExpr = innerValueSql;
+            currentElementType = innerElementType;
+            return;
+        }
+
+        BindParameter(resultSelector.Parameters[0], outerElementType, outerValueSql);
+        BindParameter(resultSelector.Parameters[1], innerElementType, innerValueSql);
+        selectExpr = TranslateBody(resultSelector.Body);
+        visitor.MethodArguments.Remove(resultSelector.Parameters[0]);
+        visitor.MethodArguments.Remove(resultSelector.Parameters[1]);
+        currentElementType = resultSelector.ReturnType;
     }
 
     private void HandleSkip(MethodCallExpression call)

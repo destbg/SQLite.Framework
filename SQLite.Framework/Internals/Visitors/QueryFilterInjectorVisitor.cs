@@ -13,9 +13,10 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
     private readonly HashSet<Type> injecting = [];
     private bool ignoreFilters;
 
-    public QueryFilterInjectorVisitor(SQLiteOptions options)
+    public QueryFilterInjectorVisitor(SQLiteOptions options, bool ignoreAll)
     {
         this.options = options;
+        ignoreFilters = ignoreAll;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Element type is preserved by SQLiteTable<T>.")]
@@ -48,7 +49,7 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        if (IsIgnoreQueryFiltersCall(node))
+        if (QueryFilterInjector.IsIgnoreQueryFiltersCall(node))
         {
             bool previous = ignoreFilters;
             ignoreFilters = true;
@@ -95,7 +96,7 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
 
                 foreach (LambdaExpression filter in kvp.Value)
                 {
-                    LambdaExpression rebound = QueryFilterRebinder.Rebind(filter, entityType);
+                    LambdaExpression rebound = CommonHelpers.Rebind(filter, entityType);
                     Expression injectedBody = Visit(rebound.Body);
                     LambdaExpression injected = Expression.Lambda(injectedBody, rebound.Parameters);
                     result = Expression.Call(
@@ -113,12 +114,5 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
         {
             injecting.Remove(entityType);
         }
-    }
-
-    private static bool IsIgnoreQueryFiltersCall(MethodCallExpression node)
-    {
-        return node.Method.IsStatic
-            && node.Method.DeclaringType == typeof(QueryableExtensions)
-            && node.Method.Name == nameof(QueryableExtensions.IgnoreQueryFilters);
     }
 }

@@ -149,7 +149,13 @@ internal static class UpsertSqlBuilder
                 ?? throw new InvalidOperationException($"Upsert.DoUpdate references property '{columnProperty}' which is not a mapped column on '{table.TableName}'.");
             sb.Append(IdentifierGuard.Quote(column.Name));
             sb.Append(" = ");
-            sb.Append(BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs));
+            string rhsSql = BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs);
+            if (ExpressionHelpers.IsConstant(rhs.Body))
+            {
+                rhsSql = ConverterSql.WrapParameter(rhsSql, column.PropertyType, database.Options);
+            }
+
+            sb.Append(rhsSql);
         }
 
         AppendUpdateWhere(sb, database, table, action);

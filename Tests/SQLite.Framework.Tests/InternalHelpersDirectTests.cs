@@ -11,10 +11,8 @@ using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
 using QueryCompilerVisitor = SQLite.Framework.Internals.Visitors.QueryCompilerVisitor;
-using QueryFilterRebinder = SQLite.Framework.Internals.Helpers.QueryFilterRebinder;
-using RowParameterExpander = SQLite.Framework.Internals.Helpers.RowParameterExpander;
 using CommandHelpers = SQLite.Framework.Internals.Helpers.CommandHelpers;
-using CommonHelpers = SQLite.Framework.Internals.FTS5.FtsHelpers;
+using CommonHelpers = SQLite.Framework.Internals.Helpers.CommonHelpers;
 using ExpressionHelpers = SQLite.Framework.Internals.Helpers.ExpressionHelpers;
 using TypeHelpers = SQLite.Framework.Internals.Helpers.TypeHelpers;
 using ParameterHelpers = SQLite.Framework.Internals.Helpers.ParameterHelpers;
@@ -291,7 +289,7 @@ public class InternalHelpersDirectTests
     public void QueryFilterRebinder_ConcreteMemberNotFound_FallsThroughToBaseUpdate()
     {
         Expression<Func<IRebindFoo, bool>> lambda = x => x.Tag == "x";
-        LambdaExpression rebound = QueryFilterRebinder.Rebind(lambda, typeof(RebindEntityWithExplicitImpl));
+        LambdaExpression rebound = CommonHelpers.Rebind(lambda, typeof(RebindEntityWithExplicitImpl));
 
         Assert.NotSame(lambda, rebound);
         Assert.Equal(typeof(RebindEntityWithExplicitImpl), rebound.Parameters[0].Type);
@@ -301,7 +299,7 @@ public class InternalHelpersDirectTests
     public void RowParameterExpander_EmptyRowParameters_ReturnsLambdaUnchanged()
     {
         Expression<Func<int, int>> lambda = x => x + 1;
-        LambdaExpression result = RowParameterExpander.ExpandRowsInMethodCalls(lambda, []);
+        LambdaExpression result = CommonHelpers.ExpandRowsInMethodCalls(lambda, []);
         Assert.Same(lambda, result);
     }
 
@@ -364,7 +362,7 @@ public class InternalHelpersDirectTests
             new SQLite.Framework.Models.SQLiteCounters(),
             level: 0);
 
-        Type aliasVisitorType = typeof(SQLite.Framework.Internals.Helpers.QueryFilterRebinder).Assembly
+        Type aliasVisitorType = typeof(SQLite.Framework.Internals.Helpers.CommonHelpers).Assembly
             .GetType("SQLite.Framework.Internals.Visitors.AliasVisitor")!;
         object aliasVisitor = Activator.CreateInstance(aliasVisitorType, db, sqlVisitor)!;
 

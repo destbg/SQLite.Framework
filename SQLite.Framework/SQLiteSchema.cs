@@ -395,7 +395,7 @@ public class SQLiteSchema
         }
 
         string? defaultOverride = defaultValue == null ? null : SqlLiteralHelper.FormatLiteral(defaultValue, Database.Options);
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: defaultOverride, emitForeignKey: true)}";
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {CommonHelpers.GetCreateColumnSql(column, defaultOverride: defaultOverride, emitForeignKey: true)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -464,7 +464,7 @@ public class SQLiteSchema
         }
 
         string defaultSql = TranslateDefaultExpression(defaultExpression);
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {ColumnSql.GetCreateColumnSql(column, defaultOverride: $"({defaultSql})", emitForeignKey: true)}";
+        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {CommonHelpers.GetCreateColumnSql(column, defaultOverride: $"({defaultSql})", emitForeignKey: true)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -972,7 +972,7 @@ public class SQLiteSchema
                 continue;
             }
 
-            string columnSql = ColumnSql.GetCreateColumnSql(column, defaultOverride: null, emitForeignKey: column.DefaultSql == null);
+            string columnSql = CommonHelpers.GetCreateColumnSql(column, defaultOverride: null, emitForeignKey: column.DefaultSql == null);
             count += Database.CreateCommand($"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {columnSql}", []).ExecuteNonQuery();
             columnCount++;
         }
@@ -1066,7 +1066,7 @@ public class SQLiteSchema
 
     private string TranslateDefaultExpression(Expression<Func<object?>> defaultExpression)
     {
-        return DefaultExpressionTranslator.Translate(Database, defaultExpression, nameof(defaultExpression));
+        return CommonHelpers.Translate(Database, defaultExpression, nameof(defaultExpression));
     }
 
     private int RebuildTable(TableMapping mapping, IReadOnlyList<(string Column, string ValueSql)> sets)

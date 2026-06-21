@@ -13,7 +13,7 @@ public class QueryFilterRebinderTests
     {
         Expression<Func<SoftDeletableBook, bool>> source = b => !b.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = CommonHelpers.Rebind(source, typeof(SoftDeletableBook));
 
         Assert.Same(source, result);
     }
@@ -23,7 +23,7 @@ public class QueryFilterRebinderTests
     {
         Expression<Func<ISoftDelete, bool>> source = e => !e.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = CommonHelpers.Rebind(source, typeof(SoftDeletableBook));
 
         Assert.NotSame(source, result);
         Assert.Equal(typeof(SoftDeletableBook), result.Parameters[0].Type);
@@ -40,7 +40,7 @@ public class QueryFilterRebinderTests
     {
         Expression<Func<ISoftDelete, bool>> source = e => !e.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = CommonHelpers.Rebind(source, typeof(SoftDeletableBook));
 
         Assert.Equal(typeof(Func<SoftDeletableBook, bool>), result.Type);
     }
@@ -50,7 +50,7 @@ public class QueryFilterRebinderTests
     {
         Expression<Func<ISoftDelete, bool>> source = e => DateTime.UtcNow.Year > 2000 && !e.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = CommonHelpers.Rebind(source, typeof(SoftDeletableBook));
 
         BinaryExpression and = Assert.IsAssignableFrom<BinaryExpression>(result.Body);
         BinaryExpression yearGt = Assert.IsAssignableFrom<BinaryExpression>(and.Left);
@@ -65,7 +65,7 @@ public class QueryFilterRebinderTests
         Expression<Func<ISoftDelete, bool>> source = e =>
             new[] { 1, 2, 3 }.Any(i => i > 0) && !e.IsDeleted;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(SoftDeletableBook));
+        LambdaExpression result = CommonHelpers.Rebind(source, typeof(SoftDeletableBook));
 
         Assert.Equal(typeof(SoftDeletableBook), result.Parameters[0].Type);
         BinaryExpression and = Assert.IsAssignableFrom<BinaryExpression>(result.Body);
@@ -79,7 +79,7 @@ public class QueryFilterRebinderTests
     {
         Expression<Func<RebinderFieldBase, bool>> source = b => b.Flag;
 
-        LambdaExpression result = QueryFilterRebinder.Rebind(source, typeof(RebinderFieldDerived));
+        LambdaExpression result = CommonHelpers.Rebind(source, typeof(RebinderFieldDerived));
 
         Assert.Equal(typeof(RebinderFieldDerived), result.Parameters[0].Type);
         MemberExpression memberExpr = Assert.IsAssignableFrom<MemberExpression>(result.Body);

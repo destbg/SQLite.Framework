@@ -20,7 +20,7 @@ internal partial class QueryableVisitor
             ThrowIfSetOperations(node.Method.Name);
         }
 
-        lambda = RowParameterExpander.ExpandRowsInMethodCalls(lambda, visitor.MethodArguments.Keys);
+        lambda = CommonHelpers.ExpandRowsInMethodCalls(lambda, visitor.MethodArguments.Keys);
 
         if (PreviousSelectLambda is { Body: MemberInitExpression prevMie }
             && lambda.Body is MemberExpression outerMa
@@ -209,7 +209,7 @@ internal partial class QueryableVisitor
 
             visitor.MethodArguments[resultSelector.Parameters[1]] = result;
 
-            resultSelector = RowParameterExpander.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
+            resultSelector = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
         }
         else
@@ -219,7 +219,7 @@ internal partial class QueryableVisitor
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
             visitor.MethodArguments[resultSelector.Parameters[1]] = newTableColumns;
 
-            resultSelector = RowParameterExpander.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
+            resultSelector = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
 
             Joins.Add(new JoinInfo

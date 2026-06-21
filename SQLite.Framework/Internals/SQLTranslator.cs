@@ -81,7 +81,7 @@ internal class SQLTranslator
 
     public void Visit(Expression node)
     {
-        node = CapturedQueryableInliner.Inline(node);
+        node = CommonHelpers.Inline(node);
 
         if (!isInnerQuery)
         {

@@ -13,6 +13,7 @@ internal partial class JsonCollectionVisitor
     private string selectExpr = "\"value\"";
     private string keyColumn = "\"key\"";
     private string? groupKeySql;
+    private string? groupElementSql;
     private Type currentElementType = typeof(object);
     private string baseSource = "";
     private string baseJoinSuffix = "";
@@ -41,20 +42,9 @@ internal partial class JsonCollectionVisitor
 
         BindParameter(param, elementType, selectExpr);
 
-        Expression result = visitor.Visit(lambda.Body);
+        string sql = TranslateBody(lambda.Body);
         visitor.MethodArguments.Remove(param);
-
-        if (result is SQLiteExpression sqlExpr)
-        {
-            if (sqlExpr.Parameters != null)
-            {
-                parameters.AddRange(sqlExpr.Parameters);
-            }
-
-            return sqlExpr.ToString();
-        }
-
-        throw new NotSupportedException($"Cannot translate lambda body: {lambda.Body}");
+        return sql;
     }
 
     private string VisitLambdaAliased(Expression arg, Type elementType, string alias)
@@ -64,20 +54,26 @@ internal partial class JsonCollectionVisitor
 
         BindParameter(param, elementType, $"{alias}.\"value\"");
 
-        Expression result = visitor.Visit(lambda.Body);
+        string sql = TranslateBody(lambda.Body);
         visitor.MethodArguments.Remove(param);
+        return sql;
+    }
 
-        if (result is SQLiteExpression sqlExpr)
+    private string TranslateBody(Expression body)
+    {
+        Expression result = visitor.Visit(body);
+
+        if (result is not SQLiteExpression sqlExpr)
         {
-            if (sqlExpr.Parameters != null)
-            {
-                parameters.AddRange(sqlExpr.Parameters);
-            }
-
-            return sqlExpr.ToString();
+            throw new NotSupportedException($"Cannot translate lambda body: {body}");
         }
 
-        throw new NotSupportedException($"Cannot translate lambda body: {lambda.Body}");
+        if (sqlExpr.Parameters != null)
+        {
+            parameters.AddRange(sqlExpr.Parameters);
+        }
+
+        return sqlExpr.ToString();
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
@@ -86,9 +82,11 @@ internal partial class JsonCollectionVisitor
         if (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(IGrouping<,>) && groupKeySql != null)
         {
             Type keyType = elementType.GetGenericArguments()[0];
+            Type groupElementType = elementType.GetGenericArguments()[1];
             visitor.MethodArguments[param] = new Dictionary<string, Expression>
             {
-                [nameof(IGrouping<,>.Key)] = SQLiteExpression.Leaf(keyType, -1, groupKeySql, null)
+                [nameof(IGrouping<,>.Key)] = SQLiteExpression.Leaf(keyType, -1, groupKeySql, null),
+                [string.Empty] = SQLiteExpression.Leaf(groupElementType, -1, groupElementSql!, null)
             };
             return;
         }

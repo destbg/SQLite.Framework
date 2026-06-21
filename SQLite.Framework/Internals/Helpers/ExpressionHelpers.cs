@@ -227,9 +227,14 @@ internal static class ExpressionHelpers
         return node.Method.Invoke(target, arguments);
     }
 
-    private static object EvaluateUnary(UnaryExpression node)
+    private static object? EvaluateUnary(UnaryExpression node)
     {
-        object operand = GetConstantValue(node.Operand)!;
+        object? operand = GetConstantValue(node.Operand);
+        if (operand is null)
+        {
+            return null;
+        }
+
         bool complement = node.NodeType is ExpressionType.Not;
         return operand switch
         {

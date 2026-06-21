@@ -33,14 +33,8 @@ public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(Dynami
     /// </summary>
     public SQLiteWriteColumnsBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, TValue value)
     {
-        string valueSql = SqlLiteralHelper.FormatLiteral(value, database.Options);
-        if (database.Options.TypeConverters.TryGetValue(typeof(TValue), out ISQLiteTypeConverter? converter)
-            && converter.ParameterSqlExpression is { } paramExpr)
-        {
-            valueSql = string.Format(paramExpr, valueSql);
-        }
-
-        columns.Add((ColumnTargetResolver.Resolve(mapping, column), valueSql));
+        string valueSql = ConverterSql.WrapParameter(SqlLiteralHelper.FormatLiteral(value, database.Options), typeof(TValue), database.Options);
+        columns.Add((CommonHelpers.Resolve(mapping, column), valueSql));
         return this;
     }
 
@@ -52,12 +46,12 @@ public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(Dynami
     /// </summary>
     public SQLiteWriteColumnsBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, TValue>> value)
     {
-        if (ParameterUsageFinder.Uses(value))
+        if (CommonHelpers.Uses(value))
         {
             ReferencesRow = true;
         }
 
-        columns.Add((ColumnTargetResolver.Resolve(mapping, column), BareSqlTranslator.Translate(database, mapping, value)));
+        columns.Add((CommonHelpers.Resolve(mapping, column), BareSqlTranslator.Translate(database, mapping, value)));
         return this;
     }
 }

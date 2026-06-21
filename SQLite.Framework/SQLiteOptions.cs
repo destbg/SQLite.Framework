@@ -359,8 +359,8 @@ public sealed class SQLiteOptions
     internal void ThrowMinimumVersionNotSupported(SQLiteMinimumVersion requiredVersion, string featureName)
     {
         throw new NotSupportedException(
-            $"{featureName} requires SQLite {SQLiteVersionFormatter.Format((int)requiredVersion)} or later. " +
-            $"The configured minimum is {SQLiteVersionFormatter.Format((int)MinimumSqliteVersion)}. " +
+            $"{featureName} requires SQLite {CommonHelpers.Format((int)requiredVersion)} or later. " +
+            $"The configured minimum is {CommonHelpers.Format((int)MinimumSqliteVersion)}. " +
             $"Raise the value passed to UseMinimumSqliteVersion or remove the call that needs the newer feature."
         );
     }

@@ -187,7 +187,7 @@ internal partial class QueryableVisitor
                 {
                     LambdaExpression lambda = cte.Query;
                     bool isRecursive = lambda.Parameters.Count == 1;
-                    Expression cteBody = QueryFilterInjector.Inject(CapturedQueryableInliner.Inline(lambda.Body), visitor.Database.Options);
+                    Expression cteBody = QueryFilterInjector.Inject(CommonHelpers.Inline(lambda.Body), visitor.Database.Options);
 
                     if (isRecursive)
                     {

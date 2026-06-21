@@ -42,7 +42,7 @@ internal static class SchemaSqlBuilder
             }
             else
             {
-                sb.Append(ColumnSql.GetCreateColumnSql(col, !hasCompositePrimaryKey));
+                sb.Append(CommonHelpers.GetCreateColumnSql(col, !hasCompositePrimaryKey));
             }
         }
 
@@ -122,14 +122,14 @@ internal static class SchemaSqlBuilder
         {
             var ordered = group.OrderBy(x => x.Order).ToArray();
             string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", ordered.Select(x => IdentifierGuard.Quote(x.Column) + CollationHelper.Clause(x.Collation) + IndexDirectionHelper.Clause(x.Direction)));
+            string columnList = string.Join(", ", ordered.Select(x => IdentifierGuard.Quote(x.Column) + CommonHelpers.Clause(x.Collation) + CommonHelpers.Clause(x.Direction)));
             statements.Add((group.Key, $"CREATE {uniqueClause}INDEX {existsClause}\"{group.Key.Replace("\"", "\"\"")}\" ON \"{tableName}\" ({columnList})"));
         }
 
         foreach (IndexSpec index in mapping.Indexes)
         {
             string uniqueClause = index.Unique ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", index.Columns.Select((c, i) => c + CollationHelper.Clause(index.Collations[i]) + IndexDirectionHelper.Clause(index.Directions[i])));
+            string columnList = string.Join(", ", index.Columns.Select((c, i) => c + CommonHelpers.Clause(index.Collations[i]) + CommonHelpers.Clause(index.Directions[i])));
             string where = index.FilterSql == null ? string.Empty : $" WHERE {index.FilterSql}";
             statements.Add((index.Name, $"CREATE {uniqueClause}INDEX {existsClause}\"{index.Name.Replace("\"", "\"\"")}\" ON \"{tableName}\" ({columnList}){where}"));
         }

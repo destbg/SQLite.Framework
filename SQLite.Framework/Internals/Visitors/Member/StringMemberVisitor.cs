@@ -47,7 +47,7 @@ internal static class StringMemberVisitor
                         SQLiteExpression objExpr = obj.SQLiteExpression!;
                         SQLiteExpression needle = CharArgAsText(visitor, arguments[0]);
                         SQLiteExpression start = ClampStartIndex(visitor, arguments[1]);
-                        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, needle, start], a =>
+                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, needle, start], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["CASE WHEN INSTR(SUBSTR(", ", ", " + 1), ", ") = 0 THEN -1 ELSE INSTR(SUBSTR(", ", ", " + 1), ", ") - 1 + ", " END"],
                                 [a[0], a[2], a[1], a[0], a[2], a[1], a[2]],
@@ -71,7 +71,7 @@ internal static class StringMemberVisitor
 
                     if (arguments.Count == 1)
                     {
-                        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
+                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["CASE WHEN LENGTH(", ") = 0 THEN LENGTH(", ") ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, ", " UNION ALL SELECT pos + INSTR(rem, ", "), SUBSTR(rem, INSTR(rem, ", ") + 1) FROM find_pos WHERE INSTR(rem, ", ") > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END"],
                                 [a[1], a[0], a[0], a[1], a[1], a[1]],
@@ -81,7 +81,7 @@ internal static class StringMemberVisitor
                     if (arguments.Count == 2 && node.Arguments[1].Type == typeof(int))
                     {
                         SQLiteExpression start = arguments[1].SQLiteExpression!;
-                        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, start], a =>
+                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, start], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["CASE WHEN LENGTH(", ") = 0 THEN LENGTH(SUBSTR(", ", 1, ", " + 1)) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, SUBSTR(", ", 1, ", " + 1) UNION ALL SELECT pos + INSTR(rem, ", "), SUBSTR(rem, INSTR(rem, ", ") + 1) FROM find_pos WHERE INSTR(rem, ", ") > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END"],
                                 [a[1], a[0], a[2], a[0], a[2], a[1], a[1], a[1]],
@@ -97,7 +97,7 @@ internal static class StringMemberVisitor
                     SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
                     SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
-                    return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
+                    return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                         SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                             ["SUBSTR(", ", 1, ", ") || ", " || SUBSTR(", ", ", " + 1)"],
                             [a[0], a[1], a[2], a[0], a[1]],
@@ -110,7 +110,7 @@ internal static class StringMemberVisitor
                     if (node.Arguments.Count == 2)
                     {
                         SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
-                        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
+                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["SUBSTR(", ", 1, ", ") || SUBSTR(", ", ", " + ", " + 1)"],
                                 [a[0], a[1], a[0], a[1], a[2]],
@@ -161,7 +161,7 @@ internal static class StringMemberVisitor
                 {
                     SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
-                    return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
+                    return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
                         SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                             ["(CASE WHEN ", " IS NULL AND ", " IS NULL THEN 0 WHEN ", " IS NULL THEN -1 WHEN ", " IS NULL THEN 1 WHEN ", " = ", " THEN 0 WHEN ", " < ", " THEN -1 ELSE 1 END)"],
                             [a[0], a[1], a[0], a[1], a[0], a[1], a[0], a[1]],
@@ -179,7 +179,7 @@ internal static class StringMemberVisitor
                     };
 
                     SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!);
-                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", obj.SQLiteExpression!, " = ", arguments[0].SQLiteExpression!, $"{collation})", parameters);
+                    return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", obj.SQLiteExpression!, " IS ", arguments[0].SQLiteExpression!, $"{collation})", parameters);
                 }
                 case nameof(string.Substring):
                 {
@@ -217,7 +217,7 @@ internal static class StringMemberVisitor
                             Value = " "
                         };
 
-                        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
+                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', " + spaceParam.Name + "), 1, ", " - LENGTH(", ")) || ", ") END)"],
                                 [a[0], a[1], a[0], a[1], a[0], a[1], a[0], a[0]],
@@ -227,7 +227,7 @@ internal static class StringMemberVisitor
                     {
                         SQLiteExpression arg1 = CharArgAsText(visitor, arguments[1]);
 
-                        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
+                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', ", "), 1, ", " - LENGTH(", ")) || ", ") END)"],
                                 [a[0], a[1], a[0], a[1], a[0], a[2], a[1], a[0], a[0]],
@@ -246,7 +246,7 @@ internal static class StringMemberVisitor
                             Value = " "
                         };
 
-                        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
+                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (", " || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', " + spaceParam.Name + "), 1, ", " - LENGTH(", ")))) END)"],
                                 [a[0], a[1], a[0], a[0], a[1], a[0], a[1], a[0]],
@@ -256,7 +256,7 @@ internal static class StringMemberVisitor
                     {
                         SQLiteExpression arg1 = CharArgAsText(visitor, arguments[1]);
 
-                        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
+                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (", " || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', ", "), 1, ", " - LENGTH(", ")))) END)"],
                                 [a[0], a[1], a[0], a[0], a[1], a[0], a[2], a[1], a[0]],
@@ -524,10 +524,10 @@ internal static class StringMemberVisitor
         {
             nameof(string.Contains) => SQLiteExpression.Binary(method.ReturnType, id,
                 "INSTR(", obj, ", ", valueExpr, ") > 0", ParameterHelpers.CombineParameters(obj, valueExpr)),
-            nameof(string.StartsWith) => SubSelectBuilder.EvaluateOnce(visitor.Counters, method.ReturnType, [valueExpr], v =>
+            nameof(string.StartsWith) => CommonHelpers.EvaluateOnce(visitor.Counters, method.ReturnType, [valueExpr], v =>
                 SQLiteExpression.Multi(method.ReturnType, visitor.Counters.NextIdentifier(),
                     ["SUBSTR(", ", 1, LENGTH(", ")) = ", ""], [obj, v[0], v[0]], obj.Parameters)),
-            _ => SubSelectBuilder.EvaluateOnce(visitor.Counters, method.ReturnType, [valueExpr], v =>
+            _ => CommonHelpers.EvaluateOnce(visitor.Counters, method.ReturnType, [valueExpr], v =>
                 SQLiteExpression.Multi(method.ReturnType, visitor.Counters.NextIdentifier(),
                     ["(LENGTH(", ") = 0 OR SUBSTR(", ", -LENGTH(", ")) = ", ")"], [v[0], obj, v[0], v[0]], obj.Parameters))
         };
@@ -615,7 +615,7 @@ internal static class StringMemberVisitor
 
     private static SQLiteExpression BuildCompare(SQLVisitor visitor, Type returnType, SQLiteExpression a, SQLiteExpression b, bool ignoreCase)
     {
-        return SubSelectBuilder.EvaluateOnce(visitor.Counters, returnType, [a, b], v =>
+        return CommonHelpers.EvaluateOnce(visitor.Counters, returnType, [a, b], v =>
         {
             SQLiteExpression va = v[0];
             SQLiteExpression vb = v[1];

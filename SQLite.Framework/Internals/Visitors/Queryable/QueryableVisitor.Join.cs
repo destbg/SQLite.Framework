@@ -27,7 +27,7 @@ internal partial class QueryableVisitor
         visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
         visitor.MethodArguments[resultSelector.Parameters[1]] = newTableColumns;
 
-        resultSelector = RowParameterExpander.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
+        resultSelector = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
 
         bool isProjection = node.Method.Name != nameof(System.Linq.Queryable.GroupJoin)
             && resultSelector.Body is NewExpression or MemberInitExpression;

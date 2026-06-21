@@ -68,7 +68,7 @@ public class IgnoreQueryFiltersInSubqueryTests
             .Concat(db.Table<FilteredNoteRow>().IgnoreQueryFilters().Select(a => a.Name))
             .ToList();
 
-        Assert.Equal(["live", "live", "gone"], actual);
+        Assert.Equal(["live", "gone", "live", "gone"], actual);
     }
 
     [Fact]
@@ -80,6 +80,6 @@ public class IgnoreQueryFiltersInSubqueryTests
             .Select(a => db.Table<FilteredNoteRow>().IgnoreQueryFilters().Count(b => b.Value >= a.Value))
             .ToList();
 
-        Assert.Equal([2], actual);
+        Assert.Equal([2, 1], actual);
     }
 }

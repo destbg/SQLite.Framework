@@ -377,7 +377,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
     public SQLiteEntityTypeBuilder<T> Default<TValue>(Expression<Func<T, TValue>> column, TValue value)
     {
         ArgumentNullException.ThrowIfNull(column);
-        ResolveTargetColumn(column).DefaultSql = SqlLiteralHelper.FormatLiteral(value, database.Options);
+        ResolveTargetColumn(column).DefaultSql = ConverterSql.WrapDefault(SqlLiteralHelper.FormatLiteral(value, database.Options), typeof(TValue), database.Options);
         return this;
     }
 
@@ -395,7 +395,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_31, "Column DEFAULT with computed expression");
 #endif
-        ResolveTargetColumn(column).DefaultSql = "(" + DefaultExpressionTranslator.Translate(database, defaultExpression, nameof(defaultExpression)) + ")";
+        ResolveTargetColumn(column).DefaultSql = "(" + CommonHelpers.Translate(database, defaultExpression, nameof(defaultExpression)) + ")";
         return this;
     }
 

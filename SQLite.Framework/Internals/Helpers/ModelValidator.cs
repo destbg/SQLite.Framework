@@ -78,20 +78,64 @@ internal static class ModelValidator
 
     private static void ValidateIndexes(SQLiteDatabase database, string table, TableMapping mapping, List<string> issues)
     {
-        HashSet<string> dbIndexes = database.Pragmas.IndexList(table).Select(i => i.Name).ToHashSet();
+        Dictionary<string, (IReadOnlyList<string> Columns, bool Unique)> expected = BuildExpectedIndexes(mapping, table);
+        Dictionary<string, PragmaIndexList> dbIndexes = database.Pragmas.IndexList(table).ToDictionary(i => i.Name);
 
-        IEnumerable<string> expected = mapping.Columns
-            .SelectMany(col => col.Indices.Select(idx => idx.Name ?? $"idx_{table}_{col.Name}"))
-            .Concat(mapping.Indexes.Select(idx => idx.Name))
-            .Distinct();
-
-        foreach (string name in expected)
+        foreach ((string name, (IReadOnlyList<string> columns, bool unique)) in expected)
         {
-            if (!dbIndexes.Contains(name))
+            if (!dbIndexes.TryGetValue(name, out PragmaIndexList? dbIndex))
             {
                 issues.Add($"Index '{name}' on table '{table}' is missing in the database.");
+                continue;
+            }
+
+            if (dbIndex.IsUnique != unique)
+            {
+                issues.Add($"Index '{name}' on table '{table}' uniqueness does not match the model.");
+            }
+
+            IReadOnlyList<string> dbColumns = ReadIndexColumns(database, name);
+            if (!dbColumns.SequenceEqual(columns))
+            {
+                issues.Add($"Index '{name}' on table '{table}' columns do not match the model.");
             }
         }
+    }
+
+    private static Dictionary<string, (IReadOnlyList<string> Columns, bool Unique)> BuildExpectedIndexes(TableMapping mapping, string table)
+    {
+        Dictionary<string, (IReadOnlyList<string>, bool)> expected = new();
+
+        IEnumerable<IGrouping<string, (string Name, string Column, int Order, bool Unique)>> groups = mapping.Columns
+            .SelectMany(col => col.Indices.Select(idx => (
+                Name: idx.Name ?? $"idx_{table}_{col.Name}",
+                Column: col.Name,
+                idx.Order,
+                Unique: idx.IsUnique)))
+            .GroupBy(x => x.Name);
+
+        foreach (IGrouping<string, (string Name, string Column, int Order, bool Unique)> group in groups)
+        {
+            IReadOnlyList<string> columns = group.OrderBy(x => x.Order).Select(x => x.Column).ToList();
+            expected[group.Key] = (columns, group.Any(x => x.Unique));
+        }
+
+        foreach (IndexSpec index in mapping.Indexes)
+        {
+            expected[index.Name] = (index.Columns.ToList(), index.Unique);
+        }
+
+        return expected;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in dictionary rows keeps their public members reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Querying built-in dictionary rows keeps their public members reachable.")]
+    private static List<string> ReadIndexColumns(SQLiteDatabase database, string indexName)
+    {
+        return database.Query<Dictionary<string, object?>>($"PRAGMA index_info('{indexName.Replace("'", "''")}')")
+            .OrderBy(row => Convert.ToInt64(row["seqno"], CultureInfo.InvariantCulture))
+            .Select(row => (string)row["name"]!)
+            .ToList();
     }
 
     private static void ValidateForeignKeys(SQLiteDatabase database, string table, TableMapping mapping, List<string> issues)

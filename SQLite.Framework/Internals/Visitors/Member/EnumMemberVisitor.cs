@@ -125,7 +125,7 @@ internal static class EnumMemberVisitor
                     string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
                     string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
 
-                    SQLiteExpression nameCase = SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr], v =>
+                    SQLiteExpression nameCase = CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr], v =>
                         SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], elseClose, [.. nameParams]));
 
                     return isNullableEnum
@@ -184,7 +184,7 @@ internal static class EnumMemberVisitor
 
             strippedExpr = SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "TRIM(", strippedExpr, $", {Constants.WhitespaceChars})", strippedExpr.Parameters);
 
-            return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [strippedExpr], v =>
+            return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [strippedExpr], v =>
             {
                 string vsql = v[0].ToString();
                 string norm = ignoreCase
@@ -266,7 +266,7 @@ internal static class EnumMemberVisitor
         }
 
         string elseOpen = caseSb.ToString() + " ELSE ";
-        return SubSelectBuilder.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr], v =>
+        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr], v =>
             SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], " END)", [.. caseParams]));
     }
 

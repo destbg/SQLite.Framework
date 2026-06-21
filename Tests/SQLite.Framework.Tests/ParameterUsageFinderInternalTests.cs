@@ -11,7 +11,7 @@ public class ParameterUsageFinderInternalTests
     {
         Expression<Func<Book, bool>> expr = b => new[] { 1, 2 }.Any(y => y == b.Id);
 
-        Assert.True(ParameterUsageFinder.Uses(expr));
+        Assert.True(CommonHelpers.Uses(expr));
     }
 
     [Fact]
@@ -19,6 +19,6 @@ public class ParameterUsageFinderInternalTests
     {
         Expression<Func<Book, bool>> expr = b => new[] { 1, 2 }.Any(y => y == 1);
 
-        Assert.False(ParameterUsageFinder.Uses(expr));
+        Assert.False(CommonHelpers.Uses(expr));
     }
 }

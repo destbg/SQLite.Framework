@@ -1319,7 +1319,13 @@ public static class SelectSignatureWriter
                     format.Append('{').Append(holes.Count);
                     if (hole.AlignmentClause != null)
                     {
-                        format.Append(',').Append(hole.AlignmentClause.Value.ToString());
+                        Optional<object?> alignment = ctx.Model.GetConstantValue(hole.AlignmentClause.Value);
+                        if (alignment is not { HasValue: true, Value: { } alignmentValue })
+                        {
+                            return false;
+                        }
+
+                        format.Append(',').Append(Convert.ToInt32(alignmentValue, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture));
                     }
                     if (hole.FormatClause != null)
                     {

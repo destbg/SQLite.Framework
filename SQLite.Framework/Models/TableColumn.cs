@@ -44,7 +44,7 @@ public class TableColumn
 
         if (TryReadDefaultValue(property, out object? defaultValue))
         {
-            DefaultSql = SqlLiteralHelper.FormatLiteral(defaultValue, options);
+            DefaultSql = ConverterSql.WrapDefault(SqlLiteralHelper.FormatLiteral(defaultValue, options), type, options);
         }
 
         if (ReferencesTableAttribute != null && ForeignKeyAttribute != null)

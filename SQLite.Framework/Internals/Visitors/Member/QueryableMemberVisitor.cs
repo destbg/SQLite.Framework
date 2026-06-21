@@ -103,38 +103,53 @@ internal static class QueryableMemberVisitor
     public static Expression HandleGroupingMethod(SQLVisitor visitor, MethodCallExpression node)
     {
         Expression receiver = node.Arguments[0];
-        LambdaExpression? filterLambda = TryPeelWhereFilter(ref receiver);
+        LambdaExpression? whereFilter = TryPeelWhereFilter(ref receiver);
 
-        bool countWithPredicate = filterLambda == null
-            && node.Method.Name is nameof(Enumerable.Count) or nameof(Enumerable.LongCount)
-            && node.Arguments.Count == 2;
-        if (countWithPredicate)
+        bool isCount = node.Method.Name is nameof(Enumerable.Count) or nameof(Enumerable.LongCount);
+        LambdaExpression? countPredicate = isCount && node.Arguments.Count == 2
+            ? (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1])
+            : null;
+
+        List<LambdaExpression> filterLambdas = [];
+        if (whereFilter != null)
         {
-            filterLambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+            filterLambdas.Add(whereFilter);
+        }
+
+        if (countPredicate != null)
+        {
+            filterLambdas.Add(countPredicate);
         }
 
         Dictionary<string, Expression>? newTableColumns = null;
         SQLiteExpression? sqlExpression = null;
 
-        if (node.Arguments.Count == 2 || filterLambda != null)
+        if (node.Arguments.Count == 2 || filterLambdas.Count > 0)
         {
             newTableColumns = BuildGroupingColumnMap(visitor, receiver);
         }
 
         SQLiteExpression? filterExpression = null;
-        if (filterLambda != null)
+        foreach (LambdaExpression filter in filterLambdas)
         {
-            visitor.MethodArguments[filterLambda.Parameters[0]] = newTableColumns!;
-            Expression resolvedFilter = visitor.Visit(filterLambda.Body);
+            visitor.MethodArguments[filter.Parameters[0]] = newTableColumns!;
+            Expression resolvedFilter = visitor.Visit(filter.Body);
             if (resolvedFilter is not SQLiteExpression sqlFilter)
             {
                 throw new NotSupportedException("Aggregate FILTER predicate could not be resolved.");
             }
-            filterExpression = sqlFilter;
-#if SQLITE_FRAMEWORK_VERSION_AWARE
-            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_30, "FILTER (WHERE ...) on aggregates");
-#endif
+
+            filterExpression = filterExpression == null
+                ? sqlFilter
+                : SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", filterExpression, " AND ", sqlFilter, ")", ParameterHelpers.CombineParameters(filterExpression, sqlFilter));
         }
+
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        if (filterExpression != null)
+        {
+            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_30, "FILTER (WHERE ...) on aggregates");
+        }
+#endif
 
         switch (node.Method.Name)
         {
@@ -232,7 +247,13 @@ internal static class QueryableMemberVisitor
     {
         if (arguments.Any(f => f.SQLiteExpression == null))
         {
-            expression = Expression.Call(node.Method, arguments.Select(f => f.Expression));
+            ParameterInfo[] parameters = node.Method.GetParameters();
+            IEnumerable<Expression> callArguments = arguments.Select((f, i) =>
+                f.Expression.Type != parameters[i].ParameterType
+                    ? Expression.Convert(f.Expression, parameters[i].ParameterType)
+                    : f.Expression);
+
+            expression = Expression.Call(node.Method, callArguments);
             return true;
         }
 

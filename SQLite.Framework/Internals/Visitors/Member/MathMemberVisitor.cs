@@ -60,7 +60,7 @@ internal static class MathMemberVisitor
             nameof(Math.Sinh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "SINH(", a0, ")", parameters),
             nameof(Math.Cosh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "COSH(", a0, ")", parameters),
             nameof(Math.Tanh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TANH(", a0, ")", parameters),
-            nameof(Math.Cbrt) => SubSelectBuilder.EvaluateOnce(visitor.Counters, returnType, [a0], v =>
+            nameof(Math.Cbrt) => CommonHelpers.EvaluateOnce(visitor.Counters, returnType, [a0], v =>
                 SQLiteExpression.Trinary(returnType, visitor.Counters.NextIdentifier(), "(CASE WHEN ", v[0], " >= 0 THEN POWER(", v[0], ", 1.0/3.0) ELSE -POWER(-", v[0], ", 1.0/3.0) END)", null)),
             nameof(Math.Log2) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOG2(", a0, ")", parameters),
             nameof(Math.Asinh) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ASINH(", a0, ")", parameters),

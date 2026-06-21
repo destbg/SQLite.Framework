@@ -27,7 +27,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
     /// </summary>
     public SQLiteMigrationBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, TValue value)
     {
-        sets.Add((ColumnTargetResolver.Resolve(mapping, column), SqlLiteralHelper.FormatLiteral(value, database.Options)));
+        sets.Add((CommonHelpers.Resolve(mapping, column), ConverterSql.WrapParameter(SqlLiteralHelper.FormatLiteral(value, database.Options), typeof(TValue), database.Options)));
         return this;
     }
 
@@ -39,7 +39,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
     /// </summary>
     public SQLiteMigrationBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, TValue>> value)
     {
-        sets.Add((ColumnTargetResolver.Resolve(mapping, column), BareSqlTranslator.Translate(database, mapping, value)));
+        sets.Add((CommonHelpers.Resolve(mapping, column), BareSqlTranslator.Translate(database, mapping, value)));
         return this;
     }
 }

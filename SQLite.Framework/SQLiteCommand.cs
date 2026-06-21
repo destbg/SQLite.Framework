@@ -126,6 +126,7 @@ public class SQLiteCommand
                     break;
                 }
 
+                bool writesRows = raw.sqlite3_stmt_readonly(statement) == 0;
                 try
                 {
                     BindParameters(statement, ignoreMissing: !(first && tail.IsEmpty));
@@ -146,7 +147,11 @@ public class SQLiteCommand
                     raw.sqlite3_finalize(statement);
                 }
 
-                changes += raw.sqlite3_changes(handle);
+                if (writesRows)
+                {
+                    changes += raw.sqlite3_changes(handle);
+                }
+
                 first = false;
                 remaining = tail;
 

@@ -307,8 +307,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                     Handle = null;
                     IsConnecting = false;
                     throw new NotSupportedException(
-                        $"The loaded SQLite version {SQLiteVersionFormatter.Format(loadedVersion)} " +
-                        $"is below the configured minimum {SQLiteVersionFormatter.Format((int)Options.MinimumSqliteVersion)}. " +
+                        $"The loaded SQLite version {CommonHelpers.Format(loadedVersion)} " +
+                        $"is below the configured minimum {CommonHelpers.Format((int)Options.MinimumSqliteVersion)}. " +
                         $"Use the SQLite.Framework.Bundled package to ship a known SQLite version, " +
                         $"or lower the value passed to UseMinimumSqliteVersion (and retest your queries)."
                     );
