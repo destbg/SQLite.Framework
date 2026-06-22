@@ -151,6 +151,7 @@ internal static class ModelValidator
     {
         return database.Query<Dictionary<string, object?>>($"PRAGMA index_info('{indexName.Replace("'", "''")}')")
             .OrderBy(row => Convert.ToInt64(row["seqno"], CultureInfo.InvariantCulture))
+            .Where(row => row["name"] != null)
             .Select(row => (string)row["name"]!)
             .ToList();
     }

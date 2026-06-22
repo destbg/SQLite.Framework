@@ -1353,7 +1353,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             }
         }
 
-        string sql = $"INSERT INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
+        string sql = names.Count == 0
+            ? $"INSERT INTO \"{Table.TableName}\" DEFAULT VALUES"
+            : $"INSERT INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
 
         if (autoIncrement == null)
         {
@@ -1402,6 +1404,15 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             }
 
             setClauses.Add($"{IdentifierGuard.Quote(column)} = {valueSql}");
+        }
+
+        if (setClauses.Count == 0)
+        {
+            foreach (TableColumn primaryColumn in primaryColumns)
+            {
+                string quoted = IdentifierGuard.Quote(primaryColumn.Name);
+                setClauses.Add($"{quoted} = {quoted}");
+            }
         }
 
         List<string> primaryKeyClauses = [];
@@ -1498,7 +1509,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     private static bool IsAutoIncrementUnset(object? value)
     {
-        return Convert.ToInt64(value, CultureInfo.InvariantCulture) == 0L;
+        return value is ulong unsignedValue
+            ? unsignedValue == 0UL
+            : Convert.ToInt64(value, CultureInfo.InvariantCulture) == 0L;
     }
 
     private static object ConvertRowIdToType(long rowId, Type type)
@@ -1509,7 +1522,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             : type == typeof(byte) ? checked((byte)rowId)
             : type == typeof(sbyte) ? checked((sbyte)rowId)
             : type == typeof(uint) ? checked((uint)rowId)
-            : type == typeof(ulong) ? checked((ulong)rowId)
+            : type == typeof(ulong) ? unchecked((ulong)rowId)
             : Convert.ChangeType(rowId, type, CultureInfo.InvariantCulture);
     }
 }

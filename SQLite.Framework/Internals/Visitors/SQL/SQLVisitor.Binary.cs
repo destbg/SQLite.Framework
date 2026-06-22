@@ -168,6 +168,13 @@ internal partial class SQLVisitor
             return SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "", left, nullOp, left.Parameters);
         }
 
+        if (equalityOp
+            && ((resolvedLeft.IsConstant && IsNaNConstant(resolvedLeft.Constant))
+                || (resolvedRight.IsConstant && IsNaNConstant(resolvedRight.Constant))))
+        {
+            return SQLiteExpression.Leaf(typeof(bool), Counters.NextIdentifier(), node.NodeType == ExpressionType.Equal ? "0" : "1");
+        }
+
         if (node.NodeType is ExpressionType.Modulo)
         {
             Type modType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
@@ -510,6 +517,11 @@ internal partial class SQLVisitor
                 new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
             _ => false
         };
+    }
+
+    private static bool IsNaNConstant(object? value)
+    {
+        return value is double d && double.IsNaN(d) || value is float f && float.IsNaN(f);
     }
 
     private static bool IsNullableColumn(Expression operand)

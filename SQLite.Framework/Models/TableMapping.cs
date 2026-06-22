@@ -150,6 +150,25 @@ public class TableMapping
         compositeForeignKeys.Add(info);
     }
 
+    internal void RenameForeignKeyColumnSource(string previousName, string newName)
+    {
+        for (int i = 0; i < compositeForeignKeys.Count; i++)
+        {
+            if (compositeForeignKeys[i].Columns.Contains(previousName))
+            {
+                compositeForeignKeys[i] = RebuildWithRenamedSource(compositeForeignKeys[i], previousName, newName);
+            }
+        }
+
+        foreach (TableColumn column in columns)
+        {
+            if (column.ForeignKey is { } foreignKey && foreignKey.Columns.Contains(previousName))
+            {
+                column.ForeignKey = RebuildWithRenamedSource(foreignKey, previousName, newName);
+            }
+        }
+    }
+
     internal void RemoveColumn(TableColumn column)
     {
         columns.Remove(column);
@@ -255,5 +274,11 @@ public class TableMapping
             onDelete: SQLiteForeignKeyAction.NoAction,
             onUpdate: SQLiteForeignKeyAction.NoAction,
             deferred: false);
+    }
+
+    private static ForeignKeyInfo RebuildWithRenamedSource(ForeignKeyInfo foreignKey, string previousName, string newName)
+    {
+        string[] renamed = foreignKey.Columns.Select(c => c == previousName ? newName : c).ToArray();
+        return new ForeignKeyInfo(renamed, foreignKey.TargetTable, foreignKey.TargetColumns, foreignKey.OnDelete, foreignKey.OnUpdate, foreignKey.Deferred);
     }
 }

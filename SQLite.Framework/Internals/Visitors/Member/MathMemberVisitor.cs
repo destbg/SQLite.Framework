@@ -34,17 +34,17 @@ internal static class MathMemberVisitor
         {
             nameof(Math.Min) => returnType == typeof(ulong)
                 ? BuildUnsignedMinMax(visitor, isMax: false, returnType, a0, a1, parameters)
-                : SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MIN(", a0, ", ", a1, ")", parameters),
+                : SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MIN(", CastTextDecimal(visitor, a0), ", ", CastTextDecimal(visitor, a1), ")", parameters),
             nameof(Math.Max) => returnType == typeof(ulong)
                 ? BuildUnsignedMinMax(visitor, isMax: true, returnType, a0, a1, parameters)
-                : SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MAX(", a0, ", ", a1, ")", parameters),
+                : SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "MAX(", CastTextDecimal(visitor, a0), ", ", CastTextDecimal(visitor, a1), ")", parameters),
             nameof(Math.Abs) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "ABS(", a0, ")", parameters),
             nameof(Math.Round) => HandleRound(visitor, node, arguments, parameters),
             nameof(Math.Ceiling) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "CEIL(", a0, ")", parameters),
             nameof(Math.Floor) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "FLOOR(", a0, ")", parameters),
             nameof(Math.Truncate) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "TRUNC(", a0, ")", parameters),
             nameof(Math.Pow) => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "POWER(", a0, ", ", a1, ")", parameters),
-            nameof(Math.Sign) => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "(CASE WHEN ", a0, " > 0 THEN 1 WHEN ", a0, " < 0 THEN -1 ELSE 0 END)", parameters),
+            nameof(Math.Sign) => BuildSign(visitor, returnType, a0, parameters),
             nameof(Math.Sqrt) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "SQRT(", a0, ")", parameters),
             nameof(Math.Exp) => SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "EXP(", a0, ")", parameters),
             nameof(Math.Log) when arguments.Count == 2 => SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "LOG(", a1, ", ", a0, ")", parameters),
@@ -71,6 +71,21 @@ internal static class MathMemberVisitor
         };
     }
 
+    private static SQLiteExpression BuildSign(SQLVisitor visitor, Type returnType, SQLiteExpression a0, SQLiteParameter[]? parameters)
+    {
+        SQLiteExpression operand = CastTextDecimal(visitor, a0);
+
+        return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(),
+            "(CASE WHEN ", operand, " > 0 THEN 1 WHEN ", operand, " < 0 THEN -1 ELSE 0 END)", parameters);
+    }
+
+    private static SQLiteExpression CastTextDecimal(SQLVisitor visitor, SQLiteExpression expr)
+    {
+        return expr.Type == typeof(decimal) && visitor.Database.Options.DecimalStorage == DecimalStorageMode.Text
+            ? visitor.InternDecimalCast(expr)
+            : expr;
+    }
+
     private static Expression BuildClamp(SQLVisitor visitor, MethodCallExpression node, Type returnType, List<ResolvedModel> arguments, SQLiteExpression a0, SQLiteExpression a1, SQLiteExpression a2, SQLiteParameter[]? parameters)
     {
         if (arguments[1].IsConstant && arguments[2].IsConstant
@@ -87,7 +102,7 @@ internal static class MathMemberVisitor
 
         return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
             ["MAX(", ", MIN(", ", ", "))"],
-            [a1, a0, a2], parameters);
+            [CastTextDecimal(visitor, a1), CastTextDecimal(visitor, a0), CastTextDecimal(visitor, a2)], parameters);
     }
 
     private static SQLiteExpression BuildUnsignedMinMax(SQLVisitor visitor, bool isMax, Type returnType, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)

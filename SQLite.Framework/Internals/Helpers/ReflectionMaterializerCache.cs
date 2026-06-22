@@ -20,6 +20,7 @@ internal static class ReflectionMaterializerCache
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface. Users keep their entities reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Value types always have a default constructor.")]
     private static MaterializerPlan Build([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type, SQLiteOptions options)
     {
         PropertyInfo[] all = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
@@ -48,6 +49,9 @@ internal static class ReflectionMaterializerCache
                 EnumUnderlyingType = isEnum ? Enum.GetUnderlyingType(targetType) : null,
                 Setter = CreateSetter(prop),
                 Assigner = CreateAssigner(prop, propType, targetType, options),
+                BoxedDefault = propType.IsValueType && Nullable.GetUnderlyingType(propType) == null
+                    ? Activator.CreateInstance(propType)
+                    : null,
             });
         }
 

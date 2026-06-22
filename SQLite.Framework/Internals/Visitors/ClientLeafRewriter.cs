@@ -33,6 +33,12 @@ internal sealed class ClientLeafRewriter : ExpressionVisitor
             return leaf;
         }
 
+        if (node is BinaryExpression { NodeType: ExpressionType.Equal or ExpressionType.NotEqual } binary
+            && owner.TryResolveEntityNullCheck(binary) is { } entityNullCheck)
+        {
+            return entityNullCheck;
+        }
+
         return base.Visit(node);
     }
 }

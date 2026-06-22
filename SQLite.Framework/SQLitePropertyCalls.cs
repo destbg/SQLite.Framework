@@ -51,6 +51,16 @@ public class SQLitePropertyCalls<T>
         visitor.MethodArguments[setter.Parameters[0]] = visitor.TableColumns;
         SQLiteExpression expr = (SQLiteExpression)visitor.Visit(setter.Body);
 
+        if (ExpressionHelpers.IsConstant(setter.Body))
+        {
+            string sql = expr.ToString();
+            string wrapped = ConverterSql.WrapParameter(sql, ((MemberExpression)propertyGetter.Body).Type, visitor.Database.Options);
+            if (wrapped != sql)
+            {
+                expr = SQLiteExpression.Leaf(expr.Type, expr.Identifier, wrapped, expr.Parameters);
+            }
+        }
+
         SetProperties.Add((propertyName, expr));
 
         return this;

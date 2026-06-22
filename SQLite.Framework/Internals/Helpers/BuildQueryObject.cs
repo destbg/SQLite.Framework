@@ -432,10 +432,9 @@ internal static class BuildQueryObject
             object? val = r.GetValue(columnIndex, r.GetColumnType(columnIndex), slot.PropertyType);
             if (val == null)
             {
-                if (!slot.PropertyType.IsValueType || Nullable.GetUnderlyingType(slot.PropertyType) != null)
-                {
-                    slot.Setter(instance, null);
-                }
+                slot.Setter(instance, !slot.PropertyType.IsValueType || Nullable.GetUnderlyingType(slot.PropertyType) != null
+                    ? null
+                    : slot.BoxedDefault);
 
                 return false;
             }

@@ -42,6 +42,15 @@ internal partial class SQLVisitor
         return new ClientLeafRewriter(this).Visit(node);
     }
 
+    public SQLiteExpression? TryResolveEntityNullCheck(BinaryExpression node)
+    {
+        bool isEntityNullCheck =
+            (IsNullConstant(node.Right) && !TypeHelpers.IsSimple(node.Left.Type, Database.Options))
+            || (IsNullConstant(node.Left) && !TypeHelpers.IsSimple(node.Right.Type, Database.Options));
+
+        return isEntityNullCheck ? Visit(node) as SQLiteExpression : null;
+    }
+
     private Expression BuildClientEvalFallback(Expression node)
     {
         if (node is MethodCallExpression methodCall)
@@ -66,6 +75,11 @@ internal partial class SQLVisitor
 
         MemberExpression memberExpression = (MemberExpression)node;
         return Expression.MakeMemberAccess(ToClientExpression(memberExpression.Expression!), memberExpression.Member);
+    }
+
+    private static bool IsNullConstant(Expression node)
+    {
+        return ExpressionHelpers.IsConstant(node) && ExpressionHelpers.GetConstantValue(node) == null;
     }
 
     private static bool IsSingleLeafColumn(Dictionary<string, Expression> columns, string path)

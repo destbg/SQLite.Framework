@@ -51,7 +51,13 @@ public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(Dynami
             ReferencesRow = true;
         }
 
-        columns.Add((CommonHelpers.Resolve(mapping, column), BareSqlTranslator.Translate(database, mapping, value)));
+        string valueSql = BareSqlTranslator.Translate(database, mapping, value);
+        if (ExpressionHelpers.IsConstant(value.Body))
+        {
+            valueSql = ConverterSql.WrapParameter(valueSql, typeof(TValue), database.Options);
+        }
+
+        columns.Add((CommonHelpers.Resolve(mapping, column), valueSql));
         return this;
     }
 }

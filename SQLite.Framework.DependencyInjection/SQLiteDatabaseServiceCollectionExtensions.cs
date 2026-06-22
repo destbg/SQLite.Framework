@@ -96,11 +96,12 @@ public static class SQLiteDatabaseServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configure);
 
-        services.Add(new ServiceDescriptor(typeof(SQLiteOptions), sp => BuildOptions(sp, configure), lifetime));
+        services.Add(new ServiceDescriptor(typeof(SQLiteOptions), typeof(TDatabase), (sp, _) => BuildOptions(sp, configure), lifetime));
         services.Add(new ServiceDescriptor(
             typeof(ISQLiteDatabaseFactory<TDatabase>),
-            sp => new SQLiteDatabaseFactory<TDatabase>(sp, BuildOptions(sp, configure)),
+            sp => new SQLiteDatabaseFactory<TDatabase>(sp, sp.GetRequiredKeyedService<SQLiteOptions>(typeof(TDatabase))),
             lifetime));
+        services.Add(new ServiceDescriptor(typeof(SQLiteOptions), sp => sp.GetRequiredKeyedService<SQLiteOptions>(typeof(TDatabase)), lifetime));
 
         return services;
     }

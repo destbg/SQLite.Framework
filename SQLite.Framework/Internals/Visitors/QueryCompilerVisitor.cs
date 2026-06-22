@@ -86,9 +86,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             switch (node.NodeType)
             {
                 case ExpressionType.Equal:
-                    return Equals(leftValue, rightValue);
+                    return !IsNaN(leftValue) && !IsNaN(rightValue) && Equals(leftValue, rightValue);
                 case ExpressionType.NotEqual:
-                    return !Equals(leftValue, rightValue);
+                    return IsNaN(leftValue) || IsNaN(rightValue) || !Equals(leftValue, rightValue);
                 case ExpressionType.Coalesce:
                     return leftValue ?? rightValue;
                 case ExpressionType.AndAlso:
@@ -889,7 +889,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         };
     }
 
-    private static bool IsNaN(object value)
+    private static bool IsNaN(object? value)
     {
         return value is double d ? double.IsNaN(d) : value is float f && float.IsNaN(f);
     }

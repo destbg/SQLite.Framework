@@ -107,7 +107,10 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
         ArgumentNullException.ThrowIfNull(column);
         ArgumentException.ThrowIfNullOrEmpty(name);
         IdentifierGuard.EnsureNoQuote(name, "Column");
-        ResolveTargetColumn(column).Name = name;
+        TableColumn target = ResolveTargetColumn(column);
+        string previousName = target.Name;
+        target.Name = name;
+        mapping.RenameForeignKeyColumnSource(previousName, name);
         return this;
     }
 

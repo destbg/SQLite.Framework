@@ -12,9 +12,11 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `decimal` is not exact: `Real` storage is a 64-bit float, `Text` storage casts to float for compare and order.
 - On `Real` decimal storage, `ToString()` formats like a `double`: trailing zeros such as `10.50` are dropped, and a very small or very large value prints in scientific notation. `Text` storage returns the stored .NET string.
 - On `Text` decimal storage, `Distinct`, the set operators, and a subquery `Contains` compare the stored text. Two equal values with a different scale, such as `10.0` and `10.00`, are then treated as different.
+- `Math.Min`, `Math.Max` and `Math.Clamp` over a `Text`-stored `decimal` compare and return the value through a 64-bit float, so a value with more precision than a `double` can hold reads back rounded.
 - `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits, and `ToString()` on a fractional `float` prints the digits of the stored 64-bit value. SQLite has no 32-bit float type.
 - Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
+- A `Sum` over a `ulong` column, including a window `Sum`, throws `SQLiteException` once the running total passes 2^63, even when the true unsigned total still fits a `ulong`. SQLite adds with signed 64-bit integers, so it overflows at half the `ulong` range.
 - A `uint` multiplication keeps the full 64-bit product instead of the 32-bit wrapped value, both when widened (`(long)(a * b)`) and when used directly (`a * b == 0u`).
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
@@ -93,6 +95,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - `SQLiteFunctions.Min` and `Max` need two or more arguments.
 - On a JSON array, `ElementAt` past the end, `First`, `Last` or `Single` over an empty array, `Single` over two or more elements, and `Min`/`Max`/`Average`/`Sum` over an empty array all return the type default instead of throwing.
+- On a JSON array, `First`, `Last` or `Single` with a predicate that matches no element, and `Min`, `Max` or `Average` after a `Where` that removes every element, also return the type default instead of throwing, the same as their over-empty forms.
 - On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL`, and `Distinct().Count()` leaves the `null` out of the count.
 - A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so adding a list that holds one fails.
 - `DateTime` values inside a JSON list are kept as text. Reading a part like `.Year`, or comparing them, follows the same rules as `Text` date storage, not .NET, so results can differ.
@@ -120,6 +123,10 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - A projection that builds an object (`Select(r => new Dto { ... })`) binds public properties only. Public fields are left at their default value.
 - Calling `GetType` on a value that is `null` throws a different error than LINQ-to-Objects.
+
+## Schema
+
+- An attribute foreign key (`[ReferencesTable]` or `[ForeignKey]`) reads the name of the column it points at on the target table from the target type, before the model builder runs. Renaming that target column with the fluent `HasColumnName` afterward does not reach the foreign key, so it keeps the old name and the table fails to accept rows.
 
 ## Writes
 

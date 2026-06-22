@@ -23,4 +23,6 @@ internal sealed class PropertySlot
     public required Action<object, object?> Setter { get; init; }
 
     public Action<sqlite3_stmt, int, object>? Assigner { get; init; }
+
+    public object? BoxedDefault { get; init; }
 }
