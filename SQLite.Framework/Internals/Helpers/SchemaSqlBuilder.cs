@@ -13,6 +13,17 @@ internal static class SchemaSqlBuilder
         TableColumn[] primaryKeyColumns = mapping.Columns.Where(c => c.IsPrimaryKey).OrderBy(c => c.PrimaryKeyOrder).ToArray();
         bool hasCompositePrimaryKey = primaryKeyColumns.Length > 1;
 
+        if (hasCompositePrimaryKey)
+        {
+            TableColumn? autoIncrementKey = primaryKeyColumns.FirstOrDefault(c => c.IsAutoIncrement);
+            if (autoIncrementKey != null)
+            {
+                throw new InvalidOperationException(
+                    $"Column '{autoIncrementKey.Name}' on table '{tableName}' is part of a composite primary key and is also marked auto-increment. " +
+                    "SQLite only allows auto-increment on a single-column INTEGER PRIMARY KEY.");
+            }
+        }
+
         StringBuilder sb = new();
         sb.Append("CREATE TABLE ");
         if (ifNotExists)

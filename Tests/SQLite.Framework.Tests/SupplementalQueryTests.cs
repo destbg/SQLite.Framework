@@ -274,14 +274,15 @@ public class SupplementalQueryTests
     }
 
     [Fact]
-    public void CreateCommand_BindParameterByMissingName_Throws()
+    public void CreateCommand_BindParameterByMissingName_IsIgnored()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        Assert.ThrowsAny<Exception>(() =>
-            db.Execute("SELECT * FROM Books WHERE BookId = @existing",
-                [new SQLiteParameter { Name = "@missing", Value = 1 }]));
+        int affected = db.Execute("SELECT * FROM Books WHERE BookId = @existing",
+            [new SQLiteParameter { Name = "@missing", Value = 1 }]);
+
+        Assert.Equal(0, affected);
     }
 
     [Fact]

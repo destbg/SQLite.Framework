@@ -403,13 +403,13 @@ public class SQLiteTableTests
             return (columns, "INSERT GARBAGE @!%");
         }
 
-        protected override (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
+        protected internal override (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
         {
             (TableColumn[] columns, _) = base.GetAddOrUpdateInfo(conflict);
             return (columns, "INSERT GARBAGE @!%");
         }
 
-        protected override (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<Article>> configure)
+        protected internal override (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<Article>> configure)
         {
             (TableColumn[] columns, _) = base.GetUpsertInfo(configure);
             return (columns, "INSERT GARBAGE @!%");

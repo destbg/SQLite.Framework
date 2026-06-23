@@ -189,7 +189,11 @@ internal partial class QueryableVisitor
             }
 
             Type type = selector.Body.Type.GetGenericArguments()[^1];
-            JoinInfo join = Joins.First(f => f.EntityType == type && f.IsGroupJoin);
+            JoinInfo? join = Joins.FirstOrDefault(f => f.EntityType == type && f.IsGroupJoin)
+                ?? throw new NotSupportedException(
+                    "DefaultIfEmpty is only supported on a group join, as in " +
+                    "'join x in source on ... into g from x in g.DefaultIfEmpty()', to produce a left join. " +
+                    "A bare DefaultIfEmpty on a second from source is not supported.");
             join.JoinType = "LEFT JOIN";
             join.IsGroupJoin = false;
 

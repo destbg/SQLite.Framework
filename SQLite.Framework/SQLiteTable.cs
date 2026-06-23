@@ -87,7 +87,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int Add(T item)
     {
-        if (HasColumnHooks(Database.Options.AddHooks))
+        if (CommonHelpers.HasColumnHooks<T>(Database.Options.AddHooks))
         {
             Dictionary<string, object?> columns = [];
             if (!RunHooks(Database.Options.AddHooks, item, columns))
@@ -114,12 +114,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int AddRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
-        if (HasColumnHooks(Database.Options.AddHooks))
+        if (CommonHelpers.HasColumnHooks<T>(Database.Options.AddHooks))
         {
             return RunRangeWithColumns(Database.Options.AddHooks, collection, runInTransaction, SQLiteAction.Add);
         }
 
         if (Database.Options.OnActionHooks.Count == 0
+            && Database.Options.CommandInterceptors.Count == 0
             && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
@@ -139,7 +140,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int Update(T item)
     {
-        if (HasColumnHooks(Database.Options.UpdateHooks))
+        if (CommonHelpers.HasColumnHooks<T>(Database.Options.UpdateHooks))
         {
             Dictionary<string, object?> columns = [];
             if (!RunHooks(Database.Options.UpdateHooks, item, columns))
@@ -166,12 +167,12 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int UpdateRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
-        if (HasColumnHooks(Database.Options.UpdateHooks))
+        if (CommonHelpers.HasColumnHooks<T>(Database.Options.UpdateHooks))
         {
             return RunRangeWithColumns(Database.Options.UpdateHooks, collection, runInTransaction, SQLiteAction.Update);
         }
 
-        if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(UpdateItem)))
+        if (Database.Options.OnActionHooks.Count == 0 && Database.Options.CommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(UpdateItem)))
         {
             (TableColumn[] columns, TableColumn[] primaryKeyColumns, string sql) = GetUpdateInfo();
             SQLiteOptions options = Database.Options;
@@ -208,7 +209,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int RemoveRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
-        if (Database.Options.OnActionHooks.Count == 0 && !IsItemMethodOverridden(nameof(AddOrRemoveItem)))
+        if (Database.Options.OnActionHooks.Count == 0 && Database.Options.CommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(AddOrRemoveItem)))
         {
             (TableColumn[] primaryKeyColumns, string sql) = GetRemoveInfo();
             SQLiteOptions options = Database.Options;
@@ -247,6 +248,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public virtual int AddOrUpdateRange(IEnumerable<T> collection, bool runInTransaction = true, SQLiteConflict conflict = SQLiteConflict.Replace)
     {
         if (Database.Options.OnActionHooks.Count == 0
+            && Database.Options.CommandInterceptors.Count == 0
             && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
@@ -306,6 +308,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public virtual int UpsertRange(IEnumerable<T> collection, Action<SQLiteUpsertBuilder<T>> configure, bool runInTransaction = true)
     {
         if (Database.Options.OnActionHooks.Count == 0
+            && Database.Options.CommandInterceptors.Count == 0
             && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
@@ -440,14 +443,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return (columns, sql);
     }
 
-    internal (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfoInternal() => GetUpdateInfo();
-    internal (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfoInternal() => GetRemoveInfo();
-    internal (TableColumn[] Columns, string Sql) GetUpsertInfoInternal(Action<SQLiteUpsertBuilder<T>> configure) => GetUpsertInfo(configure);
-    internal (TableColumn[] Columns, string Sql) GetAddOrUpdateInfoInternal(SQLiteConflict conflict) => GetAddOrUpdateInfo(conflict);
-    internal bool RunHooksInternal(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item) => RunHooks(hooks, item);
-
-    internal SQLiteAction RunActionHooksInternal(T item, SQLiteAction startingAction) => RunActionHooks(item, startingAction);
-
     internal (TableColumn[] Columns, string Sql) FilterUpsertInfoForItemInternal(Action<SQLiteUpsertBuilder<T>> configure, T item, TableColumn[] baseColumns, string baseSql)
     {
         if (IsItemMethodOverridden(nameof(GetUpsertInfo)) || UpsertHasDoUpdate(configure))
@@ -464,6 +459,127 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     internal TableColumn? GetAutoIncrementColumn()
     {
         return Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
+    }
+
+    internal (string Sql, List<SQLiteParameter> Parameters) BuildInsertWithExtraColumns(T item, IDictionary<string, object?> extra)
+    {
+        (TableColumn[] baseColumns, _) = GetAddInfo();
+        baseColumns = FilterColumnsForDefaults(baseColumns, item);
+
+        TableColumn? autoIncrement = GetAutoIncrementColumn();
+        HashSet<string> overridden = extra.Keys.ToHashSet();
+        TableColumn[] entityColumns = baseColumns.Where(c => !overridden.Contains(c.Name)).ToArray();
+
+        List<SQLiteParameter> parameters = new(entityColumns.Length + extra.Count);
+        List<string> names = new(entityColumns.Length + extra.Count);
+        List<string> placeholders = new(entityColumns.Length + extra.Count);
+
+        for (int i = 0; i < entityColumns.Length; i++)
+        {
+            TableColumn column = entityColumns[i];
+            object? value = column.PropertyInfo.GetValue(item);
+            if (column == autoIncrement && IsAutoIncrementUnset(value))
+            {
+                value = null;
+            }
+            string placeholder = $"@p{i}";
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = value });
+            names.Add(IdentifierGuard.Quote(column.Name));
+            placeholders.Add(WrapParam(placeholder, column));
+        }
+
+        int next = entityColumns.Length;
+        foreach (KeyValuePair<string, object?> entry in extra)
+        {
+            string placeholder = $"@p{next++}";
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = entry.Value });
+            names.Add(IdentifierGuard.Quote(entry.Key));
+            placeholders.Add(placeholder);
+        }
+
+        IReadOnlyList<(string Column, string ValueSql)> withColumns = ExtraWriteColumns;
+        if (withColumns.Count > 0)
+        {
+            ThrowIfExtraWriteColumnsReferenceRowOnInsert();
+            foreach ((string column, string valueSql) in withColumns)
+            {
+                if (overridden.Contains(column))
+                {
+                    continue;
+                }
+
+                names.Add(IdentifierGuard.Quote(column));
+                placeholders.Add(valueSql);
+            }
+        }
+
+        string sql = names.Count == 0
+            ? $"INSERT INTO \"{Table.TableName}\" DEFAULT VALUES"
+            : $"INSERT INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
+
+        return (sql, parameters);
+    }
+
+    private int UpdateWithExtraColumns(T item, IDictionary<string, object?> extra)
+    {
+        (string sql, List<SQLiteParameter> parameters) = BuildUpdateWithExtraColumns(item, extra);
+        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
+    }
+
+    internal (string Sql, List<SQLiteParameter> Parameters) BuildUpdateWithExtraColumns(T item, IDictionary<string, object?> extra)
+    {
+        (TableColumn[] baseColumns, TableColumn[] primaryColumns, _) = GetUpdateInfo();
+        HashSet<string> overridden = extra.Keys.ToHashSet();
+        TableColumn[] setColumns = baseColumns.Where(c => !overridden.Contains(c.Name)).ToArray();
+
+        List<SQLiteParameter> parameters = [];
+        List<string> setClauses = [];
+
+        for (int i = 0; i < setColumns.Length; i++)
+        {
+            TableColumn column = setColumns[i];
+            string placeholder = $"@p{i}";
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = column.PropertyInfo.GetValue(item) });
+            setClauses.Add($"{IdentifierGuard.Quote(column.Name)} = {WrapParam(placeholder, column)}");
+        }
+
+        int next = setColumns.Length;
+        foreach (KeyValuePair<string, object?> entry in extra)
+        {
+            string placeholder = $"@p{next++}";
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = entry.Value });
+            setClauses.Add($"{IdentifierGuard.Quote(entry.Key)} = {placeholder}");
+        }
+
+        foreach ((string column, string valueSql) in ExtraWriteColumns)
+        {
+            if (overridden.Contains(column))
+            {
+                continue;
+            }
+
+            setClauses.Add($"{IdentifierGuard.Quote(column)} = {valueSql}");
+        }
+
+        if (setClauses.Count == 0)
+        {
+            foreach (TableColumn primaryColumn in primaryColumns)
+            {
+                string quoted = IdentifierGuard.Quote(primaryColumn.Name);
+                setClauses.Add($"{quoted} = {quoted}");
+            }
+        }
+
+        List<string> primaryKeyClauses = [];
+        for (int i = 0; i < primaryColumns.Length; i++)
+        {
+            string placeholder = $"@p{next++}";
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = primaryColumns[i].PropertyInfo.GetValue(item) });
+            primaryKeyClauses.Add($"{IdentifierGuard.Quote(primaryColumns[i].Name)} = {placeholder}");
+        }
+
+        string sql = $"UPDATE \"{Table.TableName}\" SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", primaryKeyClauses)}";
+        return (sql, parameters);
     }
 
     /// <summary>
@@ -584,7 +700,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// to add columns to the <c>SET</c> clause (for example, an <c>UpdatedAt</c> shadow column)
     /// or to change the WHERE shape.
     /// </summary>
-    protected virtual (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfo()
+    protected internal virtual (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfo()
     {
         TableColumn[] columns = Table.Columns
             .Where(f => !f.IsPrimaryKey || !f.IsAutoIncrement)
@@ -636,7 +752,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// (return an <c>UPDATE</c> statement that sets a <c>Deleted</c> flag instead) or to match
     /// rows by a different column set.
     /// </summary>
-    protected virtual (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfo()
+    protected internal virtual (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfo()
     {
         TableColumn[] primaryKeyColumns = Table.Columns
             .Where(f => f.IsPrimaryKey)
@@ -663,7 +779,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// type default to let SQLite assign one. Override to change the upsert SQL, for example to
     /// use SQLite's <c>ON CONFLICT</c> syntax instead.
     /// </summary>
-    protected virtual (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
+    protected internal virtual (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
     {
         TableColumn[] columns = ExcludeOverriddenColumns(ExcludeComputedColumns(Table.Columns.ToArray()));
         string sql = BuildAddOrUpdateSql(columns, conflict);
@@ -676,7 +792,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// produced by configuring an <see cref="SQLiteUpsertBuilder{T}" />. Override to change the SQL shape
     /// produced by <see cref="Upsert" /> and <see cref="UpsertRange" />.
     /// </summary>
-    protected virtual (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<T>> configure)
+    protected internal virtual (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<T>> configure)
     {
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_24, "UPSERT (INSERT ... ON CONFLICT ... DO ...)");
@@ -696,7 +812,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// Each hook can mutate <paramref name="item" />. Returns <see langword="false" /> when any
     /// hook returns <see langword="false" />, signalling that the default operation should be skipped.
     /// </summary>
-    protected virtual bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item)
+    protected internal virtual bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item)
     {
         if (hooks.Count == 0)
         {
@@ -711,7 +827,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// to the hooks that accept a column collector so they can set values for columns that have no
     /// CLR property. Returns <see langword="false" /> when a hook cancels the operation.
     /// </summary>
-    protected virtual bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item, IDictionary<string, object?> columns)
+    protected internal virtual bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item, IDictionary<string, object?> columns)
     {
         if (!hooks.TryGetValue(typeof(T), out IReadOnlyList<Delegate>? list))
         {
@@ -773,7 +889,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// starting from <paramref name="startingAction" />. Each hook receives the action returned by
     /// the previous one. Returns the final action chosen by the chain.
     /// </summary>
-    protected virtual SQLiteAction RunActionHooks(T item, SQLiteAction startingAction)
+    protected internal virtual SQLiteAction RunActionHooks(T item, SQLiteAction startingAction)
     {
         IReadOnlyList<SQLiteActionHook> hooks = Database.Options.OnActionHooks;
         SQLiteAction action = startingAction;
@@ -1303,60 +1419,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     private int InsertWithExtraColumns(T item, IDictionary<string, object?> extra)
     {
-        (TableColumn[] baseColumns, _) = GetAddInfo();
-        baseColumns = FilterColumnsForDefaults(baseColumns, item);
+        (string sql, List<SQLiteParameter> parameters) = BuildInsertWithExtraColumns(item, extra);
 
         TableColumn? autoIncrement = GetAutoIncrementColumn();
-        HashSet<string> overridden = extra.Keys.ToHashSet();
-        TableColumn[] entityColumns = baseColumns.Where(c => !overridden.Contains(c.Name)).ToArray();
-
-        List<SQLiteParameter> parameters = new(entityColumns.Length + extra.Count);
-        List<string> names = new(entityColumns.Length + extra.Count);
-        List<string> placeholders = new(entityColumns.Length + extra.Count);
-
-        for (int i = 0; i < entityColumns.Length; i++)
-        {
-            TableColumn column = entityColumns[i];
-            object? value = column.PropertyInfo.GetValue(item);
-            if (column == autoIncrement && IsAutoIncrementUnset(value))
-            {
-                value = null;
-            }
-            string placeholder = $"@p{i}";
-            parameters.Add(new SQLiteParameter { Name = placeholder, Value = value });
-            names.Add(IdentifierGuard.Quote(column.Name));
-            placeholders.Add(WrapParam(placeholder, column));
-        }
-
-        int next = entityColumns.Length;
-        foreach (KeyValuePair<string, object?> entry in extra)
-        {
-            string placeholder = $"@p{next++}";
-            parameters.Add(new SQLiteParameter { Name = placeholder, Value = entry.Value });
-            names.Add(IdentifierGuard.Quote(entry.Key));
-            placeholders.Add(placeholder);
-        }
-
-        IReadOnlyList<(string Column, string ValueSql)> withColumns = ExtraWriteColumns;
-        if (withColumns.Count > 0)
-        {
-            ThrowIfExtraWriteColumnsReferenceRowOnInsert();
-            foreach ((string column, string valueSql) in withColumns)
-            {
-                if (overridden.Contains(column))
-                {
-                    continue;
-                }
-
-                names.Add(IdentifierGuard.Quote(column));
-                placeholders.Add(valueSql);
-            }
-        }
-
-        string sql = names.Count == 0
-            ? $"INSERT INTO \"{Table.TableName}\" DEFAULT VALUES"
-            : $"INSERT INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
-
         if (autoIncrement == null)
         {
             return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
@@ -1369,62 +1434,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         return changes;
-    }
-
-    private int UpdateWithExtraColumns(T item, IDictionary<string, object?> extra)
-    {
-        (TableColumn[] baseColumns, TableColumn[] primaryColumns, _) = GetUpdateInfo();
-        HashSet<string> overridden = extra.Keys.ToHashSet();
-        TableColumn[] setColumns = baseColumns.Where(c => !overridden.Contains(c.Name)).ToArray();
-
-        List<SQLiteParameter> parameters = [];
-        List<string> setClauses = [];
-
-        for (int i = 0; i < setColumns.Length; i++)
-        {
-            TableColumn column = setColumns[i];
-            string placeholder = $"@p{i}";
-            parameters.Add(new SQLiteParameter { Name = placeholder, Value = column.PropertyInfo.GetValue(item) });
-            setClauses.Add($"{IdentifierGuard.Quote(column.Name)} = {WrapParam(placeholder, column)}");
-        }
-
-        int next = setColumns.Length;
-        foreach (KeyValuePair<string, object?> entry in extra)
-        {
-            string placeholder = $"@p{next++}";
-            parameters.Add(new SQLiteParameter { Name = placeholder, Value = entry.Value });
-            setClauses.Add($"{IdentifierGuard.Quote(entry.Key)} = {placeholder}");
-        }
-
-        foreach ((string column, string valueSql) in ExtraWriteColumns)
-        {
-            if (overridden.Contains(column))
-            {
-                continue;
-            }
-
-            setClauses.Add($"{IdentifierGuard.Quote(column)} = {valueSql}");
-        }
-
-        if (setClauses.Count == 0)
-        {
-            foreach (TableColumn primaryColumn in primaryColumns)
-            {
-                string quoted = IdentifierGuard.Quote(primaryColumn.Name);
-                setClauses.Add($"{quoted} = {quoted}");
-            }
-        }
-
-        List<string> primaryKeyClauses = [];
-        for (int i = 0; i < primaryColumns.Length; i++)
-        {
-            string placeholder = $"@p{next++}";
-            parameters.Add(new SQLiteParameter { Name = placeholder, Value = primaryColumns[i].PropertyInfo.GetValue(item) });
-            primaryKeyClauses.Add($"{IdentifierGuard.Quote(primaryColumns[i].Name)} = {placeholder}");
-        }
-
-        string sql = $"UPDATE \"{Table.TableName}\" SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", primaryKeyClauses)}";
-        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
     }
 
     private string BuildUpsertSql(Action<SQLiteUpsertBuilder<T>> configure, TableColumn[] insertOverride)
@@ -1440,12 +1449,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         SQLiteUpsertBuilder<T> builder = new();
         configure(builder);
         return builder.Build().ResolvedAction.Kind != UpsertActionKind.DoNothing;
-    }
-
-    private static bool HasColumnHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks)
-    {
-        return hooks.TryGetValue(typeof(T), out IReadOnlyList<Delegate>? list)
-            && list.Any(h => h is Func<SQLiteDatabase, T, IDictionary<string, object?>, bool>);
     }
 
     private static Action<sqlite3_stmt, T> ResolveBindRow(TableColumn[] columns, int firstParameterIndex, SQLiteOptions options)
@@ -1514,7 +1517,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             : Convert.ToInt64(value, CultureInfo.InvariantCulture) == 0L;
     }
 
-    private static object ConvertRowIdToType(long rowId, Type type)
+    internal static object ConvertRowIdToType(long rowId, Type type)
     {
         return type == typeof(long) ? rowId
             : type == typeof(int) ? checked((int)rowId)

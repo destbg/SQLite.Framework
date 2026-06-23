@@ -23,7 +23,7 @@ public class AuditingTable : SQLiteTable<SubclassedTableEntity>
         return base.AddOrRemoveItem(columns, sql, item);
     }
 
-    protected override (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<SubclassedTableEntity>> configure)
+    protected internal override (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<SubclassedTableEntity>> configure)
     {
         return base.GetUpsertInfo(configure);
     }

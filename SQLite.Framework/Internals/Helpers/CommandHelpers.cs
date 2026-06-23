@@ -311,13 +311,7 @@ internal static class CommandHelpers
 
     public static int BindParameterIndex(sqlite3_stmt statement, string name)
     {
-        int index = raw.sqlite3_bind_parameter_index(statement, name);
-        if (index == 0)
-        {
-            throw new ArgumentException($"Parameter '{name}' not found in the command text.");
-        }
-
-        return index;
+        return raw.sqlite3_bind_parameter_index(statement, name);
     }
 
     private static long EnumToInt64(object value)

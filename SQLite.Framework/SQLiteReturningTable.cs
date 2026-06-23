@@ -44,17 +44,23 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     /// <summary>
     /// Inserts <paramref name="item" /> and returns the projected inserted row. Returns
     /// <see langword="default" /> when an <c>OnAdd</c> hook cancels the write. Copies an
-    /// auto-increment primary key back to <paramref name="item" /> when the projection
-    /// materializes <typeparamref name="T" /> in full, the same as <see cref="SQLiteTable{T}.Add" />.
+    /// auto-increment primary key back to <paramref name="item" />, the same as
+    /// <see cref="SQLiteTable{T}.Add" />.
     /// </summary>
     public virtual TResult? Add(T item)
     {
-        if (!Source.RunHooksInternal(Database.Options.AddHooks, item))
+        if (CommonHelpers.HasColumnHooks<T>(Database.Options.AddHooks))
+        {
+            List<TResult> hookedRows = RunWithColumnHooks(item, Database.Options.AddHooks, SQLiteAction.Add, insert: true);
+            return hookedRows.Count == 0 ? default : hookedRows[0];
+        }
+
+        if (!Source.RunHooks(Database.Options.AddHooks, item))
         {
             return default;
         }
 
-        SQLiteAction action = Source.RunActionHooksInternal(item, SQLiteAction.Add);
+        SQLiteAction action = Source.RunActionHooks(item, SQLiteAction.Add);
         List<TResult> rows = RunResolvedAction(action, item);
         return rows.Count == 0 ? default : rows[0];
     }
@@ -81,10 +87,11 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
                 List<TResult> projected = ExecuteWithReturning(sql, parameters);
                 if (autoIncrement != null && projected.Count > 0)
                 {
-                    BackfillAutoIncrement(item, projected[0], autoIncrement);
+                    BackfillAutoIncrement(item, autoIncrement);
                 }
                 return projected;
-            });
+            },
+            columnInsert: true);
     }
 
     /// <summary>
@@ -94,12 +101,18 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     /// </summary>
     public virtual TResult? Update(T item)
     {
-        if (!Source.RunHooksInternal(Database.Options.UpdateHooks, item))
+        if (CommonHelpers.HasColumnHooks<T>(Database.Options.UpdateHooks))
+        {
+            List<TResult> hookedRows = RunWithColumnHooks(item, Database.Options.UpdateHooks, SQLiteAction.Update, insert: false);
+            return hookedRows.Count == 0 ? default : hookedRows[0];
+        }
+
+        if (!Source.RunHooks(Database.Options.UpdateHooks, item))
         {
             return default;
         }
 
-        SQLiteAction action = Source.RunActionHooksInternal(item, SQLiteAction.Update);
+        SQLiteAction action = Source.RunActionHooks(item, SQLiteAction.Update);
         List<TResult> rows = RunResolvedAction(action, item);
         return rows.Count == 0 ? default : rows[0];
     }
@@ -112,7 +125,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     {
         ArgumentNullException.ThrowIfNull(collection);
 
-        (TableColumn[] columns, TableColumn[] primaryColumns, string sql) = Source.GetUpdateInfoInternal();
+        (TableColumn[] columns, TableColumn[] primaryColumns, string sql) = Source.GetUpdateInfo();
 
         return RunRangeWithReturning(
             collection,
@@ -123,7 +136,8 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             {
                 List<SQLiteParameter> parameters = BuildUpdateParameters(columns, primaryColumns, item);
                 return ExecuteWithReturning(sql, parameters);
-            });
+            },
+            columnInsert: false);
     }
 
     /// <summary>
@@ -133,12 +147,12 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     /// </summary>
     public virtual TResult? Remove(T item)
     {
-        if (!Source.RunHooksInternal(Database.Options.RemoveHooks, item))
+        if (!Source.RunHooks(Database.Options.RemoveHooks, item))
         {
             return default;
         }
 
-        SQLiteAction action = Source.RunActionHooksInternal(item, SQLiteAction.Remove);
+        SQLiteAction action = Source.RunActionHooks(item, SQLiteAction.Remove);
         List<TResult> rows = RunResolvedAction(action, item);
         return rows.Count == 0 ? default : rows[0];
     }
@@ -151,7 +165,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     {
         ArgumentNullException.ThrowIfNull(collection);
 
-        (TableColumn[] primaryColumns, string sql) = Source.GetRemoveInfoInternal();
+        (TableColumn[] primaryColumns, string sql) = Source.GetRemoveInfo();
 
         return RunRangeWithReturning(
             collection,
@@ -175,12 +189,12 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     {
         ArgumentNullException.ThrowIfNull(configure);
 
-        if (!Source.RunHooksInternal(Database.Options.AddOrUpdateHooks, item))
+        if (!Source.RunHooks(Database.Options.AddOrUpdateHooks, item))
         {
             return default;
         }
 
-        SQLiteAction action = Source.RunActionHooksInternal(item, SQLiteAction.AddOrUpdate);
+        SQLiteAction action = Source.RunActionHooks(item, SQLiteAction.AddOrUpdate);
         List<TResult> rows = action == SQLiteAction.AddOrUpdate
             ? RunConfiguredUpsert(configure, item)
             : RunResolvedAction(action, item);
@@ -197,7 +211,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(configure);
 
-        (TableColumn[] baseColumns, string baseSql) = Source.GetUpsertInfoInternal(configure);
+        (TableColumn[] baseColumns, string baseSql) = Source.GetUpsertInfo(configure);
         TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
 
         return RunRangeWithReturning(
@@ -215,7 +229,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
 
     private List<TResult> RunConfiguredUpsert(Action<SQLiteUpsertBuilder<T>> configure, T item)
     {
-        (TableColumn[] baseColumns, string baseSql) = Source.GetUpsertInfoInternal(configure);
+        (TableColumn[] baseColumns, string baseSql) = Source.GetUpsertInfo(configure);
         (TableColumn[] columns, string sql) = Source.FilterUpsertInfoForItemInternal(configure, item, baseColumns, baseSql);
         TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
         List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
@@ -236,26 +250,26 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
                 List<TResult> rows = ExecuteWithReturning(sql, parameters);
                 if (autoIncrement != null && rows.Count > 0)
                 {
-                    BackfillAutoIncrement(item, rows[0], autoIncrement);
+                    BackfillAutoIncrement(item, autoIncrement);
                 }
 
                 return rows;
             }
             case SQLiteAction.Update:
             {
-                (TableColumn[] columns, TableColumn[] primaryColumns, string sql) = Source.GetUpdateInfoInternal();
+                (TableColumn[] columns, TableColumn[] primaryColumns, string sql) = Source.GetUpdateInfo();
                 List<SQLiteParameter> parameters = BuildUpdateParameters(columns, primaryColumns, item);
                 return ExecuteWithReturning(sql, parameters);
             }
             case SQLiteAction.Remove:
             {
-                (TableColumn[] primaryColumns, string sql) = Source.GetRemoveInfoInternal();
+                (TableColumn[] primaryColumns, string sql) = Source.GetRemoveInfo();
                 List<SQLiteParameter> parameters = BuildKeyParameters(primaryColumns, item);
                 return ExecuteWithReturning(sql, parameters);
             }
             case SQLiteAction.AddOrUpdate:
             {
-                (TableColumn[] columns, string sql) = Source.GetAddOrUpdateInfoInternal(SQLiteConflict.Replace);
+                (TableColumn[] columns, string sql) = Source.GetAddOrUpdateInfo(SQLiteConflict.Replace);
                 TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
                 return UpsertWithReturning(sql, parameters, autoIncrement, item);
@@ -309,7 +323,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         bool inserted = raw.sqlite3_last_insert_rowid(Database.GetActiveHandle()) != lastRowIdBefore;
         if (inserted && autoIncrement != null)
         {
-            BackfillAutoIncrement(item, projected[0], autoIncrement);
+            BackfillAutoIncrement(item, autoIncrement);
         }
 
         return projected;
@@ -349,9 +363,10 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         };
     }
 
-    private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, SQLiteAction startingAction, bool runInTransaction, Func<T, List<TResult>> writeUnchanged)
+    private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, SQLiteAction startingAction, bool runInTransaction, Func<T, List<TResult>> writeUnchanged, bool? columnInsert = null)
     {
         List<TResult> results = [];
+        bool useColumns = columnInsert.HasValue && CommonHelpers.HasColumnHooks<T>(hooks);
 
         if (runInTransaction)
         {
@@ -370,12 +385,18 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         {
             foreach (T item in collection)
             {
-                if (!Source.RunHooksInternal(hooks, item))
+                if (useColumns)
+                {
+                    results.AddRange(RunWithColumnHooks(item, hooks, startingAction, columnInsert!.Value));
+                    continue;
+                }
+
+                if (!Source.RunHooks(hooks, item))
                 {
                     continue;
                 }
 
-                SQLiteAction action = Source.RunActionHooksInternal(item, startingAction);
+                SQLiteAction action = Source.RunActionHooks(item, startingAction);
                 results.AddRange(action == startingAction
                     ? writeUnchanged(item)
                     : RunResolvedAction(action, item));
@@ -383,12 +404,40 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         }
     }
 
-    private static void BackfillAutoIncrement(T item, TResult row, TableColumn autoIncrement)
+    private List<TResult> RunWithColumnHooks(T item, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, SQLiteAction startingAction, bool insert)
     {
-        if (row is T projectedEntity)
+        Dictionary<string, object?> columns = [];
+        if (!Source.RunHooks(hooks, item, columns))
         {
-            autoIncrement.PropertyInfo.SetValue(item, autoIncrement.PropertyInfo.GetValue(projectedEntity));
+            return [];
         }
+
+        SQLiteAction action = Source.RunActionHooks(item, startingAction);
+        if (action != startingAction)
+        {
+            return RunResolvedAction(action, item);
+        }
+
+        if (insert)
+        {
+            (string sql, List<SQLiteParameter> parameters) = Source.BuildInsertWithExtraColumns(item, columns);
+            TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
+            List<TResult> rows = ExecuteWithReturning(sql, parameters);
+            if (autoIncrement != null)
+            {
+                BackfillAutoIncrement(item, autoIncrement);
+            }
+            return rows;
+        }
+
+        (string updateSql, List<SQLiteParameter> updateParameters) = Source.BuildUpdateWithExtraColumns(item, columns);
+        return ExecuteWithReturning(updateSql, updateParameters);
+    }
+
+    private void BackfillAutoIncrement(T item, TableColumn autoIncrement)
+    {
+        long rowId = raw.sqlite3_last_insert_rowid(Database.GetActiveHandle());
+        autoIncrement.PropertyInfo.SetValue(item, SQLiteTable<T>.ConvertRowIdToType(rowId, autoIncrement.PropertyType));
     }
 
     private static bool IsAutoIncrementUnset(object? value)

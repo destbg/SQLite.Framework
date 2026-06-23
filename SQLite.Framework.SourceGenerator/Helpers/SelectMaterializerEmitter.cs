@@ -142,24 +142,22 @@ public static class SelectMaterializerEmitter
 
             if (!leaf.IsReflected
                 && IsNullableValueType(leaf.Type)
-                && TryGetFastPathAccessor(leaf.Type, out string? vnAccessor, out string? vnCast, out bool vnHandlesNull)
+                && TryGetFastPathAccessor(leaf.Type, out string? vnAccessor, out bool vnHandlesNull)
                 && !vnHandlesNull)
             {
                 string nullableTypeText = FormatType(leaf.Type, writerCtx.TypeArgSubstitutions);
-                string vnCastOpen = vnCast is null ? "" : "(" + vnCast + ")";
                 sb.Append("            ").Append(nullableTypeText).Append(' ').Append(leaf.VarName).AppendLine(";");
                 sb.Append("            if (reader.HasConverter(").Append(typeOfText).AppendLine("))");
                 sb.Append("                ").Append(leaf.VarName).Append(" = (").Append(nullableTypeText).Append(")reader.GetValue(").Append(i).Append(", reader.GetColumnType(").Append(i).Append("), ").Append(typeOfText).AppendLine(");");
                 sb.AppendLine("            else");
                 sb.Append("                ").Append(leaf.VarName)
                     .Append(" = reader.IsDBNull(").Append(i).Append(") ? (").Append(nullableTypeText).Append(")null : ")
-                    .Append(vnCastOpen).Append("reader.").Append(vnAccessor).Append("(").Append(i).AppendLine(");");
+                    .Append("reader.").Append(vnAccessor).Append("(").Append(i).AppendLine(");");
             }
             else if (leaf.IsNullable || leaf.IsReflected)
             {
-                if (TryGetFastPathAccessor(leaf.Type, out string? nAccessor, out string? nCast, out bool nHandlesNull))
+                if (TryGetFastPathAccessor(leaf.Type, out string? nAccessor, out bool nHandlesNull))
                 {
-                    string castOpen = nCast is null ? "" : "(" + nCast + ")";
                     sb.Append("            object? ").Append(leaf.VarName).AppendLine(";");
                     sb.Append("            if (reader.HasConverter(").Append(typeOfText).AppendLine("))");
                     sb.Append("                ").Append(leaf.VarName).Append(" = reader.GetValue(").Append(i).Append(", reader.GetColumnType(").Append(i).Append("), ").Append(typeOfText).AppendLine(");");
@@ -167,13 +165,13 @@ public static class SelectMaterializerEmitter
                     if (nHandlesNull)
                     {
                         sb.Append("                ").Append(leaf.VarName).Append(" = ")
-                            .Append(castOpen).Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
+                            .Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
                     }
                     else
                     {
                         sb.Append("                ").Append(leaf.VarName)
                             .Append(" = reader.IsDBNull(").Append(i).Append(") ? null : (object)")
-                            .Append(castOpen).Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
+                            .Append("reader.").Append(nAccessor).Append("(").Append(i).AppendLine(");");
                     }
                 }
                 else
@@ -183,17 +181,16 @@ public static class SelectMaterializerEmitter
                         .Append(typeOfText).AppendLine(");");
                 }
             }
-            else if (TryGetFastPathAccessor(leaf.Type, out string? accessor, out string? cast))
+            else if (TryGetFastPathAccessor(leaf.Type, out string? accessor))
             {
                 string typeText = FormatType(leaf.Type, writerCtx.TypeArgSubstitutions);
-                string castOpen = cast is null ? "" : "(" + cast + ")";
                 sb.Append("            ").Append(typeText).Append(' ').Append(leaf.VarName).AppendLine(";");
                 sb.Append("            if (reader.HasConverter(").Append(typeOfText).AppendLine("))");
                 sb.Append("                ").Append(leaf.VarName).Append(" = (").Append(typeText).Append(")reader.GetValue(").Append(i).Append(", reader.GetColumnType(").Append(i).Append("), ").Append(typeOfText).AppendLine(")!;");
                 sb.AppendLine("            else");
                 sb.Append("                ")
                     .Append(leaf.VarName).Append(" = ")
-                    .Append(castOpen).Append("reader.").Append(accessor).Append("(").Append(i).AppendLine(");");
+                    .Append("reader.").Append(accessor).Append("(").Append(i).AppendLine(");");
             }
             else
             {
@@ -397,9 +394,9 @@ public static class SelectMaterializerEmitter
     /// <summary>
     /// Looks up the fast-path reader accessor for a CLR type.
     /// </summary>
-    public static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out string? cast)
+    public static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor)
     {
-        return TryGetFastPathAccessor(type, out accessor, out cast, out _);
+        return TryGetFastPathAccessor(type, out accessor, out _);
     }
 
     /// <summary>
@@ -407,7 +404,7 @@ public static class SelectMaterializerEmitter
     /// is <see langword="true"/> when the accessor itself returns <see langword="null"/> for
     /// SQL NULL, which lets the emitter skip a redundant <c>IsDBNull</c> guard.
     /// </summary>
-    public static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out string? cast, out bool handlesNull)
+    public static bool TryGetFastPathAccessor(ITypeSymbol type, out string? accessor, out bool handlesNull)
     {
         handlesNull = false;
         ITypeSymbol stripped = StripNullableSymbol(type);
@@ -415,63 +412,48 @@ public static class SelectMaterializerEmitter
         {
             case SpecialType.System_Int32:
                 accessor = "GetInt32";
-                cast = null;
                 return true;
             case SpecialType.System_Int64:
                 accessor = "GetInt64";
-                cast = null;
                 return true;
             case SpecialType.System_Int16:
-                accessor = "GetInt32";
-                cast = "short";
+                accessor = "GetInt16";
                 return true;
             case SpecialType.System_Byte:
-                accessor = "GetInt32";
-                cast = "byte";
+                accessor = "GetByteValue";
                 return true;
             case SpecialType.System_SByte:
-                accessor = "GetInt32";
-                cast = "sbyte";
+                accessor = "GetSByteValue";
                 return true;
             case SpecialType.System_UInt16:
-                accessor = "GetInt32";
-                cast = "ushort";
+                accessor = "GetUInt16";
                 return true;
             case SpecialType.System_UInt32:
-                accessor = "GetInt32";
-                cast = "uint";
+                accessor = "GetUInt32";
                 return true;
             case SpecialType.System_UInt64:
-                accessor = "GetInt64";
-                cast = "ulong";
+                accessor = "GetUInt64";
                 return true;
             case SpecialType.System_Double:
                 accessor = "GetDouble";
-                cast = null;
                 return true;
             case SpecialType.System_Single:
-                accessor = "GetDouble";
-                cast = "float";
+                accessor = "GetSingle";
                 return true;
             case SpecialType.System_Boolean:
                 accessor = "GetBoolean";
-                cast = null;
                 return true;
             case SpecialType.System_String:
                 accessor = "GetString";
-                cast = null;
                 handlesNull = true;
                 return true;
             case SpecialType.System_DateTime:
                 accessor = "GetDateTimeValue";
-                cast = null;
                 return true;
             case SpecialType.System_Decimal:
                 accessor = "GetDecimalValue";
-                cast = null;
                 return true;
             default:
-                cast = null;
                 accessor = TryGetStructAccessor(stripped);
                 return accessor != null;
         }

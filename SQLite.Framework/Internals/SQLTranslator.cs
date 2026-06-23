@@ -439,6 +439,25 @@ internal class SQLTranslator
         Visitor.From!.WriteSqlTo(sb);
 
         bool isUpdateFrom = QueryType == QueryType.Update && q.Joins.Count > 0;
+
+        if (QueryType == QueryType.Delete && q.Joins.Count > 0)
+        {
+            throw new NotSupportedException(
+                "ExecuteDelete does not support a join. Filter the rows to delete with a Where predicate instead of joining.");
+        }
+
+        if (isUpdateFrom)
+        {
+            foreach (JoinInfo join in q.Joins)
+            {
+                if (join.JoinType == "LEFT JOIN")
+                {
+                    throw new NotSupportedException(
+                        "ExecuteUpdate does not support a left join. Only inner joins translate to UPDATE ... FROM.");
+                }
+            }
+        }
+
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         if (isUpdateFrom)
         {

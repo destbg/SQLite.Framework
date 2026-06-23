@@ -209,7 +209,7 @@ internal partial class SQLVisitor
                     .WithJsonSource();
             }
 
-            return InternJsonExtract(sqlExpression, node.Member.Name, node.Type);
+            return InternJsonExtract(sqlExpression, CommonHelpers.JsonMemberName(node.Member), node.Type);
         }
 
         if (Database.Options.HasTextOrBlobConverter(node.Expression.Type))

@@ -145,11 +145,74 @@ public class SQLiteDataReader : IDisposable
     }
 
     /// <summary>
+    /// Reads a 16-bit signed integer column directly. A stored value outside the
+    /// <see cref="short" /> range throws an <see cref="OverflowException" />.
+    /// </summary>
+    public short GetInt16(int index)
+    {
+        return checked((short)raw.sqlite3_column_int64(Statement, index));
+    }
+
+    /// <summary>
+    /// Reads a 16-bit unsigned integer column directly. A stored value outside the
+    /// <see cref="ushort" /> range throws an <see cref="OverflowException" />.
+    /// </summary>
+    public ushort GetUInt16(int index)
+    {
+        return checked((ushort)raw.sqlite3_column_int64(Statement, index));
+    }
+
+    /// <summary>
+    /// Reads an 8-bit unsigned integer column directly. A stored value outside the
+    /// <see cref="byte" /> range throws an <see cref="OverflowException" />.
+    /// </summary>
+    public byte GetByteValue(int index)
+    {
+        return checked((byte)raw.sqlite3_column_int64(Statement, index));
+    }
+
+    /// <summary>
+    /// Reads an 8-bit signed integer column directly. A stored value outside the
+    /// <see cref="sbyte" /> range throws an <see cref="OverflowException" />.
+    /// </summary>
+    public sbyte GetSByteValue(int index)
+    {
+        return checked((sbyte)raw.sqlite3_column_int64(Statement, index));
+    }
+
+    /// <summary>
+    /// Reads a 32-bit unsigned integer column directly. The stored 64-bit value is
+    /// reinterpreted, so a value outside the <see cref="uint" /> range wraps.
+    /// </summary>
+    public uint GetUInt32(int index)
+    {
+        return unchecked((uint)raw.sqlite3_column_int(Statement, index));
+    }
+
+    /// <summary>
+    /// Reads a 64-bit unsigned integer column directly. The stored signed value is
+    /// reinterpreted, so a value at or above 2 to the power 63 reads back as itself.
+    /// </summary>
+    public ulong GetUInt64(int index)
+    {
+        return unchecked((ulong)raw.sqlite3_column_int64(Statement, index));
+    }
+
+    /// <summary>
     /// Reads a double-precision floating-point column directly. NULL columns return 0.0.
     /// </summary>
     public double GetDouble(int index)
     {
         return raw.sqlite3_column_double(Statement, index);
+    }
+
+    /// <summary>
+    /// Reads a single-precision floating-point column directly. The stored 64-bit value
+    /// is narrowed to 32 bits, so it can lose precision.
+    /// </summary>
+    public float GetSingle(int index)
+    {
+        return (float)raw.sqlite3_column_double(Statement, index);
     }
 
     /// <summary>

@@ -378,6 +378,23 @@ public class SQLiteSchema
         TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
 
+        ComputedColumnSpec? computed = mapping.ComputedColumns.FirstOrDefault(c => c.Column.Name == column.Name);
+        if (computed != null)
+        {
+            if (computed.Stored)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot add the stored computed column '{propertyName}' to the existing table '{mapping.TableName}'. " +
+                    "SQLite only allows adding a VIRTUAL generated column with ALTER TABLE ADD COLUMN. " +
+                    "Recreate the table with the new schema instead.");
+            }
+
+            string computedSql =
+                $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {IdentifierGuard.Quote(column.Name)} " +
+                $"{column.ColumnType.ToString().ToUpperInvariant()} GENERATED ALWAYS AS ({computed.ExpressionSql}) VIRTUAL";
+            return Database.CreateCommand(computedSql, []).ExecuteNonQuery();
+        }
+
         if (column.IsPrimaryKey)
         {
             throw new InvalidOperationException(

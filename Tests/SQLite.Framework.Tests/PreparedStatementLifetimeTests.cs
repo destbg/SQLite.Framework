@@ -29,7 +29,7 @@ public class PreparedStatementLifetimeTests
         int before = CountOpenStatements(db);
 
         Assert.ThrowsAny<Exception>(() =>
-            db.Execute("INSERT INTO StmtLifetime (Id) VALUES (1)", new SQLiteParameter { Name = "@missing", Value = 1 }));
+            db.Execute("INSERT INTO StmtLifetime (Id) VALUES (@p)", new SQLiteParameter { Name = "@p", Value = new object() }));
 
         int after = CountOpenStatements(db);
 

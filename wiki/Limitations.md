@@ -40,6 +40,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `ToUpper` and `ToLower`, on both `string` and `char`, fold only ASCII unless the SQLite build has ICU.
 - The `CultureInfo` overloads of `ToUpper` and `ToLower`, on both `string` and `char` throw in a `Where`.
 - Case-insensitive `Equals`, `Compare`, `Contains`, `StartsWith` and `EndsWith` (`OrdinalIgnoreCase`) also fold only ASCII.
+- `string.Compare` and `CompareTo` order by byte value, the same as the comparison operators, even when a `CultureInfo` or a culture-aware `StringComparison` such as `InvariantCulture` is given. The sign of the result can differ from .NET, which compares by language rules.
+- `Enum.Parse` of a string that is not a defined member name and not a number reads back as the enum's zero value instead of throwing.
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text).
 - A `char` taken from a string can be half of a character that needs two slots in .NET, such as an emoji. SQLite stores whole characters only, so reading that half on its own does not come back the same and can throw.
 - `Enum.Parse` strips ASCII whitespace anywhere in the string, so the spaced `[Flags]` form like `"Read, Write"` parses but a name with embedded whitespace like `"News\tpaper"` matches `"Newspaper"` where .NET would throw.
@@ -64,7 +66,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Joins and SelectMany
 
 - A correlated subquery used directly as a second `from` source, for example `from a in db.Table<Author>() from b in db.Table<Book>().Where(b => b.AuthorId == a.Id)`, is not supported, since SQLite has no `LATERAL` join.
-- In a recursive common table expression, a positional constructor whose parameter order differs from the entity's property order lines the columns up wrong.
+- In a common table expression, a positional constructor projection whose parameter names or order do not match the entity's properties lines the columns up wrong or cannot be read back.
 
 ## Null comparisons
 
@@ -83,6 +85,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `AddMonths` and `AddYears` whose result lands in December of year 9999 return the default date, since the date math overflows past SQLite's maximum date.
 - `AddSeconds`, `AddMinutes`, `AddHours`, `AddDays`, `AddMilliseconds` and the other `Add` methods that take a fractional amount can land one tick away from the .NET result. SQLite multiplies the amount by the tick scale in one floating-point step, while .NET reaches the tick count through a different intermediate unit, so the last tick can round the other way.
 - `DateTimeOffset` drops its offset.
+- With `DateTimeOffset` stored as `UtcTicks`, a date or time component read in a query (`.Year`, `.Hour`, ...) comes back in UTC, not in the value's own offset.
+- Adding a `TimeSpan` column to a `DateTime` does not work when the `TimeSpan` is stored as `Text`, because the stored text cannot be added as a duration. A constant or captured `TimeSpan` works.
 - A `DateTime` stored as `Integer` or `Text` ticks reads back with `Kind` set to `Unspecified`, since the tick count carries no kind.
 - Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
 - A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal`, and the `HasFlag`, bitwise, comparison and cast operators on a `Text`-stored enum.
@@ -106,6 +110,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `OrderBy` followed by `Reverse` on a JSON list keeps rows that share the same sort key in their first-seen order, not the reversed order that LINQ-to-Objects gives, because the reverse is done by sorting the other way.
 - On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable, and `Dictionary.Contains` of a whole key-value pair, are not supported there.
 - On a JSON dictionary, the indexer for a key that is not present returns the type default instead of throwing.
+- On a JSON list of enums, `Contains` and comparisons use the enum form from the global enum storage mode. When the enum is written inside the JSON in a different form, by default as a number, the comparison does not match.
 
 ## Binary data
 
@@ -127,6 +132,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Schema
 
 - An attribute foreign key (`[ReferencesTable]` or `[ForeignKey]`) reads the name of the column it points at on the target table from the target type, before the model builder runs. Renaming that target column with the fluent `HasColumnName` afterward does not reach the foreign key, so it keeps the old name and the table fails to accept rows.
+- A composite primary key cannot have an auto-increment member. SQLite only allows auto-increment on a single-column `INTEGER PRIMARY KEY`, so creating such a table throws.
 
 ## Writes
 

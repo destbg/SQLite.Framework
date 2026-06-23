@@ -392,12 +392,15 @@ public static class SelectSignatureWriter
         }
     }
 
-    private static ITypeSymbol? ElementTypeOf(ITypeSymbol? source) => source switch
+    private static ITypeSymbol? ElementTypeOf(ITypeSymbol? source)
     {
-        INamedTypeSymbol nt when nt.IsGenericType => nt.TypeArguments.FirstOrDefault(),
-        IArrayTypeSymbol ats => ats.ElementType,
-        _ => null
-    };
+        return source switch
+        {
+            INamedTypeSymbol nt when nt.IsGenericType => nt.TypeArguments.FirstOrDefault(),
+            IArrayTypeSymbol ats => ats.ElementType,
+            _ => null
+        };
+    }
 
     private static bool TryAppend(StringBuilder sb, ExpressionSyntax? node, SelectSignatureCtx ctx)
     {

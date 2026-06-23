@@ -947,9 +947,8 @@ public static class EntityMaterializerEmitter
         bool isNullable = propType.NullableAnnotation == NullableAnnotation.Annotated || propType.IsReferenceType
             || (propType is INamedTypeSymbol nt && nt.IsGenericType && nt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T);
 
-        if (!isEnum && SelectMaterializerEmitter.TryGetFastPathAccessor(propType, out string? accessor, out string? cast, out bool handlesNull))
+        if (!isEnum && SelectMaterializerEmitter.TryGetFastPathAccessor(propType, out string? accessor, out bool handlesNull))
         {
-            string castOpen = cast is null ? "" : "(" + cast + ")";
             sb.Append(indent).Append("    if (reader.HasConverter(typeof(").Append(strippedDisplay).AppendLine(")))");
             sb.Append(indent).AppendLine("    {");
             sb.Append(indent).Append("        object? __raw_").Append(localSuffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), typeof(").Append(convReadDisplay).AppendLine("));");
@@ -960,11 +959,11 @@ public static class EntityMaterializerEmitter
             if (isNullable && !handlesNull)
             {
                 sb.Append(indent).Append("        if (!reader.IsDBNull(").Append(idxLocal).AppendLine("))");
-                sb.Append(indent).Append("        ").Append(valueLocal).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(").Append(idxLocal).AppendLine(");");
+                sb.Append(indent).Append("        ").Append(valueLocal).Append(" = ").Append("reader.").Append(accessor).Append("(").Append(idxLocal).AppendLine(");");
             }
             else
             {
-                sb.Append(indent).Append("        ").Append(valueLocal).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(").Append(idxLocal).AppendLine(");");
+                sb.Append(indent).Append("        ").Append(valueLocal).Append(" = ").Append("reader.").Append(accessor).Append("(").Append(idxLocal).AppendLine(");");
             }
             sb.Append(indent).AppendLine("    }");
             sb.Append(indent).AppendLine("}");
@@ -1388,9 +1387,8 @@ public static class EntityMaterializerEmitter
             bool propIsNullable = isAnnotatedOrRef
                 || (prop.Type is INamedTypeSymbol propNt && propNt.IsGenericType && propNt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T);
 
-            if (SelectMaterializerEmitter.TryGetFastPathAccessor(prop.Type, out string? accessor, out string? cast, out bool handlesNull))
+            if (SelectMaterializerEmitter.TryGetFastPathAccessor(prop.Type, out string? accessor, out bool handlesNull))
             {
-                string castOpen = cast is null ? "" : "(" + cast + ")";
                 rowBody.Append("                    if (reader.HasConverter(typeof(").Append(strippedDisplay).AppendLine(")))");
                 rowBody.AppendLine("                    {");
                 rowBody.Append("                        object? raw_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), typeof(").Append(convReadDisplay).AppendLine("));");
@@ -1401,11 +1399,11 @@ public static class EntityMaterializerEmitter
                 if (propIsNullable && !handlesNull)
                 {
                     rowBody.Append("                        if (!reader.IsDBNull(idx_").Append(propName).AppendLine("))");
-                    rowBody.Append("                        value_").Append(propName).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
+                    rowBody.Append("                        value_").Append(propName).Append(" = ").Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
                 }
                 else
                 {
-                    rowBody.Append("                        value_").Append(propName).Append(" = ").Append(castOpen).Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
+                    rowBody.Append("                        value_").Append(propName).Append(" = ").Append("reader.").Append(accessor).Append("(idx_").Append(propName).AppendLine(");");
                 }
                 rowBody.AppendLine("                    }");
             }

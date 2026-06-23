@@ -15,6 +15,25 @@ internal static class CommonHelpers
     }
 
     /// <summary>
+    /// Resolves the JSON property name for a member, honoring a <see cref="JsonPropertyNameAttribute" />
+    /// so a renamed property matches the key written by the serializer.
+    /// </summary>
+    public static string JsonMemberName(MemberInfo member)
+    {
+        return member.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? member.Name;
+    }
+
+    /// <summary>
+    /// Reports whether the hooks for <typeparamref name="T" /> include a column-collecting hook,
+    /// which writes extra columns into a dictionary during a write.
+    /// </summary>
+    public static bool HasColumnHooks<T>(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks)
+    {
+        return hooks.TryGetValue(typeof(T), out IReadOnlyList<Delegate>? list)
+            && list.Any(h => h is Func<SQLiteDatabase, T, IDictionary<string, object?>, bool>);
+    }
+
+    /// <summary>
     /// Reports whether a lambda body references its first parameter.
     /// </summary>
     public static bool Uses(LambdaExpression lambda)

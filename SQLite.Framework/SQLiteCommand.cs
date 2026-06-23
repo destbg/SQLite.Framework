@@ -111,7 +111,6 @@ public class SQLiteCommand
             byte[] sqlBytes = Encoding.UTF8.GetBytes(CommandText);
             ReadOnlySpan<byte> remaining = sqlBytes;
             int changes = 0;
-            bool first = true;
 
             while (true)
             {
@@ -129,7 +128,7 @@ public class SQLiteCommand
                 int totalChangesBefore = raw.sqlite3_total_changes(handle);
                 try
                 {
-                    BindParameters(statement, ignoreMissing: !(first && tail.IsEmpty));
+                    BindParameters(statement);
 
                     SQLiteResult stepResult = (SQLiteResult)raw.sqlite3_step(statement);
                     while (stepResult == SQLiteResult.Row)
@@ -152,7 +151,6 @@ public class SQLiteCommand
                     changes += raw.sqlite3_changes(handle);
                 }
 
-                first = false;
                 remaining = tail;
 
                 if (remaining.IsEmpty)
@@ -288,12 +286,12 @@ public class SQLiteCommand
         }
     }
 
-    private void BindParameters(sqlite3_stmt statement, bool ignoreMissing = false)
+    private void BindParameters(sqlite3_stmt statement)
     {
         SQLiteOptions options = Database.Options;
         foreach (SQLiteParameter parameter in Parameters)
         {
-            if (ignoreMissing && raw.sqlite3_bind_parameter_index(statement, parameter.Name) == 0)
+            if (raw.sqlite3_bind_parameter_index(statement, parameter.Name) == 0)
             {
                 continue;
             }
