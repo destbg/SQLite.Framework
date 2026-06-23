@@ -32,6 +32,7 @@ jobs:
           - SQLite.Framework.Tests.Base
           - SQLite.Framework.Tests.SourceGenerator
           - SQLite.Framework.Tests.DependencyInjection
+          - SQLite.Framework.Tests.AotMigrate
     name: Test results (${{ matrix.project }})
     steps:
       - uses: actions/checkout@v7
@@ -92,6 +93,7 @@ jobs:
           - SQLite.Framework.Tests.NoOp
           - SQLite.Framework.Tests.SourceGenerator
           - SQLite.Framework.Tests.DependencyInjection
+          - SQLite.Framework.Tests.AotMigrate
     name: Coverage (${{ matrix.project }})
     steps:
       - uses: actions/checkout@v7

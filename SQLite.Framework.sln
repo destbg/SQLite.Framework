@@ -44,6 +44,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.AndroidBen
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Tests.DependencyInjection", "Tests\SQLite.Framework.Tests.DependencyInjection\SQLite.Framework.Tests.DependencyInjection.csproj", "{5E857210-6D9F-40A9-880A-11A5ADEAEEE2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLite.Framework.Tests.AotMigrate", "Tests\SQLite.Framework.Tests.AotMigrate\SQLite.Framework.Tests.AotMigrate.csproj", "{A242543A-8EAF-43BA-A340-9DA7507ABA0E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -282,6 +284,18 @@ Global
 		{5E857210-6D9F-40A9-880A-11A5ADEAEEE2}.Release|x64.Build.0 = Release|Any CPU
 		{5E857210-6D9F-40A9-880A-11A5ADEAEEE2}.Release|x86.ActiveCfg = Release|Any CPU
 		{5E857210-6D9F-40A9-880A-11A5ADEAEEE2}.Release|x86.Build.0 = Release|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Debug|x64.Build.0 = Debug|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Debug|x86.Build.0 = Debug|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Release|x64.ActiveCfg = Release|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Release|x64.Build.0 = Release|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Release|x86.ActiveCfg = Release|Any CPU
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -300,5 +314,6 @@ Global
 		{61953934-7343-4E01-8A01-86B9B7539571} = {619E361B-8646-4F23-B011-B61F814B70A9}
 		{A82527ED-6BA9-4837-BAD1-1BAB1947C935} = {4F9DEAE5-078F-E77A-2E4A-FEB6FFE226FF}
 		{5E857210-6D9F-40A9-880A-11A5ADEAEEE2} = {CA33A775-A4D5-40E6-91D5-0275F759E818}
+		{A242543A-8EAF-43BA-A340-9DA7507ABA0E} = {CA33A775-A4D5-40E6-91D5-0275F759E818}
 	EndGlobalSection
 EndGlobal

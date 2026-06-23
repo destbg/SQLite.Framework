@@ -42,6 +42,15 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 
     private const string SQLiteDatabaseFullName = "SQLite.Framework.SQLiteDatabase";
 
+    private static readonly string[] BuiltInEntityTypeNames =
+    {
+        "SQLite.Framework.Models.PragmaTableInfo",
+        "SQLite.Framework.Models.PragmaForeignKey",
+        "SQLite.Framework.Models.PragmaIndexList",
+        "SQLite.Framework.Models.SQLiteMaster",
+        "SQLite.Framework.Models.SQLiteSequence",
+    };
+
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -213,6 +222,17 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                     && IsRegistrableEntityShape(symbol))
                 {
                     unique.Add(symbol);
+                }
+            }
+
+            foreach (string builtInEntityName in BuiltInEntityTypeNames)
+            {
+                INamedTypeSymbol? builtIn = model.Compilation.GetTypeByMetadataName(builtInEntityName);
+                if (builtIn != null
+                    && !builtIn.IsAbstract
+                    && IsRegistrableEntityShape(builtIn))
+                {
+                    unique.Add(builtIn);
                 }
             }
 

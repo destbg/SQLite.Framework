@@ -22,6 +22,7 @@ jobs:
           - SQLite.Framework.Tests.Base
           - SQLite.Framework.Tests.SourceGenerator
           - SQLite.Framework.Tests.DependencyInjection
+          - SQLite.Framework.Tests.AotMigrate
     name: ${{ matrix.project }}
     steps:
       - uses: actions/checkout@v7
