@@ -494,7 +494,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             string placeholder = $"@p{next++}";
             parameters.Add(new SQLiteParameter { Name = placeholder, Value = entry.Value });
             names.Add(IdentifierGuard.Quote(entry.Key));
-            placeholders.Add(placeholder);
+            placeholders.Add(ConverterSql.WrapParameter(placeholder, entry.Value?.GetType() ?? typeof(object), Database.Options));
         }
 
         IReadOnlyList<(string Column, string ValueSql)> withColumns = ExtraWriteColumns;
@@ -548,7 +548,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         {
             string placeholder = $"@p{next++}";
             parameters.Add(new SQLiteParameter { Name = placeholder, Value = entry.Value });
-            setClauses.Add($"{IdentifierGuard.Quote(entry.Key)} = {placeholder}");
+            setClauses.Add($"{IdentifierGuard.Quote(entry.Key)} = {ConverterSql.WrapParameter(placeholder, entry.Value?.GetType() ?? typeof(object), Database.Options)}");
         }
 
         foreach ((string column, string valueSql) in ExtraWriteColumns)
@@ -575,7 +575,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         {
             string placeholder = $"@p{next++}";
             parameters.Add(new SQLiteParameter { Name = placeholder, Value = primaryColumns[i].PropertyInfo.GetValue(item) });
-            primaryKeyClauses.Add($"{IdentifierGuard.Quote(primaryColumns[i].Name)} = {placeholder}");
+            primaryKeyClauses.Add($"{IdentifierGuard.Quote(primaryColumns[i].Name)} = {WrapParam(placeholder, primaryColumns[i])}");
         }
 
         string sql = $"UPDATE \"{Table.TableName}\" SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", primaryKeyClauses)}";
@@ -739,7 +739,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         string primaryKeyClause = string.Join(" AND ",
-            primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = @p{i + columns.Length}")
+            primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = {WrapParam($"@p{i + columns.Length}", c)}")
         );
         string sql = $"UPDATE \"{Table.TableName}\" SET {setClause} WHERE {primaryKeyClause}";
 
@@ -764,7 +764,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         string primaryKeyClause = string.Join(" AND ",
-            primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = @p{i}")
+            primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = {WrapParam($"@p{i}", c)}")
         );
         string sql = $"DELETE FROM \"{Table.TableName}\" WHERE {primaryKeyClause}";
 

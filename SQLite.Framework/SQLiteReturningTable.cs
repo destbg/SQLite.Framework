@@ -442,7 +442,9 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
 
     private static bool IsAutoIncrementUnset(object? value)
     {
-        return Convert.ToInt64(value, CultureInfo.InvariantCulture) == 0L;
+        return value is ulong unsignedValue
+            ? unsignedValue == 0UL
+            : Convert.ToInt64(value, CultureInfo.InvariantCulture) == 0L;
     }
 
     private static List<SQLiteParameter> BuildInsertParameters(TableColumn[] columns, TableColumn? autoIncrement, T item)

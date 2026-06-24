@@ -12,7 +12,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `decimal` is not exact: `Real` storage is a 64-bit float, `Text` storage casts to float for compare and order.
 - On `Real` decimal storage, `ToString()` formats like a `double`: trailing zeros such as `10.50` are dropped, and a very small or very large value prints in scientific notation. `Text` storage returns the stored .NET string.
 - On `Text` decimal storage, `Distinct`, the set operators, and a subquery `Contains` compare the stored text. Two equal values with a different scale, such as `10.0` and `10.00`, are then treated as different.
-- `Math.Min`, `Math.Max` and `Math.Clamp` over a `Text`-stored `decimal` compare and return the value through a 64-bit float, so a value with more precision than a `double` can hold reads back rounded.
+- `Math.Min`, `Math.Max`, `Math.Clamp`, `Math.Abs`, `Math.Floor`, `Math.Ceiling`, `Math.Truncate` and `Math.Round` over a `Text`-stored `decimal` go through a 64-bit float, so a value with more precision than a `double` can hold reads back rounded.
 - `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits, and `ToString()` on a fractional `float` prints the digits of the stored 64-bit value. SQLite has no 32-bit float type.
 - Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
@@ -102,7 +102,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - On a JSON array, `First`, `Last` or `Single` with a predicate that matches no element, and `Min`, `Max` or `Average` after a `Where` that removes every element, also return the type default instead of throwing, the same as their over-empty forms.
 - On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL`, and `Distinct().Count()` leaves the `null` out of the count.
 - A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so adding a list that holds one fails.
-- `DateTime` values inside a JSON list are kept as text. Reading a part like `.Year`, or comparing them, follows the same rules as `Text` date storage, not .NET, so results can differ.
+- `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly` and `TimeSpan` values inside a JSON list are kept as text. Reading a part like `.Year`, or comparing them, follows the same rules as `Text` storage, not .NET, so results can differ.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
 - `GetRange` on a JSON list that asks for more items than are there returns the items that fit, instead of throwing.
 - Projecting a JSON dictionary's `Keys` or `Values` collection on its own is not supported.

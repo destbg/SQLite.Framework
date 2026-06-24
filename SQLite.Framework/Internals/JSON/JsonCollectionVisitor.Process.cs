@@ -353,7 +353,16 @@ internal partial class JsonCollectionVisitor
 
     private void HandleAll(MethodCallExpression call, Type elementType)
     {
-        wheres.Add($"(({VisitLambda(call.Arguments[1], elementType)}) IS NOT 1)");
+        string predicate = $"(({VisitLambda(call.Arguments[1], elementType)}) IS NOT 1)";
+        if (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+        {
+            havings.Add(predicate);
+        }
+        else
+        {
+            wheres.Add(predicate);
+        }
+
         existsWrapper = "NOT EXISTS";
         selectExpr = "1";
         limit = "1";

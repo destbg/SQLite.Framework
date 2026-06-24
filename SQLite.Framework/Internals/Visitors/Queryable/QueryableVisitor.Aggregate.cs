@@ -300,7 +300,7 @@ internal partial class QueryableVisitor
                 "or `.GroupBy(x => new {{ x.A, x.B }})`).");
         }
 
-        bool isMember = false;
+        bool isScalarElement = false;
 
         if (node.Arguments.Count == 3)
         {
@@ -308,9 +308,9 @@ internal partial class QueryableVisitor
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
 
-            if (resultSelector.Body is MemberExpression && TypeHelpers.IsSimple(resultSelector.Body.Type, database.Options))
+            if (TypeHelpers.IsSimple(resultSelector.Body.Type, database.Options))
             {
-                isMember = true;
+                isScalarElement = true;
             }
         }
 
@@ -329,7 +329,7 @@ internal partial class QueryableVisitor
                 newTableColumns[keyName] = keyNew.Arguments[i];
             }
         }
-        else if (!isMember)
+        else if (!isScalarElement)
         {
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
