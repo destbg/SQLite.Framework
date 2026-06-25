@@ -133,6 +133,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - An attribute foreign key (`[ReferencesTable]` or `[ForeignKey]`) reads the name of the column it points at on the target table from the target type, before the model builder runs. Renaming that target column with the fluent `HasColumnName` afterward does not reach the foreign key, so it keeps the old name and the table fails to accept rows.
 - A composite primary key cannot have an auto-increment member. SQLite only allows auto-increment on a single-column `INTEGER PRIMARY KEY`, so creating such a table throws.
+- Auto-increment is only allowed on a single-column `INTEGER PRIMARY KEY`. Marking a key of another type, such as a `string` key, as auto-increment throws when the table is created.
+- Migrating a column from nullable to NOT NULL fails when existing rows hold `NULL` and the column has no default. Add a default, set a value with `Migrate(m => m.Set(...))`, or keep the column nullable. When the column has a default, the existing `NULL` rows are filled with that default.
 
 ## Writes
 

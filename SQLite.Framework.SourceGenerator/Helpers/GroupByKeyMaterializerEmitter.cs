@@ -23,6 +23,11 @@ public static class GroupByKeyMaterializerEmitter
             return false;
         }
 
+        if (invocation.ParameterType.IsAnonymousType)
+        {
+            return false;
+        }
+
         Dictionary<ISymbol, RowBinding> bindings = new(SymbolEqualityComparer.Default)
         {
             [invocation.ParameterSymbol] = new RowBinding((string?)null, invocation.ParameterType)

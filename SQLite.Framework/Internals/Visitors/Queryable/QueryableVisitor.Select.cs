@@ -301,6 +301,11 @@ internal partial class QueryableVisitor
 
     private static Expression? TryFlattenChainedSelectBody(LambdaExpression outer, LambdaExpression inner)
     {
+        if (outer.Parameters[0].Type != inner.Body.Type)
+        {
+            return null;
+        }
+
         if (outer.Body is MemberExpression outerMa
             && outerMa.Expression is ParameterExpression outerParam1
             && outerParam1 == outer.Parameters[0]

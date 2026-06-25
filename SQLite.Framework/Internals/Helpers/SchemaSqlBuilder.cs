@@ -23,6 +23,16 @@ internal static class SchemaSqlBuilder
                     "SQLite only allows auto-increment on a single-column INTEGER PRIMARY KEY.");
             }
         }
+        else
+        {
+            TableColumn? autoIncrementKey = primaryKeyColumns.FirstOrDefault(c => c.IsAutoIncrement);
+            if (autoIncrementKey != null && autoIncrementKey.ColumnType != SQLiteColumnType.Integer)
+            {
+                throw new InvalidOperationException(
+                    $"Column '{autoIncrementKey.Name}' on table '{tableName}' is marked auto-increment but stores type '{autoIncrementKey.ColumnType}'. " +
+                    "SQLite only allows auto-increment on a single-column INTEGER PRIMARY KEY.");
+            }
+        }
 
         StringBuilder sb = new();
         sb.Append("CREATE TABLE ");

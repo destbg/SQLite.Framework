@@ -1104,8 +1104,29 @@ public class SQLiteSchema
             .Where(name => liveColumns.Contains(name) && !setColumns.Contains(name))
             .ToList();
 
+        Dictionary<string, string> backfillDefaults = new();
+        foreach (TableColumn column in mapping.Columns)
+        {
+            if (!computedColumns.Contains(column.Name) && !column.IsNullable && column.DefaultSql != null)
+            {
+                backfillDefaults[column.Name] = column.DefaultSql;
+            }
+        }
+        foreach (ShadowColumnSpec shadow in mapping.ShadowColumns)
+        {
+            if (!shadow.IsNullable && shadow.DefaultSql != null)
+            {
+                backfillDefaults[shadow.Name] = shadow.DefaultSql;
+            }
+        }
+
         List<string> insertColumns = copyColumns.Concat(sets.Select(s => s.Column)).Select(IdentifierGuard.Quote).ToList();
-        List<string> selectExpressions = copyColumns.Select(IdentifierGuard.Quote).Concat(sets.Select(s => s.ValueSql)).ToList();
+        List<string> selectExpressions = copyColumns
+            .Select(name => backfillDefaults.TryGetValue(name, out string? defaultSql)
+                ? $"COALESCE({IdentifierGuard.Quote(name)}, {defaultSql})"
+                : IdentifierGuard.Quote(name))
+            .Concat(sets.Select(s => s.ValueSql))
+            .ToList();
 
         IReadOnlyList<string> liveTriggers = Database.Query<string>(
             $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{table.Replace("'", "''")}' AND sql IS NOT NULL");
