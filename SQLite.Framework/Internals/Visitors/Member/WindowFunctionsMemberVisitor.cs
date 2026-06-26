@@ -226,12 +226,20 @@ internal static class WindowFunctionsMemberVisitor
         throw new NotSupportedException($"{node.Method.Name} must come right after {required} in the window chain.");
     }
 
+    private static SQLiteExpression RequireKeyExpression(ResolvedModel arg)
+    {
+        return arg.SQLiteExpression
+            ?? throw new NotSupportedException(
+                "A window PARTITION BY or ORDER BY key must be a single column or expression. " +
+                "To partition or order by several keys, chain ThenPartitionBy or ThenOrderBy.");
+    }
+
     private static void WriteOverChain(StringBuilder sb, ResolvedModel prev, string sep, ResolvedModel arg)
     {
         prev.SQLiteExpression!.WriteSqlTo(sb);
         sb.Length--;
         sb.Append(sep);
-        arg.SQLiteExpression!.WriteSqlTo(sb);
+        RequireKeyExpression(arg).WriteSqlTo(sb);
         sb.Append(')');
     }
 
@@ -240,7 +248,7 @@ internal static class WindowFunctionsMemberVisitor
         prev.SQLiteExpression!.WriteSqlTo(sb);
         sb.Length--;
         sb.Append(sep);
-        arg.SQLiteExpression!.WriteSqlTo(sb);
+        RequireKeyExpression(arg).WriteSqlTo(sb);
         sb.Append(direction);
         sb.Append(')');
     }

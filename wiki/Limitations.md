@@ -5,6 +5,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Numbers
 
 - Divide or modulo by zero is `NULL` (reads back `0` for a non-nullable result, `null` for a nullable one).
+- A `double`, `float` or `decimal` modulo where the value divided by the divisor lands outside the 64-bit integer range returns a wrong number instead of the true remainder, since the whole-part step casts to a 64-bit integer and clamps. For example `2e19 % 2.0` reads back about `1.55e18` instead of `0`.
 - A math call whose .NET result is `NaN` reads back as `null`, for example `Math.Sqrt(-1)`, `Math.Acos(2)` or `Math.Pow(-2, 0.5)`. A result that is infinity, such as `Math.Exp(1000)` or `Math.Atanh(1)`, comes back correct.
 - `Math.Log`, `Math.Log2` and `Math.Log10` of zero read back as `null` where .NET returns negative infinity. `Math.Log(a, base)` reads back as `null` when the value is zero or the base is 0, 1 or negative.
 - `Math.Cbrt` is computed through `POWER`, so the result can differ from .NET in the last bits. An exact cube such as `Math.Cbrt(64)` can read back just below the exact root.

@@ -73,8 +73,8 @@ internal partial class QueryableVisitor
                 Expression innerArgument = innerNewExpression.Arguments[i];
                 Expression outerArgument = outerNewExpression.Arguments[i];
 
-                SQLiteExpression outerAlias = (SQLiteExpression)visitor.Visit(innerArgument);
-                SQLiteExpression innerAlias = (SQLiteExpression)visitor.Visit(outerArgument);
+                SQLiteExpression outerAlias = visitor.PrepareKeyOperand(innerArgument, (SQLiteExpression)visitor.Visit(innerArgument));
+                SQLiteExpression innerAlias = visitor.PrepareKeyOperand(outerArgument, (SQLiteExpression)visitor.Visit(outerArgument));
 
                 SQLiteParameter[]? combinedParameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
 
@@ -96,8 +96,8 @@ internal partial class QueryableVisitor
         }
         else
         {
-            SQLiteExpression outerAlias = (SQLiteExpression)visitor.Visit(outerKey.Body);
-            SQLiteExpression innerAlias = (SQLiteExpression)visitor.Visit(innerKey.Body);
+            SQLiteExpression outerAlias = visitor.PrepareKeyOperand(outerKey.Body, (SQLiteExpression)visitor.Visit(outerKey.Body));
+            SQLiteExpression innerAlias = visitor.PrepareKeyOperand(innerKey.Body, (SQLiteExpression)visitor.Visit(innerKey.Body));
 
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
 

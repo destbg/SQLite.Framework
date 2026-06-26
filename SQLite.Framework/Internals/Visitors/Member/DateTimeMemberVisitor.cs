@@ -2,6 +2,16 @@ namespace SQLite.Framework.Internals.Visitors.Member;
 
 internal static class DateTimeMemberVisitor
 {
+    private static readonly long[] DescendingUnitTicks =
+    [
+        TimeSpan.TicksPerDay,
+        TimeSpan.TicksPerHour,
+        TimeSpan.TicksPerMinute,
+        TimeSpan.TicksPerSecond,
+        TimeSpan.TicksPerMillisecond,
+        TimeSpan.TicksPerMicrosecond,
+    ];
+
     public static Expression HandleDateTimeMethod(SQLiteCallerContext ctx)
     {
 
@@ -427,11 +437,45 @@ internal static class DateTimeMemberVisitor
 
     private static SQLiteExpression ResolveParse(SQLVisitor visitor, MethodInfo method, List<ResolvedModel> arguments, long multiplyBy)
     {
-        return SQLiteExpression.Wrap(
+        if (arguments.Count == 1)
+        {
+            return SQLiteExpression.Wrap(
+                method.ReturnType,
+                visitor.Counters.NextIdentifier(),
+                $"CAST({multiplyBy} * ", arguments[0].SQLiteExpression!, " AS INTEGER)",
+                arguments[0].Parameters
+            );
+        }
+
+        int startIndex = Array.IndexOf(DescendingUnitTicks, multiplyBy);
+        List<(long Unit, SQLiteExpression Expr)> terms = [];
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            ResolvedModel arg = arguments[i];
+            if (arg.IsConstant && Convert.ToInt64(arg.Constant) == 0)
+            {
+                continue;
+            }
+
+            terms.Add((DescendingUnitTicks[startIndex + i], arg.SQLiteExpression!));
+        }
+
+        string[] parts = new string[terms.Count + 1];
+        SQLiteExpression[] exprs = new SQLiteExpression[terms.Count];
+        for (int i = 0; i < terms.Count; i++)
+        {
+            parts[i] = i == 0 ? $"CAST({terms[i].Unit} * (" : $") + {terms[i].Unit} * (";
+            exprs[i] = terms[i].Expr;
+        }
+
+        parts[terms.Count] = ") AS INTEGER)";
+
+        return SQLiteExpression.Multi(
             method.ReturnType,
             visitor.Counters.NextIdentifier(),
-            $"CAST({multiplyBy} * ", arguments[0].SQLiteExpression!, " AS INTEGER)",
-            arguments[0].Parameters
+            parts,
+            exprs,
+            ParameterHelpers.CombineParameters(exprs)
         );
     }
 

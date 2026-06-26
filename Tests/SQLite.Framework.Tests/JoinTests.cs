@@ -275,7 +275,7 @@ public class JoinTests
                             a1."AuthorEmail" AS "Email",
                             a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON a1."AuthorId" = b0."BookAuthorId" AND a1."AuthorEmail" IS NOT NULL = @p1
+                     JOIN "Authors" AS a1 ON a1."AuthorId" = b0."BookAuthorId" AND (a1."AuthorEmail" IS NOT NULL) = @p1
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }
@@ -299,7 +299,7 @@ public class JoinTests
                             a1."AuthorEmail" AS "Email",
                             a1."AuthorBirthDate" AS "BirthDate"
                      FROM "Books" AS b0
-                     JOIN "Authors" AS a1 ON a1."AuthorId" = b0."BookAuthorId" AND a1."AuthorEmail" IS NOT NULL = b0."BookTitle" IS NOT NULL
+                     JOIN "Authors" AS a1 ON a1."AuthorId" = b0."BookAuthorId" AND (a1."AuthorEmail" IS NOT NULL) = (b0."BookTitle" IS NOT NULL)
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
     }

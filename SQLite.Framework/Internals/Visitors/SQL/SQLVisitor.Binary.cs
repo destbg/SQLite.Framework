@@ -9,6 +9,11 @@ internal partial class SQLVisitor
             : expr;
     }
 
+    public SQLiteExpression PrepareKeyOperand(Expression operand, SQLiteExpression expr)
+    {
+        return BracketBinaryOperand(operand, CoalesceLiftedOrderComparison(operand, expr));
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "ToString does exist")]
     protected override Expression VisitBinary(BinaryExpression node)
     {

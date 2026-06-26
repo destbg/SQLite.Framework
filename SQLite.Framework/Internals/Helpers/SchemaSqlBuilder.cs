@@ -34,6 +34,25 @@ internal static class SchemaSqlBuilder
             }
         }
 
+        TableColumn? nonKeyAutoIncrement = mapping.Columns.FirstOrDefault(c => c.IsAutoIncrement && !c.IsPrimaryKey);
+        if (nonKeyAutoIncrement != null)
+        {
+            throw new InvalidOperationException(
+                $"Column '{nonKeyAutoIncrement.Name}' on table '{tableName}' is marked auto-increment but is not the primary key. " +
+                "SQLite only allows auto-increment on a single-column INTEGER PRIMARY KEY.");
+        }
+
+        if (mapping.WithoutRowId)
+        {
+            TableColumn? autoIncrementKey = primaryKeyColumns.FirstOrDefault(c => c.IsAutoIncrement);
+            if (autoIncrementKey != null)
+            {
+                throw new InvalidOperationException(
+                    $"Column '{autoIncrementKey.Name}' on table '{tableName}' is marked auto-increment on a WITHOUT ROWID table. " +
+                    "SQLite does not allow auto-increment on WITHOUT ROWID tables.");
+            }
+        }
+
         StringBuilder sb = new();
         sb.Append("CREATE TABLE ");
         if (ifNotExists)
