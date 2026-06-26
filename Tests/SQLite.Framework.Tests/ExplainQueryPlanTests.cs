@@ -57,7 +57,7 @@ public class ExplainQueryPlanTests
         db.Table<Author>().Schema.CreateTable();
 
         SQLiteQueryPlan plan = db.Table<Book>()
-            .Where(b => db.Table<Author>().Any(a => a.Id == b.AuthorId))
+            .Select(b => new { b.Id, AuthorCount = db.Table<Author>().Count(a => a.Id == b.AuthorId) })
             .ExplainQueryPlan();
 
         bool hasNested = plan.Roots.Any(r => r.Children.Count > 0)

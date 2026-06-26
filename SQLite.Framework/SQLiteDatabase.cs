@@ -33,7 +33,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     static SQLiteDatabase()
     {
-#if !NO_SQLITEPCL_RAW_BATTERIES
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        raw.SetProvider(new SQLite3Provider_sqlite3());
+#elif !NO_SQLITEPCL_RAW_BATTERIES
         Batteries_V2.Init();
 #endif
     }
