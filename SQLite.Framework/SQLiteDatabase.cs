@@ -290,6 +290,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
             Handle = handle;
 
+            OnDatabaseConnecting();
+
 #if SQLITECIPHER
             if (!string.IsNullOrEmpty(Options.EncryptionKey))
             {
@@ -319,6 +321,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 #endif
 
             IsConnected = true;
+            OnDatabaseConnected();
 
             if (Options.IsWalMode)
             {
@@ -1108,6 +1111,20 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     /// <param name="builder">Builds the model.</param>
     protected virtual void OnModelCreating(SQLiteModelBuilder builder)
+    {
+    }
+
+    /// <summary>
+    /// Override to run code when the database is connecting, before any table mapping is used. The base method does nothing.
+    /// </summary>
+    protected virtual void OnDatabaseConnecting()
+    {
+    }
+
+    /// <summary>
+    /// Override to run code when the database is connected, after any table mapping is used. The base method does nothing.
+    /// </summary>
+    protected virtual void OnDatabaseConnected()
     {
     }
 
