@@ -403,12 +403,12 @@ internal static class JsonMethodTranslator
     {
         foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            string sql = $"json_extract({valueSql}, '$.{prop.Name}')";
+            string sql = $"json_extract({valueSql}, '$.{CommonHelpers.JsonMemberName(prop)}')";
             dict[prop.Name] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null).WithJsonSource();
         }
     }
 
-    private static Expression? TryHandleChain(MethodCallExpression node, SQLVisitor visitor)
+    private static SQLiteExpression? TryHandleChain(MethodCallExpression node, SQLVisitor visitor)
     {
         if (!IsChainedCollectionMethod(node))
         {

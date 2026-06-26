@@ -99,26 +99,29 @@ internal partial class JsonCollectionVisitor
         else
         {
             Dictionary<string, Expression> dict = new();
-            RegisterProperties(elementType, string.Empty, valueSql, dict);
+            RegisterProperties(elementType, string.Empty, string.Empty, valueSql, dict);
             visitor.MethodArguments[param] = dict;
         }
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
-    private void RegisterProperties(Type type, string prefix, string valueSql, Dictionary<string, Expression> dict)
+    private void RegisterProperties(Type type, string prefix, string jsonPrefix, string valueSql, Dictionary<string, Expression> dict)
     {
         foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            string dictKey = string.IsNullOrEmpty(prefix) ? prop.Name : $"{prefix}.{prop.Name}";
+            bool atRoot = string.IsNullOrEmpty(prefix);
+            string dictKey = atRoot ? prop.Name : $"{prefix}.{prop.Name}";
+            string jsonName = CommonHelpers.JsonMemberName(prop);
+            string jsonKey = atRoot ? jsonName : $"{jsonPrefix}.{jsonName}";
 
             if (TypeHelpers.IsSimple(prop.PropertyType, options))
             {
-                string sql = $"json_extract({valueSql}, '$.{dictKey}')";
+                string sql = $"json_extract({valueSql}, '$.{jsonKey}')";
                 dict[dictKey] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null);
             }
             else
             {
-                RegisterProperties(prop.PropertyType, dictKey, valueSql, dict);
+                RegisterProperties(prop.PropertyType, dictKey, jsonKey, valueSql, dict);
             }
         }
     }

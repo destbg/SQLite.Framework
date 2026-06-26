@@ -739,6 +739,12 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
+        ITypeSymbol? innerBodyType = model.GetTypeInfo(innerInfo.Body).Type;
+        if (innerBodyType == null || !SymbolEqualityComparer.Default.Equals(outerRow.Type, innerBodyType))
+        {
+            return null;
+        }
+
         if (outerBody is MemberAccessExpressionSyntax outerMa
             && outerMa.Kind() == SyntaxKind.SimpleMemberAccessExpression
             && outerMa.Expression is IdentifierNameSyntax outerRowIdent

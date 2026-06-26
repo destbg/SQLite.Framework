@@ -37,6 +37,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Length` counts code points, and `PadLeft`/`PadRight` measure the target width the same way.
 - Ordering and comparison use byte value (`BINARY`), so `"B"` sorts before `"a"`.
 - `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing.
+- Reading a character by index, `s[i]`, with an out-of-range index does not throw the index-out-of-range error that .NET throws. A negative index reads a character counted from the end of the string, and an index at or past the end fails with a different error.
 - `Replace("", ...)` returns the original string.
 - `ToUpper` and `ToLower`, on both `string` and `char`, fold only ASCII unless the SQLite build has ICU.
 - The `CultureInfo` overloads of `ToUpper` and `ToLower`, on both `string` and `char` throw in a `Where`.
