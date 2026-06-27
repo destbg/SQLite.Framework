@@ -1,4 +1,3 @@
-using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -11,16 +10,6 @@ public class SchemaMigrateAsyncTests
         using TestDatabase db = new();
 
         await db.Schema.MigrateAsync<MigSimple>(TestContext.Current.CancellationToken);
-
-        Assert.True(db.Schema.TableExists<MigSimple>());
-    }
-
-    [Fact]
-    public async Task SchemaMigrateAsyncTypeCreatesMissingTable()
-    {
-        using TestDatabase db = new();
-
-        await db.Schema.MigrateAsync(typeof(MigSimple), TestContext.Current.CancellationToken);
 
         Assert.True(db.Schema.TableExists<MigSimple>());
     }
@@ -45,16 +34,6 @@ public class SchemaMigrateAsyncTests
         using TestDatabase db = new();
 
         await db.Schema.MigrateByRebuildAsync<MigSimple>(TestContext.Current.CancellationToken);
-
-        Assert.True(db.Schema.TableExists<MigSimple>());
-    }
-
-    [Fact]
-    public async Task SchemaMigrateByRebuildAsyncTypeCreatesMissingTable()
-    {
-        using TestDatabase db = new();
-
-        await db.Schema.MigrateByRebuildAsync(typeof(MigSimple), TestContext.Current.CancellationToken);
 
         Assert.True(db.Schema.TableExists<MigSimple>());
     }

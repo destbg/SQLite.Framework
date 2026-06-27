@@ -148,11 +148,10 @@ Constants in computed, CHECK, default, and partial-index expressions are inlined
 
 ### Running the schema actions
 
-Configuration lives only in `OnModelCreating`. To act on a table, reach its action handle with `db.Schema.Table<T>()` or `db.Table<T>().Schema`, which expose `CreateTable()`, `Migrate()`, and `ValidateModel()`. `db.Schema.CreateTable<T>()` is the same as `db.Schema.Table<T>().CreateTable()`.
+Configuration lives only in `OnModelCreating`. To act on a table, reach its action handle with `db.Schema.Table<T>()` or `db.Table<T>().Schema`, which expose `CreateTable()` and `ValidateModel()`. `db.Schema.CreateTable<T>()` is the same as `db.Schema.Table<T>().CreateTable()`. To bring a live database up to the model, use the migration runner `db.Schema.Migrations()` described under [Migrate](#migrate).
 
 ```csharp
 await db.Schema.CreateTableAsync<Book>();          // create with all declared indexes and triggers
-await db.Schema.Table<Book>().MigrateAsync();      // reconcile the live table with the model
 await db.Table<Book>().Schema.ValidateModelAsync();
 ```
 
@@ -199,45 +198,84 @@ It checks columns (missing, extra, type, primary key, nullability), declared ind
 
 ## Migrate
 
-`Migrate()` reconciles the live table with the model. Reach it with `db.Schema.Table<T>().Migrate()` or `db.Table<T>().Schema.Migrate()`.
+Migrations are versioned. Reach the runner with `db.Schema.Migrations()`, declare each schema version, then apply it. The runner brings the database up to the current model and records the version it reached in `PRAGMA user_version`, so a version that already ran is skipped on the next run.
 
 ```csharp
-await db.Schema.Table<Book>().MigrateAsync();
+await db.Schema.Migrations()
+    .Version(1, m => m.TableChanged<Book>())
+    .Version(2, m => m.TableChanged<Author>())
+    .MigrateAsync();
 ```
 
-What it does:
+`TableChanged<T>()` reconciles the table for `T` to the current model. What it does:
 
 * Creates the table when it does not exist.
-* When the table definition has drifted from the model, it rebuilds the table the way SQLite recommends: create a new table from the model, copy the rows, drop the old table, rename the new one. This works on any SQLite version and never needs the version-gated `DROP COLUMN`.
+* Adds new columns in place, and drops columns the model no longer has. When a change cannot be made in place, it rebuilds the table the way SQLite recommends. It creates a new table from the model, copies the rows, drops the old table, and renames the new one. Pass `rebuild: true` to always rebuild, which works on any SQLite version.
 * Preserves the rows for every column the model keeps. A removed column loses its data, a new column gets NULL or its default, and a type change keeps the values.
-* Creates or recreates declared indexes and triggers, and drops indexes that are no longer declared. Triggers that are not declared on the model are left alone and are preserved across a rebuild.
+* Creates or recreates declared indexes and triggers, and drops indexes that are no longer declared. Triggers that are not declared on the model are left alone.
 
-The rebuild runs inside a transaction with foreign keys turned off for the duration, as SQLite requires, then restored. If the copy fails (for example a new CHECK rejects an existing row), the whole migrate rolls back and the old table and its data stay intact.
+A whole run happens in one transaction. If a step fails, the run rolls back to the version it started at, and the next run retries from there. FTS5 and R-Tree tables are only ensured to exist.
 
-FTS5 and R-Tree tables are only ensured to exist.
+Migrations always move toward the current model. There is no path back to an older version, and no way to stop below the highest declared version.
+
+### See what a migration would do
+
+`Plan()` reads the version recorded in the database and reports what a migrate would run, without changing anything.
+
+```csharp
+SQLiteMigrationPlan plan = await db.Schema.Migrations()
+    .Version(1, m => m.TableChanged<Book>())
+    .PlanAsync();
+
+if (!plan.IsUpToDate)
+{
+    foreach (string step in plan.Operations)
+    {
+        Console.WriteLine(step);
+    }
+}
+```
 
 ### Filling new columns
 
-A new `NOT NULL` column with no default cannot be filled by copying old rows. If the table has rows, `Migrate()` stops with a clear error that names the column before it tries the rebuild. You have three ways to fix it: give the column a default in `OnModelCreating`, make it nullable, or pass values to `Migrate`.
+A new `NOT NULL` column with no default cannot be filled by copying old rows. If the table has rows, the run stops with a clear error that names the column. You have three ways to fix it. Give the column a default in `OnModelCreating`, make it nullable, or pass values to `TableChanged`.
 
-`Migrate(m => m.Set(...))` lets you fill or override columns during the rebuild. Each value is read from the old row.
+`TableChanged<T>(s => s.Set(...))` fills or overrides columns during the reconcile. Each value is read from the old row. The runner unions the fills from every pending version before it reconciles, so a column added in a later version does not make an earlier version stop.
 
 ```csharp
-await db.Schema.Table<Book>().MigrateAsync(m => m
-    .Set(b => b.Status, "active")          // constant for every row
-    .Set(b => b.Slug, b => b.Title));      // expression over the old row
+await db.Schema.Migrations()
+    .Version(1, m => m.TableChanged<Book>(s => s
+        .Set(b => b.Status, "active")          // constant for every row
+        .Set(b => b.Slug, b => b.Title)))      // expression over the old row
+    .MigrateAsync();
 ```
 
 The expression form is translated to SQL and runs over the old row, the same way CHECK and computed columns are. To read or write a column that has no CLR property, use `SQLiteColumn.Of<T>(row, "Name")`:
 
 ```csharp
-await db.Schema.Table<Book>().MigrateAsync(m => m
-    .Set(b => SQLiteColumn.Of<string>(b, "Slug"), b => b.Title));
+await db.Schema.Migrations()
+    .Version(1, m => m.TableChanged<Book>(s => s
+        .Set(b => SQLiteColumn.Of<string>(b, "Slug"), b => b.Title)))
+    .MigrateAsync();
 ```
 
-A column you do not set is copied across unchanged when it still exists. Migrate with `Set` always rebuilds the table even when nothing has drifted, so the values are applied.
+A column you do not set is copied across unchanged when it still exists.
 
-`Migrate` reconciles structure. It does not run arbitrary data fixups. For one-off column changes on a live table, see the next section.
+### Renames, drops, and data steps
+
+A reconcile cannot tell a rename from a drop plus an add, so rename a column with an explicit step. Renames are applied before the reconcile, so the data is kept.
+
+```csharp
+await db.Schema.Migrations()
+    .Version(1, m => m
+        .RenameColumn<Book>("BookTitle", "Title")
+        .TableChanged<Book>())
+    .MigrateAsync();
+```
+
+A step can also drop a column with `DropColumn`, drop a table with `DropTable`, or run raw SQL with `Sql` for a data fix. Within one run the order is fixed. Renames run first, then one reconcile per table, then drops and raw SQL. So a raw SQL data step reads the final shape of the table. To move data out of a column you are removing, keep the old column on the model while you copy it, then remove it in a later version.
+
+The runner reconciles structure and runs the data steps you declare. For one-off column changes outside a migration, see the next section.
 
 ## Altering tables
 
@@ -326,7 +364,7 @@ await db.Schema.CreateTriggerAsync<Book>("trg_book_history", SQLiteTriggerTiming
         .Set(h => h.NewPrice, _ => t.New.Price)));
 ```
 
-`CreateTrigger` creates the trigger right away and is not tracked by the model. To make a trigger part of the model, declare it with `Trigger(...)` in `OnModelCreating` (see [Defining the model](#defining-the-model)). Model triggers are created by `CreateTable`, and `Migrate` creates them when missing and recreates them when their body changes. Inside `OnModelCreating` reach the target table through the database's own `Table<TTarget>()`.
+`CreateTrigger` creates the trigger right away and is not tracked by the model. To make a trigger part of the model, declare it with `Trigger(...)` in `OnModelCreating` (see [Defining the model](#defining-the-model)). Model triggers are created by `CreateTable`, and a `TableChanged` migration creates them when missing and recreates them when their body changes. Inside `OnModelCreating` reach the target table through the database's own `Table<TTarget>()`.
 
 ## Customizing schema generation
 

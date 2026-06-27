@@ -2,7 +2,7 @@
 
 This page is for people who already use Entity Framework Core and want to move to `SQLite.Framework`. It points out the parts that look the same, the parts that look different, and the small changes you need to make in your code.
 
-`SQLite.Framework` is built only for SQLite. It does not try to be a full ORM like EF Core. It has no automatic change tracker, unit of work, lazy loading, or navigation properties. It does give you lightweight stand-ins for the heavier parts. Write hooks handle before-save logic, and `Migrate` with the user-version pragma handles schema versioning. It just lets you use LINQ over SQLite tables and run CRUD operations.
+`SQLite.Framework` is built only for SQLite. It does not try to be a full ORM like EF Core. It has no automatic change tracker, unit of work, lazy loading, or navigation properties. It does give you lightweight stand-ins for the heavier parts. Write hooks handle before-save logic, and a versioned migration runner handles schema versioning. It just lets you use LINQ over SQLite tables and run CRUD operations.
 
 ## DbContext Becomes a SQLiteDatabase Subclass
 
@@ -183,14 +183,12 @@ If you forget to call `Commit`, the transaction is rolled back when it is dispos
 
 ## Migrations
 
-There is **no** migration-file system like EF Core's, with generated up and down scripts and a `__EFMigrationsHistory` table. Instead the model is the source of truth, and `Migrate` reconciles the live database with it. It creates a missing table, rebuilds a table that has drifted while keeping its rows, and reconciles indexes and triggers. Track the schema version with the SQLite user-version pragma and apply what is missing on startup.
+There is **no** migration-file system like EF Core's, with generated up and down scripts and a `__EFMigrationsHistory` table. Instead the model is the source of truth. Declare each schema version on the runner, and `TableChanged` reconciles the live database with the model. It creates a missing table, rebuilds a table that has drifted while keeping its rows, and reconciles indexes and triggers. The runner records the version it reached in the SQLite user-version pragma, so each version runs once.
 
 ```csharp
-if (db.Pragmas.UserVersion < 1)
-{
-    await db.Table<Book>().Schema.MigrateAsync();
-    db.Pragmas.UserVersion = 1;
-}
+await db.Schema.Migrations()
+    .Version(1, m => m.TableChanged<Book>())
+    .MigrateAsync();
 ```
 
 You can also manage the schema by hand with `db.Schema.CreateTable<T>()` and the other methods on `Schema`.
@@ -214,7 +212,7 @@ protected override void OnModelCreating(SQLiteModelBuilder builder)
 
 Then create the table with `db.Schema.CreateTable<Book>()`.
 
-`Migrate` handles most drift automatically, including column type changes and added or removed columns. For one-off changes you can also use the helper methods on `Schema`. See [Schema](Schema) for `Migrate`, the per-table actions, and `ValidateModel`.
+`TableChanged` handles most drift automatically, including column type changes and added or removed columns. For one-off changes you can also use the helper methods on `Schema`. See [Schema](Schema) for the migration runner, the per-table actions, and `ValidateModel`.
 
 ## Async Support
 

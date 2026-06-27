@@ -35,14 +35,14 @@ internal partial class JsonCollectionVisitor
         this.options = options;
     }
 
-    private string VisitLambda(Expression arg, Type elementType)
+    private string VisitLambda(Expression arg, Type elementType, bool coalesceLiftedComparison = false)
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
         ParameterExpression param = lambda.Parameters[0];
 
         BindParameter(param, elementType, selectExpr);
 
-        string sql = TranslateBody(lambda.Body);
+        string sql = TranslateBody(lambda.Body, coalesceLiftedComparison);
         visitor.MethodArguments.Remove(param);
         return sql;
     }
@@ -59,13 +59,18 @@ internal partial class JsonCollectionVisitor
         return sql;
     }
 
-    private string TranslateBody(Expression body)
+    private string TranslateBody(Expression body, bool coalesceLiftedComparison = false)
     {
         Expression result = visitor.Visit(body);
 
         if (result is not SQLiteExpression sqlExpr)
         {
             throw new NotSupportedException($"Cannot translate lambda body: {body}");
+        }
+
+        if (coalesceLiftedComparison)
+        {
+            sqlExpr = visitor.CoalesceLiftedOrderComparison(body, sqlExpr);
         }
 
         if (sqlExpr.Parameters != null)

@@ -28,7 +28,7 @@ public class MigrateGeneratedMaterializerTests
         using SQLiteDatabase db = CreateDatabase();
 
         db.Table<AotMigrateRow>().Schema.CreateTable();
-        db.Table<AotMigrateRow>().Schema.Migrate();
+        db.Schema.Migrations().Version(1, m => m.TableChanged<AotMigrateRow>()).Migrate();
 
         db.Table<AotMigrateRow>().Add(new AotMigrateRow { Id = 1, Name = "x" });
         Assert.Equal("x", db.Table<AotMigrateRow>().Single().Name);

@@ -1,0 +1,14 @@
+namespace SQLite.Framework.Internals.Enums;
+
+/// <summary>
+/// The kind of work a single migration step performs. Used to group steps into the phases the
+/// runner applies them in.
+/// </summary>
+internal enum MigrationOperationKind
+{
+    Reconcile,
+    RenameColumn,
+    DropColumn,
+    DropTable,
+    RawSql,
+}

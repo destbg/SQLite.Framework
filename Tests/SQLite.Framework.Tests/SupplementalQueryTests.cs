@@ -903,40 +903,45 @@ public class SupplementalQueryTests
     }
 
     [Fact]
-    public async Task BeginTransactionAwaiter_OnCompleted_InvokedWhenContended()
+    public Task BeginTransactionAwaiter_OnCompleted_InvokedWhenContended()
     {
-        using TestDatabase db = new();
-        db.Table<Book>().Schema.CreateTable();
+        CancellationToken ct = TestContext.Current.CancellationToken;
 
-        ManualResetEventSlim lockHeld = new(false);
-        ManualResetEventSlim releaseSignal = new(false);
-
-        Task lockHolder = Task.Run(() =>
+        return Task.Run(async () =>
         {
-            using SQLiteTransaction tx = db.BeginTransaction();
-            lockHeld.Set();
-            releaseSignal.Wait();
-            tx.Commit();
-        }, TestContext.Current.CancellationToken);
+            using TestDatabase db = new();
+            db.Table<Book>().Schema.CreateTable();
 
-        lockHeld.Wait(TestContext.Current.CancellationToken);
+            ManualResetEventSlim lockHeld = new(false);
+            ManualResetEventSlim releaseSignal = new(false);
 
-        SQLiteBeginTransactionAwaiter awaiter = db.BeginTransactionAsync(ct: TestContext.Current.CancellationToken).GetAwaiter();
-        Assert.False(awaiter.IsCompleted);
+            Task lockHolder = Task.Factory.StartNew(() =>
+            {
+                using SQLiteTransaction tx = db.BeginTransaction();
+                lockHeld.Set();
+                releaseSignal.Wait();
+                tx.Commit();
+            }, ct, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
-        TaskCompletionSource tcs = new();
-        awaiter.OnCompleted(tcs.SetResult);
+            lockHeld.Wait(ct);
 
-        releaseSignal.Set();
+            SQLiteBeginTransactionAwaiter awaiter = db.BeginTransactionAsync(ct: ct).GetAwaiter();
+            Assert.False(awaiter.IsCompleted);
 
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            TaskCompletionSource tcs = new();
+            awaiter.OnCompleted(tcs.SetResult);
+
+            releaseSignal.Set();
+
+            await tcs.Task.WaitAsync(TimeSpan.FromSeconds(30), ct);
 
 #pragma warning disable xUnit1031 // Do not use blocking task operations in test method
-        SQLiteTransaction tx2 = awaiter.GetResult();
+            SQLiteTransaction tx2 = awaiter.GetResult();
 #pragma warning restore xUnit1031 // Do not use blocking task operations in test method
-        tx2.Rollback();
+            tx2.Rollback();
 
-        await lockHolder;
+            await lockHolder;
+        }, ct);
     }
 
     [Fact]

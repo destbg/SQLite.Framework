@@ -74,98 +74,24 @@ public class SQLiteSchema
     }
 
     /// <summary>
-    /// Reconciles the live table for <typeparamref name="T" /> with the model in place. New columns
-    /// are added and removed columns are dropped with <c>ALTER TABLE</c>, so tables that reference
-    /// this one through a foreign key are never touched.. Needs SQLite 3.35.0 for <c>DROP COLUMN</c>.
-    /// Use <see cref="MigrateByRebuild{T}()" /> on older SQLite.
-    /// </summary>
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
-    [UnsupportedOSPlatform("ios")]
-    [SupportedOSPlatform("ios15.0")]
-#endif
-    public virtual int Migrate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
-    {
-        return Migrate(typeof(T));
-    }
-
-    /// <summary>
-    /// Reconciles the live table for <typeparamref name="T" /> with the model, filling or overriding
-    /// columns from the values declared with <paramref name="fill" />.
-    /// </summary>
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
-    [UnsupportedOSPlatform("ios")]
-    [SupportedOSPlatform("ios15.0")]
-#endif
-    public virtual int Migrate<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill)
-    {
-        TableMapping mapping = Database.TableMapping<T>();
-        SQLiteMigrationBuilder<T> builder = new(Database, mapping);
-        fill(builder);
-        return MigrateInPlace(mapping, builder.Sets);
-    }
-
-    /// <summary>
-    /// Reconciles the live table for <paramref name="type" /> with the model in place. Creates the
-    /// table when it is missing. Added columns use <c>ALTER TABLE ADD COLUMN</c> and removed columns
-    /// use <c>ALTER TABLE DROP COLUMN</c>, so referencing tables are never touched.
-    /// Changed or missing indexes and triggers are dropped and recreated.
-    /// FTS5 and R-Tree tables are only ensured to exist. Returns the number of statements run.
-    /// </summary>
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
-    [UnsupportedOSPlatform("ios")]
-    [SupportedOSPlatform("ios15.0")]
-#endif
-    public virtual int Migrate([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
-    {
-        return MigrateInPlace(Database.TableMapping(type), []);
-    }
-
-    /// <summary>
-    /// Reconciles the live table for <typeparamref name="T" /> with the model by rebuilding it.
-    /// </summary>
-    public virtual int MigrateByRebuild<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
-    {
-        return MigrateByRebuild(typeof(T));
-    }
-
-    /// <summary>
-    /// Reconciles the live table for <typeparamref name="T" /> with the model by rebuilding it, filling
-    /// or overriding columns from the values declared with <paramref name="fill" />. Use this to give a
-    /// new <c>NOT NULL</c> column a value, or to recompute a column from the old row. Returns the number
-    /// of statements run.
-    /// </summary>
-    public virtual int MigrateByRebuild<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Func<SQLiteMigrationBuilder<T>, SQLiteMigrationBuilder<T>> fill)
-    {
-        TableMapping mapping = Database.TableMapping<T>();
-        SQLiteMigrationBuilder<T> builder = new(Database, mapping);
-        fill(builder);
-        return MigrateCore(mapping, builder.Sets);
-    }
-
-    /// <summary>
-    /// Reconciles the live table for <paramref name="type" /> with the model by rebuilding it. Creates
-    /// the table when it is missing. When the table definition has drifted, it rebuilds the table the
-    /// way SQLite recommends (create a new table, copy rows, drop the old one, rename), so it works on
-    /// any SQLite version and handles any change. Rows in columns the model keeps are preserved.
-    /// Changed or missing indexes and triggers are dropped and recreated. Triggers that are not declared
-    /// on the model are left alone. FTS5 and R-Tree tables are only ensured to exist. Returns the number
-    /// of statements run.
+    /// Returns a runner for ordered, versioned migrations. Declare each schema version on it, then
+    /// apply them. The runner brings the database up to the current model, records the version in
+    /// <c>PRAGMA user_version</c>, and skips versions it has already applied.
     /// <para>
-    /// Limitations. A computed column in a referencing table is not preserved when the referenced table
-    /// is rebuilt inside a transaction. A rebuild inside an open transaction moves the rows of every
-    /// referencing table out and back, and drops and recreates their triggers, so those triggers do not
-    /// fire during the restore.
+    /// A version that adds a <c>NOT NULL</c> column in place needs SQLite 3.35.0 for <c>DROP COLUMN</c>.
+    /// Pass <c>rebuild: true</c> to a step's <see cref="SQLiteMigrationStep.TableChanged{T}" /> to use a
+    /// rebuild that works on any SQLite version.
+    /// </para>
+    /// <para>
+    /// Limitations. A whole run happens in one transaction, so a rebuild runs inside it. A computed
+    /// column in a referencing table is not preserved when the referenced table is rebuilt inside a
+    /// transaction, because the rebuild moves the rows of every referencing table out and back and drops
+    /// and recreates their triggers, so those triggers do not fire during the restore.
     /// </para>
     /// </summary>
-    public virtual int MigrateByRebuild([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    public virtual SQLiteMigrationRunner Migrations()
     {
-        return MigrateCore(Database.TableMapping(type), []);
+        return new SQLiteMigrationRunner(this);
     }
 
     /// <summary>
@@ -520,13 +446,7 @@ public class SQLiteSchema
     {
         ArgumentException.ThrowIfNullOrEmpty(fromColumn);
         ArgumentException.ThrowIfNullOrEmpty(toColumn);
-#if SQLITE_FRAMEWORK_VERSION_AWARE
-        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_25, "ALTER TABLE RENAME COLUMN");
-#endif
-
-        TableMapping mapping = Database.TableMapping<T>();
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" RENAME COLUMN \"{fromColumn.Replace("\"", "\"\"")}\" TO \"{toColumn.Replace("\"", "\"\"")}\"";
-        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+        return RenameColumnCore(Database.TableMapping<T>().TableName, fromColumn, toColumn);
     }
 
     /// <summary>
@@ -542,13 +462,7 @@ public class SQLiteSchema
     public virtual int DropColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string columnName)
     {
         ArgumentException.ThrowIfNullOrEmpty(columnName);
-#if SQLITE_FRAMEWORK_VERSION_AWARE
-        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "ALTER TABLE DROP COLUMN");
-#endif
-
-        TableMapping mapping = Database.TableMapping<T>();
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" DROP COLUMN \"{columnName.Replace("\"", "\"\"")}\"";
-        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+        return DropColumnCore(Database.TableMapping<T>().TableName, columnName);
     }
 
     /// <summary>
@@ -722,6 +636,24 @@ public class SQLiteSchema
     {
         TableMapping mapping = Database.TableMapping(type);
         return new SQLiteModelValidationResult(ModelValidator.Validate(Database, mapping));
+    }
+
+    internal int RenameColumnCore(string tableName, string fromColumn, string toColumn)
+    {
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_25, "ALTER TABLE RENAME COLUMN");
+#endif
+        string sql = $"ALTER TABLE \"{tableName}\" RENAME COLUMN \"{fromColumn.Replace("\"", "\"\"")}\" TO \"{toColumn.Replace("\"", "\"\"")}\"";
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
+
+    internal int DropColumnCore(string tableName, string columnName)
+    {
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "ALTER TABLE DROP COLUMN");
+#endif
+        string sql = $"ALTER TABLE \"{tableName}\" DROP COLUMN \"{columnName.Replace("\"", "\"\"")}\"";
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
     /// <summary>
@@ -947,425 +879,9 @@ public class SQLiteSchema
         yield return au;
     }
 
-    private int MigrateInPlace(TableMapping mapping, IReadOnlyList<(string Column, string ValueSql)> sets)
-    {
-#if SQLITE_FRAMEWORK_VERSION_AWARE
-        Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "Migrate. Use MigrateByRebuild on older SQLite");
-#endif
-
-        if (mapping.IsFullTextSearch || mapping.IsRTree)
-        {
-            return CreateTable(mapping.Type);
-        }
-
-        if (!TableExists(mapping.TableName))
-        {
-            return CreateTable(mapping.Type);
-        }
-
-        int count = 0;
-        List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(mapping.TableName).ToList();
-        HashSet<string> liveColumns = liveInfo.Select(c => c.Name).ToHashSet();
-        HashSet<string> computedColumns = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet();
-        HashSet<string> modelColumns = mapping.Columns.Select(c => c.Name)
-            .Concat(mapping.ShadowColumns.Select(s => s.Name))
-            .ToHashSet();
-
-        int columnCount = liveColumns.Count;
-        foreach (TableColumn column in mapping.Columns)
-        {
-            if (liveColumns.Contains(column.Name) || computedColumns.Contains(column.Name))
-            {
-                continue;
-            }
-
-            if (column.IsPrimaryKey || column.IsAutoIncrement || (!column.IsNullable && column.DefaultSql == null))
-            {
-                continue;
-            }
-
-            if (column.DefaultSql != null && column.DefaultSql.TrimStart().StartsWith('('))
-            {
-                continue;
-            }
-
-            string columnSql = CommonHelpers.GetCreateColumnSql(column, defaultOverride: null, emitForeignKey: column.DefaultSql == null);
-            count += Database.CreateCommand($"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {columnSql}", []).ExecuteNonQuery();
-            columnCount++;
-        }
-
-        string? createSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}'");
-        foreach (string liveColumn in liveColumns)
-        {
-            if (modelColumns.Contains(liveColumn) || !IsAlterDroppable(mapping, liveInfo, createSql, liveColumn, columnCount))
-            {
-                continue;
-            }
-
-            count += Database.CreateCommand($"ALTER TABLE \"{mapping.TableName}\" DROP COLUMN \"{liveColumn.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
-            columnCount--;
-        }
-
-        string intended = SchemaSqlBuilder.BuildCreateTable(Database, mapping, mapping.TableName, ifNotExists: false);
-        string? live = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}'");
-        if (sets.Count > 0 || !string.Equals(StripWhitespace(intended), StripWhitespace(live!), StringComparison.Ordinal))
-        {
-            count += RebuildTable(mapping, sets);
-        }
-
-        count += ReconcileIndexes(mapping);
-        count += ReconcileTriggers(mapping);
-        return count;
-    }
-
-    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in string rows keeps their public members reachable.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Querying built-in string rows keeps their public members reachable.")]
-    private bool IsAlterDroppable(TableMapping mapping, List<PragmaTableInfo> liveInfo, string? createSql, string columnName, int columnCount)
-    {
-        if (columnCount <= 1 || createSql == null)
-        {
-            return false;
-        }
-
-        PragmaTableInfo info = liveInfo.First(c => c.Name == columnName);
-        if (info.PrimaryKeyOrder > 0)
-        {
-            return false;
-        }
-
-        string quoted = "\"" + columnName.Replace("\"", "\"\"") + "\"";
-        int occurrences = 0;
-        for (int i = createSql.IndexOf(quoted, StringComparison.Ordinal); i >= 0; i = createSql.IndexOf(quoted, i + quoted.Length, StringComparison.Ordinal))
-        {
-            occurrences++;
-        }
-
-        if (occurrences != 1)
-        {
-            return false;
-        }
-
-        bool inForeignKey = Database.Query<Dictionary<string, object?>>($"PRAGMA foreign_key_list(\"{mapping.TableName.Replace("\"", "\"\"")}\")")
-            .Any(row => row["from"] as string == columnName);
-        if (inForeignKey)
-        {
-            return false;
-        }
-
-        return !Database.Query<string>($"SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = '{mapping.TableName.Replace("'", "''")}' AND sql IS NOT NULL")
-            .Any(sql => sql.Contains(quoted, StringComparison.Ordinal));
-    }
-
-    private int MigrateCore(TableMapping mapping, IReadOnlyList<(string Column, string ValueSql)> sets)
-    {
-        if (mapping.IsFullTextSearch || mapping.IsRTree)
-        {
-            return CreateTable(mapping.Type);
-        }
-
-        if (!TableExists(mapping.TableName))
-        {
-            return CreateTable(mapping.Type);
-        }
-
-        int count = 0;
-        string intended = SchemaSqlBuilder.BuildCreateTable(Database, mapping, mapping.TableName, ifNotExists: false);
-        string? live = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}'");
-        if (sets.Count > 0 || !string.Equals(StripWhitespace(intended), StripWhitespace(live!), StringComparison.Ordinal))
-        {
-            count += RebuildTable(mapping, sets);
-        }
-
-        count += ReconcileIndexes(mapping);
-        count += ReconcileTriggers(mapping);
-        return count;
-    }
-
     private string TranslateDefaultExpression(Expression<Func<object?>> defaultExpression)
     {
         return CommonHelpers.Translate(Database, defaultExpression, nameof(defaultExpression));
-    }
-
-    private int RebuildTable(TableMapping mapping, IReadOnlyList<(string Column, string ValueSql)> sets)
-    {
-        string table = mapping.TableName;
-        string temp = table + "__sqlitefw_migrate";
-
-        HashSet<string> liveColumns = Database.Pragmas.TableInfo(table).Select(c => c.Name).ToHashSet();
-        HashSet<string> setColumns = sets.Select(s => s.Column).ToHashSet();
-        HashSet<string> computedColumns = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet();
-
-        EnsureNoUnfilledNotNull(mapping, table, liveColumns, computedColumns, setColumns);
-
-        List<string> copyColumns = mapping.Columns
-            .Where(c => !computedColumns.Contains(c.Name))
-            .Select(c => c.Name)
-            .Concat(mapping.ShadowColumns.Select(s => s.Name))
-            .Where(name => liveColumns.Contains(name) && !setColumns.Contains(name))
-            .ToList();
-
-        Dictionary<string, string> backfillDefaults = new();
-        foreach (TableColumn column in mapping.Columns)
-        {
-            if (!computedColumns.Contains(column.Name) && !column.IsNullable && column.DefaultSql != null)
-            {
-                backfillDefaults[column.Name] = column.DefaultSql;
-            }
-        }
-        foreach (ShadowColumnSpec shadow in mapping.ShadowColumns)
-        {
-            if (!shadow.IsNullable && shadow.DefaultSql != null)
-            {
-                backfillDefaults[shadow.Name] = shadow.DefaultSql;
-            }
-        }
-
-        List<string> insertColumns = copyColumns.Concat(sets.Select(s => s.Column)).Select(IdentifierGuard.Quote).ToList();
-        List<string> selectExpressions = copyColumns
-            .Select(name => backfillDefaults.TryGetValue(name, out string? defaultSql)
-                ? $"COALESCE({IdentifierGuard.Quote(name)}, {defaultSql})"
-                : IdentifierGuard.Quote(name))
-            .Concat(sets.Select(s => s.ValueSql))
-            .ToList();
-
-        IReadOnlyList<string> liveTriggers = Database.Query<string>(
-            $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{table.Replace("'", "''")}' AND sql IS NOT NULL");
-
-        long? autoIncrementSeq = ReadAutoIncrementSequence(mapping, table);
-
-        long foreignKeys = Database.ExecuteScalar<long>("PRAGMA foreign_keys");
-        bool foreignKeysEnforced = foreignKeys == 1;
-        Database.Execute("PRAGMA foreign_keys = OFF");
-        try
-        {
-            using SQLiteTransaction transaction = Database.BeginTransaction();
-
-            List<SavedTable> dependents;
-            if (foreignKeysEnforced)
-            {
-                Database.Execute("PRAGMA defer_foreign_keys = ON");
-                dependents = EmptyReferencingTables(table, [], [table]);
-            }
-            else
-            {
-                dependents = [];
-            }
-
-            int count = Database.CreateCommand(SchemaSqlBuilder.BuildCreateTable(Database, mapping, temp, ifNotExists: false), []).ExecuteNonQuery();
-            if (insertColumns.Count > 0)
-            {
-                Database.Execute($"INSERT INTO \"{temp}\" ({string.Join(", ", insertColumns)}) SELECT {string.Join(", ", selectExpressions)} FROM \"{table}\"");
-            }
-            Database.Execute($"DROP TABLE \"{table}\"");
-            Database.Execute($"ALTER TABLE \"{temp}\" RENAME TO \"{table}\"");
-            if (autoIncrementSeq.HasValue)
-            {
-                RestoreAutoIncrementSequence(table, autoIncrementSeq.Value);
-            }
-            foreach (string trigger in liveTriggers)
-            {
-                Database.Execute(trigger);
-            }
-
-            RestoreReferencingTables(dependents);
-            transaction.Commit();
-            return count;
-        }
-        finally
-        {
-            Database.Execute($"PRAGMA foreign_keys = {foreignKeys}");
-        }
-    }
-
-    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in string and foreign key rows keeps their public members reachable.")]
-    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Querying built-in string and foreign key rows keeps their public members reachable.")]
-    private List<SavedTable> EmptyReferencingTables(string table, List<SavedTable> saved, HashSet<string> visited)
-    {
-        string escaped = table.Replace("'", "''");
-        List<string> allTables = Database.Query<string>(
-            $"SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name <> '{escaped}'");
-
-        List<string> referencing = new();
-        foreach (string candidate in allTables)
-        {
-            bool referencesTable = Database.Query<Dictionary<string, object?>>($"PRAGMA foreign_key_list(\"{candidate.Replace("\"", "\"\"")}\")")
-                .Any(row => row["table"] as string == table);
-            if (referencesTable)
-            {
-                referencing.Add(candidate);
-            }
-        }
-
-        foreach (string child in referencing)
-        {
-            if (!visited.Add(child))
-            {
-                continue;
-            }
-
-            EmptyReferencingTables(child, saved, visited);
-
-            string childEscaped = child.Replace("'", "''");
-            List<Dictionary<string, object?>> triggers = Database.Query<Dictionary<string, object?>>(
-                $"SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{childEscaped}' AND sql IS NOT NULL");
-
-            List<string> triggerSql = new();
-            foreach (Dictionary<string, object?> trigger in triggers)
-            {
-                triggerSql.Add((string)trigger["sql"]!);
-                Database.Execute($"DROP TRIGGER \"{((string)trigger["name"]!).Replace("\"", "\"\"")}\"");
-            }
-
-            List<string> insertableColumns = Database
-                .Query<Dictionary<string, object?>>($"PRAGMA table_xinfo(\"{childEscaped}\")")
-                .Where(col => Convert.ToInt64(col["hidden"], CultureInfo.InvariantCulture) is not (2 or 3))
-                .Select(col => (string)col["name"]!)
-                .ToList();
-
-            Database.Execute($"CREATE TABLE \"{child}__sqlitefw_hold\" AS SELECT * FROM \"{child}\"");
-            Database.Execute($"DELETE FROM \"{child}\"");
-            saved.Add(new SavedTable { Name = child, Triggers = triggerSql, InsertableColumns = insertableColumns });
-        }
-
-        return saved;
-    }
-
-    private void RestoreReferencingTables(List<SavedTable> saved)
-    {
-        for (int i = saved.Count - 1; i >= 0; i--)
-        {
-            SavedTable child = saved[i];
-            string columnList = string.Join(", ", child.InsertableColumns.Select(c => $"\"{c.Replace("\"", "\"\"")}\""));
-            Database.Execute($"INSERT INTO \"{child.Name}\" ({columnList}) SELECT {columnList} FROM \"{child.Name}__sqlitefw_hold\"");
-            Database.Execute($"DROP TABLE \"{child.Name}__sqlitefw_hold\"");
-            foreach (string trigger in child.Triggers)
-            {
-                Database.Execute(trigger);
-            }
-        }
-    }
-
-    private long? ReadAutoIncrementSequence(TableMapping mapping, string table)
-    {
-        if (!mapping.Columns.Any(c => c.IsPrimaryKey && c.IsAutoIncrement))
-        {
-            return null;
-        }
-
-        bool sequenceExists = Database.ExecuteScalar<long>(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'sqlite_sequence'") > 0;
-        if (!sequenceExists)
-        {
-            return null;
-        }
-
-        List<long> seq = Database.Query<long>($"SELECT seq FROM sqlite_sequence WHERE name = '{table.Replace("'", "''")}'");
-        return seq.Count > 0 ? seq[0] : null;
-    }
-
-    private void RestoreAutoIncrementSequence(string table, long seq)
-    {
-        string escaped = table.Replace("'", "''");
-        Database.Execute($"DELETE FROM sqlite_sequence WHERE name = '{escaped}'");
-        Database.Execute($"INSERT INTO sqlite_sequence (name, seq) VALUES ('{escaped}', {seq})");
-    }
-
-    private void EnsureNoUnfilledNotNull(TableMapping mapping, string table, HashSet<string> liveColumns, HashSet<string> computedColumns, HashSet<string> setColumns)
-    {
-        List<(string Name, bool Nullable, bool HasDefault)> required = mapping.Columns
-            .Where(c => !computedColumns.Contains(c.Name))
-            .Select(c => (c.Name, c.IsNullable, c.DefaultSql != null))
-            .Concat(mapping.ShadowColumns.Select(s => (s.Name, s.IsNullable, s.DefaultSql != null)))
-            .Where(c => !c.Item2 && !c.Item3 && !liveColumns.Contains(c.Item1) && !setColumns.Contains(c.Item1))
-            .ToList();
-
-        if (required.Count == 0)
-        {
-            return;
-        }
-
-        if (Database.ExecuteScalar<long>($"SELECT COUNT(*) FROM \"{table}\"") == 0)
-        {
-            return;
-        }
-
-        (string name, _, _) = required[0];
-        throw new InvalidOperationException(
-            $"Cannot migrate table '{table}'. Column '{name}' is new and NOT NULL with no default, but the table has rows. " +
-            "Give it a default in OnModelCreating, set a value with Migrate(m => m.Set(...)), or make it nullable.");
-    }
-
-    private int ReconcileIndexes(TableMapping mapping)
-    {
-        int count = 0;
-        List<(string Name, string Sql)> declared = SchemaSqlBuilder.BuildIndexes(mapping, mapping.TableName, ifNotExists: false);
-        HashSet<string> declaredNames = declared.Select(d => d.Name).ToHashSet();
-
-        foreach (PragmaIndexList live in Database.Pragmas.IndexList(mapping.TableName).ToList())
-        {
-            if (live.Origin == "c" && !declaredNames.Contains(live.Name))
-            {
-                count += Database.Execute($"DROP INDEX IF EXISTS {IdentifierGuard.Quote(live.Name)}");
-            }
-        }
-
-        foreach ((string name, string sql) in declared)
-        {
-            string? liveSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'index' AND name = '{name.Replace("'", "''")}'");
-            if (!string.Equals(sql, liveSql, StringComparison.Ordinal))
-            {
-                Database.Execute($"DROP INDEX IF EXISTS {IdentifierGuard.Quote(name)}");
-                count += Database.CreateCommand(sql, []).ExecuteNonQuery();
-            }
-        }
-
-        return count;
-    }
-
-    private int ReconcileTriggers(TableMapping mapping)
-    {
-        int count = 0;
-        foreach ((string name, string sql) in SchemaSqlBuilder.BuildTriggers(mapping, mapping.TableName, ifNotExists: false))
-        {
-            string? liveSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = '{name.Replace("'", "''")}'");
-            if (!string.Equals(sql, liveSql, StringComparison.Ordinal))
-            {
-                Database.Execute($"DROP TRIGGER IF EXISTS {IdentifierGuard.Quote(name)}");
-                count += Database.CreateCommand(sql, []).ExecuteNonQuery();
-            }
-        }
-
-        return count;
-    }
-
-    private static string StripWhitespace(string value)
-    {
-        StringBuilder builder = new(value.Length);
-        bool inLiteral = false;
-        bool inQuote = false;
-        foreach (char c in value)
-        {
-            if (c == '\'' && !inQuote)
-            {
-                inLiteral = !inLiteral;
-                builder.Append(c);
-                continue;
-            }
-
-            if (c == '"' && !inLiteral)
-            {
-                inQuote = !inQuote;
-                builder.Append(c);
-                continue;
-            }
-
-            if (inLiteral || inQuote || !char.IsWhiteSpace(c))
-            {
-                builder.Append(c);
-            }
-        }
-
-        return builder.ToString();
     }
 
     private static string ResolvePropertyName<T>(Expression<Func<T, object?>> property)
