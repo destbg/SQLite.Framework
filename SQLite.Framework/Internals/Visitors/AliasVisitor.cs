@@ -150,6 +150,11 @@ internal class AliasVisitor
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types have public properties.")]
     private void VisitMemberInitExpression(LambdaExpression resultSelector, MemberInitExpression memberInitExpression, string prefix)
     {
+        if (memberInitExpression.NewExpression.Arguments.Count > 0)
+        {
+            VisitNewExpression(memberInitExpression.NewExpression, prefix);
+        }
+
         PropertyInfo[] declaredProperties = memberInitExpression.Type.GetProperties();
         IEnumerable<MemberAssignment> orderedBindings = memberInitExpression.Bindings
             .OfType<MemberAssignment>()

@@ -55,6 +55,8 @@ internal partial class QueryableVisitor
             throw new NotSupportedException($"Unsupported ORDER BY expression {lambda.Body}");
         }
 
+        sqlExpression = visitor.CoalesceLiftedOrderComparison(lambda.Body, sqlExpression);
+
         if (node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.OrderByDescending))
         {
             OrderBys.Clear();

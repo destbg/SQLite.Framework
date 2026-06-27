@@ -63,7 +63,7 @@ internal static class UpsertSqlBuilder
 
             case UpsertActionKind.DoUpdateAll:
             {
-                IEnumerable<TableColumn> setColumns = insertColumns.Where(c => !c.IsPrimaryKey && !target.ConflictColumns.Contains(c.PropertyInfo.Name) && !target.ConflictColumns.Contains(c.Name));
+                IEnumerable<TableColumn> setColumns = insertColumns.Where(c => !c.IsPrimaryKey && !target.ConflictColumns.Contains(c.PropertyInfo.Name));
                 List<string>? extraSetColumns = null;
                 if (extraColumns is { Count: > 0 })
                 {

@@ -423,7 +423,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             (string sql, List<SQLiteParameter> parameters) = Source.BuildInsertWithExtraColumns(item, columns);
             TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
             List<TResult> rows = ExecuteWithReturning(sql, parameters);
-            if (autoIncrement != null)
+            if (autoIncrement != null && rows.Count > 0)
             {
                 BackfillAutoIncrement(item, autoIncrement);
             }

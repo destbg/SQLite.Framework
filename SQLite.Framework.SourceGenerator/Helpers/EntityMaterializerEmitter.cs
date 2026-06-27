@@ -1148,14 +1148,14 @@ public static class EntityMaterializerEmitter
             EmitReflectionConvertedRead(rowBody, preamble, parameter.Type, parameter.Name, argLocal, suffix);
         }
 
-        List<(string Property, string Local)> extraReads = new();
+        List<(string Property, string Local, string Suffix)> extraReads = new();
         foreach (IPropertySymbol prop in extras)
         {
             string suffix = counter.ToString();
             counter++;
             string valueLocal = "__ext_" + suffix;
             EmitReflectionConvertedRead(rowBody, preamble, prop.Type, prop.Name, valueLocal, suffix);
-            extraReads.Add((prop.Name, valueLocal));
+            extraReads.Add((prop.Name, valueLocal, suffix));
         }
 
         sb.Append("        private static global::System.Func<SQLite.Framework.Models.SQLiteQueryContext, object?> ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
@@ -1174,9 +1174,9 @@ public static class EntityMaterializerEmitter
         }
         sb.AppendLine(" };");
         sb.Append("                object __instance = ").Append(ctorField).AppendLine(".Invoke(__args)!;");
-        foreach ((string property, string local) in extraReads)
+        foreach ((string property, string local, string suffix) in extraReads)
         {
-            sb.Append("                if (").Append(local).AppendLine(" != null)");
+            sb.Append("                if (__ridx_").Append(suffix).AppendLine(" >= 0)");
             sb.AppendLine("                {");
             sb.Append("                    s_prop_").Append(methodName).Append("_").Append(property).Append(".SetValue(__instance, ").Append(local).AppendLine(");");
             sb.AppendLine("                }");
@@ -1293,10 +1293,7 @@ public static class EntityMaterializerEmitter
             rowBody.Append("                if (idx_").Append(propName).AppendLine(" >= 0)");
             rowBody.AppendLine("                {");
             rowBody.Append("                    object? value_").Append(propName).Append(" = reader.GetValue(idx_").Append(propName).Append(", reader.GetColumnType(idx_").Append(propName).Append("), ").Append(typeExpression).AppendLine(");");
-            rowBody.Append("                    if (value_").Append(propName).AppendLine(" != null)");
-            rowBody.AppendLine("                    {");
-            rowBody.Append("                        s_prop_").Append(methodName).Append("_").Append(propName).Append(".SetValue(result, value_").Append(propName).AppendLine(");");
-            rowBody.AppendLine("                    }");
+            rowBody.Append("                    s_prop_").Append(methodName).Append("_").Append(propName).Append(".SetValue(result, value_").Append(propName).AppendLine(");");
             rowBody.AppendLine("                }");
         }
 

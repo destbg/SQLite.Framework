@@ -39,7 +39,7 @@ public class UpsertDoUpdateAllTests
     }
 
     [Fact]
-    public void DoUpdateAllWithSwappedColumnNamesLeavesRowUnchanged()
+    public void DoUpdateAllWithSwappedColumnNamesUpdatesNonConflictColumn()
     {
         using TestDatabase db = new();
         db.Table<SwappedNameUpsertEntity>().Schema.CreateTable();
@@ -50,9 +50,9 @@ public class UpsertDoUpdateAllTests
             c => c.OnConflict(b => b.Status).DoUpdateAll());
 
         SwappedNameUpsertEntity row = db.Table<SwappedNameUpsertEntity>().Single();
-        Assert.Equal(0, changes);
+        Assert.Equal(1, changes);
         Assert.Equal(1, row.Id);
         Assert.Equal("a", row.Status);
-        Assert.Equal("x", row.Code);
+        Assert.Equal("y", row.Code);
     }
 }

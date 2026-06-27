@@ -1134,8 +1134,8 @@ public class SQLiteSchema
         long? autoIncrementSeq = ReadAutoIncrementSequence(mapping, table);
 
         long foreignKeys = Database.ExecuteScalar<long>("PRAGMA foreign_keys");
+        bool foreignKeysEnforced = foreignKeys == 1;
         Database.Execute("PRAGMA foreign_keys = OFF");
-        bool foreignKeysEnforced = Database.ExecuteScalar<long>("PRAGMA foreign_keys") == 1;
         try
         {
             using SQLiteTransaction transaction = Database.BeginTransaction();
