@@ -27,8 +27,8 @@ internal partial class QueryableVisitor
     public List<(SQLiteExpression Sql, string Type)> SetOperations { get; } = [];
     public List<SQLiteExpression> Selects { get; }
 
-    public int? Take { get; private set; }
-    public int? Skip { get; private set; }
+    public long? Take { get; private set; }
+    public long? Skip { get; private set; }
     public bool IsAny { get; private set; }
     public bool IsAll { get; private set; }
     public SQLiteExpression? AllPredicate { get; private set; }
