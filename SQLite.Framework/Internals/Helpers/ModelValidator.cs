@@ -37,6 +37,15 @@ internal static class ModelValidator
         HashSet<string> computedNames = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet();
         HashSet<string>? generatedColumnNames = null;
 
+        List<TableColumn> modelKey = mapping.Columns.Where(c => c.IsPrimaryKey).OrderBy(c => c.PrimaryKeyOrder).ToList();
+        Dictionary<string, int> modelKeyRank = new();
+        for (int i = 0; i < modelKey.Count; i++)
+        {
+            modelKeyRank[modelKey[i].Name] = i + 1;
+        }
+
+        int keyCount = modelKey.Count;
+
         foreach (TableColumn column in mapping.Columns)
         {
             if (computedNames.Contains(column.Name))
@@ -62,12 +71,18 @@ internal static class ModelValidator
                 issues.Add($"Column '{table}'.'{column.Name}' has type '{dbColumn.Type}' but the model expects '{expectedType}'.");
             }
 
-            if ((dbColumn.PrimaryKeyOrder > 0) != column.IsPrimaryKey)
+            bool dbIsKey = dbColumn.PrimaryKeyOrder > 0;
+            if (dbIsKey != column.IsPrimaryKey)
             {
                 issues.Add($"Column '{table}'.'{column.Name}' primary-key flag does not match the model.");
             }
+            else if (column.IsPrimaryKey && keyCount > 1 && dbColumn.PrimaryKeyOrder != modelKeyRank[column.Name])
+            {
+                issues.Add($"Column '{table}'.'{column.Name}' primary-key order does not match the model.");
+            }
 
-            if (!column.IsPrimaryKey && dbColumn.IsNotNull == column.IsNullable)
+            bool isRowIdAlias = column.IsPrimaryKey && keyCount == 1 && column.ColumnType == SQLiteColumnType.Integer;
+            if (!isRowIdAlias && dbColumn.IsNotNull == column.IsNullable)
             {
                 issues.Add($"Column '{table}'.'{column.Name}' nullability does not match the model.");
             }
@@ -176,33 +191,52 @@ internal static class ModelValidator
 
     private static void CheckForeignKey(ForeignKeyInfo foreignKey, List<PragmaForeignKey> dbForeignKeys, string table, List<string> issues)
     {
-        for (int i = 0; i < foreignKey.Columns.Count; i++)
-        {
-            string from = foreignKey.Columns[i];
-            string to = foreignKey.TargetColumns[i];
-            string target = foreignKey.TargetTable;
+        string from = string.Join(", ", foreignKey.Columns);
 
-            PragmaForeignKey? match = dbForeignKeys.FirstOrDefault(d => d.FromColumn == from && d.ToColumn == to && d.ReferencedTable == target);
-            if (match == null)
+        PragmaForeignKey[]? matched = null;
+        foreach (IGrouping<long, PragmaForeignKey> group in dbForeignKeys.GroupBy(d => d.Id))
+        {
+            PragmaForeignKey[] rows = group.OrderBy(r => r.ColumnPosition).ToArray();
+            if (rows.Length != foreignKey.Columns.Count)
             {
-                issues.Add($"Foreign key '{table}'.'{from}' -> '{target}'.'{to}' is missing in the database.");
                 continue;
             }
 
-            if (i == 0)
+            bool allMatch = true;
+            for (int i = 0; i < rows.Length; i++)
             {
-                string expectedOnDelete = ForeignKeyActionToSql(foreignKey.OnDelete);
-                if (!string.Equals(match.OnDelete, expectedOnDelete, StringComparison.OrdinalIgnoreCase))
+                if (rows[i].FromColumn != foreignKey.Columns[i]
+                    || rows[i].ToColumn != foreignKey.TargetColumns[i]
+                    || rows[i].ReferencedTable != foreignKey.TargetTable)
                 {
-                    issues.Add($"Foreign key '{table}'.'{from}' -> '{target}' ON DELETE action is '{match.OnDelete}' but the model expects '{expectedOnDelete}'.");
-                }
-
-                string expectedOnUpdate = ForeignKeyActionToSql(foreignKey.OnUpdate);
-                if (!string.Equals(match.OnUpdate, expectedOnUpdate, StringComparison.OrdinalIgnoreCase))
-                {
-                    issues.Add($"Foreign key '{table}'.'{from}' -> '{target}' ON UPDATE action is '{match.OnUpdate}' but the model expects '{expectedOnUpdate}'.");
+                    allMatch = false;
+                    break;
                 }
             }
+
+            if (allMatch)
+            {
+                matched = rows;
+                break;
+            }
+        }
+
+        if (matched == null)
+        {
+            issues.Add($"Foreign key '{table}'.'{from}' -> '{foreignKey.TargetTable}' is missing in the database.");
+            return;
+        }
+
+        string expectedOnDelete = ForeignKeyActionToSql(foreignKey.OnDelete);
+        if (!string.Equals(matched[0].OnDelete, expectedOnDelete, StringComparison.OrdinalIgnoreCase))
+        {
+            issues.Add($"Foreign key '{table}'.'{from}' -> '{foreignKey.TargetTable}' ON DELETE action is '{matched[0].OnDelete}' but the model expects '{expectedOnDelete}'.");
+        }
+
+        string expectedOnUpdate = ForeignKeyActionToSql(foreignKey.OnUpdate);
+        if (!string.Equals(matched[0].OnUpdate, expectedOnUpdate, StringComparison.OrdinalIgnoreCase))
+        {
+            issues.Add($"Foreign key '{table}'.'{from}' -> '{foreignKey.TargetTable}' ON UPDATE action is '{matched[0].OnUpdate}' but the model expects '{expectedOnUpdate}'.");
         }
     }
 

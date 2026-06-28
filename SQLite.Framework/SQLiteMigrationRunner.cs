@@ -83,17 +83,13 @@ public sealed class SQLiteMigrationRunner
 
         int targetVersion = pending[^1].Key;
         List<MigrationOperation> operations = pending.SelectMany(v => v.Value.Operations).ToList();
-        bool fresh = currentVersion == 0 && schema.ListTables().Count == 0;
 
         int count = 0;
         using SQLiteTransaction transaction = schema.Database.BeginTransaction();
 
-        if (!fresh)
+        foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RenameColumn))
         {
-            foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RenameColumn))
-            {
-                count += schema.RenameColumnCore(operation.Mapping!.TableName, operation.FromColumn!, operation.ToColumn!);
-            }
+            count += RenameColumnIfPresent(operation.Mapping!.TableName, operation.FromColumn!, operation.ToColumn!);
         }
 
         foreach (IGrouping<string, MigrationOperation> group in operations
@@ -111,17 +107,10 @@ public sealed class SQLiteMigrationRunner
             if (operation.Kind == MigrationOperationKind.RawSql)
             {
                 count += schema.Database.Execute(operation.Sql!);
-                continue;
             }
-
-            if (fresh)
+            else if (operation.Kind == MigrationOperationKind.DropColumn)
             {
-                continue;
-            }
-
-            if (operation.Kind == MigrationOperationKind.DropColumn)
-            {
-                count += DropColumnIfPresent(operation.Mapping!.TableName, operation.ColumnName!);
+                count += DropColumnIfRemovable(operation.Mapping!, operation.ColumnName!);
             }
             else if (operation.Mapping != null)
             {
@@ -138,10 +127,23 @@ public sealed class SQLiteMigrationRunner
         return count;
     }
 
-    private int DropColumnIfPresent(string tableName, string columnName)
+    private int RenameColumnIfPresent(string tableName, string fromColumn, string toColumn)
     {
-        bool present = Database.Pragmas.TableInfo(tableName).ToList().Any(c => c.Name == columnName);
-        return present ? schema.DropColumnCore(tableName, columnName) : 0;
+        bool present = Database.Pragmas.TableInfo(tableName).ToList().Any(c => c.Name == fromColumn);
+        return present ? schema.RenameColumnCore(tableName, fromColumn, toColumn) : 0;
+    }
+
+    private int DropColumnIfRemovable(TableMapping mapping, string columnName)
+    {
+        bool inModel = mapping.Columns.Any(c => c.Name == columnName)
+            || mapping.ShadowColumns.Any(s => s.Name == columnName);
+        if (inModel)
+        {
+            return 0;
+        }
+
+        bool present = Database.Pragmas.TableInfo(mapping.TableName).ToList().Any(c => c.Name == columnName);
+        return present ? schema.DropColumnCore(mapping.TableName, columnName) : 0;
     }
 
     private int MigrateInPlace(TableMapping mapping, IReadOnlyList<(string Column, string ValueSql)> sets)
@@ -274,6 +276,11 @@ public sealed class SQLiteMigrationRunner
         }
 
         if (occurrences != 1)
+        {
+            return false;
+        }
+
+        if (ContainsUnquotedIdentifier(createSql, columnName))
         {
             return false;
         }
@@ -562,6 +569,70 @@ public sealed class SQLiteMigrationRunner
         }
 
         return result;
+    }
+
+    private static bool ContainsUnquotedIdentifier(string sql, string identifier)
+    {
+        string scan = sql + " ";
+        bool inLiteral = false;
+        bool inQuote = false;
+        int i = 0;
+        while (i < scan.Length)
+        {
+            char c = scan[i];
+            if (inLiteral)
+            {
+                inLiteral = c != '\'';
+                i++;
+                continue;
+            }
+
+            if (inQuote)
+            {
+                inQuote = c != '"';
+                i++;
+                continue;
+            }
+
+            if (c == '\'')
+            {
+                inLiteral = true;
+                i++;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                inQuote = true;
+                i++;
+                continue;
+            }
+
+            if (IsIdentifierChar(c))
+            {
+                int start = i;
+                while (IsIdentifierChar(scan[i]))
+                {
+                    i++;
+                }
+
+                if (string.Equals(scan[start..i], identifier, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            i++;
+        }
+
+        return false;
+    }
+
+    private static bool IsIdentifierChar(char c)
+    {
+        return char.IsLetterOrDigit(c) || c == '_' || c == '$';
     }
 
     private static string StripWhitespace(string value)
