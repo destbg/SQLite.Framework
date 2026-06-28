@@ -64,6 +64,11 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Query operators
 
 - Some LINQ operators are not translated to SQL and throw `NotSupportedException` on a table query. These are `Last`, `LastOrDefault`, `Order`, `OrderDescending`, `MaxBy`, `MinBy`, `DistinctBy`, `SkipLast`, `TakeLast`, `Append`, `Prepend`, `Chunk`, `ExceptBy`, `UnionBy`, `IntersectBy`, `SkipWhile` and `TakeWhile`.
+- The `DefaultIfEmpty` overload that takes an explicit default value is not supported on a table query and throws. The no-argument `DefaultIfEmpty()` used to build a left join works.
+
+## Grouping
+
+- Inside a `GroupBy` projection, a `Select` on the group followed by `Distinct`, for example `g.Select(x => x.Name).Distinct().Count()` to count the distinct values in a group, is not supported and throws.
 
 ## Joins and SelectMany
 

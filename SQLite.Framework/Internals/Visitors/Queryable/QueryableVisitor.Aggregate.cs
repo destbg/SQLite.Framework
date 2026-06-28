@@ -326,6 +326,10 @@ internal partial class QueryableVisitor
                 isScalarElement = true;
             }
         }
+        else if (TypeHelpers.IsSimple(lambda.Parameters[0].Type, database.Options))
+        {
+            isScalarElement = true;
+        }
 
         Dictionary<string, Expression> newTableColumns = [];
 

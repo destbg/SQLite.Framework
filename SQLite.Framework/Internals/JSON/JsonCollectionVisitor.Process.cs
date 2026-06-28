@@ -111,9 +111,14 @@ internal partial class JsonCollectionVisitor
         };
     }
 
+    private string CurrentFromClause()
+    {
+        return fromOverride ?? $"json_each({baseSource}){baseJoinSuffix}{crossJoin ?? ""}";
+    }
+
     private void MaterializeWindow()
     {
-        string currentFrom = fromOverride ?? $"json_each({baseSource}){baseJoinSuffix}{crossJoin ?? ""}";
+        string currentFrom = CurrentFromClause();
 
         List<string> clauses =
         [
@@ -142,6 +147,36 @@ internal partial class JsonCollectionVisitor
         orderBys.Clear();
         limit = null;
         offset = null;
+        selectExpr = $"{wrapAlias}.\"value\"";
+        keyColumn = $"{wrapAlias}.\"key\"";
+    }
+
+    private void MaterializeDistinct()
+    {
+        string currentFrom = CurrentFromClause();
+
+        List<string> clauses =
+        [
+            $"SELECT {selectExpr} AS \"value\", MIN({keyColumn}) AS \"key\"",
+            $"FROM {currentFrom}"
+        ];
+
+        if (wheres.Count > 0)
+        {
+            clauses.Add("WHERE " + string.Join(" AND ", wheres));
+        }
+
+        clauses.Add($"GROUP BY {selectExpr}");
+        clauses.Add($"ORDER BY MIN({keyColumn})");
+
+        string wrapAlias = $"j{visitor.Counters.NextTableIndex('j')}";
+        fromOverride = $"({string.Join(" ", clauses)}) {wrapAlias}";
+        baseJoinSuffix = "";
+        crossJoin = null;
+        wheres.Clear();
+        orderBys.Clear();
+        distinct = false;
+        distinctSeenReverse = false;
         selectExpr = $"{wrapAlias}.\"value\"";
         keyColumn = $"{wrapAlias}.\"key\"";
     }
@@ -192,6 +227,11 @@ internal partial class JsonCollectionVisitor
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<,> is rooted by user code.")]
     private void HandleGroupBy(MethodCallExpression call, Type elementType)
     {
+        if (distinct)
+        {
+            MaterializeDistinct();
+        }
+
         string keySql = VisitLambda(call.Arguments[1], elementType, coalesceLiftedComparison: true);
         groupBys.Add(keySql);
         groupKeySql = keySql;
@@ -213,6 +253,11 @@ internal partial class JsonCollectionVisitor
 
     private void HandleSelect(MethodCallExpression call, Type elementType)
     {
+        if (distinct)
+        {
+            MaterializeDistinct();
+        }
+
         selectExpr = VisitLambda(call.Arguments[1], elementType);
         currentElementType = ((LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1])).ReturnType;
     }
