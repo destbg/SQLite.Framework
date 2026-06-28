@@ -281,6 +281,19 @@ internal partial class QueryableVisitor
         {
             groupByExpression = visitor.CoalesceLiftedOrderComparison(lambda.Body, keyExpression);
         }
+        else if (groupByExpression is NewExpression translatedKey)
+        {
+            NewExpression originalKey = (NewExpression)lambda.Body;
+            Expression[] coalesced = new Expression[translatedKey.Arguments.Count];
+            for (int i = 0; i < translatedKey.Arguments.Count; i++)
+            {
+                coalesced[i] = translatedKey.Arguments[i] is SQLiteExpression argExpression
+                    ? visitor.CoalesceLiftedOrderComparison(originalKey.Arguments[i], argExpression)
+                    : translatedKey.Arguments[i];
+            }
+
+            groupByExpression = translatedKey.Update(coalesced);
+        }
 
         if (groupByExpression is not SQLiteExpression && groupByExpression is not NewExpression)
         {

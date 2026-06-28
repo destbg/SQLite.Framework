@@ -21,7 +21,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 | Property | Type | Default |
 |---|---|---|
 | `DateTimeStorage` | `DateTimeStorageMode` | `Integer` |
-| `DateTimeFormat` | `string` | `"yyyy-MM-dd HH:mm:ss"` |
+| `DateTimeFormat` | `string` | `"yyyy-MM-dd HH:mm:ss.FFFFFFF"` |
 
 | Mode | SQLite type | Example value |
 |---|---|---|
@@ -42,7 +42,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 | Property | Type | Default |
 |---|---|---|
 | `DateTimeOffsetStorage` | `DateTimeOffsetStorageMode` | `Ticks` |
-| `DateTimeOffsetFormat` | `string` | `"yyyy-MM-dd HH:mm:ss zzz"` |
+| `DateTimeOffsetFormat` | `string` | `"yyyy-MM-dd HH:mm:ss.FFFFFFF zzz"` |
 
 | Mode | SQLite type | Example value |
 |---|---|---|
@@ -83,7 +83,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 | Property | Type | Default |
 |---|---|---|
 | `TimeOnlyStorage` | `TimeOnlyStorageMode` | `Integer` |
-| `TimeOnlyFormat` | `string` | `"HH:mm:ss"` |
+| `TimeOnlyFormat` | `string` | `"HH:mm:ss.FFFFFFF"` |
 
 | Mode | SQLite type | Example value |
 |---|---|---|

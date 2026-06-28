@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SQLite.Framework.SourceGenerator.Enums;
 using SQLite.Framework.SourceGenerator.Models;
 
@@ -802,7 +803,7 @@ public static class EntityMaterializerEmitter
                         sb.Append(", ");
                     }
                     first = false;
-                    sb.Append(prop.Name).Append(" = default!");
+                    sb.Append(prop.Name).Append(" = ").Append(RequiredNotMappedInitializer(prop));
                 }
                 sb.Append(" }");
             }
@@ -839,7 +840,7 @@ public static class EntityMaterializerEmitter
 
             foreach (IPropertySymbol prop in requiredNotMapped)
             {
-                sb.Append(indent).Append("    ").Append(prop.Name).Append(" = default!");
+                sb.Append(indent).Append("    ").Append(prop.Name).Append(" = ").Append(RequiredNotMappedInitializer(prop));
                 written++;
                 sb.AppendLine(written == totalEntries ? "" : ",");
             }
@@ -886,6 +887,19 @@ public static class EntityMaterializerEmitter
                 sb.Append(indent).Append("__pset_").Append(resultSuffix).Append('_').Append(i).Append(".SetValue(").Append(resultLocalName).Append(", ").Append(propValueLocals[i]).AppendLine(");");
             }
         }
+    }
+
+    private static string RequiredNotMappedInitializer(IPropertySymbol prop)
+    {
+        foreach (SyntaxReference reference in prop.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is PropertyDeclarationSyntax { Initializer.Value: LiteralExpressionSyntax literal })
+            {
+                return literal.ToString();
+            }
+        }
+
+        return "default!";
     }
 
     private static List<IPropertySymbol> GetRequiredNotMappedProperties(INamedTypeSymbol entity)

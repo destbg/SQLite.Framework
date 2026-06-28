@@ -148,11 +148,27 @@ internal class AliasVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types have public properties.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Projected nested types have a public parameterless constructor.")]
     private void VisitMemberInitExpression(LambdaExpression resultSelector, MemberInitExpression memberInitExpression, string prefix)
     {
         if (memberInitExpression.NewExpression.Arguments.Count > 0)
         {
             VisitNewExpression(memberInitExpression.NewExpression, prefix);
+        }
+
+        foreach (MemberMemberBinding memberMemberBinding in memberInitExpression.Bindings.OfType<MemberMemberBinding>())
+        {
+            Type memberType = memberMemberBinding.Member is PropertyInfo memberProperty
+                ? memberProperty.PropertyType
+                : ((FieldInfo)memberMemberBinding.Member).FieldType;
+            MemberInitExpression nested = Expression.MemberInit(Expression.New(memberType), memberMemberBinding.Bindings);
+            string alias = CheckPrefix(prefix, memberMemberBinding.Member.Name);
+            AliasVisitor nestedVisitor = new(database, visitor);
+            nestedVisitor.ResolveResultAlias(resultSelector, nested, alias);
+            foreach (KeyValuePair<string, Expression> tableColumn in nestedVisitor.result)
+            {
+                result.Add(tableColumn.Key, tableColumn.Value);
+            }
         }
 
         PropertyInfo[] declaredProperties = memberInitExpression.Type.GetProperties();

@@ -777,7 +777,6 @@ public static class SelectMaterializerEmitter
             if (rangeIdent != null
                 && ctx.Model.GetSymbolInfo(rangeIdent).Symbol is { } binRangeSym
                 && ctx.WriterCtx.NullableRangeVars.Contains(binRangeSym)
-                && !ctx.NullableRangeFirstLeaf.ContainsKey(binRangeSym)
                 && ctx.Model.GetTypeInfo(rangeIdent).Type is INamedTypeSymbol rangeType)
             {
                 List<IPropertySymbol> props = SelectSignatureWriter.GetRowProperties(rangeType);
@@ -785,8 +784,14 @@ public static class SelectMaterializerEmitter
                 {
                     int idx = ctx.Leaves.Count;
                     string varName = "__leaf_" + idx;
-                    ctx.Leaves.Add(new LeafInfo(rangeIdent, props[0].Type, varName, isNullable: true));
-                    ctx.NullableRangeFirstLeaf[binRangeSym] = idx;
+                    ctx.Leaves.Add(new LeafInfo(bin, props[0].Type, varName, isNullable: true));
+                    ctx.LeafIndexBySyntax[bin] = idx;
+                    if (!ctx.NullableRangeFirstLeaf.ContainsKey(binRangeSym))
+                    {
+                        ctx.NullableRangeFirstLeaf[binRangeSym] = idx;
+                    }
+
+                    return true;
                 }
             }
         }

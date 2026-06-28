@@ -24,6 +24,30 @@ internal static class CommonHelpers
     }
 
     /// <summary>
+    /// Quotes one JSON path segment so a name that holds a dot, a double quote, a backslash, or any
+    /// other non-identifier character is read as a literal key rather than a nested path. A plain
+    /// identifier name is returned as is, so the common case keeps the shorter unquoted form.
+    /// </summary>
+    public static string JsonPathSegment(string jsonName)
+    {
+        if (IsSimpleJsonKey(jsonName))
+        {
+            return jsonName;
+        }
+
+        return "\"" + jsonName.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+    }
+
+    /// <summary>
+    /// Wraps a dotted JSON path of already quoted segments in a single-quoted SQL string literal,
+    /// escaping any single quote so a key that holds one does not break the literal.
+    /// </summary>
+    public static string JsonExtractPathLiteral(string quotedPath)
+    {
+        return "'$." + quotedPath.Replace("'", "''") + "'";
+    }
+
+    /// <summary>
     /// Reports whether the hooks for <typeparamref name="T" /> include a column-collecting hook,
     /// which writes extra columns into a dictionary during a write.
     /// </summary>
@@ -266,5 +290,18 @@ internal static class CommonHelpers
         int minor = versionNumber / 1_000 % 1_000;
         int patch = versionNumber % 1_000;
         return $"{major}.{minor}.{patch}";
+    }
+
+    private static bool IsSimpleJsonKey(string name)
+    {
+        foreach (char ch in name)
+        {
+            if (!char.IsAsciiLetterOrDigit(ch) && ch != '_')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

@@ -335,9 +335,13 @@ internal partial class JsonCollectionVisitor
         if (groupBys.Count > 0)
         {
             countsGroups = true;
+            selectExpr = "COUNT(*)";
+        }
+        else
+        {
+            selectExpr = distinct ? $"COUNT(DISTINCT {selectExpr})" : "COUNT(*)";
         }
 
-        selectExpr = distinct ? $"COUNT(DISTINCT {selectExpr})" : "COUNT(*)";
         distinct = false;
         wrapInArray = false;
     }

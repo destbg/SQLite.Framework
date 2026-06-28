@@ -116,12 +116,12 @@ internal partial class JsonCollectionVisitor
         {
             bool atRoot = string.IsNullOrEmpty(prefix);
             string dictKey = atRoot ? prop.Name : $"{prefix}.{prop.Name}";
-            string jsonName = CommonHelpers.JsonMemberName(prop);
+            string jsonName = CommonHelpers.JsonPathSegment(CommonHelpers.JsonMemberName(prop));
             string jsonKey = atRoot ? jsonName : $"{jsonPrefix}.{jsonName}";
 
             if (TypeHelpers.IsSimple(prop.PropertyType, options))
             {
-                string sql = $"json_extract({valueSql}, '$.{jsonKey}')";
+                string sql = $"json_extract({valueSql}, {CommonHelpers.JsonExtractPathLiteral(jsonKey)})";
                 dict[dictKey] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null);
             }
             else

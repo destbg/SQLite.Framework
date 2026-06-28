@@ -1477,11 +1477,12 @@ public class SupplementalQueryTests
             db.Table<Book>().Add(new Book { Id = 1, Title = "alpha", AuthorId = 7, Price = 1 });
 
             long before = db.SelectCompilerFallbacks;
-            Assert.Throws<NotSupportedException>(() => db.Table<Book>()
+            SqlTranslatorListContainer result = db.Table<Book>()
                 .Select(b => new SqlTranslatorListContainer { Values = { b.Id, b.AuthorId } })
-                .First());
+                .First();
             long after = db.SelectCompilerFallbacks;
 
+            Assert.Equal(new List<int> { 1, 7 }, result.Values);
             Assert.True(after > before);
         }
         finally

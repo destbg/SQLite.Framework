@@ -37,15 +37,16 @@ public class JsonNullElementBehaviorTests
     }
 
     [Fact]
-    public void Except_SecondOperandWithNull_ReturnsEmpty()
+    public void Except_SecondOperandWithNull_RemovesMatchingElements()
     {
         List<string> tags = ["a", "b", "c"];
         using TestDatabase db = CreateDb(tags);
         List<string> other = ["b", null!];
 
+        List<string> expected = new List<string> { "a", "b", "c" }.Except(other).OrderBy(x => x).ToList();
         List<string> actual = db.Table<JsonNullElementRow>().Select(r => r.Tags.Except(other).ToList()).First();
 
-        Assert.Empty(actual);
+        Assert.Equal(expected, actual.OrderBy(x => x).ToList());
     }
 
     [Fact]

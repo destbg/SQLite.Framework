@@ -61,7 +61,8 @@ internal partial class QueryableVisitor
 
         if (visitor.TableColumns.All(f => f.Value is SQLiteExpression)
             && lambda.Body is not NewArrayExpression
-            && !IsScalarBoxingToObject(lambda.Body))
+            && !IsScalarBoxingToObject(lambda.Body)
+            && !HasRowReferencingListBinding(lambda))
         {
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
@@ -290,6 +291,29 @@ internal partial class QueryableVisitor
         }
 
         return element;
+    }
+
+    private static bool HasRowReferencingListBinding(LambdaExpression lambda)
+    {
+        if (lambda.Body is not MemberInitExpression memberInit)
+        {
+            return false;
+        }
+
+        foreach (MemberListBinding listBinding in memberInit.Bindings.OfType<MemberListBinding>())
+        {
+            foreach (Expression element in listBinding.Initializers.SelectMany(initializer => initializer.Arguments))
+            {
+                ParameterUsageFinderVisitor finder = new(lambda.Parameters[0]);
+                finder.Visit(element);
+                if (finder.Found)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static bool IsScalarBoxingToObject(Expression body)

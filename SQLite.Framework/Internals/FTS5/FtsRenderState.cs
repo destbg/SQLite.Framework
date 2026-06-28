@@ -100,7 +100,7 @@ internal sealed class FtsRenderState
 
         Write(positive, 3);
         AppendLiteral(" NOT ");
-        Write(negated, 3);
+        Write(negated, 4);
 
         if (wrap)
         {

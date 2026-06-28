@@ -113,6 +113,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable, and `Dictionary.Contains` of a whole key-value pair, are not supported there.
 - On a JSON dictionary, the indexer for a key that is not present returns the type default instead of throwing.
 - On a JSON list of enums, `Contains` and comparisons use the enum form from the global enum storage mode. When the enum is written inside the JSON in a different form, by default as a number, the comparison does not match.
+- A `[JsonPropertyName]` whose name contains a character that the JSON writer escapes, such as an apostrophe, reads back its value only on newer SQLite builds. The writer stores the escaped form (for example `it's`), and an older build, such as the one bundled with SQLCipher, does not match it during a query and returns the type default. A name with an unescaped special character, such as a dot, works on all builds.
 
 ## Binary data
 

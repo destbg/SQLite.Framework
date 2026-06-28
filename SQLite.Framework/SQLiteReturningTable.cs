@@ -12,8 +12,6 @@ namespace SQLite.Framework;
 /// </remarks>
 public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TResult>
 {
-    private ProjectionPlan? cachedPlan;
-
     /// <summary>
     /// Initializes a new wrapper around <paramref name="source" /> with the given <paramref name="projection" />.
     /// </summary>
@@ -284,7 +282,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "RETURNING");
 #endif
-        ProjectionPlan plan = cachedPlan ??= BuildProjectionPlan();
+        ProjectionPlan plan = BuildProjectionPlan();
 
         string finalSql = entitySql + " RETURNING " + plan.ColumnsSql;
 

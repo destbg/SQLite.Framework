@@ -67,7 +67,7 @@ public sealed class SQLiteOptionsBuilder
     /// <summary>
     /// The format string used when <see cref="DateTimeStorage" /> is set to <see cref="DateTimeStorageMode.TextFormatted" />.
     /// </summary>
-    public string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
+    public string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss.FFFFFFF";
 
     /// <summary>
     /// Controls how DateTimeOffset values are stored. Defaults to <see cref="DateTimeOffsetStorageMode.Ticks" />.
@@ -77,7 +77,7 @@ public sealed class SQLiteOptionsBuilder
     /// <summary>
     /// The format string used when <see cref="DateTimeOffsetStorage" /> is set to <see cref="DateTimeOffsetStorageMode.TextFormatted" />.
     /// </summary>
-    public string DateTimeOffsetFormat { get; set; } = "yyyy-MM-dd HH:mm:ss zzz";
+    public string DateTimeOffsetFormat { get; set; } = "yyyy-MM-dd HH:mm:ss.FFFFFFF zzz";
 
     /// <summary>
     /// Controls how TimeSpan values are stored. Defaults to <see cref="TimeSpanStorageMode.Integer" />.
@@ -107,7 +107,7 @@ public sealed class SQLiteOptionsBuilder
     /// <summary>
     /// The format string used when <see cref="TimeOnlyStorage" /> is set to <see cref="TimeOnlyStorageMode.Text" />.
     /// </summary>
-    public string TimeOnlyFormat { get; set; } = "HH:mm:ss";
+    public string TimeOnlyFormat { get; set; } = "HH:mm:ss.FFFFFFF";
 
     /// <summary>
     /// Controls how decimal values are stored. Defaults to <see cref="DecimalStorageMode.Real" />.

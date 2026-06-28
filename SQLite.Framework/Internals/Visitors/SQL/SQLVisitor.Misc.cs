@@ -61,7 +61,7 @@ internal partial class SQLVisitor
                 .ToDictionary(kv => kv.Key, Expression (kv) => SQLiteExpression.Leaf(
                     ((SQLiteExpression)kv.Value).Type,
                     Counters.NextIdentifier(),
-                    $"{alias}.{IdentifierGuard.Quote(kv.Key)}"));
+                    $"{alias}.{IdentifierGuard.Quote(kv.Key.Length == 0 ? Constants.CteScalarColumn : kv.Key)}"));
 
             return SQLiteExpression.Alias(node.Type, -1, From, null);
         }

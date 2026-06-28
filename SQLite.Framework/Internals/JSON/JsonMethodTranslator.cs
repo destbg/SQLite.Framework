@@ -161,7 +161,7 @@ internal static class JsonMethodTranslator
                 nameof(Enumerable.Concat) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.Union) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT \"value\" FROM json_each({argSql})))",
                 nameof(Enumerable.Intersect) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM json_each({src}) WHERE \"value\" IN (SELECT \"value\" FROM json_each({argSql})))",
-                nameof(Enumerable.Except) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM json_each({src}) WHERE \"value\" NOT IN (SELECT \"value\" FROM json_each({argSql})))",
+                nameof(Enumerable.Except) => $"(SELECT json_group_array(DISTINCT {arrayElem}) FROM json_each({src}) WHERE \"value\" NOT IN (SELECT \"value\" FROM json_each({argSql}) WHERE \"value\" IS NOT NULL))",
                 nameof(Enumerable.ElementAtOrDefault) => $"json_extract({src}, '$[' || ({argSql}) || ']')",
                 nameof(Enumerable.Append) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT \"value\" FROM json_each({src}) UNION ALL SELECT {argSql} AS \"value\"))",
                 nameof(Enumerable.Prepend) => $"(SELECT json_group_array({arrayElem}) FROM (SELECT {argSql} AS \"value\" UNION ALL SELECT \"value\" FROM json_each({src})))",
@@ -403,7 +403,8 @@ internal static class JsonMethodTranslator
     {
         foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            string sql = $"json_extract({valueSql}, '$.{CommonHelpers.JsonMemberName(prop)}')";
+            string jsonKey = CommonHelpers.JsonPathSegment(CommonHelpers.JsonMemberName(prop));
+            string sql = $"json_extract({valueSql}, {CommonHelpers.JsonExtractPathLiteral(jsonKey)})";
             dict[prop.Name] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null).WithJsonSource();
         }
     }

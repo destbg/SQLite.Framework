@@ -70,6 +70,12 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         SyntaxKind kind = node.Kind();
         if (kind == SyntaxKind.EqualsExpression || kind == SyntaxKind.NotEqualsExpression)
         {
+            if (ctx.LeafIndexBySyntax.TryGetValue(node, out int nodeLeafIdx))
+            {
+                string nodeVar = ctx.Leaves[nodeLeafIdx].VarName;
+                return SyntaxFactory.ParseExpression("global::System.Convert.ToBoolean(" + nodeVar + ")");
+            }
+
             ExpressionSyntax? rangeSide = null;
             bool leftIsNull = node.Left.IsKind(SyntaxKind.NullLiteralExpression);
             bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);

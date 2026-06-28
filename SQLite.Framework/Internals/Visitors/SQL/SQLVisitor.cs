@@ -60,7 +60,7 @@ internal partial class SQLVisitor : ExpressionVisitor
         }
 
         SQLiteExpression extracted = SQLiteExpression.Wrap(resultType, Counters.NextIdentifier(),
-            "json_extract(", source, $", '$.{memberName}')",
+            "json_extract(", source, $", {CommonHelpers.JsonExtractPathLiteral(CommonHelpers.JsonPathSegment(memberName))})",
             source.Parameters)
         .WithJsonSource();
         JsonExtractIntern[key] = extracted;
