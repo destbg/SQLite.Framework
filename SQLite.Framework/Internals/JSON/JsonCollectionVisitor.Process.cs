@@ -311,11 +311,21 @@ internal partial class JsonCollectionVisitor
 
     private void HandleSkip(MethodCallExpression call)
     {
+        if (distinct)
+        {
+            MaterializeDistinct();
+        }
+
         offset = ResolveCountArgument(call.Arguments[1]);
     }
 
     private void HandleTake(MethodCallExpression call)
     {
+        if (distinct)
+        {
+            MaterializeDistinct();
+        }
+
         limit = ResolveCountArgument(call.Arguments[1]);
     }
 
@@ -498,6 +508,11 @@ internal partial class JsonCollectionVisitor
         {
             throw new ArgumentOutOfRangeException("index", index,
                 $"{call.Method.Name} was called with a negative index ({index}). The index must be non-negative.");
+        }
+
+        if (distinct)
+        {
+            MaterializeDistinct();
         }
 
         offset = arg.SQLiteExpression!.ToString();

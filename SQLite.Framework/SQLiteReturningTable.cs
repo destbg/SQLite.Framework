@@ -267,7 +267,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             }
             case SQLiteAction.AddOrUpdate:
             {
-                (TableColumn[] columns, string sql) = Source.GetAddOrUpdateInfo(SQLiteConflict.Replace);
+                (TableColumn[] columns, string sql) = Source.GetAddOrUpdateInfoForItemInternal(item, SQLiteConflict.Replace);
                 TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
                 return UpsertWithReturning(sql, parameters, autoIncrement, item);

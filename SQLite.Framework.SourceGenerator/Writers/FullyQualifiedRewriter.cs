@@ -304,6 +304,24 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         return base.VisitInvocationExpression(node);
     }
 
+    /// <summary>
+    /// Rewrites an interpolation hole, parenthesizing it when qualification introduces an
+    /// alias-qualified name. Inside an interpolation hole a bare "::" is read as the start of a
+    /// format specifier, so an unparenthesized "global::" expression would not compile.
+    /// </summary>
+    public override SyntaxNode? VisitInterpolation(InterpolationSyntax node)
+    {
+        SyntaxNode? visited = base.VisitInterpolation(node);
+        if (visited is InterpolationSyntax interpolation
+            && interpolation.Expression.Kind() != SyntaxKind.ParenthesizedExpression
+            && interpolation.Expression.ToFullString().Contains("::"))
+        {
+            return interpolation.WithExpression(SyntaxFactory.ParenthesizedExpression(interpolation.Expression));
+        }
+
+        return visited;
+    }
+
     private ExpressionSyntax? TryRewriteTupleCreation(BaseObjectCreationExpressionSyntax node, ArgumentListSyntax? argumentList)
     {
         if (argumentList == null)

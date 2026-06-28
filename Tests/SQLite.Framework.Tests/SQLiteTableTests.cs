@@ -390,6 +390,19 @@ public class SQLiteTableTests
         Assert.Throws<SQLiteException>(() => table.Upsert(row, c => c.OnConflict(a => a.Id).DoNothing()));
     }
 
+    [Fact]
+    public void ReturningAddReroutedToAddOrUpdate_OverriddenGetAddOrUpdateInfo_SkipsDefaultFilter()
+    {
+        using TestDatabase db = new(b => b.OnAction((_, _, a) =>
+            a == SQLiteAction.Add ? SQLiteAction.AddOrUpdate : a));
+        db.Table<Article>().Schema.CreateTable();
+        OverridingArticleTable table = new(db, db.TableMapping(typeof(Article)));
+
+        Article row = new() { Title = "t", Body = "b", PublishedAt = DateTime.UtcNow };
+
+        Assert.Throws<SQLiteException>(() => table.Returning().Add(row));
+    }
+
     private sealed class OverridingArticleTable : SQLiteTable<Article>
     {
         public OverridingArticleTable(SQLiteDatabase database, TableMapping table)

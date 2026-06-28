@@ -131,7 +131,8 @@ internal class AliasVisitor
                     {
                         MethodArguments = visitor.MethodArguments,
                         TableColumnPrefixes = visitor.TableColumnPrefixes,
-                        ClientEvalAllowed = visitor.ClientEvalAllowed
+                        ClientEvalAllowed = visitor.ClientEvalAllowed,
+                        IsInSelectProjection = visitor.IsInSelectProjection
                     };
                     Expression expression = innerVisitor.Visit(argument);
 
@@ -245,7 +246,8 @@ internal class AliasVisitor
                 {
                     MethodArguments = visitor.MethodArguments,
                     TableColumnPrefixes = visitor.TableColumnPrefixes,
-                    ClientEvalAllowed = visitor.ClientEvalAllowed
+                    ClientEvalAllowed = visitor.ClientEvalAllowed,
+                    IsInSelectProjection = visitor.IsInSelectProjection
                 };
                 Expression expression = innerVisitor.Visit(memberAssignment.Expression);
                 result.Add(alias, CoalesceIfLiftedComparison(memberAssignment.Expression, expression));

@@ -102,6 +102,8 @@ internal static class ModelValidator
     {
         Dictionary<string, (IReadOnlyList<string> Columns, bool Unique)> expected = BuildExpectedIndexes(mapping, table);
         Dictionary<string, PragmaIndexList> dbIndexes = database.Pragmas.IndexList(table).ToDictionary(i => i.Name);
+        Dictionary<string, string> declaredSql = SchemaSqlBuilder.BuildIndexes(mapping, table, ifNotExists: false)
+            .ToDictionary(x => x.Name, x => x.Sql);
 
         foreach ((string name, (IReadOnlyList<string> columns, bool unique)) in expected)
         {
@@ -111,15 +113,28 @@ internal static class ModelValidator
                 continue;
             }
 
+            bool mismatchReported = false;
             if (dbIndex.IsUnique != unique)
             {
                 issues.Add($"Index '{name}' on table '{table}' uniqueness does not match the model.");
+                mismatchReported = true;
             }
 
             IReadOnlyList<string> dbColumns = ReadIndexColumns(database, name);
             if (!dbColumns.SequenceEqual(columns))
             {
                 issues.Add($"Index '{name}' on table '{table}' columns do not match the model.");
+                mismatchReported = true;
+            }
+
+            if (!mismatchReported)
+            {
+                string? liveSql = database.ExecuteScalar<string?>(
+                    $"SELECT sql FROM sqlite_master WHERE type = 'index' AND name = '{name.Replace("'", "''")}'");
+                if (!string.Equals(declaredSql[name], liveSql, StringComparison.Ordinal))
+                {
+                    issues.Add($"Index '{name}' on table '{table}' definition does not match the model (such as a partial-index filter or column direction).");
+                }
             }
         }
     }

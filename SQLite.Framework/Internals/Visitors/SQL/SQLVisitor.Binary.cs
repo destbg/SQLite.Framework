@@ -200,7 +200,8 @@ internal partial class SQLVisitor
         }
 
         if (node.NodeType is ExpressionType.Subtract
-            && leftNode.Type == typeof(TimeOnly) && rightNode.Type == typeof(TimeOnly))
+            && (Nullable.GetUnderlyingType(leftNode.Type) ?? leftNode.Type) == typeof(TimeOnly)
+            && (Nullable.GetUnderlyingType(rightNode.Type) ?? rightNode.Type) == typeof(TimeOnly))
         {
             long day = TimeSpan.TicksPerDay;
             return SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
@@ -209,9 +210,11 @@ internal partial class SQLVisitor
                 bothParameters);
         }
 
-        bool eitherOperandMayBeNull = MayBeNull(leftNode) || MayBeNull(rightNode);
+        bool constantConvertsToNull = ConstantConvertsToDatabaseNull(resolvedLeft) || ConstantConvertsToDatabaseNull(resolvedRight);
+        bool eitherOperandMayBeNull = MayBeNull(leftNode) || MayBeNull(rightNode) || constantConvertsToNull;
         bool equalIsNullSafe = (IsNullableColumn(leftNode) && !resolvedLeft.IsConstant)
-            || (IsNullableColumn(rightNode) && !resolvedRight.IsConstant);
+            || (IsNullableColumn(rightNode) && !resolvedRight.IsConstant)
+            || constantConvertsToNull;
 
         if (node.NodeType is ExpressionType.Add && node.Type == typeof(string))
         {
@@ -405,6 +408,13 @@ internal partial class SQLVisitor
             : expr;
     }
 
+    private bool ConstantConvertsToDatabaseNull(ResolvedModel resolved)
+    {
+        return resolved is { IsConstant: true, Constant: { } constant }
+            && Database.Options.TypeConverters.TryGetValue(constant.GetType(), out ISQLiteTypeConverter? converter)
+            && converter.ToDatabase(constant) is null;
+    }
+
     private static bool TryGetInRangeCharText(Expression node, out string? text)
     {
         text = null;
@@ -518,6 +528,8 @@ internal partial class SQLVisitor
             ConditionalExpression conditional =>
                 StringConcatExpressionMayBeNull(conditional.IfTrue)
                 || StringConcatExpressionMayBeNull(conditional.IfFalse),
+            BinaryExpression { NodeType: ExpressionType.Coalesce } coalesce =>
+                StringConcatExpressionMayBeNull(coalesce.Right),
             MemberExpression { Member: PropertyInfo property } =>
                 new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
             _ => false

@@ -30,6 +30,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Math.Clamp` with `min` greater than `max` returns `min` instead of throwing.
 - A cast of a floating-point value above the `decimal` range to `decimal`, such as `(decimal)1e30`, returns the largest or smallest `decimal` instead of throwing `OverflowException`.
 - `Math.Abs(long.MinValue)` throws a `SQLiteException`, since its result does not fit a signed 64-bit integer.
+- Reading an `int` column whose stored value is outside the `int` range, which can happen when a value was written through raw SQL, may read back its low 32 bits instead of throwing `OverflowException`, since reading an `int` takes a fast path that does not range-check. The smaller integer types (`short`, `ushort`, `byte`, `sbyte`) always throw when the stored value is out of their range.
 - The bitwise complement `~` of a native integer (`nint` or `nuint`) is not supported.
 
 ## Strings

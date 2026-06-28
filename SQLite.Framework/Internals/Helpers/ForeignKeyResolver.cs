@@ -55,7 +55,7 @@ internal static class ForeignKeyResolver
 
         if (targetPropertyNames == null)
         {
-            TableColumn[] pks = targetMapping.Columns.Where(c => c.IsPrimaryKey).ToArray();
+            TableColumn[] pks = targetMapping.Columns.Where(c => c.IsPrimaryKey).OrderBy(c => c.PrimaryKeyOrder).ToArray();
             if (pks.Length == 0)
             {
                 throw new InvalidOperationException(

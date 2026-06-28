@@ -522,13 +522,20 @@ internal static class QueryableMemberVisitor
         return rows;
     }
 
+    private static bool ConvertsToDatabaseNull(SQLVisitor visitor, object value)
+    {
+        return visitor.Database.Options.TypeConverters.TryGetValue(value.GetType(), out ISQLiteTypeConverter? converter)
+            && converter.ToDatabase(value) is null;
+    }
+
     private static SQLiteExpression BuildScalarInExpression(SQLVisitor visitor, Type returnType, SQLiteExpression itemExpr, Type itemType, IReadOnlyList<object?> values)
     {
         bool hasNull = false;
         List<SQLiteParameter> valueParameters = new(values.Count);
         for (int i = 0; i < values.Count; i++)
         {
-            if (values[i] is null)
+            object? value = values[i];
+            if (value is null || ConvertsToDatabaseNull(visitor, value))
             {
                 hasNull = true;
                 continue;
@@ -537,7 +544,7 @@ internal static class QueryableMemberVisitor
             valueParameters.Add(new SQLiteParameter
             {
                 Name = visitor.Counters.NextParamName(),
-                Value = values[i]
+                Value = value
             });
         }
 

@@ -443,6 +443,18 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return (columns, sql);
     }
 
+    internal (TableColumn[] Columns, string Sql) GetAddOrUpdateInfoForItemInternal(T item, SQLiteConflict conflict)
+    {
+        (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
+        if (!IsItemMethodOverridden(nameof(GetAddOrUpdateInfo)))
+        {
+            columns = FilterColumnsForDefaults(columns, item);
+            sql = BuildAddOrUpdateSql(columns, conflict);
+        }
+
+        return (columns, sql);
+    }
+
     internal (TableColumn[] Columns, string Sql) FilterUpsertInfoForItemInternal(Action<SQLiteUpsertBuilder<T>> configure, T item, TableColumn[] baseColumns, string baseSql)
     {
         if (IsItemMethodOverridden(nameof(GetUpsertInfo)) || UpsertHasDoUpdate(configure))

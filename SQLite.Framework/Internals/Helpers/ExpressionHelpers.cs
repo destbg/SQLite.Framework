@@ -93,7 +93,7 @@ internal static class ExpressionHelpers
             MemberExpression me => me.Member is FieldInfo fi
                 ? (me.Expression != null ? fi.GetValue(GetConstantValue(me.Expression)) : fi.GetValue(null))
                 : ((PropertyInfo)me.Member).GetValue(me.Expression != null ? GetConstantValue(me.Expression) : null),
-            UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type),
+            UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type, ue.NodeType == ExpressionType.ConvertChecked),
             UnaryExpression { NodeType: ExpressionType.ArrayLength } ue => ((Array)GetConstantValue(ue.Operand)!).Length,
             UnaryExpression { NodeType: ExpressionType.Negate or ExpressionType.NegateChecked } ue => EvaluateUnary(ue),
             UnaryExpression { NodeType: ExpressionType.Not } ue => EvaluateUnary(ue),
@@ -236,11 +236,12 @@ internal static class ExpressionHelpers
         }
 
         bool complement = node.NodeType is ExpressionType.Not;
+        bool checkedNegate = node.NodeType is ExpressionType.NegateChecked;
         return operand switch
         {
             bool b => !b,
-            int i => complement ? ~i : -i,
-            long l => complement ? ~l : -l,
+            int i => complement ? ~i : checkedNegate ? checked(-i) : -i,
+            long l => complement ? ~l : checkedNegate ? checked(-l) : -l,
             uint u => ~u,
             ulong ul => ~ul,
             float f => -f,
@@ -250,7 +251,7 @@ internal static class ExpressionHelpers
         };
     }
 
-    private static object? ConvertConstant(object? value, Type targetType)
+    private static object? ConvertConstant(object? value, Type targetType, bool checkedConversion)
     {
         if (value is null)
         {
@@ -287,12 +288,12 @@ internal static class ExpressionHelpers
             }
         }
 
-        if (TryUncheckedIntegerConvert(value, underlying, out object? wrapped))
+        if (!checkedConversion && TryUncheckedIntegerConvert(value, underlying, out object? wrapped))
         {
             return wrapped;
         }
 
-        return Convert.ChangeType(value, underlying);
+        return Convert.ChangeType(value, underlying, CultureInfo.InvariantCulture);
     }
 
     private static bool IsIntegerTarget(Type type)

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace SQLite.Framework.Internals.Helpers;
 
 /// <summary>
@@ -20,6 +22,7 @@ internal static class CteColumnMapper
         }
 
         return elementType.GetProperties()
+            .Where(f => f.GetCustomAttribute<NotMappedAttribute>() == null)
             .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, counters.NextIdentifier(), $"{prefix}.{IdentifierGuard.Quote(f.Name)}"));
     }
 
