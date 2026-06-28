@@ -2,9 +2,9 @@ namespace SQLite.Framework;
 
 /// <summary>
 /// Declares the work one migration version performs. Reach an instance through the callback passed
-/// to <see cref="SQLiteMigrationRunner.Version" />. Use <see cref="TableChanged{T}" /> to let the
-/// runner reconcile a table to the current model, and the explicit methods for renames, drops, and
-/// raw SQL that a reconcile cannot work out on its own.
+/// to <see cref="SQLiteMigrationRunner.Version" />. Use <see cref="CreateTable{T}" /> for a new
+/// table and <see cref="TableChanged{T}" /> to reconcile an existing one to the current model, plus
+/// the explicit methods for renames, drops, and raw SQL that a reconcile cannot work out on its own.
 /// </summary>
 /// <remarks>
 /// Within a single run the runner does not apply these in the order written. It applies every
@@ -23,6 +23,22 @@ public sealed class SQLiteMigrationStep
     }
 
     internal IReadOnlyList<MigrationOperation> Operations => operations;
+
+    /// <summary>
+    /// Creates the table for <typeparamref name="T" /> from the model,
+    /// with its declared indexes and triggers, if it does not already exist.
+    /// </summary>
+    public SQLiteMigrationStep CreateTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    {
+        TableMapping mapping = database.TableMapping<T>();
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.CreateTable,
+            Description = $"create \"{mapping.TableName}\"",
+            Mapping = mapping,
+        });
+        return this;
+    }
 
     /// <summary>
     /// Reconciles the table for <typeparamref name="T" /> to the current model. New columns are

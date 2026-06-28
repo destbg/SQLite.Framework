@@ -62,6 +62,31 @@ public class RunnerDiamondRootRow
     public string Name { get; set; } = "";
 }
 
+public sealed class RunnerAddMigration : ISQLiteMigration
+{
+    public static int Version => 3;
+
+    public void Apply(SQLiteMigrationStep step)
+    {
+        step.TableChanged<RunnerDataRow>();
+    }
+}
+
+public sealed class RunnerThrowingMigration : ISQLiteMigration
+{
+    public RunnerThrowingMigration()
+    {
+        throw new InvalidOperationException("constructed");
+    }
+
+    public static int Version => 2;
+
+    public void Apply(SQLiteMigrationStep step)
+    {
+        step.TableChanged<RunnerDataRow>();
+    }
+}
+
 public class MigrationRunnerTests
 {
     [Fact]
@@ -321,11 +346,88 @@ public class MigrationRunnerTests
     public void Step_EmptyArguments_Throw()
     {
         using TestDatabase db = new();
-        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.RenameColumn<RunnerDataRow>("", "x")));
-        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.RenameColumn<RunnerDataRow>("x", "")));
-        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.DropColumn<RunnerDataRow>("")));
-        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.DropTable("")));
-        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.Sql("")));
+        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.RenameColumn<RunnerDataRow>("", "x")).Migrate());
+        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.RenameColumn<RunnerDataRow>("x", "")).Migrate());
+        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.DropColumn<RunnerDataRow>("")).Migrate());
+        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.DropTable("")).Migrate());
+        Assert.Throws<ArgumentException>(() => db.Schema.Migrations().Version(1, m => m.Sql("")).Migrate());
+    }
+
+    [Fact]
+    public void CreateTable_FreshDatabase_CreatesTable()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Migrate();
+
+        Assert.True(db.Schema.TableExists<RunnerDataRow>());
+        Assert.Equal(1, db.Pragmas.UserVersion);
+    }
+
+    [Fact]
+    public void CreateTable_ExistingTable_KeepsRows()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Execute("CREATE TABLE \"RunData\" (\"Id\" INTEGER PRIMARY KEY, \"Value\" INTEGER NOT NULL)");
+        db.Execute("INSERT INTO \"RunData\" (\"Id\", \"Value\") VALUES (1, 7)");
+
+        db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Migrate();
+
+        Assert.Equal(7, db.Table<RunnerDataRow>().Single().Value);
+    }
+
+    [Fact]
+    public void Plan_CreateTable_DescribesCreate()
+    {
+        using TestDatabase db = new();
+
+        SQLiteMigrationPlan plan = db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Plan();
+
+        Assert.Contains("create \"RunData\"", plan.Operations);
+    }
+
+    [Fact]
+    public void Add_AppliesMigration_CreatesTableAndRecordsVersion()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Migrations()
+            .Add<RunnerAddMigration>()
+            .Migrate();
+
+        Assert.True(db.Schema.TableExists<RunnerDataRow>());
+        Assert.Equal(3, db.Pragmas.UserVersion);
+    }
+
+    [Fact]
+    public void Add_VersionAlreadyApplied_DoesNotConstructMigration()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Pragmas.UserVersion = 5;
+
+        int statements = db.Schema.Migrations()
+            .Add<RunnerThrowingMigration>()
+            .Migrate();
+
+        Assert.Equal(0, statements);
+        Assert.Equal(5, db.Pragmas.UserVersion);
+    }
+
+    [Fact]
+    public void Add_VersionPending_ConstructsMigration()
+    {
+        using TestDatabase db = new();
+
+        Exception ex = Assert.ThrowsAny<Exception>(() =>
+            db.Schema.Migrations().Add<RunnerThrowingMigration>().Migrate());
+
+        Assert.Contains("constructed", ex.ToString());
     }
 
     [Fact]

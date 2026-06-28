@@ -101,6 +101,7 @@ internal partial class JsonCollectionVisitor
             nameof(Enumerable.Where)
                 or nameof(Enumerable.OrderBy) or nameof(Enumerable.OrderByDescending)
                 or nameof(Enumerable.Distinct)
+                or nameof(Enumerable.GroupBy)
                 or nameof(Enumerable.Skip)
                 or nameof(Enumerable.ElementAt)
                 or nameof(Enumerable.SelectMany)
@@ -420,7 +421,14 @@ internal partial class JsonCollectionVisitor
 
     private void HandleAggregate(MethodCallExpression call, Type elementType, string sqlFunc)
     {
-        string inner = call.Arguments.Count > 1
+        bool hasSelector = call.Arguments.Count > 1;
+
+        if (distinct && hasSelector && sqlFunc is "SUM" or "AVG")
+        {
+            MaterializeDistinct();
+        }
+
+        string inner = hasSelector
             ? VisitLambda(call.Arguments[1], elementType)
             : selectExpr;
 

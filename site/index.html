@@ -429,7 +429,7 @@ LIMIT @p1;</code></pre>
                     </details>
                     <details>
                         <summary>Does it have a change tracker or migrations?</summary>
-                        <p>It does not have a change tracker like EF Core. That is by design. It has lightweight stand-ins instead. Write hooks (OnAdd and OnUpdate) run before a save for audit and derived values. Migrate with the db.Pragmas.UserVersion pragma reconciles and versions the schema. There is no automatic change tracker, unit of work, or lazy loading.</p>
+                        <p>It does not have a change tracker like EF Core. That is by design. It has lightweight stand-ins instead. Write hooks (OnAdd and OnUpdate) run before a save for audit and derived values. A versioned migration runner reconciles and versions the schema. There is no automatic change tracker, unit of work, or lazy loading.</p>
                     </details>
                     <details>
                         <summary>How is it different from EF Core or sqlite-net-pcl?</summary>

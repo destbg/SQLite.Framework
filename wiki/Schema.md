@@ -202,7 +202,7 @@ Migrations are versioned. Reach the runner with `db.Schema.Migrations()`, declar
 
 ```csharp
 await db.Schema.Migrations()
-    .Version(1, m => m.TableChanged<Book>())
+    .Version(1, m => m.CreateTable<Book>().CreateTable<Author>())
     .Version(2, m => m.TableChanged<Author>())
     .MigrateAsync();
 ```
@@ -217,6 +217,44 @@ await db.Schema.Migrations()
 A whole run happens in one transaction. If a step fails, the run rolls back to the version it started at, and the next run retries from there. FTS5 and R-Tree tables are only ensured to exist.
 
 Migrations always move toward the current model. There is no path back to an older version, and no way to stop below the highest declared version.
+
+### One file per migration
+
+To keep each version in its own file instead of one long chain, implement `ISQLiteMigration` once per version, put the classes in a `Migrations` folder, and register them with `Add<T>()`.
+
+```csharp
+// Migrations/M0001_InitialSchema.cs
+public sealed class M0001_InitialSchema : ISQLiteMigration
+{
+    public static int Version => 1;
+
+    public void Apply(SQLiteMigrationStep step)
+    {
+        step.CreateTable<Book>()
+            .CreateTable<Author>();
+    }
+}
+```
+
+```csharp
+// Migrations/M0002_AddBookGenre.cs
+public sealed class M0002_AddBookGenre : ISQLiteMigration
+{
+    public static int Version => 2;
+
+    public void Apply(SQLiteMigrationStep step)
+    {
+        step.TableChanged<Book>(s => s.Set(b => b.Genre, "Unknown"));
+    }
+}
+```
+
+```csharp
+await db.Schema.Migrations()
+    .Add<M0001_InitialSchema>()
+    .Add<M0002_AddBookGenre>()
+    .MigrateAsync();
+```
 
 ### See what a migration would do
 

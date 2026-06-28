@@ -1,3 +1,4 @@
+using SQLite.Framework.Avalonia.Migrations;
 using SQLite.Framework.Avalonia.Models;
 
 namespace SQLite.Framework.Avalonia.Data;
@@ -20,14 +21,13 @@ public class AppDatabase : SQLiteDatabase
     public SQLiteTable<ProjectsTags> ProjectsTags => Table<ProjectsTags>();
 
     /// <summary>
-    /// Creates every table the app uses. Safe to call again, it does nothing on existing tables.
+    /// Brings the database up to the model by running every migration in the Migrations folder.
+    /// Safe to call again, a version that already ran is skipped and is never constructed.
     /// </summary>
     public void EnsureSchema()
     {
-        Schema.CreateTable<Category>();
-        Schema.CreateTable<Project>();
-        Schema.CreateTable<ProjectTask>();
-        Schema.CreateTable<Tag>();
-        Schema.CreateTable<ProjectsTags>();
+        Schema.Migrations()
+            .Add<M0001_InitialSchema>()
+            .Migrate();
     }
 }

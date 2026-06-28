@@ -25,7 +25,7 @@ The full set of built-in accessors:
 | `JournalMode` | `journal_mode` | `DELETE`, `WAL`, `MEMORY`, `TRUNCATE`, `PERSIST`, `OFF`. |
 | `CacheSize` | `cache_size` | Number of pages, or kibibytes if you pass a negative number. |
 | `SynchronousMode` | `synchronous` | An `SQLiteSynchronousMode` enum: `Off`, `Normal`, `Full`, `Extra`. |
-| `UserVersion` | `user_version` | An integer your app picks. |
+| `UserVersion` | `user_version` | An integer in the file header. The migration runner uses it to track the schema version, so do not set it by hand when you use migrations. |
 | `PageSize` | `page_size` | Read only after the file has been written. |
 | `FreelistCount` | `freelist_count` | Read only. |
 | `RecursiveTriggers` | `recursive_triggers` | True or false. |

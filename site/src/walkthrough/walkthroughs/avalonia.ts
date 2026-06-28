@@ -144,7 +144,7 @@ Services = services.BuildServiceProvider();`,
         {
             title: "Migration service",
             description:
-                "All schema work in one method, gated by UserVersion so it only runs once per file.",
+                "All schema work in one method. The migration runner records the version it reached, so each version runs once per file.",
             code: {
                 language: "csharp",
                 filename: "Services/MigrationService.cs",
@@ -159,14 +159,11 @@ Services = services.BuildServiceProvider();`,
 
     public async Task RunAsync()
     {
-        int version = await db.Pragmas.GetUserVersionAsync();
-
-        if (version < 1)
-        {
-            await db.Schema.CreateTableAsync<User>();
-            await db.Schema.CreateTableAsync<Country>();
-            await db.Pragmas.SetUserVersionAsync(1);
-        }
+        await db.Schema.Migrations()
+            .Version(1, m => m
+                .TableChanged<User>()
+                .TableChanged<Country>())
+            .MigrateAsync();
     }
 }`,
             },

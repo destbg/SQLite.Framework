@@ -123,14 +123,11 @@ public sealed class UserDatabaseAccessor
         return db;
     }
 
-    private static async Task MigrateAsync(SQLiteDatabase db)
+    private static Task MigrateAsync(SQLiteDatabase db)
     {
-        int version = await db.Pragmas.GetUserVersionAsync();
-        if (version < 1)
-        {
-            await db.Schema.CreateTableAsync<Note>();
-            await db.Pragmas.SetUserVersionAsync(1);
-        }
+        return db.Schema.Migrations()
+            .Version(1, m => m.TableChanged<Note>())
+            .MigrateAsync();
     }
 }`,
             },

@@ -1092,8 +1092,9 @@ internal class SQLTranslator
         {
             string name = methodCalls[i].Method.Name;
             bool windowSelect = isWindowSelect[i];
+            bool hasPredicate = methodCalls[i].Arguments.Count > 1;
 
-            if (ConflictsWithLevel(name, level, windowSelect))
+            if (ConflictsWithLevel(name, level, windowSelect, hasPredicate))
             {
                 boundary = i;
                 level = QueryLevelParts.None;
@@ -1105,12 +1106,15 @@ internal class SQLTranslator
         return boundary;
     }
 
-    private static bool ConflictsWithLevel(string name, QueryLevelParts level, bool windowSelect)
+    private static bool ConflictsWithLevel(string name, QueryLevelParts level, bool windowSelect, bool hasPredicate)
     {
         QueryLevelParts blockedBy = name switch
         {
             nameof(Queryable.Where) => QueryLevelParts.Limit | QueryLevelParts.Window,
             nameof(Queryable.Any) or nameof(Queryable.All) or nameof(Queryable.Contains) => QueryLevelParts.Limit | QueryLevelParts.Window,
+            nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)
+                or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault)
+                when hasPredicate => QueryLevelParts.Limit | QueryLevelParts.Window,
             nameof(Queryable.Count) or nameof(Queryable.LongCount) or nameof(Queryable.Sum)
                 or nameof(Queryable.Max) or nameof(Queryable.Min) or nameof(Queryable.Average) => QueryLevelParts.Window | QueryLevelParts.Limit,
             nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)

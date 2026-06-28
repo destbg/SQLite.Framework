@@ -166,22 +166,27 @@ See [Defining Models](Defining%20Models) for the full list of attributes and opt
 
 ## Schema Migrations
 
-SQLite stores a 32-bit integer in the database file header called the user version. It starts at zero and you control it entirely. Use it to track which migrations have already run so your app can apply only what is missing on each launch.
+Migrations are versioned. Declare each schema version on the runner with `Version`, then call `Migrate`. The runner brings the database up to the current model and records the version it reached in the SQLite user version, a 32-bit integer in the database file header. A version that already ran is skipped on the next launch.
 
 ```csharp
-await db.Schema.CreateTableAsync<Author>();
-await db.Schema.CreateTableAsync<Book>();
-
-if (db.Pragmas.UserVersion == 1)
-{
-    await db.ExecuteAsync("ALTER TABLE Books ADD COLUMN BookGenre TEXT");
-    db.Pragmas.UserVersion = 2;
-}
-if (db.Pragmas.UserVersion == 2)
-{
-    await db.ExecuteAsync("ALTER TABLE Books ADD COLUMN BookInStock INTEGER NOT NULL DEFAULT 0");
-    db.Pragmas.UserVersion = 3;
-}
+await db.Schema.Migrations()
+    .Version(1, m => m
+        .CreateTable<Author>()
+        .CreateTable<Book>())
+    .MigrateAsync();
 ```
 
-Each block runs only once. On the next launch `UserVersion` is already at the latest number, so the blocks are skipped.
+When you change a model later, add a new version so the runner reconciles the table again. For example, after you add a `Genre` property to `Book`, declare the next version.
+
+```csharp
+await db.Schema.Migrations()
+    .Version(1, m => m
+        .CreateTable<Author>()
+        .CreateTable<Book>())
+    .Version(2, m => m.TableChanged<Book>())
+    .MigrateAsync();
+```
+
+Each version runs only once. On the next launch the recorded version is already at the latest number, so the runner does nothing.
+
+You can also put each version in its own file with `ISQLiteMigration` and register it with `Add<T>()`. See [Schema](Schema) for that pattern, plus column fills, renames, drops, and raw SQL data steps.

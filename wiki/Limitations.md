@@ -44,6 +44,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Case-insensitive `Equals`, `Compare`, `Contains`, `StartsWith` and `EndsWith` (`OrdinalIgnoreCase`) also fold only ASCII.
 - `string.Compare` and `CompareTo` order by byte value, the same as the comparison operators, even when a `CultureInfo` or a culture-aware `StringComparison` such as `InvariantCulture` is given. The sign of the result can differ from .NET, which compares by language rules.
 - `Enum.Parse` of a string that is not a defined member name and not a number reads back as the enum's zero value instead of throwing.
+- `Enum.Parse` of a numeric string that does not fit the enum's underlying type, such as `300` for a `byte` backed enum, wraps to a value in range instead of throwing `OverflowException`.
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text).
 - A `char` taken from a string can be half of a character that needs two slots in .NET, such as an emoji. SQLite stores whole characters only, so reading that half on its own does not come back the same and can throw.
 - `Enum.Parse` strips ASCII whitespace anywhere in the string, so the spaced `[Flags]` form like `"Read, Write"` parses but a name with embedded whitespace like `"News\tpaper"` matches `"Newspaper"` where .NET would throw.
@@ -111,7 +112,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so adding a list that holds one fails.
 - `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly` and `TimeSpan` values inside a JSON list are kept as text. Reading a part like `.Year`, or comparing them, follows the same rules as `Text` storage, not .NET, so results can differ.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
-- `GetRange` on a JSON list that asks for more items than are there returns the items that fit, instead of throwing.
+- `GetRange` on a JSON list does not check its arguments. Asking for more items than are there returns the items that fit. A negative count returns the whole list, and a negative start index is read as zero. .NET throws in all three cases.
+- `ElementAtOrDefault` on a JSON list with an index taken from a column reads the type default when the index is past the end, but a negative column index fails with an error instead of reading the type default.
 - Projecting a JSON dictionary's `Keys` or `Values` collection on its own is not supported.
 - Building a new collection from a JSON list with `ToArray` or `ToHashSet` is not supported.
 - `OrderBy` followed by `Reverse` on a JSON list keeps rows that share the same sort key in their first-seen order, not the reversed order that LINQ-to-Objects gives, because the reverse is done by sorting the other way.
@@ -135,6 +137,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Projections
 
 - A projection that builds an object (`Select(r => new Dto { ... })`) binds public properties only. Public fields are left at their default value.
+- Chaining a second `Select` that reads a member set through the constructor of an object built with both constructor arguments and an object initializer, such as `Select(r => new Dto(a) { Note = b }).Select(d => d.A)`, is not supported and throws.
 - Calling `GetType` on a value that is `null` throws a different error than LINQ-to-Objects.
 
 ## Schema

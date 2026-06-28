@@ -15,7 +15,7 @@ namespace SQLite.Framework;
 public sealed class SQLiteMigrationRunner
 {
     private readonly SQLiteSchema schema;
-    private readonly SortedDictionary<int, SQLiteMigrationStep> versions = new();
+    private readonly SortedDictionary<int, Action<SQLiteMigrationStep>> versions = new();
 
     internal SQLiteMigrationRunner(SQLiteSchema schema)
     {
@@ -40,10 +40,21 @@ public sealed class SQLiteMigrationRunner
             throw new InvalidOperationException($"Version {version} is declared more than once.");
         }
 
-        SQLiteMigrationStep step = new(schema.Database);
-        build(step);
-        versions.Add(version, step);
+        versions.Add(version, build);
         return this;
+    }
+
+    /// <summary>
+    /// Registers the migration <typeparamref name="T" /> under its
+    /// <see cref="ISQLiteMigration.Version" />. The version number is read without creating an
+    /// instance, and the migration is constructed only when its version is applied, so a class that
+    /// has already run is never loaded into memory. The same version rules as
+    /// <see cref="Version" /> apply.
+    /// </summary>
+    /// <typeparam name="T">The migration type to register.</typeparam>
+    public SQLiteMigrationRunner Add<T>() where T : ISQLiteMigration, new()
+    {
+        return Version(T.Version, static step => new T().Apply(step));
     }
 
     /// <summary>
@@ -56,7 +67,7 @@ public sealed class SQLiteMigrationRunner
         int targetVersion = versions.Count == 0 ? currentVersion : versions.Keys.Last();
         List<string> operations = versions
             .Where(v => v.Key > currentVersion)
-            .SelectMany(v => v.Value.Operations.Select(o => o.Description))
+            .SelectMany(v => BuildStep(v.Value).Operations.Select(o => o.Description))
             .ToList();
         return new SQLiteMigrationPlan(currentVersion, targetVersion, operations);
     }
@@ -75,14 +86,14 @@ public sealed class SQLiteMigrationRunner
     public int Migrate()
     {
         int currentVersion = schema.Database.Pragmas.UserVersion;
-        List<KeyValuePair<int, SQLiteMigrationStep>> pending = versions.Where(v => v.Key > currentVersion).ToList();
+        List<KeyValuePair<int, Action<SQLiteMigrationStep>>> pending = versions.Where(v => v.Key > currentVersion).ToList();
         if (pending.Count == 0)
         {
             return 0;
         }
 
         int targetVersion = pending[^1].Key;
-        List<MigrationOperation> operations = pending.SelectMany(v => v.Value.Operations).ToList();
+        List<MigrationOperation> operations = pending.SelectMany(v => BuildStep(v.Value).Operations).ToList();
 
         int count = 0;
         using SQLiteTransaction transaction = schema.Database.BeginTransaction();
@@ -90,6 +101,11 @@ public sealed class SQLiteMigrationRunner
         foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RenameColumn))
         {
             count += RenameColumnIfPresent(operation.Mapping!.TableName, operation.FromColumn!, operation.ToColumn!);
+        }
+
+        foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.CreateTable))
+        {
+            count += schema.CreateTable(operation.Mapping!.Type);
         }
 
         foreach (IGrouping<string, MigrationOperation> group in operations
@@ -125,6 +141,13 @@ public sealed class SQLiteMigrationRunner
         schema.Database.Pragmas.UserVersion = targetVersion;
         transaction.Commit();
         return count;
+    }
+
+    private SQLiteMigrationStep BuildStep(Action<SQLiteMigrationStep> build)
+    {
+        SQLiteMigrationStep step = new(schema.Database);
+        build(step);
+        return step;
     }
 
     private int RenameColumnIfPresent(string tableName, string fromColumn, string toColumn)

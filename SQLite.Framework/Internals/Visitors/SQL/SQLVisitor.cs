@@ -132,6 +132,11 @@ internal partial class SQLVisitor : ExpressionVisitor
                 return primaryKeyColumn;
             }
 
+            if (ResolveNestedConstructedMember(expressions, path) is { } nestedMember)
+            {
+                return nestedMember;
+            }
+
             SQLiteExpression? sqlExpression = expressions
                 .OrderBy(f => f.Key.Count(c => c == '.'))
                 .ThenBy(f => f.Key.Length)
@@ -188,6 +193,28 @@ internal partial class SQLVisitor : ExpressionVisitor
             SQLiteExpression = sqlExpression,
             Expression = resolvedExpression
         };
+    }
+
+    private Expression? ResolveNestedConstructedMember(Dictionary<string, Expression> expressions, string path)
+    {
+        int firstDot = path.IndexOf('.');
+        if (firstDot < 0)
+        {
+            return null;
+        }
+
+        if (!expressions.TryGetValue(path[..firstDot], out Expression? baseExpression))
+        {
+            return null;
+        }
+
+        Expression current = baseExpression;
+        foreach (string segment in path[(firstDot + 1)..].Split('.'))
+        {
+            current = FoldConstructedMemberAccess(current, segment);
+        }
+
+        return Visit(current);
     }
 
     private SQLiteExpression? ResolvePrimaryKeyColumn(Type entityType, string path, Dictionary<string, Expression> expressions)
@@ -264,5 +291,36 @@ internal partial class SQLVisitor : ExpressionVisitor
 
         TableColumnPrefixes[columns] = new Dictionary<string, string?> { [string.Empty] = prefix };
         return columns;
+    }
+
+    private static Expression FoldConstructedMemberAccess(Expression expression, string memberName)
+    {
+        if (expression is MemberInitExpression memberInitExpression)
+        {
+            MemberAssignment? binding = memberInitExpression.Bindings
+                .OfType<MemberAssignment>()
+                .FirstOrDefault(b => b.Member.Name == memberName);
+            if (binding != null)
+            {
+                return binding.Expression;
+            }
+
+            expression = memberInitExpression.NewExpression;
+        }
+
+        NewExpression newExpression = (NewExpression)expression;
+        return newExpression.Arguments[ConstructorArgumentIndex(newExpression, memberName)];
+    }
+
+    private static int ConstructorArgumentIndex(NewExpression newExpression, string memberName)
+    {
+        if (newExpression.Members != null)
+        {
+            return newExpression.Members.TakeWhile(m => m.Name != memberName).Count();
+        }
+
+        return newExpression.Constructor!.GetParameters()
+            .TakeWhile(p => !string.Equals(p.Name, memberName, StringComparison.OrdinalIgnoreCase))
+            .Count();
     }
 }

@@ -4,7 +4,7 @@ A short tour of `SQLite.Framework` on one page. Each section links to a deeper g
 
 ## What it is
 
-A small ORM that lets you use LINQ on a SQLite database. If you have used Entity Framework Core before, most things will feel familiar. The main difference is that this library has no automatic change tracker and no navigation properties. The heavier features have lightweight stand-ins. Write hooks cover before-save logic, and schema versioning uses `db.Pragmas.UserVersion` with `Migrate`.
+A small ORM that lets you use LINQ on a SQLite database. If you have used Entity Framework Core before, most things will feel familiar. The main difference is that this library has no automatic change tracker and no navigation properties. The heavier features have lightweight stand-ins. Write hooks cover before-save logic, and a versioned migration runner handles schema versioning.
 
 `db.Table<T>()` returns a `SQLiteTable<T>`. That class implements `IQueryable<T>`, so any LINQ method works on it.
 
@@ -108,7 +108,7 @@ The most common attributes:
 - `[StrictTable]`. A class-level attribute. SQLite enforces declared column types on every write. Requires SQLite 3.37.0 or newer.
 - `[NotMapped]`. Leaves a property out of the database. The property stays on the class but maps to no column.
 
-Schema setup is safe to call on every startup because it uses `CREATE TABLE IF NOT EXISTS`. Track migrations through `db.Pragmas.UserVersion`. See [Defining Models](Defining%20Models) for the full list.
+Schema setup is safe to call on every startup because it uses `CREATE TABLE IF NOT EXISTS`. Track migrations with the versioned migration runner, `db.Schema.Migrations()`. See [Defining Models](Defining%20Models) for the full list.
 
 ## Foreign keys
 

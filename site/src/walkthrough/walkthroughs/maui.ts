@@ -131,7 +131,7 @@ return builder.Build();`,
         {
             title: "Write the migration service",
             description:
-                "All schema changes live in one method. Each if block runs once and bumps UserVersion so the next launch skips it.",
+                "All schema changes live in one method. Each version runs once. The runner records the version it reached, so the next launch skips it.",
             code: {
                 language: "csharp",
                 filename: "Services/MigrationService.cs",
@@ -146,14 +146,11 @@ return builder.Build();`,
 
     public async Task RunAsync()
     {
-        int version = await db.Pragmas.GetUserVersionAsync();
-
-        if (version < 1)
-        {
-            await db.Schema.CreateTableAsync<User>();
-            await db.Schema.CreateTableAsync<Country>();
-            await db.Pragmas.SetUserVersionAsync(1);
-        }
+        await db.Schema.Migrations()
+            .Version(1, m => m
+                .TableChanged<User>()
+                .TableChanged<Country>())
+            .MigrateAsync();
     }
 }`,
             },

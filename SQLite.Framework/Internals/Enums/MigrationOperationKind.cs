@@ -6,6 +6,7 @@ namespace SQLite.Framework.Internals.Enums;
 /// </summary>
 internal enum MigrationOperationKind
 {
+    CreateTable,
     Reconcile,
     RenameColumn,
     DropColumn,
