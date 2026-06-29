@@ -11,6 +11,8 @@ namespace SQLite.Framework;
 /// rename first, then one reconcile per table, then drops and raw SQL. So a raw SQL data step reads
 /// the final shape of the table, not an in-between shape. To move data out of a column you are
 /// removing, keep the old column on the model while you copy it, then remove it in a later version.
+/// A reconcile or a column drop for a table that this same run created with <see cref="CreateTable{T}" />
+/// is skipped, since the new table already matches the model.
 /// </remarks>
 public sealed class SQLiteMigrationStep
 {

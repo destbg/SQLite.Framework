@@ -103,8 +103,14 @@ public sealed class SQLiteMigrationRunner
             count += RenameColumnIfPresent(operation.Mapping!.TableName, operation.FromColumn!, operation.ToColumn!);
         }
 
+        HashSet<string> newlyCreated = new(StringComparer.Ordinal);
         foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.CreateTable))
         {
+            if (!schema.TableExists(operation.Mapping!.TableName))
+            {
+                newlyCreated.Add(operation.Mapping.TableName);
+            }
+
             count += schema.CreateTable(operation.Mapping!.Type);
         }
 
@@ -112,6 +118,11 @@ public sealed class SQLiteMigrationRunner
                      .Where(o => o.Kind == MigrationOperationKind.Reconcile)
                      .GroupBy(o => o.Mapping!.TableName))
         {
+            if (newlyCreated.Contains(group.Key))
+            {
+                continue;
+            }
+
             TableMapping mapping = group.First().Mapping!;
             bool rebuild = group.Any(o => o.Rebuild);
             IReadOnlyList<(string Column, string ValueSql)> sets = UnionSets(group);
@@ -126,6 +137,11 @@ public sealed class SQLiteMigrationRunner
             }
             else if (operation.Kind == MigrationOperationKind.DropColumn)
             {
+                if (newlyCreated.Contains(operation.Mapping!.TableName))
+                {
+                    continue;
+                }
+
                 count += DropColumnIfRemovable(operation.Mapping!, operation.ColumnName!);
             }
             else if (operation.Mapping != null)

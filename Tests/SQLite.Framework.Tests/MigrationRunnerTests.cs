@@ -381,6 +381,139 @@ public class MigrationRunnerTests
     }
 
     [Fact]
+    public void CreateTableThenTableChanged_SameRun_ReconcileAddsNoStatements()
+    {
+        using TestDatabase baseline = new();
+        int createOnly = baseline.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Migrate();
+
+        using TestDatabase db = new();
+        int createThenReconcile = db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Version(2, m => m.TableChanged<RunnerDataRow>(b => b.Set(s => s.Value, 0)))
+            .Migrate();
+
+        Assert.Equal(createOnly, createThenReconcile);
+        Assert.Equal(2, db.Pragmas.UserVersion);
+        Assert.Empty(db.Table<RunnerDataRow>().ToList());
+    }
+
+    [Fact]
+    public void CreateTableThenDropColumn_SameRun_DropIsSkipped()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Version(2, m => m.DropColumn<RunnerDataRow>("Ghost"))
+            .Migrate();
+
+        Assert.True(db.Schema.TableExists<RunnerDataRow>());
+        Assert.Contains(db.Schema.ListColumns<RunnerDataRow>(), c => c.Name == "Value");
+        Assert.Equal(2, db.Pragmas.UserVersion);
+    }
+
+    [Fact]
+    public void CreateTableThenTableChangedWithoutFill_SameRun_Succeeds()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Version(2, m => m.TableChanged<RunnerDataRow>())
+            .Migrate();
+
+        Assert.True(db.Schema.TableExists<RunnerDataRow>());
+        Assert.Equal(2, db.Pragmas.UserVersion);
+        Assert.Empty(db.Table<RunnerDataRow>().ToList());
+    }
+
+    [Fact]
+    public void CreateTableThenTableChangedRebuild_SameRun_Skipped()
+    {
+        using TestDatabase baseline = new();
+        int createOnly = baseline.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Migrate();
+
+        using TestDatabase db = new();
+        int createThenRebuild = db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Version(2, m => m.TableChanged<RunnerDataRow>(rebuild: true))
+            .Migrate();
+
+        Assert.Equal(createOnly, createThenRebuild);
+        Assert.Equal(2, db.Pragmas.UserVersion);
+    }
+
+    [Fact]
+    public void PreexistingTableThenCreateTableNoOpAndTableChanged_StillReconciles()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Execute("CREATE TABLE \"RunData\" (\"Id\" INTEGER PRIMARY KEY, \"Value\" INTEGER NOT NULL, \"Extra\" INTEGER)");
+        db.Execute("INSERT INTO \"RunData\" (\"Id\", \"Value\", \"Extra\") VALUES (1, 7, 3)");
+
+        db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Version(2, m => m.TableChanged<RunnerDataRow>(rebuild: true))
+            .Migrate();
+
+        Assert.DoesNotContain(db.Schema.ListColumns<RunnerDataRow>(), c => c.Name == "Extra");
+        Assert.Equal(7, db.Table<RunnerDataRow>().Single().Value);
+    }
+
+    [Fact]
+    public void PreexistingTableThenCreateTableNoOpAndDropColumn_StillDropsColumn()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Execute("CREATE TABLE \"RunDrop\" (\"Id\" INTEGER PRIMARY KEY, \"Keep\" INTEGER NOT NULL, \"Gone\" INTEGER)");
+        db.Execute("INSERT INTO \"RunDrop\" (\"Id\", \"Keep\", \"Gone\") VALUES (1, 5, 9)");
+
+        db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDropRow>())
+            .Version(2, m => m.DropColumn<RunnerDropRow>("Gone"))
+            .Migrate();
+
+        Assert.DoesNotContain(db.Schema.ListColumns<RunnerDropRow>(), c => c.Name == "Gone");
+        Assert.Equal(5, db.Table<RunnerDropRow>().Single().Keep);
+    }
+
+    [Fact]
+    public void CreateTableThenDropTable_SameRun_DropsTable()
+    {
+        using TestDatabase db = new();
+
+        db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Version(2, m => m.DropTable<RunnerDataRow>())
+            .Migrate();
+
+        Assert.False(db.Schema.TableExists<RunnerDataRow>());
+        Assert.Equal(2, db.Pragmas.UserVersion);
+    }
+
+    [Fact]
+    public void MixedNewAndExistingTables_SkipsOnlyNewReconcile()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Execute("CREATE TABLE \"RunDrop\" (\"Id\" INTEGER PRIMARY KEY, \"Keep\" INTEGER NOT NULL, \"Gone\" INTEGER)");
+        db.Execute("INSERT INTO \"RunDrop\" (\"Id\", \"Keep\", \"Gone\") VALUES (1, 5, 9)");
+
+        db.Schema.Migrations()
+            .Version(1, m => m.CreateTable<RunnerDataRow>())
+            .Version(2, m => m
+                .TableChanged<RunnerDataRow>(b => b.Set(s => s.Value, 0))
+                .TableChanged<RunnerDropRow>(rebuild: true))
+            .Migrate();
+
+        Assert.True(db.Schema.TableExists<RunnerDataRow>());
+        Assert.Empty(db.Table<RunnerDataRow>().ToList());
+        Assert.DoesNotContain(db.Schema.ListColumns<RunnerDropRow>(), c => c.Name == "Gone");
+        Assert.Equal(5, db.Table<RunnerDropRow>().Single().Keep);
+    }
+
+    [Fact]
     public void Plan_CreateTable_DescribesCreate()
     {
         using TestDatabase db = new();
