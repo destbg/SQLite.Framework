@@ -527,6 +527,7 @@ public class QueryTests
         public void OnExecuted(SQLiteCommand command, int? rowsAffected) => Executed.Add(command.CommandText);
         public void OnFailed(SQLiteCommand command, Exception exception) => Failed.Add(command.CommandText);
         public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader) { }
+        public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount) { }
     }
 
     [Fact]

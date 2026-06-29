@@ -621,6 +621,7 @@ public class GroupByTests
         public void OnExecuted(SQLiteCommand command, int? rowsAffected) { }
         public void OnFailed(SQLiteCommand command, Exception exception) { }
         public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader) { }
+        public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount) { }
     }
 
     [Fact]

@@ -281,6 +281,20 @@ public class SQLiteCommand
         }
     }
 
+    internal void NotifyReaderClosing(SQLiteDataReader reader, int readCount)
+    {
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        if (interceptors.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < interceptors.Count; i++)
+        {
+            interceptors[i].OnReaderClosing(this, reader, readCount);
+        }
+    }
+
     internal void NotifyExecuted(int? rowsAffected)
     {
         IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;

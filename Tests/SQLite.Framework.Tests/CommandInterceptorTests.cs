@@ -218,6 +218,47 @@ public class CommandInterceptorTests
         Assert.Contains(log, line => line.StartsWith("#"));
     }
 
+    [Fact]
+    public void OnReaderClosing_FiresOnceOnDispose_WithRowsRead()
+    {
+        RowCapture capture = new();
+        using TestDatabase db = new(b => b.AddCommandInterceptor(capture));
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 3 },
+        ]);
+
+        capture.Reset();
+        List<Book> books = db.Table<Book>().ToList();
+
+        Assert.Equal(3, books.Count);
+        Assert.Equal(3, capture.ClosingReadCounts.Single());
+        Assert.Contains(capture.ClosingIds[0], capture.ExecutingIds);
+    }
+
+    [Fact]
+    public void OnReaderClosing_PartialRead_ReportsRowsActuallyRead()
+    {
+        RowCapture capture = new();
+        using TestDatabase db = new(b => b.AddCommandInterceptor(capture));
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 3 },
+        ]);
+
+        capture.Reset();
+        Book first = db.Table<Book>().OrderBy(b => b.Id).First();
+
+        Assert.Equal(1, first.Id);
+        Assert.Equal(1, capture.ClosingReadCounts.Single());
+    }
+
     private sealed class Capture : ISQLiteCommandInterceptor
     {
         public List<string> ExecutingTexts { get; } = [];
@@ -252,6 +293,10 @@ public class CommandInterceptorTests
         public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader)
         {
         }
+
+        public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount)
+        {
+        }
     }
 
     private sealed class OrderedInterceptor : ISQLiteCommandInterceptor
@@ -269,23 +314,34 @@ public class CommandInterceptorTests
         public void OnExecuted(SQLiteCommand command, int? rowsAffected) => order.Add($"{name}:executed");
         public void OnFailed(SQLiteCommand command, Exception exception) => order.Add($"{name}:failed");
         public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader) { }
+        public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount) => order.Add($"{name}:closing");
     }
 
     private sealed class RowCapture : ISQLiteCommandInterceptor
     {
         public List<long> ExecutingIds { get; } = [];
         public List<long> RowIds { get; } = [];
+        public List<long> ClosingIds { get; } = [];
+        public List<int> ClosingReadCounts { get; } = [];
 
         public void Reset()
         {
             ExecutingIds.Clear();
             RowIds.Clear();
+            ClosingIds.Clear();
+            ClosingReadCounts.Clear();
         }
 
         public void OnExecuting(SQLiteCommand command) => ExecutingIds.Add(command.Id);
         public void OnExecuted(SQLiteCommand command, int? rowsAffected) { }
         public void OnFailed(SQLiteCommand command, Exception exception) { }
         public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader) => RowIds.Add(command.Id);
+
+        public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount)
+        {
+            ClosingIds.Add(command.Id);
+            ClosingReadCounts.Add(readCount);
+        }
     }
 
     private sealed class ValueCapture : ISQLiteCommandInterceptor
@@ -296,5 +352,6 @@ public class CommandInterceptorTests
         public void OnExecuted(SQLiteCommand command, int? rowsAffected) { }
         public void OnFailed(SQLiteCommand command, Exception exception) { }
         public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader) => Values.Add(reader.GetInt64(0));
+        public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount) { }
     }
 }

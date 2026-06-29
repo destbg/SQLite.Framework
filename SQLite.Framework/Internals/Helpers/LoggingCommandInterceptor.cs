@@ -45,6 +45,10 @@ internal sealed class LoggingCommandInterceptor : ISQLiteCommandInterceptor
     {
     }
 
+    public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount)
+    {
+    }
+
     private TimeSpan TakeElapsed(SQLiteCommand command)
     {
         long now = Stopwatch.GetTimestamp();

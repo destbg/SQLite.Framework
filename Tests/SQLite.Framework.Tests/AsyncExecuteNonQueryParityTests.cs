@@ -34,6 +34,10 @@ internal sealed class RecordingCommandInterceptor : ISQLiteCommandInterceptor
     public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader)
     {
     }
+
+    public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount)
+    {
+    }
 }
 
 public class AsyncExecuteNonQueryParityTests

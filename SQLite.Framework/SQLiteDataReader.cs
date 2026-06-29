@@ -8,6 +8,7 @@ public class SQLiteDataReader : IDisposable
     private readonly IDisposable connectionLock;
     private readonly sqlite3 handle;
     private bool disposed;
+    private int readCount;
 
     internal readonly sqlite3_stmt Statement;
 
@@ -59,16 +60,23 @@ public class SQLiteDataReader : IDisposable
 
         disposed = true;
 
-        if (PooledSql != null)
+        try
         {
-            Database.ReturnStatement(PooledSql, Statement);
+            Command.NotifyReaderClosing(this, readCount);
         }
-        else
+        finally
         {
-            raw.sqlite3_finalize(Statement);
-        }
+            if (PooledSql != null)
+            {
+                Database.ReturnStatement(PooledSql, Statement);
+            }
+            else
+            {
+                raw.sqlite3_finalize(Statement);
+            }
 
-        connectionLock.Dispose();
+            connectionLock.Dispose();
+        }
     }
 
     /// <summary>
@@ -81,6 +89,7 @@ public class SQLiteDataReader : IDisposable
         SQLiteResult result = (SQLiteResult)raw.sqlite3_step(Statement);
         if (result == SQLiteResult.Row)
         {
+            readCount++;
             Command.NotifyRowRead(this);
             return true;
         }

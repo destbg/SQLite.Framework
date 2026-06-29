@@ -15,10 +15,10 @@ SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
 A line looks like:
 
 ```
-#42 (12ms, 3 rows) SELECT b0."BookId" AS "Id", b0."BookTitle" AS "Title" FROM "Books" AS b0 WHERE b0."BookAuthorId" = @p0 | @p0=?
+#42 (12ms, 3 rows) UPDATE "Books" SET "BookTitle" = @p0 WHERE "BookId" = @p1 | @p0=? @p1=?
 ```
 
-`#42` is the command id (see [Command id](#command-id)). After it come the elapsed time and the number of rows the framework reported. For commands that read rows lazily through a data reader, the number of rows is omitted.
+`#42` is the command id (see [Command id](#command-id)). After it come the elapsed time and the number of rows the framework reported. The line is written once per command, when the command runs. For a query the reader streams rows lazily afterward, so its line shows the time to run the command and no row count. To log how many rows a query returned, use the `OnReaderClosing` callback on a custom interceptor (see [Observing returned rows](#observing-returned-rows)).
 
 ## Sensitive parameter logging
 
@@ -68,23 +68,31 @@ public sealed class TimingInterceptor : ISQLiteCommandInterceptor
     public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader)
     {
     }
+
+    public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount)
+    {
+    }
 }
 
 builder.AddCommandInterceptor(new TimingInterceptor());
 ```
 
-`ISQLiteCommandInterceptor` has four methods. Every one is required, so implement the ones you do not need with an empty body, as `OnRowRead` is above.
+`ISQLiteCommandInterceptor` has five methods. Every one is required, so implement the ones you do not need with an empty body, as `OnRowRead` and `OnReaderClosing` are above.
 
 | Method | When it fires |
 |---|---|
 | `OnExecuting` | Right before the command runs. |
-| `OnExecuted` | After the command runs without throwing. `rowsAffected` is the row count for write paths and `null` for the data-reader path. |
+| `OnExecuted` | After the command runs without throwing. `rowsAffected` is the row count for write paths and `null` for the data-reader path, where rows are not read yet. |
 | `OnFailed` | When the command throws. The exception is rethrown after every interceptor sees it. |
 | `OnRowRead` | Once for each row read through a data reader. Use it to observe the data a query returns. |
+| `OnReaderClosing` | When a data reader is disposed. `readCount` is the number of rows the caller read, the count `OnExecuted` cannot give for a query. |
 
 ## Observing returned rows
 
-`OnExecuted` reports a row count for writes, but never the data a query returns. To watch that data, implement `OnRowRead`. It fires once for each row a data reader steps over, with the same command (so `command.Id` matches its other calls) and the live reader to read columns from.
+For a query, `OnExecuted` fires when the reader is ready, before any rows are read, so it cannot report how long reading took or how many rows came back. Two callbacks cover the read:
+
+- `OnRowRead` fires once for each row a data reader steps over, with the same command (so `command.Id` matches its other calls) and the live reader to read columns from.
+- `OnReaderClosing` fires when the reader is disposed, with `readCount`, the number of rows the caller actually read.
 
 ```csharp
 public sealed class RowLogger : ISQLiteCommandInterceptor
@@ -98,10 +106,15 @@ public sealed class RowLogger : ISQLiteCommandInterceptor
         long id = reader.GetInt64(0);
         Console.WriteLine($"#{command.Id} returned id {id}");
     }
+
+    public void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount)
+    {
+        Console.WriteLine($"#{command.Id} read {readCount} rows");
+    }
 }
 ```
 
-Read column values only. Do not call `Read` or `Dispose` on the reader inside `OnRowRead`, since that advances or closes the stream the caller is reading. Only the data-reader path raises `OnRowRead`. Scalar reads and writes do not stream rows, so they never call it.
+In `OnRowRead`, read column values only. Do not call `Read` or `Dispose` on the reader, since that advances or closes the stream the caller is reading. Only the data-reader path raises `OnRowRead` and `OnReaderClosing`. Scalar reads and writes do not stream rows, so they never call them.
 
 ## Multiple interceptors
 
