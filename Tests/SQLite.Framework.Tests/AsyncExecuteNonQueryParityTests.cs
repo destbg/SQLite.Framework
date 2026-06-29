@@ -30,6 +30,10 @@ internal sealed class RecordingCommandInterceptor : ISQLiteCommandInterceptor
     {
         Events.Add("Failed");
     }
+
+    public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader)
+    {
+    }
 }
 
 public class AsyncExecuteNonQueryParityTests

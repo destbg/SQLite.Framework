@@ -23,6 +23,10 @@ file sealed class SavepointBlockingInterceptor : ISQLiteCommandInterceptor
     public void OnFailed(SQLiteCommand command, Exception exception)
     {
     }
+
+    public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader)
+    {
+    }
 }
 
 public class BeginTransactionFailureLockTests

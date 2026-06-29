@@ -14,18 +14,23 @@ public class SQLiteDataReader : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDataReader" /> class.
     /// </summary>
-    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock, SQLiteDatabase database)
+    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock, SQLiteCommand command)
     {
         this.handle = handle;
         this.connectionLock = connectionLock;
-        Database = database;
+        Command = command;
         Statement = statement;
     }
 
     /// <summary>
+    /// The command that produced this reader.
+    /// </summary>
+    public SQLiteCommand Command { get; }
+
+    /// <summary>
     /// The database the reader was created for.
     /// </summary>
-    public SQLiteDatabase Database { get; }
+    public SQLiteDatabase Database => Command.Database;
 
     /// <summary>
     /// The storage options used by the data reader, which may affect how certain types are read from the database.
@@ -76,6 +81,7 @@ public class SQLiteDataReader : IDisposable
         SQLiteResult result = (SQLiteResult)raw.sqlite3_step(Statement);
         if (result == SQLiteResult.Row)
         {
+            Command.NotifyRowRead(this);
             return true;
         }
         else if (result == SQLiteResult.Done)

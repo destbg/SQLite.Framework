@@ -41,6 +41,10 @@ internal sealed class LoggingCommandInterceptor : ISQLiteCommandInterceptor
         logger(FormatLine(command, elapsed, rowsAffected: null, exception, sensitive));
     }
 
+    public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader)
+    {
+    }
+
     private TimeSpan TakeElapsed(SQLiteCommand command)
     {
         long now = Stopwatch.GetTimestamp();
@@ -57,6 +61,9 @@ internal sealed class LoggingCommandInterceptor : ISQLiteCommandInterceptor
     private static string FormatLine(SQLiteCommand command, TimeSpan elapsed, int? rowsAffected, Exception? exception, bool sensitive)
     {
         StringBuilder sb = new();
+        sb.Append('#');
+        sb.Append(command.Id);
+        sb.Append(' ');
         sb.Append('(');
         sb.Append((long)elapsed.TotalMilliseconds);
         sb.Append("ms");

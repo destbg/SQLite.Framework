@@ -62,5 +62,9 @@ public class RangeWriteCommandInterceptorTests
         public void OnFailed(SQLiteCommand command, Exception exception)
         {
         }
+
+        public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader)
+        {
+        }
     }
 }

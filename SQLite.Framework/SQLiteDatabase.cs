@@ -24,6 +24,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private bool modelCreated;
     private int activeTransactionCount;
     private TaskCompletionSource? readGateTcs;
+    private long commandIds;
 
 #if SQLITE_FRAMEWORK_TESTING
     private long entityMaterializerHits;
@@ -970,6 +971,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     internal void ReturnStatement(string sql, sqlite3_stmt statement)
     {
         statementPool.Return(sql, statement);
+    }
+
+    internal long NextCommandId()
+    {
+        return Interlocked.Increment(ref commandIds);
     }
 
 #if SQLITE_FRAMEWORK_TESTING

@@ -13,6 +13,7 @@ public class SQLiteCommand
         Database = database;
         CommandText = string.Empty;
         Parameters = [];
+        Id = database.NextCommandId();
     }
 
     /// <summary>
@@ -23,6 +24,7 @@ public class SQLiteCommand
         Database = database;
         CommandText = commandText;
         Parameters = parameters;
+        Id = database.NextCommandId();
     }
 
     /// <summary>
@@ -39,6 +41,13 @@ public class SQLiteCommand
     /// The parameters to be used in the command.
     /// </summary>
     public List<SQLiteParameter> Parameters { get; set; }
+
+    /// <summary>
+    /// A per-database number assigned to this command when it is created, increasing by one for each
+    /// command the database makes. A <see cref="ISQLiteCommandInterceptor" /> can read it to tie the
+    /// calls for one command together.
+    /// </summary>
+    public long Id { get; }
 
     /// <summary>
     /// Executes the command against the database and returns a data reader.
@@ -59,7 +68,7 @@ public class SQLiteCommand
         try
         {
             sqlite3_stmt statement = CreateStatement();
-            reader = new(Database.GetActiveHandle(), statement, connectionLock, Database)
+            reader = new(Database.GetActiveHandle(), statement, connectionLock, this)
             {
                 PooledSql = CommandText,
             };
@@ -255,6 +264,20 @@ public class SQLiteCommand
         for (int i = 0; i < interceptors.Count; i++)
         {
             interceptors[i].OnExecuting(this);
+        }
+    }
+
+    internal void NotifyRowRead(SQLiteDataReader reader)
+    {
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        if (interceptors.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < interceptors.Count; i++)
+        {
+            interceptors[i].OnRowRead(this, reader);
         }
     }
 

@@ -72,7 +72,8 @@ public class StatementPoolBehaviorTests
         sqlite3 handle = db.GetActiveHandle();
 
         raw.sqlite3_prepare_v2(handle, "SELECT 1", out sqlite3_stmt statement);
-        SQLiteDataReader reader = new(handle, statement, NoOpLockObject.Instance, db);
+        SQLiteCommand command = db.CreateCommand("SELECT 1", []);
+        SQLiteDataReader reader = new(handle, statement, NoOpLockObject.Instance, command);
 
         Assert.True(reader.Read());
         Assert.Equal(1, reader.GetInt32(0));
@@ -183,6 +184,10 @@ public sealed class ThrowingOnExecutedInterceptor : ISQLiteCommandInterceptor
     }
 
     public void OnFailed(SQLiteCommand command, Exception exception)
+    {
+    }
+
+    public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader)
     {
     }
 }

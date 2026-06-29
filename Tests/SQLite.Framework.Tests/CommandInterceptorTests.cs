@@ -158,6 +158,66 @@ public class CommandInterceptorTests
         Assert.Equal(["first:executing", "second:executing", "first:executed", "second:executed"], order);
     }
 
+    [Fact]
+    public void CommandId_IsAssignedAtCreation_AndIncreases()
+    {
+        using TestDatabase db = new();
+
+        SQLiteCommand first = db.CreateCommand("SELECT 1", []);
+        SQLiteCommand second = db.CreateCommand("SELECT 2", []);
+
+        Assert.True(first.Id > 0);
+        Assert.True(second.Id > first.Id);
+    }
+
+    [Fact]
+    public void OnRowRead_FiresOncePerRow_WithTheCommandId()
+    {
+        RowCapture capture = new();
+        using TestDatabase db = new(b => b.AddCommandInterceptor(capture));
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Book>().AddRange(
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 3 },
+        ]);
+
+        capture.Reset();
+        List<Book> books = db.Table<Book>().ToList();
+
+        Assert.Equal(3, books.Count);
+        Assert.Equal(3, capture.RowIds.Count);
+        Assert.All(capture.RowIds, id => Assert.Equal(capture.RowIds[0], id));
+        Assert.Contains(capture.RowIds[0], capture.ExecutingIds);
+    }
+
+    [Fact]
+    public void OnRowRead_ExposesReturnedRowData()
+    {
+        ValueCapture capture = new();
+        using TestDatabase db = new(b => b.AddCommandInterceptor(capture));
+
+        using (SQLiteDataReader reader = db.CreateCommand("SELECT 42", []).ExecuteReader())
+        {
+            while (reader.Read())
+            {
+            }
+        }
+
+        Assert.Equal([42L], capture.Values);
+    }
+
+    [Fact]
+    public void LogCommands_IncludesCommandId()
+    {
+        List<string> log = [];
+        using TestDatabase db = new(b => b.LogCommands(log.Add));
+        db.Table<Book>().Schema.CreateTable();
+
+        Assert.Contains(log, line => line.StartsWith("#"));
+    }
+
     private sealed class Capture : ISQLiteCommandInterceptor
     {
         public List<string> ExecutingTexts { get; } = [];
@@ -188,6 +248,10 @@ public class CommandInterceptorTests
         {
             FailedTexts.Add(command.CommandText);
         }
+
+        public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader)
+        {
+        }
     }
 
     private sealed class OrderedInterceptor : ISQLiteCommandInterceptor
@@ -204,5 +268,33 @@ public class CommandInterceptorTests
         public void OnExecuting(SQLiteCommand command) => order.Add($"{name}:executing");
         public void OnExecuted(SQLiteCommand command, int? rowsAffected) => order.Add($"{name}:executed");
         public void OnFailed(SQLiteCommand command, Exception exception) => order.Add($"{name}:failed");
+        public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader) { }
+    }
+
+    private sealed class RowCapture : ISQLiteCommandInterceptor
+    {
+        public List<long> ExecutingIds { get; } = [];
+        public List<long> RowIds { get; } = [];
+
+        public void Reset()
+        {
+            ExecutingIds.Clear();
+            RowIds.Clear();
+        }
+
+        public void OnExecuting(SQLiteCommand command) => ExecutingIds.Add(command.Id);
+        public void OnExecuted(SQLiteCommand command, int? rowsAffected) { }
+        public void OnFailed(SQLiteCommand command, Exception exception) { }
+        public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader) => RowIds.Add(command.Id);
+    }
+
+    private sealed class ValueCapture : ISQLiteCommandInterceptor
+    {
+        public List<long> Values { get; } = [];
+
+        public void OnExecuting(SQLiteCommand command) { }
+        public void OnExecuted(SQLiteCommand command, int? rowsAffected) { }
+        public void OnFailed(SQLiteCommand command, Exception exception) { }
+        public void OnRowRead(SQLiteCommand command, SQLiteDataReader reader) => Values.Add(reader.GetInt64(0));
     }
 }
