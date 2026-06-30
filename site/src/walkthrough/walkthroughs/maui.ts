@@ -110,7 +110,7 @@ builder.Services.AddSQLiteDatabase<AppDatabase>(
     b =>
     {
         b.DatabasePath = dbPath;
-        b.MinimumSqliteVersion = SQLiteMinimumVersion.V3_35;
+        b.MinimumSqliteVersion = SQLiteMinimumVersion.V3_36;
     },
     ServiceLifetime.Singleton);
 

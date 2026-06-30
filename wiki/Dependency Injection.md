@@ -17,7 +17,7 @@ Configure `SQLiteOptionsBuilder` in a callback. The options are built once when 
 services.AddSQLiteDatabase<AppDatabase>(b =>
 {
     b.DatabasePath = "app.db";
-    b.MinimumSqliteVersion = SQLiteMinimumVersion.V3_35;
+    b.MinimumSqliteVersion = SQLiteMinimumVersion.V3_36;
     b.IsWalMode = true;
 });
 ```

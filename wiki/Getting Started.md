@@ -14,7 +14,7 @@ Build a read-only `SQLiteOptions` with `SQLiteOptionsBuilder` and hand it to the
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
-    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_36)
     .Build();
 using SQLiteDatabase db = new(options);
 
@@ -38,11 +38,11 @@ var results = await books.Where(b => b.Price < 50).ToListAsync();
 
 ### Declaring a minimum SQLite version
 
-The system SQLite on Android and iOS varies by OS version, so a method that compiles against the framework may still fail at runtime if the device's SQLite is too old. Declare the floor your app commits to:
+Only iOS is affected. iOS uses the system SQLite, and its version is tied to the iOS version, so a method that compiles against the framework may still fail at runtime if the device's SQLite is too old. Android is not affected because this package bundles its own SQLite there, and `SQLite.Framework.Bundled` bundles one on every platform. Declare the floor your app commits to:
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
-    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_36)
     .Build();
 ```
 
@@ -74,7 +74,7 @@ public static class MauiProgram
             b =>
             {
                 b.DatabasePath = dbPath;
-                b.MinimumSqliteVersion = SQLiteMinimumVersion.V3_35;
+                b.MinimumSqliteVersion = SQLiteMinimumVersion.V3_36;
             },
             ServiceLifetime.Singleton);
 

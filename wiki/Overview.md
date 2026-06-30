@@ -14,7 +14,7 @@ The framework keeps the generated SQL close to the shape of the LINQ query you w
 
 | Package | What it offers |
 |---|---|
-| `SQLite.Framework` | Default. Uses the SQLite that ships with the operating system. |
+| `SQLite.Framework` | Default. Uses the OS-provided SQLite on desktop and iOS, bundles its own on Android. |
 | `SQLite.Framework.Bundled` | Ships its own SQLite binary, independent of the OS version. |
 | `SQLite.Framework.Cipher` | SQLCipher for encrypted databases. |
 | `SQLite.Framework.Base` | No SQLite provider included. You bring your own. |
@@ -31,7 +31,7 @@ Plain console:
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
-    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35) // declare the SQLite floor
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_36) // declare the SQLite floor
     .UseWalMode()                     // optional, allows concurrent writes
     .UseGeneratedMaterializers()      // requires SQLite.Framework.SourceGenerator
     .DisableReflectionFallback()      // throws if a query needs runtime reflection

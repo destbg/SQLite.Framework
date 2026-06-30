@@ -42,8 +42,6 @@ public static class SQLiteFunctions
     /// Returns the current Unix timestamp in seconds. Translates to SQLite's <c>unixepoch()</c>.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios16.0")]
 #endif
@@ -57,8 +55,6 @@ public static class SQLiteFunctions
     /// seconds. Translates to SQLite's <c>unixepoch(when)</c>.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios16.0")]
 #endif
@@ -136,8 +132,6 @@ public static class SQLiteFunctions
     /// Requires SQLite 3.39.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios16.0")]
 #endif
@@ -154,8 +148,6 @@ public static class SQLiteFunctions
     /// Requires SQLite 3.32.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android31.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios14.0")]
 #endif
@@ -191,8 +183,6 @@ public static class SQLiteFunctions
 #if SQLITECIPHER
     [Obsolete("unhex is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled.", error: true)]
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios17.0")]
 #endif
@@ -209,8 +199,6 @@ public static class SQLiteFunctions
 #if SQLITECIPHER
     [Obsolete("unhex is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled.", error: true)]
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios17.0")]
 #endif
@@ -225,8 +213,6 @@ public static class SQLiteFunctions
     /// <c>printf</c>. Requires SQLite 3.38.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios16.0")]
 #endif

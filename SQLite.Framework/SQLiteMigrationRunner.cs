@@ -78,8 +78,6 @@ public sealed class SQLiteMigrationRunner
     /// returns zero when the database is already up to date.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif

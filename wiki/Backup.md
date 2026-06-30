@@ -63,7 +63,7 @@ await db.VacuumAsync("aux");
 await db.VacuumIntoAsync("aux-copy.db", "aux");
 ```
 
-`VACUUM` cannot run inside a transaction. `VACUUM INTO` requires SQLite 3.27.0 or newer. The `SQLite.Framework.Bundled` package always satisfies that, the OS-provided SQLite needs Android 30 (API level) or iOS 13.
+`VACUUM` cannot run inside a transaction. `VACUUM INTO` requires SQLite 3.27.0 or newer. Only iOS is affected, it needs iOS 13 or newer. Android always satisfies it because the package bundles its own SQLite there.
 
 `VacuumInto` differs from `BackupTo` in that it is a single SQLite statement, the destination file is created fresh and must not already exist, and the copy is fully checkpointed and defragmented. `BackupTo` is incremental, can re-copy pages that change mid-flight, and can target an already-open connection.
 

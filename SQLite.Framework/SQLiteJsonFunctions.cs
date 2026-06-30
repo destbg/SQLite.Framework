@@ -6,8 +6,6 @@ namespace SQLite.Framework;
 /// JSON function translators are registered automatically by the framework.
 /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-[UnsupportedOSPlatform("android")]
-[SupportedOSPlatform("android24.0")]
 [UnsupportedOSPlatform("ios")]
 [SupportedOSPlatform("ios10.0")]
 #endif
@@ -109,8 +107,6 @@ public static class SQLiteJsonFunctions
 #if SQLITECIPHER
     [Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support.", error: true)]
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android36.0")]
     [UnsupportedOSPlatform("ios")]
 #endif
     public static byte[] ToJsonb(string json)
@@ -124,8 +120,6 @@ public static class SQLiteJsonFunctions
 #if SQLITECIPHER
     [Obsolete("JSONB is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled if you need JSONB support.", error: true)]
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android36.0")]
     [UnsupportedOSPlatform("ios")]
 #endif
     public static T ExtractJsonb<T>(byte[] json, string path)

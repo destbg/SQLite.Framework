@@ -257,8 +257,6 @@ public static class AsyncDatabaseExtensions
     /// <paramref name="destinationPath" />. Requires SQLite 3.27.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android30.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios13.0")]
 #endif

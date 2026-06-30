@@ -2,7 +2,7 @@
 
 Window functions compute a value for each row based on a set of rows related to it, called a window. Unlike aggregate functions in a GROUP BY, window functions do not collapse rows so you still get one output row per input row. Support is built into every SQLite-provider package.
 
-> **Platform compatibility.** Full window function support needs SQLite 3.28 or newer (Android 11 and iOS 13), so use `SQLite.Framework.Bundled` or `SQLite.Framework.Cipher` to support older devices.
+> **Platform compatibility.** Full window function support needs SQLite 3.28 or newer. Only iOS is affected, it needs iOS 13 or newer. Android always satisfies it because the package bundles its own SQLite there. To support older iOS use `SQLite.Framework.Bundled` which bundles its own SQLite on every platform.
 
 ## Building a window
 

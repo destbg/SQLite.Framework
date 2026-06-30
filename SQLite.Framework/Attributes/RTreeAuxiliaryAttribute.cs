@@ -7,8 +7,6 @@ namespace SQLite.Framework.Attributes;
 /// the query planner's R-Tree lookups. Requires SQLite 3.24.0 or newer.
 /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-[UnsupportedOSPlatform("android")]
-[SupportedOSPlatform("android29.0")]
 [UnsupportedOSPlatform("ios")]
 [SupportedOSPlatform("ios12.0")]
 #endif

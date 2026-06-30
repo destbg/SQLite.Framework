@@ -6,8 +6,6 @@ namespace SQLite.Framework;
 /// to their SQL equivalents.
 /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-[UnsupportedOSPlatform("android")]
-[SupportedOSPlatform("android30.0")]
 [UnsupportedOSPlatform("ios")]
 [SupportedOSPlatform("ios13.0")]
 #endif

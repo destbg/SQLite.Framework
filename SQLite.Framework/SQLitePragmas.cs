@@ -398,8 +398,6 @@ public class SQLitePragmas
     /// </summary>
     [SQLitePragmaFunction("pragma_table_info")]
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android26.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios11.0")]
 #endif
@@ -417,8 +415,6 @@ public class SQLitePragmas
     /// </summary>
     [SQLitePragmaFunction("pragma_index_list")]
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android26.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios11.0")]
 #endif
@@ -436,8 +432,6 @@ public class SQLitePragmas
     /// </summary>
     [SQLitePragmaFunction("pragma_foreign_key_list")]
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android26.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios11.0")]
 #endif

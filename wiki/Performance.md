@@ -49,10 +49,10 @@ The same four operations measured on a real Android device. BenchmarkDotNet does
 
 | ORM | Read 100 | Insert 100 | Update 100 | Join + sub-query |
 |---|---:|---:|---:|---:|
-| **SQLite.Framework + SourceGenerator** | **893** | 4,882 | 5,533 | **1,900** |
-| SQLite.Framework | 1,050 | **4,851** | **4,968** | 1,902 |
-| sqlite-net-pcl | 999 | 5,566 | 8,861 | 13,169 |
-| EF Core 10 | 3,281 | 28,882 | 6,296 | 6,971 |
+| **SQLite.Framework + SourceGenerator** | **932** | 4,645 | 5,108 | 1,973 |
+| SQLite.Framework | 1,130 | 4,844 | **4,953** | **1,953** |
+| sqlite-net-pcl | 1,006 | **4,624** | 8,905 | 13,177 |
+| EF Core 10 | 3,338 | 29,143 | 6,279 | 6,833 |
 
 The harness lives at [`Sample/SQLite.Framework.AndroidBench`](https://github.com/destbg/SQLite.Framework/tree/main/Sample/SQLite.Framework.AndroidBench). Launching it runs all four. To run one ORM use `adb shell am start -n com.sqliteframework.androidbench/.MainActivity --es orm ef` (values `framework`, `frameworkgen`, `ef`, `sqlitenet`, or `all`).
 

@@ -6,6 +6,7 @@ using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Visitors.Member;
 using SQLite.Framework.Internals.Visitors.SQL;
+using SQLitePCL;
 
 namespace SQLite.Framework.Tests;
 
@@ -93,6 +94,13 @@ public class InternalCoverageTests
 
         Expression<Func<int>> fromInit = () => new NestedInner { Value = 1 }.Value;
         Assert.False((bool)method.Invoke(null, [fromInit.Body])!);
+    }
+
+    [Fact]
+    public void OsProviderSelectsByPlatform()
+    {
+        Assert.IsType<SQLite3Provider_winsqlite3>(SQLiteProviderInitializer.OsProvider(true));
+        Assert.IsType<SQLite3Provider_sqlite3>(SQLiteProviderInitializer.OsProvider(false));
     }
 
     private static NestedInner MakeInner()

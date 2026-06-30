@@ -70,7 +70,7 @@ public class Book
                 text: `using SQLite.Framework;
 
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
-    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_36)
     .Build();
 
 using SQLiteDatabase db = new(options);`,

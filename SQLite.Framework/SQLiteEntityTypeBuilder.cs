@@ -46,8 +46,6 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
     /// update. Requires SQLite 3.37.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios16.0")]
 #endif
@@ -178,8 +176,6 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
     /// <param name="sql">Expression that produces the column value, translated to SQL.</param>
     /// <param name="stored">When <see langword="true" />, the column is stored on disk.</param>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android31.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios14.0")]
 #endif
@@ -228,8 +224,6 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
     /// <param name="direction">Sort direction applied to every slot.</param>
     /// <param name="directions">Per-slot sort directions for a composite index.</param>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android24.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios10.0")]
 #endif

@@ -50,8 +50,6 @@ public static class AsyncSchemaExtensions
     /// call from async code.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -267,8 +265,6 @@ public static class AsyncSchemaExtensions
     /// <c>DEFAULT</c> clause. Requires SQLite 3.31.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android31.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios14.0")]
 #endif
@@ -287,8 +283,6 @@ public static class AsyncSchemaExtensions
     /// <c>DEFAULT</c> clause. Requires SQLite 3.31.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android31.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios14.0")]
 #endif
@@ -305,8 +299,6 @@ public static class AsyncSchemaExtensions
     /// Renames a column on the table for <typeparamref name="T" />. Requires SQLite 3.25.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android30.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios13.0")]
 #endif
@@ -323,8 +315,6 @@ public static class AsyncSchemaExtensions
     /// Drops a column on the table for <typeparamref name="T" />. Requires SQLite 3.35.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif

@@ -4,7 +4,7 @@ A lightweight [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapp
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
-    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_36)
     .Build();
 using SQLiteDatabase db = new(options);
 
@@ -20,7 +20,7 @@ var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 
 | Package | What it offers |
 |---|---|
-| `SQLite.Framework` | Default. Uses the SQLite version that ships with the OS. Works on all major platforms. |
+| `SQLite.Framework` | Default. Uses the OS-provided SQLite on desktop and iOS, and bundles its own on Android, which has no app-usable system SQLite. |
 | `SQLite.Framework.Bundled` | Ships its own SQLite binary, independent of the OS-provided SQLite. |
 | `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. Call `UseEncryptionKey` on the options builder to enable encryption. |
 | `SQLite.Framework.Base` | No SQLite provider included. You supply your own SQLitePCLRaw provider and call `SQLitePCL.Batteries_V2.Init()` before creating a database. |

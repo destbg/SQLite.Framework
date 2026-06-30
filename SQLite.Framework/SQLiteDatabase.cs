@@ -34,11 +34,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     static SQLiteDatabase()
     {
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-        raw.SetProvider(new SQLite3Provider_sqlite3());
-#elif !NO_SQLITEPCL_RAW_BATTERIES
-        Batteries_V2.Init();
-#endif
+        SQLiteProviderInitializer.Initialize();
     }
 
     /// <summary>
@@ -443,8 +439,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <param name="schema">Attached schema name to copy. Defaults to <see langword="null" />,
     /// which means the main database.</param>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android30.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios13.0")]
 #endif
@@ -701,8 +695,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <see cref="SQLiteCteMaterialization.Default" /> emits no hint and lets SQLite choose.
     /// </param>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -728,8 +720,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <see cref="SQLiteCteMaterialization.Default" /> emits no hint and lets SQLite choose.
     /// </param>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif

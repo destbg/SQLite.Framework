@@ -8,8 +8,6 @@ namespace SQLite.Framework.Attributes;
 /// For more information, see the SQLite documentation https://sqlite.org/stricttables.html
 /// </remarks>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-[UnsupportedOSPlatform("android")]
-[SupportedOSPlatform("android34.0")]
 [UnsupportedOSPlatform("ios")]
 [SupportedOSPlatform("ios16.0")]
 #endif

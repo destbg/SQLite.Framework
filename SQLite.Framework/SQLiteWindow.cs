@@ -38,8 +38,6 @@ public readonly struct SQLiteWindow<T>
     /// ranking functions such as ROW_NUMBER.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android31.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios14.0")]
 #endif

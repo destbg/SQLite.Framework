@@ -10,7 +10,7 @@ LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
-    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_36)
     .Build();
 using var db = new SQLiteDatabase(options);
 
@@ -96,7 +96,7 @@ public class Person
 using SQLite.Framework;
 
 var options = new SQLiteOptionsBuilder("app.db")
-    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_35)
+    .UseMinimumSqliteVersion(SQLiteMinimumVersion.V3_36)
     .Build();
 using var db = new SQLiteDatabase(options);
 db.Schema.CreateTable<Person>();

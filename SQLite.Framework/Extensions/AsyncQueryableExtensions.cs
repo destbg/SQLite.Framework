@@ -35,8 +35,6 @@ public static class AsyncQueryableExtensions
     /// parses.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android30.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios12.0")]
 #endif
@@ -93,8 +91,6 @@ public static class AsyncQueryableExtensions
     /// each projected through the wrapper's projection. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -115,8 +111,6 @@ public static class AsyncQueryableExtensions
     /// Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -139,8 +133,6 @@ public static class AsyncQueryableExtensions
     /// projection materializes <typeparamref name="T" /> in full. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -161,8 +153,6 @@ public static class AsyncQueryableExtensions
     /// SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -184,8 +174,6 @@ public static class AsyncQueryableExtensions
     /// Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -206,8 +194,6 @@ public static class AsyncQueryableExtensions
     /// by default. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -228,8 +214,6 @@ public static class AsyncQueryableExtensions
     /// row matched or an <c>OnRemove</c> hook cancelled the write. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -250,8 +234,6 @@ public static class AsyncQueryableExtensions
     /// Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -274,8 +256,6 @@ public static class AsyncQueryableExtensions
     /// hook cancels. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif
@@ -296,8 +276,6 @@ public static class AsyncQueryableExtensions
     /// no write contribute nothing. Runs inside a transaction by default. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif

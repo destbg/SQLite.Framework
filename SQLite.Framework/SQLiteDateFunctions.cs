@@ -147,8 +147,6 @@ public static class SQLiteDateFunctions
 #if SQLITECIPHER
     [Obsolete("timediff is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled.", error: true)]
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android35.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios17.0")]
 #endif
@@ -164,8 +162,6 @@ public static class SQLiteDateFunctions
 #if SQLITECIPHER
     [Obsolete("timediff is not available in SQLCipher's bundled SQLite. Use SQLite.Framework or SQLite.Framework.Bundled.", error: true)]
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android35.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios17.0")]
 #endif

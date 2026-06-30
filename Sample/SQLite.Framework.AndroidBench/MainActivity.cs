@@ -33,7 +33,11 @@ internal static class Benchmarks
     {
         try
         {
-            Batteries_V2.Init();
+            using (SQLiteDatabase init = new(new SQLiteOptionsBuilder(":memory:").Build()))
+            {
+                init.Execute("SELECT 1");
+            }
+
             Log.Info(Tag, $"runtime={RuntimeInformation.FrameworkDescription} sqlite={raw.sqlite3_libversion().utf8_to_string()} orm={orm}");
 
             bool all = orm == "all";

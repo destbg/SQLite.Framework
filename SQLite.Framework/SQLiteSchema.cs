@@ -361,8 +361,6 @@ public class SQLiteSchema
     /// framework translates the body to SQL and inlines any constants as SQL literals. Parameters
     /// are not allowed because SQLite does not accept placeholders in DDL.</param>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android31.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios14.0")]
 #endif
@@ -414,8 +412,6 @@ public class SQLiteSchema
     /// <see cref="AddColumn{T}(string, Expression{Func{object}})" /> for the SQLite restrictions on
     /// what is allowed in the body.</param>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android31.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios14.0")]
 #endif
@@ -430,8 +426,6 @@ public class SQLiteSchema
     /// names, not entity property names. Requires SQLite 3.25.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android30.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios13.0")]
 #endif
@@ -447,8 +441,6 @@ public class SQLiteSchema
     /// Requires SQLite 3.35.0 or newer.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("android")]
-    [SupportedOSPlatform("android34.0")]
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
 #endif

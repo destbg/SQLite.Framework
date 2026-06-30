@@ -4,21 +4,17 @@ SQLite has a built-in full-text search engine called [FTS5](https://www.sqlite.o
 
 ## Requirements
 
-FTS5 needs **SQLite 3.9.0 or newer**. On mobile that means:
+FTS5 needs **SQLite 3.9.0 or newer**. Only iOS is affected, it needs **iOS 10 or newer**. Android always satisfies it because the package bundles its own SQLite there.
 
-- **iOS 10 or newer.**
-- **Android 7 Nougat or newer (API level 24).**
-
-In a MAUI or multi-targeted csproj, set the minimum platform version per target so the .NET platform compatibility analyzer (CA1416) stops warning:
+In a MAUI or multi-targeted csproj, set the minimum iOS version so the .NET platform compatibility analyzer (CA1416) stops warning:
 
 ```xml
 <PropertyGroup>
-    <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'android'">24.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'ios'">10.0</SupportedOSPlatformVersion>
 </PropertyGroup>
 ```
 
-If you target older platforms, install [`SQLite.Framework.Bundled`](Home) instead. It ships its own recent SQLite and skips the OS version check entirely.
+If you target older iOS, install [`SQLite.Framework.Bundled`](Home) instead. It ships its own recent SQLite and skips the OS version check entirely.
 
 > The `trigram` tokenizer needs SQLite 3.34 or newer. The other tokenizers (`unicode61`, `porter`, `ascii`, custom) work on every supported SQLite version.
 

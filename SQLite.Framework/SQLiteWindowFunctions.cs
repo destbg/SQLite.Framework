@@ -7,8 +7,6 @@ namespace SQLite.Framework;
 /// Without any chain method, the result becomes <c>function(...) OVER ()</c>.
 /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-[UnsupportedOSPlatform("android")]
-[SupportedOSPlatform("android30.0")]
 [UnsupportedOSPlatform("ios")]
 [SupportedOSPlatform("ios13.0")]
 #endif
