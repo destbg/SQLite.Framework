@@ -25,6 +25,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Install Android workload
+        run: dotnet workload install android
+
       - name: Pack SQLite.Framework
         run: dotnet pack -c Release /p:SQLiteFrameworkTesting=false "/p:Version=$TAG" "/p:PackageReleaseNotes=See https://github.com/destbg/SQLite.Framework/releases/tag/$TAG"
         working-directory: ./SQLite.Framework
