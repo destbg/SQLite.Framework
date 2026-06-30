@@ -216,6 +216,28 @@ internal static class EnumMemberVisitor
         return visitor.NotTranslatable(node, $"Enum.{node.Method.Name} is not translatable to SQL.");
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Enum type comes from the entity surface. Users keep their enums reachable.")]
+    public static SQLiteExpression BuildTextStorageEnumToNumber(SQLVisitor visitor, Type targetType, Type enumType, SQLiteExpression objExpr)
+    {
+        Type enumUnderlying = Enum.GetUnderlyingType(enumType);
+        Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
+        string[] enumNames = Enum.GetNames(enumType);
+
+        StringBuilder caseSb = new();
+        List<SQLiteParameter> nameParams = new();
+        for (int i = 0; i < enumNames.Length; i++)
+        {
+            long numericValue = ToSignedNumeric(enumValuesArray.GetValue(i)!, enumUnderlying);
+            SQLiteParameter nameParam = new() { Name = visitor.Counters.NextParamName(), Value = enumNames[i] };
+            nameParams.Add(nameParam);
+            caseSb.Append(" WHEN ").Append(nameParam.Name).Append(" THEN ").Append(numericValue);
+        }
+
+        string elseOpen = caseSb.ToString() + " ELSE CAST(";
+        return CommonHelpers.EvaluateOnce(visitor.Counters, targetType, [objExpr], v =>
+            SQLiteExpression.Binary(targetType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], " AS INTEGER) END)", [.. nameParams]));
+    }
+
     private static List<Expression> CoerceToParameterTypes(MethodInfo method, List<ResolvedModel> arguments)
     {
         ParameterInfo[] parameters = method.GetParameters();

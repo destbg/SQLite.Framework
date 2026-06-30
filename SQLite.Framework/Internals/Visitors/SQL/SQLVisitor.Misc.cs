@@ -157,7 +157,9 @@ internal partial class SQLVisitor
             }
             else if (resolved.SQLiteExpression.Type.IsEnum && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == Enum.GetUnderlyingType(resolved.SQLiteExpression.Type))
             {
-                return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
+                return Database.Options.EnumStorage == EnumStorageMode.Text
+                    ? EnumMemberVisitor.BuildTextStorageEnumToNumber(this, node.Type, resolved.SQLiteExpression.Type, resolved.SQLiteExpression)
+                    : SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
             }
             else if (TryGetNarrowingIntegerWrap(resolved.SQLiteExpression.Type, node.Type, out string? wrapBefore, out string? wrapAfter))
             {

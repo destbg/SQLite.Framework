@@ -154,7 +154,9 @@ internal partial class SQLVisitor
 
         if (node.NodeType is ExpressionType.Coalesce)
         {
-            return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "COALESCE(", left, ", ", right, ")", bothParameters);
+            SQLiteExpression coalesceLeft = CoalesceLiftedOrderComparison(leftNode, left);
+            SQLiteExpression coalesceRight = CoalesceLiftedOrderComparison(rightNode, right);
+            return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "COALESCE(", coalesceLeft, ", ", coalesceRight, ")", bothParameters);
         }
 
         bool equalityOp = node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual;

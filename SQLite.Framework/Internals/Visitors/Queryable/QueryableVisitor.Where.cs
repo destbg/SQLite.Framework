@@ -60,14 +60,15 @@ internal partial class QueryableVisitor
         if (!IsInnerQuery)
         {
             SQLiteExpression columnExpr = (SQLiteExpression)visitor.TableColumns.Values.First();
+            List<SQLiteExpression> sink = GroupBys.Count != 0 ? Havings : Wheres;
 
             if (resolved is { IsConstant: true, Constant: null })
             {
-                Wheres.Add(SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " IS NULL", columnExpr.Parameters));
+                sink.Add(SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " IS NULL", columnExpr.Parameters));
             }
             else
             {
-                Wheres.Add(SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " = ", sqlExpression, "", ParameterHelpers.CombineParameters(columnExpr, sqlExpression)));
+                sink.Add(SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " = ", sqlExpression, "", ParameterHelpers.CombineParameters(columnExpr, sqlExpression)));
             }
 
             IsAny = true;

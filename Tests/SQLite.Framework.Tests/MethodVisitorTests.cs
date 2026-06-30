@@ -391,7 +391,7 @@ public class MethodVisitorTests
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<Author>()
-                .Where(a => a.BirthDate.Subtract(TimeSpan.FromDays(1)).Year > 2000)
+                .Where(a => a.BirthDate.ToUniversalTime().Year > 2000)
                 .ToList());
     }
 

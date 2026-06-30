@@ -45,6 +45,7 @@ internal static class DateTimeMemberVisitor
             return node.Method.Name switch
             {
                 nameof(DateTime.Add) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
+                nameof(DateTime.Subtract) => ResolveDateSubtract(visitor, node.Method, obj.SQLiteExpression, arguments),
                 nameof(DateTime.AddYears) => ResolveRelativeDate(visitor, node.Method, obj.SQLiteExpression, arguments, "years"),
                 nameof(DateTime.AddMonths) => ResolveRelativeDate(visitor, node.Method, obj.SQLiteExpression, arguments, "months"),
                 nameof(DateTime.AddDays) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerDay),
@@ -96,6 +97,7 @@ internal static class DateTimeMemberVisitor
             return node.Method.Name switch
             {
                 nameof(DateTimeOffset.Add) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
+                nameof(DateTimeOffset.Subtract) => ResolveDateSubtract(visitor, node.Method, obj.SQLiteExpression, arguments),
                 nameof(DateTimeOffset.AddYears) => ResolveRelativeDate(visitor, node.Method, obj.SQLiteExpression, arguments, "years"),
                 nameof(DateTimeOffset.AddMonths) => ResolveRelativeDate(visitor, node.Method, obj.SQLiteExpression, arguments, "months"),
                 nameof(DateTimeOffset.AddDays) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, TimeSpan.TicksPerDay),
@@ -412,6 +414,16 @@ internal static class DateTimeMemberVisitor
             "(", obj, " + CAST((", argExpression, $") * {parameter.Name} AS INTEGER))",
             combinedParameters
         );
+    }
+
+    private static SQLiteExpression ResolveDateSubtract(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments)
+    {
+        SQLiteExpression argExpression = arguments[0].IsConstant && arguments[0].Constant is TimeSpan ts
+            ? SQLiteExpression.Leaf(typeof(long), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), ts.Ticks)
+            : arguments[0].SQLiteExpression!;
+
+        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj, argExpression);
+        return SQLiteExpression.Binary(method.ReturnType, visitor.Counters.NextIdentifier(), "(", obj, " - ", argExpression, ")", parameters);
     }
 
     private static SQLiteExpression ResolveTimeOnlyAdd(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, long multiplyBy)

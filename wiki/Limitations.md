@@ -39,6 +39,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Length` counts code points, and `PadLeft`/`PadRight` measure the target width the same way.
 - Ordering and comparison use byte value (`BINARY`), so `"B"` sorts before `"a"`.
 - `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing.
+- `IndexOf` and `LastIndexOf` with a `StringComparison`, and their count overloads, are not translated to SQL. They run in memory in a `Select` and throw in a `Where`. The plain value and value-plus-start-index overloads are translated and are case-sensitive.
 - Reading a character by index, `s[i]`, with an out-of-range index does not throw the index-out-of-range error that .NET throws. A negative index reads a character counted from the end of the string, and an index at or past the end fails with a different error.
 - `Replace("", ...)` returns the original string.
 - `ToUpper` and `ToLower`, on both `string` and `char`, fold only ASCII unless the SQLite build has ICU.
@@ -62,6 +63,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Union`, `Intersect` and `Except` over a `ulong` column sort by the signed stored value, so a value at or above 2^63 sorts before a smaller value.
 - `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
 - `Reverse` on one side of a `Union`, `Concat`, `Except` or `Intersect` does not take effect, because SQLite has no row order to flip inside a combined query.
+- After a `Union`, `Concat`, `Intersect` or `Except`, an `OrderBy`/`OrderByDescending`/`ThenBy` whose key is a computed expression (anything other than a bare column, such as `OrderBy(x => -x)`) is not supported and throws, because SQLite only allows a result column of the combined query, not an expression over it, in a compound `ORDER BY`.
 - `string.Join` over a query whose last step is `Reverse` is not supported and throws.
 
 ## Query operators
@@ -101,7 +103,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Adding a `TimeSpan` column to a `DateTime` does not work when the `TimeSpan` is stored as `Text`, because the stored text cannot be added as a duration. A constant or captured `TimeSpan` works.
 - A `DateTime` stored as `Integer` or `Text` ticks reads back with `Kind` set to `Unspecified`, since the tick count carries no kind.
 - Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
-- A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal`, and the `HasFlag`, bitwise, comparison and cast operators on a `Text`-stored enum.
+- A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal`, and the `HasFlag`, bitwise and comparison operators on a `Text`-stored enum.
 
 ## R-Tree
 
@@ -120,6 +122,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `ElementAtOrDefault` on a JSON list with an index taken from a column reads the type default when the index is past the end, but a negative column index fails with an error instead of reading the type default.
 - Projecting a JSON dictionary's `Keys` or `Values` collection on its own is not supported.
 - Building a new collection from a JSON list with `ToArray` or `ToHashSet` is not supported.
+- A `Select` over a JSON list that changes the element type before `ToList`, such as `list.Select(x => (long)x).ToList()` or `list.Select(x => x.Member).ToList()`, builds a new collection type that has no registered converter and throws. A `Select` that keeps the element type, such as `list.Select(x => x * 2).ToList()` over a `List<int>`, reuses the source converter and works.
 - `OrderBy` followed by `Reverse` on a JSON list keeps rows that share the same sort key in their first-seen order, not the reversed order that LINQ-to-Objects gives, because the reverse is done by sorting the other way.
 - On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable, and `Dictionary.Contains` of a whole key-value pair, are not supported there.
 - On a JSON dictionary, the indexer for a key that is not present returns the type default instead of throwing.
@@ -133,6 +136,12 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Custom converters
 
 - A `bool` column whose converter stores a non-numeric value, such as the text `yes`/`no`, does not work when used directly as a condition, for example `Where(r => r.Flag)` or `r.Flag && other`. SQLite reads the stored text as the number `0`, so the condition is always false.
+- With a custom converter that sets `ColumnSqlExpression` (the read wrap), an equality or `Contains` in a `Where` wraps only the column with `ColumnSqlExpression` and binds the constant through `ToDatabase`. When the read wrap produces a different value than `ToDatabase`, such as an arithmetic offset, the two sides compare in different forms and the row does not match, while the column still reads back correctly in a `Select`. The built-in `jsonb` converter is not affected, since both forms are JSON text.
+
+## Guid
+
+- A `Guid` is stored as its lowercase text form (`g.ToString()`), and equality compares the stored text byte for byte. A `Guid` value written by another tool in uppercase reads back as the same .NET `Guid` (parsing ignores case), but an equality filter against it does not match, even though .NET `Guid` equality is case-insensitive.
+- `Guid.ToString()` with no format is not translated to SQL. It runs in memory in a `Select` and throws in a `Where`.
 
 ## Full text search
 
