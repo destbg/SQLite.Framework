@@ -19,6 +19,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
 - A `Sum` over a `ulong` column, including a window `Sum`, throws `SQLiteException` once the running total passes 2^63, even when the true unsigned total still fits a `ulong`. SQLite adds with signed 64-bit integers, so it overflows at half the `ulong` range.
 - A `uint` multiplication keeps the full 64-bit product instead of the 32-bit wrapped value, both when widened (`(long)(a * b)`) and when used directly (`a * b == 0u`).
+- A widening cast such as `(long)` or `(double)` of an `int` (or a `short`, `ushort`, `sbyte` or `byte`) multiplication or addition that overflows `int` keeps the full 64-bit result instead of the 32-bit wrapped value that .NET produces, and does not throw. For example `(long)(a * a)` where `a` is `100000` reads back `10000000000` instead of `1410065408`. The same product read back as an `int`, such as `a * a`, still throws `OverflowException`. This follows the `uint` rule above.
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
@@ -67,6 +68,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - Some LINQ operators are not translated to SQL and throw `NotSupportedException` on a table query. These are `Last`, `LastOrDefault`, `Order`, `OrderDescending`, `MaxBy`, `MinBy`, `DistinctBy`, `SkipLast`, `TakeLast`, `Append`, `Prepend`, `Chunk`, `ExceptBy`, `UnionBy`, `IntersectBy`, `SkipWhile` and `TakeWhile`.
 - The `DefaultIfEmpty` overload that takes an explicit default value is not supported on a table query and throws. The no-argument `DefaultIfEmpty()` used to build a left join works.
+- `Contains` over an inline collection literal, such as `new[] { ... }.Contains(column)` or `new List<T> { ... }.Contains(column)`, works only when every element is a constant or a captured value. An element that is a method call, such as `int.Parse("10")`, is not folded to a value, so the query throws `NotSupportedException`. Assign the collection to a variable first, then call `Contains` on the variable.
 
 ## Grouping
 
@@ -94,6 +96,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `AddMonths` and `AddYears` whose result lands in December of year 9999 return the default date, since the date math overflows past SQLite's maximum date.
 - `AddSeconds`, `AddMinutes`, `AddHours`, `AddDays`, `AddMilliseconds` and the other `Add` methods that take a fractional amount can land one tick away from the .NET result. SQLite multiplies the amount by the tick scale in one floating-point step, while .NET reaches the tick count through a different intermediate unit, so the last tick can round the other way.
 - `DateTimeOffset` drops its offset.
+- With `DateTimeOffset` stored as `Ticks` (the default), a comparison, ordering, `Distinct` or subtraction across rows whose offsets differ uses the stored local clock ticks, not the UTC instant, so the result can differ from .NET, which normalizes to UTC first. For example `a < b` with `a` at `12:00 +02:00` and `b` at `08:00 -03:00` reads back `false` where .NET gives `true`, and `a - b` reads back `04:00` where .NET gives `-01:00`. Store as `UtcTicks` to compare and order by the instant.
 - With `DateTimeOffset` stored as `UtcTicks`, a date or time component read in a query (`.Year`, `.Hour`, ...) comes back in UTC, not in the value's own offset.
 - Adding a `TimeSpan` column to a `DateTime` does not work when the `TimeSpan` is stored as `Text`, because the stored text cannot be added as a duration. A constant or captured `TimeSpan` works.
 - A `DateTime` stored as `Integer` or `Text` ticks reads back with `Kind` set to `Unspecified`, since the tick count carries no kind.

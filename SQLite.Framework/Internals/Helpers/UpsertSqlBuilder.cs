@@ -85,6 +85,11 @@ internal static class UpsertSqlBuilder
                 {
                     TableColumn column = table.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
                         ?? throw new InvalidOperationException($"Upsert.DoUpdate references property '{propertyName}' which is not a mapped column on '{table.TableName}'.");
+                    if (column.IsPrimaryKey)
+                    {
+                        continue;
+                    }
+
                     setColumns.Add(column);
                 }
                 AppendUpdate(sb, database, table, setColumns, action);

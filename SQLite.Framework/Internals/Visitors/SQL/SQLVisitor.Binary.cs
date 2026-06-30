@@ -54,8 +54,8 @@ internal partial class SQLVisitor
 
         if (charComparisonOp && Database.Options.CharStorage != CharStorageMode.Integer)
         {
-            bool leftIsCharConvert = leftNode is UnaryExpression { NodeType: ExpressionType.Convert } lcc && lcc.Operand.Type == typeof(char);
-            bool rightIsCharConvert = rightNode is UnaryExpression { NodeType: ExpressionType.Convert } rcc && rcc.Operand.Type == typeof(char);
+            bool leftIsCharConvert = leftNode is UnaryExpression { NodeType: ExpressionType.Convert } lcc && (Nullable.GetUnderlyingType(lcc.Operand.Type) ?? lcc.Operand.Type) == typeof(char);
+            bool rightIsCharConvert = rightNode is UnaryExpression { NodeType: ExpressionType.Convert } rcc && (Nullable.GetUnderlyingType(rcc.Operand.Type) ?? rcc.Operand.Type) == typeof(char);
 
             if (leftIsCharConvert && rightIsCharConvert)
             {
@@ -418,7 +418,7 @@ internal partial class SQLVisitor
     private static bool TryGetInRangeCharText(Expression node, out string? text)
     {
         text = null;
-        if (node.Type == typeof(int) && ExpressionHelpers.IsConstant(node)
+        if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(int) && ExpressionHelpers.IsConstant(node)
             && ExpressionHelpers.GetConstantValue(node) is int value
             && value is >= 0 and <= char.MaxValue)
         {

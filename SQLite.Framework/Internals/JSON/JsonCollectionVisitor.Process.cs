@@ -156,9 +156,12 @@ internal partial class JsonCollectionVisitor
     {
         string currentFrom = CurrentFromClause();
 
+        string keyAggregate = distinctSeenReverse ? "MAX" : "MIN";
+        string keyDirection = reverseApplied ? " DESC" : "";
+
         List<string> clauses =
         [
-            $"SELECT {selectExpr} AS \"value\", MIN({keyColumn}) AS \"key\"",
+            $"SELECT {selectExpr} AS \"value\", {keyAggregate}({keyColumn}) AS \"key\"",
             $"FROM {currentFrom}"
         ];
 
@@ -168,7 +171,7 @@ internal partial class JsonCollectionVisitor
         }
 
         clauses.Add($"GROUP BY {selectExpr}");
-        clauses.Add($"ORDER BY MIN({keyColumn})");
+        clauses.Add($"ORDER BY {keyAggregate}({keyColumn}){keyDirection}");
 
         string wrapAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         fromOverride = $"({string.Join(" ", clauses)}) {wrapAlias}";
