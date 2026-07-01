@@ -1,6 +1,6 @@
 # Logging
 
-The framework runs every SQL statement through `SQLiteCommand`. To watch those statements (for debugging, audit, or performance work), register an interceptor on the options builder.
+The framework runs every SQL statement through `SQLiteCommand`. To watch those statements (for debugging, audit or performance work), register an interceptor on the options builder.
 
 ## Quick logging
 
@@ -35,7 +35,7 @@ With sensitive logging on, the same line shows `@p0=1` (or `@p0='abc'` for strin
 
 ## Command id
 
-Every `SQLiteCommand` is given a number when it is created, exposed as `SQLiteCommand.Id`. The number grows by one for each command the database makes, so it is unique within one `SQLiteDatabase`. It is assigned at creation, before the command runs, and never changes. An interceptor reads it to tie the calls for one command together, for example to match a per-row callback back to the statement that produced it. The built-in `LogCommands` line starts with it as `#42`.
+Every `SQLiteCommand` is given a number when it is created, exposed as `SQLiteCommand.Id`. The number grows by one for each command the database makes, so it is unique within one `SQLiteDatabase`. It is assigned at creation, before the command runs and never changes. An interceptor reads it to tie the calls for one command together, for example to match a per-row callback back to the statement that produced it. The built-in `LogCommands` line starts with it as `#42`.
 
 ## Custom interceptor
 

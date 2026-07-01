@@ -3,7 +3,7 @@ namespace SQLite.Framework;
 /// <summary>
 /// Collects extra column values to write alongside an <c>Add</c> or <c>Update</c>. Reach it through
 /// <see cref="SQLiteTable{T}.WithColumns" />. Use it to fill a column that has no CLR property, such
-/// as a shadow column declared with <see cref="SQLiteEntityTypeBuilder{T}.Column" />, or to override
+/// as a shadow column declared with <see cref="SQLiteEntityTypeBuilder{T}.Column" /> or to override
 /// a mapped column with a database expression.
 /// </summary>
 public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>

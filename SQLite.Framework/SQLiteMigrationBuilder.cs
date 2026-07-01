@@ -2,7 +2,7 @@ namespace SQLite.Framework;
 
 /// <summary>
 /// Collects column values to write while a table is rebuilt during <c>Migrate(...)</c>. Use it to
-/// fill a new <c>NOT NULL</c> column that has no default, or to recompute a column from the old
+/// fill a new <c>NOT NULL</c> column that has no default or to recompute a column from the old
 /// row. Each value is read from the old row and inserted into the rebuilt table. A column not set
 /// here is copied across unchanged when it still exists.
 /// </summary>

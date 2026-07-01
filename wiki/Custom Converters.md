@@ -73,7 +73,7 @@ public class Product
 CRUD and queries that project or filter on a `Money` column work without any extra setup.
 The converter is called transparently when binding parameters and when reading rows back.
 
-> Filtering on a custom-type column with a LINQ `Where` requires a `MethodTranslator` for the comparison logic, or using `FromSql` to write the SQL by hand.
+> Filtering on a custom-type column with a LINQ `Where` requires a `MethodTranslator` for the comparison logic or using `FromSql` to write the SQL by hand.
 
 ---
 

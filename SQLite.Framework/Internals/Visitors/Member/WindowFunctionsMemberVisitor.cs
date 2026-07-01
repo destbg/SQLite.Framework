@@ -221,7 +221,7 @@ internal static class WindowFunctionsMemberVisitor
         }
 
         string required = orderChain
-            ? "OrderBy, OrderByDescending, ThenOrderBy, or ThenOrderByDescending"
+            ? "OrderBy, OrderByDescending, ThenOrderBy or ThenOrderByDescending"
             : "PartitionBy or ThenPartitionBy";
         throw new NotSupportedException($"{node.Method.Name} must come right after {required} in the window chain.");
     }

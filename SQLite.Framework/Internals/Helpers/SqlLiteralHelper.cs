@@ -4,7 +4,7 @@ namespace SQLite.Framework.Internals.Helpers;
 
 /// <summary>
 /// Inlines parameter values into SQL where the SQLite engine does not allow placeholders
-/// (CHECK / Computed / partial-index expressions, view bodies, trigger bodies, and similar).
+/// (CHECK / Computed / partial-index expressions, view bodies, trigger bodies and similar).
 /// </summary>
 internal static class SqlLiteralHelper
 {
@@ -89,7 +89,7 @@ internal static class SqlLiteralHelper
             float f => FormatReal(f),
             double d => FormatReal(d),
             _ => throw new NotSupportedException(
-                $"Cannot inline value of type {value.GetType().Name} as a SQL literal. Use a simple constant in CHECK / Computed / partial-index / view / trigger expressions, or build the DDL with raw SQL."),
+                $"Cannot inline value of type {value.GetType().Name} as a SQL literal. Use a simple constant in CHECK / Computed / partial-index / view / trigger expressions or build the DDL with raw SQL."),
         };
     }
 

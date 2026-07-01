@@ -2,7 +2,7 @@ namespace SQLite.Framework;
 
 /// <summary>
 /// A cross-cutting hook that runs before every CRUD action in the framework. Receives the
-/// entity (untyped) and the action the framework was about to perform, and returns the action
+/// entity (untyped) and the action the framework was about to perform and returns the action
 /// to actually perform. The hook may also mutate the entity.
 /// </summary>
 /// <param name="database">The database the action runs against.</param>

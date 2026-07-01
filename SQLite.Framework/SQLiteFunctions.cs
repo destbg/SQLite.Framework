@@ -3,7 +3,7 @@ namespace SQLite.Framework;
 /// <summary>
 /// Marker methods for SQLite functions that have no plain C# equivalent. These methods throw at
 /// runtime. They are only valid inside a LINQ query, where the framework swaps them for the right
-/// SQL. Examples are <c>RANDOM()</c>, <c>GLOB</c>, and <c>REGEXP</c>. FTS5 helpers live on
+/// SQL. Examples are <c>RANDOM()</c>, <c>GLOB</c> and <c>REGEXP</c>. FTS5 helpers live on
 /// <see cref="SQLiteFTS5Functions" /> and window functions on <see cref="SQLiteWindowFunctions" />.
 /// </summary>
 public static class SQLiteFunctions
@@ -105,7 +105,7 @@ public static class SQLiteFunctions
     }
 
     /// <summary>
-    /// Returns the first non-null value in <paramref name="values" />, or <see langword="null" />
+    /// Returns the first non-null value in <paramref name="values" /> or <see langword="null" />
     /// when all are null. Maps to SQLite's <c>coalesce(v0, v1, ...)</c>. SQLite requires at
     /// least two arguments.
     /// </summary>
@@ -158,7 +158,7 @@ public static class SQLiteFunctions
 
     /// <summary>
     /// Returns the SQLite storage class of <paramref name="value" /> as a lowercase string
-    /// (<c>"null"</c>, <c>"integer"</c>, <c>"real"</c>, <c>"text"</c>, or <c>"blob"</c>).
+    /// (<c>"null"</c>, <c>"integer"</c>, <c>"real"</c>, <c>"text"</c> or <c>"blob"</c>).
     /// Translates to SQLite's <c>typeof(value)</c>.
     /// </summary>
     public static string Typeof<T>(T value)
@@ -259,7 +259,7 @@ public static class SQLiteFunctions
 
     /// <summary>
     /// Returns the 1-based index of the first occurrence of <paramref name="needle" /> within
-    /// <paramref name="haystack" />, or 0 when not found. Translates to SQLite's
+    /// <paramref name="haystack" /> or 0 when not found. Translates to SQLite's
     /// <c>instr(haystack, needle)</c>.
     /// </summary>
     public static int Instr(string haystack, string needle)

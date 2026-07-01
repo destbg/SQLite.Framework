@@ -1,6 +1,6 @@
 # Expressions
 
-LINQ expressions inside `Where`, `Select`, and other methods are translated directly to SQL. The framework stays close to the shape of the LINQ query and does not rewrite the query just to make a method work.
+LINQ expressions inside `Where`, `Select` and other methods are translated directly to SQL. The framework stays close to the shape of the LINQ query and does not rewrite the query just to make a method work.
 
 ## Arithmetic
 
@@ -22,7 +22,7 @@ var evens = await db.Table<Book>()
 
 Supported operators: `+`, `-`, `*`, `/`, `%`.
 
-A few arithmetic and comparison cases have SQLite-specific behavior, such as division by zero, floating-point domain errors, and order comparisons on a nullable column. See [Limitations](Limitations).
+A few arithmetic and comparison cases have SQLite-specific behavior, such as division by zero, floating-point domain errors and order comparisons on a nullable column. See [Limitations](Limitations).
 
 ## Math Functions
 
@@ -92,7 +92,7 @@ var rounded = await db.Table<Book>()
 | `s.Substring(start, length)` | `SUBSTR(s, start + 1, length)` |
 | `s[index]` | `SUBSTR(s, index + 1, 1)` |
 | `s.IndexOf(value)` | `INSTR(s, value) - 1` |
-| `s.IndexOf(value, startIndex)` | `INSTR(SUBSTR(s, startIndex + 1), value)` adjusted back to a 0-based absolute index, or `-1` |
+| `s.IndexOf(value, startIndex)` | `INSTR(SUBSTR(s, startIndex + 1), value)` adjusted back to a 0-based absolute index or `-1` |
 | `s.LastIndexOf(value)` | `CASE WHEN LENGTH(value) = 0 THEN LENGTH(s) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, s UNION ALL SELECT pos + INSTR(rem, value), SUBSTR(rem, INSTR(rem, value) + 1) FROM find_pos WHERE INSTR(rem, value) > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END` |
 | `s.LastIndexOf(value, startIndex)` | the same `LastIndexOf` search run over the prefix `SUBSTR(s, 1, startIndex + 1)`, so the match must fall within the first `startIndex + 1` characters |
 | `s.Insert(index, value)` | `SUBSTR(s, 1, index) \|\| value \|\| SUBSTR(s, index + 1)` |
@@ -111,13 +111,13 @@ var rounded = await db.Table<Book>()
 | `string.IsNullOrEmpty(s)` | `(COALESCE(s, '') = '')` |
 | `string.IsNullOrWhiteSpace(s)` | `(TRIM(COALESCE(s, ''), CHAR(9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8232, 8233, 8239, 8287, 12288)) = '')` |
 
-In `+`, `string.Concat`, and `string.Join`, a nullable string column is wrapped in `COALESCE(col, '')`, so a `NULL` value becomes an empty string. This matches .NET, where `string.Concat` and `string.Join` treat a `null` argument as empty.
+In `+`, `string.Concat` and `string.Join`, a nullable string column is wrapped in `COALESCE(col, '')`, so a `NULL` value becomes an empty string. This matches .NET, where `string.Concat` and `string.Join` treat a `null` argument as empty.
 
-String length, comparison, ordering, and `Substring` bounds have SQLite-specific behavior. See [Limitations](Limitations).
+String length, comparison, ordering and `Substring` bounds have SQLite-specific behavior. See [Limitations](Limitations).
 
-`Contains`, `StartsWith`, and `EndsWith` use `LIKE`, which is case-insensitive for ASCII by default. To make them case-sensitive, build the database with `UseCaseSensitiveStringComparison()`. They then translate to `INSTR` / `SUBSTR` instead of `LIKE`. See [Storage Options](Storage%20Options).
+`Contains`, `StartsWith` and `EndsWith` use `LIKE`, which is case-insensitive for ASCII by default. To make them case-sensitive, build the database with `UseCaseSensitiveStringComparison()`. They then translate to `INSTR` / `SUBSTR` instead of `LIKE`. See [Storage Options](Storage%20Options).
 
-Pass `StringComparison.OrdinalIgnoreCase` to `Contains`, `StartsWith`, or `EndsWith` to force a case-insensitive match regardless of that option:
+Pass `StringComparison.OrdinalIgnoreCase` to `Contains`, `StartsWith` or `EndsWith` to force a case-insensitive match regardless of that option:
 
 ```csharp
 var results = await db.Table<Book>()

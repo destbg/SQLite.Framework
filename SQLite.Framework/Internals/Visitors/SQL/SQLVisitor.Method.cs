@@ -276,7 +276,7 @@ internal partial class SQLVisitor
 
         throw new NotSupportedException(
             $"SQLiteColumn.Of<{node.Type.Name}>(row, \"{name}\") could not be bound to a column. It must be called on a " +
-            "row of a query (Where, Select, OrderBy, GroupBy, Join), CHECK, computed column, index filter, UPSERT, or " +
+            "row of a query (Where, Select, OrderBy, GroupBy, Join), CHECK, computed column, index filter, UPSERT or " +
             "Migrate expression.");
     }
 

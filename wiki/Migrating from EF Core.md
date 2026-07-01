@@ -1,8 +1,8 @@
 # Migrating from Entity Framework Core
 
-This page is for people who already use Entity Framework Core and want to move to `SQLite.Framework`. It points out the parts that look the same, the parts that look different, and the small changes you need to make in your code.
+This page is for people who already use Entity Framework Core and want to move to `SQLite.Framework`. It points out the parts that look the same, the parts that look different and the small changes you need to make in your code.
 
-`SQLite.Framework` is built only for SQLite. It does not try to be a full ORM like EF Core. It has no automatic change tracker, unit of work, lazy loading, or navigation properties. It does give you lightweight stand-ins for the heavier parts. Write hooks handle before-save logic, and a versioned migration runner handles schema versioning. It just lets you use LINQ over SQLite tables and run CRUD operations.
+`SQLite.Framework` is built only for SQLite. It does not try to be a full ORM like EF Core. It has no automatic change tracker, unit of work, lazy loading or navigation properties. It does give you lightweight stand-ins for the heavier parts. Write hooks handle before-save logic and a versioned migration runner handles schema versioning. It just lets you use LINQ over SQLite tables and run CRUD operations.
 
 ## DbContext Becomes a SQLiteDatabase Subclass
 
@@ -40,7 +40,7 @@ You can register the database in dependency injection. See [Dependency Injection
 
 ## Defining Models
 
-EF Core lets you describe a model in two places: attributes (`DataAnnotations`) on the class, and the Fluent API in `OnModelCreating`. In `SQLite.Framework`, the column-level metadata (primary key, column name, table name, what to skip) lives on the class as attributes. There is no `OnModelCreating`.
+EF Core lets you describe a model in two places: attributes (`DataAnnotations`) on the class and the Fluent API in `OnModelCreating`. In `SQLite.Framework`, the column-level metadata (primary key, column name, table name, what to skip) lives on the class as attributes. There is no `OnModelCreating`.
 
 The attribute names are the same as the ones EF Core understands. `[Key]` marks the primary key, `[Table]` and `[Column]` rename the table and column, `[NotMapped]` skips a property. The only new attribute is `[AutoIncrement]`, which tells SQLite to assign the primary key for you.
 
@@ -103,7 +103,7 @@ This option only changes `Add` and `AddRange`. `AddOrUpdate` already respects th
 
 ## Querying with LINQ
 
-LINQ works the same way as in EF Core for the common cases. `Where`, `OrderBy`, `Select`, `Take`, `Skip`, `Count`, `Any`, `All`, `First`, `Single`, joins, group by, and projections are all translated to SQL.
+LINQ works the same way as in EF Core for the common cases. `Where`, `OrderBy`, `Select`, `Take`, `Skip`, `Count`, `Any`, `All`, `First`, `Single`, joins, group by and projections are all translated to SQL.
 
 ```csharp
 // EF Core
@@ -121,11 +121,11 @@ List<string> titles = await db.Books
     .ToListAsync();
 ```
 
-For more complex queries, see [Querying](Querying), [Joins](Joins), [Subqueries](Subqueries), [Grouping and Aggregates](Grouping%20and%20Aggregates), and [Window Functions](Window%20Functions).
+For more complex queries, see [Querying](Querying), [Joins](Joins), [Subqueries](Subqueries), [Grouping and Aggregates](Grouping%20and%20Aggregates) and [Window Functions](Window%20Functions).
 
 ## Case-Sensitive String Matching
 
-By default `string.Contains`, `string.StartsWith`, and `string.EndsWith` translate to SQLite `LIKE`, which is case-insensitive for ASCII. EF Core's SQLite provider instead translates `Contains` to `instr`, which is case-sensitive. To match EF Core, turn on the option:
+By default `string.Contains`, `string.StartsWith` and `string.EndsWith` translate to SQLite `LIKE`, which is case-insensitive for ASCII. EF Core's SQLite provider instead translates `Contains` to `instr`, which is case-sensitive. To match EF Core, turn on the option:
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
@@ -137,7 +137,7 @@ With this on, `Contains` becomes `instr(x, value) > 0` and `StartsWith` / `EndsW
 
 ## No Navigation Properties or Include
 
-EF Core lets you define navigation properties (a `Book` has an `Author`, a `User` has a list of `Orders`), and load them with `Include`. `SQLite.Framework` does not do this.
+EF Core lets you define navigation properties (a `Book` has an `Author`, a `User` has a list of `Orders`) and load them with `Include`. `SQLite.Framework` does not do this.
 
 ```csharp
 // EF Core
@@ -183,7 +183,7 @@ If you forget to call `Commit`, the transaction is rolled back when it is dispos
 
 ## Migrations
 
-There is **no** migration-file system like EF Core's, with generated up and down scripts and a `__EFMigrationsHistory` table. Instead the model is the source of truth. Declare each schema version on the runner, and `TableChanged` reconciles the live database with the model. It creates a missing table, rebuilds a table that has drifted while keeping its rows, and reconciles indexes and triggers. The runner records the version it reached in the SQLite user-version pragma, so each version runs once.
+There is **no** migration-file system like EF Core's, with generated up and down scripts and a `__EFMigrationsHistory` table. Instead the model is the source of truth. Declare each schema version on the runner and `TableChanged` reconciles the live database with the model. It creates a missing table, rebuilds a table that has drifted while keeping its rows and reconciles indexes and triggers. The runner records the version it reached in the SQLite user-version pragma, so each version runs once.
 
 ```csharp
 await db.Schema.Migrations()
@@ -198,7 +198,7 @@ await db.Schema.CreateTableAsync<Book>();
 await db.Schema.CreateIndexAsync<Book>(b => b.AuthorId);
 ```
 
-For things you cannot express with attributes, like indexes, computed columns, partial indexes, and CHECK constraints, override `OnModelCreating` on your `SQLiteDatabase` subclass and configure each entity with `builder.Entity<T>()`. This works just like EF Core's `OnModelCreating`.
+For things you cannot express with attributes, like indexes, computed columns, partial indexes and CHECK constraints, override `OnModelCreating` on your `SQLiteDatabase` subclass and configure each entity with `builder.Entity<T>()`. This works just like EF Core's `OnModelCreating`.
 
 ```csharp
 protected override void OnModelCreating(SQLiteModelBuilder builder)
@@ -212,11 +212,11 @@ protected override void OnModelCreating(SQLiteModelBuilder builder)
 
 Then create the table with `db.Schema.CreateTable<Book>()`.
 
-`TableChanged` handles most drift automatically, including column type changes and added or removed columns. For one-off changes you can also use the helper methods on `Schema`. See [Schema](Schema) for the migration runner, the per-table actions, and `ValidateModel`.
+`TableChanged` handles most drift automatically, including column type changes and added or removed columns. For one-off changes you can also use the helper methods on `Schema`. See [Schema](Schema) for the migration runner, the per-table actions and `ValidateModel`.
 
 ## Async Support
 
-EF Core has async versions of every method (`ToListAsync`, `FirstAsync`, `AddAsync`, and so on). `SQLite.Framework` adds the same methods through extension methods. The names match. You only need to add the right `using` to make them show up.
+EF Core has async versions of every method (`ToListAsync`, `FirstAsync`, `AddAsync` and so on). `SQLite.Framework` adds the same methods through extension methods. The names match. You only need to add the right `using` to make them show up.
 
 ```csharp
 using SQLite.Framework.Extensions;
@@ -224,7 +224,7 @@ using SQLite.Framework.Extensions;
 
 The async methods run the work on a thread pool. SQLite itself is synchronous under the hood, so you do not get more parallelism out of going async, but you do not block the calling thread either. See [Multi-threading](Multi-threading) for how to run several writes at the same time.
 
-## Concurrency, Identity Resolution, and Change Tracking
+## Concurrency, Identity Resolution and Change Tracking
 
 EF Core has all of these built in. `SQLite.Framework` has none of them.
 

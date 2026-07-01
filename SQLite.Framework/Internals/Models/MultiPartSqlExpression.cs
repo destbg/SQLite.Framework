@@ -4,7 +4,7 @@ namespace SQLite.Framework.Internals.Models;
 /// SQL expression that mixes a list of string parts with child expressions. The shape is
 /// <c>{parts[0]}{children[0]}{parts[1]}{children[1]}{parts[2]}...{parts[N]}</c> where
 /// <c>parts.Length == children.Length + 1</c>. Use it for shapes with four or more child slots
-/// that don't fit <see cref="WrapSqlExpression"/>, <see cref="BinarySqlExpression"/>, or
+/// that don't fit <see cref="WrapSqlExpression"/>, <see cref="BinarySqlExpression"/> or
 /// <see cref="TrinarySqlExpression"/>.
 /// </summary>
 internal sealed class MultiPartSqlExpression : SQLiteExpression

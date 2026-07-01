@@ -129,7 +129,7 @@ public static class AsyncQueryableExtensions
     /// <summary>
     /// Inserts <paramref name="item" /> and returns the inserted row, projected through the
     /// wrapper's projection. Returns <see langword="default" /> when an <c>OnAdd</c> hook cancels the
-    /// write, and copies an auto-increment primary key back to <paramref name="item" /> when the
+    /// write and copies an auto-increment primary key back to <paramref name="item" /> when the
     /// projection materializes <typeparamref name="T" /> in full. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
@@ -252,7 +252,7 @@ public static class AsyncQueryableExtensions
     /// Runs an <c>INSERT ... ON CONFLICT (...) DO ...</c> upsert built through
     /// <paramref name="configure" /> and returns the written row, projected through the wrapper's
     /// projection. Returns <see langword="default" /> when the conflict resolves to no write (a
-    /// <c>DO NOTHING</c>, or a failed <c>DO UPDATE ... WHERE</c> guard) or an <c>OnAddOrUpdate</c>
+    /// <c>DO NOTHING</c> or a failed <c>DO UPDATE ... WHERE</c> guard) or an <c>OnAddOrUpdate</c>
     /// hook cancels. Requires SQLite 3.35 or later.
     /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
@@ -396,7 +396,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the first element of a sequence, or throws if the sequence is empty.
+    /// Returns the first element of a sequence or throws if the sequence is empty.
     /// </summary>
     public static Task<TSource> FirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
@@ -413,7 +413,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the first element of a sequence that satisfies the predicate, or throws if no match is found.
+    /// Returns the first element of a sequence that satisfies the predicate or throws if no match is found.
     /// </summary>
     public static Task<TSource> FirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
@@ -430,7 +430,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the first element of a sequence, or <see langword="default" /> if the sequence is empty.
+    /// Returns the first element of a sequence or <see langword="default" /> if the sequence is empty.
     /// </summary>
     public static Task<TSource?> FirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
@@ -447,7 +447,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the first element of a sequence, or <paramref name="defaultValue" /> if the sequence is empty.
+    /// Returns the first element of a sequence or <paramref name="defaultValue" /> if the sequence is empty.
     /// </summary>
     public static Task<TSource> FirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, TSource defaultValue, CancellationToken ct = default)
     {
@@ -464,7 +464,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the first element of a sequence that satisfies the predicate, or <see langword="default" /> if no match is found.
+    /// Returns the first element of a sequence that satisfies the predicate or <see langword="default" /> if no match is found.
     /// </summary>
     public static Task<TSource?> FirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
@@ -481,7 +481,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the first element of a sequence that satisfies the predicate, or <paramref name="defaultValue" /> if no match is found.
+    /// Returns the first element of a sequence that satisfies the predicate or <paramref name="defaultValue" /> if no match is found.
     /// </summary>
     public static Task<TSource> FirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, TSource defaultValue, CancellationToken ct = default)
     {
@@ -498,7 +498,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the only element of a sequence, or throws if the sequence is empty or has more than one element.
+    /// Returns the only element of a sequence or throws if the sequence is empty or has more than one element.
     /// </summary>
     public static Task<TSource> SingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
@@ -515,7 +515,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the only element matching the predicate, or throws if no match or more than one match is found.
+    /// Returns the only element matching the predicate or throws if no match or more than one match is found.
     /// </summary>
     public static Task<TSource> SingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
@@ -532,7 +532,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the only element of a sequence, or <see langword="default" /> if empty. Throws if more than one element.
+    /// Returns the only element of a sequence or <see langword="default" /> if empty. Throws if more than one element.
     /// </summary>
     public static Task<TSource?> SingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, CancellationToken ct = default)
     {
@@ -549,7 +549,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the only element of a sequence, or <paramref name="defaultValue" /> if empty. Throws if more than one element.
+    /// Returns the only element of a sequence or <paramref name="defaultValue" /> if empty. Throws if more than one element.
     /// </summary>
     public static Task<TSource> SingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, TSource defaultValue, CancellationToken ct = default)
     {
@@ -566,7 +566,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the only element matching the predicate, or <see langword="default" /> if no match. Throws if more than one match.
+    /// Returns the only element matching the predicate or <see langword="default" /> if no match. Throws if more than one match.
     /// </summary>
     public static Task<TSource?> SingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, CancellationToken ct = default)
     {
@@ -583,7 +583,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the only element matching the predicate, or <paramref name="defaultValue" /> if no match. Throws if more than one match.
+    /// Returns the only element matching the predicate or <paramref name="defaultValue" /> if no match. Throws if more than one match.
     /// </summary>
     public static Task<TSource> SingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, Expression<Func<TSource, bool>> predicate, TSource defaultValue, CancellationToken ct = default)
     {
@@ -600,7 +600,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the element at the given zero-based <paramref name="index" />, or throws if the index is out of range.
+    /// Returns the element at the given zero-based <paramref name="index" /> or throws if the index is out of range.
     /// </summary>
     public static Task<TSource> ElementAtAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, int index, CancellationToken ct = default)
     {
@@ -617,7 +617,7 @@ public static class AsyncQueryableExtensions
     }
 
     /// <summary>
-    /// Returns the element at the given zero-based <paramref name="index" />, or <see langword="default" /> if out of range.
+    /// Returns the element at the given zero-based <paramref name="index" /> or <see langword="default" /> if out of range.
     /// </summary>
     public static Task<TSource?> ElementAtOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] TSource>(this IQueryable<TSource> source, int index, CancellationToken ct = default)
     {

@@ -1,6 +1,6 @@
 # SQLite Functions
 
-`SQLiteFunctions` is a static class with helpers for SQLite functions that have no plain C# equivalent. They work inside a LINQ query, and the framework swaps them for the right SQL.
+`SQLiteFunctions` is a static class with helpers for SQLite functions that have no plain C# equivalent. They work inside a LINQ query and the framework swaps them for the right SQL.
 
 The class also holds the FTS5 helpers (`Match`, `Rank`, `Snippet`, `Highlight`). Those have their own page in [Full Text Search](Full%20Text%20Search).
 
@@ -153,7 +153,7 @@ byte[] padding = await db.Table<Book>().Select(b => SQLiteFunctions.Zeroblob(16)
 
 ## Instr
 
-`Instr(haystack, needle)` returns the 1-based index of `needle` inside `haystack`, or `0` if not found.
+`Instr(haystack, needle)` returns the 1-based index of `needle` inside `haystack` or `0` if not found.
 
 ```csharp
 List<Book> withLph = await db.Table<Book>()
@@ -216,7 +216,7 @@ long sinceConnectionOpen = await db.Table<Book>().Select(b => SQLiteFunctions.To
 
 ## Date and time functions
 
-`SQLiteDateFunctions` exposes SQLite's date and time SQL functions directly. Each accepts a time value plus any number of modifier strings like `"+7 days"`, `"start of month"`, `"unixepoch"`, or `"utc"`. Time values can be ISO 8601 strings, the literal `"now"`, Julian day numbers, or column references.
+`SQLiteDateFunctions` exposes SQLite's date and time SQL functions directly. Each accepts a time value plus any number of modifier strings like `"+7 days"`, `"start of month"`, `"unixepoch"` or `"utc"`. Time values can be ISO 8601 strings, the literal `"now"`, Julian day numbers or column references.
 
 | Method | What it maps to |
 |---|---|

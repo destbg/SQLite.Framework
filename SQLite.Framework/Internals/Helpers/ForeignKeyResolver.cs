@@ -60,7 +60,7 @@ internal static class ForeignKeyResolver
             {
                 throw new InvalidOperationException(
                     $"Foreign key on \"{sourceTable}\"(\"{sourceColumns[0]}\") targets \"{targetTable}\" but it has no primary key. " +
-                    "Add [Key] to the target's primary key, configure HasKey in the model, or specify the target column explicitly.");
+                    "Add [Key] to the target's primary key, configure HasKey in the model or specify the target column explicitly.");
             }
             if (pks.Length > 1 && pks.Length != sourceColumns.Count)
             {
@@ -128,7 +128,7 @@ internal static class ForeignKeyResolver
             {
                 throw new InvalidOperationException(
                     $"Foreign key on \"{sourceTable}\"(\"{sourceColumn}\") targets \"{targetType.Name}\" but \"{targetType.Name}\" has no [Key] property. " +
-                    "Either add [Key] to the target's primary key, or specify the target column explicitly.");
+                    "Either add [Key] to the target's primary key or specify the target column explicitly.");
             }
             if (pks.Length > 1)
             {

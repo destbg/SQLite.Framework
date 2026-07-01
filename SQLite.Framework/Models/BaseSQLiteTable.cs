@@ -2,7 +2,7 @@ namespace SQLite.Framework.Models;
 
 /// <summary>
 /// Base class for any queryable that maps directly to a SQL table. Covers regular tables,
-/// read-only tables, and built-in system tables. CTEs and LINQ chain wrappers go through
+/// read-only tables and built-in system tables. CTEs and LINQ chain wrappers go through
 /// <see cref="BaseSQLiteQueryable" /> instead.
 /// </summary>
 public abstract class BaseSQLiteTable : BaseSQLiteQueryable
@@ -23,7 +23,7 @@ public abstract class BaseSQLiteTable : BaseSQLiteQueryable
     public TableMapping Table { get; }
 
     /// <summary>
-    /// The attached database schema this table is read from, or <see langword="null" /> for the main database.
+    /// The attached database schema this table is read from or <see langword="null" /> for the main database.
     /// Set when the table is created through <see cref="SQLiteDatabase.Table{T}(string)" />.
     /// When the table belongs to a different <see cref="SQLiteDatabase" /> than the one running the query,
     /// the schema is resolved from <see cref="SQLiteDatabase.AttachDatabase(SQLiteDatabase, string)" /> instead.

@@ -10,7 +10,7 @@ public enum SQLiteRTreeStorage
 {
     /// <summary>
     /// Default. Emits <c>USING rtree(...)</c>. Coordinates are stored as 32-bit floats.
-    /// Property types <c>float</c>, <c>double</c>, and <c>int</c> all map here.
+    /// Property types <c>float</c>, <c>double</c> and <c>int</c> all map here.
     /// </summary>
     Float,
 

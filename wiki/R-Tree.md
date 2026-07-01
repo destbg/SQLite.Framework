@@ -54,7 +54,7 @@ public class GridCell
 }
 ```
 
-The default `SQLiteRTreeStorage.Float` uses `rtree`, which stores every coordinate as a 32-bit float. A `float`, `double`, or `int` property is accepted, but the value is rounded to a 32-bit float on write, so a value above 2^24 or a fraction that a 32-bit float cannot hold exactly, such as `0.2`, loses precision. Use `SQLiteRTreeStorage.Int32` for exact 32-bit integer coordinates. See [Limitations](Limitations).
+The default `SQLiteRTreeStorage.Float` uses `rtree`, which stores every coordinate as a 32-bit float. A `float`, `double` or `int` property is accepted, but the value is rounded to a 32-bit float on write, so a value above 2^24 or a fraction that a 32-bit float cannot hold exactly, such as `0.2`, loses precision. Use `SQLiteRTreeStorage.Int32` for exact 32-bit integer coordinates. See [Limitations](Limitations).
 
 ## Querying
 
@@ -76,7 +76,7 @@ List<Region> hits = await db.Table<Region>()
 
 ## Inserting, updating, removing
 
-`Add`, `AddRange`, `Update`, `UpdateRange`, `Remove`, and `RemoveRange` work just like with a normal table. The framework binds the rowid, the bounding-box columns, and any auxiliary columns from the entity.
+`Add`, `AddRange`, `Update`, `UpdateRange`, `Remove` and `RemoveRange` work just like with a normal table. The framework binds the rowid, the bounding-box columns and any auxiliary columns from the entity.
 
 ```csharp
 await db.Table<Region>().AddAsync(new Region
@@ -98,7 +98,7 @@ await db.Table<Region>().RemoveAsync(row);
 ## Limits
 
 * SQLite allows 1 to 5 dimensions. The framework throws at mapping time when there are more than 5.
-* Every `[RTreeMin]` must have a matching `[RTreeMax]` with the same dimension name, and vice versa.
-* Coordinate columns must be `float`, `double`, or `int` for `Float` storage. Only `int` is accepted under `Int32` storage.
+* Every `[RTreeMin]` must have a matching `[RTreeMax]` with the same dimension name and vice versa.
+* Coordinate columns must be `float`, `double` or `int` for `Float` storage. Only `int` is accepted under `Int32` storage.
 * The rowid column must be `int` or `long`.
 * The same class cannot be both `[RTreeIndex]` and `[FullTextSearch]`.

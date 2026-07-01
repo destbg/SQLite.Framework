@@ -11,7 +11,7 @@ namespace SQLite.Framework;
 /// <remarks>
 /// The stream is fixed-length. The blob in the database must already exist at the size you
 /// want to write. Pre-allocate by inserting or updating the row with a byte array of the
-/// target size, or by executing raw SQL such as
+/// target size or by executing raw SQL such as
 /// <c>INSERT INTO Books (Cover) VALUES (zeroblob(1048576))</c>.
 ///
 /// The stream holds a connection-level lock for its lifetime. Always dispose it (use

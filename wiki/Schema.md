@@ -1,6 +1,6 @@
 # Schema
 
-The `db.Schema` property gives you DDL operations on the database: create and drop tables, add and remove indexes, alter columns, and inspect what is there.
+The `db.Schema` property gives you DDL operations on the database: create and drop tables, add and remove indexes, alter columns and inspect what is there.
 
 ## Why a separate class
 
@@ -43,7 +43,7 @@ The default index name is `idx_{TableName}_{ColumnName}`.
 
 ## Defining the model
 
-Computed columns, CHECK constraints, indexes, foreign keys, defaults, triggers, and the rest of the schema are declared once, in one place. Override `OnModelCreating` on your `SQLiteDatabase` subclass and configure each entity with `builder.Entity<T>()`. The framework calls `OnModelCreating` a single time, before any table is used, so create, migrate, and validate all read the same definition.
+Computed columns, CHECK constraints, indexes, foreign keys, defaults, triggers and the rest of the schema are declared once, in one place. Override `OnModelCreating` on your `SQLiteDatabase` subclass and configure each entity with `builder.Entity<T>()`. The framework calls `OnModelCreating` a single time, before any table is used, so create, migrate and validate all read the same definition.
 
 ```csharp
 public class AppDatabase : SQLiteDatabase
@@ -75,7 +75,7 @@ public class AppDatabase : SQLiteDatabase
 }
 ```
 
-Everything the mapping attributes can do is available here too, so you can keep entities as plain classes and put all the schema in `OnModelCreating`, or mix attributes and the builder.
+Everything the mapping attributes can do is available here too, so you can keep entities as plain classes and put all the schema in `OnModelCreating` or mix attributes and the builder.
 
 Table-level configuration:
 
@@ -103,11 +103,11 @@ Column-level configuration:
 * `Default(column, value)` writes a literal.
 * `Default(column, () => expression)` writes a translated SQL expression in parentheses.
 
-`DateTime` columns are stored as ticks by default, so SQLite's `CURRENT_TIMESTAMP`/`datetime('now')` is not a good default for them. Set the value in C# before insert, or change the column to a different storage mode through [Storage Options](Storage%20Options).
+`DateTime` columns are stored as ticks by default, so SQLite's `CURRENT_TIMESTAMP`/`datetime('now')` is not a good default for them. Set the value in C# before insert or change the column to a different storage mode through [Storage Options](Storage%20Options).
 
 For columns set this way, `Add` and `AddRange` omit the column from the INSERT when its CLR value equals `default(T)`. Same behavior as `[DefaultValue]` (see [Defining Models](Defining%20Models)).
 
-`Index(column, name, unique, filter, collation, collations, direction, directions)` adds an index. Pass a single property for a single-column index, an anonymous object (`b => new { b.A, b.B }`) for a composite index, or any expression for an expression index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself). Composite indexes cannot have a partial filter.
+`Index(column, name, unique, filter, collation, collations, direction, directions)` adds an index. Pass a single property for a single-column index, an anonymous object (`b => new { b.A, b.B }`) for a composite index or any expression for an expression index. When `filter` is set, the result is a partial index (a `WHERE` clause on the index itself). Composite indexes cannot have a partial filter.
 
 Use `collation` to apply one of the built-in collations (`NoCase`, `Rtrim`, `Binary`) to every column of the index. The default `SQLiteCollation.Inherit` emits no clause. For per-column collations on a composite index, pass `collations` as an array of the same length as the column list.
 
@@ -117,7 +117,7 @@ Use `collation` to apply one of the built-in collations (`NoCase`, `Rtrim`, `Bin
     collations: [SQLiteCollation.NoCase, SQLiteCollation.NoCase])
 ```
 
-Expression indexes accept any translatable expression, and a composite index can mix plain columns and expressions in the same slot list. The `name` argument is required when any slot is an expression because there is no stable default name for translated SQL. SQLite uses the indexed expression when a query contains the same expression in `WHERE`, `ORDER BY`, or a join.
+Expression indexes accept any translatable expression and a composite index can mix plain columns and expressions in the same slot list. The `name` argument is required when any slot is an expression because there is no stable default name for translated SQL. SQLite uses the indexed expression when a query contains the same expression in `WHERE`, `ORDER BY` or a join.
 
 ```csharp
 .Index(b => b.Title.ToLower(), name: "IX_Book_TitleLower")
@@ -125,7 +125,7 @@ Expression indexes accept any translatable expression, and a composite index can
     name: "IX_Book_AuthorAndTitleLower")
 ```
 
-Use `direction` to store every slot of the index in descending order, or pass `directions` as an array for per-slot control on a composite index. The default `SQLiteIndexDirection.Inherit` emits no clause, `Ascending` emits `ASC`, and `Descending` emits `DESC`. Sorting a slot in `DESC` lets the planner skip the extra sort step for matching `ORDER BY x DESC` queries. The `[Indexed]` attribute has a `Direction` property with the same effect.
+Use `direction` to store every slot of the index in descending order or pass `directions` as an array for per-slot control on a composite index. The default `SQLiteIndexDirection.Inherit` emits no clause, `Ascending` emits `ASC` and `Descending` emits `DESC`. Sorting a slot in `DESC` lets the planner skip the extra sort step for matching `ORDER BY x DESC` queries. The `[Indexed]` attribute has a `Direction` property with the same effect.
 
 `Column(name, type, nullable, defaultSql)` adds a column that has no CLR property. The framework creates it and keeps it across a migrate rebuild, but never reads or writes it on its own. To read it in a query or write it on a save, reference it with `SQLiteColumn.Of<T>(row, "Name")`:
 
@@ -144,7 +144,7 @@ await db.Table<Book>()
 
 `Trigger(name, timing, event, build)` declares a trigger whose body is built from typed LINQ statements. The trigger becomes part of the model, so create and migrate manage it. Reference target tables through the database's own `Table<TTarget>()`, which is in scope inside `OnModelCreating`. See [Triggers](#triggers) below.
 
-Constants in computed, CHECK, default, and partial-index expressions are inlined as SQL literals because CREATE TABLE / CREATE INDEX cannot bind parameters. Only simple types (numbers, strings, bool) are supported as constants. For exotic types, use raw SQL through `db.Execute`.
+Constants in computed, CHECK, default and partial-index expressions are inlined as SQL literals because CREATE TABLE / CREATE INDEX cannot bind parameters. Only simple types (numbers, strings, bool) are supported as constants. For exotic types, use raw SQL through `db.Execute`.
 
 ### Running the schema actions
 
@@ -194,7 +194,7 @@ if (!result.IsValid)
 }
 ```
 
-It checks columns (missing, extra, type, primary key, nullability), declared indexes, foreign keys, and declared triggers. Columns declared with `Column(...)` that have no CLR property are expected, not flagged as extra. Virtual tables (FTS5, R-Tree) only have their existence checked.
+It checks columns (missing, extra, type, primary key, nullability), declared indexes, foreign keys and declared triggers. Columns declared with `Column(...)` that have no CLR property are expected, not flagged as extra. Virtual tables (FTS5, R-Tree) only have their existence checked.
 
 ## Migrate
 
@@ -210,17 +210,17 @@ await db.Schema.Migrations()
 `TableChanged<T>()` reconciles the table for `T` to the current model. What it does:
 
 * Creates the table when it does not exist.
-* Adds new columns in place, and drops columns the model no longer has. When a change cannot be made in place, it rebuilds the table the way SQLite recommends. It creates a new table from the model, copies the rows, drops the old table, and renames the new one. Pass `rebuild: true` to always rebuild, which works on any SQLite version.
-* Preserves the rows for every column the model keeps. A removed column loses its data, a new column gets NULL or its default, and a type change keeps the values.
-* Creates or recreates declared indexes and triggers, and drops indexes that are no longer declared. Triggers that are not declared on the model are left alone.
+* Adds new columns in place and drops columns the model no longer has. When a change cannot be made in place, it rebuilds the table the way SQLite recommends. It creates a new table from the model, copies the rows, drops the old table and renames the new one. Pass `rebuild: true` to always rebuild, which works on any SQLite version.
+* Preserves the rows for every column the model keeps. A removed column loses its data, a new column gets NULL or its default and a type change keeps the values.
+* Creates or recreates declared indexes and triggers and drops indexes that are no longer declared. Triggers that are not declared on the model are left alone.
 
-A whole run happens in one transaction. If a step fails, the run rolls back to the version it started at, and the next run retries from there. FTS5 and R-Tree tables are only ensured to exist.
+A whole run happens in one transaction. If a step fails, the run rolls back to the version it started at and the next run retries from there. FTS5 and R-Tree tables are only ensured to exist.
 
-Migrations always move toward the current model. There is no path back to an older version, and no way to stop below the highest declared version.
+Migrations always move toward the current model. There is no path back to an older version and no way to stop below the highest declared version.
 
 ### One file per migration
 
-To keep each version in its own file instead of one long chain, implement `ISQLiteMigration` once per version, put the classes in a `Migrations` folder, and register them with `Add<T>()`.
+To keep each version in its own file instead of one long chain, implement `ISQLiteMigration` once per version, put the classes in a `Migrations` folder and register them with `Add<T>()`.
 
 ```csharp
 // Migrations/M0001_InitialSchema.cs
@@ -276,7 +276,7 @@ if (!plan.IsUpToDate)
 
 ### Filling new columns
 
-A new `NOT NULL` column with no default cannot be filled by copying old rows. If the table has rows, the run stops with a clear error that names the column. You have three ways to fix it. Give the column a default in `OnModelCreating`, make it nullable, or pass values to `TableChanged`.
+A new `NOT NULL` column with no default cannot be filled by copying old rows. If the table has rows, the run stops with a clear error that names the column. You have three ways to fix it. Give the column a default in `OnModelCreating`, make it nullable or pass values to `TableChanged`.
 
 `TableChanged<T>(s => s.Set(...))` fills or overrides columns during the reconcile. Each value is read from the old row. The runner unions the fills from every pending version before it reconciles, so a column added in a later version does not make an earlier version stop.
 
@@ -299,7 +299,7 @@ await db.Schema.Migrations()
 
 A column you do not set is copied across unchanged when it still exists.
 
-### Renames, drops, and data steps
+### Renames, drops and data steps
 
 A reconcile cannot tell a rename from a drop plus an add, so rename a column with an explicit step. Renames are applied before the reconcile, so the data is kept.
 
@@ -311,7 +311,7 @@ await db.Schema.Migrations()
     .MigrateAsync();
 ```
 
-A step can also drop a column with `DropColumn`, drop a table with `DropTable`, or run raw SQL with `Sql` for a data fix. Within one run the order is fixed. Renames run first, then one reconcile per table, then drops and raw SQL. So a raw SQL data step reads the final shape of the table. To move data out of a column you are removing, keep the old column on the model while you copy it, then remove it in a later version.
+A step can also drop a column with `DropColumn`, drop a table with `DropTable` or run raw SQL with `Sql` for a data fix. Within one run the order is fixed. Renames run first, then one reconcile per table, then drops and raw SQL. So a raw SQL data step reads the final shape of the table. To move data out of a column you are removing, keep the old column on the model while you copy it, then remove it in a later version.
 
 The runner reconciles structure and runs the data steps you declare. For one-off column changes outside a migration, see the next section.
 
@@ -324,7 +324,7 @@ await db.Schema.DropColumnAsync<Book>("BookTitle");
 await db.Schema.RenameTableAsync<Book>("RenamedBooks");
 ```
 
-`AddColumn` takes a property name on the entity. The framework reads the type, nullability, and primary-key flags from your model and emits the right `ALTER TABLE ADD COLUMN` SQL.
+`AddColumn` takes a property name on the entity. The framework reads the type, nullability and primary-key flags from your model and emits the right `ALTER TABLE ADD COLUMN` SQL.
 
 A property selector overload is also available:
 
@@ -339,9 +339,9 @@ await db.Schema.AddColumnAsync<Book>(b => b.Pages, defaultValue: 0);
 await db.Schema.AddColumnAsync<Book>(b => b.Genre, defaultValue: "Unknown");
 ```
 
-SQLite does not let you use parameters inside DDL statements like `ALTER TABLE`. The framework writes `defaultValue` straight into the SQL text. Only numbers, `bool`, and `string` are accepted. Single quotes inside strings are doubled, so a value with quotes in it cannot escape from the string and run other SQL.
+SQLite does not let you use parameters inside DDL statements like `ALTER TABLE`. The framework writes `defaultValue` straight into the SQL text. Only numbers, `bool` and `string` are accepted. Single quotes inside strings are doubled, so a value with quotes in it cannot escape from the string and run other SQL.
 
-SQLite requires a column added with a foreign key to default to NULL. Adding a foreign key column with a non-null `defaultValue` or a default expression throws. Add it with a null default, or recreate the table with the new schema instead.
+SQLite requires a column added with a foreign key to default to NULL. Adding a foreign key column with a non-null `defaultValue` or a default expression throws. Add it with a null default or recreate the table with the new schema instead.
 
 A second overload takes a translated SQL expression:
 
@@ -351,7 +351,7 @@ await db.Schema.AddColumnAsync<Book>(b => b.Rating, () => 7 * 6);
 
 Requires SQLite 3.31.0 or newer. SQLite also rejects non-constant defaults on `ADD COLUMN` when the table already has rows. Use them only on empty tables.
 
-`RenameColumn`, `DropColumn`, and `RenameTable` take SQLite column or table names directly.
+`RenameColumn`, `DropColumn` and `RenameTable` take SQLite column or table names directly.
 
 ## Views
 
@@ -389,9 +389,9 @@ await db.Schema.CreateTriggerAsync<Book>(
 await db.Schema.DropTriggerAsync("trg_book_history");
 ```
 
-`SQLiteTriggerTiming` is `Before`, `After`, or `InsteadOf`. `SQLiteTriggerEvent` is `Insert`, `Update`, or `Delete`. `InsteadOf` only works on views. SQLite runs every trigger once per row, so the body can use `NEW` and `OLD` to reference the changed row.
+`SQLiteTriggerTiming` is `Before`, `After` or `InsteadOf`. `SQLiteTriggerEvent` is `Insert`, `Update` or `Delete`. `InsteadOf` only works on views. SQLite runs every trigger once per row, so the body can use `NEW` and `OLD` to reference the changed row.
 
-There is also a typed overload that builds the body from LINQ instead of a SQL string. Use the builder's `Old` and `New` rows, and add `Update`, `Insert`, or `Delete` statements. Columns and the `When` guard are checked at compile time.
+There is also a typed overload that builds the body from LINQ instead of a SQL string. Use the builder's `Old` and `New` rows and add `Update`, `Insert` or `Delete` statements. Columns and the `When` guard are checked at compile time.
 
 ```csharp
 await db.Schema.CreateTriggerAsync<Book>("trg_book_history", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
@@ -402,7 +402,7 @@ await db.Schema.CreateTriggerAsync<Book>("trg_book_history", SQLiteTriggerTiming
         .Set(h => h.NewPrice, _ => t.New.Price)));
 ```
 
-`CreateTrigger` creates the trigger right away and is not tracked by the model. To make a trigger part of the model, declare it with `Trigger(...)` in `OnModelCreating` (see [Defining the model](#defining-the-model)). Model triggers are created by `CreateTable`, and a `TableChanged` migration creates them when missing and recreates them when their body changes. Inside `OnModelCreating` reach the target table through the database's own `Table<TTarget>()`.
+`CreateTrigger` creates the trigger right away and is not tracked by the model. To make a trigger part of the model, declare it with `Trigger(...)` in `OnModelCreating` (see [Defining the model](#defining-the-model)). Model triggers are created by `CreateTable` and a `TableChanged` migration creates them when missing and recreates them when their body changes. Inside `OnModelCreating` reach the target table through the database's own `Table<TTarget>()`.
 
 ## Customizing schema generation
 

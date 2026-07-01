@@ -23,7 +23,7 @@ The full set of built-in accessors:
 |---|---|---|
 | `ForeignKeys` | `foreign_keys` | True or false. Off by default in SQLite. |
 | `JournalMode` | `journal_mode` | `DELETE`, `WAL`, `MEMORY`, `TRUNCATE`, `PERSIST`, `OFF`. |
-| `CacheSize` | `cache_size` | Number of pages, or kibibytes if you pass a negative number. |
+| `CacheSize` | `cache_size` | Number of pages or kibibytes if you pass a negative number. |
 | `SynchronousMode` | `synchronous` | An `SQLiteSynchronousMode` enum: `Off`, `Normal`, `Full`, `Extra`. |
 | `UserVersion` | `user_version` | An integer in the file header. The migration runner uses it to track the schema version, so do not set it by hand when you use migrations. |
 | `PageSize` | `page_size` | Read only after the file has been written. |
@@ -34,7 +34,7 @@ The full set of built-in accessors:
 | `BusyTimeout` | `busy_timeout` | Milliseconds the busy handler waits before returning `SQLITE_BUSY`. |
 | `MmapSize` | `mmap_size` | Bytes SQLite will memory-map. `0` disables. |
 | `AutoVacuum` | `auto_vacuum` | `SQLiteAutoVacuumMode` enum: `None`, `Full`, `Incremental`. Only takes effect before the first write. |
-| `IncrementalVacuum(pages)` | `incremental_vacuum` | Reclaims free pages. Pass `null` for all, or a count. |
+| `IncrementalVacuum(pages)` | `incremental_vacuum` | Reclaims free pages. Pass `null` for all or a count. |
 | `WalAutoCheckpoint` | `wal_autocheckpoint` | Pages-in-WAL threshold for auto checkpoint. |
 | `WalCheckpoint(mode)` | `wal_checkpoint` | Runs a checkpoint with the given `SQLiteWalCheckpointMode`. Returns `true` when fully checkpointed. |
 | `IntegrityCheck()` | `integrity_check` | Returns a list. `["ok"]` on a healthy database. |
@@ -80,7 +80,7 @@ List<string> tables = await db.Pragmas.Master
 
 ## Pragma table-valued functions
 
-`db.Pragmas.TableInfo(name)`, `IndexList(name)`, and `ForeignKeyList(name)` wrap the SQLite pragma TVFs and return `IQueryable<T>`. The argument can be a column from an outer query, in which case the framework emits a single correlated SQL statement.
+`db.Pragmas.TableInfo(name)`, `IndexList(name)` and `ForeignKeyList(name)` wrap the SQLite pragma TVFs and return `IQueryable<T>`. The argument can be a column from an outer query, in which case the framework emits a single correlated SQL statement.
 
 ```csharp
 var rows = await (
@@ -115,7 +115,7 @@ using SQLiteDatabase db = new(options);
 ((AppPragmas)db.Pragmas).BusyTimeoutMs = 5000;
 ```
 
-The built-in accessors still work. `ForeignKeys`, `JournalMode`, and the others come along for free.
+The built-in accessors still work. `ForeignKeys`, `JournalMode` and the others come along for free.
 
 ## Notes
 

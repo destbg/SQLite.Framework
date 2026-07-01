@@ -18,7 +18,7 @@ public sealed class SQLiteUpsertConflictTarget<T>
     internal Expression<Func<T, bool>>? WherePredicate { get; private set; }
 
     internal SQLiteUpsertAction<T> ResolvedAction => action
-        ?? throw new InvalidOperationException("Upsert configuration is missing a DoNothing(), DoUpdateAll(), or DoUpdate(...) call.");
+        ?? throw new InvalidOperationException("Upsert configuration is missing a DoNothing(), DoUpdateAll() or DoUpdate(...) call.");
 
     /// <summary>
     /// Targets a partial unique index by adding a <c>WHERE</c> clause to the conflict target, as in

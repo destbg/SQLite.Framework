@@ -54,9 +54,9 @@ public class SQLiteCommand
     /// </summary>
     /// <remarks>
     /// Read operations do not acquire the exclusive connection lock. SQLite's own serialized-mode mutex
-    /// ensures statement safety, and WAL mode provides snapshot isolation from concurrent writers.
+    /// ensures statement safety and WAL mode provides snapshot isolation from concurrent writers.
     /// Interceptors fire once per call: <c>OnExecuting</c> before the statement is prepared,
-    /// <c>OnExecuted</c> after the reader is ready (before any rows are read), and <c>OnFailed</c>
+    /// <c>OnExecuted</c> after the reader is ready (before any rows are read) and <c>OnFailed</c>
     /// if preparation throws.
     /// </remarks>
     public virtual SQLiteDataReader ExecuteReader()

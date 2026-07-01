@@ -220,7 +220,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
 // The filter is applied automatically.
 List<Book> books = await db.Table<Book>().ToListAsync();
 
-// Composes with the user's Where, ExecuteUpdate, and ExecuteDelete.
+// Composes with the user's Where, ExecuteUpdate and ExecuteDelete.
 await db.Table<Book>().Where(b => b.Price > 10).ToListAsync();
 await db.Table<Book>().ExecuteDeleteAsync();
 ```
@@ -242,4 +242,4 @@ Multiple filters per type are AND-combined. To opt out of every registered filte
 List<Book> all = await db.Table<Book>().IgnoreQueryFilters().ToListAsync();
 ```
 
-The opt-out covers the whole query, including joined tables. Filters compose with `Join`, `GroupJoin`, `Count`, `Any`, `ExecuteUpdate`, and `ExecuteDelete`.
+The opt-out covers the whole query, including joined tables. Filters compose with `Join`, `GroupJoin`, `Count`, `Any`, `ExecuteUpdate` and `ExecuteDelete`.

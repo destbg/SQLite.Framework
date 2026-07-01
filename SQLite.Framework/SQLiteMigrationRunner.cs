@@ -7,7 +7,7 @@ namespace SQLite.Framework;
 /// in <c>PRAGMA user_version</c>, so already-applied versions are skipped on the next run.
 /// </summary>
 /// <remarks>
-/// Migrations always move toward the current model. There is no path back to an older version, and
+/// Migrations always move toward the current model. There is no path back to an older version and
 /// no way to stop at a version below the highest one. Use the methods on <see cref="SQLiteSchema" />
 /// directly if you need that. A whole run happens in one transaction, so a failure rolls the database
 /// back to the version it started at and a re-run retries from there.
@@ -47,7 +47,7 @@ public sealed class SQLiteMigrationRunner
     /// <summary>
     /// Registers the migration <typeparamref name="T" /> under its
     /// <see cref="ISQLiteMigration.Version" />. The version number is read without creating an
-    /// instance, and the migration is constructed only when its version is applied, so a class that
+    /// instance and the migration is constructed only when its version is applied, so a class that
     /// has already run is never loaded into memory. The same version rules as
     /// <see cref="Version" /> apply.
     /// </summary>
@@ -539,7 +539,7 @@ public sealed class SQLiteMigrationRunner
         (string name, _, _) = required[0];
         throw new InvalidOperationException(
             $"Cannot migrate table '{table}'. Column '{name}' is new and NOT NULL with no default, but the table has rows. " +
-            "Give it a default in OnModelCreating, set a value with TableChanged(s => s.Set(...)), or make it nullable.");
+            "Give it a default in OnModelCreating, set a value with TableChanged(s => s.Set(...)) or make it nullable.");
     }
 
     private int ReconcileIndexes(TableMapping mapping)

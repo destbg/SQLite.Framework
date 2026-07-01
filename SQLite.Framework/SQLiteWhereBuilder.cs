@@ -3,7 +3,7 @@ namespace SQLite.Framework;
 /// <summary>
 /// Builds a single <c>WHERE</c> predicate by composing smaller predicates with <c>AND</c>
 /// and <c>OR</c>. Use it through <see cref="QueryableExtensions.WhereBuilder{T}" /> when you
-/// want a mix of <c>AND</c> and <c>OR</c>, or when you need to add predicates in a loop.
+/// want a mix of <c>AND</c> and <c>OR</c> or when you need to add predicates in a loop.
 /// </summary>
 /// <remarks>
 /// Calls compose left to right, with no operator precedence:

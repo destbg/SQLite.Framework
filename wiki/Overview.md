@@ -4,7 +4,7 @@ A short tour of `SQLite.Framework` on one page. Each section links to a deeper g
 
 ## What it is
 
-A small ORM that lets you use LINQ on a SQLite database. If you have used Entity Framework Core before, most things will feel familiar. The main difference is that this library has no automatic change tracker and no navigation properties. The heavier features have lightweight stand-ins. Write hooks cover before-save logic, and a versioned migration runner handles schema versioning.
+A small ORM that lets you use LINQ on a SQLite database. If you have used Entity Framework Core before, most things will feel familiar. The main difference is that this library has no automatic change tracker and no navigation properties. The heavier features have lightweight stand-ins. Write hooks cover before-save logic and a versioned migration runner handles schema versioning.
 
 `db.Table<T>()` returns a `SQLiteTable<T>`. That class implements `IQueryable<T>`, so any LINQ method works on it.
 
@@ -78,7 +78,7 @@ await services.GetRequiredService<AppDatabase>().InitializeAsync();
 
 ## Defining models
 
-A model is a plain class. The attributes come from `System.ComponentModel.DataAnnotations`, `System.ComponentModel.DataAnnotations.Schema`, and `SQLite.Framework.Attributes`.
+A model is a plain class. The attributes come from `System.ComponentModel.DataAnnotations`, `System.ComponentModel.DataAnnotations.Schema` and `SQLite.Framework.Attributes`.
 
 ```csharp
 [Table("Project")]
@@ -102,7 +102,7 @@ The most common attributes:
 
 - `[Key]` plus `[AutoIncrement]`. SQLite assigns the id and writes it back to the entity after `Add`.
 - `[Required]`. The column is `NOT NULL`. Nullable types like `string?` or `int?` map to nullable columns.
-- `[Indexed]`. Creates an index. You can make it unique, give it a name, or make it composite by using the same name on more than one column.
+- `[Indexed]`. Creates an index. You can make it unique, give it a name or make it composite by using the same name on more than one column.
 - `[Column("...")]` and `[Table("...")]`. Rename a column or a table.
 - `[WithoutRowId]`. A class-level attribute. The primary key must not be `[AutoIncrement]`.
 - `[StrictTable]`. A class-level attribute. SQLite enforces declared column types on every write. Requires SQLite 3.37.0 or newer.
@@ -126,7 +126,7 @@ public class Book
 }
 ```
 
-Set `OnDelete`, `OnUpdate`, or `Deferred` for richer behavior. `SetNull` requires the column to be nullable. Pass a column name to target a non-primary-key column: `[ReferencesTable(typeof(Country), nameof(Country.Code))]`.
+Set `OnDelete`, `OnUpdate` or `Deferred` for richer behavior. `SetNull` requires the column to be nullable. Pass a column name to target a non-primary-key column: `[ReferencesTable(typeof(Country), nameof(Country.Code))]`.
 
 For composite keys, declare the foreign key in `OnModelCreating`:
 
@@ -254,7 +254,7 @@ For a left join, add `into` and `DefaultIfEmpty()`. For a cross join, chain `fro
 
 ## Subqueries
 
-Any `IQueryable` can be used inside a `Where` clause as a subquery. `Contains` produces `IN (SELECT ...)`. Aggregates on a subquery (such as `Max`, `Min`, or `Count`) become a scalar value. An inner query can read columns from the outer row, which is a correlated subquery. See [Subqueries](Subqueries).
+Any `IQueryable` can be used inside a `Where` clause as a subquery. `Contains` produces `IN (SELECT ...)`. Aggregates on a subquery (such as `Max`, `Min` or `Count`) become a scalar value. An inner query can read columns from the outer row, which is a correlated subquery. See [Subqueries](Subqueries).
 
 ## Grouping
 
@@ -269,16 +269,16 @@ var stats = await (
 ).ToListAsync();
 ```
 
-If you call `db.Table<T>().GroupBy(...).ToListAsync()`, the rows come back without a SQL `GROUP BY` and the framework builds the groups in memory. The source generator handles common key shapes such as a single property, an anonymous type, or simple arithmetic. See [Grouping and Aggregates](Grouping%20and%20Aggregates).
+If you call `db.Table<T>().GroupBy(...).ToListAsync()`, the rows come back without a SQL `GROUP BY` and the framework builds the groups in memory. The source generator handles common key shapes such as a single property, an anonymous type or simple arithmetic. See [Grouping and Aggregates](Grouping%20and%20Aggregates).
 
 ## Expressions translated to SQL
 
 Inside `Where` and `Select` you can use:
 
 - Arithmetic: `+`, `-`, `*`, `/`, `%`.
-- Strings: `Length`, `ToUpper`, `ToLower`, `Trim`, `Contains`, `StartsWith`, `EndsWith`, `Replace`, `Substring`, `IndexOf`, `+` and `Concat`, `string.Join`, `string.IsNullOrEmpty`, and `string.IsNullOrWhiteSpace`. `StringComparison.OrdinalIgnoreCase` works on `Contains`, `StartsWith`, and `EndsWith`.
+- Strings: `Length`, `ToUpper`, `ToLower`, `Trim`, `Contains`, `StartsWith`, `EndsWith`, `Replace`, `Substring`, `IndexOf`, `+` and `Concat`, `string.Join`, `string.IsNullOrEmpty` and `string.IsNullOrWhiteSpace`. `StringComparison.OrdinalIgnoreCase` works on `Contains`, `StartsWith` and `EndsWith`.
 - Math: `Math.Abs`, `Round`, `Floor`, `Ceiling`, `Pow`, `Sqrt`, `Exp`, `Log`, `Log10`, `Sign`, `Max`, `Min`.
-- `DateTime`, `DateOnly`, `TimeOnly`, `DateTimeOffset`, and `TimeSpan` parts (`Year`, `Month`, `Day`, `Hour`, `DayOfWeek`, and so on) plus arithmetic methods (`AddDays`, `Subtract`, and friends).
+- `DateTime`, `DateOnly`, `TimeOnly`, `DateTimeOffset` and `TimeSpan` parts (`Year`, `Month`, `Day`, `Hour`, `DayOfWeek` and so on) plus arithmetic methods (`AddDays`, `Subtract` and friends).
 - The `??` operator turns into `COALESCE`.
 - Captured local variables become parameters automatically.
 
@@ -314,7 +314,7 @@ int affected = await db.ExecuteAsync("DELETE FROM Project WHERE Id = @id", new {
 int count = (await db.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM Project"))!;
 ```
 
-The direct methods are `Query`, `QueryFirst`, `QueryFirstOrDefault`, `QuerySingle`, `QuerySingleOrDefault`, `ExecuteScalar`, and `Execute`.
+The direct methods are `Query`, `QueryFirst`, `QueryFirstOrDefault`, `QuerySingle`, `QuerySingleOrDefault`, `ExecuteScalar` and `Execute`.
 
 You can also see the SQL that LINQ would produce:
 
@@ -343,7 +343,7 @@ Configure them on the options builder:
 
 `AddQueryFilter<T>` runs on every query for matching entities, plus on `ExecuteUpdate` and `ExecuteDelete`. The registration type can be an interface, so you cover many entity types in one line. To skip filters in a single query, call `.IgnoreQueryFilters()`.
 
-`OnAction` is the cross-entity hook that works well with AOT. Your hook returns the action to actually run, like `Add`, `Update`, `Remove`, `AddOrUpdate`, or `Skip`.
+`OnAction` is the cross-entity hook that works well with AOT. Your hook returns the action to actually run, like `Add`, `Update`, `Remove`, `AddOrUpdate` or `Skip`.
 
 ## Multi-threading
 
@@ -367,9 +367,9 @@ The generator runs once per project. Each project that builds queries needs its 
 - `decimal` loses precision past about 15 digits because it is stored as `double`. For exact arithmetic, store the value as a string.
 - `DateTimeOffset` round trips drop the offset.
 - A `SQLiteTransaction` is bound to the async flow that opened it. Do not pass it across threads.
-- Inside an outer transaction, pass `runInTransaction: false` to `AddRangeAsync`, `UpdateRangeAsync`, and `RemoveRangeAsync` to avoid a redundant savepoint.
-- `FromSql<T>` wraps your SQL in a subquery and selects every mapped column. If your SQL is missing a column, it throws. Either select all columns, project into a smaller type, or use `Query<T>`, which does not wrap.
+- Inside an outer transaction, pass `runInTransaction: false` to `AddRangeAsync`, `UpdateRangeAsync` and `RemoveRangeAsync` to avoid a redundant savepoint.
+- `FromSql<T>` wraps your SQL in a subquery and selects every mapped column. If your SQL is missing a column, it throws. Either select all columns, project into a smaller type or use `Query<T>`, which does not wrap.
 
 ## Working with an AI agent
 
-If you write code with an AI coding agent, give it this Overview page as a reference. See [AI Assistance](AI%20Assistance) for how to wire it into Claude Code, Cursor, Copilot, and other agents.
+If you write code with an AI coding agent, give it this Overview page as a reference. See [AI Assistance](AI%20Assistance) for how to wire it into Claude Code, Cursor, Copilot and other agents.

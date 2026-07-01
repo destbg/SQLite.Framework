@@ -4,7 +4,7 @@ namespace SQLite.Framework.Tests.Helpers;
 
 /// <summary>
 /// A test database that counts how many callers hold the connection lock at the same time.
-/// After the test, assert <see cref="MaxConcurrentLockHolders"/> equals 1 to prove write serialization,
+/// After the test, assert <see cref="MaxConcurrentLockHolders"/> equals 1 to prove write serialization
 /// or assert <see cref="MaxConcurrentReadHolders"/> is greater than 1 to prove reads can run in parallel.
 /// </summary>
 internal class ConcurrencyTrackingDatabase : TestDatabase

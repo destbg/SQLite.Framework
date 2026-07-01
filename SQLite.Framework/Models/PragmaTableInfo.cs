@@ -33,14 +33,14 @@ public class PragmaTableInfo
     public required bool IsNotNull { get; set; }
 
     /// <summary>
-    /// The default value expression for the column, or <see langword="null" /> when none was
+    /// The default value expression for the column or <see langword="null" /> when none was
     /// declared.
     /// </summary>
     [Column("dflt_value")]
     public string? DefaultValue { get; set; }
 
     /// <summary>
-    /// The position of the column in the primary key (starting at <c>1</c>), or <c>0</c>
+    /// The position of the column in the primary key (starting at <c>1</c>) or <c>0</c>
     /// when the column is not part of the primary key.
     /// </summary>
     [Column("pk")]

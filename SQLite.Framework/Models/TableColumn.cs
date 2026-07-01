@@ -121,15 +121,15 @@ public class TableColumn
     public ForeignKeyAttribute? ForeignKeyAttribute { get; }
 
     /// <summary>
-    /// The resolved foreign key for this column, or <see langword="null" /> when the column does
+    /// The resolved foreign key for this column or <see langword="null" /> when the column does
     /// not carry a single-column foreign key. Composite keys live on <see cref="TableMapping" />.
     /// </summary>
     public ForeignKeyInfo? ForeignKey { get; internal set; }
 
     /// <summary>
-    /// The raw SQL fragment used in this column's <c>DEFAULT</c> clause, or <see langword="null" />
+    /// The raw SQL fragment used in this column's <c>DEFAULT</c> clause or <see langword="null" />
     /// when no default is configured. Set from a <see cref="DefaultValueAttribute" /> on the
-    /// property, or by the fluent builder. When set, the framework also omits this column from
+    /// property or by the fluent builder. When set, the framework also omits this column from
     /// <c>Add</c> inserts whenever the CLR value equals <c>default(T)</c>, so SQLite applies the
     /// configured default instead.
     /// </summary>

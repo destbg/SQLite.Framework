@@ -4,7 +4,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// Translates a lambda over an entity into a bare SQL fragment that uses unqualified column names
 /// and inlined literals instead of bound parameters. Used by the DDL-style spots that cannot bind
 /// parameters and must match each other byte for byte: CHECK constraints, computed columns,
-/// partial index filters, and the WHERE and SET clauses on an UPSERT DO UPDATE.
+/// partial index filters and the WHERE and SET clauses on an UPSERT DO UPDATE.
 /// </summary>
 internal static class BareSqlTranslator
 {

@@ -325,7 +325,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     }
 
     /// <summary>
-    /// Wraps this table so the next entity write (<c>Add</c>, <c>Update</c>, or <c>Remove</c>)
+    /// Wraps this table so the next entity write (<c>Add</c>, <c>Update</c> or <c>Remove</c>)
     /// emits a SQLite <c>RETURNING *</c> clause and hands the written rows back to the caller.
     /// Useful when <c>INSERT</c>/<c>UPDATE</c>/<c>DELETE</c> triggers populate columns and you need
     /// to read the final row values atomically with the write.
@@ -365,9 +365,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Wraps this table so the next write also writes the columns declared in <paramref name="build" />.
     /// This covers <c>Add</c>, <c>AddRange</c>, <c>Update</c>, <c>UpdateRange</c>, <c>AddOrUpdate</c>,
-    /// <c>Upsert</c> (the inserted row), and the same writes through <see cref="Returning()" />. Use it
+    /// <c>Upsert</c> (the inserted row) and the same writes through <see cref="Returning()" />. Use it
     /// to fill a column that has no CLR property, such as a shadow column declared with
-    /// <see cref="SQLiteEntityTypeBuilder{T}.Column" />, or to override a mapped column with a database
+    /// <see cref="SQLiteEntityTypeBuilder{T}.Column" /> or to override a mapped column with a database
     /// expression. The values are inlined into the generated SQL.
     /// </summary>
     public virtual SQLiteTable<T> WithColumns(Action<SQLiteWriteColumnsBuilder<T>> build)
@@ -699,7 +699,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     }
 
     /// <summary>
-    /// Returns the columns to update, the primary-key columns to match by, and the
+    /// Returns the columns to update, the primary-key columns to match by and the
     /// <c>UPDATE</c> SQL used by <see cref="Update" /> and <see cref="UpdateRange" />. Override
     /// to add columns to the <c>SET</c> clause (for example, an <c>UpdatedAt</c> shadow column)
     /// or to change the WHERE shape.
@@ -779,7 +779,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// Returns the columns to bind and the <c>INSERT OR REPLACE INTO</c> SQL used by
     /// <see cref="AddOrUpdate" /> and <see cref="AddOrUpdateRange" />. The auto-increment primary
     /// key (when present) is included in the column list so the caller can either supply an
-    /// explicit value (replacing the matching row, or inserting at that key) or leave it at the
+    /// explicit value (replacing the matching row or inserting at that key) or leave it at the
     /// type default to let SQLite assign one. Override to change the upsert SQL, for example to
     /// use SQLite's <c>ON CONFLICT</c> syntax instead.
     /// </summary>
@@ -853,7 +853,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     }
 
     /// <summary>
-    /// Loops over <paramref name="collection" />, runs the per-row <paramref name="hooks" />, and
+    /// Loops over <paramref name="collection" />, runs the per-row <paramref name="hooks" /> and
     /// invokes <paramref name="execute" /> for every item that the hooks did not cancel. Wraps the
     /// loop in a transaction when <paramref name="runInTransaction" /> is set.
     /// </summary>
@@ -908,7 +908,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Runs the default work for the given <paramref name="action" />. <see cref="SQLiteAction.Skip" />
     /// returns <c>0</c> without touching the database. The other values map to the standard
-    /// <c>INSERT</c>, <c>UPDATE</c>, <c>DELETE</c>, or <c>INSERT OR REPLACE</c> paths.
+    /// <c>INSERT</c>, <c>UPDATE</c>, <c>DELETE</c> or <c>INSERT OR REPLACE</c> paths.
     /// </summary>
     protected virtual int DispatchAction(SQLiteAction action, T item)
     {
@@ -1149,7 +1149,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             throw new NotSupportedException(
                 "A WithColumns value expression reads a column of the row, which an Add cannot do " +
                 "because the row does not exist yet. Use a constant or a function such as " +
-                "'_ => SQLiteFunctions.UnixEpoch()', or set the value on an Update instead.");
+                "'_ => SQLiteFunctions.UnixEpoch()' or set the value on an Update instead.");
         }
     }
 

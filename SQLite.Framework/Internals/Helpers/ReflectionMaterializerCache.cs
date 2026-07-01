@@ -5,7 +5,7 @@ namespace SQLite.Framework.Internals.Helpers;
 /// <summary>
 /// Holds per-type reflection data used by the runtime fallback in <see cref="BuildQueryObject" />.
 /// Looking up <see cref="PropertyInfo" />, <see cref="Nullable.GetUnderlyingType" />,
-/// <see cref="TypeHelpers.IsSimple" />, and so on, only once per type and reusing the result for
+/// <see cref="TypeHelpers.IsSimple" /> and so on, only once per type and reusing the result for
 /// every row is much faster than calling <see cref="Type.GetProperties()" /> on each row.
 /// </summary>
 internal static class ReflectionMaterializerCache

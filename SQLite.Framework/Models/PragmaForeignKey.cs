@@ -41,7 +41,7 @@ public class PragmaForeignKey
 
     /// <summary>
     /// The action to take when the referenced row is updated. One of <c>NO ACTION</c>,
-    /// <c>RESTRICT</c>, <c>SET NULL</c>, <c>SET DEFAULT</c>, or <c>CASCADE</c>.
+    /// <c>RESTRICT</c>, <c>SET NULL</c>, <c>SET DEFAULT</c> or <c>CASCADE</c>.
     /// </summary>
     [Column("on_update")]
     public required string OnUpdate { get; set; }

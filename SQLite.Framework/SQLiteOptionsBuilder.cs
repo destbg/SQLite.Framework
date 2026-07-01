@@ -48,7 +48,7 @@ public sealed class SQLiteOptionsBuilder
     /// The minimum SQLite version the application is willing to commit to. Defaults to
     /// <see cref="SQLiteMinimumVersion.Unspecified" />, which disables enforcement. When set to
     /// a non-default value, <see cref="SQLiteDatabase" /> verifies that the loaded SQLite is at
-    /// or above this floor when the connection is first opened, and the framework rejects SQL
+    /// or above this floor when the connection is first opened and the framework rejects SQL
     /// translations that need a newer SQLite version than this floor. Set this through
     /// <see cref="UseMinimumSqliteVersion" />. Available on the main <c>SQLite.Framework</c>
     /// package (where the loaded SQLite comes from the OS and the version varies by device) and
@@ -139,7 +139,7 @@ public sealed class SQLiteOptionsBuilder
     /// Keyed by <see cref="MemberInfo" />: a <see cref="MethodInfo" /> registers per-method,
     /// a <see cref="Type" /> registers a fallback for every method/property declared on that
     /// type. The default constructor pre-registers the built-in handlers for <c>string</c>,
-    /// <c>Math</c>, the date/time types, the SQLite helper classes, and so on. User code can
+    /// <c>Math</c>, the date/time types, the SQLite helper classes and so on. User code can
     /// replace any entry to override the framework's translation.
     /// </summary>
     public Dictionary<MemberInfo, SQLiteMemberTranslator> MemberTranslators { get; } = [];
@@ -212,7 +212,7 @@ public sealed class SQLiteOptionsBuilder
     public bool BlockReadsDuringTransaction { get; set; }
 
     /// <summary>
-    /// When set, <c>string.Contains</c>, <c>string.StartsWith</c>, and <c>string.EndsWith</c>
+    /// When set, <c>string.Contains</c>, <c>string.StartsWith</c> and <c>string.EndsWith</c>
     /// translate to case-sensitive SQL instead of the case-insensitive <c>LIKE</c>.
     /// Defaults to <see langword="false" />.
     /// </summary>
@@ -280,7 +280,7 @@ public sealed class SQLiteOptionsBuilder
     public bool SensitiveParameterLoggingEnabled { get; set; }
 
     /// <summary>
-    /// Registers a predicate the framework injects into every query against <typeparamref name="T" />,
+    /// Registers a predicate the framework injects into every query against <typeparamref name="T" />
     /// or every query against any entity that implements <typeparamref name="T" /> when it is an
     /// interface. The framework rewrites the filter's parameter from <typeparamref name="T" /> to
     /// the concrete entity type when it injects the filter, so the same registration covers every
@@ -352,7 +352,7 @@ public sealed class SQLiteOptionsBuilder
     /// <summary>
     /// Declares the minimum SQLite version the application is willing to commit to. When the
     /// floor is not <see cref="SQLiteMinimumVersion.Unspecified" />, the framework verifies the
-    /// loaded SQLite is at or above the floor when the database is first opened, and rejects
+    /// loaded SQLite is at or above the floor when the database is first opened and rejects
     /// SQL features that need a newer SQLite version. Calls that need a newer version throw
     /// <see cref="NotSupportedException" /> instead of falling through to SQLite, so the
     /// failure points at the line in the user's code rather than at an opaque
@@ -709,7 +709,7 @@ public sealed class SQLiteOptionsBuilder
 
     /// <summary>
     /// Makes reads from a different async context wait until the active transaction commits or
-    /// rolls back. Reads from the transaction's own context, or from a context that holds the
+    /// rolls back. Reads from the transaction's own context or from a context that holds the
     /// connection lock, are not affected.
     /// </summary>
     public SQLiteOptionsBuilder UseBlockReadsDuringTransaction(bool enabled = true)
@@ -719,7 +719,7 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
-    /// Makes <c>string.Contains</c>, <c>string.StartsWith</c>, and <c>string.EndsWith</c> translate
+    /// Makes <c>string.Contains</c>, <c>string.StartsWith</c> and <c>string.EndsWith</c> translate
     /// to case-sensitive SQL (<c>instr</c> / <c>substr</c>) instead of the default case-insensitive
     /// <c>LIKE</c>, matching .NET in-memory LINQ and the EF Core SQLite provider. The
     /// <c>StringComparison.OrdinalIgnoreCase</c> overloads stay case-insensitive.

@@ -4,21 +4,21 @@ namespace SQLite.Framework.Models;
 
 /// <summary>
 /// One row of SQLite's built-in <c>sqlite_master</c> (also known as <c>sqlite_schema</c>)
-/// table. Each row describes a table, index, view, or trigger in the database. Reachable
+/// table. Each row describes a table, index, view or trigger in the database. Reachable
 /// as a queryable through <see cref="SQLitePragmas.Master" />.
 /// </summary>
 [Table("sqlite_master")]
 public class SQLiteMaster
 {
     /// <summary>
-    /// The kind of object the row describes: <c>table</c>, <c>index</c>, <c>view</c>, or
+    /// The kind of object the row describes: <c>table</c>, <c>index</c>, <c>view</c> or
     /// <c>trigger</c>.
     /// </summary>
     [Column("type")]
     public required string Type { get; set; }
 
     /// <summary>
-    /// The name of the object (table, index, view, or trigger).
+    /// The name of the object (table, index, view or trigger).
     /// </summary>
     [Column("name")]
     public required string Name { get; set; }
@@ -31,7 +31,7 @@ public class SQLiteMaster
     public required string TableName { get; set; }
 
     /// <summary>
-    /// The root B-tree page for the object, or <c>0</c> for views, triggers, and virtual
+    /// The root B-tree page for the object or <c>0</c> for views, triggers and virtual
     /// tables.
     /// </summary>
     [Column("rootpage")]

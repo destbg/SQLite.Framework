@@ -4,9 +4,9 @@ namespace SQLite.Framework.Enums;
 /// Named SQLite version buckets. Pass one to
 /// <see cref="SQLiteOptionsBuilder.UseMinimumSqliteVersion" /> to declare what SQLite version
 /// the application is willing to commit to. The framework verifies the loaded SQLite meets the
-/// minimum at <see cref="SQLiteDatabase" /> open time, and rejects calls to methods that need
+/// minimum at <see cref="SQLiteDatabase" /> open time and rejects calls to methods that need
 /// a newer version than the configured floor. Each entry lists the SQLite version the floor
-/// maps to, the lowest iOS and Android versions whose system SQLite satisfies that floor, and
+/// maps to, the lowest iOS and Android versions whose system SQLite satisfies that floor and
 /// the notable SQL features that become available at that floor.
 /// </summary>
 public enum SQLiteMinimumVersion
@@ -85,7 +85,7 @@ public enum SQLiteMinimumVersion
 
     /// <summary>
     /// SQLite 3.9.0 (2015-10-14). Adds expression indexes, FTS5 as a stable extension, the
-    /// JSON1 extension built in by default, and the <c>json_each</c> and <c>json_tree</c>
+    /// JSON1 extension built in by default and the <c>json_each</c> and <c>json_tree</c>
     /// table-valued functions. Supported on iOS 10 and later (iOS 9 still ships SQLite 3.8.x)
     /// and Android 7 (Nougat, API 24) and later.
     /// </summary>
@@ -172,7 +172,7 @@ public enum SQLiteMinimumVersion
 
     /// <summary>
     /// SQLite 3.24.0 (2018-06-04). Adds <c>UPSERT</c> (<c>ON CONFLICT DO UPDATE</c>), window
-    /// functions, R-Tree auxiliary columns, and <c>PRAGMA reverse_unordered_selects</c>.
+    /// functions, R-Tree auxiliary columns and <c>PRAGMA reverse_unordered_selects</c>.
     /// Supported on iOS 12 (which ships SQLite 3.24.0) and Android 11 (API 30) and later
     /// (Android 9 and 10 still ship SQLite 3.22.x).
     /// </summary>
@@ -240,7 +240,7 @@ public enum SQLiteMinimumVersion
 
     /// <summary>
     /// SQLite 3.35.0 (2021-03-12). Adds built-in math functions (<c>SIN</c>, <c>COS</c>,
-    /// <c>SQRT</c>, <c>LN</c>, etc.), the <c>RETURNING</c> clause, <c>ALTER TABLE DROP COLUMN</c>,
+    /// <c>SQRT</c>, <c>LN</c>, etc.), the <c>RETURNING</c> clause, <c>ALTER TABLE DROP COLUMN</c>
     /// and <c>MATERIALIZED</c> / <c>NOT MATERIALIZED</c> CTE hints. Supported on iOS 15 (which
     /// ships SQLite 3.36.0) and Android 14 (API 34) and later.
     /// </summary>
@@ -260,7 +260,7 @@ public enum SQLiteMinimumVersion
 
     /// <summary>
     /// SQLite 3.38.0 (2022-02-22). Adds the <c>->></c> and <c>-></c> JSON operators, the
-    /// <c>format()</c> SQL function (alias of <c>printf</c>), the <c>unixepoch()</c> function,
+    /// <c>format()</c> SQL function (alias of <c>printf</c>), the <c>unixepoch()</c> function
     /// and makes the JSON1 extension built in by default. Supported on iOS 16 (which ships
     /// SQLite 3.39.x) and Android 14 (API 34) and later.
     /// </summary>

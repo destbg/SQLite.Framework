@@ -46,13 +46,13 @@ internal static class RTreeMappingReader
             {
                 throw new InvalidOperationException(
                     $"R-Tree entity '{type.Name}' has property '{property.Name}' with no R-Tree role. " +
-                    "Mark it with [Key], [RTreeMin], [RTreeMax], [RTreeAuxiliary], or [NotMapped].");
+                    "Mark it with [Key], [RTreeMin], [RTreeMax], [RTreeAuxiliary] or [NotMapped].");
             }
             if (marker > 1)
             {
                 throw new InvalidOperationException(
                     $"R-Tree entity '{type.Name}' has property '{property.Name}' with more than one role attribute. " +
-                    "[Key], [RTreeMin], [RTreeMax], and [RTreeAuxiliary] are mutually exclusive.");
+                    "[Key], [RTreeMin], [RTreeMax] and [RTreeAuxiliary] are mutually exclusive.");
             }
 
             if (isKey)
@@ -153,7 +153,7 @@ internal static class RTreeMappingReader
         if (type != typeof(float) && type != typeof(double) && type != typeof(int))
         {
             throw new InvalidOperationException(
-                $"R-Tree entity '{entityType.Name}' has property '{property.Name}' of type {property.PropertyType.Name} which is not a supported R-Tree coordinate type. Use float, double, or int.");
+                $"R-Tree entity '{entityType.Name}' has property '{property.Name}' of type {property.PropertyType.Name} which is not a supported R-Tree coordinate type. Use float, double or int.");
         }
     }
 }

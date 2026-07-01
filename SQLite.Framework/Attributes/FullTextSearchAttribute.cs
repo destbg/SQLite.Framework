@@ -3,7 +3,7 @@ namespace SQLite.Framework.Attributes;
 /// <summary>
 /// Marks a class as an FTS5 virtual table. The class becomes searchable through
 /// <c>db.Table&lt;T&gt;()</c> and supports <c>SQLiteFTS5Functions.Match</c>, <c>Rank</c>,
-/// <c>Snippet</c>, and <c>Highlight</c>.
+/// <c>Snippet</c> and <c>Highlight</c>.
 /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
 [UnsupportedOSPlatform("ios")]

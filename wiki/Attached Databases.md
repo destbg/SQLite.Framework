@@ -13,7 +13,7 @@ List<Book> rows = await db.QueryAsync<Book>(
 
 The first argument is the path to the SQLite file. The second is the name you give it on this connection. Use that name as the schema prefix in your SQL.
 
-The schema name has to be a plain identifier. Letters, digits, and underscores. The framework checks this and throws an `ArgumentException` if you pass something else.
+The schema name has to be a plain identifier. Letters, digits and underscores. The framework checks this and throws an `ArgumentException` if you pass something else.
 
 ## Typed queries against an attached file
 

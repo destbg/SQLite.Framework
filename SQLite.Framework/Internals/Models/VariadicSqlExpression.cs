@@ -3,7 +3,7 @@ namespace SQLite.Framework.Internals.Models;
 /// <summary>
 /// SQL expression with the shape <c>{before}{children[0]}{sep}{children[1]}{sep}...{after}</c>.
 /// Use it for function calls that take any number of arguments, like <c>string.Concat</c>,
-/// <c>IN</c> lists, and <c>COALESCE</c> chains.
+/// <c>IN</c> lists and <c>COALESCE</c> chains.
 /// </summary>
 internal sealed class VariadicSqlExpression : SQLiteExpression
 {

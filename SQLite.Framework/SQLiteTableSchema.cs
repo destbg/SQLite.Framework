@@ -6,7 +6,7 @@ namespace SQLite.Framework;
 /// is a thin wrapper over the matching generic method on <see cref="SQLiteSchema" />, scoped to
 /// <typeparamref name="T" /> so you do not repeat the type argument. Schema configuration (the
 /// table name, key, columns, indexes, checks, computed columns, foreign keys, defaults, STRICT,
-/// WITHOUT ROWID, and triggers) is declared in <see cref="SQLiteDatabase.OnModelCreating" />.
+/// WITHOUT ROWID and triggers) is declared in <see cref="SQLiteDatabase.OnModelCreating" />.
 /// </summary>
 public sealed class SQLiteTableSchema<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>
 {

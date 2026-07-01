@@ -35,7 +35,7 @@ If the primary key has `[AutoIncrement]`, SQLite assigns the value and writes it
 
 `Add` and `AddRange` always let SQLite assign the id when the primary key is `[AutoIncrement]`, even if you have already set a value on the property. The value you set is ignored and gets overwritten with the generated id. If you want to insert a row at a specific id, use `AddOrUpdate` and set the id on the entity before calling it.
 
-When a column has a database `DEFAULT` (set via `[DefaultValue]`, `.Default(...)`, or `AddColumn`), the framework omits that column from the INSERT when its CLR value equals `default(T)` so SQLite applies the default. See [Defining Models](Defining%20Models) and [Schema](Schema).
+When a column has a database `DEFAULT` (set via `[DefaultValue]`, `.Default(...)` or `AddColumn`), the framework omits that column from the INSERT when its CLR value equals `default(T)` so SQLite applies the default. See [Defining Models](Defining%20Models) and [Schema](Schema).
 
 ## Add Many
 
@@ -60,7 +60,7 @@ await db.Table<Book>().AddOrUpdateAsync(book);
 
 Uses `INSERT OR REPLACE`. If a row with the same primary key already exists it is replaced, otherwise a new row is inserted.
 
-When the primary key is `[AutoIncrement]`, the value you set on the object decides what happens. Leave it at its default (`0` for an `int` Id) and SQLite assigns a new id, which is then written back to the property. Set it to a non-default value and that id is used directly: an existing row with that id is replaced, or a new row is inserted at that id if none exists. The same applies to `AddOrUpdateRange`, which decides per entity in the list.
+When the primary key is `[AutoIncrement]`, the value you set on the object decides what happens. Leave it at its default (`0` for an `int` Id) and SQLite assigns a new id, which is then written back to the property. Set it to a non-default value and that id is used directly: an existing row with that id is replaced or a new row is inserted at that id if none exists. The same applies to `AddOrUpdateRange`, which decides per entity in the list.
 
 ## Add or Update Many
 
@@ -108,7 +108,7 @@ Uses SQLite's `UPDATE ... SET ... WHERE ...` syntax to update rows matching the 
 
 ## Writing extra columns
 
-`WithColumns` adds column writes to the next `Add` or `Update`. Use it for a column that has no CLR property, such as a shadow column declared with `.Column(...)` in `OnModelCreating`, or to override a mapped column with a database expression. Reference a column that has no CLR property through `SQLiteColumn.Of<T>(row, "Name")`.
+`WithColumns` adds column writes to the next `Add` or `Update`. Use it for a column that has no CLR property, such as a shadow column declared with `.Column(...)` in `OnModelCreating` or to override a mapped column with a database expression. Reference a column that has no CLR property through `SQLiteColumn.Of<T>(row, "Name")`.
 
 ```csharp
 await db.Table<Book>()
@@ -150,7 +150,7 @@ Uses SQLite's `DELETE FROM ... WHERE ...` syntax to delete rows matching the pre
 
 ## Returning the Written Row
 
-`Returning` wraps the table so the next `Add`, `Update`, `Remove`, or `Upsert` emits a `RETURNING` clause and hands the written row back. Requires SQLite 3.35 or later.
+`Returning` wraps the table so the next `Add`, `Update`, `Remove` or `Upsert` emits a `RETURNING` clause and hands the written row back. Requires SQLite 3.35 or later.
 
 ```csharp
 Book? added = await db.Table<Book>()
@@ -175,9 +175,9 @@ Book? merged = await db.Table<Book>()
     .UpsertAsync(book, c => c.OnConflict(b => b.Id).DoUpdateAll());
 ```
 
-`Add`, `Update`, `Remove`, and `Upsert` return `TResult?`. The result is `default` when no row matched or when an `OnAdd` / `OnUpdate` / `OnRemove` / `OnAddOrUpdate` hook returned `false`. For `Upsert` it is also `default` when the conflict resolves to no write (a `DO NOTHING`, or a `DO UPDATE ... WHERE` guard that fails).
+`Add`, `Update`, `Remove` and `Upsert` return `TResult?`. The result is `default` when no row matched or when an `OnAdd` / `OnUpdate` / `OnRemove` / `OnAddOrUpdate` hook returned `false`. For `Upsert` it is also `default` when the conflict resolves to no write (a `DO NOTHING` or a `DO UPDATE ... WHERE` guard that fails).
 
-`AddRange`, `UpdateRange`, `RemoveRange`, and `UpsertRange` return `List<TResult>` with one entry per written row. They run in a transaction by default.
+`AddRange`, `UpdateRange`, `RemoveRange` and `UpsertRange` return `List<TResult>` with one entry per written row. They run in a transaction by default.
 
 See [Returning the Affected Rows](Bulk%20Operations#returning-the-affected-rows) for bulk `RETURNING` against a `Where`-filtered source.
 
@@ -221,7 +221,7 @@ await db.Table<Book>().UpsertAsync(book, c => c.OnConflict(b => b.Id).DoUpdate(b
 await db.Table<Book>().UpsertAsync(book, c => c.OnConflict(b => new { b.AuthorId, b.Title }).DoUpdate(b => b.Price));
 ```
 
-When the unique index you want to target is a partial index (one created with a `WHERE` clause), add a matching `Where` after `OnConflict` so SQLite picks that index. The predicate must match the index's own `WHERE` clause, and is translated to SQL the same way a `Where` query clause is:
+When the unique index you want to target is a partial index (one created with a `WHERE` clause), add a matching `Where` after `OnConflict` so SQLite picks that index. The predicate must match the index's own `WHERE` clause and is translated to SQL the same way a `Where` query clause is:
 
 ```csharp
 // Targets a UNIQUE INDEX ... (BookTitle) WHERE BookAuthorId = 1
@@ -288,7 +288,7 @@ Two flavours per verb:
 - `OnAdd<T>(Action<T> hook)`. Always continues with the default INSERT.
 - `OnAdd<T>(Func<SQLiteDatabase, T, bool> hook)`. Return `false` to skip the default INSERT and any later hooks.
 
-The same shape works for `OnUpdate`, `OnRemove`, and `OnAddOrUpdate`. The `OnAddOrUpdate` hooks fire for both `AddOrUpdate` and `Upsert`. Hooks for the Range methods fire per row, so if a hook returns `false` for one row that row is skipped and the rest still run.
+The same shape works for `OnUpdate`, `OnRemove` and `OnAddOrUpdate`. The `OnAddOrUpdate` hooks fire for both `AddOrUpdate` and `Upsert`. Hooks for the Range methods fire per row, so if a hook returns `false` for one row that row is skipped and the rest still run.
 
 `OnAdd` and `OnUpdate` have a third flavour that also hands the hook a `columns` collector, so the same hook can set a column that has no CLR property (a shadow column declared with `.Column(...)` in `OnModelCreating`). The collected values are written in the same INSERT or UPDATE, bound as parameters, so any value type works.
 
@@ -308,13 +308,13 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
     .Build();
 ```
 
-A value keyed by a mapped column name replaces the one taken from the entity. These hooks apply to `Add`, `AddRange`, `Update`, and `UpdateRange`.
+A value keyed by a mapped column name replaces the one taken from the entity. These hooks apply to `Add`, `AddRange`, `Update` and `UpdateRange`.
 
 Hooks run before any subclass override of the protected helpers, so the two compose: a hook on `OnAdd<Book>` mutates the entity, then a subclass override of `AddOrRemoveItem` sees the mutated entity.
 
 ## Cross-cutting action hooks
 
-`OnAction` runs before every CRUD action across every entity. The hook gets the entity (untyped) and the action the framework was about to perform, and returns the action to actually run. The hook can also mutate the entity.
+`OnAction` runs before every CRUD action across every entity. The hook gets the entity (untyped) and the action the framework was about to perform and returns the action to actually run. The hook can also mutate the entity.
 
 This is the AOT-safe way to react to a marker interface across all entities, without per-entity registration and without assembly scanning. The interface check happens inside the hook, not at registration.
 
@@ -335,7 +335,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
 The hook returns one of:
 
 - `SQLiteAction.Skip`. No SQL is issued for this row.
-- `SQLiteAction.Add`, `SQLiteAction.Update`, `SQLiteAction.Remove`. Run the standard INSERT, UPDATE, or DELETE.
+- `SQLiteAction.Add`, `SQLiteAction.Update`, `SQLiteAction.Remove`. Run the standard INSERT, UPDATE or DELETE.
 - `SQLiteAction.AddOrUpdate`. Run `INSERT OR REPLACE`. For `Upsert`, this keeps the configured `ON CONFLICT` clause.
 
 Multiple `OnAction` hooks chain in registration order. Each hook receives the action returned by the previous one and can rewrite it again.
@@ -344,17 +344,17 @@ Per-entity hooks (`OnAdd<T>` and friends) run first. If they return `false` the 
 
 ## Customizing CRUD behaviour
 
-For deeper changes that the hooks above cannot express (custom SQL, replacing how parameters are bound, replacing schema operations), you can subclass `SQLiteTable<T>` and override any of the protected helpers. The public `Add`, `AddRange`, `Update`, `UpdateRange`, `Remove`, `RemoveRange`, `AddOrUpdate`, `AddOrUpdateRange`, `Upsert`, and `UpsertRange` methods all funnel through these helpers, so a single override applies to every entry point.
+For deeper changes that the hooks above cannot express (custom SQL, replacing how parameters are bound, replacing schema operations), you can subclass `SQLiteTable<T>` and override any of the protected helpers. The public `Add`, `AddRange`, `Update`, `UpdateRange`, `Remove`, `RemoveRange`, `AddOrUpdate`, `AddOrUpdateRange`, `Upsert` and `UpsertRange` methods all funnel through these helpers, so a single override applies to every entry point.
 
 | Override | Purpose |
 |---|---|
 | `GetAddInfo()` | Change the `INSERT` SQL or the column set used for inserts. |
-| `GetUpdateInfo()` | Change the `UPDATE` SQL, add columns to the SET clause, or change the WHERE shape. |
+| `GetUpdateInfo()` | Change the `UPDATE` SQL, add columns to the SET clause or change the WHERE shape. |
 | `GetRemoveInfo()` | Change the `DELETE` SQL. For example, return an `UPDATE` that flips a flag instead of deleting the row. |
 | `GetAddOrUpdateInfo(SQLiteConflict)` | Change the `INSERT OR <action>` SQL used by `AddOrUpdate`. |
 | `GetUpsertInfo(configure)` | Change the `INSERT INTO ... ON CONFLICT (...) DO ...` SQL used by `Upsert`. |
 | `WrapParam(placeholder, column)` | Wrap parameters with custom SQL functions, for example `jsonb(@p0)`. |
-| `AddOrRemoveItem(columns, sql, item)` | Mutate the entity right before binding, for example to stamp `CreatedAt`. Called by Add, Remove, AddOrUpdate, and Upsert. |
+| `AddOrRemoveItem(columns, sql, item)` | Mutate the entity right before binding, for example to stamp `CreatedAt`. Called by Add, Remove, AddOrUpdate and Upsert. |
 | `UpdateItem(columns, primaryColumns, sql, item)` | Same as above but for Update. |
 | `Clear()` | Replace the row-clear operation entirely. To customize DDL, subclass `SQLiteSchema` and register it with `UseSchema`. |
 

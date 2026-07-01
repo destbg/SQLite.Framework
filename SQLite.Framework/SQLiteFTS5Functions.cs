@@ -34,7 +34,7 @@ public static class SQLiteFTS5Functions
     /// <summary>
     /// Matches the entity's whole row against a builder-style FTS5 query. The lambda gets a
     /// <see cref="SQLiteFTS5Builder" /> on which you call <c>Term</c>, <c>Phrase</c>, <c>Prefix</c>,
-    /// <c>Near</c>, and <c>Column</c>, joined with C# <c>&amp;&amp;</c>, <c>||</c>, and <c>!</c>.
+    /// <c>Near</c> and <c>Column</c>, joined with C# <c>&amp;&amp;</c>, <c>||</c> and <c>!</c>.
     /// </summary>
     public static bool Match<T>(T entity, Func<SQLiteFTS5Builder, bool> predicate)
     {

@@ -1,6 +1,6 @@
 # Native AOT
 
-Native AOT compiles your application into a standalone native binary ahead of time, rather than running through the .NET runtime at startup. The result is faster startup, lower memory use, and no JIT overhead. SQLite.Framework doesn't generate code at runtime, so the library itself is AOT-compatible. The setup below is mostly about keeping the trimmer happy on your own types.
+Native AOT compiles your application into a standalone native binary ahead of time, rather than running through the .NET runtime at startup. The result is faster startup, lower memory use and no JIT overhead. SQLite.Framework doesn't generate code at runtime, so the library itself is AOT-compatible. The setup below is mostly about keeping the trimmer happy on your own types.
 
 ## Use the source generator
 
@@ -31,7 +31,7 @@ Enable AOT in your `.csproj` file:
 
 ## Preserve built-in types
 
-The AOT trimmer removes code it thinks is unused. SQLite.Framework uses reflection to read and write columns for built-in types like `int`, `string`, `DateTime`, and so on. You need to tell the trimmer to keep all of that code.
+The AOT trimmer removes code it thinks is unused. SQLite.Framework uses reflection to read and write columns for built-in types like `int`, `string`, `DateTime` and so on. You need to tell the trimmer to keep all of that code.
 
 Add a `TrimmerRootDescriptor.xml` file to your project and reference it from the `.csproj`:
 

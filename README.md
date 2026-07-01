@@ -1,6 +1,6 @@
 # SQLite.Framework
 
-LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight and without the trimming and AOT pain. Built for .NET MAUI, Avalonia, and any other AOT-published .NET 8/9/10 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
+LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight and without the trimming and AOT pain. Built for .NET MAUI, Avalonia and any other AOT-published .NET 8/9/10 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
 
 [![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
 [![codecov](https://codecov.io/gh/destbg/SQLite.Framework/branch/main/graph/badge.svg)](https://codecov.io/gh/destbg/SQLite.Framework)
@@ -35,7 +35,7 @@ That whole expression is one SQL query. The framework keeps the generated SQL cl
 
 | You're using | What you'll like here | What you'll lose |
 |---|---|---|
-| **EF Core** | Same `IQueryable` shape, smaller dependency, AOT works with minimal setup. Lightweight stand-ins for the heavy parts. Write hooks for audit and interception, and schema versioning with a versioned migration runner. | EF's full mapping model (owned types, complex inheritance), the automatic change tracker (identity map, change detection, navigation fix-up), and generated migration files. |
+| **EF Core** | Same `IQueryable` shape, smaller dependency, AOT works with minimal setup. Lightweight stand-ins for the heavy parts. Write hooks for audit and interception and schema versioning with a versioned migration runner. | EF's full mapping model (owned types, complex inheritance), the automatic change tracker (identity map, change detection, navigation fix-up) and generated migration files. |
 | **sqlite-net-pcl** | Real LINQ joins, group-by, subqueries, projections, FTS5, JSON, window functions all translate to SQL. AOT-friendly with the source generator. | Nothing meaningful, the API is similar where it overlaps. |
 
 See the [Migrating from sqlite-net-pcl](https://sqlite-framework.net/Docs/Migrating-from-sqlite-net-pcl) or [Migrating from EF Core](https://sqlite-framework.net/Docs/Migrating-from-EF-Core) page if that's your starting point.
@@ -46,7 +46,7 @@ Benchmarks against EF Core 10 and sqlite-net-pcl 1.9 live on the [Performance](h
 
 ## Status
 
-The library is exercised at 100% code coverage. It targets .NET 8, 9, and 10.
+The library is exercised at 100% code coverage. It targets .NET 8, 9 and 10.
 
 ## Documentation
 
@@ -69,7 +69,7 @@ The provider packages all expose the same API and assembly name, so you can swap
 | `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. |
 | `SQLite.Framework.Base` | Bring-your-own SQLitePCLRaw provider. |
 
-JSON, JSONB, FTS5, R-Tree, and window functions are built into all four.
+JSON, JSONB, FTS5, R-Tree and window functions are built into all four.
 
 ## Quick Start
 
@@ -167,4 +167,4 @@ Bug reports and missing-feature requests are welcome. Any feature that SQLite ha
 
 ## License
 
-MIT © Nikolay Kostadinov
+MIT (c) Nikolay Kostadinov

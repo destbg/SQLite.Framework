@@ -24,7 +24,7 @@ internal static class CommonHelpers
     }
 
     /// <summary>
-    /// Quotes one JSON path segment so a name that holds a dot, a double quote, a backslash, or any
+    /// Quotes one JSON path segment so a name that holds a dot, a double quote, a backslash or any
     /// other non-identifier character is read as a literal key rather than a nested path. A plain
     /// identifier name is returned as is, so the common case keeps the shorter unquoted form.
     /// </summary>

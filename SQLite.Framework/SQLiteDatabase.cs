@@ -101,13 +101,13 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 #endif
 
     /// <summary>
-    /// Typed access to common SQLite pragmas like foreign keys, journal mode, cache size, and user version.
+    /// Typed access to common SQLite pragmas like foreign keys, journal mode, cache size and user version.
     /// The instance is built the first time you read this property using <see cref="SQLiteOptions.PragmasFactory" />.
     /// </summary>
     public SQLitePragmas Pragmas { get => field ??= Options.PragmasFactory(this); private set; }
 
     /// <summary>
-    /// DDL operations on the database, including create, drop, alter, and inspection. The instance
+    /// DDL operations on the database, including create, drop, alter and inspection. The instance
     /// is built the first time you read this property using <see cref="SQLiteOptions.SchemaFactory" />.
     /// </summary>
     public SQLiteSchema Schema { get => field ??= Options.SchemaFactory(this); private set; }
@@ -194,7 +194,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// because writes to attached tables are not supported through the typed API.
     /// </summary>
     /// <param name="schema">The name the database was attached with. Must be a plain identifier
-    /// (letters, digits, and underscores).</param>
+    /// (letters, digits and underscores).</param>
     public virtual ReadOnlySQLiteTable<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string schema)
     {
         ValidateSchemaName(schema);
@@ -342,7 +342,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// Copies this database into <paramref name="destination" /> using SQLite's backup API.
     /// The source database stays open for reads and writes during the copy. If a page changes
     /// while the copy is running, SQLite re-copies it for you. Use this for backups, for saving
-    /// an in-memory database to a file, or for loading a file into memory at startup.
+    /// an in-memory database to a file or for loading a file into memory at startup.
     /// </summary>
     /// <param name="destination">The database to copy into. Existing data in it is replaced.</param>
     /// <param name="sourceName">The schema name of the source. The default is <c>main</c>. Pass another name to back up an attached database.</param>
@@ -392,7 +392,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Opens a destination database at <paramref name="destinationPath" />, runs the backup, and
+    /// Opens a destination database at <paramref name="destinationPath" />, runs the backup and
     /// closes the destination for you. The destination file is overwritten if it already exists.
     /// On SQLCipher builds, the destination uses the same encryption key as this database so the
     /// backup file is encrypted the same way.
@@ -412,7 +412,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     /// <summary>
     /// Runs <c>VACUUM</c> to rebuild the database file. SQLite copies every page into a fresh
-    /// file, defragments, and reclaims free space. Pass an attached schema name to vacuum that
+    /// file, defragments and reclaims free space. Pass an attached schema name to vacuum that
     /// schema instead of <c>main</c>. Cannot run inside a transaction.
     /// </summary>
     /// <param name="schema">Attached schema name. Defaults to <see langword="null" />, which
@@ -463,11 +463,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Runs <c>REINDEX</c> to rebuild indexes. With no argument, rebuilds every index in every
     /// attached database. Pass a table name to rebuild every index on that table, an index name
-    /// to rebuild that single index, or a collation name to rebuild every index that uses the
+    /// to rebuild that single index or a collation name to rebuild every index that uses the
     /// collation.
     /// </summary>
-    /// <param name="nameOrCollation">Optional table name, index name, or collation name.
-    /// Must be a plain identifier (letters, digits, and underscores).</param>
+    /// <param name="nameOrCollation">Optional table name, index name or collation name.
+    /// Must be a plain identifier (letters, digits and underscores).</param>
     public virtual void Reindex(string? nameOrCollation = null)
     {
         if (nameOrCollation == null)
@@ -488,7 +488,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     /// <param name="path">Path to the database file to attach.</param>
     /// <param name="schemaName">The name to give the attached database. Must be a plain identifier
-    /// (letters, digits, and underscores).</param>
+    /// (letters, digits and underscores).</param>
     /// <param name="encryptionKey">SQLCipher encryption key for the attached file. Only used in the
     /// SQLCipher build. Pass <see langword="null" /> to skip the key step. Pass an empty string when
     /// the attached file is plain SQLite (not encrypted) and the main database is encrypted.</param>
@@ -509,7 +509,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     /// <summary>
     /// Attaches the file behind another <see cref="SQLiteDatabase" /> to this connection under the
-    /// given schema name, and remembers the link. After this call a typed query rooted on this
+    /// given schema name and remembers the link. After this call a typed query rooted on this
     /// database that joins or reads <paramref name="database" /><c>.Table&lt;T&gt;()</c> emits the
     /// schema-qualified name <c>"schemaName"."Table"</c> for those tables. On the SQLCipher build the
     /// attached file reuses the encryption key from <paramref name="database" />.
@@ -519,7 +519,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// while it is attached. Run the cross-database query on the current database, not on
     /// <paramref name="database" />, because the attach only exists on this connection.</param>
     /// <param name="schemaName">The name to give the attached database. Must be a plain identifier
-    /// (letters, digits, and underscores).</param>
+    /// (letters, digits and underscores).</param>
     public virtual void AttachDatabase(SQLiteDatabase database, string schemaName)
     {
         ArgumentNullException.ThrowIfNull(database);
@@ -609,7 +609,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     /// <remarks>
     /// Read operations do not take the exclusive connection lock. SQLite uses its own mutex
-    /// to keep concurrent statements on the same connection safe, and WAL mode gives each
+    /// to keep concurrent statements on the same connection safe and WAL mode gives each
     /// reader a consistent snapshot even when other connections are writing. Only write
     /// operations and transactions need the exclusive lock.
     /// When <see cref="SQLiteOptions.BlockReadsDuringTransaction" /> is set, this call waits
@@ -664,7 +664,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// Wraps an in-memory list of rows into a queryable backed by an inline values source, so you
     /// can join or filter against a small set without creating a temporary table. Each item becomes
     /// one row. An empty list yields a source with no rows. Handy for batch lookups, parameterized
-    /// IN lists, and tests. Named <c>ValuesRange</c> rather than overloading <c>Values</c> because a
+    /// IN lists and tests. Named <c>ValuesRange</c> rather than overloading <c>Values</c> because a
     /// list argument would otherwise bind to the single-row <see cref="Values{T}(T)" />.
     /// </summary>
     public IQueryable<T> ValuesRange<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(IEnumerable<T> values)
@@ -745,7 +745,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Executes the SQL query and returns the first result, or throws if the sequence is empty.
+    /// Executes the SQL query and returns the first result or throws if the sequence is empty.
     /// </summary>
     public T QueryFirst<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
     {
@@ -753,7 +753,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Executes the SQL query and returns the first result, or throws if the sequence is empty.
+    /// Executes the SQL query and returns the first result or throws if the sequence is empty.
     /// </summary>
     public T QueryFirst<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
     {
@@ -761,7 +761,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Executes the SQL query and returns the first result, or <see langword="null" /> if the sequence is empty.
+    /// Executes the SQL query and returns the first result or <see langword="null" /> if the sequence is empty.
     /// </summary>
     public T? QueryFirstOrDefault<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
     {
@@ -769,7 +769,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Executes the SQL query and returns the first result, or <see langword="null" /> if the sequence is empty.
+    /// Executes the SQL query and returns the first result or <see langword="null" /> if the sequence is empty.
     /// </summary>
     public T? QueryFirstOrDefault<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
     {
@@ -777,7 +777,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Executes the SQL query and returns a single result, or throws if the sequence is empty or contains more than one row.
+    /// Executes the SQL query and returns a single result or throws if the sequence is empty or contains more than one row.
     /// </summary>
     public T QuerySingle<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
     {
@@ -785,7 +785,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Executes the SQL query and returns a single result, or throws if the sequence is empty or contains more than one row.
+    /// Executes the SQL query and returns a single result or throws if the sequence is empty or contains more than one row.
     /// </summary>
     public T QuerySingle<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
     {
@@ -793,7 +793,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Executes the SQL query and returns a single result, or <see langword="null" /> if the sequence is empty. Throws if more
+    /// Executes the SQL query and returns a single result or <see langword="null" /> if the sequence is empty. Throws if more
     /// than one row is returned.
     /// </summary>
     public T? QuerySingleOrDefault<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, params SQLiteParameter[] parameters)
@@ -802,7 +802,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
-    /// Executes the SQL query and returns a single result, or <see langword="null" /> if the sequence is empty. Throws if more
+    /// Executes the SQL query and returns a single result or <see langword="null" /> if the sequence is empty. Throws if more
     /// than one row is returned.
     /// </summary>
     public T? QuerySingleOrDefault<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(string sql, object parameters)
@@ -1001,7 +1001,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 throw new NotSupportedException(
                     $"Materializing 'IGrouping<,>' for '{typeof(T).FullName}' uses MakeGenericMethod, " +
                     "which requires runtime code generation. This path is unavailable when the assembly is built with PublishAot=true. " +
-                    "Use the SQLite.Framework source generator with UseGeneratedMaterializers, or remove PublishAot.");
+                    "Use the SQLite.Framework source generator with UseGeneratedMaterializers or remove PublishAot.");
             }
             return (IEnumerable<T>)ExecuteGroupingQueryGeneric
                 .MakeGenericMethod(typeof(T).GetGenericArguments())
@@ -1102,8 +1102,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Override to declare the database model in one place. The framework calls this once, before
     /// any table mapping is used. Use <paramref name="builder" /> to declare each entity's columns,
-    /// keys, computed columns, checks, indexes, foreign keys, defaults, STRICT, WITHOUT ROWID, and
-    /// triggers, so create, migrate, and validate all read the same definition. The base method does nothing.
+    /// keys, computed columns, checks, indexes, foreign keys, defaults, STRICT, WITHOUT ROWID and
+    /// triggers, so create, migrate and validate all read the same definition. The base method does nothing.
     /// </summary>
     /// <param name="builder">Builds the model.</param>
     protected virtual void OnModelCreating(SQLiteModelBuilder builder)
@@ -1298,7 +1298,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             throw new NotSupportedException(
                 "Materializing IGrouping<,> is only supported for a direct GroupBy(keySelector) call. " +
                 "Wrapping GroupBy in other LINQ operators before materialization is not supported. " +
-                "Move the extra operators after the ToList/ToDictionary call, or materialize with ToListAsync() first and group client-side.");
+                "Move the extra operators after the ToList/ToDictionary call or materialize with ToListAsync() first and group client-side.");
         }
 
         Expression source = mce.Arguments[0];
@@ -1317,7 +1317,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 $"The source generator did not cover this key shape. " +
                 $"Key signature: {keySignature}. " +
                 "Install SQLite.Framework.SourceGenerator and call UseGeneratedMaterializers, " +
-                "change the key selector to a shape the generator supports (member access, anonymous type, or simple operator), " +
+                "change the key selector to a shape the generator supports (member access, anonymous type or simple operator), " +
                 "or remove the DisableReflectionFallback call.");
         }
 
@@ -1427,7 +1427,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             if (!char.IsLetterOrDigit(c) && c != '_')
             {
                 throw new ArgumentException(
-                    "Schema name must contain only letters, digits, and underscores.",
+                    "Schema name must contain only letters, digits and underscores.",
                     nameof(schemaName));
             }
         }

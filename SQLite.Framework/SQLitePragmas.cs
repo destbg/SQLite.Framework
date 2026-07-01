@@ -298,7 +298,7 @@ public class SQLitePragmas
 
     /// <summary>
     /// Queryable view over SQLite's built-in <c>sqlite_master</c> table, which lists every
-    /// table, index, view, and trigger in the database. Supports the full LINQ surface
+    /// table, index, view and trigger in the database. Supports the full LINQ surface
     /// (<c>Select</c>, <c>Where</c>, <c>Join</c>, etc.) like any other framework table.
     /// </summary>
     public virtual ReadOnlySQLiteTable<SQLiteMaster> Master => field ??= Database.ReadOnlyTable<SQLiteMaster>();

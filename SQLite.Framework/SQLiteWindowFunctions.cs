@@ -3,7 +3,7 @@ namespace SQLite.Framework;
 /// <summary>
 /// Marker methods for SQLite window functions.
 /// They throw at runtime and only work inside a LINQ query, where the translator turns them into SQL.
-/// Each method returns <see cref="SQLiteWindow{T}" /> so you can chain PartitionBy, OrderBy, or frame methods.
+/// Each method returns <see cref="SQLiteWindow{T}" /> so you can chain PartitionBy, OrderBy or frame methods.
 /// Without any chain method, the result becomes <c>function(...) OVER ()</c>.
 /// </summary>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
@@ -276,7 +276,7 @@ public static class SQLiteWindowFunctions
     }
 
     /// <summary>
-    /// Returns the value from a row <paramref name="offset" /> rows before the current row,
+    /// Returns the value from a row <paramref name="offset" /> rows before the current row
     /// or <paramref name="defaultValue" /> if no such row exists. Translates to <c>LAG(value, offset, default) OVER (...)</c>.
     /// </summary>
     public static SQLiteWindow<T> Lag<T>(T value, long offset, T defaultValue)
@@ -302,7 +302,7 @@ public static class SQLiteWindowFunctions
     }
 
     /// <summary>
-    /// Returns the value from a row <paramref name="offset" /> rows after the current row,
+    /// Returns the value from a row <paramref name="offset" /> rows after the current row
     /// or <paramref name="defaultValue" /> if no such row exists. Translates to <c>LEAD(value, offset, default) OVER (...)</c>.
     /// </summary>
     public static SQLiteWindow<T> Lead<T>(T value, long offset, T defaultValue)

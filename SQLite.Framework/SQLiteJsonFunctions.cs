@@ -62,7 +62,7 @@ public static class SQLiteJsonFunctions
     }
 
     /// <summary>
-    /// Returns 1 if the argument is well-formed JSON, or 0 otherwise. Translates to <c>json_valid(json)</c>.
+    /// Returns 1 if the argument is well-formed JSON or 0 otherwise. Translates to <c>json_valid(json)</c>.
     /// </summary>
     public static bool Valid(string json)
     {

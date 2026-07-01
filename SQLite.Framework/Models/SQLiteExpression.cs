@@ -6,7 +6,7 @@ namespace SQLite.Framework.Internals.Models;
 /// <see cref="Wrap(Type, int, string, SQLiteExpression, string, SQLiteParameter[])" />,
 /// <see cref="Binary(Type, int, string, SQLiteExpression, string, SQLiteExpression, string, SQLiteParameter[])" />,
 /// <see cref="Trinary(Type, int, string, SQLiteExpression, string, SQLiteExpression, string, SQLiteExpression, string, SQLiteParameter[])" />,
-/// <see cref="Variadic(Type, int, string, SQLiteExpression[], string, string, SQLiteParameter[])" />,
+/// <see cref="Variadic(Type, int, string, SQLiteExpression[], string, string, SQLiteParameter[])" />
 /// or <see cref="Lambda(Type, int, Action{StringBuilder}, SQLiteParameter[])" />).
 /// Each one picks the layout that fits the number of children with the lowest cost.
 /// </summary>
@@ -38,7 +38,7 @@ public abstract class SQLiteExpression : Expression
     public bool IsJsonSource { get; set; }
 
     /// <summary>
-    /// The parameters used by this SQL expression, or <c>null</c> if it has none. Use parameters
+    /// The parameters used by this SQL expression or <c>null</c> if it has none. Use parameters
     /// to safely pass user input or variable data into a SQL statement, instead of building the
     /// SQL string by hand. Each parameter must have a unique name that matches a placeholder in
     /// the SQL.
@@ -133,7 +133,7 @@ public abstract class SQLiteExpression : Expression
 
     /// <summary>
     /// Creates an alias whose SQL is the same as <paramref name="inner"/>, but with a different
-    /// <c>Type</c>, <c>Identifier</c>, or <c>Parameters</c>. Cheaper than <see cref="Wrap"/> with
+    /// <c>Type</c>, <c>Identifier</c> or <c>Parameters</c>. Cheaper than <see cref="Wrap"/> with
     /// two empty strings.
     /// </summary>
     public static SQLiteExpression Alias(Type type, int identifier, SQLiteExpression inner, SQLiteParameter[]? parameters)
@@ -171,7 +171,7 @@ public abstract class SQLiteExpression : Expression
     /// <summary>
     /// Creates an expression with the shape <c>{before}{children[0]}{sep}{children[1]}{sep}...{after}</c>.
     /// Use for function calls that take any number of arguments, like <c>string.Concat</c>,
-    /// <c>IN</c> lists, and <c>COALESCE</c> chains.
+    /// <c>IN</c> lists and <c>COALESCE</c> chains.
     /// </summary>
     public static SQLiteExpression Variadic(Type type, int identifier, string before, SQLiteExpression[] children, string sep, string after, SQLiteParameter[]? parameters)
     {
@@ -181,7 +181,7 @@ public abstract class SQLiteExpression : Expression
     /// <summary>
     /// Creates an expression with the shape <c>{parts[0]}{children[0]}{parts[1]}...{parts[N]}</c>
     /// where <c>parts.Length == children.Length + 1</c>. Use for four or more child slots. For
-    /// one to three children, use <see cref="Wrap"/>, <see cref="Binary"/>, or <see cref="Trinary"/>
+    /// one to three children, use <see cref="Wrap"/>, <see cref="Binary"/> or <see cref="Trinary"/>
     /// instead.
     /// </summary>
     public static SQLiteExpression Multi(Type type, int identifier, string[] parts, SQLiteExpression[] children, SQLiteParameter[]? parameters)

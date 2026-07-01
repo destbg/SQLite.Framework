@@ -9,22 +9,22 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - A math call whose .NET result is `NaN` reads back as `null`, for example `Math.Sqrt(-1)`, `Math.Acos(2)` or `Math.Pow(-2, 0.5)`. A result that is infinity, such as `Math.Exp(1000)` or `Math.Atanh(1)`, comes back correct.
 - `Math.Log`, `Math.Log2` and `Math.Log10` of zero read back as `null` where .NET returns negative infinity. `Math.Log(a, base)` reads back as `null` when the value is zero or the base is 0, 1 or negative.
 - `Math.Cbrt` is computed through `POWER`, so the result can differ from .NET in the last bits. An exact cube such as `Math.Cbrt(64)` can read back just below the exact root.
-- Float `ToString()` keeps at most 15 significant digits, prints a value at or above 1e15 in scientific notation, prints negative zero as `"0"`, and prints infinity as `"INF"`.
+- Float `ToString()` keeps at most 15 significant digits, prints a value at or above 1e15 in scientific notation, prints negative zero as `"0"` and prints infinity as `"INF"`.
 - `decimal` is not exact: `Real` storage is a 64-bit float, `Text` storage casts to float for compare and order.
-- On `Real` decimal storage, `ToString()` formats like a `double`: trailing zeros such as `10.50` are dropped, and a very small or very large value prints in scientific notation. `Text` storage returns the stored .NET string.
-- On `Text` decimal storage, `Distinct`, the set operators, and a subquery `Contains` compare the stored text. Two equal values with a different scale, such as `10.0` and `10.00`, are then treated as different.
+- On `Real` decimal storage, `ToString()` formats like a `double`: trailing zeros such as `10.50` are dropped and a very small or very large value prints in scientific notation. `Text` storage returns the stored .NET string.
+- On `Text` decimal storage, `Distinct`, the set operators and a subquery `Contains` compare the stored text. Two equal values with a different scale, such as `10.0` and `10.00`, are then treated as different.
 - `Math.Min`, `Math.Max`, `Math.Clamp`, `Math.Abs`, `Math.Floor`, `Math.Ceiling`, `Math.Truncate` and `Math.Round` over a `Text`-stored `decimal` go through a 64-bit float, so a value with more precision than a `double` can hold reads back rounded.
-- `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits, and `ToString()` on a fractional `float` prints the digits of the stored 64-bit value. SQLite has no 32-bit float type.
-- Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException`, and `Average` stays finite where .NET would throw.
+- `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits and `ToString()` on a fractional `float` prints the digits of the stored 64-bit value. SQLite has no 32-bit float type.
+- Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException` and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
 - A `Sum` over a `ulong` column, including a window `Sum`, throws `SQLiteException` once the running total passes 2^63, even when the true unsigned total still fits a `ulong`. SQLite adds with signed 64-bit integers, so it overflows at half the `ulong` range.
 - A `uint` multiplication keeps the full 64-bit product instead of the 32-bit wrapped value, both when widened (`(long)(a * b)`) and when used directly (`a * b == 0u`).
-- A widening cast such as `(long)` or `(double)` of an `int` (or a `short`, `ushort`, `sbyte` or `byte`) multiplication or addition that overflows `int` keeps the full 64-bit result instead of the 32-bit wrapped value that .NET produces, and does not throw. For example `(long)(a * a)` where `a` is `100000` reads back `10000000000` instead of `1410065408`. The same product read back as an `int`, such as `a * a`, still throws `OverflowException`. This follows the `uint` rule above.
+- A widening cast such as `(long)` or `(double)` of an `int` (or a `short`, `ushort`, `sbyte` or `byte`) multiplication or addition that overflows `int` keeps the full 64-bit result instead of the 32-bit wrapped value that .NET produces and does not throw. For example `(long)(a * a)` where `a` is `100000` reads back `10000000000` instead of `1410065408`. The same product read back as an `int`, such as `a * a`, still throws `OverflowException`. This follows the `uint` rule above.
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
 - `Parse` and a narrowing cast of an integer column map to `CAST` and do not validate or throw. A narrowing cast of a floating-point column to a smaller integer type throws `OverflowException` when the value is out of the target range, where .NET would saturate or wrap.
-- A cast of a floating-point value to `uint` or `ulong` does not throw and does not limit the value to the type range. A negative value, or a value above the range, wraps to a different number, where .NET clamps it to the nearest valid value.
+- A cast of a floating-point value to `uint` or `ulong` does not throw and does not limit the value to the type range. A negative value or a value above the range, wraps to a different number, where .NET clamps it to the nearest valid value.
 - Only the single-string `int.Parse`/`double.Parse` maps to `CAST`. The `NumberStyles`/`IFormatProvider` overloads (such as hex parsing) run in memory in a `Select` and throw in a `Where`.
 - `Convert.ToInt32` and `Convert.ToInt64` of a `double` or `float` round half away from zero, where .NET rounds half to even, so a value such as `2.5` reads back as `3` instead of `2`. The other `Convert` methods run in memory in a `Select` and throw in a `Where`.
 - `Convert.ToInt64` of a floating-point value above the `long` range, such as `Convert.ToInt64(1e19)`, returns the largest or smallest `long` instead of throwing `OverflowException`. `Convert.ToInt32` still throws, since the result is read into a smaller type.
@@ -36,11 +36,11 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 ## Strings
 
-- `Length` counts code points, and `PadLeft`/`PadRight` measure the target width the same way.
+- `Length` counts code points and `PadLeft`/`PadRight` measure the target width the same way.
 - Ordering and comparison use byte value (`BINARY`), so `"B"` sorts before `"a"`.
 - `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing.
-- `IndexOf` and `LastIndexOf` with a `StringComparison`, and their count overloads, are not translated to SQL. They run in memory in a `Select` and throw in a `Where`. The plain value and value-plus-start-index overloads are translated and are case-sensitive.
-- Reading a character by index, `s[i]`, with an out-of-range index does not throw the index-out-of-range error that .NET throws. A negative index reads a character counted from the end of the string, and an index at or past the end fails with a different error.
+- `IndexOf` and `LastIndexOf` with a `StringComparison` and their count overloads, are not translated to SQL. They run in memory in a `Select` and throw in a `Where`. The plain value and value-plus-start-index overloads are translated and are case-sensitive.
+- Reading a character by index, `s[i]`, with an out-of-range index does not throw the index-out-of-range error that .NET throws. A negative index reads a character counted from the end of the string and an index at or past the end fails with a different error.
 - `Replace("", ...)` returns the original string.
 - `ToUpper` and `ToLower`, on both `string` and `char`, fold only ASCII unless the SQLite build has ICU.
 - The `CultureInfo` overloads of `ToUpper` and `ToLower`, on both `string` and `char` throw in a `Where`.
@@ -51,7 +51,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text).
 - A `char` taken from a string can be half of a character that needs two slots in .NET, such as an emoji. SQLite stores whole characters only, so reading that half on its own does not come back the same and can throw.
 - `Enum.Parse` strips ASCII whitespace anywhere in the string, so the spaced `[Flags]` form like `"Read, Write"` parses but a name with embedded whitespace like `"News\tpaper"` matches `"Newspaper"` where .NET would throw.
-- When an enum is stored as Text, `ToString("D")` and `ToString("X")` return the stored member name for a value that is not one single defined member. A `[Flags]` combination such as `Read, Write`, or an undefined number, reads back as the stored text instead of the number or hex string.
+- When an enum is stored as Text, `ToString("D")` and `ToString("X")` return the stored member name for a value that is not one single defined member. A `[Flags]` combination such as `Read, Write` or an undefined number, reads back as the stored text instead of the number or hex string.
 
 ## Ordering and set operations
 
@@ -59,7 +59,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `OrderBy(...).Select(...).Distinct()` returns its results in an undefined order when the `Select` drops the column that `OrderBy` sorted on, for example `OrderBy(x => x.Date).Select(x => x.Name).Distinct()`.
 - `Union`, `Distinct`, `Intersect` and `Except` dedup by value, not by reference.
 - `Union`, `Intersect` and `Except` return rows in sorted order, not the first-appearance order that LINQ-to-Objects keeps. `Concat` keeps first-appearance order.
-- Without an explicit `OrderBy`, row order follows SQLite's query plan rather than insertion order. An index over the read column makes `Distinct` return its values in sorted order, and makes `First`, `FirstOrDefault`, `Single`, `ElementAt` and `Take` read the lowest indexed rows instead of the first inserted ones.
+- Without an explicit `OrderBy`, row order follows SQLite's query plan rather than insertion order. An index over the read column makes `Distinct` return its values in sorted order and makes `First`, `FirstOrDefault`, `Single`, `ElementAt` and `Take` read the lowest indexed rows instead of the first inserted ones.
 - `Union`, `Intersect` and `Except` over a `ulong` column sort by the signed stored value, so a value at or above 2^63 sorts before a smaller value.
 - `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
 - `Reverse` on one side of a `Union`, `Concat`, `Except` or `Intersect` does not take effect, because SQLite has no row order to flip inside a combined query.
@@ -83,7 +83,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 ## Null comparisons
 
-- `>`, `<`, `>=`, `<=` on a `NULL` column are `NULL`: the row drops in `Where`/`All`, reads as `false` in `ToList`, and throws in `First`/`Single`. Equality stays correct via `IS`.
+- `>`, `<`, `>=`, `<=` on a `NULL` column are `NULL`: the row drops in `Where`/`All`, reads as `false` in `ToList` and throws in `First`/`Single`. Equality stays correct via `IS`.
 - Reading `.Value` on a `NULL` nullable column returns the type default instead of throwing `InvalidOperationException`.
 - A projected entity reads back as `null` when all of its mapped columns are `NULL`, so a row whose values are all null cannot be told apart from a missing outer-join row.
 
@@ -98,40 +98,40 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `AddMonths` and `AddYears` whose result lands in December of year 9999 return the default date, since the date math overflows past SQLite's maximum date.
 - `AddSeconds`, `AddMinutes`, `AddHours`, `AddDays`, `AddMilliseconds` and the other `Add` methods that take a fractional amount can land one tick away from the .NET result. SQLite multiplies the amount by the tick scale in one floating-point step, while .NET reaches the tick count through a different intermediate unit, so the last tick can round the other way.
 - `DateTimeOffset` drops its offset.
-- With `DateTimeOffset` stored as `Ticks` (the default), a comparison, ordering, `Distinct` or subtraction across rows whose offsets differ uses the stored local clock ticks, not the UTC instant, so the result can differ from .NET, which normalizes to UTC first. For example `a < b` with `a` at `12:00 +02:00` and `b` at `08:00 -03:00` reads back `false` where .NET gives `true`, and `a - b` reads back `04:00` where .NET gives `-01:00`. Store as `UtcTicks` to compare and order by the instant.
+- With `DateTimeOffset` stored as `Ticks` (the default), a comparison, ordering, `Distinct` or subtraction across rows whose offsets differ uses the stored local clock ticks, not the UTC instant, so the result can differ from .NET, which normalizes to UTC first. For example `a < b` with `a` at `12:00 +02:00` and `b` at `08:00 -03:00` reads back `false` where .NET gives `true` and `a - b` reads back `04:00` where .NET gives `-01:00`. Store as `UtcTicks` to compare and order by the instant.
 - With `DateTimeOffset` stored as `UtcTicks`, a date or time component read in a query (`.Year`, `.Hour`, ...) comes back in UTC, not in the value's own offset.
 - Adding a `TimeSpan` column to a `DateTime` does not work when the `TimeSpan` is stored as `Text`, because the stored text cannot be added as a duration. A constant or captured `TimeSpan` works.
 - A `DateTime` stored as `Integer` or `Text` ticks reads back with `Kind` set to `Unspecified`, since the tick count carries no kind.
 - Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
-- A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal`, and the `HasFlag`, bitwise and comparison operators on a `Text`-stored enum.
+- A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal` and the `HasFlag`, bitwise and comparison operators on a `Text`-stored enum.
 
 ## R-Tree
 
-- On the default `Float` storage, coordinates are stored as 32-bit floats. A value above 2^24, or a fractional value that a 32-bit float cannot hold exactly such as `0.2`, loses precision and can miss an exact boundary match.
+- On the default `Float` storage, coordinates are stored as 32-bit floats. A value above 2^24 or a fractional value that a 32-bit float cannot hold exactly such as `0.2`, loses precision and can miss an exact boundary match.
 
 ## Functions and JSON collections
 
 - `SQLiteFunctions.Min` and `Max` need two or more arguments.
-- On a JSON array, `ElementAt` past the end, `First`, `Last` or `Single` over an empty array, `Single` over two or more elements, and `Min`/`Max`/`Average`/`Sum` over an empty array all return the type default instead of throwing.
-- On a JSON array, `First`, `Last` or `Single` with a predicate that matches no element, and `Min`, `Max` or `Average` after a `Where` that removes every element, also return the type default instead of throwing, the same as their over-empty forms.
-- On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL`, and `Distinct().Count()` leaves the `null` out of the count.
+- On a JSON array, `ElementAt` past the end, `First`, `Last` or `Single` over an empty array, `Single` over two or more elements and `Min`/`Max`/`Average`/`Sum` over an empty array all return the type default instead of throwing.
+- On a JSON array, `First`, `Last` or `Single` with a predicate that matches no element and `Min`, `Max` or `Average` after a `Where` that removes every element, also return the type default instead of throwing, the same as their over-empty forms.
+- On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL` and `Distinct().Count()` leaves the `null` out of the count.
 - A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so adding a list that holds one fails.
-- `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly` and `TimeSpan` values inside a JSON list are kept as text. Reading a part like `.Year`, or comparing them, follows the same rules as `Text` storage, not .NET, so results can differ.
+- `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly` and `TimeSpan` values inside a JSON list are kept as text. Reading a part like `.Year` or comparing them, follows the same rules as `Text` storage, not .NET, so results can differ.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
-- `GetRange` on a JSON list does not check its arguments. Asking for more items than are there returns the items that fit. A negative count returns the whole list, and a negative start index is read as zero. .NET throws in all three cases.
+- `GetRange` on a JSON list does not check its arguments. Asking for more items than are there returns the items that fit. A negative count returns the whole list and a negative start index is read as zero. .NET throws in all three cases.
 - `ElementAtOrDefault` on a JSON list with an index taken from a column reads the type default when the index is past the end, but a negative column index fails with an error instead of reading the type default.
 - Projecting a JSON dictionary's `Keys` or `Values` collection on its own is not supported.
 - Building a new collection from a JSON list with `ToArray` or `ToHashSet` is not supported.
 - A `Select` over a JSON list that changes the element type before `ToList`, such as `list.Select(x => (long)x).ToList()` or `list.Select(x => x.Member).ToList()`, builds a new collection type that has no registered converter and throws. A `Select` that keeps the element type, such as `list.Select(x => x * 2).ToList()` over a `List<int>`, reuses the source converter and works.
 - `OrderBy` followed by `Reverse` on a JSON list keeps rows that share the same sort key in their first-seen order, not the reversed order that LINQ-to-Objects gives, because the reverse is done by sorting the other way.
-- On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable, and `Dictionary.Contains` of a whole key-value pair, are not supported there.
+- On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable and `Dictionary.Contains` of a whole key-value pair, are not supported there.
 - On a JSON dictionary, the indexer for a key that is not present returns the type default instead of throwing.
 - On a JSON list of enums, `Contains` and comparisons use the enum form from the global enum storage mode. When the enum is written inside the JSON in a different form, by default as a number, the comparison does not match.
-- A `[JsonPropertyName]` whose name contains a character that the JSON writer escapes, such as an apostrophe, reads back its value only on newer SQLite builds. The writer stores the escaped form (for example `it's`), and an older build, such as the one bundled with SQLCipher, does not match it during a query and returns the type default. A name with an unescaped special character, such as a dot, works on all builds.
+- A `[JsonPropertyName]` whose name contains a character that the JSON writer escapes, such as an apostrophe, reads back its value only on newer SQLite builds. The writer stores the escaped form (for example `it's`) and an older build, such as the one bundled with SQLCipher, does not match it during a query and returns the type default. A name with an unescaped special character, such as a dot, works on all builds.
 
 ## Binary data
 
-- A `byte[]` column supports `Length` and value equality (`==` and `SequenceEqual`) in a query. Reading a single byte by index, and `Contains` of a single byte, are not supported in a query.
+- A `byte[]` column supports `Length` and value equality (`==` and `SequenceEqual`) in a query. Reading a single byte by index and `Contains` of a single byte, are not supported in a query.
 
 ## Custom converters
 
@@ -140,7 +140,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 ## Guid
 
-- A `Guid` is stored as its lowercase text form (`g.ToString()`), and equality compares the stored text byte for byte. A `Guid` value written by another tool in uppercase reads back as the same .NET `Guid` (parsing ignores case), but an equality filter against it does not match, even though .NET `Guid` equality is case-insensitive.
+- A `Guid` is stored as its lowercase text form (`g.ToString()`) and equality compares the stored text byte for byte. A `Guid` value written by another tool in uppercase reads back as the same .NET `Guid` (parsing ignores case), but an equality filter against it does not match, even though .NET `Guid` equality is case-insensitive.
 - `Guid.ToString()` with no format is not translated to SQL. It runs in memory in a `Select` and throws in a `Where`.
 
 ## Full text search
@@ -158,7 +158,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - An attribute foreign key (`[ReferencesTable]` or `[ForeignKey]`) reads the name of the column it points at on the target table from the target type, before the model builder runs. Renaming that target column with the fluent `HasColumnName` afterward does not reach the foreign key, so it keeps the old name and the table fails to accept rows.
 - A composite primary key cannot have an auto-increment member. SQLite only allows auto-increment on a single-column `INTEGER PRIMARY KEY`, so creating such a table throws.
 - Auto-increment is only allowed on a single-column `INTEGER PRIMARY KEY`. Marking a key of another type, such as a `string` key, as auto-increment throws when the table is created.
-- Migrating a column from nullable to NOT NULL fails when existing rows hold `NULL` and the column has no default. Add a default, set a value with `TableChanged(s => s.Set(...))`, or keep the column nullable. When the column has a default, the existing `NULL` rows are filled with that default.
+- Migrating a column from nullable to NOT NULL fails when existing rows hold `NULL` and the column has no default. Add a default, set a value with `TableChanged(s => s.Set(...))` or keep the column nullable. When the column has a default, the existing `NULL` rows are filled with that default.
 
 ## Writes
 

@@ -70,7 +70,7 @@ SQLiteWindowFunctions.Rank()
 
 ### Frame
 
-By default SQLite uses a range from the start of the partition to the current row when an ORDER BY is present. You can set an explicit frame with `Rows`, `Range`, or `Groups`, using the `SQLiteFrameBoundary` helpers to specify each end.
+By default SQLite uses a range from the start of the partition to the current row when an ORDER BY is present. You can set an explicit frame with `Rows`, `Range` or `Groups`, using the `SQLiteFrameBoundary` helpers to specify each end.
 
 ```csharp
 SQLiteWindowFunctions.Sum(o.Amount)
@@ -89,7 +89,7 @@ SQLiteWindowFunctions.Sum(o.Amount)
 
 #### Excluding rows from the frame
 
-Pass a `SQLiteFrameExclude` as the last argument to `Rows`, `Range`, or `Groups` to drop rows near the current row from the frame the function sees. The default `NoOthers` keeps every row, so existing two-argument calls are unchanged. Any other value needs SQLite 3.28.0.
+Pass a `SQLiteFrameExclude` as the last argument to `Rows`, `Range` or `Groups` to drop rows near the current row from the frame the function sees. The default `NoOthers` keeps every row, so existing two-argument calls are unchanged. Any other value needs SQLite 3.28.0.
 
 ```csharp
 SQLiteWindowFunctions.Sum(o.Amount)
@@ -108,7 +108,7 @@ SQLiteWindowFunctions.Sum(o.Amount)
 | `Group` | `EXCLUDE GROUP` |
 | `Ties` | `EXCLUDE TIES` |
 
-`CurrentRow` leaves out the current row, `Group` also leaves out its peers (rows with the same ORDER BY value), and `Ties` leaves out the peers but keeps the current row.
+`CurrentRow` leaves out the current row, `Group` also leaves out its peers (rows with the same ORDER BY value) and `Ties` leaves out the peers but keeps the current row.
 
 ## Aggregate functions
 

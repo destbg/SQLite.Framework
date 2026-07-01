@@ -75,7 +75,7 @@ internal partial class QueryableVisitor
                 throw new NotSupportedException(
                     $"{node.Method.Name} with a custom IComparer is not supported. " +
                     "Ordering runs inside SQLite, which cannot call a .NET comparer. " +
-                    "Remove the comparer to use the default SQL ordering, or call ToList()/ToArray() first to order in memory.");
+                    "Remove the comparer to use the default SQL ordering or call ToList()/ToArray() first to order in memory.");
             }
 
             SQLiteNullsOrder nulls = (SQLiteNullsOrder)ExpressionHelpers.GetConstantValue(node.Arguments[2])!;
@@ -160,7 +160,7 @@ internal partial class QueryableVisitor
         {
             throw new NotSupportedException(
                 $"{methodName} after Reverse is not supported because Reverse is applied in memory after the SQL query runs, " +
-                "which would pick the wrong rows. Use OrderByDescending instead, or call ToList()/ToArray() first.");
+                "which would pick the wrong rows. Use OrderByDescending instead or call ToList()/ToArray() first.");
         }
     }
 }

@@ -1,6 +1,6 @@
 # SQLite.Framework
 
-A lightweight [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapping) for SQLite, built for .NET, Avalonia and other AOT-published .NET apps. It gives you LINQ queries, async support, and AOT compatibility, with an API that will feel familiar if you have used Entity Framework before.
+A lightweight [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapping) for SQLite, built for .NET, Avalonia and other AOT-published .NET apps. It gives you LINQ queries, async support and AOT compatibility, with an API that will feel familiar if you have used Entity Framework before.
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db")
@@ -20,7 +20,7 @@ var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 
 | Package | What it offers |
 |---|---|
-| `SQLite.Framework` | Default. Uses the OS-provided SQLite on desktop and iOS, and bundles its own on Android, which has no app-usable system SQLite. |
+| `SQLite.Framework` | Default. Uses the OS-provided SQLite on desktop and iOS and bundles its own on Android, which has no app-usable system SQLite. |
 | `SQLite.Framework.Bundled` | Ships its own SQLite binary, independent of the OS-provided SQLite. |
 | `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. Call `UseEncryptionKey` on the options builder to enable encryption. |
 | `SQLite.Framework.Base` | No SQLite provider included. You supply your own SQLitePCLRaw provider and call `SQLitePCL.Batteries_V2.Init()` before creating a database. |
@@ -34,14 +34,14 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - LINQ queries with `IQueryable` support
 - Async versions of every operation
 - CRUD operations with typed tables
-- Joins, group by, aggregates, and subqueries
+- Joins, group by, aggregates and subqueries
 - Bulk delete and update with `ExecuteDelete` and `ExecuteUpdate`
 - Transactions using SQLite savepoints
 - Raw SQL via `FromSql`
 - Full-text search through SQLite's FTS5 module
 - Spatial queries through SQLite's R-Tree module
 - AOT compatible, works great in .NET MAUI and Avalonia apps
-- Supports .NET 8, 9, and 10
+- Supports .NET 8, 9 and 10
 
 ## Pages
 

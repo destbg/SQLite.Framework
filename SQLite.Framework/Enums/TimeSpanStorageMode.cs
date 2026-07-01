@@ -12,7 +12,7 @@ public enum TimeSpanStorageMode
 
     /// <summary>
     /// Stored as a TEXT string in the standard constant format, for example "2.03:04:05.0060070".
-    /// LINQ property access such as Days, Hours, and TotalDays is not supported in this mode.
+    /// LINQ property access such as Days, Hours and TotalDays is not supported in this mode.
     /// </summary>
     Text,
 }

@@ -14,7 +14,7 @@ public class SQLiteCounters
     private int identifierIndex;
 
     /// <summary>
-    /// Default counter. Parameters are emitted as <c>@p0</c>, <c>@p1</c>, and so on.
+    /// Default counter. Parameters are emitted as <c>@p0</c>, <c>@p1</c> and so on.
     /// </summary>
     public SQLiteCounters()
     {
@@ -43,7 +43,7 @@ public class SQLiteCounters
     }
 
     /// <summary>
-    /// Returns the next parameter name (for example <c>@p0</c>, <c>@p1</c>, and so on) and adds
+    /// Returns the next parameter name (for example <c>@p0</c>, <c>@p1</c> and so on) and adds
     /// one to the counter. The first 256 names are kept in a shared array, so this call does not
     /// build a new string for each parameter.
     /// </summary>

@@ -7,7 +7,7 @@ namespace SQLite.Framework.Attributes;
 /// <remarks>
 /// The framework also reads
 /// <see cref="System.ComponentModel.DataAnnotations.Schema.ForeignKeyAttribute" />. Prefer this
-/// attribute when you need an action other than <c>NoAction</c>, deferred enforcement, or
+/// attribute when you need an action other than <c>NoAction</c>, deferred enforcement or
 /// refactor-safe <c>typeof</c> targeting.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
@@ -41,7 +41,7 @@ public class ReferencesTableAttribute : Attribute
     public Type TargetType { get; }
 
     /// <summary>
-    /// The target property name, or <see langword="null" /> to use the single primary key.
+    /// The target property name or <see langword="null" /> to use the single primary key.
     /// </summary>
     public string? TargetColumn { get; }
 

@@ -46,7 +46,7 @@ public class SQLiteSchema
             if (mapping.ComputedColumns.Count > 0 || mapping.Checks.Count > 0 || mapping.Indexes.Count > 0)
             {
                 throw new InvalidOperationException(
-                    $"FTS5 entity '{mapping.Type.Name}' does not support computed columns, checks, or indexes declared on the model. Remove them.");
+                    $"FTS5 entity '{mapping.Type.Name}' does not support computed columns, checks or indexes declared on the model. Remove them.");
             }
 
             return CreateFullTextSearchTable(mapping);
@@ -76,7 +76,7 @@ public class SQLiteSchema
     /// <summary>
     /// Returns a runner for ordered, versioned migrations. Declare each schema version on it, then
     /// apply them. The runner brings the database up to the current model, records the version in
-    /// <c>PRAGMA user_version</c>, and skips versions it has already applied.
+    /// <c>PRAGMA user_version</c> and skips versions it has already applied.
     /// <para>
     /// A version that adds a <c>NOT NULL</c> column in place needs SQLite 3.35.0 for <c>DROP COLUMN</c>.
     /// Pass <c>rebuild: true</c> to a step's <see cref="SQLiteMigrationStep.TableChanged{T}" /> to use a
@@ -285,14 +285,14 @@ public class SQLiteSchema
 
     /// <summary>
     /// Adds the column for the property named <paramref name="propertyName" /> to the table for
-    /// <typeparamref name="T" />. The type, nullability, and primary-key flags come from the
+    /// <typeparamref name="T" />. The type, nullability and primary-key flags come from the
     /// entity mapping. Pass <paramref name="defaultValue" /> to emit a <c>DEFAULT</c> clause. SQLite
     /// needs this when you add a <c>NOT NULL</c> column to a table that already has rows.
     /// </summary>
     /// <param name="propertyName">Property name on the entity to add.</param>
     /// <param name="defaultValue">Optional default value. The framework writes it as the SQL
     /// <c>DEFAULT</c> clause and SQLite uses it to backfill existing rows. Supported types are
-    /// numbers, strings, and <see cref="bool" />. SQLite does not let you use parameters inside
+    /// numbers, strings and <see cref="bool" />. SQLite does not let you use parameters inside
     /// DDL statements like <c>ALTER TABLE</c>, so the value is written straight into the SQL text.
     /// Single quotes inside strings are doubled, so a value with quotes in it cannot escape from
     /// the string and run other SQL.</param>
@@ -322,7 +322,7 @@ public class SQLiteSchema
             throw new InvalidOperationException(
                 $"Cannot add the foreign key column '{propertyName}' to the existing table '{mapping.TableName}' with a non-null default value. " +
                 "SQLite requires a column added with a REFERENCES clause to default to NULL. " +
-                "Add the column with a null default, or recreate the table with the new schema instead.");
+                "Add the column with a null default or recreate the table with the new schema instead.");
         }
 
         string? defaultOverride = defaultValue == null ? null : SqlLiteralHelper.FormatLiteral(defaultValue, Database.Options);
@@ -332,14 +332,14 @@ public class SQLiteSchema
 
     /// <summary>
     /// Adds the column selected by <paramref name="property" /> to the table for
-    /// <typeparamref name="T" />. The type, nullability, and primary-key flags come from the
+    /// <typeparamref name="T" />. The type, nullability and primary-key flags come from the
     /// entity mapping. Pass <paramref name="defaultValue" /> to emit a <c>DEFAULT</c> clause. SQLite
     /// needs this when you add a <c>NOT NULL</c> column to a table that already has rows.
     /// </summary>
     /// <param name="property">Property selector on the entity, like <c>b =&gt; b.Pages</c>.</param>
     /// <param name="defaultValue">Optional default value. The framework writes it as the SQL
     /// <c>DEFAULT</c> clause and SQLite uses it to backfill existing rows. Supported types are
-    /// numbers, strings, and <see cref="bool" />. SQLite does not let you use parameters inside
+    /// numbers, strings and <see cref="bool" />. SQLite does not let you use parameters inside
     /// DDL statements like <c>ALTER TABLE</c>, so the value is written straight into the SQL text.
     /// Single quotes inside strings are doubled, so a value with quotes in it cannot escape from
     /// the string and run other SQL.</param>
@@ -354,7 +354,7 @@ public class SQLiteSchema
     /// <typeparamref name="T" />. The body of <paramref name="defaultExpression" /> is translated
     /// to SQL and written into the <c>DEFAULT</c> clause. SQLite restricts what is allowed inside
     /// a <c>DEFAULT</c>: the expression must not reference any column of the table, must not
-    /// contain a subquery, and must only call deterministic functions. Requires SQLite 3.31.0 or newer.
+    /// contain a subquery and must only call deterministic functions. Requires SQLite 3.31.0 or newer.
     /// </summary>
     /// <param name="propertyName">Property name on the entity to add.</param>
     /// <param name="defaultExpression">A parameterless lambda that produces the default value. The
@@ -452,7 +452,7 @@ public class SQLiteSchema
 
     /// <summary>
     /// Returns a fluent builder for creating the table for <typeparamref name="T" /> together
-    /// with computed columns, CHECK constraints, and indexes. Call <c>.Create()</c> when done
+    /// with computed columns, CHECK constraints and indexes. Call <c>.Create()</c> when done
     /// chaining to issue the DDL.
     /// </summary>
     public virtual SQLiteTableSchema<T> Table<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
@@ -569,8 +569,8 @@ public class SQLiteSchema
 
     /// <summary>
     /// Creates a trigger whose body is built from typed LINQ statements instead of a SQL string.
-    /// Use the builder's <c>Old</c> and <c>New</c> rows to reference the changed row, and add one or
-    /// more <c>Update</c>, <c>Insert</c>, or <c>Delete</c> statements. Issues <c>CREATE TRIGGER IF NOT EXISTS</c>.
+    /// Use the builder's <c>Old</c> and <c>New</c> rows to reference the changed row and add one or
+    /// more <c>Update</c>, <c>Insert</c> or <c>Delete</c> statements. Issues <c>CREATE TRIGGER IF NOT EXISTS</c>.
     /// </summary>
     /// <param name="name">The trigger name.</param>
     /// <param name="timing">When the trigger fires, relative to the row change.</param>
@@ -585,7 +585,7 @@ public class SQLiteSchema
         build(builder);
         if (builder.Statements.Count == 0)
         {
-            throw new ArgumentException("The trigger body must contain at least one Update, Insert, or Delete statement.", nameof(build));
+            throw new ArgumentException("The trigger body must contain at least one Update, Insert or Delete statement.", nameof(build));
         }
 
         string body = string.Join("; ", builder.Statements);
@@ -604,7 +604,7 @@ public class SQLiteSchema
     /// <summary>
     /// Compares the model for <typeparamref name="T" /> against the live database and reports any
     /// drift. The drift can be a missing table, missing or extra columns, mismatched column types, a
-    /// primary-key or nullability difference, a missing index, or a missing foreign key. Returns the
+    /// primary-key or nullability difference, a missing index or a missing foreign key. Returns the
     /// findings instead of throwing, so the caller decides what to do. Lets you catch schema drift at
     /// startup rather than at query time.
     /// </summary>

@@ -70,7 +70,7 @@ internal sealed class FtsRenderState
                 return;
         }
 
-        throw new NotSupportedException($"Unsupported expression inside SQLiteFTS5Functions.Match: {node}. Use the builder methods (f.Term, f.Phrase, f.Prefix, f.Near, f.Column) with C# &&, ||, or ! to build the query.");
+        throw new NotSupportedException($"Unsupported expression inside SQLiteFTS5Functions.Match: {node}. Use the builder methods (f.Term, f.Phrase, f.Prefix, f.Near, f.Column) with C# &&, || or ! to build the query.");
     }
 
     private void WriteAnd(BinaryExpression node, int parentPrecedence)

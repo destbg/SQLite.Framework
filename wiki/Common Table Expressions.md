@@ -31,7 +31,7 @@ SELECT b0."Id" AS "Id",
 FROM cte0 AS b0
 ```
 
-The CTE body can be any queryable expression including `Where`, `Select`, `OrderBy`, joins, and set operations.
+The CTE body can be any queryable expression including `Where`, `Select`, `OrderBy`, joins and set operations.
 
 ## Materialization hint
 
@@ -230,7 +230,7 @@ FROM cte1 AS w0
 
 ### Sudoku solver
 
-This example is taken directly from the [SQLite WITH documentation](https://sqlite.org/lang_with.html). It solves a Sudoku puzzle entirely in SQL using three CTEs: one for the input grid, one to enumerate digits 1 to 9, and one recursive CTE that fills in blanks one at a time using `NOT EXISTS` to check row, column, and box constraints.
+This example is taken directly from the [SQLite WITH documentation](https://sqlite.org/lang_with.html). It solves a Sudoku puzzle entirely in SQL using three CTEs: one for the input grid, one to enumerate digits 1 to 9 and one recursive CTE that fills in blanks one at a time using `NOT EXISTS` to check row, column and box constraints.
 
 The puzzle string is 81 characters where `.` marks an empty cell.
 

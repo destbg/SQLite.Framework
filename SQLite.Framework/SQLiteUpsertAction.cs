@@ -2,7 +2,7 @@ namespace SQLite.Framework;
 
 /// <summary>
 /// Terminal node of <see cref="SQLiteUpsertBuilder{T}" />. Represents one of <c>DO NOTHING</c>,
-/// <c>DO UPDATE SET col = excluded.col</c> for a fixed or full column list, or
+/// <c>DO UPDATE SET col = excluded.col</c> for a fixed or full column list or
 /// <c>DO UPDATE SET col = expression</c> built from a setter lambda. An optional
 /// <see cref="Where(Expression{Func{T, T, bool}})" /> guard turns it into a conditional
 /// <c>DO UPDATE ... WHERE</c>.

@@ -1,6 +1,6 @@
 # Full Text Search
 
-SQLite has a built-in full-text search engine called [FTS5](https://www.sqlite.org/fts5.html). The framework wraps it so you can declare an FTS table as a normal class, query it with LINQ, and get ranked results.
+SQLite has a built-in full-text search engine called [FTS5](https://www.sqlite.org/fts5.html). The framework wraps it so you can declare an FTS table as a normal class, query it with LINQ and get ranked results.
 
 ## Requirements
 
@@ -115,7 +115,7 @@ The string is the raw FTS5 query, see the [FTS5 query syntax](https://www.sqlite
 
 ### Builder form
 
-If you do not want to write FTS5 syntax by hand, pass a lambda. The lambda receives a builder `f` with `Term`, `Phrase`, `Prefix`, `Near`, and `Column` methods, combined with the standard C# operators `&&`, `||`, and `!`.
+If you do not want to write FTS5 syntax by hand, pass a lambda. The lambda receives a builder `f` with `Term`, `Phrase`, `Prefix`, `Near` and `Column` methods, combined with the standard C# operators `&&`, `||` and `!`.
 
 ```csharp
 .Where(a => SQLiteFunctions.Match(a, f => f.Term("native") && f.Term("aot")))
@@ -192,7 +192,7 @@ var hits = await (
 
 ## Multiple FTS tables on the same source
 
-You can point several FTS classes at the same source. Each one is independent and has its own tokenizer config, columns, and triggers.
+You can point several FTS classes at the same source. Each one is independent and has its own tokenizer config, columns and triggers.
 
 ```csharp
 [FullTextSearch(ContentMode = FtsContentMode.External, ContentTable = typeof(Article), AutoSync = FtsAutoSync.Triggers)]

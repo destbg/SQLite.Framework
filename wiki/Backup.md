@@ -9,7 +9,7 @@ using SQLiteDatabase source = new(new SQLiteOptionsBuilder("app.db").Build());
 await source.BackupToAsync("backup.db");
 ```
 
-The destination path is opened, written, and closed for you. If the file exists, it is overwritten.
+The destination path is opened, written and closed for you. If the file exists, it is overwritten.
 
 ## Backup to an already-open database
 
@@ -65,11 +65,11 @@ await db.VacuumIntoAsync("aux-copy.db", "aux");
 
 `VACUUM` cannot run inside a transaction. `VACUUM INTO` requires SQLite 3.27.0 or newer. Only iOS is affected, it needs iOS 13 or newer. Android always satisfies it because the package bundles its own SQLite there.
 
-`VacuumInto` differs from `BackupTo` in that it is a single SQLite statement, the destination file is created fresh and must not already exist, and the copy is fully checkpointed and defragmented. `BackupTo` is incremental, can re-copy pages that change mid-flight, and can target an already-open connection.
+`VacuumInto` differs from `BackupTo` in that it is a single SQLite statement, the destination file is created fresh and must not already exist and the copy is fully checkpointed and defragmented. `BackupTo` is incremental, can re-copy pages that change mid-flight and can target an already-open connection.
 
 ## REINDEX
 
-`Reindex()` rebuilds indexes. Without an argument, every index in every attached database is rebuilt. Pass a table name to rebuild every index on that table, an index name to rebuild that single index, or a collation name to rebuild every index that uses the collation.
+`Reindex()` rebuilds indexes. Without an argument, every index in every attached database is rebuilt. Pass a table name to rebuild every index on that table, an index name to rebuild that single index or a collation name to rebuild every index that uses the collation.
 
 ```csharp
 await db.ReindexAsync();

@@ -13,7 +13,7 @@ public sealed class Unicode61TokenizerAttribute : Attribute
     public Unicode61Diacritics RemoveDiacritics { get; set; } = Unicode61Diacritics.RemoveAll;
 
     /// <summary>
-    /// Optional Unicode category mask, for example <c>"L* N* Co"</c> to keep letters, numbers, and private use.
+    /// Optional Unicode category mask, for example <c>"L* N* Co"</c> to keep letters, numbers and private use.
     /// </summary>
     public string? Categories { get; set; }
 

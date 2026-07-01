@@ -6,7 +6,7 @@ You do not need to set anything up for this. It works out of the box.
 
 ## WAL mode
 
-Calling `UseWalMode()` on the builder switches the database to WAL (Write-Ahead Logging) journal mode. In this mode writes no longer block each other. Multiple writes from different threads can run at the same time, and reads are never blocked by writers.
+Calling `UseWalMode()` on the builder switches the database to WAL (Write-Ahead Logging) journal mode. In this mode writes no longer block each other. Multiple writes from different threads can run at the same time and reads are never blocked by writers.
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
@@ -74,7 +74,7 @@ await db.Table<Book>().AddAsync(new Book { Title = "B", Price = 2 });
 await tx.CommitAsync();
 ```
 
-Every read and write inside the transaction sees a consistent view of the data, and nothing from another thread can get in between. Once the transaction starts, the lock is held for the rest of the method, so every later operation goes straight through without queuing.
+Every read and write inside the transaction sees a consistent view of the data and nothing from another thread can get in between. Once the transaction starts, the lock is held for the rest of the method, so every later operation goes straight through without queuing.
 
 Reads from other threads still run in parallel. If you want them to wait until the transaction is done, set `BlockReadsDuringTransaction` on the options. See the [Transactions](Transactions#block-reads-during-a-transaction) page for details.
 
@@ -103,11 +103,11 @@ await Task.WhenAll(tasks);
 
 **Use WAL mode for write-heavy workloads.** Set `IsWalMode = true` to let concurrent writes run in parallel. This is the biggest single throughput improvement available for apps that do many writes at once.
 
-**Keep transactions short.** While a transaction holds the lock, everything else waits. Do not do network calls, file I/O, or other slow work between `BeginTransaction` and `Commit`.
+**Keep transactions short.** While a transaction holds the lock, everything else waits. Do not do network calls, file I/O or other slow work between `BeginTransaction` and `Commit`.
 
 **Use `BeginTransactionAsync` in async code.** The sync `BeginTransaction` blocks the thread while waiting for the lock. `BeginTransactionAsync` yields instead.
 
-**Use `runInTransaction: false` inside a transaction.** `AddRangeAsync`, `UpdateRangeAsync`, and `RemoveRangeAsync` open their own internal transaction by default. If you are already inside one, pass `runInTransaction: false`.
+**Use `runInTransaction: false` inside a transaction.** `AddRangeAsync`, `UpdateRangeAsync` and `RemoveRangeAsync` open their own internal transaction by default. If you are already inside one, pass `runInTransaction: false`.
 
 ```csharp
 await using SQLiteTransaction tx = await db.BeginTransactionAsync();

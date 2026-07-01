@@ -66,7 +66,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Executes the SQL query and returns the first result, or throws if the sequence is empty.
+    /// Executes the SQL query and returns the first result or throws if the sequence is empty.
     /// </summary>
     public static Task<T> QueryFirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
@@ -78,7 +78,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Executes the SQL query and returns the first result, or throws if the sequence is empty.
+    /// Executes the SQL query and returns the first result or throws if the sequence is empty.
     /// </summary>
     public static Task<T> QueryFirstAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
@@ -90,7 +90,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Executes the SQL query and returns the first result, or <see langword="null" /> if the sequence is empty.
+    /// Executes the SQL query and returns the first result or <see langword="null" /> if the sequence is empty.
     /// </summary>
     public static Task<T?> QueryFirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
@@ -102,7 +102,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Executes the SQL query and returns the first result, or <see langword="null" /> if the sequence is empty.
+    /// Executes the SQL query and returns the first result or <see langword="null" /> if the sequence is empty.
     /// </summary>
     public static Task<T?> QueryFirstOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
@@ -114,7 +114,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Executes the SQL query and returns a single result, or throws if the sequence is empty or contains more than one row.
+    /// Executes the SQL query and returns a single result or throws if the sequence is empty or contains more than one row.
     /// </summary>
     public static Task<T> QuerySingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
     {
@@ -126,7 +126,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Executes the SQL query and returns a single result, or throws if the sequence is empty or contains more than one row.
+    /// Executes the SQL query and returns a single result or throws if the sequence is empty or contains more than one row.
     /// </summary>
     public static Task<T> QuerySingleAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
     {
@@ -138,7 +138,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Executes the SQL query and returns a single result, or <see langword="null" /> if the sequence is empty. Throws if more
+    /// Executes the SQL query and returns a single result or <see langword="null" /> if the sequence is empty. Throws if more
     /// than one row is returned.
     /// </summary>
     public static Task<T?> QuerySingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, SQLiteParameter[] parameters, CancellationToken ct = default)
@@ -151,7 +151,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Executes the SQL query and returns a single result, or <see langword="null" /> if the sequence is empty. Throws if more
+    /// Executes the SQL query and returns a single result or <see langword="null" /> if the sequence is empty. Throws if more
     /// than one row is returned.
     /// </summary>
     public static Task<T?> QuerySingleOrDefaultAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteDatabase database, string sql, object parameters, CancellationToken ct = default)
@@ -241,7 +241,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Runs <c>VACUUM</c> on the main database, or on the attached <paramref name="schema" />.
+    /// Runs <c>VACUUM</c> on the main database or on the attached <paramref name="schema" />.
     /// </summary>
     public static Task VacuumAsync(this SQLiteDatabase database, string? schema = null, CancellationToken ct = default)
     {
@@ -270,7 +270,7 @@ public static class AsyncDatabaseExtensions
     }
 
     /// <summary>
-    /// Runs <c>REINDEX</c>, optionally limited to a table, index, or collation name.
+    /// Runs <c>REINDEX</c>, optionally limited to a table, index or collation name.
     /// </summary>
     public static Task ReindexAsync(this SQLiteDatabase database, string? nameOrCollation = null, CancellationToken ct = default)
     {

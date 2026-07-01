@@ -2,7 +2,7 @@
 
 A standalone Blazor WebAssembly app that runs SQLite directly in the browser.
 Demonstrates that `SQLite.Framework` works end to end on `browser-wasm` with no
-server round-trips: the full LINQ surface, the source generator, async IO, and
+server round-trips: the full LINQ surface, the source generator, async IO and
 `ExecuteUpdate` / `ExecuteDelete` all run inside the WebAssembly process.
 
 ## How it works
@@ -28,7 +28,7 @@ dotnet workload install wasm-tools
 dotnet run --project Sample/SQLite.Framework.Blazor
 ```
 
-Open the printed URL. Add a few todos, reload the page, and they will still be
+Open the printed URL. Add a few todos, reload the page and they will still be
 there. Click `Reset database` to drop the file and clear `localStorage`.
 
 ## Persistence options
@@ -37,7 +37,7 @@ there. Click `Reset database` to drop the file and clear `localStorage`.
 main thread on read. For a real app, snapshot to one of:
 
 - **OPFS** (Origin Private File System) via JS interop. Async, no quota for the
-  origin, and the file write is durable. Best fit for SQLite.
+  origin and the file write is durable. Best fit for SQLite.
 - **IndexedDB** with a single blob entry. Async and large, but more JS surface
   to write than OPFS.
 - A custom `SQLitePCLRaw` VFS that maps SQLite's page IO directly onto OPFS.

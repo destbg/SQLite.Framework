@@ -17,7 +17,7 @@ internal sealed class MigrationOperation
     public required string Description { get; init; }
 
     /// <summary>
-    /// The mapping of the affected table, for reconcile, rename, and drop-column operations.
+    /// The mapping of the affected table, for reconcile, rename and drop-column operations.
     /// </summary>
     public TableMapping? Mapping { get; init; }
 

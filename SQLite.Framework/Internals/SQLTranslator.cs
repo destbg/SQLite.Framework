@@ -731,7 +731,7 @@ internal class SQLTranslator
             {
                 throw new NotSupportedException(
                     "Reverse() is not supported before an operator that needs a subquery, such as " +
-                    "SelectMany, Join, Distinct, or GroupBy. Apply Reverse() last in the chain instead.");
+                    "SelectMany, Join, Distinct or GroupBy. Apply Reverse() last in the chain instead.");
             }
 
             Type entityType = innerExpr.Type.GetGenericArguments()[0];

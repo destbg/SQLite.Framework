@@ -22,7 +22,7 @@ internal static class ComparerArgumentGuard
             throw new NotSupportedException(
                 $"{node.Method.Name} with an IEqualityComparer is not translatable to SQL. " +
                 "SQLite compares values with its own collation, so a custom comparer cannot be applied in the database. " +
-                "Remove the comparer, or materialize the sequence with ToList first and apply the comparer client-side.");
+                "Remove the comparer or materialize the sequence with ToList first and apply the comparer client-side.");
         }
     }
 

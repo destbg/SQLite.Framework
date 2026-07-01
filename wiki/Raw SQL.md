@@ -48,7 +48,7 @@ var summaries = await db.FromSql<BookSummary>(
 
 ## Chain LINQ After FromSql
 
-You can chain `Where`, `OrderBy`, `Take`, and other LINQ methods after `FromSql`. They run as part of the same query.
+You can chain `Where`, `OrderBy`, `Take` and other LINQ methods after `FromSql`. They run as part of the same query.
 
 ```csharp
 var results = await db.FromSql<Book>("SELECT * FROM Books")
@@ -82,7 +82,7 @@ catch (SQLiteException ex)
 }
 ```
 
-To avoid this, either select all the columns the type needs, [project into a narrower type](#project-into-a-different-type) that only declares the columns your query returns, or use the [direct query methods](#direct-query-methods) which do not wrap your SQL in a subquery and leave unselected properties at their default values.
+To avoid this, either select all the columns the type needs, [project into a narrower type](#project-into-a-different-type) that only declares the columns your query returns or use the [direct query methods](#direct-query-methods) which do not wrap your SQL in a subquery and leave unselected properties at their default values.
 
 ## Direct Query Methods
 

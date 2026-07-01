@@ -7,7 +7,7 @@ namespace SQLite.Framework.Attributes;
 public class IndexedAttribute : Attribute
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="IndexedAttribute"/> class with the specified name, order, and uniqueness.
+    /// Initializes a new instance of the <see cref="IndexedAttribute"/> class with the specified name, order and uniqueness.
     /// </summary>
     public IndexedAttribute(string name, int order)
     {

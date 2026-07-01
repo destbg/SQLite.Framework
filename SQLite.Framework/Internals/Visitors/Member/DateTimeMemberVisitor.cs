@@ -39,7 +39,7 @@ internal static class DateTimeMemberVisitor
 
                 throw new NotSupportedException(
                     $"DateTime.{node.Method.Name} cannot be used in a LINQ query when DateTimeStorage is set to TextFormatted." +
-                    $" Use direct SQL queries instead, or switch to Integer storage.");
+                    $" Use direct SQL queries instead or switch to Integer storage.");
             }
 
             return node.Method.Name switch
@@ -91,7 +91,7 @@ internal static class DateTimeMemberVisitor
                     return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
                 throw new NotSupportedException(
                     $"DateTimeOffset.{node.Method.Name} cannot be used in a LINQ query when DateTimeOffsetStorage is set to TextFormatted." +
-                    $" Use direct SQL queries instead, or switch to Ticks storage.");
+                    $" Use direct SQL queries instead or switch to Ticks storage.");
             }
 
             return node.Method.Name switch
@@ -146,7 +146,7 @@ internal static class DateTimeMemberVisitor
 
                 throw new NotSupportedException(
                     $"TimeSpan.{node.Method.Name} cannot be used in a LINQ query when TimeSpanStorage is set to Text." +
-                    $" Use direct SQL queries instead, or switch to Integer storage.");
+                    $" Use direct SQL queries instead or switch to Integer storage.");
             }
 
             return node.Method.Name switch
@@ -258,7 +258,7 @@ internal static class DateTimeMemberVisitor
         {
             return visitor.NotTranslatable(member,
                 $"DateTime.{propertyName} cannot be used in a LINQ query when DateTimeStorage is set to TextFormatted." +
-                $" Use direct SQL queries instead, or switch to Integer storage.");
+                $" Use direct SQL queries instead or switch to Integer storage.");
         }
 
         return propertyName switch
@@ -290,7 +290,7 @@ internal static class DateTimeMemberVisitor
         {
             return visitor.NotTranslatable(member,
                 $"DateTimeOffset.{propertyName} cannot be used in a LINQ query when DateTimeOffsetStorage is set to TextFormatted." +
-                $" Use direct SQL queries instead, or switch to Ticks storage.");
+                $" Use direct SQL queries instead or switch to Ticks storage.");
         }
 
         return propertyName switch
@@ -319,7 +319,7 @@ internal static class DateTimeMemberVisitor
         {
             throw new NotSupportedException(
                 $"TimeSpan.{propertyName} cannot be used in a LINQ query when TimeSpanStorage is set to Text." +
-                $" Use direct SQL queries instead, or switch to Integer storage.");
+                $" Use direct SQL queries instead or switch to Integer storage.");
         }
 
         return propertyName switch
@@ -348,7 +348,7 @@ internal static class DateTimeMemberVisitor
         {
             throw new NotSupportedException(
                 $"DateOnly.{propertyName} cannot be used in a LINQ query when DateOnlyStorage is set to Text." +
-                $" Use direct SQL queries instead, or switch to Integer storage.");
+                $" Use direct SQL queries instead or switch to Integer storage.");
         }
 
         return propertyName switch
@@ -369,7 +369,7 @@ internal static class DateTimeMemberVisitor
         {
             throw new NotSupportedException(
                 $"TimeOnly.{propertyName} cannot be used in a LINQ query when TimeOnlyStorage is set to Text." +
-                $" Use direct SQL queries instead, or switch to Integer storage.");
+                $" Use direct SQL queries instead or switch to Integer storage.");
         }
 
         return propertyName switch

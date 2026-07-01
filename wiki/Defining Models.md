@@ -1,6 +1,6 @@
 # Defining Models
 
-A model is a plain C# class. Each public property maps to a column. The attributes come from `System.ComponentModel.DataAnnotations`, `System.ComponentModel.DataAnnotations.Schema`, and `SQLite.Framework.Attributes`.
+A model is a plain C# class. Each public property maps to a column. The attributes come from `System.ComponentModel.DataAnnotations`, `System.ComponentModel.DataAnnotations.Schema` and `SQLite.Framework.Attributes`.
 
 ## Primary Key
 
@@ -144,7 +144,7 @@ public required string Title { get; set; }
 public required string Email { get; set; }
 ```
 
-`Direction` defaults to `SQLiteIndexDirection.Inherit`, which emits no clause. Set it to `Ascending` to emit `ASC`, or `Descending` to emit `DESC` and let the planner read the index forward for matching `ORDER BY x DESC` queries.
+`Direction` defaults to `SQLiteIndexDirection.Inherit`, which emits no clause. Set it to `Ascending` to emit `ASC` or `Descending` to emit `DESC` and let the planner read the index forward for matching `ORDER BY x DESC` queries.
 
 ## Foreign Keys
 
@@ -162,7 +162,7 @@ public class Book
 }
 ```
 
-Set `OnDelete`, `OnUpdate`, or `Deferred` for richer behavior. `SetNull` requires the column to be nullable. The framework checks this at model load.
+Set `OnDelete`, `OnUpdate` or `Deferred` for richer behavior. `SetNull` requires the column to be nullable. The framework checks this at model load.
 
 ```csharp
 [ReferencesTable(typeof(Author), OnDelete = SQLiteForeignKeyAction.Cascade)]
@@ -179,7 +179,7 @@ Pass a column name to target a non-primary-key column.
 public string CountryCode { get; set; }
 ```
 
-The framework also reads `[System.ComponentModel.DataAnnotations.Schema.ForeignKey("Author")]`. It takes `Name` as the target class name and infers the primary key with `NoAction` defaults. `[ReferencesTable]` also supports actions other than `NoAction`, deferred enforcement, and refactor-safe `typeof` targeting. The two attributes cannot be combined on the same property.
+The framework also reads `[System.ComponentModel.DataAnnotations.Schema.ForeignKey("Author")]`. It takes `Name` as the target class name and infers the primary key with `NoAction` defaults. `[ReferencesTable]` also supports actions other than `NoAction`, deferred enforcement and refactor-safe `typeof` targeting. The two attributes cannot be combined on the same property.
 
 For composite keys, declare the foreign key in `OnModelCreating`.
 
@@ -201,7 +201,7 @@ builder.Entity<Book>()
     .ForeignKey<Author>(b => b.AuthorId, onDelete: SQLiteForeignKeyAction.Cascade);
 ```
 
-Enforcement is on by default. The framework runs `PRAGMA foreign_keys = ON` on every connection open. Pass `UseForeignKeys(false)` to the builder to opt out, or flip it at runtime with `db.Pragmas.ForeignKeys = false`.
+Enforcement is on by default. The framework runs `PRAGMA foreign_keys = ON` on every connection open. Pass `UseForeignKeys(false)` to the builder to opt out or flip it at runtime with `db.Pragmas.ForeignKeys = false`.
 
 ## WITHOUT ROWID
 

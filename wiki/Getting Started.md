@@ -38,7 +38,7 @@ var results = await books.Where(b => b.Price < 50).ToListAsync();
 
 ### Declaring a minimum SQLite version
 
-Only iOS is affected. iOS uses the system SQLite, and its version is tied to the iOS version, so a method that compiles against the framework may still fail at runtime if the device's SQLite is too old. Android is not affected because this package bundles its own SQLite there, and `SQLite.Framework.Bundled` bundles one on every platform. Declare the floor your app commits to:
+Only iOS is affected. iOS uses the system SQLite and its version is tied to the iOS version, so a method that compiles against the framework may still fail at runtime if the device's SQLite is too old. Android is not affected because this package bundles its own SQLite there and `SQLite.Framework.Bundled` bundles one on every platform. Declare the floor your app commits to:
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
@@ -189,4 +189,4 @@ await db.Schema.Migrations()
 
 Each version runs only once. On the next launch the recorded version is already at the latest number, so the runner does nothing.
 
-You can also put each version in its own file with `ISQLiteMigration` and register it with `Add<T>()`. See [Schema](Schema) for that pattern, plus column fills, renames, drops, and raw SQL data steps.
+You can also put each version in its own file with `ISQLiteMigration` and register it with `Add<T>()`. See [Schema](Schema) for that pattern, plus column fills, renames, drops and raw SQL data steps.

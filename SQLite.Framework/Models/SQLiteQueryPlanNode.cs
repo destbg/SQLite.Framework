@@ -11,7 +11,7 @@ public sealed class SQLiteQueryPlanNode
     public required int Id { get; init; }
 
     /// <summary>
-    /// The id of the parent node, or <c>0</c> for a root node.
+    /// The id of the parent node or <c>0</c> for a root node.
     /// </summary>
     public required int ParentId { get; init; }
 

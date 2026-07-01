@@ -4,7 +4,7 @@ using SQLite.Framework.Maui.Models;
 namespace SQLite.Framework.Maui.Data;
 
 /// <summary>
-/// Repository for projects. Demonstrates LINQ projections, joins, and
+/// Repository for projects. Demonstrates LINQ projections, joins and
 /// the framework's typed Add/Update/Remove API.
 /// </summary>
 public class ProjectRepository

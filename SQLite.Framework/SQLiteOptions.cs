@@ -48,7 +48,7 @@ public sealed class SQLiteOptions
     /// The minimum SQLite version the application is willing to commit to. Defaults to
     /// <see cref="SQLiteMinimumVersion.Unspecified" />, which disables enforcement. When set
     /// to a non-default value, <see cref="SQLiteDatabase" /> verifies that the loaded SQLite is
-    /// at or above this floor when the connection is first opened, and the framework rejects
+    /// at or above this floor when the connection is first opened and the framework rejects
     /// SQL translations that need a newer SQLite version than this floor.
     /// </summary>
     public required SQLiteMinimumVersion MinimumSqliteVersion { get; init; }
@@ -130,7 +130,7 @@ public sealed class SQLiteOptions
     public required CharStorageMode CharStorage { get; init; }
 
     /// <summary>
-    /// When set, <c>string.Contains</c>, <c>string.StartsWith</c>, and <c>string.EndsWith</c>
+    /// When set, <c>string.Contains</c>, <c>string.StartsWith</c> and <c>string.EndsWith</c>
     /// translate to case-sensitive SQL (<c>instr</c> / <c>substr</c>) instead of the
     /// case-insensitive <c>LIKE</c>. This matches .NET in-memory LINQ and the EF Core SQLite
     /// provider. The <c>StringComparison.OrdinalIgnoreCase</c> overloads stay case-insensitive.
@@ -192,7 +192,7 @@ public sealed class SQLiteOptions
     /// Generated entity column writers, keyed by the entity's CLR type. The inner dictionary maps a
     /// property name to a delegate that binds that column on a prepared statement, replacing the
     /// reflection-based <see cref="PropertyInfo.GetValue(object?)" /> path used by <c>AddRange</c>,
-    /// <c>UpdateRange</c>, <c>RemoveRange</c>, <c>AddOrUpdateRange</c>, and <c>UpsertRange</c>.
+    /// <c>UpdateRange</c>, <c>RemoveRange</c>, <c>AddOrUpdateRange</c> and <c>UpsertRange</c>.
     /// Populated by the <c>UseGeneratedMaterializers</c> extension emitted by <c>SQLite.Framework.SourceGenerator</c>.
     /// </summary>
     public required IReadOnlyDictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>> EntityWriters { get; init; }
@@ -219,7 +219,7 @@ public sealed class SQLiteOptions
     /// <summary>
     /// When <see langword="true" />, a read from a different async context waits for the active
     /// transaction to commit or roll back before it runs. Reads from the transaction's own
-    /// context, or from any context that holds the connection lock, do not wait. Use this when
+    /// context or from any context that holds the connection lock, do not wait. Use this when
     /// a separate-connection transaction is running and you do not want other code to read data
     /// that may be rolled back. Defaults to <see langword="false" />.
     /// </summary>
@@ -302,7 +302,7 @@ public sealed class SQLiteOptions
     /// Throws <see cref="NotSupportedException" /> when <paramref name="requiredVersion" /> is
     /// greater than the configured <see cref="MinimumSqliteVersion" />. Always succeeds when
     /// the floor is <see cref="SQLiteMinimumVersion.Unspecified" />. Used by built-in SQL
-    /// emitters to fail fast when a query, DDL fragment, or pragma needs a newer SQLite than
+    /// emitters to fail fast when a query, DDL fragment or pragma needs a newer SQLite than
     /// the caller has committed to.
     /// </summary>
     public void EnsureMinimumVersion(SQLiteMinimumVersion requiredVersion, string featureName)
@@ -322,7 +322,7 @@ public sealed class SQLiteOptions
     /// Returns <see langword="true" /> when <paramref name="requiredVersion" /> is
     /// less than or equal to the configured <see cref="MinimumSqliteVersion" />. Always returns <see langword="true" /> when
     /// the floor is <see cref="SQLiteMinimumVersion.Unspecified" />. Used by built-in SQL
-    /// emitters to check if a query, DDL fragment, or pragma can run with the current SQLite version.
+    /// emitters to check if a query, DDL fragment or pragma can run with the current SQLite version.
     /// </summary>
     public bool OverMinimumVersion(SQLiteMinimumVersion requiredVersion)
     {

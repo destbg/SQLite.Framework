@@ -4,7 +4,7 @@ namespace SQLite.Framework;
 /// A read-only SQLite table. Used for built-in system tables such as <c>sqlite_master</c>
 /// and <c>sqlite_sequence</c>, but you can also use it for any entity you want to expose
 /// as queryable without the mutation surface of <see cref="SQLiteTable{T}" />. Supports
-/// the same LINQ surface (<c>Select</c>, <c>Where</c>, <c>Join</c>, <c>OrderBy</c>, and
+/// the same LINQ surface (<c>Select</c>, <c>Where</c>, <c>Join</c>, <c>OrderBy</c> and
 /// so on) as a normal table.
 /// </summary>
 public class ReadOnlySQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T> : BaseSQLiteTable, IQueryable<T>

@@ -3,7 +3,7 @@ namespace SQLite.Framework.Internals.Models;
 /// <summary>
 /// SQL expression that writes its SQL through an <see cref="Action{StringBuilder}"/>. Use this for
 /// shapes that don't fit <see cref="WrapSqlExpression"/>, <see cref="BinarySqlExpression"/>,
-/// <see cref="TrinarySqlExpression"/>, or <see cref="VariadicSqlExpression"/>. The lambda captures
+/// <see cref="TrinarySqlExpression"/> or <see cref="VariadicSqlExpression"/>. The lambda captures
 /// its child expressions, so it allocates an extra object. Use the other classes when one of them
 /// fits the shape.
 /// </summary>

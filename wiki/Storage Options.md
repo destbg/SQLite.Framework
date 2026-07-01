@@ -10,7 +10,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("mydb.sqlite")
 using SQLiteDatabase db = new(options);
 ```
 
-`UseDateTimeStorage`, `UseDateTimeOffsetStorage`, `UseTimeSpanStorage`, `UseDateOnlyStorage`, `UseTimeOnlyStorage`, `UseDecimalStorage`, `UseEnumStorage`, and `UseCharStorage` each set the corresponding mode and optionally the format string. Chain them together with `AddTypeConverter`, `AddMethodTranslator`, `AddPropertyTranslator`, `UseWalMode`, `UseOpenFlags`, and `UseEncryptionKey` to configure the whole database in one place.
+`UseDateTimeStorage`, `UseDateTimeOffsetStorage`, `UseTimeSpanStorage`, `UseDateOnlyStorage`, `UseTimeOnlyStorage`, `UseDecimalStorage`, `UseEnumStorage` and `UseCharStorage` each set the corresponding mode and optionally the format string. Chain them together with `AddTypeConverter`, `AddMethodTranslator`, `AddPropertyTranslator`, `UseWalMode`, `UseOpenFlags` and `UseEncryptionKey` to configure the whole database in one place.
 
 Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you need to change a setting, build a new options instance.
 
@@ -74,7 +74,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 
 `Text` uses `DateOnlyFormat` as the format string when reading and writing values.
 
-> With `Text` storage, `Year`, `Month`, and `Day` cannot be used inside `Where` or `OrderBy`. Use `Integer` to query date parts.
+> With `Text` storage, `Year`, `Month` and `Day` cannot be used inside `Where` or `OrderBy`. Use `Integer` to query date parts.
 
 ---
 
@@ -92,7 +92,7 @@ Once you call `Build()`, the returned `SQLiteOptions` is fully read-only. If you
 
 `Text` uses `TimeOnlyFormat` as the format string when reading and writing values.
 
-> `Hour`, `Minute`, and `Second` only translate to SQL under `Integer` storage.
+> `Hour`, `Minute` and `Second` only translate to SQL under `Integer` storage.
 
 ---
 
@@ -178,7 +178,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
 |---|---|---|
 | `CaseSensitiveStringComparison` | `bool` | `false` |
 
-Controls how `string.Contains`, `string.StartsWith`, and `string.EndsWith` translate to SQL.
+Controls how `string.Contains`, `string.StartsWith` and `string.EndsWith` translate to SQL.
 
 | Value | Behavior |
 |---|---|
@@ -206,7 +206,7 @@ Controls how the `Add` family of methods (`Add` and `AddRange`) handles the valu
 | Value | Behavior |
 |---|---|
 | `false` (default) | The value on the entity is always overwritten. SQLite assigns a new id and writes it back to the property. |
-| `true` | A non-default value (for example, `Id == 5`) is used directly. The row is inserted at that id, and a uniqueness error is thrown if it is already taken. A type-default value (`Id == 0`) still triggers SQLite to assign one. |
+| `true` | A non-default value (for example, `Id == 5`) is used directly. The row is inserted at that id and a uniqueness error is thrown if it is already taken. A type-default value (`Id == 0`) still triggers SQLite to assign one. |
 
 Set this to `true` to match Entity Framework Core's `Add` behavior:
 

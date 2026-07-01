@@ -28,7 +28,7 @@ public class PragmaIndexList
 
     /// <summary>
     /// How the index was created. <c>c</c> means it came from a <c>CREATE INDEX</c>
-    /// statement, <c>u</c> from a <c>UNIQUE</c> constraint, and <c>pk</c> from a primary key.
+    /// statement, <c>u</c> from a <c>UNIQUE</c> constraint and <c>pk</c> from a primary key.
     /// </summary>
     [Column("origin")]
     public required string Origin { get; set; }

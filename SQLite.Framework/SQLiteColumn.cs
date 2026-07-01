@@ -11,7 +11,7 @@ public static class SQLiteColumn
     /// References the column named <paramref name="name" /> on <paramref name="row" />, typed as
     /// <typeparamref name="TValue" />. It is only meaningful inside an expression the framework
     /// translates to SQL: a query (<c>Where</c>, <c>Select</c>, <c>OrderBy</c>, <c>GroupBy</c>,
-    /// <c>Join</c>), CHECK constraints, computed columns, index filters, UPSERT set and where, and the
+    /// <c>Join</c>), CHECK constraints, computed columns, index filters, UPSERT set and where and the
     /// value expressions of <c>Migrate(...)</c>. It is never executed as C#, so calling it directly throws.
     /// </summary>
     /// <param name="row">The row the column belongs to.</param>

@@ -1,6 +1,6 @@
 # JSON and JSONB
 
-JSON support is built into every SQLite-provider package. You get two things: type converters that store .NET objects as JSON inside a SQLite column, and method translators that let you call SQLite's built-in JSON functions from LINQ queries. The translators are registered automatically when you build the options.
+JSON support is built into every SQLite-provider package. You get two things: type converters that store .NET objects as JSON inside a SQLite column and method translators that let you call SQLite's built-in JSON functions from LINQ queries. The translators are registered automatically when you build the options.
 
 ---
 
@@ -16,7 +16,7 @@ When you have a .NET type that does not map to a simple SQLite column, you can s
 
 `SQLiteJsonbConverter<T>` stores the value in a BLOB column using SQLite's built-in `jsonb()` and `json()` functions. JSONB is more compact than text and lets SQLite parse it without scanning for quotes or escape sequences, which can make JSON function calls faster.
 
-> **Platform compatibility.** JSONB needs SQLite 3.45 or newer, which most stock mobile OS builds do not ship yet, so use `SQLite.Framework.Bundled` or `SQLite.Framework.Cipher` to get `SQLiteJsonbConverter<T>` on any device, or fall back to `SQLiteJsonConverter<T>` (TEXT) on the default package.
+> **Platform compatibility.** JSONB needs SQLite 3.45 or newer, which most stock mobile OS builds do not ship yet, so use `SQLite.Framework.Bundled` or `SQLite.Framework.Cipher` to get `SQLiteJsonbConverter<T>` on any device or fall back to `SQLiteJsonConverter<T>` (TEXT) on the default package.
 
 Both converters take a `JsonTypeInfo<T>` from a source-generated `JsonSerializerContext`, which keeps them compatible with Native AOT and trimming.
 
@@ -101,7 +101,7 @@ Console.WriteLine(alice.HomeAddress.City); // Springfield
 
 ## JSON functions in queries
 
-SQLite has a set of built-in JSON functions such as `json_extract`, `json_set`, and `json_valid`. The framework exposes these through the `SQLiteJsonFunctions` static class.
+SQLite has a set of built-in JSON functions such as `json_extract`, `json_set` and `json_valid`. The framework exposes these through the `SQLiteJsonFunctions` static class.
 
 ### Available functions
 
@@ -151,7 +151,7 @@ var valid = await db.Table<Log>()
 
 ## Collection methods
 
-When you store a `List<T>` or `T[]` as JSON, the framework also routes many standard LINQ, `List<T>`, and `Array` methods to SQL using `json_each()` and other SQLite JSON functions. Everything runs on the database, not in memory.
+When you store a `List<T>` or `T[]` as JSON, the framework also routes many standard LINQ, `List<T>` and `Array` methods to SQL using `json_each()` and other SQLite JSON functions. Everything runs on the database, not in memory.
 
 ### Supported LINQ methods (Enumerable)
 
@@ -163,7 +163,7 @@ When you store a `List<T>` or `T[]` as JSON, the framework also routes many stan
 | `Count()` | Number of elements |
 | `First()` / `FirstOrDefault()` | First element |
 | `Last()` / `LastOrDefault()` | Last element |
-| `Single()` / `SingleOrDefault()` | The only element, or null if there is not exactly one |
+| `Single()` / `SingleOrDefault()` | The only element or null if there is not exactly one |
 | `ElementAt(i)` | Element at the given index |
 | `Min()` / `Max()` | Smallest or largest element |
 | `Sum()` / `Average()` | Sum or average of numeric elements |
@@ -214,29 +214,29 @@ When you store a `List<T>` or `T[]` as JSON, the framework also routes many stan
 | Method | What it does |
 |---|---|
 | `Contains(item)` | True if the list contains the item |
-| `IndexOf(item)` | Index of the first occurrence, or -1 |
-| `LastIndexOf(item)` | Index of the last occurrence, or -1 |
+| `IndexOf(item)` | Index of the first occurrence or -1 |
+| `LastIndexOf(item)` | Index of the last occurrence or -1 |
 | `GetRange(index, count)` | A sub-list starting at the given index |
 | `Exists(x => ...)` | True if any element matches the predicate |
 | `Find(x => ...)` | First element matching the predicate |
 | `FindAll(x => ...)` | All elements matching the predicate |
-| `FindIndex(x => ...)` | Index of the first match, or -1 |
+| `FindIndex(x => ...)` | Index of the first match or -1 |
 | `FindLast(x => ...)` | Last element matching the predicate |
-| `FindLastIndex(x => ...)` | Index of the last match, or -1 |
+| `FindLastIndex(x => ...)` | Index of the last match or -1 |
 | `TrueForAll(x => ...)` | True if every element matches |
 
 ### Supported Array methods
 
 | Method | What it does |
 |---|---|
-| `Array.IndexOf(arr, item)` | Index of the first occurrence, or -1 |
-| `Array.LastIndexOf(arr, item)` | Index of the last occurrence, or -1 |
+| `Array.IndexOf(arr, item)` | Index of the first occurrence or -1 |
+| `Array.LastIndexOf(arr, item)` | Index of the last occurrence or -1 |
 | `Array.Exists(arr, x => ...)` | True if any element matches |
 | `Array.Find(arr, x => ...)` | First matching element |
 | `Array.FindAll(arr, x => ...)` | All matching elements |
-| `Array.FindIndex(arr, x => ...)` | Index of the first match, or -1 |
+| `Array.FindIndex(arr, x => ...)` | Index of the first match or -1 |
 | `Array.FindLast(arr, x => ...)` | Last matching element |
-| `Array.FindLastIndex(arr, x => ...)` | Index of the last match, or -1 |
+| `Array.FindLastIndex(arr, x => ...)` | Index of the last match or -1 |
 | `Array.TrueForAll(arr, x => ...)` | True if every element matches |
 | `Array.ConvertAll(arr, x => ...)` | Project each element |
 
@@ -311,7 +311,7 @@ int distinctGroups = await db.Table<Product>()
 
 ### Property access on JSON columns
 
-When you access a property on a JSON-stored object, the framework translates it to `json_extract`. This works in `Where`, `Select`, `OrderBy`, and anywhere else you use a property:
+When you access a property on a JSON-stored object, the framework translates it to `json_extract`. This works in `Where`, `Select`, `OrderBy` and anywhere else you use a property:
 
 ```csharp
 // property access on a single JSON object
@@ -330,7 +330,7 @@ string street = await db.Table<Order>()
 
 When you chain two or more methods on a JSON collection, they are combined into a single SQL subquery instead of nesting multiple subqueries. For example, `.Where(...).OrderBy(...).Take(n)` produces one `SELECT ... FROM json_each(...) WHERE ... ORDER BY ... LIMIT n` query.
 
-This also means that combinations like `.Where(...).Count()`, `.OrderBy(...).ThenBy(...).First()`, and `.GroupBy(...).Count()` all work and produce clean SQL.
+This also means that combinations like `.Where(...).Count()`, `.OrderBy(...).ThenBy(...).First()` and `.GroupBy(...).Count()` all work and produce clean SQL.
 
 ### What is not supported
 

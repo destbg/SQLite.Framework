@@ -31,7 +31,7 @@ public class SQLiteReturningQueryable<[DynamicallyAccessedMembers(DynamicallyAcc
     }
 
     /// <summary>
-    /// The original source queryable (carries <c>Where</c>, <c>Join</c>, and so on).
+    /// The original source queryable (carries <c>Where</c>, <c>Join</c> and so on).
     /// </summary>
     public IQueryable<T> Source { get; }
 

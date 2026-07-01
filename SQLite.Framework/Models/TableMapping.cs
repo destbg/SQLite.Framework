@@ -113,7 +113,7 @@ public class TableMapping
 
     /// <summary>
     /// Computed (generated) columns declared on this table through the model. This is the single
-    /// source of truth, so create, migrate, and validate all agree.
+    /// source of truth, so create, migrate and validate all agree.
     /// </summary>
     internal IReadOnlyList<ComputedColumnSpec> ComputedColumns => computedColumns;
 

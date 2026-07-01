@@ -4,12 +4,12 @@
 
 Without the source generator, SQLite.Framework walks the expression tree of every query at runtime and uses reflection to create the result objects. That works fine on normal .NET but it has two costs:
 
-- **Startup and per-query cost**: every row goes through reflected constructor, property, and method calls.
+- **Startup and per-query cost**: every row goes through reflected constructor, property and method calls.
 - **AOT compatibility**: the expression tree methods the C# compiler generates for a `Select` (like `Expression.New` and `Expression.Bind`) are annotated with `[RequiresUnreferencedCode]`, which produces trimmer warnings under `PublishAot`. The trimmer can also strip types that are only reached through reflection.
 
 The source generator solves both. It reads your code at build time and writes plain C# that creates the objects directly. Every public type or method the generator can see is referenced by name, so the trimmer keeps it and the reflected materializer path is not used for those.
 
-Reflection is still used in two narrow cases: when a `Select` or entity target is a `private` or `internal` type that the generated code cannot name, and when a `Select` body calls a private method. In those cases the generator falls back to `MethodInfo.Invoke` / `Activator.CreateInstance` on types and members that are captured at query-build time. If you want the reflected path off your hot path entirely, keep the types and methods that appear in your `Select` projections `public` or `internal` with `InternalsVisibleTo`.
+Reflection is still used in two narrow cases: when a `Select` or entity target is a `private` or `internal` type that the generated code cannot name and when a `Select` body calls a private method. In those cases the generator falls back to `MethodInfo.Invoke` / `Activator.CreateInstance` on types and members that are captured at query-build time. If you want the reflected path off your hot path entirely, keep the types and methods that appear in your `Select` projections `public` or `internal` with `InternalsVisibleTo`.
 
 ## What it provides
 
@@ -23,21 +23,21 @@ The generated materializers skip the runtime expression-tree walk and use typed 
 
 | Path                 | Mean       | Allocated |
 |----------------------|------------|-----------|
-| Runtime              | 148.86 µs  | 55.55 KB  |
-| Source generator     | 117.12 µs  | 35.08 KB  |
+| Runtime              | 148.86 us  | 55.55 KB  |
+| Source generator     | 117.12 us  | 35.08 KB  |
 
 **Materialization only** (with SQLite execution stubbed out): the source-generated path is up to **63% faster** than the runtime path. This is just the part of the query that the source generator actually changes.
 
 | Path                 | Mean       | Allocated |
 |----------------------|------------|-----------|
-| Runtime              | 18.86 µs   | 30.38 KB  |
-| Source generator     | 6.96 µs    | 24.52 KB  |
+| Runtime              | 18.86 us   | 30.38 KB  |
+| Source generator     | 6.96 us    | 24.52 KB  |
 
 Rules of thumb for what to expect:
 
 - **Small list queries** see the biggest wins. The fixed cost of building a materializer at runtime, plus the per-row boxing the runtime path does, both fall away.
 - **Scalar queries** (a `Count`, `Sum`, `First` of a primitive) see little or no change. There is nothing to materialize.
-- **Heavy queries** with many joins, subqueries, or large result sets are dominated by the time SQLite spends executing the SQL. The fixed savings stay the same in absolute terms, so the percentage shrinks. Allocation savings are still visible.
+- **Heavy queries** with many joins, subqueries or large result sets are dominated by the time SQLite spends executing the SQL. The fixed savings stay the same in absolute terms, so the percentage shrinks. Allocation savings are still visible.
 
 ## Installation
 
@@ -110,7 +110,7 @@ The generator runs in every project that references the package and produces one
 
 This means:
 
-- If your solution has several projects that build LINQ queries (for example a Web API project, a background worker, and a shared data library that only exposes `IQueryable` helpers), **each project that calls `UseGeneratedMaterializers` needs its own reference to `SQLite.Framework.SourceGenerator`**. The generated class in project A cannot be called from project B.
+- If your solution has several projects that build LINQ queries (for example a Web API project, a background worker and a shared data library that only exposes `IQueryable` helpers), **each project that calls `UseGeneratedMaterializers` needs its own reference to `SQLite.Framework.SourceGenerator`**. The generated class in project A cannot be called from project B.
 - The generator only sees entities and `Select` projections that appear in the project it is building. A `Select` written in a different project will use the runtime path unless that other project also has the generator installed and also calls `UseGeneratedMaterializers` on its own builder.
 - It is fine to call `UseGeneratedMaterializers` more than once on the same builder (for example once per library that contributes queries). Later calls replace entries in the dictionaries for the same signature, so the last registration wins.
 
@@ -120,9 +120,9 @@ If all your queries live in one project (the common case for small apps), instal
 
 The generator produces two kinds of materializers.
 
-**Entity materializers** map a row to a .NET class. The generator scans every `db.Table<T>()`, `db.Query<T>`, `db.FromSql<T>`, `db.With<T>`, `.Cast<T>()`, `.OfType<T>()`, and `command.ExecuteQuery<T>()` call to find target types. It also scans `Select` and `SelectMany` projection result types, and the types produced by `select` clauses in query syntax. Nested private and `file sealed` classes work through a reflection-based materializer that is still registered per type, so the runtime never falls back.
+**Entity materializers** map a row to a .NET class. The generator scans every `db.Table<T>()`, `db.Query<T>`, `db.FromSql<T>`, `db.With<T>`, `.Cast<T>()`, `.OfType<T>()` and `command.ExecuteQuery<T>()` call to find target types. It also scans `Select` and `SelectMany` projection result types and the types produced by `select` clauses in query syntax. Nested private and `file sealed` classes work through a reflection-based materializer that is still registered per type, so the runtime never falls back.
 
-**Select materializers** cover the body of a `Select`, `SelectMany`, `Join`, or `GroupBy` key selector. This includes:
+**Select materializers** cover the body of a `Select`, `SelectMany`, `Join` or `GroupBy` key selector. This includes:
 
 - Anonymous types: `Select(b => new { b.Id, b.Title })`
 - Object initialisers: `Select(b => new BookView { Id = b.Id, Title = b.Title })`
@@ -155,7 +155,7 @@ List<Book> books = new Repo<Book>(db).Get("SELECT * FROM Books");
 List<Author> authors = new Repo<Author>(db).Get("SELECT * FROM Authors");
 ```
 
-The generator records `new Repo<Book>()` and `new Repo<Author>()`, then walks `Repo<T>.Get`'s body, sees `ExecuteQuery<T>` with an open `T`, and emits an entity materializer for `Book` and one for `Author`. Adding `new Repo<Customer>()` later automatically gets a `Customer` materializer the next time the generator runs.
+The generator records `new Repo<Book>()` and `new Repo<Author>()`, then walks `Repo<T>.Get`'s body, sees `ExecuteQuery<T>` with an open `T` and emits an entity materializer for `Book` and one for `Author`. Adding `new Repo<Customer>()` later automatically gets a `Customer` materializer the next time the generator runs.
 
 **A generic method projecting through `Select`:**
 
@@ -170,7 +170,7 @@ DtoA aDto = await ProjectFirst<NomenclatureA, DtoA>(db.Table<NomenclatureA>());
 DtoB bDto = await ProjectFirst<NomenclatureB, DtoB>(db.Table<NomenclatureB>());
 ```
 
-The generator records each closed call (`<NomenclatureA, DtoA>`, `<NomenclatureB, DtoB>`), substitutes the type parameters into the lambda body, and emits one Select materializer per concrete `TResult`.
+The generator records each closed call (`<NomenclatureA, DtoA>`, `<NomenclatureB, DtoB>`), substitutes the type parameters into the lambda body and emits one Select materializer per concrete `TResult`.
 
 What the generator can follow:
 
@@ -180,7 +180,7 @@ What the generator can follow:
 
 What is out of scope:
 
-- Cross-assembly helpers. If `Repo<T>` lives in a referenced library, the generator only sees its compiled signature, not its body, and cannot tell that it calls `ExecuteQuery<T>`. Move the helper into the project that runs the generator, or pre-call `ExecuteQuery<ConcreteType>()` directly.
+- Cross-assembly helpers. If `Repo<T>` lives in a referenced library, the generator only sees its compiled signature, not its body and cannot tell that it calls `ExecuteQuery<T>`. Move the helper into the project that runs the generator or pre-call `ExecuteQuery<ConcreteType>()` directly.
 - Helpers with no concrete callsite in the same project. The generator has nothing to substitute. The runtime path is used.
 - Reflection inside the helper body (`Activator.CreateInstance(typeof(TResult))` and similar). The generator only follows real `new TResult { ... }` syntax.
 

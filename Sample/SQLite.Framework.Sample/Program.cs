@@ -1055,7 +1055,7 @@ public static partial class Program
             productToUpdate.Description = "Updated description";
             productToUpdate.UpdatedAt = DateTime.Now;
             db.Table<Product>().Update(productToUpdate);
-            Console.WriteLine("✓ Updated product using Update method");
+            Console.WriteLine("Updated product using Update method");
         }
 
         // DELETE using ExecuteDelete

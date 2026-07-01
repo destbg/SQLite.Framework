@@ -2,7 +2,7 @@ namespace SQLite.Framework.Enums;
 
 /// <summary>
 /// Collation choice for indexes and ad-hoc query expressions. SQLite ships three built-in
-/// collations: <c>BINARY</c>, <c>NOCASE</c>, and <c>RTRIM</c>. Custom collations registered
+/// collations: <c>BINARY</c>, <c>NOCASE</c> and <c>RTRIM</c>. Custom collations registered
 /// through <c>sqlite3_create_collation</c> are not addressed by this enum.
 /// </summary>
 public enum SQLiteCollation

@@ -3,7 +3,7 @@ namespace SQLite.Framework;
 /// <summary>
 /// Builds the body of a LINQ-typed trigger. Reference the row that fired the trigger through
 /// <see cref="Old" /> and <see cref="New" /> inside the statement and <c>When</c> expressions, the
-/// same way SQLite's <c>OLD</c> and <c>NEW</c> rows work. Each <c>Update</c>, <c>Insert</c>, or
+/// same way SQLite's <c>OLD</c> and <c>NEW</c> rows work. Each <c>Update</c>, <c>Insert</c> or
 /// <c>Delete</c> call adds one statement to the body.
 /// </summary>
 public sealed class SQLiteTriggerBuilder<T>

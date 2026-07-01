@@ -48,7 +48,7 @@ public static class SelectSignatureWriter
     }
 
     /// <summary>
-    /// Tells if the node reads a captured local, field, or property value.
+    /// Tells if the node reads a captured local, field or property value.
     /// </summary>
     public static bool IsCapturedValue(ExpressionSyntax node, SelectSignatureCtx ctx)
     {
@@ -337,7 +337,7 @@ public static class SelectSignatureWriter
     }
 
     /// <summary>
-    /// Tells if the expression reads only literals, captured values, and types.
+    /// Tells if the expression reads only literals, captured values and types.
     /// </summary>
     public static bool IsStableConstantSubtree(ExpressionSyntax expression, SelectSignatureCtx ctx)
     {

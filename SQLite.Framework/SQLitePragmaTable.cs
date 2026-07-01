@@ -4,7 +4,7 @@ namespace SQLite.Framework;
 /// A queryable backed by a SQLite pragma table-valued function (such as
 /// <c>pragma_table_info(name)</c>). Created by the helper methods on
 /// <see cref="SQLiteSchema" /> and translated to a direct pragma call in SQL. Supports the
-/// full LINQ surface (<c>Where</c>, <c>Select</c>, <c>Join</c>, and so on).
+/// full LINQ surface (<c>Where</c>, <c>Select</c>, <c>Join</c> and so on).
 /// </summary>
 public sealed class SQLitePragmaTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T> : BaseSQLiteQueryable, IPragmaTableSource, IQueryable<T>
 {

@@ -61,7 +61,7 @@ await transaction.CommitAsync();
 
 ## Reads Inside a Transaction
 
-Queries (`ToList`, `First`, `Count`, and so on) do not acquire the write lock. This means a read can run at any time, even while a transaction is open on another thread. SQLite handles this safely through its own internal locking and, when WAL mode is enabled, through snapshot isolation.
+Queries (`ToList`, `First`, `Count` and so on) do not acquire the write lock. This means a read can run at any time, even while a transaction is open on another thread. SQLite handles this safely through its own internal locking and, when WAL mode is enabled, through snapshot isolation.
 
 A common pattern where this matters is a background sync that holds a transaction while the UI thread still needs to read:
 
@@ -111,7 +111,7 @@ After this is set, the timeline looks like this:
 
 Things to keep in mind:
 
-- The wait only affects reads from a different async context. Reads from the transaction's own context, or from a context that holds the connection lock, do not wait.
+- The wait only affects reads from a different async context. Reads from the transaction's own context or from a context that holds the connection lock, do not wait.
 - Every read honors the wait.
 - The wait is non-blocking, so a thread is not held while the read waits.
 - `BlockReadsDuringTransaction` defaults to `false`.
@@ -141,7 +141,7 @@ Because step 3 would execute inside `sp0`, it gets rolled back at step 4 without
 
 ## AddRange and UpdateRange
 
-`AddRangeAsync`, `UpdateRangeAsync`, and `RemoveRangeAsync` already wrap their operations in a transaction internally. If you are calling them as part of a larger transaction, pass `runInTransaction: false` to avoid nesting unnecessarily.
+`AddRangeAsync`, `UpdateRangeAsync` and `RemoveRangeAsync` already wrap their operations in a transaction internally. If you are calling them as part of a larger transaction, pass `runInTransaction: false` to avoid nesting unnecessarily.
 
 ```csharp
 await using SQLiteTransaction transaction = await db.BeginTransactionAsync();

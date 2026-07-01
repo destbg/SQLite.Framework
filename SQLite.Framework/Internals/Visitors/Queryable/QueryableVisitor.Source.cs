@@ -10,7 +10,7 @@ internal partial class QueryableVisitor
         if (OrderBys.Count > 0 || Take != null || Skip != null)
         {
             throw new NotSupportedException(
-                $"{node.Method.Name} after OrderBy, Take, or Skip is not supported because it would require wrapping the operand in a subquery. " +
+                $"{node.Method.Name} after OrderBy, Take or Skip is not supported because it would require wrapping the operand in a subquery. " +
                 "Materialize the ordered or paged operand into a list before combining.");
         }
 
@@ -20,7 +20,7 @@ internal partial class QueryableVisitor
         if (sqlTranslator.HasTopLevelOrderingOrPaging)
         {
             throw new NotSupportedException(
-                $"{node.Method.Name} with an OrderBy, Take, or Skip on the combined operand is not supported because " +
+                $"{node.Method.Name} with an OrderBy, Take or Skip on the combined operand is not supported because " +
                 "its ORDER BY or LIMIT would apply to the whole combined result, not just that operand. " +
                 "Materialize the ordered or paged operand into a list before combining.");
         }

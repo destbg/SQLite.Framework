@@ -6,13 +6,13 @@ namespace SQLite.Framework.Enums;
 public enum FtsAutoSync
 {
     /// <summary>
-    /// The framework does nothing extra. You insert, update, and delete rows in the FTS table yourself.
+    /// The framework does nothing extra. You insert, update and delete rows in the FTS table yourself.
     /// This is the default.
     /// </summary>
     Manual,
 
     /// <summary>
-    /// On <c>CreateTable</c>, the framework also creates <c>AFTER INSERT</c>, <c>AFTER UPDATE</c>,
+    /// On <c>CreateTable</c>, the framework also creates <c>AFTER INSERT</c>, <c>AFTER UPDATE</c>
     /// and <c>AFTER DELETE</c> triggers on the source table that mirror writes into the FTS table.
     /// </summary>
     Triggers,

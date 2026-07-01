@@ -3,9 +3,9 @@ namespace SQLite.Framework;
 /// <summary>
 /// Configures one entity's schema inside <see cref="SQLiteDatabase.OnModelCreating" />. This is the
 /// single place to declare the table name, primary key, columns, computed columns, CHECK
-/// constraints, indexes, foreign keys, defaults, STRICT, WITHOUT ROWID, and triggers. Everything the
+/// constraints, indexes, foreign keys, defaults, STRICT, WITHOUT ROWID and triggers. Everything the
 /// mapping attributes can do is available here, plus columns that have no CLR property. The
-/// configuration is written onto the model, so create, migrate, and validate all read the same
+/// configuration is written onto the model, so create, migrate and validate all read the same
 /// definition.
 /// </summary>
 public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>
@@ -57,7 +57,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 
     /// <summary>
     /// Sets the primary key, the same as the <c>[Key]</c> attribute. Pass a single property for a
-    /// single-column key, or an anonymous object (<c>b =&gt; new { b.A, b.B }</c>) for a composite
+    /// single-column key or an anonymous object (<c>b =&gt; new { b.A, b.B }</c>) for a composite
     /// key. This replaces any primary key already declared on the columns.
     /// </summary>
     /// <param name="key">The key property or properties.</param>
@@ -152,7 +152,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
     /// <summary>
     /// Adds a column that has no CLR property. The framework creates it and keeps it across a
     /// migrate rebuild, but never reads or writes it. Use it for columns driven by defaults,
-    /// triggers, or other consumers. A NOT NULL column needs a default so inserts of the model
+    /// triggers or other consumers. A NOT NULL column needs a default so inserts of the model
     /// succeed.
     /// </summary>
     /// <param name="name">The column name.</param>
@@ -169,7 +169,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 
     /// <summary>
     /// Adds a generated (computed) column. The column is computed from <paramref name="sql" /> on
-    /// every read when <paramref name="stored" /> is <see langword="false" /> (the default), or
+    /// every read when <paramref name="stored" /> is <see langword="false" /> (the default) or
     /// stored on disk when it is <see langword="true" />. Requires SQLite 3.31.0 or newer.
     /// </summary>
     /// <param name="column">The property that maps to the computed column.</param>
@@ -211,11 +211,11 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 
     /// <summary>
     /// Adds an index. Pass a single property for a single-column index, an anonymous object
-    /// (<c>b =&gt; new { b.A, b.B }</c>) for a composite index, or any expression for an expression
-    /// index. Optionally limit it to rows matching <paramref name="filter" /> for a partial index,
+    /// (<c>b =&gt; new { b.A, b.B }</c>) for a composite index or any expression for an expression
+    /// index. Optionally limit it to rows matching <paramref name="filter" /> for a partial index
     /// and set collation or sort direction per slot.
     /// </summary>
-    /// <param name="column">Column, columns, or expression to index.</param>
+    /// <param name="column">Column, columns or expression to index.</param>
     /// <param name="name">Optional index name. Required when the body is not a plain property.</param>
     /// <param name="unique">Whether the index is unique.</param>
     /// <param name="filter">Optional predicate that produces a partial index.</param>
@@ -357,8 +357,8 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
     /// <typeparamref name="TParent" />. Supports composite foreign keys when both selectors project
     /// an anonymous tuple of the same arity (for example <c>l =&gt; new { l.A, l.B }</c>).
     /// </summary>
-    /// <param name="column">The source property, or an anonymous tuple.</param>
-    /// <param name="targetColumn">The parent property, or an anonymous tuple, to point at.</param>
+    /// <param name="column">The source property or an anonymous tuple.</param>
+    /// <param name="targetColumn">The parent property or an anonymous tuple, to point at.</param>
     /// <param name="onDelete">Action on delete of the parent row.</param>
     /// <param name="onUpdate">Action on update of the parent key.</param>
     /// <param name="deferred">When <see langword="true" />, the constraint is deferred.</param>
@@ -420,7 +420,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
         build(triggerBuilder);
         if (triggerBuilder.Statements.Count == 0)
         {
-            throw new ArgumentException("The trigger body must contain at least one Update, Insert, or Delete statement.", nameof(build));
+            throw new ArgumentException("The trigger body must contain at least one Update, Insert or Delete statement.", nameof(build));
         }
 
         string body = string.Join("; ", triggerBuilder.Statements);
@@ -545,6 +545,6 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
             return [member.Member.Name];
         }
 
-        throw new ArgumentException("Expected a property access expression like b => b.Id, or an anonymous tuple like b => new { b.A, b.B }.");
+        throw new ArgumentException("Expected a property access expression like b => b.Id or an anonymous tuple like b => new { b.A, b.B }.");
     }
 }

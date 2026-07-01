@@ -6,7 +6,7 @@ namespace SQLite.Framework;
 public interface ISQLiteMigration
 {
     /// <summary>
-    /// The version number this migration brings the database to. Must be one or more, and unique
+    /// The version number this migration brings the database to. Must be one or more and unique
     /// across the migrations registered on one runner.
     /// </summary>
     static abstract int Version { get; }

@@ -867,7 +867,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             throw new NotSupportedException(
                 $"Translating '{openMethod.DeclaringType!.Name}.{openMethod.Name}' for runtime type '{type.FullName}' " +
                 "requires runtime code generation, which is unavailable under NativeAOT (PublishAot=true). " +
-                "Use the SQLite.Framework source generator and call UseGeneratedMaterializers, or rewrite the query so " +
+                "Use the SQLite.Framework source generator and call UseGeneratedMaterializers or rewrite the query so " +
                 "this operator is not invoked dynamically at runtime.");
         }
     }

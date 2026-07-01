@@ -61,7 +61,7 @@ var statsByGenre = await (
 
 ## Sum vs Total
 
-`g.Sum(b => b.Price)` emits `COALESCE(SUM(...), 0)`, matching `Enumerable.Sum`. An empty or all-`NULL` input returns `0`, and the result keeps the numeric type you projected. The nullable overloads (`Sum(b => (int?)b.X)`) also return `0`, never `null`.
+`g.Sum(b => b.Price)` emits `COALESCE(SUM(...), 0)`, matching `Enumerable.Sum`. An empty or all-`NULL` input returns `0` and the result keeps the numeric type you projected. The nullable overloads (`Sum(b => (int?)b.X)`) also return `0`, never `null`.
 
 `SQLiteFunctions.Total(g.Select(b => b.Price))` emits SQLite's `total(...)` and always returns a `REAL` (`double`) value, `0.0` for empty input. Reach for it when you want a `double` result regardless of the projected column type.
 

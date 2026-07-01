@@ -2,8 +2,8 @@ namespace SQLite.Framework.Internals.Helpers;
 
 /// <summary>
 /// Compares an entity <see cref="TableMapping" /> against the live database schema using the
-/// <c>pragma_table_info</c>, <c>pragma_index_list</c>, and <c>pragma_foreign_key_list</c>
-/// introspection functions, and collects each difference as a message.
+/// <c>pragma_table_info</c>, <c>pragma_index_list</c> and <c>pragma_foreign_key_list</c>
+/// introspection functions and collects each difference as a message.
 /// </summary>
 internal static class ModelValidator
 {

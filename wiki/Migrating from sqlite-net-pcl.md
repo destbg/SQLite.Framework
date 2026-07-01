@@ -4,7 +4,7 @@ This page covers some of the key differences between `sqlite-net-pcl` and `SQLit
 
 ## LINQ Select Is Fully Supported
 
-`sqlite-net-pcl` does not translate `Select` projections to SQL. It supports `Where`, `OrderBy`, `Take`, `Skip`, and `Count` in SQL, but it always fetches every column from the database. Any `Select` projection is applied in memory on the client after the full rows are read. This means that even if you only need two columns from a twenty-column table, you pay the cost of reading all twenty.
+`sqlite-net-pcl` does not translate `Select` projections to SQL. It supports `Where`, `OrderBy`, `Take`, `Skip` and `Count` in SQL, but it always fetches every column from the database. Any `Select` projection is applied in memory on the client after the full rows are read. This means that even if you only need two columns from a twenty-column table, you pay the cost of reading all twenty.
 
 `SQLite.Framework` translates `Select` to SQL, so only the columns you ask for are sent over the wire:
 
@@ -97,7 +97,7 @@ Both libraries store `DateTimeOffset` as a tick count and always read it back wi
 
 ### Types not in sqlite-net-pcl
 
-`SQLite.Framework` supports `DateOnly`, `TimeOnly`, and `char`. These do not exist in sqlite-net-pcl, so there is nothing to migrate.
+`SQLite.Framework` supports `DateOnly`, `TimeOnly` and `char`. These do not exist in sqlite-net-pcl, so there is nothing to migrate.
 
 ## Other Differences
 

@@ -180,8 +180,8 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     /// <summary>
     /// Performs an <c>INSERT INTO ... ON CONFLICT (...) DO ...</c> upsert built through the
     /// <see cref="SQLiteUpsertBuilder{T}" /> DSL and returns the written row, projected. Returns
-    /// <see langword="default" /> when the conflict resolves to no write (a <c>DO NOTHING</c>, or a
-    /// <c>DO UPDATE ... WHERE</c> guard that fails), or when an <c>OnAddOrUpdate</c> hook cancels the write.
+    /// <see langword="default" /> when the conflict resolves to no write (a <c>DO NOTHING</c> or a
+    /// <c>DO UPDATE ... WHERE</c> guard that fails) or when an <c>OnAddOrUpdate</c> hook cancels the write.
     /// </summary>
     public virtual TResult? Upsert(T item, Action<SQLiteUpsertBuilder<T>> configure)
     {

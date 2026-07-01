@@ -3,7 +3,7 @@ namespace SQLite.Framework.Models;
 /// <summary>
 /// Base class for any queryable owned by the framework. Holds the
 /// <see cref="SQLiteDatabase" /> the queryable belongs to. Subclasses include mapped tables
-/// (see <see cref="BaseSQLiteTable" />), CTEs (see <see cref="SQLiteCte" />), and the
+/// (see <see cref="BaseSQLiteTable" />), CTEs (see <see cref="SQLiteCte" />) and the
 /// internal LINQ chain wrapper.
 /// </summary>
 public abstract class BaseSQLiteQueryable : IQueryable

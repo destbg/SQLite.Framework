@@ -22,7 +22,7 @@ public static class QueryableExtensions
     /// <summary>
     /// Adds a single <c>WHERE</c> clause built from one or more predicates joined with <c>AND</c>
     /// and <c>OR</c>. Use this when chaining <c>Where</c> would not capture the desired logic, for
-    /// example when a row should match any of several predicates, or when predicates are added in
+    /// example when a row should match any of several predicates or when predicates are added in
     /// a loop. An empty builder leaves the query unchanged.
     /// </summary>
     public static IQueryable<T> WhereBuilder<T>(this IQueryable<T> source, Action<SQLiteWhereBuilder<T>> build)
@@ -450,7 +450,7 @@ public static class QueryableExtensions
     /// <summary>
     /// Marker method that the SQL translator rewrites into SQLite's <c>group_concat</c> aggregate.
     /// Invoked indirectly when <see cref="string.Join(string, IEnumerable{string})" /> is called
-    /// with an <see cref="IQueryable{T}" /> as the source inside a query expression, or by
+    /// with an <see cref="IQueryable{T}" /> as the source inside a query expression or by
     /// <see cref="StringJoin{T}" /> at the root. Throws <see cref="InvalidOperationException" />
     /// when called directly.
     /// </summary>
@@ -458,7 +458,7 @@ public static class QueryableExtensions
     {
         throw new InvalidOperationException(
             "GroupConcatMarker is a marker for the SQL translator. " +
-            "Use string.Join(separator, queryable) inside a query expression, or call queryable.StringJoin(separator).");
+            "Use string.Join(separator, queryable) inside a query expression or call queryable.StringJoin(separator).");
     }
 
     /// <summary>

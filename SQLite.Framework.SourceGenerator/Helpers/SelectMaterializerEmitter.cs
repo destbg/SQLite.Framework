@@ -376,7 +376,7 @@ public static class SelectMaterializerEmitter
     }
 
     /// <summary>
-    /// Returns the underlying type of a nullable value type, or the type itself.
+    /// Returns the underlying type of a nullable value type or the type itself.
     /// </summary>
     public static ITypeSymbol StripNullableSymbol(ITypeSymbol type)
     {

@@ -12,7 +12,7 @@ public enum TimeOnlyStorageMode
 
     /// <summary>
     /// Stored as a formatted TEXT time string, for example "04:05:06".
-    /// LINQ property access such as Hour, Minute, and Second is not supported in this mode.
+    /// LINQ property access such as Hour, Minute and Second is not supported in this mode.
     /// </summary>
     Text,
 }

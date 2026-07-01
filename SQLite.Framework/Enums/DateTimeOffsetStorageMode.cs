@@ -19,7 +19,7 @@ public enum DateTimeOffsetStorageMode
 
     /// <summary>
     /// Stored as a formatted TEXT date string, for example "2000-02-03 04:05:06 +05:30".
-    /// LINQ property access such as Year, Month, and Day is not supported in this mode.
+    /// LINQ property access such as Year, Month and Day is not supported in this mode.
     /// </summary>
     TextFormatted,
 }

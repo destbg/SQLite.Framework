@@ -3,7 +3,7 @@ namespace SQLite.Framework.Internals.Visitors;
 /// <summary>
 /// Rebinds a filter lambda registered against an interface (or base type) so its parameter and
 /// member accesses are typed against the concrete entity. Without the rewrite the SQL translator
-/// would see <c>MemberAccess</c> nodes whose declaring type is the interface, and the column
+/// would see <c>MemberAccess</c> nodes whose declaring type is the interface and the column
 /// lookup keyed on the entity's <c>TableMapping</c> would miss them.
 /// </summary>
 internal sealed class QueryFilterRebinderVisitor : ExpressionVisitor

@@ -28,7 +28,7 @@ public class SchemaColumnInfo
     public required bool IsPrimaryKey { get; init; }
 
     /// <summary>
-    /// The default value expression for the column, or <see langword="null" /> when none was declared.
+    /// The default value expression for the column or <see langword="null" /> when none was declared.
     /// </summary>
     public required string? DefaultValue { get; init; }
 }
