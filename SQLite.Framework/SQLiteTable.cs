@@ -124,11 +124,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
-            (TableColumn[] columns, string sql) = GetAddInfo();
-            TableColumn? autoIncrement = GetAutoIncrementColumn();
-            SQLiteOptions options = Database.Options;
-            Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
-            return RunPreparedRange(sql, collection, Database.Options.AddHooks, runInTransaction, bindRow, autoIncrement);
+            TableWriteCache<T>? cache = ResolveWriteCache();
+            TableWriteCacheEntry<T> entry = cache != null ? cache.Add ??= BuildAddEntry() : BuildAddEntry();
+            return RunPreparedRange(entry.Sql, collection, Database.Options.AddHooks, runInTransaction, entry.BindRow, entry.AutoIncrement);
         }
 
         return RunRange(Database.Options.AddHooks, collection, runInTransaction,
@@ -174,17 +172,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         if (Database.Options.OnActionHooks.Count == 0 && Database.Options.CommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(UpdateItem)))
         {
-            (TableColumn[] columns, TableColumn[] primaryKeyColumns, string sql) = GetUpdateInfo();
-            SQLiteOptions options = Database.Options;
-            Action<sqlite3_stmt, T> bindData = ResolveBindRow(columns, 0, options);
-            Action<sqlite3_stmt, T> bindPk = ResolveBindRow(primaryKeyColumns, columns.Length, options);
-            return RunPreparedRange(sql, collection, Database.Options.UpdateHooks, runInTransaction, BindRow);
-
-            void BindRow(sqlite3_stmt stmt, T item)
-            {
-                bindData(stmt, item);
-                bindPk(stmt, item);
-            }
+            TableWriteCache<T>? cache = ResolveWriteCache();
+            TableWriteCacheEntry<T> entry = cache != null ? cache.Update ??= BuildUpdateEntry() : BuildUpdateEntry();
+            return RunPreparedRange(entry.Sql, collection, Database.Options.UpdateHooks, runInTransaction, entry.BindRow);
         }
 
         return RunRange(Database.Options.UpdateHooks, collection, runInTransaction,
@@ -211,10 +201,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     {
         if (Database.Options.OnActionHooks.Count == 0 && Database.Options.CommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(AddOrRemoveItem)))
         {
-            (TableColumn[] primaryKeyColumns, string sql) = GetRemoveInfo();
-            SQLiteOptions options = Database.Options;
-            Action<sqlite3_stmt, T> bindRow = ResolveBindRow(primaryKeyColumns, 0, options);
-            return RunPreparedRange(sql, collection, Database.Options.RemoveHooks, runInTransaction, bindRow);
+            TableWriteCache<T>? cache = ResolveWriteCache();
+            TableWriteCacheEntry<T> entry = cache != null ? cache.Remove ??= BuildRemoveEntry() : BuildRemoveEntry();
+            return RunPreparedRange(entry.Sql, collection, Database.Options.RemoveHooks, runInTransaction, entry.BindRow);
         }
 
         return RunRange(Database.Options.RemoveHooks, collection, runInTransaction,
@@ -252,11 +241,21 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
-            (TableColumn[] columns, string sql) = GetAddOrUpdateInfo(conflict);
-            TableColumn? autoIncrement = GetAutoIncrementColumn();
-            SQLiteOptions options = Database.Options;
-            Action<sqlite3_stmt, T> bindRow = ResolveInsertBindRow(columns, autoIncrement, options);
-            return RunPreparedRange(sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, bindRow, autoIncrement);
+            TableWriteCache<T>? cache = ResolveWriteCache();
+            TableWriteCacheEntry<T> entry;
+            if (cache != null)
+            {
+                int slot = conflict >= SQLiteConflict.Replace && conflict <= SQLiteConflict.Rollback
+                    ? (int)conflict
+                    : (int)SQLiteConflict.Replace;
+                entry = cache.AddOrUpdate[slot] ??= BuildAddOrUpdateEntry(conflict);
+            }
+            else
+            {
+                entry = BuildAddOrUpdateEntry(conflict);
+            }
+
+            return RunPreparedRange(entry.Sql, collection, Database.Options.AddOrUpdateHooks, runInTransaction, entry.BindRow, entry.AutoIncrement);
         }
 
         return RunRange(Database.Options.AddOrUpdateHooks, collection, runInTransaction, item =>
@@ -623,49 +622,34 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             command.NotifyExecuting();
 
             sqlite3 handle = Database.GetActiveHandle();
-            SQLiteResult prepareResult = (SQLiteResult)raw.sqlite3_prepare_v2(handle, sql, out sqlite3_stmt? stmt);
-            if (prepareResult != SQLiteResult.OK)
+            sqlite3_stmt stmt;
+            try
             {
-                SQLiteException prepareException = new(prepareResult, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
-                command.NotifyFailed(prepareException);
-                throw prepareException;
+                stmt = Database.RentStatement(sql);
             }
+            catch (SQLiteException prepareException)
+            {
+                command.NotifyFailed(prepareException);
+                throw;
+            }
+
+            bool runRowHooks = hooks.Count > 0 || GetType() != typeof(SQLiteTable<T>);
 
             try
             {
-                foreach (T item in items)
+                if (items is List<T> list)
                 {
-                    if (!RunHooks(hooks, item))
+                    foreach (T item in list)
                     {
-                        continue;
+                        Row(item);
                     }
-
-                    bindRow(stmt, item);
-
-                    long rowIdBefore = autoIncrement != null && detectInsertByRowIdChange
-                        ? raw.sqlite3_last_insert_rowid(handle)
-                        : 0L;
-
-                    SQLiteResult stepResult = (SQLiteResult)raw.sqlite3_step(stmt);
-                    if (stepResult != SQLiteResult.Done)
+                }
+                else
+                {
+                    foreach (T item in items)
                     {
-                        throw new SQLiteException(stepResult, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
+                        Row(item);
                     }
-
-                    int changes = raw.sqlite3_changes(handle);
-                    count += changes;
-
-                    if (autoIncrement != null)
-                    {
-                        long rowId = raw.sqlite3_last_insert_rowid(handle);
-                        bool inserted = detectInsertByRowIdChange ? rowId != rowIdBefore : changes > 0;
-                        if (inserted)
-                        {
-                            autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
-                        }
-                    }
-
-                    raw.sqlite3_reset(stmt);
                 }
 
                 command.NotifyExecuted(count);
@@ -677,7 +661,42 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             }
             finally
             {
-                raw.sqlite3_finalize(stmt);
+                Database.ReturnStatement(sql, stmt);
+            }
+
+            void Row(T item)
+            {
+                if (runRowHooks && !RunHooks(hooks, item))
+                {
+                    return;
+                }
+
+                bindRow(stmt, item);
+
+                long rowIdBefore = autoIncrement != null && detectInsertByRowIdChange
+                    ? raw.sqlite3_last_insert_rowid(handle)
+                    : 0L;
+
+                SQLiteResult stepResult = (SQLiteResult)raw.sqlite3_step(stmt);
+                if (stepResult != SQLiteResult.Done)
+                {
+                    throw new SQLiteException(stepResult, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
+                }
+
+                int changes = raw.sqlite3_changes(handle);
+                count += changes;
+
+                if (autoIncrement != null)
+                {
+                    long rowId = raw.sqlite3_last_insert_rowid(handle);
+                    bool inserted = detectInsertByRowIdChange ? rowId != rowIdBefore : changes > 0;
+                    if (inserted)
+                    {
+                        autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
+                    }
+                }
+
+                raw.sqlite3_reset(stmt);
             }
         }
     }
@@ -1487,13 +1506,26 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             }
         }
 
+        Action<sqlite3_stmt, T>[] binders = new Action<sqlite3_stmt, T>[columns.Length];
+        for (int i = 0; i < columns.Length; i++)
+        {
+            int parameterIndex = firstParameterIndex + i + 1;
+            binders[i] = ColumnBinderFactory.TryCreate<T>(columns[i], parameterIndex, options)
+                ?? CreateBoxedBinder(columns[i], parameterIndex, options);
+        }
+
         return (stmt, item) =>
         {
-            for (int i = 0; i < columns.Length; i++)
+            for (int i = 0; i < binders.Length; i++)
             {
-                CommandHelpers.BindParameterByIndex(stmt, firstParameterIndex + i + 1, columns[i].PropertyInfo.GetValue(item), options);
+                binders[i](stmt, item);
             }
         };
+    }
+
+    private static Action<sqlite3_stmt, T> CreateBoxedBinder(TableColumn column, int parameterIndex, SQLiteOptions options)
+    {
+        return (stmt, item) => CommandHelpers.BindParameterByIndex(stmt, parameterIndex, column.PropertyInfo.GetValue(item), options);
     }
 
     private static Action<sqlite3_stmt, T> ResolveInsertBindRow(TableColumn[] columns, TableColumn? autoIncrement, SQLiteOptions options)

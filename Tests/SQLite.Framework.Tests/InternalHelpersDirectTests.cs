@@ -20,6 +20,7 @@ using FtsRenderState = SQLite.Framework.Internals.FTS5.FtsRenderState;
 using UpsertSqlBuilder = SQLite.Framework.Internals.Helpers.UpsertSqlBuilder;
 using SqlLiteralHelper = SQLite.Framework.Internals.Helpers.SqlLiteralHelper;
 using IdentifierGuard = SQLite.Framework.Internals.Helpers.IdentifierGuard;
+using ColumnBinderFactory = SQLite.Framework.Internals.Helpers.ColumnBinderFactory;
 
 namespace SQLite.Framework.Tests;
 
@@ -1843,6 +1844,50 @@ public class HandlerDispatchTests
         Assert.NotSame(first, different);
         Assert.Equal("json_extract(t0.Address, '$.City')", first.ToString());
         Assert.True(first.IsJsonSource);
+    }
+
+    [Fact]
+    public void ColumnBinderFactory_ValueTypeEntity_ReturnsNull()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(":memory:").Build();
+        TableColumn column = new(typeof(BinderStructRow).GetProperty(nameof(BinderStructRow.Value))!, options);
+
+        Assert.Null(ColumnBinderFactory.TryCreate<BinderStructRow>(column, 1, options));
+    }
+
+    [Fact]
+    public void ColumnBinderFactory_SetOnlyProperty_ReturnsNull()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(":memory:").Build();
+        TableColumn column = new(typeof(BinderPropertyRow).GetProperty(nameof(BinderPropertyRow.SetOnly))!, options);
+
+        Assert.Null(ColumnBinderFactory.TryCreate<BinderPropertyRow>(column, 1, options));
+    }
+
+    [Fact]
+    public void ColumnBinderFactory_StaticProperty_ReturnsNull()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(":memory:").Build();
+        TableColumn column = new(typeof(BinderPropertyRow).GetProperty(nameof(BinderPropertyRow.Marker))!, options);
+
+        Assert.Null(ColumnBinderFactory.TryCreate<BinderPropertyRow>(column, 1, options));
+    }
+
+    public struct BinderStructRow
+    {
+        public int Value { get; set; }
+    }
+
+    public class BinderPropertyRow
+    {
+        public int SetOnly
+        {
+            set
+            {
+            }
+        }
+
+        public static int Marker { get; set; }
     }
 }
 

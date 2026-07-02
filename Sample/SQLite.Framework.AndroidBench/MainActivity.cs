@@ -1,11 +1,16 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using Android.App;
+using Android.Database;
 using Android.OS;
 using Android.Util;
 using Microsoft.EntityFrameworkCore;
 using SQLite.Framework;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Generated;
+using AndroidSqlite = Android.Database.Sqlite;
 using SqliteNet = SQLite;
 using SQLitePCL;
 
@@ -29,6 +34,8 @@ internal static class Benchmarks
     private const int JoinBooks = 1000;
     private const int JoinAuthors = 50;
 
+    private static readonly Regex androidParamRegex = new("@p\\d+", RegexOptions.Compiled);
+
     public static void Run(string dir, string orm)
     {
         try
@@ -49,6 +56,16 @@ internal static class Benchmarks
             if (all || orm == "frameworkgen")
             {
                 RunFramework(dir, true);
+            }
+
+            if (all || orm == "android")
+            {
+                RunAndroid(dir);
+            }
+
+            if (orm == "raw")
+            {
+                RunRaw(dir);
             }
 
             if (all || orm == "ef")
@@ -95,6 +112,18 @@ internal static class Benchmarks
 
         Del(insPath);
 
+        string walPath = NewPath(dir, gen ? "insw-fwg" : "insw-fw");
+        using (SQLiteDatabase db = NewDb(walPath, gen))
+        {
+            db.Schema.CreateTable<Book>();
+            db.Pragmas.JournalMode = SQLiteJournalMode.Wal;
+            Bench($"{label} insert wal",
+                () => db.Table<Book>().AddRange(payload),
+                () => db.Execute("DELETE FROM \"Book\""));
+        }
+
+        Del(walPath);
+
         string updPath = NewPath(dir, gen ? "upd-fwg" : "upd-fw");
         using (SQLiteDatabase db = NewDb(updPath, gen))
         {
@@ -129,6 +158,281 @@ internal static class Benchmarks
         }
 
         Del(joinPath);
+    }
+
+    private static void RunAndroid(string dir)
+    {
+        string readPath = NewPath(dir, "read-android");
+        using (SQLiteDatabase db = NewDb(readPath, false))
+        {
+            db.Schema.CreateTable<Book>();
+            db.Table<Book>().AddRange(MakeReadBooks());
+        }
+
+        using (SQLiteDatabase compiler = NewDb(":memory:", false))
+        using (AndroidSqlite.SQLiteDatabase adb = AndroidSqlite.SQLiteDatabase.OpenOrCreateDatabase(readPath, null)!)
+        {
+            Bench("android read", () =>
+            {
+                (string sql, string[] args) = CompileForAndroid(compiler.Table<Book>().Where(b => b.AuthorId == 5));
+                List<Book> rows = new(ReadRows);
+                using ICursor cursor = adb.RawQuery(sql, args)!;
+                while (cursor.MoveToNext())
+                {
+                    rows.Add(new Book
+                    {
+                        Id = cursor.GetInt(0),
+                        Title = cursor.GetString(1)!,
+                        AuthorId = cursor.GetInt(2),
+                        PublisherId = cursor.GetInt(3),
+                        Price = cursor.GetDouble(4),
+                    });
+                }
+
+                cursor.Close();
+            });
+
+            adb.Close();
+        }
+
+        Del(readPath);
+
+        string insPath = NewPath(dir, "ins-android");
+        using (SQLiteDatabase db = NewDb(insPath, false))
+        {
+            db.Schema.CreateTable<Book>();
+        }
+
+        List<Book> payload = MakeReadBooks();
+        using (AndroidSqlite.SQLiteDatabase adb = AndroidSqlite.SQLiteDatabase.OpenOrCreateDatabase(insPath, null)!)
+        using (AndroidSqlite.SQLiteStatement insert = adb.CompileStatement(
+                   "INSERT INTO \"Book\" (\"Id\", \"Title\", \"AuthorId\", \"PublisherId\", \"Price\") VALUES (?, ?, ?, ?, ?)")!)
+        {
+            Log.Info(Tag, $"android engine journal={QueryScalar(adb, "PRAGMA journal_mode")} sync={QueryScalar(adb, "PRAGMA synchronous")} version={QueryScalar(adb, "SELECT sqlite_version()")}");
+
+            Bench("android insert",
+                () =>
+                {
+                    adb.BeginTransaction();
+                    try
+                    {
+                        foreach (Book book in payload)
+                        {
+                            insert.BindLong(1, book.Id);
+                            insert.BindString(2, book.Title);
+                            insert.BindLong(3, book.AuthorId);
+                            insert.BindLong(4, book.PublisherId);
+                            insert.BindDouble(5, book.Price);
+                            insert.ExecuteInsert();
+                        }
+
+                        adb.SetTransactionSuccessful();
+                    }
+                    finally
+                    {
+                        adb.EndTransaction();
+                    }
+                },
+                () => adb.ExecSQL("DELETE FROM \"Book\""));
+
+            insert.Close();
+            adb.Close();
+        }
+
+        Del(insPath);
+
+        string walPath = NewPath(dir, "insw-android");
+        using (SQLiteDatabase db = NewDb(walPath, false))
+        {
+            db.Schema.CreateTable<Book>();
+        }
+
+        using (AndroidSqlite.SQLiteDatabase adb = AndroidSqlite.SQLiteDatabase.OpenOrCreateDatabase(walPath, null)!)
+        {
+            adb.EnableWriteAheadLogging();
+            using AndroidSqlite.SQLiteStatement insert = adb.CompileStatement(
+                "INSERT INTO \"Book\" (\"Id\", \"Title\", \"AuthorId\", \"PublisherId\", \"Price\") VALUES (?, ?, ?, ?, ?)")!;
+            Log.Info(Tag, $"android wal journal={QueryScalar(adb, "PRAGMA journal_mode")} sync={QueryScalar(adb, "PRAGMA synchronous")}");
+            Bench("android insert wal",
+                () =>
+                {
+                    adb.BeginTransaction();
+                    try
+                    {
+                        foreach (Book book in payload)
+                        {
+                            insert.BindLong(1, book.Id);
+                            insert.BindString(2, book.Title);
+                            insert.BindLong(3, book.AuthorId);
+                            insert.BindLong(4, book.PublisherId);
+                            insert.BindDouble(5, book.Price);
+                            insert.ExecuteInsert();
+                        }
+
+                        adb.SetTransactionSuccessful();
+                    }
+                    finally
+                    {
+                        adb.EndTransaction();
+                    }
+                },
+                () => adb.ExecSQL("DELETE FROM \"Book\""));
+
+            insert.Close();
+            adb.Close();
+        }
+
+        Del(walPath);
+
+        string joinPath = NewPath(dir, "join-android");
+        using (SQLiteDatabase db = NewDb(joinPath, false))
+        {
+            db.Schema.CreateTable<Author>();
+            db.Schema.CreateTable<Book>();
+            db.Table<Author>().AddRange(MakeAuthors());
+            db.Table<Book>().AddRange(MakeJoinBooks());
+        }
+
+        using (SQLiteDatabase compiler = NewDb(":memory:", false))
+        using (AndroidSqlite.SQLiteDatabase adb = AndroidSqlite.SQLiteDatabase.OpenOrCreateDatabase(joinPath, null)!)
+        {
+            Bench("android join", () =>
+            {
+                (string sql, string[] args) = CompileForAndroid(
+                    from book in compiler.Table<Book>()
+                    join author in compiler.Table<Author>() on book.AuthorId equals author.Id
+                    where book.Price > 50
+                    orderby book.Price descending
+                    select new BookSummary
+                    {
+                        Title = book.Title,
+                        Author = author.Name,
+                        Price = book.Price,
+                        TotalBooks = compiler.Table<Book>().Count(),
+                    });
+                List<BookSummary> rows = [];
+                using ICursor cursor = adb.RawQuery(sql, args)!;
+                while (cursor.MoveToNext())
+                {
+                    rows.Add(new BookSummary
+                    {
+                        Title = cursor.GetString(0)!,
+                        Author = cursor.GetString(1)!,
+                        Price = cursor.GetDouble(2),
+                        TotalBooks = cursor.GetInt(3),
+                    });
+                }
+
+                cursor.Close();
+            });
+
+            adb.Close();
+        }
+
+        Del(joinPath);
+    }
+
+    private static void RunRaw(string dir)
+    {
+        string insPath = NewPath(dir, "ins-raw");
+        using (SQLiteDatabase db = NewDb(insPath, false))
+        {
+            db.Schema.CreateTable<Book>();
+        }
+
+        List<Book> payload = MakeReadBooks();
+        int rc = raw.sqlite3_open(insPath, out sqlite3 handle);
+        if (rc != raw.SQLITE_OK)
+        {
+            throw new InvalidOperationException("open failed");
+        }
+
+        raw.sqlite3_prepare_v2(handle, "INSERT INTO \"Book\" (\"Id\", \"Title\", \"AuthorId\", \"PublisherId\", \"Price\") VALUES (?, ?, ?, ?, ?)", out sqlite3_stmt insert);
+        raw.sqlite3_prepare_v2(handle, "BEGIN", out sqlite3_stmt begin);
+        raw.sqlite3_prepare_v2(handle, "COMMIT", out sqlite3_stmt commit);
+        raw.sqlite3_prepare_v2(handle, "DELETE FROM \"Book\"", out sqlite3_stmt delete);
+
+        raw.sqlite3_exec(handle, "PRAGMA journal_mode=TRUNCATE");
+
+        Bench("raw insert trunc", () =>
+        {
+            raw.sqlite3_step(begin);
+            raw.sqlite3_reset(begin);
+            foreach (Book b in payload)
+            {
+                raw.sqlite3_bind_int(insert, 1, b.Id);
+                raw.sqlite3_bind_text(insert, 2, b.Title);
+                raw.sqlite3_bind_int(insert, 3, b.AuthorId);
+                raw.sqlite3_bind_int(insert, 4, b.PublisherId);
+                raw.sqlite3_bind_double(insert, 5, b.Price);
+                raw.sqlite3_step(insert);
+                raw.sqlite3_reset(insert);
+            }
+
+            raw.sqlite3_step(commit);
+            raw.sqlite3_reset(commit);
+        }, () =>
+        {
+            raw.sqlite3_step(delete);
+            raw.sqlite3_reset(delete);
+        });
+
+        raw.sqlite3_exec(handle, "PRAGMA journal_mode=WAL");
+
+        Bench("raw insert wal", () =>
+        {
+            raw.sqlite3_step(begin);
+            raw.sqlite3_reset(begin);
+            foreach (Book b in payload)
+            {
+                raw.sqlite3_bind_int(insert, 1, b.Id);
+                raw.sqlite3_bind_text(insert, 2, b.Title);
+                raw.sqlite3_bind_int(insert, 3, b.AuthorId);
+                raw.sqlite3_bind_int(insert, 4, b.PublisherId);
+                raw.sqlite3_bind_double(insert, 5, b.Price);
+                raw.sqlite3_step(insert);
+                raw.sqlite3_reset(insert);
+            }
+
+            raw.sqlite3_step(commit);
+            raw.sqlite3_reset(commit);
+        }, () =>
+        {
+            raw.sqlite3_step(delete);
+            raw.sqlite3_reset(delete);
+        });
+
+        raw.sqlite3_exec(handle, "PRAGMA journal_mode=DELETE");
+
+        Bench("raw insert", () =>
+        {
+            raw.sqlite3_step(begin);
+            raw.sqlite3_reset(begin);
+            foreach (Book b in payload)
+            {
+                raw.sqlite3_bind_int(insert, 1, b.Id);
+                raw.sqlite3_bind_text(insert, 2, b.Title);
+                raw.sqlite3_bind_int(insert, 3, b.AuthorId);
+                raw.sqlite3_bind_int(insert, 4, b.PublisherId);
+                raw.sqlite3_bind_double(insert, 5, b.Price);
+                raw.sqlite3_step(insert);
+                raw.sqlite3_reset(insert);
+            }
+
+            raw.sqlite3_step(commit);
+            raw.sqlite3_reset(commit);
+        }, () =>
+        {
+            raw.sqlite3_step(delete);
+            raw.sqlite3_reset(delete);
+        });
+
+        raw.sqlite3_finalize(insert);
+        raw.sqlite3_finalize(begin);
+        raw.sqlite3_finalize(commit);
+        raw.sqlite3_finalize(delete);
+        raw.sqlite3_close(handle);
+        Del(insPath);
     }
 
     private static void RunSqliteNet(string dir)
@@ -301,6 +605,30 @@ internal static class Benchmarks
         }
 
         return new SQLiteDatabase(builder.Build());
+    }
+
+    private static string QueryScalar(AndroidSqlite.SQLiteDatabase adb, string sql)
+    {
+        using ICursor cursor = adb.RawQuery(sql, null)!;
+        cursor.MoveToNext();
+        string value = cursor.GetString(0)!;
+        cursor.Close();
+        return value;
+    }
+
+    private static (string Sql, string[] Args) CompileForAndroid<T>(IQueryable<T> query)
+    {
+        SQLiteCommand command = SQLite.Framework.Extensions.QueryableExtensions.ToSqlCommand(query);
+        List<string> args = new(command.Parameters.Count);
+
+        string sql = androidParamRegex.Replace(command.CommandText, match =>
+        {
+            SQLiteParameter parameter = command.Parameters.First(p => p.Name == match.Value);
+            args.Add(Convert.ToString(parameter.Value, CultureInfo.InvariantCulture)!);
+            return "?";
+        });
+
+        return (sql, args.ToArray());
     }
 
     private static List<Book> MakeReadBooks()

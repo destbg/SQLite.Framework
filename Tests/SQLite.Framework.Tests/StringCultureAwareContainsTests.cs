@@ -28,7 +28,7 @@ public class StringCultureAwareContainsTests
         string precomposed = "caf\u00e9";
         using TestDatabase db = Seed(decomposed, precomposed);
 
-        Assert.True(decomposed.StartsWith(precomposed, StringComparison.InvariantCulture));
+        Assert.StartsWith(precomposed, decomposed, StringComparison.InvariantCulture);
 
         bool actual = db.Table<TwoStringEntity>()
             .Select(x => x.A.StartsWith(x.B, StringComparison.InvariantCulture))
