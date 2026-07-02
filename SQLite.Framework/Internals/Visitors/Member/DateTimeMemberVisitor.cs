@@ -152,7 +152,7 @@ internal static class DateTimeMemberVisitor
             return node.Method.Name switch
             {
                 nameof(TimeSpan.Add) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
-                nameof(TimeSpan.Subtract) => SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", obj.SQLiteExpression!, " - ", arguments[0].SQLiteExpression!, "", ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!)),
+                nameof(TimeSpan.Subtract) => SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(", obj.SQLiteExpression!, " - ", arguments[0].SQLiteExpression!, ")", ParameterHelpers.CombineParameters(obj.SQLiteExpression, arguments[0].SQLiteExpression!)),
                 nameof(TimeSpan.Negate) => SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(-", obj.SQLiteExpression!, ")", obj.Parameters),
                 nameof(TimeSpan.Duration) => SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "ABS(", obj.SQLiteExpression!, ")", obj.Parameters),
                 _ => visitor.NotTranslatable(node, $"TimeSpan.{node.Method.Name} is not translatable to SQL.")

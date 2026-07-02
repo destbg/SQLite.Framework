@@ -19,7 +19,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
 - A `Sum` over a `ulong` column, including a window `Sum`, throws `SQLiteException` once the running total passes 2^63, even when the true unsigned total still fits a `ulong`. SQLite adds with signed 64-bit integers, so it overflows at half the `ulong` range.
 - A `uint` multiplication keeps the full 64-bit product instead of the 32-bit wrapped value, both when widened (`(long)(a * b)`) and when used directly (`a * b == 0u`).
-- A widening cast such as `(long)` or `(double)` of an `int` (or a `short`, `ushort`, `sbyte` or `byte`) multiplication or addition that overflows `int` keeps the full 64-bit result instead of the 32-bit wrapped value that .NET produces and does not throw. For example `(long)(a * a)` where `a` is `100000` reads back `10000000000` instead of `1410065408`. The same product read back as an `int`, such as `a * a`, still throws `OverflowException`. This follows the `uint` rule above.
+- A widening cast such as `(long)` or `(double)` of an `int` (or a `short`, `ushort`, `sbyte` or `byte`) multiplication, addition, subtraction or unary negation that overflows `int` keeps the full 64-bit result instead of the 32-bit wrapped value that .NET produces and does not throw. For example `(long)(a * a)` where `a` is `100000` reads back `10000000000` instead of `1410065408`, and `(long)(a - b)` where `a` is `-2000000000` and `b` is `2000000000` reads back `-4000000000` instead of `294967296`. The same result read back as an `int`, such as `a * a` or `-int.MinValue`, still throws `OverflowException`. This follows the `uint` rule above.
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
@@ -38,7 +38,9 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - `Length` counts code points and `PadLeft`/`PadRight` measure the target width the same way.
 - Ordering and comparison use byte value (`BINARY`), so `"B"` sorts before `"a"`.
-- `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing.
+- `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing. `Remove` with a negative count removes nothing and returns the original string.
+- `PadLeft` and `PadRight` with a negative total width return the original string instead of throwing, since a negative width is never wider than the value.
+- `Contains`, `StartsWith` and `EndsWith` with a case-sensitive culture-aware `StringComparison` (`InvariantCulture` or `CurrentCulture`) compare byte for byte and do not apply Unicode normalization, so a value written with a combining accent (`e` followed by U+0301) and the same value written with a precomposed character (U+00E9) do not match where .NET's `InvariantCulture` treats them as equal.
 - `IndexOf` and `LastIndexOf` with a `StringComparison` and their count overloads, are not translated to SQL. They run in memory in a `Select` and throw in a `Where`. The plain value and value-plus-start-index overloads are translated and are case-sensitive.
 - Reading a character by index, `s[i]`, with an out-of-range index does not throw the index-out-of-range error that .NET throws. A negative index reads a character counted from the end of the string and an index at or past the end fails with a different error.
 - `Replace("", ...)` returns the original string.
@@ -46,7 +48,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - The `CultureInfo` overloads of `ToUpper` and `ToLower`, on both `string` and `char` throw in a `Where`.
 - Case-insensitive `Equals`, `Compare`, `Contains`, `StartsWith` and `EndsWith` (`OrdinalIgnoreCase`) also fold only ASCII.
 - `string.Compare` and `CompareTo` order by byte value, the same as the comparison operators, even when a `CultureInfo` or a culture-aware `StringComparison` such as `InvariantCulture` is given. The sign of the result can differ from .NET, which compares by language rules.
-- `Enum.Parse` of a string that is not a defined member name and not a number reads back as the enum's zero value instead of throwing.
+- `Enum.Parse` of a string that is not a defined member name and not a number reads back as the enum's zero value instead of throwing. A string that mixes a number and a name, or that has extra characters after a number, such as `"1,2"`, `"2,Read"` or `"2extra"`, reads back a partial value (the bitwise OR of any matched member names with the leading digits read as a number) instead of the zero value or the `ArgumentException` that .NET throws.
 - `Enum.Parse` of a numeric string that does not fit the enum's underlying type, such as `300` for a `byte` backed enum, wraps to a value in range instead of throwing `OverflowException`.
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text).
 - A `char` taken from a string can be half of a character that needs two slots in .NET, such as an emoji. SQLite stores whole characters only, so reading that half on its own does not come back the same and can throw.
@@ -114,7 +116,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `SQLiteFunctions.Min` and `Max` need two or more arguments.
 - On a JSON array, `ElementAt` past the end, `First`, `Last` or `Single` over an empty array, `Single` over two or more elements and `Min`/`Max`/`Average`/`Sum` over an empty array all return the type default instead of throwing.
 - On a JSON array, `First`, `Last` or `Single` with a predicate that matches no element and `Min`, `Max` or `Average` after a `Where` that removes every element, also return the type default instead of throwing, the same as their over-empty forms.
-- On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL` and `Distinct().Count()` leaves the `null` out of the count.
+- On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL` and `Distinct().Count()` leaves the `null` out of the count. `Except` also drops a `null` from the source even when the other list has no `null`, because SQL `NULL NOT IN (...)` is `NULL` rather than true, so a `null` element cannot survive an `Except` where .NET would keep it.
 - A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so adding a list that holds one fails.
 - `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly` and `TimeSpan` values inside a JSON list are kept as text. Reading a part like `.Year` or comparing them, follows the same rules as `Text` storage, not .NET, so results can differ.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
@@ -159,6 +161,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - A composite primary key cannot have an auto-increment member. SQLite only allows auto-increment on a single-column `INTEGER PRIMARY KEY`, so creating such a table throws.
 - Auto-increment is only allowed on a single-column `INTEGER PRIMARY KEY`. Marking a key of another type, such as a `string` key, as auto-increment throws when the table is created.
 - Migrating a column from nullable to NOT NULL fails when existing rows hold `NULL` and the column has no default. Add a default, set a value with `TableChanged(s => s.Set(...))` or keep the column nullable. When the column has a default, the existing `NULL` rows are filled with that default.
+- Adding a column with a default value through `AddColumn` does not apply a custom converter's `ParameterSqlExpression` write wrap to that default, because SQLite's `ALTER TABLE ADD COLUMN` only accepts a constant default, not an expression. For a converter whose `ParameterSqlExpression` transforms the value (rather than the built-in `jsonb`, which reads back through `json()` either way), the backfilled default is stored unwrapped and reads back wrong. Recreate the table through `CreateTable`, which does wrap the default, or add the column with a null default and set the value with a follow-up update.
 
 ## Writes
 

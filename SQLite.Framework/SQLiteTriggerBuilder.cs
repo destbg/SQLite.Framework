@@ -87,7 +87,7 @@ public sealed class SQLiteTriggerBuilder<T>
             (string column, LambdaExpression value) = set.Setters[i];
             sql.Append(IdentifierGuard.Quote(ResolveColumn(mapping, column)));
             sql.Append(" = ");
-            sql.Append(Translate(value, mapping));
+            sql.Append(Translate(value, mapping, SetterColumn(mapping, column)));
         }
         sql.Append(" WHERE ").Append(Translate(predicate, mapping));
 
@@ -113,7 +113,7 @@ public sealed class SQLiteTriggerBuilder<T>
 
         TableMapping mapping = target.Table;
         string columns = string.Join(", ", set.Setters.Select(s => IdentifierGuard.Quote(ResolveColumn(mapping, s.Column))));
-        string valueList = string.Join(", ", set.Setters.Select(s => Translate(s.Value, mapping)));
+        string valueList = string.Join(", ", set.Setters.Select(s => Translate(s.Value, mapping, SetterColumn(mapping, s.Column))));
 
         statements.Add($"INSERT INTO \"{mapping.TableName}\" ({columns}) VALUES ({valueList})");
         return this;
@@ -132,7 +132,7 @@ public sealed class SQLiteTriggerBuilder<T>
         return this;
     }
 
-    private string Translate(LambdaExpression lambda, TableMapping? targetMapping)
+    private string Translate(LambdaExpression lambda, TableMapping? targetMapping, TableColumn? wrapColumn = null)
     {
         Expression body = new TriggerRowRewriter(oldRow, newRow, GetType()).Visit(lambda.Body)!;
 
@@ -144,7 +144,19 @@ public sealed class SQLiteTriggerBuilder<T>
         rows.Add((oldRow, triggerMapping, "OLD."));
         rows.Add((newRow, triggerMapping, "NEW."));
 
-        return BareSqlTranslator.TranslateTrigger(database, body, rows.ToArray());
+        string sql = BareSqlTranslator.TranslateTrigger(database, body, rows.ToArray());
+
+        if (wrapColumn != null && ExpressionHelpers.IsConstant(body))
+        {
+            sql = ConverterSql.WrapParameter(sql, wrapColumn.PropertyType, database.Options);
+        }
+
+        return sql;
+    }
+
+    private static TableColumn SetterColumn(TableMapping mapping, string propertyName)
+    {
+        return mapping.Columns.First(c => c.PropertyInfo.Name == propertyName);
     }
 
     private static string ResolveColumn(TableMapping mapping, string propertyName)

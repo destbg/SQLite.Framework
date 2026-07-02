@@ -401,8 +401,12 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             throw new InvalidOperationException("Source must belong to the same database as the target.");
         }
 
+        HashSet<string> computedColumnProperties = Table.ComputedColumns
+            .Select(c => c.Column.PropertyInfo.Name)
+            .ToHashSet();
+
         SQLTranslator translator = new(Database);
-        SQLQuery sourceQuery = translator.Translate(source.Expression);
+        SQLQuery sourceQuery = translator.Translate(source.Expression, computedColumnProperties);
 
         IReadOnlyList<SQLiteExpression> selects = translator.Selects;
         IEnumerable<string> targetColumns = selects.Select(s =>

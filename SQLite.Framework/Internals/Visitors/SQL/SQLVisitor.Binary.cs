@@ -26,7 +26,8 @@ internal partial class SQLVisitor
         Expression leftNode = node.Left;
         Expression rightNode = node.Right;
 
-        if (leftNode is UnaryExpression { NodeType: ExpressionType.Convert } leftEnumConvert && leftEnumConvert.Operand.Type.IsEnum)
+        if (leftNode is UnaryExpression { NodeType: ExpressionType.Convert } leftEnumConvert && leftEnumConvert.Operand.Type.IsEnum
+            && ShouldStripEnumConvert(leftEnumConvert))
         {
             Type enumType = leftEnumConvert.Operand.Type;
             leftNode = leftEnumConvert.Operand;
@@ -37,7 +38,8 @@ internal partial class SQLVisitor
             }
         }
 
-        if (rightNode is UnaryExpression { NodeType: ExpressionType.Convert } rightEnumConvert && rightEnumConvert.Operand.Type.IsEnum)
+        if (rightNode is UnaryExpression { NodeType: ExpressionType.Convert } rightEnumConvert && rightEnumConvert.Operand.Type.IsEnum
+            && ShouldStripEnumConvert(rightEnumConvert))
         {
             Type enumType = rightEnumConvert.Operand.Type;
             rightNode = rightEnumConvert.Operand;
@@ -541,6 +543,17 @@ internal partial class SQLVisitor
     private static bool IsNaNConstant(object? value)
     {
         return value is double d && double.IsNaN(d) || value is float f && float.IsNaN(f);
+    }
+
+    private bool ShouldStripEnumConvert(UnaryExpression enumConvert)
+    {
+        if (Database.Options.EnumStorage != EnumStorageMode.Text)
+        {
+            return true;
+        }
+
+        Type target = Nullable.GetUnderlyingType(enumConvert.Type) ?? enumConvert.Type;
+        return target == Enum.GetUnderlyingType(enumConvert.Operand.Type);
     }
 
     private static bool IsNullableColumn(Expression operand)

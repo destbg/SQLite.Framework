@@ -99,11 +99,16 @@ internal class SQLTranslator
         }
     }
 
-    public SQLQuery Translate(Expression? node)
+    public SQLQuery Translate(Expression? node, IReadOnlyCollection<string>? excludeSelectColumns = null)
     {
         if (node != null)
         {
             Visit(node);
+        }
+
+        if (excludeSelectColumns is { Count: > 0 })
+        {
+            queryableMethodVisitor.Selects.RemoveAll(s => excludeSelectColumns.Contains(s.IdentifierText));
         }
 
         if (Visitor.From == null)

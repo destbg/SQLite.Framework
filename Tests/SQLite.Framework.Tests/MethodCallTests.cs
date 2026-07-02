@@ -1051,7 +1051,7 @@ public class MethodCallTests
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal(1, command.Parameters[0].Value);
         Assert.Equal(3, command.Parameters[1].Value);
-        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       (SELECT SUBSTR(v6, 1, v8) || SUBSTR(v6, v8 + v10 + 1) FROM (SELECT b0.\"BookTitle\" AS v6, @p0 AS v8, @p1 AS v10)) AS \"Removed\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       (SELECT SUBSTR(v6, 1, v8) || SUBSTR(v6, v8 + MAX(v10, 0) + 1) FROM (SELECT b0.\"BookTitle\" AS v6, @p0 AS v8, @p1 AS v10)) AS \"Removed\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
 
         var results = query.ToList();
         Assert.Equal(2, results.Count);

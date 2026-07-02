@@ -155,11 +155,27 @@ internal partial class SQLVisitor
                     ? SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters)
                     : SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "UNICODE(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
             }
+            else if (resolved.SQLiteExpression.Type.IsEnum && Database.Options.EnumStorage == EnumStorageMode.Text)
+            {
+                Type enumUnderlying = Enum.GetUnderlyingType(resolved.SQLiteExpression.Type);
+                SQLiteExpression numberExpr = EnumMemberVisitor.BuildTextStorageEnumToNumber(this, enumUnderlying, resolved.SQLiteExpression.Type, resolved.SQLiteExpression);
+
+                if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == enumUnderlying)
+                {
+                    return numberExpr;
+                }
+
+                if (TryGetNarrowingIntegerWrap(enumUnderlying, node.Type, out string? enumWrapBefore, out string? enumWrapAfter))
+                {
+                    return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), enumWrapBefore!, numberExpr, enumWrapAfter!, numberExpr.Parameters);
+                }
+
+                string enumSqliteType = TypeHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
+                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CAST(", numberExpr, $" AS {enumSqliteType})", numberExpr.Parameters);
+            }
             else if (resolved.SQLiteExpression.Type.IsEnum && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == Enum.GetUnderlyingType(resolved.SQLiteExpression.Type))
             {
-                return Database.Options.EnumStorage == EnumStorageMode.Text
-                    ? EnumMemberVisitor.BuildTextStorageEnumToNumber(this, node.Type, resolved.SQLiteExpression.Type, resolved.SQLiteExpression)
-                    : SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
+                return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
             }
             else if (TryGetNarrowingIntegerWrap(resolved.SQLiteExpression.Type, node.Type, out string? wrapBefore, out string? wrapAfter))
             {

@@ -112,7 +112,7 @@ internal static class StringMemberVisitor
                         SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
                         return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                                ["SUBSTR(", ", 1, ", ") || SUBSTR(", ", ", " + ", " + 1)"],
+                                ["SUBSTR(", ", 1, ", ") || SUBSTR(", ", ", " + MAX(", ", 0) + 1)"],
                                 [a[0], a[1], a[0], a[1], a[2]],
                                 null));
                     }
