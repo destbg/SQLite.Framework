@@ -26,10 +26,11 @@ internal partial class SQLVisitor
         Expression leftNode = node.Left;
         Expression rightNode = node.Right;
 
-        if (leftNode is UnaryExpression { NodeType: ExpressionType.Convert } leftEnumConvert && leftEnumConvert.Operand.Type.IsEnum
+        if (leftNode is UnaryExpression { NodeType: ExpressionType.Convert } leftEnumConvert
+            && (Nullable.GetUnderlyingType(leftEnumConvert.Operand.Type) ?? leftEnumConvert.Operand.Type).IsEnum
             && ShouldStripEnumConvert(leftEnumConvert))
         {
-            Type enumType = leftEnumConvert.Operand.Type;
+            Type enumType = Nullable.GetUnderlyingType(leftEnumConvert.Operand.Type) ?? leftEnumConvert.Operand.Type;
             leftNode = leftEnumConvert.Operand;
             if (ExpressionHelpers.IsConstant(rightNode) && rightNode.Type == Enum.GetUnderlyingType(enumType))
             {
@@ -38,10 +39,11 @@ internal partial class SQLVisitor
             }
         }
 
-        if (rightNode is UnaryExpression { NodeType: ExpressionType.Convert } rightEnumConvert && rightEnumConvert.Operand.Type.IsEnum
+        if (rightNode is UnaryExpression { NodeType: ExpressionType.Convert } rightEnumConvert
+            && (Nullable.GetUnderlyingType(rightEnumConvert.Operand.Type) ?? rightEnumConvert.Operand.Type).IsEnum
             && ShouldStripEnumConvert(rightEnumConvert))
         {
-            Type enumType = rightEnumConvert.Operand.Type;
+            Type enumType = Nullable.GetUnderlyingType(rightEnumConvert.Operand.Type) ?? rightEnumConvert.Operand.Type;
             rightNode = rightEnumConvert.Operand;
             if (ExpressionHelpers.IsConstant(leftNode) && leftNode.Type == Enum.GetUnderlyingType(enumType))
             {
@@ -553,7 +555,8 @@ internal partial class SQLVisitor
         }
 
         Type target = Nullable.GetUnderlyingType(enumConvert.Type) ?? enumConvert.Type;
-        return target == Enum.GetUnderlyingType(enumConvert.Operand.Type);
+        Type operandEnum = Nullable.GetUnderlyingType(enumConvert.Operand.Type) ?? enumConvert.Operand.Type;
+        return target == Enum.GetUnderlyingType(operandEnum);
     }
 
     private static bool IsNullableColumn(Expression operand)
