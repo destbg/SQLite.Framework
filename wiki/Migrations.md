@@ -42,12 +42,13 @@ When you need a new table, a new column or new seed rows, declare the next versi
 
 Within one run the order is fixed:
 
-1. Column renames.
-2. Table creates.
-3. One reconcile per table marked with `TableChanged`.
-4. Column drops, table drops, row inserts and raw SQL steps.
+1. `RunBefore` callbacks.
+2. Column renames.
+3. Table creates.
+4. One reconcile per table marked with `TableChanged`.
+5. Column drops, table drops, row inserts, raw SQL steps and `Run` callbacks.
 
-So a row insert or a raw SQL data step always runs against the final shape of the table. A table created in the same run skips its reconcile and drop-column steps, because the create already produced the current model.
+So a data step always runs against the final shape of the table and a `RunBefore` callback always sees the old shape. A table created in the same run skips its reconcile and drop-column steps, because the create already produced the current model.
 
 Migrations always move toward the current model. There is no path back to an older version and no way to stop below the highest declared version. Do not set `user_version` by hand when you use migrations (see [Pragmas](Pragmas)).
 
@@ -105,7 +106,7 @@ await db.Schema.Migrations()
     .MigrateAsync();
 ```
 
-A step can also insert rows with `Insert`, drop a column with `DropColumn`, drop a table with `DropTable` or run raw SQL with `Sql` for a data fix. These run at the end of the run, in the fixed order above. `Insert` writes through the same pipeline as `Add`, so storage modes, converters and hooks apply, which makes it the right tool for seed rows, see [Data Seeding](Data%20Seeding). `Sql` is raw SQL, so values are inlined and storage-mode conversions are on you. To move data out of a column you are removing, keep the old column on the model while you copy it, then remove it in a later version.
+A step can also insert rows with `Insert`, drop a column with `DropColumn`, drop a table with `DropTable` or run raw SQL with `Sql` for a data fix. These run at the end of the run, in the fixed order above. `Insert` writes through the same pipeline as `Add`, so storage modes, converters and hooks apply, which makes it the right tool for seed rows. `InsertIfMissing` is the same insert but it skips every row whose key value is already in the table, which covers seeds that users may already have, see [Data Seeding](Data%20Seeding). `Sql` is raw SQL, so values are inlined and storage-mode conversions are on you. To move data out of a column you are removing, read it with `RunBefore` and write it back with `Run`, or keep the old column on the model while you copy it and remove it in a later version.
 
 Renames and drops are tolerant. A rename whose source column is missing is skipped. A drop is skipped when the column is already gone or when the model still declares it.
 
@@ -148,6 +149,86 @@ await db.Schema.Migrations()
 ```
 
 `Add<T>()` reads the version number without creating an instance. The migration class is constructed only when its version is applied, so a class that has already run is never loaded into memory.
+
+## Run callbacks
+
+`Run` gives a version a callback for data work the typed steps cannot express. The callback gets a `SQLiteMigrationContext` with the database, the version the run started from, the version the run moves to and the cancellation token. It runs in the data phase, after every schema change, inside the migration transaction, so a throw rolls the whole run back.
+
+`Run` takes a sync callback, so use the sync database methods inside it. `RunAsync` takes a callback that is awaited, so use the async methods there and pass the context token to them. Only `MigrateAsync` can await these callbacks. `Migrate` throws when a pending version declares one.
+
+Declare callbacks from a migration class like the ones above, so each operation is a named method instead of a long lambda chain.
+
+```csharp
+// Migrations/M0003_NormalizeSlugs.cs
+public sealed class M0003_NormalizeSlugs : ISQLiteMigration
+{
+    public static int Version => 3;
+
+    public void Apply(SQLiteMigrationStep step)
+    {
+        step.RunAsync(NormalizeSlugs);
+    }
+
+    private static async Task NormalizeSlugs(SQLiteMigrationContext ctx)
+    {
+        List<Book> books = await ctx.Database.Table<Book>().ToListAsync(ctx.CancellationToken);
+        foreach (Book book in books)
+        {
+            book.Slug = book.Title.Trim().ToLowerInvariant();
+            await ctx.Database.Table<Book>().UpdateAsync(book, ctx.CancellationToken);
+        }
+    }
+}
+```
+
+`RunBefore` and `RunBeforeAsync` are the same callbacks but they run before any schema change, against the old shape of the tables. Use them to read data that the schema changes would drop or rewrite, then write it back with `Run`. The class is constructed when its version applies, so a field can carry what `RunBefore` read over to the `Run` that writes it back.
+
+Keep two things in mind inside `RunBefore`. The model describes the new shape, so a typed query can name columns that do not exist yet, which makes raw SQL through `Query` and `Execute` the safer tool. And on a fresh database the callback runs before any table exists, so guard reads with `TableExists`.
+
+```csharp
+// Migrations/M0004_MoveLegacySlugs.cs
+public sealed class M0004_MoveLegacySlugs : ISQLiteMigration
+{
+    private readonly Dictionary<long, string> oldSlugs = [];
+
+    public static int Version => 4;
+
+    public void Apply(SQLiteMigrationStep step)
+    {
+        step.RunBefore(ReadOldSlugs)
+            .TableChanged<Book>()
+            .Run(WriteSlugs);
+    }
+
+    private void ReadOldSlugs(SQLiteMigrationContext ctx)
+    {
+        if (!ctx.Database.Schema.TableExists<Book>())
+        {
+            return;
+        }
+
+        foreach (Dictionary<string, object?> row in ctx.Database.Query<Dictionary<string, object?>>(
+            "SELECT Id, LegacySlug FROM Books WHERE LegacySlug IS NOT NULL"))
+        {
+            oldSlugs[(long)row["Id"]!] = (string)row["LegacySlug"]!;
+        }
+    }
+
+    private void WriteSlugs(SQLiteMigrationContext ctx)
+    {
+        foreach (Book book in ctx.Database.Table<Book>().ToList())
+        {
+            if (oldSlugs.TryGetValue(book.Id, out string? slug))
+            {
+                book.Slug = slug;
+                ctx.Database.Table<Book>().Update(book);
+            }
+        }
+    }
+}
+```
+
+A plan lists a callback as `run callback at version 4`, so `Plan` stays readable without running anything. Work done inside a callback is not part of the count `Migrate` returns.
 
 ## See what a migration would do
 

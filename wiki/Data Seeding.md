@@ -54,9 +54,19 @@ await db.Schema.Migrations()
 
 The rows go through the same write pipeline as `Add`, so storage modes, converters, write hooks and auto-increment key write-back all apply. A failed insert rolls the whole run back, like every other step.
 
+When a seed row may already be in the table, for example because users can create the same category themselves, use `InsertIfMissing`. It takes a key selector and inserts only the rows whose key value is not in the table yet. The rows are checked against the table, not against each other.
+
+```csharp
+await db.Schema.Migrations()
+    .Version(3, m => m.InsertIfMissing(c => c.Name,
+        new Category { Name = "History" },
+        new Category { Name = "Poetry" }))
+    .MigrateAsync();
+```
+
 Seed rows follow the same rule as every migration change. Never add them to a version that has shipped, because databases that passed that version will not run it again. Declare the next version instead, like version 2 above. See [Migrations](Migrations).
 
-For a data fix that is not an insert, an UPDATE over old rows for example, use the raw `Sql` step, see [Migrations](Migrations).
+For a data fix that is not an insert, an UPDATE over old rows for example, use the raw `Sql` step or a `Run` callback, see [Migrations](Migrations).
 
 ## Seed data from a file
 

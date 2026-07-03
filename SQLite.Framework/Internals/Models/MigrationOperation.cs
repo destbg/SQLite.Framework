@@ -60,4 +60,14 @@ internal sealed class MigrationOperation
     /// The raw SQL to run, for a raw-SQL operation.
     /// </summary>
     public string? Sql { get; init; }
+
+    /// <summary>
+    /// The callback to run, for a run or run-before operation.
+    /// </summary>
+    public Action<SQLiteMigrationContext>? Callback { get; init; }
+
+    /// <summary>
+    /// The callback to await, for an async run or run-before operation.
+    /// </summary>
+    public Func<SQLiteMigrationContext, Task>? AsyncCallback { get; init; }
 }

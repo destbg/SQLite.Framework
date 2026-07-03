@@ -7,22 +7,26 @@ namespace SQLite.Framework;
 /// the explicit methods for renames, drops and raw SQL that a reconcile cannot work out on its own.
 /// </summary>
 /// <remarks>
-/// Within a single run the runner does not apply these in the order written. It applies every
-/// rename first, then one reconcile per table, then drops, row inserts and raw SQL in the order
-/// declared. So a row insert or a raw SQL data step runs against the final shape of the table,
-/// not an in-between shape. To move data out of a column you are removing, keep the old column
-/// on the model while you copy it, then remove it in a later version. A reconcile or a column
+/// Within a single run the runner does not apply these in the order written. It runs every
+/// <see cref="RunBefore(Action{SQLiteMigrationContext})" /> callback first, then every rename,
+/// then one reconcile per table, then drops, row inserts, raw SQL and
+/// <see cref="Run(Action{SQLiteMigrationContext})" /> callbacks in the order declared. So a data
+/// step runs against the final shape of the table, not an in-between shape. To move data out of
+/// a column you are removing, read it in a <c>RunBefore</c> callback or keep the old column on
+/// the model while you copy it, then remove it in a later version. A reconcile or a column
 /// drop for a table that this same run created with <see cref="CreateTable{T}" /> is skipped,
 /// since the new table already matches the model.
 /// </remarks>
 public sealed class SQLiteMigrationStep
 {
     private readonly SQLiteDatabase database;
+    private readonly int version;
     private readonly List<MigrationOperation> operations = [];
 
-    internal SQLiteMigrationStep(SQLiteDatabase database)
+    internal SQLiteMigrationStep(SQLiteDatabase database, int version)
     {
         this.database = database;
+        this.version = version;
     }
 
     internal IReadOnlyList<MigrationOperation> Operations => operations;
@@ -173,6 +177,49 @@ public sealed class SQLiteMigrationStep
     }
 
     /// <summary>
+    /// Inserts the given rows into the table for <typeparamref name="T" />, skipping every row
+    /// whose <paramref name="key" /> value is already in the table. Use this to seed rows that
+    /// may already exist, for example because users can create rows with the same key themselves.
+    /// The rows go through the same write pipeline as <see cref="SQLiteTable{T}.Add(T)" />, the
+    /// same as <see cref="Insert{T}" />. The check and the insert run after the reconcile,
+    /// against the final shape of the table. Rows in <paramref name="rows" /> are only checked
+    /// against the table, not against each other.
+    /// </summary>
+    /// <param name="key">A mapped property on <typeparamref name="T" /> that identifies a row.</param>
+    /// <param name="rows">The rows to insert when their key value is not in the table yet.</param>
+    public SQLiteMigrationStep InsertIfMissing<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, TKey>(Expression<Func<T, TKey>> key, params T[] rows)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(rows);
+        if (rows.Length == 0)
+        {
+            throw new ArgumentException("InsertIfMissing requires at least one row.", nameof(rows));
+        }
+
+        TableMapping mapping = database.TableMapping<T>();
+        Expression body = key.Body;
+        if (body.NodeType == ExpressionType.Convert)
+        {
+            body = ((UnaryExpression)body).Operand;
+        }
+
+        if (body is not MemberExpression member
+            || mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name) is not { } column)
+        {
+            throw new ArgumentException("The key must be a mapped property on the entity, like x => x.Name.", nameof(key));
+        }
+
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.InsertRows,
+            Description = $"insert up to {rows.Length} row(s) into \"{mapping.TableName}\" missing by \"{column.Name}\"",
+            Mapping = mapping,
+            InsertRows = db => InsertMissingRows(db, key, rows),
+        });
+        return this;
+    }
+
+    /// <summary>
     /// Runs a raw SQL statement. Use this for data fixes and for changes the typed methods do not
     /// cover. To seed rows, prefer the typed <see cref="Insert{T}" />. The statement runs against
     /// the final shape of the tables, after the reconcile.
@@ -188,5 +235,110 @@ public sealed class SQLiteMigrationStep
             Sql = sql,
         });
         return this;
+    }
+
+    /// <summary>
+    /// Runs a callback in the data phase, after every schema change, against the final shape of
+    /// the tables. Use it for data work the other methods cannot express. The callback gets a
+    /// <see cref="SQLiteMigrationContext" /> with the database and the version range of the run.
+    /// It runs inside the migration transaction, so a throw rolls the whole run back. Work done
+    /// inside the callback is not added to the count <see cref="SQLiteMigrationRunner.Migrate" />
+    /// returns. For a callback that awaits async database methods use
+    /// <see cref="RunAsync(Func{SQLiteMigrationContext, Task})" />.
+    /// </summary>
+    /// <param name="action">The callback to run.</param>
+    public SQLiteMigrationStep Run(Action<SQLiteMigrationContext> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.Run,
+            Description = $"run callback at version {version}",
+            Callback = action,
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Runs a callback before any schema change of the run, against the old shape of the tables.
+    /// Use it to read data that the schema changes would drop or rewrite. The model describes the
+    /// new shape, so a typed query here can name columns that do not exist yet. Prefer raw SQL
+    /// through <c>Query</c> and <c>Execute</c> and guard with <c>TableExists</c>, since on a fresh
+    /// database the callback runs before any table exists. The same transaction and count rules
+    /// as <see cref="Run(Action{SQLiteMigrationContext})" /> apply.
+    /// </summary>
+    /// <param name="action">The callback to run.</param>
+    public SQLiteMigrationStep RunBefore(Action<SQLiteMigrationContext> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.RunBefore,
+            Description = $"run callback before schema changes at version {version}",
+            Callback = action,
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// The same as <see cref="Run(Action{SQLiteMigrationContext})" /> for a callback that is
+    /// awaited. Use the async database methods inside it and pass
+    /// <see cref="SQLiteMigrationContext.CancellationToken" /> to them. Only <c>MigrateAsync</c>
+    /// can await the callback, so <see cref="SQLiteMigrationRunner.Migrate" /> throws when a
+    /// pending version declares one.
+    /// </summary>
+    /// <param name="action">The callback to await.</param>
+    public SQLiteMigrationStep RunAsync(Func<SQLiteMigrationContext, Task> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.Run,
+            Description = $"run async callback at version {version}",
+            AsyncCallback = action,
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// The same as <see cref="RunBefore(Action{SQLiteMigrationContext})" /> for a callback that is
+    /// awaited. The same rules as <see cref="RunAsync(Func{SQLiteMigrationContext, Task})" />
+    /// apply, so only <c>MigrateAsync</c> can await it.
+    /// </summary>
+    /// <param name="action">The callback to await.</param>
+    public SQLiteMigrationStep RunBeforeAsync(Func<SQLiteMigrationContext, Task> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.RunBefore,
+            Description = $"run async callback before schema changes at version {version}",
+            AsyncCallback = action,
+        });
+        return this;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Compile falls back to the expression interpreter without dynamic code.")]
+    private static int InsertMissingRows<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, TKey>(SQLiteDatabase db, Expression<Func<T, TKey>> key, T[] rows)
+    {
+        Func<T, TKey> getKey = key.Compile();
+        List<TKey> keys = new(rows.Length);
+        foreach (T row in rows)
+        {
+            keys.Add(getKey(row));
+        }
+
+        Expression<Func<List<TKey>, TKey, bool>> containsTemplate = (list, value) => list.Contains(value);
+        MethodInfo containsMethod = ((MethodCallExpression)containsTemplate.Body).Method;
+        Expression<Func<T, bool>> predicate = Expression.Lambda<Func<T, bool>>(
+            Expression.Call(Expression.Constant(keys), containsMethod, key.Body), key.Parameters);
+
+        HashSet<TKey> existing = db.Table<T>().Where(predicate).Select(key).ToHashSet();
+        List<T> missing = rows.Where(row => !existing.Contains(getKey(row))).ToList();
+        return missing.Count == 0 ? 0 : db.Table<T>().AddRange(missing, runInTransaction: false);
     }
 }

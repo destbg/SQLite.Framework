@@ -13,4 +13,6 @@ internal enum MigrationOperationKind
     DropTable,
     RawSql,
     InsertRows,
+    Run,
+    RunBefore,
 }

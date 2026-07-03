@@ -47,8 +47,13 @@ public static class AsyncSchemaExtensions
     /// <summary>
     /// Applies every declared version above the one the database records, in one transaction, then
     /// records the highest declared version. Takes the database lock for the duration so it is safe to
-    /// call from async code.
+    /// call from async code. This is also the only entry point that can await the callbacks declared
+    /// with <see cref="SQLiteMigrationStep.RunAsync(Func{SQLiteMigrationContext, Task})" /> and
+    /// <see cref="SQLiteMigrationStep.RunBeforeAsync(Func{SQLiteMigrationContext, Task})" />.
     /// </summary>
+    /// <param name="runner">The runner whose pending versions are applied.</param>
+    /// <param name="ct">The token the callbacks see on the context. Also cancels the wait for the
+    /// connection lock.</param>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("ios")]
     [SupportedOSPlatform("ios15.0")]
@@ -58,7 +63,7 @@ public static class AsyncSchemaExtensions
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await runner.Database.LockAsync(ct);
-            return runner.Migrate();
+            return await runner.MigratePending(ct);
         }, ct);
     }
 
