@@ -51,7 +51,7 @@ internal class AliasVisitor
         switch (body)
         {
             case NewExpression ne:
-                VisitNewExpression(ne, prefix);
+                VisitNewExpression(resultSelector, ne, prefix);
                 break;
             case MemberInitExpression mie:
                 VisitMemberInitExpression(resultSelector, mie, prefix);
@@ -71,7 +71,7 @@ internal class AliasVisitor
         }
     }
 
-    private void VisitNewExpression(NewExpression newExpression, string prefix)
+    private void VisitNewExpression(LambdaExpression resultSelector, NewExpression newExpression, string prefix)
     {
         if (newExpression.Arguments.Count > 0)
         {
@@ -124,6 +124,21 @@ internal class AliasVisitor
                         }
                     }
                 }
+                else if (argument is NewExpression or MemberInitExpression)
+                {
+                    string alias = CheckPrefix(prefix, parameter.Name!);
+                    AliasVisitor nestedVisitor = new(database, visitor);
+                    nestedVisitor.ResolveResultAlias(resultSelector, argument, alias);
+                    foreach (KeyValuePair<string, Expression> tableColumn in nestedVisitor.result)
+                    {
+                        result.Add(tableColumn.Key, tableColumn.Value);
+                    }
+
+                    SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
+                    Expression expression = innerVisitor.Visit(argument);
+
+                    result.Add(alias, CoalesceIfLiftedComparison(argument, expression));
+                }
                 else
                 {
                     string alias = CheckPrefix(prefix, parameter.Name!);
@@ -148,7 +163,7 @@ internal class AliasVisitor
     {
         if (memberInitExpression.NewExpression.Arguments.Count > 0)
         {
-            VisitNewExpression(memberInitExpression.NewExpression, prefix);
+            VisitNewExpression(resultSelector, memberInitExpression.NewExpression, prefix);
         }
 
         foreach (MemberMemberBinding memberMemberBinding in memberInitExpression.Bindings.OfType<MemberMemberBinding>())

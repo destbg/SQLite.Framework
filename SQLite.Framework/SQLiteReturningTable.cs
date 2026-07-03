@@ -243,15 +243,8 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             case SQLiteAction.Add:
             {
                 (TableColumn[] columns, string sql) = Source.GetAddInfoForItemInternal(item);
-                TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
-                List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
-                List<TResult> rows = ExecuteWithReturning(sql, parameters);
-                if (autoIncrement != null && rows.Count > 0)
-                {
-                    BackfillAutoIncrement(item, autoIncrement);
-                }
-
-                return rows;
+                List<SQLiteParameter> parameters = BuildInsertParameters(columns, Source.GetAutoIncrementColumn(), item);
+                return ExecuteInsertReturning(sql, parameters, item);
             }
             case SQLiteAction.Update:
             {
@@ -413,23 +406,57 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         SQLiteAction action = Source.RunActionHooks(item, startingAction);
         if (action != startingAction)
         {
-            return RunResolvedAction(action, item);
+            return RunResolvedAction(action, item, columns);
         }
 
         if (insert)
         {
             (string sql, List<SQLiteParameter> parameters) = Source.BuildInsertWithExtraColumns(item, columns);
-            TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
-            List<TResult> rows = ExecuteWithReturning(sql, parameters);
-            if (autoIncrement != null && rows.Count > 0)
-            {
-                BackfillAutoIncrement(item, autoIncrement);
-            }
-            return rows;
+            return ExecuteInsertReturning(sql, parameters, item);
         }
 
         (string updateSql, List<SQLiteParameter> updateParameters) = Source.BuildUpdateWithExtraColumns(item, columns);
         return ExecuteWithReturning(updateSql, updateParameters);
+    }
+
+    private List<TResult> RunResolvedAction(SQLiteAction action, T item, IDictionary<string, object?> columns)
+    {
+        if (columns.Count == 0)
+        {
+            return RunResolvedAction(action, item);
+        }
+
+        switch (action)
+        {
+            case SQLiteAction.Skip:
+                return [];
+            case SQLiteAction.Add:
+            case SQLiteAction.AddOrUpdate:
+            {
+                string insertVerb = action == SQLiteAction.AddOrUpdate ? "INSERT OR REPLACE" : "INSERT";
+                (string sql, List<SQLiteParameter> parameters) = Source.BuildInsertWithExtraColumns(item, columns, insertVerb);
+                return ExecuteInsertReturning(sql, parameters, item);
+            }
+            case SQLiteAction.Update:
+            {
+                (string sql, List<SQLiteParameter> parameters) = Source.BuildUpdateWithExtraColumns(item, columns);
+                return ExecuteWithReturning(sql, parameters);
+            }
+            default:
+                return RunResolvedAction(action, item);
+        }
+    }
+
+    private List<TResult> ExecuteInsertReturning(string sql, List<SQLiteParameter> parameters, T item)
+    {
+        TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
+        List<TResult> rows = ExecuteWithReturning(sql, parameters);
+        if (autoIncrement != null && rows.Count > 0)
+        {
+            BackfillAutoIncrement(item, autoIncrement);
+        }
+
+        return rows;
     }
 
     private void BackfillAutoIncrement(T item, TableColumn autoIncrement)

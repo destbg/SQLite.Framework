@@ -52,10 +52,10 @@ internal partial class SQLVisitor
             }
         }
 
-        if (IsComputedDayOfWeek(leftNode) || IsComputedDayOfWeek(rightNode))
+        if (DayOfWeekHelpers.IsComputedDayOfWeek(leftNode) || DayOfWeekHelpers.IsComputedDayOfWeek(rightNode))
         {
-            leftNode = ConvertDayOfWeekOperandToInt(leftNode);
-            rightNode = ConvertDayOfWeekOperandToInt(rightNode);
+            leftNode = DayOfWeekHelpers.ConvertOperandToInt(Database.Options, leftNode);
+            rightNode = DayOfWeekHelpers.ConvertOperandToInt(Database.Options, rightNode);
         }
 
         bool charComparisonOp = node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
@@ -122,6 +122,9 @@ internal partial class SQLVisitor
             left = CoerceConstantTimeSpanToTicks(resolvedLeft, left);
             right = CoerceConstantTimeSpanToTicks(resolvedRight, right);
         }
+
+        left = CoerceJsonTemporalOperand(resolvedLeft, left, resolvedRight.SQLiteExpression!);
+        right = CoerceJsonTemporalOperand(resolvedRight, right, resolvedLeft.SQLiteExpression!);
 
         SQLiteParameter[]? bothParameters = ParameterHelpers.CombineParameters(left, right);
 
@@ -327,6 +330,28 @@ internal partial class SQLVisitor
         if (current.Parameters is { Length: 1 } && current.Parameters[0].Value is TimeSpan paramTs)
         {
             return SQLiteExpression.Leaf(typeof(long), Counters.NextIdentifier(), Counters.NextParamName(), paramTs.Ticks);
+        }
+
+        return current;
+    }
+
+    private SQLiteExpression CoerceJsonTemporalOperand(ResolvedModel resolved, SQLiteExpression current, SQLiteExpression otherSide)
+    {
+        if (!otherSide.IsJsonSource)
+        {
+            return current;
+        }
+
+        if (resolved.IsConstant && JsonTemporalText.TryFormat(resolved.Constant, out string? text))
+        {
+            return SQLiteExpression.Leaf(typeof(string), Counters.NextIdentifier(), Counters.NextParamName(), text);
+        }
+
+        if (current.Parameters is [{ } single]
+            && current.ToString() == single.Name
+            && JsonTemporalText.TryFormat(single.Value, out string? paramText))
+        {
+            return SQLiteExpression.Leaf(typeof(string), Counters.NextIdentifier(), Counters.NextParamName(), paramText);
         }
 
         return current;
@@ -570,30 +595,6 @@ internal partial class SQLVisitor
     private static bool IsNaNConstant(object? value)
     {
         return value is double d && double.IsNaN(d) || value is float f && float.IsNaN(f);
-    }
-
-    private static bool IsComputedDayOfWeek(Expression node)
-    {
-        Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
-        return stripped is MemberExpression { Member.Name: nameof(DateTime.DayOfWeek), Member.DeclaringType: { } declaring }
-            && (declaring == typeof(DateTime) || declaring == typeof(DateTimeOffset) || declaring == typeof(DateOnly));
-    }
-
-    private Expression ConvertDayOfWeekOperandToInt(Expression node)
-    {
-        if (ExpressionHelpers.IsConstant(node))
-        {
-            return Expression.Constant((int)(DayOfWeek)ExpressionHelpers.GetConstantValue(node)!, typeof(int));
-        }
-
-        if (Database.Options.EnumStorage == EnumStorageMode.Text
-            && !IsComputedDayOfWeek(node)
-            && node.Type == typeof(DayOfWeek))
-        {
-            return Expression.Convert(node, typeof(int));
-        }
-
-        return node;
     }
 
     private bool ShouldStripEnumConvert(UnaryExpression enumConvert, ExpressionType nodeType, Expression otherSide)

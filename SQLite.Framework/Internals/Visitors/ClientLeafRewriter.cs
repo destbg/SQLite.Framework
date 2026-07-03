@@ -39,6 +39,14 @@ internal sealed class ClientLeafRewriter : ExpressionVisitor
             return entityNullCheck;
         }
 
+        if (node is MethodCallExpression { Object: null, Arguments.Count: > 0 } groupCall
+            && groupCall.Arguments[0].Type.IsGenericType
+            && groupCall.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>)
+            && owner.Visit(node) is SQLiteExpression groupAggregate)
+        {
+            return groupAggregate;
+        }
+
         return base.Visit(node);
     }
 }

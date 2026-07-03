@@ -39,6 +39,30 @@ public class EnumCastArithmeticTextStorageTests
     }
 
     [Fact]
+    public void CastEqualsNegatedIntColumn()
+    {
+        using TestDatabase db = Seed();
+
+        List<int> expected = Rows().Where(r => (int)r.Tier == -r.Id).Select(r => r.Id).OrderBy(id => id).ToList();
+        Assert.Equal([], expected);
+
+        List<int> actual = db.Table<ServiceTierRow>().Where(r => (int)r.Tier == -r.Id).Select(r => r.Id).OrderBy(id => id).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CastEqualsIntColumn()
+    {
+        using TestDatabase db = Seed();
+
+        List<int> expected = Rows().Where(r => (int)r.Tier == r.Id).Select(r => r.Id).OrderBy(id => id).ToList();
+        Assert.Equal([2], expected);
+
+        List<int> actual = db.Table<ServiceTierRow>().Where(r => (int)r.Tier == r.Id).Select(r => r.Id).OrderBy(id => id).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void CastTimesConstantProjection()
     {
         using TestDatabase db = Seed();

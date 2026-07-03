@@ -40,6 +40,26 @@ public class CteNestedAnonymousProjectionTests
     }
 
     [Fact]
+    public void NestedEntityMemberRead()
+    {
+        using TestDatabase db = CreateDb();
+
+        List<double> expected = Rows()
+            .Select(b => new { b.Id, B = b })
+            .OrderBy(x => x.Id)
+            .Select(x => x.B.Price)
+            .ToList();
+        Assert.Equal([10.0, 20.0, 30.0], expected);
+
+        var cte = db.With(() => db.Table<Book>().Select(b => new { b.Id, B = b }));
+        List<double> actual = cte
+            .OrderBy(x => x.Id)
+            .Select(x => x.B.Price)
+            .ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void NestedAnonymousWholeRowsRead()
     {
         using TestDatabase db = CreateDb();

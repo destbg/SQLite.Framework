@@ -10,14 +10,16 @@ public class LongCodeRow
     public int Id { get; set; }
 
     public long Code { get; set; }
+
+    public double RealCode { get; set; }
 }
 
 public class CharCastFromLongColumnTests
 {
     private static List<LongCodeRow> Rows() =>
     [
-        new() { Id = 1, Code = 65 },
-        new() { Id = 2, Code = 65 + 65536 },
+        new() { Id = 1, Code = 65, RealCode = 66.0 },
+        new() { Id = 2, Code = 65 + 65536, RealCode = 67.0 },
     ];
 
     private static TestDatabase Seed(CharStorageMode storage)
@@ -49,6 +51,18 @@ public class CharCastFromLongColumnTests
         Assert.Equal(['A', 'A'], expected);
 
         List<char> actual = db.Table<LongCodeRow>().OrderBy(r => r.Id).Select(r => (char)r.Code).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void DoubleToCharProjectionIntegerStorage()
+    {
+        using TestDatabase db = Seed(CharStorageMode.Integer);
+
+        List<char> expected = Rows().OrderBy(r => r.Id).Select(r => (char)r.RealCode).ToList();
+        Assert.Equal(['B', 'C'], expected);
+
+        List<char> actual = db.Table<LongCodeRow>().OrderBy(r => r.Id).Select(r => (char)r.RealCode).ToList();
         Assert.Equal(expected, actual);
     }
 

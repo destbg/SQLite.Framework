@@ -78,6 +78,52 @@ public class ComputedDayOfWeekJoinAndContainsTests
     }
 
     [Fact]
+    public void JoinOnComputedDayOfWeekCompositeKeyTextStorage()
+    {
+        using TestDatabase db = Seed(EnumStorageMode.Text);
+
+        List<int> expected = Schedules()
+            .Join(Slots(), s => new { D = s.When.DayOfWeek, K = 1 }, t => new { D = t.Dow, K = 1 }, (s, t) => s.Id * 100 + t.Id)
+            .OrderBy(v => v).ToList();
+        Assert.Equal([110, 310], expected);
+
+        List<int> actual = db.Table<DowScheduleRow>()
+            .Join(db.Table<DowSlotRow>(), s => new { D = s.When.DayOfWeek, K = 1 }, t => new { D = t.Dow, K = 1 }, (s, t) => s.Id * 100 + t.Id)
+            .OrderBy(v => v).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void JoinOnComputedDayOfWeekCompositeKeyInnerSideTextStorage()
+    {
+        using TestDatabase db = Seed(EnumStorageMode.Text);
+
+        List<int> expected = Slots()
+            .Join(Schedules(), t => new { D = t.Dow, K = 1 }, s => new { D = s.When.DayOfWeek, K = 1 }, (t, s) => t.Id * 100 + s.Id)
+            .OrderBy(v => v).ToList();
+        Assert.Equal([1001, 1003], expected);
+
+        List<int> actual = db.Table<DowSlotRow>()
+            .Join(db.Table<DowScheduleRow>(), t => new { D = t.Dow, K = 1 }, s => new { D = s.When.DayOfWeek, K = 1 }, (t, s) => t.Id * 100 + s.Id)
+            .OrderBy(v => v).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CapturedArrayContainsNullableComputedDayOfWeekTextStorage()
+    {
+        using TestDatabase db = Seed(EnumStorageMode.Text);
+
+        DayOfWeek?[] days = [DayOfWeek.Monday, null];
+
+        List<int> expected = Schedules().Where(s => days.Contains(s.When.DayOfWeek)).Select(s => s.Id).OrderBy(id => id).ToList();
+        Assert.Equal([1, 3], expected);
+
+        List<int> actual = db.Table<DowScheduleRow>().Where(s => days.Contains(s.When.DayOfWeek)).Select(s => s.Id).OrderBy(id => id).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void CapturedArrayContainsComputedDayOfWeekTextStorage()
     {
         using TestDatabase db = Seed(EnumStorageMode.Text);

@@ -55,6 +55,25 @@ public class JsonListContainsInsideAnyPredicateTests
     }
 
     [Fact]
+    public void JsonListAnyWithOtherJsonListIndexOf()
+    {
+        using TestDatabase db = Seed();
+
+        List<int> expected = Rows()
+            .Where(r => r.ItemsA.Any(v => r.ItemsB.IndexOf(v) >= 0))
+            .Select(r => r.Id)
+            .ToList();
+        Assert.Equal([2], expected);
+
+        List<int> actual = db.Table<AnyContainsRow>()
+            .Where(r => r.ItemsA.Any(v => r.ItemsB.IndexOf(v) >= 0))
+            .Select(r => r.Id)
+            .OrderBy(id => id)
+            .ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void JsonListAnyWithOtherJsonListContains()
     {
         using TestDatabase db = Seed();

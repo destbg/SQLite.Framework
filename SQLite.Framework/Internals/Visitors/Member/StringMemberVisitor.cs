@@ -16,7 +16,12 @@ internal static class StringMemberVisitor
 
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null) || node.Method.Name == nameof(string.ToString))
             {
-                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
+            }
+
+            if (HasNonConstantComparisonArgument(node, arguments))
+            {
+                return visitor.NotTranslatable(node, $"string.{node.Method.Name} with a comparison argument that is not a constant is not translatable to SQL.");
             }
 
             switch (node.Method.Name)
@@ -270,6 +275,11 @@ internal static class StringMemberVisitor
         else if (QueryableMemberVisitor.CheckConstantMethod<string>(visitor, node, arguments, out Expression? expression))
         {
             return expression;
+        }
+
+        if (HasNonConstantComparisonArgument(node, arguments))
+        {
+            return visitor.NotTranslatable(node, $"string.{node.Method.Name} with a comparison argument that is not a constant is not translatable to SQL.");
         }
 
         switch (node.Method.Name)
@@ -584,7 +594,7 @@ internal static class StringMemberVisitor
 
             if (args.Any(f => f.SQLiteExpression == null))
             {
-                return Expression.Call(obj, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(visitor.ToClientExpression(node.Object!), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
             }
 
             SQLiteExpression[] argExprs = args.Select(f => CharArgAsText(visitor, f)).ToArray();
@@ -656,5 +666,19 @@ internal static class StringMemberVisitor
                     or StringComparison.InvariantCultureIgnoreCase)
             || (constant is bool b && b)
             || (constant is CompareOptions options && options.HasFlag(CompareOptions.IgnoreCase));
+    }
+
+    private static bool HasNonConstantComparisonArgument(MethodCallExpression node, List<ResolvedModel> arguments)
+    {
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            Type argumentType = node.Arguments[i].Type;
+            if ((argumentType == typeof(bool) || argumentType == typeof(StringComparison) || argumentType == typeof(CompareOptions)) && !arguments[i].IsConstant)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

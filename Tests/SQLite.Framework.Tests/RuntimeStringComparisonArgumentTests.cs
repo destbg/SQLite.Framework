@@ -31,55 +31,76 @@ public class RuntimeStringComparisonArgumentTests
     }
 
     [Fact]
-    public void StaticEqualsWithComparisonFromColumnFilters()
+    public void StaticEqualsWithComparisonFromColumnThrowsInWhere()
     {
         using TestDatabase db = Seed();
 
-        List<int> expected = Rows()
+        Exception? ex = Record.Exception(() => db.Table<RuntimeComparisonRow>()
             .Where(r => string.Equals(r.Name, "alpha", r.IgnoreCaseFlag ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
             .Select(r => r.Id)
-            .ToList();
-        Assert.Equal([1, 2], expected);
+            .ToList());
 
-        List<int> actual = db.Table<RuntimeComparisonRow>()
-            .Where(r => string.Equals(r.Name, "alpha", r.IgnoreCaseFlag ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+        Assert.IsType<NotSupportedException>(ex);
+    }
+
+    [Fact]
+    public void CompareWithIgnoreCaseBoolFromColumnThrowsInWhere()
+    {
+        using TestDatabase db = Seed();
+
+        Exception? ex = Record.Exception(() => db.Table<RuntimeComparisonRow>()
+            .Where(r => string.Compare(r.Name, "alpha", r.IgnoreCaseFlag) == 0)
             .Select(r => r.Id)
+            .ToList());
+
+        Assert.IsType<NotSupportedException>(ex);
+    }
+
+    [Fact]
+    public void InstanceEqualsWithComparisonFromColumnThrowsInWhere()
+    {
+        using TestDatabase db = Seed();
+
+        Exception? ex = Record.Exception(() => db.Table<RuntimeComparisonRow>()
+            .Where(r => r.Name.Equals("alpha", r.IgnoreCaseFlag ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+            .Select(r => r.Id)
+            .ToList());
+
+        Assert.IsType<NotSupportedException>(ex);
+    }
+
+    [Fact]
+    public void StaticEqualsWithComparisonFromColumnProjectsInSelect()
+    {
+        using TestDatabase db = Seed();
+
+        List<bool> expected = Rows()
+            .OrderBy(r => r.Id)
+            .Select(r => string.Equals(r.Name, "alpha", r.IgnoreCaseFlag ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal([true, true, false], expected);
+
+        List<bool> actual = db.Table<RuntimeComparisonRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => string.Equals(r.Name, "alpha", r.IgnoreCaseFlag ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
             .ToList();
         Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void CompareWithIgnoreCaseBoolFromColumnFilters()
+    public void InstanceEqualsWithComparisonFromColumnProjectsInSelect()
     {
         using TestDatabase db = Seed();
 
-        List<int> expected = Rows()
-            .Where(r => string.Compare(r.Name, "alpha", r.IgnoreCaseFlag) == 0)
-            .Select(r => r.Id)
+        List<bool> expected = Rows()
+            .OrderBy(r => r.Id)
+            .Select(r => r.Name.Equals("alpha", r.IgnoreCaseFlag ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
             .ToList();
-        Assert.Equal([1, 2], expected);
+        Assert.Equal([true, true, false], expected);
 
-        List<int> actual = db.Table<RuntimeComparisonRow>()
-            .Where(r => string.Compare(r.Name, "alpha", r.IgnoreCaseFlag) == 0)
-            .Select(r => r.Id)
-            .ToList();
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    public void InstanceEqualsWithComparisonFromColumnFilters()
-    {
-        using TestDatabase db = Seed();
-
-        List<int> expected = Rows()
-            .Where(r => r.Name.Equals("alpha", r.IgnoreCaseFlag ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-            .Select(r => r.Id)
-            .ToList();
-        Assert.Equal([1, 2], expected);
-
-        List<int> actual = db.Table<RuntimeComparisonRow>()
-            .Where(r => r.Name.Equals("alpha", r.IgnoreCaseFlag ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-            .Select(r => r.Id)
+        List<bool> actual = db.Table<RuntimeComparisonRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => r.Name.Equals("alpha", r.IgnoreCaseFlag ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
             .ToList();
         Assert.Equal(expected, actual);
     }

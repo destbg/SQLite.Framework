@@ -95,6 +95,18 @@ public class NullableCharCastProjectionTests
     }
 
     [Fact]
+    public void LiftedSumToNullableCharProjectionTextStorage()
+    {
+        using TestDatabase db = Seed(CharStorageMode.Text);
+
+        List<char?> expected = Rows().OrderBy(r => r.Id).Select(r => (char?)(r.MaybeCode + 1)).ToList();
+        Assert.Equal(['E', null], expected);
+
+        List<char?> actual = db.Table<NullableCharCastRow>().OrderBy(r => r.Id).Select(r => (char?)(r.MaybeCode + 1)).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void CharToNullableIntProjectionIntegerStorage()
     {
         using TestDatabase db = Seed(CharStorageMode.Integer);

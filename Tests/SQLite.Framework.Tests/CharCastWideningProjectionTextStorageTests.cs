@@ -42,6 +42,18 @@ public class CharCastWideningProjectionTextStorageTests
     }
 
     [Fact]
+    public void CharCastToShortProjection()
+    {
+        using TestDatabase db = Seed();
+
+        List<short> expected = Rows().OrderBy(r => r.Id).Select(r => (short)r.Ch).ToList();
+        Assert.Equal([(short)122, (short)65, (short)109], expected);
+
+        List<short> actual = db.Table<CharWideningRow>().OrderBy(r => r.Id).Select(r => (short)r.Ch).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void CharCastToDoubleProjection()
     {
         using TestDatabase db = Seed();

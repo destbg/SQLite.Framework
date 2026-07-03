@@ -15,6 +15,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - On `Text` decimal storage, `Distinct`, the set operators and a subquery `Contains` compare the stored text. Two equal values with a different scale, such as `10.0` and `10.00`, are then treated as different.
 - `Math.Min`, `Math.Max`, `Math.Clamp`, `Math.Abs`, `Math.Floor`, `Math.Ceiling`, `Math.Truncate` and `Math.Round` over a `Text`-stored `decimal` go through a 64-bit float, so a value with more precision than a `double` can hold reads back rounded.
 - `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits and `ToString()` on a fractional `float` prints the digits of the stored 64-bit value. SQLite has no 32-bit float type.
+- A cast of a `double` column to `float` inside a filter keeps the 64-bit value, so a comparison such as `(float)doubleColumn == 0.1f` does not match a stored `0.1`, where .NET rounds the column value to 32 bits first and matches. Reading `(float)doubleColumn` back in a `Select` matches .NET, since the value is rounded while it is read.
+- `ulong.Parse` of a string above the signed 64-bit range reads back the largest signed value (`9223372036854775807`) instead of the true unsigned value, since `CAST` clamps at the signed range.
 - Integer overflow throws `OverflowException`. A `Sum` past 64 bits throws `SQLiteException` and `Average` stays finite where .NET would throw.
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
 - A `Sum` over a `ulong` column, including a window `Sum`, throws `SQLiteException` once the running total passes 2^63, even when the true unsigned total still fits a `ulong`. SQLite adds with signed 64-bit integers, so it overflows at half the `ulong` range.
@@ -43,6 +45,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `PadLeft` and `PadRight` with a negative total width return the original string instead of throwing, since a negative width is never wider than the value.
 - `Contains`, `StartsWith` and `EndsWith` with a case-sensitive culture-aware `StringComparison` (`InvariantCulture` or `CurrentCulture`) compare byte for byte and do not apply Unicode normalization, so a value written with a combining accent (`e` followed by U+0301) and the same value written with a precomposed character (U+00E9) do not match where .NET's `InvariantCulture` treats them as equal.
 - `IndexOf` and `LastIndexOf` with a `StringComparison` and their count overloads, are not translated to SQL. They run in memory in a `Select` and throw in a `Where`. The plain value and value-plus-start-index overloads are translated and are case-sensitive.
+- `Contains`, `StartsWith`, `EndsWith`, `Equals` and `string.Compare` with a comparison or `ignoreCase` argument that is not a constant, such as a value read from a column, run in memory in a `Select` and throw in a `Where`.
 - Reading a character by index, `s[i]`, with an out-of-range index does not throw the index-out-of-range error that .NET throws. A negative index reads a character counted from the end of the string and an index at or past the end fails with a different error.
 - `Replace("", ...)` returns the original string.
 - `ToUpper` and `ToLower`, on both `string` and `char`, fold only ASCII unless the SQLite build has ICU.
@@ -76,6 +79,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - The `DefaultIfEmpty` overload that takes an explicit default value is not supported on a table query and throws. The no-argument `DefaultIfEmpty()` used to build a left join works.
 - `Contains` over an inline collection literal, such as `new[] { ... }.Contains(column)` or `new List<T> { ... }.Contains(column)`, works only when every element is a constant or a captured value. An element that is a method call, such as `int.Parse("10")`, is not folded to a value, so the query throws `NotSupportedException`. Assign the collection to a variable first, then call `Contains` on the variable.
 - `Contains` over a collection compares each element with SQLite's byte comparison and ignores a collection's custom comparer. A `HashSet<string>` built with `StringComparer.OrdinalIgnoreCase` still compares byte for byte, so a value with different casing does not match.
+- A collection method with a selector lambda over a captured collection, such as `ConvertAll` or `FindAll`, runs in memory in a `Select` and throws in a `Where`.
 
 ## Grouping
 
@@ -98,6 +102,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - A correlated subquery inside a projection returns the type default where LINQ-to-Objects throws. `First`, `Single` or a non-nullable `Min`, `Max` or `Average` over an empty subquery read back the type default and `Single` over more than one row reads the first row, since a SQL scalar subquery cannot throw.
 - `Average`, `Min`, `Max` and `Sum` over a per-row expression skip a row whose expression reads back as `NULL`. A divide by zero or a Not-a-Number math call inside the selector, such as `Average(x => x.A / x.B)` where `B` is zero, drops that row from the aggregate.
 - A window `Max`, `Min` or `Average` over a `ulong` column is not correct for values at or above 2^63, since the value is stored as a signed integer. A window `Average` over a `uint` column is exact.
+- A window ordered by a `ulong` key with a `RANGE` frame that uses a numeric offset sorts by the signed stored value, so a value at or above 2^63 orders before the smaller values. SQLite allows only one ORDER BY key in such a frame, so the unsigned sort correction cannot be added.
 - A window `Sum` that sees no rows, because the frame is empty or a `Filter` removes every row, reads back as `NULL`, not `0`.
 
 ## Dates, times and storage
@@ -108,6 +113,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - With `DateTimeOffset` stored as `Ticks` (the default), a comparison, ordering, `Distinct` or subtraction across rows whose offsets differ uses the stored local clock ticks, not the UTC instant, so the result can differ from .NET, which normalizes to UTC first. For example `a < b` with `a` at `12:00 +02:00` and `b` at `08:00 -03:00` reads back `false` where .NET gives `true` and `a - b` reads back `04:00` where .NET gives `-01:00`. Store as `UtcTicks` to compare and order by the instant.
 - With `DateTimeOffset` stored as `UtcTicks`, a date or time component read in a query (`.Year`, `.Hour`, ...) comes back in UTC, not in the value's own offset.
 - Adding a `TimeSpan` column to a `DateTime` does not work when the `TimeSpan` is stored as `Text`, because the stored text cannot be added as a duration. A constant or captured `TimeSpan` works. The `Add` and `Subtract` method forms on `DateTime`, `DateTimeOffset` and `TimeOnly` with a `TimeSpan` column under `Text` storage run in memory in a `Select` and throw in a `Where`.
+- With `TimeSpan` stored as `Text`, comparing a computed `TimeSpan`, such as the difference of two dates, against a `TimeSpan` constant matches no rows. The computed value is a tick count while the constant binds in the stored text form.
+- `double.Parse` of the text `"NaN"` reads back `0.0` instead of the Not-a-Number value, since the parse maps to `CAST`.
 - A `DateTime` stored as `Integer` or `Text` ticks reads back with `Kind` set to `Unspecified`, since the tick count carries no kind.
 - Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
 - A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal` and the `HasFlag`, bitwise and comparison operators on a `Text`-stored enum.
@@ -124,7 +131,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - On a JSON array, `First`, `Last` or `Single` with a predicate that matches no element and `Min`, `Max` or `Average` after a `Where` that removes every element, also return the type default instead of throwing, the same as their over-empty forms.
 - On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL` and `Distinct().Count()` leaves the `null` out of the count. `Except` also drops a `null` from the source even when the other list has no `null`, because SQL `NULL NOT IN (...)` is `NULL` rather than true, so a `null` element cannot survive an `Except` where .NET would keep it.
 - A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so adding a list that holds one fails.
-- `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly` and `TimeSpan` values inside a JSON list are kept as text. Reading a part like `.Year` or comparing them, follows the same rules as `Text` storage, not .NET, so results can differ.
+- `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly` and `TimeSpan` values inside a JSON list are kept as text. Reading a part like `.Year` or ordering them, follows the same rules as `Text` storage, not .NET, so results can differ. An equality or `Contains` against a constant or captured value binds the value in the same text form, so it matches.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
 - `GetRange` on a JSON list does not check its arguments. Asking for more items than are there returns the items that fit. A negative count returns the whole list and a negative start index is read as zero. .NET throws in all three cases.
 - `ElementAtOrDefault` on a JSON list with an index taken from a column reads the type default when the index is past the end, but a negative column index fails with an error instead of reading the type default.

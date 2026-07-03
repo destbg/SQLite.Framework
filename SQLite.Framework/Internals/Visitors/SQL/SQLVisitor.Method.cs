@@ -27,14 +27,20 @@ internal partial class SQLVisitor
         {
             Expression leftOperand = node.Object ?? node.Arguments[0];
             Expression rightOperand = instanceEquals ? node.Arguments[0] : node.Arguments[1];
+            if (DayOfWeekHelpers.IsComputedDayOfWeek(leftOperand) || DayOfWeekHelpers.IsComputedDayOfWeek(rightOperand))
+            {
+                leftOperand = DayOfWeekHelpers.ConvertOperandToInt(Database.Options, leftOperand);
+                rightOperand = DayOfWeekHelpers.ConvertOperandToInt(Database.Options, rightOperand);
+            }
+
             ResolvedModel obj = ResolveExpression(leftOperand);
             ResolvedModel argument = ResolveExpression(rightOperand);
 
             if (obj.SQLiteExpression == null || argument.SQLiteExpression == null)
             {
                 return instanceEquals
-                    ? Expression.Call(obj.Expression, node.Method, argument.Expression)
-                    : Expression.Call(node.Method, BoxIfNeeded(obj.Expression), BoxIfNeeded(argument.Expression));
+                    ? Expression.Call(ToClientOperand(leftOperand, obj), node.Method, ToClientOperand(rightOperand, argument))
+                    : Expression.Call(node.Method, BoxIfNeeded(ToClientOperand(leftOperand, obj)), BoxIfNeeded(ToClientOperand(rightOperand, argument)));
             }
 
             SQLiteExpression left = BracketBinaryOperand(leftOperand, CoalesceLiftedOrderComparison(leftOperand, obj.SQLiteExpression!));
@@ -152,6 +158,12 @@ internal partial class SQLVisitor
             }
 
             ResolvedModel obj = ResolveExpression(node.Object);
+
+            if (obj is { IsConstant: true, Constant: IEnumerable }
+                && node.Arguments.Any(a => ExpressionHelpers.StripQuotes(a) is LambdaExpression))
+            {
+                return NotTranslatable(node, $"{node.Method.Name} over a captured collection with a selector runs in memory in a Select and is not translatable in a Where.");
+            }
 
             List<ResolvedModel> arguments = node.Arguments
                 .Select(ResolveExpression)

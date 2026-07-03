@@ -54,6 +54,7 @@ internal partial class JsonCollectionVisitor
                 HandleSingle(call, currentElementType);
                 break;
             case nameof(Enumerable.Count):
+            case nameof(Enumerable.LongCount):
                 HandleCount(call, currentElementType);
                 break;
             case nameof(Enumerable.Any):
@@ -114,7 +115,7 @@ internal partial class JsonCollectionVisitor
 
     private string CurrentFromClause()
     {
-        return fromOverride ?? $"json_each({baseSource}){baseJoinSuffix}{crossJoin ?? ""}";
+        return fromOverride ?? $"json_each({baseSource}) {baseAlias}{crossJoin ?? ""}";
     }
 
     private void MaterializeWindow()
@@ -141,7 +142,6 @@ internal partial class JsonCollectionVisitor
 
         string wrapAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         fromOverride = $"({string.Join(" ", clauses)}) {wrapAlias}";
-        baseJoinSuffix = "";
         crossJoin = null;
         wheres.Clear();
         havings.Clear();
@@ -175,7 +175,6 @@ internal partial class JsonCollectionVisitor
 
         string wrapAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         fromOverride = $"({string.Join(" ", clauses)}) {wrapAlias}";
-        baseJoinSuffix = "";
         crossJoin = null;
         wheres.Clear();
         orderBys.Clear();
@@ -286,13 +285,11 @@ internal partial class JsonCollectionVisitor
             return;
         }
 
-        string outerAlias = $"j{visitor.Counters.NextTableIndex('j')}";
-        string selSql = VisitLambdaAliased(call.Arguments[1], elementType, outerAlias);
+        string selSql = VisitLambdaAliased(call.Arguments[1], elementType, baseAlias);
         string joinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
-        baseJoinSuffix = $" {outerAlias}";
         crossJoin = $", json_each({selSql}) {joinAlias}";
         keyColumn = $"{joinAlias}.\"key\"";
-        ApplySelectManyProjection(resultSelector, $"{outerAlias}.\"value\"", elementType, $"{joinAlias}.\"value\"", innerElementType);
+        ApplySelectManyProjection(resultSelector, $"{baseAlias}.\"value\"", elementType, $"{joinAlias}.\"value\"", innerElementType);
     }
 
     private void ApplySelectManyProjection(LambdaExpression? resultSelector, string outerValueSql, Type outerElementType, string innerValueSql, Type innerElementType)
@@ -361,11 +358,13 @@ internal partial class JsonCollectionVisitor
         if (limit != null || offset != null)
         {
             List<string>? reversedOrder = hadOrderBys ? ReversedOrderBysList() : null;
+            string previousSelect = selectExpr;
+            string previousKey = keyColumn;
             MaterializeWindow();
             AddOptionalPredicate(call, elementType);
             if (reversedOrder != null)
             {
-                orderBys.AddRange(reversedOrder);
+                orderBys.AddRange(RemapOrderBys(reversedOrder, previousSelect, previousKey));
                 orderBys.Add($"{keyColumn} DESC");
             }
             else
@@ -470,10 +469,12 @@ internal partial class JsonCollectionVisitor
         if (limit != null || offset != null)
         {
             List<string>? reversedOrder = orderBys.Count > 0 ? ReversedOrderBysList() : null;
+            string previousSelect = selectExpr;
+            string previousKey = keyColumn;
             MaterializeWindow();
             if (reversedOrder != null)
             {
-                orderBys.AddRange(reversedOrder);
+                orderBys.AddRange(RemapOrderBys(reversedOrder, previousSelect, previousKey));
             }
             else
             {
@@ -483,6 +484,17 @@ internal partial class JsonCollectionVisitor
         }
 
         ReverseOrderBys();
+    }
+
+    private List<string> RemapOrderBys(List<string> orders, string previousSelect, string previousKey)
+    {
+        List<string> remapped = new(orders.Count);
+        foreach (string order in orders)
+        {
+            remapped.Add(order.Replace(previousSelect, selectExpr).Replace(previousKey, keyColumn));
+        }
+
+        return remapped;
     }
 
     private void ReverseOrderBys()

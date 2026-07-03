@@ -39,10 +39,13 @@ public class TableMapping
         RTree = RTreeMappingReader.TryRead(type);
         columns.AddRange(properties
             .Where(p => p.GetMethod is { IsStatic: false })
+            .Where(p => p.GetIndexParameters().Length == 0)
             .Where(p => p.SetMethod != null || p.GetMethod!.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
             .Where(p => FullTextSearch == null || IsFtsColumn(p))
             .Where(p => RTree == null || IsRTreeColumn(p))
+            .GroupBy(p => p.Name)
+            .Select(g => g.OrderByDescending(p => TypeHelpers.TypeDepth(p.DeclaringType)).First())
             .Select(p => new TableColumn(p, options, IsFtsRowIdProperty(p))));
 
         foreach (TableColumn column in Columns)

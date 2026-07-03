@@ -26,76 +26,100 @@ public class StringSearchNonConstantComparisonArgumentTests
         new() { Id = 3, Name = "APPLE", Loose = false, Mode = StringComparison.Ordinal },
     ];
 
-    [Fact]
-    public void StartsWithComparisonFromColumn()
+    private static TestDatabase Seed()
     {
-        using TestDatabase db = new();
+        TestDatabase db = new();
         db.Table<SearchComparisonRow>().Schema.CreateTable();
         db.Table<SearchComparisonRow>().AddRange(Rows.Select(Clone));
+        return db;
+    }
 
-        List<int> expected = Rows.Where(x => x.Name.StartsWith("APP", x.Mode)).Select(x => x.Id).ToList();
-        Assert.Equal([1, 3], expected);
+    [Fact]
+    public void StartsWithComparisonFromColumnThrowsInWhere()
+    {
+        using TestDatabase db = Seed();
 
-        List<int> ids = db.Table<SearchComparisonRow>()
+        Exception? ex = Record.Exception(() => db.Table<SearchComparisonRow>()
             .Where(x => x.Name.StartsWith("APP", x.Mode))
             .Select(x => x.Id)
-            .ToList();
+            .ToList());
 
-        Assert.Equal(expected, ids);
+        Assert.IsType<NotSupportedException>(ex);
     }
 
     [Fact]
-    public void StartsWithIgnoreCaseFromColumn()
+    public void StartsWithIgnoreCaseFromColumnThrowsInWhere()
     {
-        using TestDatabase db = new();
-        db.Table<SearchComparisonRow>().Schema.CreateTable();
-        db.Table<SearchComparisonRow>().AddRange(Rows.Select(Clone));
+        using TestDatabase db = Seed();
 
-        List<int> expected = Rows.Where(x => x.Name.StartsWith("APP", x.Loose, null)).Select(x => x.Id).ToList();
-        Assert.Equal([1, 3], expected);
-
-        List<int> ids = db.Table<SearchComparisonRow>()
+        Exception? ex = Record.Exception(() => db.Table<SearchComparisonRow>()
             .Where(x => x.Name.StartsWith("APP", x.Loose, null))
             .Select(x => x.Id)
-            .ToList();
+            .ToList());
 
-        Assert.Equal(expected, ids);
+        Assert.IsType<NotSupportedException>(ex);
     }
 
     [Fact]
-    public void EndsWithIgnoreCaseFromColumn()
+    public void EndsWithIgnoreCaseFromColumnThrowsInWhere()
     {
-        using TestDatabase db = new();
-        db.Table<SearchComparisonRow>().Schema.CreateTable();
-        db.Table<SearchComparisonRow>().AddRange(Rows.Select(Clone));
+        using TestDatabase db = Seed();
 
-        List<int> expected = Rows.Where(x => x.Name.EndsWith("PLE", x.Loose, null)).Select(x => x.Id).ToList();
-        Assert.Equal([1, 3], expected);
-
-        List<int> ids = db.Table<SearchComparisonRow>()
+        Exception? ex = Record.Exception(() => db.Table<SearchComparisonRow>()
             .Where(x => x.Name.EndsWith("PLE", x.Loose, null))
             .Select(x => x.Id)
-            .ToList();
+            .ToList());
 
-        Assert.Equal(expected, ids);
+        Assert.IsType<NotSupportedException>(ex);
     }
 
     [Fact]
-    public void ContainsComparisonFromColumn()
+    public void ContainsComparisonFromColumnThrowsInWhere()
     {
-        using TestDatabase db = new();
-        db.Table<SearchComparisonRow>().Schema.CreateTable();
-        db.Table<SearchComparisonRow>().AddRange(Rows.Select(Clone));
+        using TestDatabase db = Seed();
 
-        List<int> expected = Rows.Where(x => x.Name.Contains("PP", x.Mode)).Select(x => x.Id).ToList();
-        Assert.Equal([1, 3], expected);
-
-        List<int> ids = db.Table<SearchComparisonRow>()
+        Exception? ex = Record.Exception(() => db.Table<SearchComparisonRow>()
             .Where(x => x.Name.Contains("PP", x.Mode))
             .Select(x => x.Id)
-            .ToList();
+            .ToList());
 
-        Assert.Equal(expected, ids);
+        Assert.IsType<NotSupportedException>(ex);
+    }
+
+    [Fact]
+    public void StartsWithComparisonFromColumnProjectsInSelect()
+    {
+        using TestDatabase db = Seed();
+
+        List<bool> expected = Rows
+            .OrderBy(x => x.Id)
+            .Select(x => x.Name.StartsWith("APP", x.Mode))
+            .ToList();
+        Assert.Equal([true, false, true], expected);
+
+        List<bool> actual = db.Table<SearchComparisonRow>()
+            .OrderBy(x => x.Id)
+            .Select(x => x.Name.StartsWith("APP", x.Mode))
+            .ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void EndsWithIgnoreCaseFromColumnProjectsInSelect()
+    {
+        using TestDatabase db = Seed();
+
+        List<bool> expected = Rows
+            .OrderBy(x => x.Id)
+            .Select(x => x.Name.EndsWith("PLE", x.Loose, null))
+            .ToList();
+        Assert.Equal([true, false, true], expected);
+
+        List<bool> actual = db.Table<SearchComparisonRow>()
+            .OrderBy(x => x.Id)
+            .Select(x => x.Name.EndsWith("PLE", x.Loose, null))
+            .ToList();
+        Assert.Equal(expected, actual);
     }
 
     private static SearchComparisonRow Clone(SearchComparisonRow row)

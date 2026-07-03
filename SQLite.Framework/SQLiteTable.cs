@@ -98,7 +98,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             SQLiteAction columnAction = RunActionHooks(item, SQLiteAction.Add);
             return columnAction == SQLiteAction.Add
                 ? InsertWithExtraColumns(item, columns)
-                : DispatchAction(columnAction, item);
+                : DispatchAction(columnAction, item, columns);
         }
 
         if (!RunHooks(Database.Options.AddHooks, item))
@@ -149,7 +149,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             SQLiteAction columnAction = RunActionHooks(item, SQLiteAction.Update);
             return columnAction == SQLiteAction.Update
                 ? UpdateWithExtraColumns(item, columns)
-                : DispatchAction(columnAction, item);
+                : DispatchAction(columnAction, item, columns);
         }
 
         if (!RunHooks(Database.Options.UpdateHooks, item))
@@ -364,10 +364,10 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Wraps this table so the next write also writes the columns declared in <paramref name="build" />.
     /// This covers <c>Add</c>, <c>AddRange</c>, <c>Update</c>, <c>UpdateRange</c>, <c>AddOrUpdate</c>,
-    /// <c>Upsert</c> (the inserted row) and the same writes through <see cref="Returning()" />. Use it
-    /// to fill a column that has no CLR property, such as a shadow column declared with
-    /// <see cref="SQLiteEntityTypeBuilder{T}.Column" /> or to override a mapped column with a database
-    /// expression. The values are inlined into the generated SQL.
+    /// <c>Upsert</c> (the inserted row), <c>InsertFromQuery</c> and the same writes through
+    /// <see cref="Returning()" />. Use it to fill a column that has no CLR property, such as a shadow
+    /// column declared with <see cref="SQLiteEntityTypeBuilder{T}.Column" /> or to override a mapped
+    /// column with a database expression. The values are inlined into the generated SQL.
     /// </summary>
     public virtual SQLiteTable<T> WithColumns(Action<SQLiteWriteColumnsBuilder<T>> build)
     {
@@ -408,13 +408,25 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         SQLQuery sourceQuery = translator.Translate(source.Expression, computedColumnProperties);
 
         IReadOnlyList<SQLiteExpression> selects = translator.Selects;
-        IEnumerable<string> targetColumns = selects.Select(s =>
-        {
-            TableColumn column = Table.Columns.First(c => c.PropertyInfo.Name == s.IdentifierText);
-            return IdentifierGuard.Quote(column.Name);
-        });
+        List<string> targetColumnNames = selects
+            .Select(s => Table.Columns.First(c => c.PropertyInfo.Name == s.IdentifierText).Name)
+            .ToList();
 
-        string columnList = string.Join(", ", targetColumns);
+        string columnList = string.Join(", ", targetColumnNames.Select(IdentifierGuard.Quote));
+
+        List<(string Column, string ValueSql)> extraColumns = ExtraWriteColumns
+            .Where(c => !targetColumnNames.Contains(c.Column))
+            .ToList();
+        if (extraColumns.Count > 0)
+        {
+            ThrowIfExtraWriteColumnsReferenceRowOnInsert();
+            string extraNames = string.Join(", ", extraColumns.Select(c => IdentifierGuard.Quote(c.Column)));
+            string extraValues = string.Join(", ", extraColumns.Select(c => c.ValueSql));
+            string insertColumns = $"{columnList}, {extraNames}";
+            string wrappedSql = $"INSERT INTO \"{Table.TableName}\" ({insertColumns}){Environment.NewLine}SELECT *, {extraValues} FROM ({Environment.NewLine}{sourceQuery.Sql}{Environment.NewLine})";
+            return Database.CreateCommand(wrappedSql, sourceQuery.Parameters).ExecuteNonQuery();
+        }
+
         string sql = $"INSERT INTO \"{Table.TableName}\" ({columnList}){Environment.NewLine}{sourceQuery.Sql}";
 
         return Database.CreateCommand(sql, sourceQuery.Parameters).ExecuteNonQuery();
@@ -468,9 +480,18 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         return Table.Columns.FirstOrDefault(c => c.IsPrimaryKey && c.IsAutoIncrement);
     }
 
-    internal (string Sql, List<SQLiteParameter> Parameters) BuildInsertWithExtraColumns(T item, IDictionary<string, object?> extra)
+    internal (string Sql, List<SQLiteParameter> Parameters) BuildInsertWithExtraColumns(T item, IDictionary<string, object?> extra, string insertVerb = "INSERT")
     {
-        (TableColumn[] baseColumns, _) = GetAddInfo();
+        TableColumn[] baseColumns;
+        if (insertVerb == "INSERT")
+        {
+            (baseColumns, _) = GetAddInfo();
+        }
+        else
+        {
+            (baseColumns, _) = GetAddOrUpdateInfo(SQLiteConflict.Replace);
+        }
+
         baseColumns = FilterColumnsForDefaults(baseColumns, item);
 
         TableColumn? autoIncrement = GetAutoIncrementColumn();
@@ -521,8 +542,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         string sql = names.Count == 0
-            ? $"INSERT INTO \"{Table.TableName}\" DEFAULT VALUES"
-            : $"INSERT INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
+            ? $"{insertVerb} INTO \"{Table.TableName}\" DEFAULT VALUES"
+            : $"{insertVerb} INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
 
         return (sql, parameters);
     }
@@ -946,9 +967,27 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         };
     }
 
+    private int DispatchAction(SQLiteAction action, T item, IDictionary<string, object?> columns)
+    {
+        if (columns.Count == 0)
+        {
+            return DispatchAction(action, item);
+        }
+
+        return action switch
+        {
+            SQLiteAction.Skip => 0,
+            SQLiteAction.Add => InsertWithExtraColumns(item, columns),
+            SQLiteAction.Update => UpdateWithExtraColumns(item, columns),
+            SQLiteAction.Remove => DefaultRemove(item),
+            SQLiteAction.AddOrUpdate => InsertWithExtraColumns(item, columns, "INSERT OR REPLACE"),
+            _ => throw new InvalidOperationException($"Unsupported SQLiteAction value: {action}"),
+        };
+    }
+
     /// <summary>
     /// Runs the default INSERT for <paramref name="item" />. Used by
-    /// <see cref="DispatchAction" /> when the action hook chain settles on
+    /// <see cref="DispatchAction(SQLiteAction, T)" /> when the action hook chain settles on
     /// <see cref="SQLiteAction.Add" />. Override to change how <c>Add</c> resolves once dispatch
     /// has decided on it.
     /// </summary>
@@ -975,7 +1014,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     /// <summary>
     /// Runs the default UPDATE for <paramref name="item" />. Used by
-    /// <see cref="DispatchAction" /> when the action hook chain settles on
+    /// <see cref="DispatchAction(SQLiteAction, T)" /> when the action hook chain settles on
     /// <see cref="SQLiteAction.Update" />.
     /// </summary>
     protected virtual int DefaultUpdate(T item)
@@ -993,7 +1032,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     /// <summary>
     /// Runs the default DELETE for <paramref name="item" />. Used by
-    /// <see cref="DispatchAction" /> when the action hook chain settles on
+    /// <see cref="DispatchAction(SQLiteAction, T)" /> when the action hook chain settles on
     /// <see cref="SQLiteAction.Remove" />.
     /// </summary>
     protected virtual int DefaultRemove(T item)
@@ -1011,7 +1050,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     /// <summary>
     /// Runs the default <c>INSERT OR &lt;conflict&gt;</c> for <paramref name="item" />. Used by
-    /// <see cref="DispatchAction" /> when the action hook chain settles on
+    /// <see cref="DispatchAction(SQLiteAction, T)" /> when the action hook chain settles on
     /// <see cref="SQLiteAction.AddOrUpdate" />.
     /// </summary>
     protected virtual int DefaultAddOrUpdate(T item, SQLiteConflict conflict)
@@ -1432,7 +1471,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 SQLiteAction action = RunActionHooks(item, defaultAction);
                 if (action != defaultAction)
                 {
-                    count += DispatchAction(action, item);
+                    count += DispatchAction(action, item, columns);
                 }
                 else
                 {
@@ -1444,9 +1483,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
     }
 
-    private int InsertWithExtraColumns(T item, IDictionary<string, object?> extra)
+    private int InsertWithExtraColumns(T item, IDictionary<string, object?> extra, string insertVerb = "INSERT")
     {
-        (string sql, List<SQLiteParameter> parameters) = BuildInsertWithExtraColumns(item, extra);
+        (string sql, List<SQLiteParameter> parameters) = BuildInsertWithExtraColumns(item, extra, insertVerb);
 
         TableColumn? autoIncrement = GetAutoIncrementColumn();
         if (autoIncrement == null)

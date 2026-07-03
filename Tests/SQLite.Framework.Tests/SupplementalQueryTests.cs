@@ -1945,7 +1945,7 @@ public class SupplementalQueryTests
             .Select(e => (int)e.Letter)
             .ToSqlCommand();
 
-        Assert.Equal("SELECT UNICODE(c0.\"Letter\") AS \"3\"\nFROM \"CharEntity\" AS c0", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT UNICODE(c0.\"Letter\") AS \"4\"\nFROM \"CharEntity\" AS c0", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

@@ -256,6 +256,11 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
     /// </summary>
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
+        if (ctx.LeafIndexBySyntax.TryGetValue(node, out int invocationLeafIdx))
+        {
+            return SyntaxFactory.IdentifierName(ctx.Leaves[invocationLeafIdx].VarName);
+        }
+
         if (ctx.Model.GetSymbolInfo(node).Symbol is not IMethodSymbol method)
         {
             Failed = true;
@@ -563,7 +568,21 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
                 Failed = true;
                 return node;
             }
-            argExprs.Add(argExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString());
+
+            string argText = argExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString();
+            if (arg.Expression is SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax)
+            {
+                ITypeSymbol? delegateType = ctx.Model.GetTypeInfo(arg.Expression).ConvertedType;
+                if (delegateType == null || SelectMaterializerEmitter.ContainsAnonymousType(delegateType))
+                {
+                    Failed = true;
+                    return node;
+                }
+
+                argText = "(" + SelectMaterializerEmitter.FormatType(delegateType, ctx.WriterCtx.TypeArgSubstitutions) + ")(" + argText + ")";
+            }
+
+            argExprs.Add(argText);
         }
 
         string returnType = SelectMaterializerEmitter.FormatType(method.ReturnType, ctx.WriterCtx.TypeArgSubstitutions);
@@ -580,6 +599,12 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
 
     private ExpressionSyntax BuildCapturedValueExpression(ITypeSymbol? type)
     {
+        if (type != null && SelectMaterializerEmitter.ContainsAnonymousType(type))
+        {
+            Failed = true;
+            return SyntaxFactory.ParseExpression("ctx.CapturedValues![0]!");
+        }
+
         int slot = capturedValueSlots++;
         string capturedType = type != null && SelectMaterializerEmitter.IsTypeAccessibleFromGenerator(type, ctx.GeneratorAssembly)
             ? SelectMaterializerEmitter.FormatType(type, ctx.WriterCtx.TypeArgSubstitutions)

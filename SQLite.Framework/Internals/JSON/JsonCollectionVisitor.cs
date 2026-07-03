@@ -16,7 +16,7 @@ internal partial class JsonCollectionVisitor
     private string? groupElementSql;
     private Type currentElementType = typeof(object);
     private string baseSource = "";
-    private string baseJoinSuffix = "";
+    private string baseAlias = "";
     private string? fromOverride;
     private string? limit;
     private string? offset;
@@ -145,6 +145,9 @@ internal partial class JsonCollectionVisitor
 
         currentElementType = TypeHelpers.GetEnumerableElementType(sourceExpr.Type)!;
         baseSource = sourceExpr.ToString();
+        baseAlias = $"j{visitor.Counters.NextTableIndex('j')}";
+        selectExpr = $"{baseAlias}.\"value\"";
+        keyColumn = $"{baseAlias}.\"key\"";
         Type rt = resultType;
         foreach (MethodCallExpression call in chain)
         {

@@ -243,7 +243,7 @@ public class CharMethodTests
             .Select(n => (int)n.CharValue)
             .ToSqlCommand();
 
-        Assert.Equal("SELECT UNICODE(n0.\"CharValue\") AS \"15\"\nFROM \"NumericTypes\" AS n0", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT UNICODE(n0.\"CharValue\") AS \"16\"\nFROM \"NumericTypes\" AS n0", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

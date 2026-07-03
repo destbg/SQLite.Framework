@@ -71,6 +71,20 @@ public class NullableDayOfWeekComputedComparisonTests
     }
 
     [Fact]
+    public void NullCapturedValueEqualsComputedDayOfWeekTextStorage()
+    {
+        using TestDatabase db = Seed(EnumStorageMode.Text);
+        DayOfWeek? none = null;
+
+        List<int> expected = Rows().Where(r => none == r.When.DayOfWeek).Select(r => r.Id).OrderBy(id => id).ToList();
+        Assert.Equal([], expected);
+
+        List<int> actual = db.Table<NullableDowRow>()
+            .Where(r => none == r.When.DayOfWeek).Select(r => r.Id).OrderBy(id => id).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void NullableColumnNotEqualsComputedDayOfWeekTextStorage()
     {
         using TestDatabase db = Seed(EnumStorageMode.Text);

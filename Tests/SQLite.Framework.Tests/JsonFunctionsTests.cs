@@ -1568,9 +1568,9 @@ public class JsonFunctionsTests
 
         Assert.Equal("""
                      SELECT json_extract((
-                         SELECT "value"
-                         FROM json_each(a0."Addresses")
-                         ORDER BY json_extract("value", '$.City') ASC, json_extract("value", '$.Street') ASC
+                         SELECT j1."value"
+                         FROM json_each(a0."Addresses") j1
+                         ORDER BY json_extract(j1."value", '$.City') ASC, json_extract(j1."value", '$.Street') ASC
                          LIMIT 1
                      ), '$.Street') AS "Street"
                      FROM "AddressListRow" AS a0
@@ -1616,9 +1616,9 @@ public class JsonFunctionsTests
 
         Assert.Equal("""
                      SELECT json_extract((
-                         SELECT "value"
-                         FROM json_each(a0."Addresses")
-                         ORDER BY json_extract("value", '$.City') ASC, json_extract("value", '$.Street') DESC
+                         SELECT j1."value"
+                         FROM json_each(a0."Addresses") j1
+                         ORDER BY json_extract(j1."value", '$.City') ASC, json_extract(j1."value", '$.Street') DESC
                          LIMIT 1
                      ), '$.Street') AS "Street"
                      FROM "AddressListRow" AS a0
@@ -1685,8 +1685,8 @@ public class JsonFunctionsTests
         Assert.Equal("""
                      SELECT (
                          SELECT COUNT(*)
-                         FROM json_each(l0."Tags")
-                         WHERE LENGTH("value") > @p0
+                         FROM json_each(l0."Tags") j1
+                         WHERE LENGTH(j1."value") > @p0
                      ) AS "6"
                      FROM "ListRow" AS l0
                      """.Replace("\r\n", "\n"), command.CommandText.Replace("\r\n", "\n"));
@@ -1716,9 +1716,9 @@ public class JsonFunctionsTests
                      SELECT (
                          SELECT json_group_array("value")
                          FROM (
-                             SELECT "value"
-                             FROM json_each(l0."Tags")
-                             ORDER BY "value" ASC
+                             SELECT j1."value"
+                             FROM json_each(l0."Tags") j1
+                             ORDER BY j1."value" ASC
                              LIMIT 2
                          )
                      ) AS "3"
@@ -1799,8 +1799,8 @@ public class JsonFunctionsTests
                          SELECT COUNT(*)
                          FROM (
                              SELECT 1 AS "value"
-                             FROM json_each(l0."Tags")
-                             GROUP BY "value"
+                             FROM json_each(l0."Tags") j1
+                             GROUP BY j1."value"
                          )
                      ) AS "3"
                      FROM "ListRow" AS l0

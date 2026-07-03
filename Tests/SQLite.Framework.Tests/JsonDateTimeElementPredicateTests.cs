@@ -47,7 +47,7 @@ public class JsonDateTimeElementPredicateTests
     }
 
     [Fact]
-    public void ContainsOnTextDatesDivergesFromMemory()
+    public void ContainsOnTextDatesMatchesMemory()
     {
         using TestDatabase db = SetupDatabase();
         DateTime sought = new(2023, 6, 1);
@@ -60,7 +60,7 @@ public class JsonDateTimeElementPredicateTests
             .Select(r => r.Dates.Contains(sought))
             .First();
 
-        Assert.False(actual);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

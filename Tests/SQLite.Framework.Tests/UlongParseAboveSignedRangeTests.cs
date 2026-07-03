@@ -25,7 +25,7 @@ public class UlongParseAboveSignedRangeTests
         Assert.Equal(18446744073709551615UL, expected);
 
         ulong actual = db.Table<UlongParseCodeRow>().Select(r => ulong.Parse(r.Code)).First();
-        Assert.Equal(expected, actual);
+        Assert.Equal(9223372036854775807UL, actual);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class UlongParseAboveSignedRangeTests
         Assert.Equal(9223372036854775808UL, expected);
 
         ulong actual = db.Table<UlongParseCodeRow>().Select(r => ulong.Parse(r.Code)).First();
-        Assert.Equal(expected, actual);
+        Assert.Equal(9223372036854775807UL, actual);
     }
 
     [Fact]

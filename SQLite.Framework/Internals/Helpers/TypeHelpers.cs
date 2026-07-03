@@ -25,6 +25,18 @@ internal static class TypeHelpers
                || type == typeof(object);
     }
 
+    public static int TypeDepth(Type? type)
+    {
+        int depth = 0;
+        while (type != null)
+        {
+            depth++;
+            type = type.BaseType;
+        }
+
+        return depth;
+    }
+
     public static Type UnsignedIntegerKey(Type type)
     {
         Type underlying = Nullable.GetUnderlyingType(type) ?? type;

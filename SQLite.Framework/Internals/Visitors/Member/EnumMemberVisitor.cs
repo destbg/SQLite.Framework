@@ -17,7 +17,7 @@ internal static class EnumMemberVisitor
 
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null))
             {
-                return Expression.Call(obj.Expression, node.Method, CoerceToParameterTypes(node.Method, arguments));
+                return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, CoerceToParameterTypes(visitor, node, arguments));
             }
 
             switch (node.Method.Name)
@@ -95,41 +95,10 @@ internal static class EnumMemberVisitor
                             "Use the \"D\" (number) or \"X\" (hex) format.");
                     }
 
-                    Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
-                    string[] enumNames = Enum.GetNames(enumType);
-
-                    StringBuilder caseSb = new();
-                    List<SQLiteParameter> nameParams = new();
-                    for (int i = 0; i < enumValuesArray.Length; i++)
-                    {
-                        object enumValue = enumValuesArray.GetValue(i)!;
-                        long numericValue = ToSignedNumeric(enumValue, enumUnderlying);
-                        string enumName = enumNames[i];
-
-                        SQLiteParameter nameParam = new()
-                        {
-                            Name = visitor.Counters.NextParamName(),
-                            Value = enumName
-                        };
-                        nameParams.Add(nameParam);
-                        caseSb.Append(" WHEN ");
-                        caseSb.Append(numericValue);
-                        caseSb.Append(" THEN ");
-                        caseSb.Append(nameParam.Name);
-                    }
-
-                    SQLiteParameter[] parameters = obj.Parameters == null
-                        ? [.. nameParams]
-                        : [.. obj.Parameters, .. nameParams];
-
-                    string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
-                    string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
-
-                    SQLiteExpression nameCase = CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr], v =>
-                        SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], elseClose, [.. nameParams]));
+                    SQLiteExpression nameCase = BuildEnumToNameText(visitor, enumType, objExpr);
 
                     return isNullableEnum
-                        ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "COALESCE(", nameCase, ", '')", parameters)
+                        ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "COALESCE(", nameCase, ", '')", nameCase.Parameters)
                         : nameCase;
                 }
             }
@@ -217,6 +186,40 @@ internal static class EnumMemberVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Enum type comes from the entity surface. Users keep their enums reachable.")]
+    public static SQLiteExpression BuildEnumToNameText(SQLVisitor visitor, Type enumType, SQLiteExpression objExpr)
+    {
+        Type enumUnderlying = Enum.GetUnderlyingType(enumType);
+        bool isUlongBacked = enumUnderlying == typeof(ulong);
+        Array enumValuesArray = Enum.GetValuesAsUnderlyingType(enumType);
+        string[] enumNames = Enum.GetNames(enumType);
+
+        StringBuilder caseSb = new();
+        List<SQLiteParameter> nameParams = new();
+        for (int i = 0; i < enumValuesArray.Length; i++)
+        {
+            object enumValue = enumValuesArray.GetValue(i)!;
+            long numericValue = ToSignedNumeric(enumValue, enumUnderlying);
+            string enumName = enumNames[i];
+
+            SQLiteParameter nameParam = new()
+            {
+                Name = visitor.Counters.NextParamName(),
+                Value = enumName
+            };
+            nameParams.Add(nameParam);
+            caseSb.Append(" WHEN ");
+            caseSb.Append(numericValue);
+            caseSb.Append(" THEN ");
+            caseSb.Append(nameParam.Name);
+        }
+
+        string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
+        string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
+
+        return CommonHelpers.EvaluateOnce(visitor.Counters, typeof(string), [objExpr], v =>
+            SQLiteExpression.Binary(typeof(string), visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], elseClose, [.. nameParams]));
+    }
+
     public static SQLiteExpression BuildTextStorageEnumToNumber(SQLVisitor visitor, Type targetType, Type enumType, SQLiteExpression objExpr)
     {
         Type enumUnderlying = Enum.GetUnderlyingType(enumType);
@@ -238,13 +241,14 @@ internal static class EnumMemberVisitor
             SQLiteExpression.Binary(targetType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], " AS INTEGER) END)", [.. nameParams]));
     }
 
-    private static List<Expression> CoerceToParameterTypes(MethodInfo method, List<ResolvedModel> arguments)
+    private static List<Expression> CoerceToParameterTypes(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments)
     {
-        ParameterInfo[] parameters = method.GetParameters();
+        ParameterInfo[] parameters = node.Method.GetParameters();
         List<Expression> result = new(arguments.Count);
         for (int i = 0; i < arguments.Count; i++)
         {
-            result.Add(Expression.Convert(arguments[i].Expression, parameters[i].ParameterType));
+            Expression argument = visitor.ToClientOperand(StripEnumBoxing(node.Arguments[i]), arguments[i]);
+            result.Add(Expression.Convert(argument, parameters[i].ParameterType));
         }
 
         return result;

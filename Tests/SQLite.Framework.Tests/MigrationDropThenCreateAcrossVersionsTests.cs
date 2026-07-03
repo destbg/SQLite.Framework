@@ -14,6 +14,13 @@ public class ReintroducedLogRow
     public string Note { get; set; } = "";
 }
 
+[Table("OtherMigratedLog")]
+public class OtherMigratedRow
+{
+    [Key]
+    public int Id { get; set; }
+}
+
 public class MigrationDropThenCreateAcrossVersionsTests
 {
     [Fact]
@@ -46,6 +53,21 @@ public class MigrationDropThenCreateAcrossVersionsTests
 
         Assert.Equal(2, db.Pragmas.UserVersion);
         Assert.True(db.Schema.TableExists("ReintroducedLog"));
+    }
+
+    [Fact]
+    public void DropStaysWhenALaterVersionCreatesAnotherTable()
+    {
+        using TestDatabase db = new(useFile: true);
+        db.Execute("CREATE TABLE \"ReintroducedLog\" (\"Id\" INTEGER PRIMARY KEY)");
+
+        db.Schema.Migrations()
+            .Version(1, m => m.DropTable("ReintroducedLog"))
+            .Version(2, m => m.CreateTable<OtherMigratedRow>())
+            .Migrate();
+
+        Assert.False(db.Schema.TableExists("ReintroducedLog"));
+        Assert.True(db.Schema.TableExists("OtherMigratedLog"));
     }
 
     [Fact]

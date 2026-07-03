@@ -25,8 +25,8 @@ internal static class NullableMemberVisitor
         if (obj.SQLiteExpression == null || arg.SQLiteExpression == null)
         {
             return node.Arguments.Count == 0
-                ? Expression.Call(obj.Expression, node.Method)
-                : Expression.Call(obj.Expression, node.Method, arg.Expression);
+                ? Expression.Call(visitor.ToClientOperand(node.Object!, obj), node.Method)
+                : Expression.Call(visitor.ToClientOperand(node.Object!, obj), node.Method, visitor.ToClientOperand(defaultArg, arg));
         }
 
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, arg.SQLiteExpression);

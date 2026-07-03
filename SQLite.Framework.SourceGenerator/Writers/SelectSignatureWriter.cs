@@ -518,6 +518,19 @@ public static class SelectSignatureWriter
                 AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedIdent).Type ?? type, ctx);
                 return true;
 
+            case IdentifierNameSyntax lambdaParamIdent
+                when ctx.Model.GetSymbolInfo(lambdaParamIdent).Symbol is IParameterSymbol { ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.AnonymousFunction } } lambdaParameter
+                    && !ctx.RowBindings.ContainsKey(lambdaParameter):
+                sb.Append("(Parameter ").Append(FormatType(lambdaParameter.Type, ctx.TypeArgSubstitutions)).Append(' ')
+                    .Append(FormatType(lambdaParameter.Type, ctx.TypeArgSubstitutions)).Append(')');
+                return true;
+
+            case SimpleLambdaExpressionSyntax simpleLambda when simpleLambda.ExpressionBody != null:
+                return AppendLambda(sb, type, [simpleLambda.Parameter], simpleLambda.ExpressionBody, ctx);
+
+            case ParenthesizedLambdaExpressionSyntax parenLambda when parenLambda.ExpressionBody != null:
+                return AppendLambda(sb, type, [.. parenLambda.ParameterList.Parameters], parenLambda.ExpressionBody, ctx);
+
             case MemberAccessExpressionSyntax capturedMember when capturedMember.Kind() == SyntaxKind.SimpleMemberAccessExpression
                 && IsCapturedValue(capturedMember, ctx):
                 AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedMember).Type ?? type, ctx);
@@ -549,6 +562,28 @@ public static class SelectSignatureWriter
     private static void AppendCapturedValue(StringBuilder sb, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
         sb.Append("(CapturedValue ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(')');
+    }
+
+    private static bool AppendLambda(StringBuilder sb, ITypeSymbol? type, IReadOnlyList<ParameterSyntax> parameters, ExpressionSyntax body, SelectSignatureCtx ctx)
+    {
+        sb.Append("(Lambda ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
+        foreach (ParameterSyntax parameter in parameters)
+        {
+            if (ctx.Model.GetDeclaredSymbol(parameter) is not IParameterSymbol parameterSymbol)
+            {
+                return false;
+            }
+
+            sb.Append(FormatType(parameterSymbol.Type, ctx.TypeArgSubstitutions)).Append(',');
+        }
+
+        if (!TryAppend(sb, body, ctx))
+        {
+            return false;
+        }
+
+        sb.Append(')');
+        return true;
     }
 
     private static bool AppendElementAccess(StringBuilder sb, ElementAccessExpressionSyntax indexer, ITypeSymbol? type, SelectSignatureCtx ctx)
@@ -638,6 +673,24 @@ public static class SelectSignatureWriter
 
         bool lowerEnums = IsComparisonKind(bin.Kind());
 
+        if (IsBitwiseKind(bin.Kind()) && type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } bitwiseUnderlying })
+        {
+            sb.Append("(Convert ").Append(FormatType(type, ctx.TypeArgSubstitutions));
+            sb.Append(" (").Append(nodeType).Append(' ').Append(FormatType(bitwiseUnderlying, ctx.TypeArgSubstitutions));
+            sb.Append(' ');
+            if (!AppendBinaryOperand(sb, bin.Left, true, ctx))
+            {
+                return false;
+            }
+            sb.Append(' ');
+            if (!AppendBinaryOperand(sb, bin.Right, true, ctx))
+            {
+                return false;
+            }
+            sb.Append("))");
+            return true;
+        }
+
         sb.Append('(').Append(nodeType).Append(' ').Append(FormatType(type, ctx.TypeArgSubstitutions));
         sb.Append(' ');
         if (!AppendBinaryOperand(sb, bin.Left, lowerEnums, ctx))
@@ -661,6 +714,13 @@ public static class SelectSignatureWriter
             or SyntaxKind.LessThanExpression
             or SyntaxKind.GreaterThanOrEqualExpression
             or SyntaxKind.LessThanOrEqualExpression;
+    }
+
+    private static bool IsBitwiseKind(SyntaxKind kind)
+    {
+        return kind is SyntaxKind.BitwiseAndExpression
+            or SyntaxKind.BitwiseOrExpression
+            or SyntaxKind.ExclusiveOrExpression;
     }
 
     private static bool AppendBinaryOperand(StringBuilder sb, ExpressionSyntax operand, bool lowerEnums, SelectSignatureCtx ctx)
@@ -837,24 +897,70 @@ public static class SelectSignatureWriter
             }
         }
 
-        foreach (ArgumentSyntax arg in invocation.ArgumentList.Arguments)
+        SeparatedSyntaxList<ArgumentSyntax> args = invocation.ArgumentList.Arguments;
+        bool expandedParams = IsExpandedParamsForm(invocation, method, ctx);
+        int paramsIndex = method.Parameters.Length - 1;
+
+        for (int i = 0; i < args.Count; i++)
         {
             sb.Append(' ');
-            if (expandRowArgs && IsRowLikeReference(arg.Expression, ctx))
+            if (expandedParams && i == paramsIndex)
             {
-                if (!AppendExpandedRow(sb, arg.Expression, ctx))
+                ITypeSymbol paramsType = method.Parameters[paramsIndex].Type;
+                sb.Append("(NewArrayInit ").Append(FormatType(paramsType, ctx.TypeArgSubstitutions));
+                for (int j = i; j < args.Count; j++)
                 {
-                    return false;
+                    sb.Append(' ');
+                    if (!AppendInvocationArgument(sb, args[j].Expression, expandRowArgs, ctx))
+                    {
+                        return false;
+                    }
                 }
+
+                sb.Append(')');
+                break;
             }
-            else if (!TryAppend(sb, arg.Expression, ctx))
+
+            if (!AppendInvocationArgument(sb, args[i].Expression, expandRowArgs, ctx))
             {
                 return false;
             }
         }
 
+        if (expandedParams && args.Count == paramsIndex)
+        {
+            sb.Append(" (NewArrayInit ").Append(FormatType(method.Parameters[paramsIndex].Type, ctx.TypeArgSubstitutions)).Append(')');
+        }
+
         sb.Append(')');
         return true;
+    }
+
+    private static bool AppendInvocationArgument(StringBuilder sb, ExpressionSyntax argument, bool expandRowArgs, SelectSignatureCtx ctx)
+    {
+        if (expandRowArgs && IsRowLikeReference(argument, ctx))
+        {
+            return AppendExpandedRow(sb, argument, ctx);
+        }
+
+        return TryAppend(sb, argument, ctx);
+    }
+
+    private static bool IsExpandedParamsForm(InvocationExpressionSyntax invocation, IMethodSymbol method, SelectSignatureCtx ctx)
+    {
+        if (method.Parameters.Length == 0 || !method.Parameters[method.Parameters.Length - 1].IsParams)
+        {
+            return false;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> args = invocation.ArgumentList.Arguments;
+        if (args.Count != method.Parameters.Length)
+        {
+            return true;
+        }
+
+        ITypeSymbol? converted = ctx.Model.GetTypeInfo(args[args.Count - 1].Expression).ConvertedType;
+        return !SymbolEqualityComparer.Default.Equals(converted, method.Parameters[method.Parameters.Length - 1].Type);
     }
 
     private static ITypeSymbol? ResolveContainingTypeForExpressionTree(IMethodSymbol method, ExpressionSyntax? receiver, SelectSignatureCtx ctx)

@@ -73,6 +73,12 @@ internal partial class QueryableVisitor
                 Expression innerArgument = innerNewExpression.Arguments[i];
                 Expression outerArgument = outerNewExpression.Arguments[i];
 
+                if (DayOfWeekHelpers.IsComputedDayOfWeek(innerArgument) || DayOfWeekHelpers.IsComputedDayOfWeek(outerArgument))
+                {
+                    innerArgument = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, innerArgument);
+                    outerArgument = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, outerArgument);
+                }
+
                 SQLiteExpression outerAlias = visitor.PrepareKeyOperand(innerArgument, (SQLiteExpression)visitor.Visit(innerArgument));
                 SQLiteExpression innerAlias = visitor.PrepareKeyOperand(outerArgument, (SQLiteExpression)visitor.Visit(outerArgument));
 
@@ -96,8 +102,17 @@ internal partial class QueryableVisitor
         }
         else
         {
-            SQLiteExpression outerAlias = visitor.PrepareKeyOperand(outerKey.Body, (SQLiteExpression)visitor.Visit(outerKey.Body));
-            SQLiteExpression innerAlias = visitor.PrepareKeyOperand(innerKey.Body, (SQLiteExpression)visitor.Visit(innerKey.Body));
+            Expression outerBody = outerKey.Body;
+            Expression innerBody = innerKey.Body;
+
+            if (DayOfWeekHelpers.IsComputedDayOfWeek(outerBody) || DayOfWeekHelpers.IsComputedDayOfWeek(innerBody))
+            {
+                outerBody = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, outerBody);
+                innerBody = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, innerBody);
+            }
+
+            SQLiteExpression outerAlias = visitor.PrepareKeyOperand(outerBody, (SQLiteExpression)visitor.Visit(outerBody));
+            SQLiteExpression innerAlias = visitor.PrepareKeyOperand(innerBody, (SQLiteExpression)visitor.Visit(innerBody));
 
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
 

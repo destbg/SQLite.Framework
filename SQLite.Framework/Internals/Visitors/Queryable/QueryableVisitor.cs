@@ -288,6 +288,11 @@ internal partial class QueryableVisitor
                 query.Parameters.Count != 0 ? query.Parameters.ToArray() : null
             );
         }
+        else if (body is MemberExpression jsonMember && database.Options.HasJsonConverter(jsonMember.Type))
+        {
+            throw new NotSupportedException(
+                $"SelectMany over the JSON collection column '{jsonMember.Member.Name}' is not supported at the query level.");
+        }
         else
         {
             throw new NotSupportedException($"The type {body.GetType().Name} is not supported in join.");

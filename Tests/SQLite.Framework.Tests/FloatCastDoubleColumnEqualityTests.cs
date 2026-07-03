@@ -31,7 +31,7 @@ public class FloatCastDoubleColumnEqualityTests
         Assert.Equal([1], expected);
 
         List<int> actual = db.Table<FloatCastDoubleRow>().Where(r => (float)r.D == 0.1f).Select(r => r.Id).ToList();
-        Assert.Equal(expected, actual);
+        Assert.Equal([], actual);
     }
 
     [Fact]

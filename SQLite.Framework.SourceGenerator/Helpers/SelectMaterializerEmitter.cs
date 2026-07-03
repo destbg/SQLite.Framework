@@ -459,6 +459,36 @@ public static class SelectMaterializerEmitter
         }
     }
 
+    /// <summary>
+    /// Returns true when the type is an anonymous type or has one among its generic arguments
+    /// or its array element type.
+    /// </summary>
+    public static bool ContainsAnonymousType(ITypeSymbol type)
+    {
+        if (type.IsAnonymousType)
+        {
+            return true;
+        }
+
+        if (type is IArrayTypeSymbol array)
+        {
+            return ContainsAnonymousType(array.ElementType);
+        }
+
+        if (type is INamedTypeSymbol named)
+        {
+            foreach (ITypeSymbol arg in named.TypeArguments)
+            {
+                if (ContainsAnonymousType(arg))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private static string? CollectArrayLeaves(ExpressionSyntax body, EmitContext ctx)
     {
         InitializerExpressionSyntax? initializer = body switch
@@ -726,6 +756,23 @@ public static class SelectMaterializerEmitter
         return false;
     }
 
+    private static bool IsGroupingAggregateInvocation(InvocationExpressionSyntax invocation, EmitContext ctx)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax access)
+        {
+            return false;
+        }
+
+        if (ctx.Model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.ContainingType?.ToDisplayString() is not ("System.Linq.Queryable" or "System.Linq.Enumerable"))
+        {
+            return false;
+        }
+
+        return ctx.Model.GetTypeInfo(access.Expression).Type is INamedTypeSymbol { IsGenericType: true } receiverType
+            && receiverType.ConstructedFrom.ToDisplayString() == "System.Linq.IGrouping<TKey, TElement>";
+    }
+
     private static bool TryRegisterRowMemberLeaf(MemberAccessExpressionSyntax access, IdentifierNameSyntax rowIdent, EmitContext ctx, bool allowReflected)
     {
         ITypeSymbol? declaredLeafType = ctx.Model.GetTypeInfo(access).Type;
@@ -820,6 +867,17 @@ public static class SelectMaterializerEmitter
                     }
                 }
             }
+            return true;
+        }
+
+        if (node is InvocationExpressionSyntax aggregateInvoke
+            && IsGroupingAggregateInvocation(aggregateInvoke, ctx)
+            && ctx.Model.GetTypeInfo(aggregateInvoke).Type is { } aggregateType)
+        {
+            int aggregateIdx = ctx.Leaves.Count;
+            string aggregateVar = "__leaf_" + aggregateIdx;
+            ctx.Leaves.Add(new LeafInfo(aggregateInvoke, aggregateType, aggregateVar));
+            ctx.LeafIndexBySyntax[aggregateInvoke] = aggregateIdx;
             return true;
         }
 
@@ -966,32 +1024,6 @@ public static class SelectMaterializerEmitter
         }
 
         return true;
-    }
-
-    private static bool ContainsAnonymousType(ITypeSymbol type)
-    {
-        if (type.IsAnonymousType)
-        {
-            return true;
-        }
-
-        if (type is IArrayTypeSymbol array)
-        {
-            return ContainsAnonymousType(array.ElementType);
-        }
-
-        if (type is INamedTypeSymbol named)
-        {
-            foreach (ITypeSymbol arg in named.TypeArguments)
-            {
-                if (ContainsAnonymousType(arg))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private static bool IsRowReference(IdentifierNameSyntax ident, EmitContext ctx)

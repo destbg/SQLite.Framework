@@ -58,8 +58,20 @@ internal static class JsonMethodTranslator
     private static SQLiteExpression? TryDictionary(MethodCallExpression node, SQLVisitor visitor)
     {
         if (node.Method.Name is not ("ContainsKey" or "get_Item")
-            || !ExpressionHelpers.IsConstant(node.Arguments[0])
-            || ExpressionHelpers.GetConstantValue(node.Arguments[0]) is not string key)
+            || !ExpressionHelpers.IsConstant(node.Arguments[0]))
+        {
+            return null;
+        }
+
+        string? key = ExpressionHelpers.GetConstantValue(node.Arguments[0]) switch
+        {
+            string text => text,
+            Enum enumKey => enumKey.ToString(),
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => null
+        };
+
+        if (key == null)
         {
             return null;
         }
@@ -97,6 +109,24 @@ internal static class JsonMethodTranslator
             && receiver.Type.IsGenericType
             && receiver.Type.GetGenericTypeDefinition() == typeof(Dictionary<,>)
             && options.HasJsonConverter(receiver.Type);
+    }
+
+    private static bool TryGetTemporalText(ResolvedModel arg, out string? text)
+    {
+        if (arg.IsConstant && JsonTemporalText.TryFormat(arg.Constant, out text))
+        {
+            return true;
+        }
+
+        if (arg.SQLiteExpression is { Parameters: [{ } single] } expr
+            && expr.ToString() == single.Name
+            && JsonTemporalText.TryFormat(single.Value, out text))
+        {
+            return true;
+        }
+
+        text = null;
+        return false;
     }
 
     private static SQLiteExpression? TryEnumerable(MethodCallExpression node, SQLVisitor visitor)
@@ -190,18 +220,28 @@ internal static class JsonMethodTranslator
 
             if (IsNonStringDictionaryKeys(node.Object) && arg is { IsConstant: true, Constant: Enum enumKey })
             {
-                SQLiteParameter nameParameter = new()
-                {
-                    Name = visitor.Counters.NextParamName(),
-                    Value = enumKey.ToString()
-                };
-                parameters = [.. source.SQLiteExpression!.Parameters ?? [], nameParameter];
-                argSql = nameParameter.Name;
+                SQLiteExpression nameLeaf = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), enumKey.ToString());
+                parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, nameLeaf);
+                argSql = nameLeaf.ToString();
+            }
+            else if (IsNonStringDictionaryKeys(node.Object)
+                && arg.SQLiteExpression!.Type is { IsEnum: true } argEnumType
+                && visitor.Database.Options.EnumStorage != EnumStorageMode.Text)
+            {
+                SQLiteExpression nameExpr = EnumMemberVisitor.BuildEnumToNameText(visitor, argEnumType, arg.SQLiteExpression!);
+                parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, nameExpr);
+                argSql = nameExpr.ToString();
             }
             else if (IsNonStringDictionaryKeys(node.Object))
             {
                 parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, arg.SQLiteExpression!);
                 argSql = $"CAST({arg.SQLiteExpression} AS TEXT)";
+            }
+            else if (TryGetTemporalText(arg, out string? temporalText))
+            {
+                SQLiteExpression temporalLeaf = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), temporalText);
+                parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, temporalLeaf);
+                argSql = temporalLeaf.ToString();
             }
             else
             {
@@ -209,8 +249,9 @@ internal static class JsonMethodTranslator
                 argSql = arg.SQLiteExpression!.ToString();
             }
 
+            string containsAlias = $"j{visitor.Counters.NextTableIndex('j')}";
             return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                $"EXISTS (SELECT 1 FROM json_each({src}) WHERE \"value\" IS {argSql})",
+                $"EXISTS (SELECT 1 FROM json_each({src}) AS {containsAlias} WHERE {containsAlias}.\"value\" IS {argSql})",
                 parameters)
                 .WithJsonSource();
         }
@@ -221,8 +262,9 @@ internal static class JsonMethodTranslator
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
+            string indexOfAlias = $"j{visitor.Counters.NextTableIndex('j')}";
             return SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" IS {arg.SQLiteExpression} LIMIT 1), -1)",
+                $"COALESCE((SELECT {indexOfAlias}.\"key\" FROM json_each({src}) AS {indexOfAlias} WHERE {indexOfAlias}.\"value\" IS {arg.SQLiteExpression} LIMIT 1), -1)",
                 parameters)
                 .WithJsonSource();
         }
@@ -233,8 +275,9 @@ internal static class JsonMethodTranslator
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
+            string lastIndexOfAlias = $"j{visitor.Counters.NextTableIndex('j')}";
             return SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" IS {arg.SQLiteExpression} ORDER BY \"key\" DESC LIMIT 1), -1)",
+                $"COALESCE((SELECT {lastIndexOfAlias}.\"key\" FROM json_each({src}) AS {lastIndexOfAlias} WHERE {lastIndexOfAlias}.\"value\" IS {arg.SQLiteExpression} ORDER BY {lastIndexOfAlias}.\"key\" DESC LIMIT 1), -1)",
                 parameters)
                 .WithJsonSource();
         }
