@@ -42,6 +42,11 @@ internal partial class SQLVisitor
         return new ClientLeafRewriter(this).Visit(node);
     }
 
+    public Expression ToClientOperand(Expression original, ResolvedModel resolved)
+    {
+        return resolved.SQLiteExpression != null ? ToClientExpression(original) : resolved.Expression;
+    }
+
     public SQLiteExpression? TryResolveEntityNullCheck(BinaryExpression node)
     {
         bool isEntityNullCheck =

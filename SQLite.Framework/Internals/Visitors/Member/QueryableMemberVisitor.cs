@@ -53,7 +53,7 @@ internal static class QueryableMemberVisitor
 
         if (arguments.Skip(firstItemArgIndex).Any(f => f.SQLiteExpression == null))
         {
-            return Expression.Call(node.Object, node.Method, arguments.Select(f => f.Expression));
+            return Expression.Call(node.Object, node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
         }
 
         if (node.Object == null
@@ -93,11 +93,16 @@ internal static class QueryableMemberVisitor
                 SQLiteExpression itemExpr = visitor.PrepareKeyOperand(node.Arguments[itemIndex], arguments[itemIndex].SQLiteExpression!);
                 Type itemType = node.Arguments[itemIndex].Type;
                 List<object?> values = enumerable.Cast<object?>().ToList();
+                if (DayOfWeekHelpers.IsComputedDayOfWeek(node.Arguments[itemIndex]))
+                {
+                    itemType = typeof(int);
+                    values = values.Select(v => v is DayOfWeek dayOfWeek ? (object?)(int)dayOfWeek : v).ToList();
+                }
                 return BuildScalarInExpression(visitor, node.Method.ReturnType, itemExpr, itemType, values);
             }
         }
 
-        return Expression.Call(node.Object, node.Method, arguments.Select(f => f.Expression));
+        return Expression.Call(node.Object, node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
     }
 
     public static Expression HandleGroupingMethod(SQLVisitor visitor, MethodCallExpression node)

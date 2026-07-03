@@ -36,7 +36,7 @@ public class JsonTemporalElementPredicateParityTests
     }
 
     [Fact]
-    public void ContainsOnJsonTimeSpanList_KeepsTextForm()
+    public void ContainsOnJsonTimeSpanList_MatchesMemory()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -48,11 +48,11 @@ public class JsonTemporalElementPredicateParityTests
         Assert.True(oracle);
 
         bool actual = db.Table<JsonTemporalRow>().Select(r => r.Spans.Contains(sought)).First();
-        Assert.False(actual);
+        Assert.Equal(oracle, actual);
     }
 
     [Fact]
-    public void ContainsOnJsonDateOnlyList_KeepsTextForm()
+    public void ContainsOnJsonDateOnlyList_MatchesMemory()
     {
         using TestDatabase db = SetupDatabase();
 
@@ -64,6 +64,6 @@ public class JsonTemporalElementPredicateParityTests
         Assert.True(oracle);
 
         bool actual = db.Table<JsonTemporalRow>().Select(r => r.Days.Contains(sought)).First();
-        Assert.False(actual);
+        Assert.Equal(oracle, actual);
     }
 }

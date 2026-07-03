@@ -95,6 +95,7 @@ public sealed class SQLiteMigrationRunner
 
         int targetVersion = pending[^1].Key;
         List<MigrationOperation> operations = pending.SelectMany(v => BuildStep(v.Value).Operations).ToList();
+        RemoveDropsSupersededByCreate(operations);
 
         int count = 0;
         using SQLiteTransaction transaction = schema.Database.BeginTransaction();
@@ -115,12 +116,19 @@ public sealed class SQLiteMigrationRunner
             count += schema.CreateTable(operation.Mapping!.Type);
         }
 
+        List<(TableMapping Mapping, IReadOnlyList<(string Column, string ValueSql)> Sets)> deferredFills = [];
         foreach (IGrouping<string, MigrationOperation> group in operations
                      .Where(o => o.Kind == MigrationOperationKind.Reconcile)
                      .GroupBy(o => o.Mapping!.TableName))
         {
             if (newlyCreated.Contains(group.Key))
             {
+                IReadOnlyList<(string Column, string ValueSql)> newTableSets = UnionSets(group);
+                if (newTableSets.Count > 0)
+                {
+                    deferredFills.Add((group.First().Mapping!, newTableSets));
+                }
+
                 continue;
             }
 
@@ -157,6 +165,11 @@ public sealed class SQLiteMigrationRunner
             {
                 count += schema.DropTable(operation.TableName!);
             }
+        }
+
+        foreach ((TableMapping fillMapping, IReadOnlyList<(string Column, string ValueSql)> fillSets) in deferredFills)
+        {
+            count += MigrateInPlace(fillMapping, fillSets);
         }
 
         schema.Database.Pragmas.UserVersion = targetVersion;
@@ -590,6 +603,29 @@ public sealed class SQLiteMigrationRunner
         }
 
         return count;
+    }
+
+    private static void RemoveDropsSupersededByCreate(List<MigrationOperation> operations)
+    {
+        for (int i = operations.Count - 1; i >= 0; i--)
+        {
+            MigrationOperation operation = operations[i];
+            if (operation.Kind != MigrationOperationKind.DropTable)
+            {
+                continue;
+            }
+
+            string tableName = operation.Mapping?.TableName ?? operation.TableName!;
+            for (int j = i + 1; j < operations.Count; j++)
+            {
+                if (operations[j].Kind == MigrationOperationKind.CreateTable
+                    && operations[j].Mapping!.TableName == tableName)
+                {
+                    operations.RemoveAt(i);
+                    break;
+                }
+            }
+        }
     }
 
     private static List<(string Column, string ValueSql)> UnionSets(IEnumerable<MigrationOperation> group)

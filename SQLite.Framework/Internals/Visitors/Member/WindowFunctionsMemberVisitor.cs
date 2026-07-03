@@ -44,9 +44,18 @@ internal static class WindowFunctionsMemberVisitor
 
     private static SQLiteExpression HandleWindowFunction(SQLVisitor visitor, MethodCallExpression node)
     {
+        bool previousSuppress = visitor.SuppressUlongWindowOrderSplit;
+        if (node.Method.Name == nameof(SQLiteWindow<>.Range) && HasOffsetBoundary(node))
+        {
+            visitor.SuppressUlongWindowOrderSplit = true;
+        }
+
         List<ResolvedModel> arguments = node.Object != null
             ? new List<ResolvedModel> { visitor.ResolveExpression(node.Object) }
             : new List<ResolvedModel>();
+
+        visitor.SuppressUlongWindowOrderSplit = previousSuppress;
+        bool allowUlongSplit = !visitor.SuppressUlongWindowOrderSplit;
 
         IEnumerable<Expression> resolvable = IsFrameMethod(node.Method.Name)
             ? node.Arguments.Take(node.Arguments.Count - 1)
@@ -99,10 +108,10 @@ internal static class WindowFunctionsMemberVisitor
             nameof(SQLiteWindow<>.Filter) => Filter(visitor, t, id, arguments[0], arguments[1], parameters),
             nameof(SQLiteWindow<>.PartitionBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, arguments[0], " PARTITION BY ", arguments[1]), parameters),
             nameof(SQLiteWindow<>.ThenPartitionBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, arguments[0], ", ", arguments[1]), parameters),
-            nameof(SQLiteWindow<>.OrderBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], " ORDER BY ", arguments[1], " ASC"), parameters),
-            nameof(SQLiteWindow<>.OrderByDescending) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], " ORDER BY ", arguments[1], " DESC"), parameters),
-            nameof(SQLiteWindow<>.ThenOrderBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], ", ", arguments[1], " ASC"), parameters),
-            nameof(SQLiteWindow<>.ThenOrderByDescending) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], ", ", arguments[1], " DESC"), parameters),
+            nameof(SQLiteWindow<>.OrderBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], " ORDER BY ", arguments[1], " ASC", allowUlongSplit), parameters),
+            nameof(SQLiteWindow<>.OrderByDescending) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], " ORDER BY ", arguments[1], " DESC", allowUlongSplit), parameters),
+            nameof(SQLiteWindow<>.ThenOrderBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], ", ", arguments[1], " ASC", allowUlongSplit), parameters),
+            nameof(SQLiteWindow<>.ThenOrderByDescending) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], ", ", arguments[1], " DESC", allowUlongSplit), parameters),
             nameof(SQLiteWindow<>.Rows) => Frame(visitor, t, id, arguments, " ROWS BETWEEN ", node, parameters),
             nameof(SQLiteWindow<>.Range) => Frame(visitor, t, id, arguments, " RANGE BETWEEN ", node, parameters),
             nameof(SQLiteWindow<>.Groups) => Frame(visitor, t, id, arguments, " GROUPS BETWEEN ", node, parameters),
@@ -179,6 +188,19 @@ internal static class WindowFunctionsMemberVisitor
         return name is nameof(SQLiteWindow<>.Rows) or nameof(SQLiteWindow<>.Range) or nameof(SQLiteWindow<>.Groups);
     }
 
+    private static bool HasOffsetBoundary(MethodCallExpression node)
+    {
+        for (int i = 0; i < node.Arguments.Count; i++)
+        {
+            if (node.Arguments[i] is MethodCallExpression { Method.Name: nameof(SQLiteFrameBoundary.Preceding) or nameof(SQLiteFrameBoundary.Following) })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void RequirePartitionByFirst(MethodCallExpression node)
     {
         MethodCallExpression call = (MethodCallExpression)node.Object!;
@@ -243,14 +265,14 @@ internal static class WindowFunctionsMemberVisitor
         sb.Append(')');
     }
 
-    private static void WriteOverChainOrderBy(StringBuilder sb, ResolvedModel prev, string sep, ResolvedModel arg, string direction)
+    private static void WriteOverChainOrderBy(StringBuilder sb, ResolvedModel prev, string sep, ResolvedModel arg, string direction, bool allowUlongSplit)
     {
         prev.SQLiteExpression!.WriteSqlTo(sb);
         sb.Length--;
         sb.Append(sep);
         SQLiteExpression key = RequireKeyExpression(arg);
 
-        if (TypeHelpers.UnsignedIntegerKey(key.Type) == typeof(ulong))
+        if (allowUlongSplit && TypeHelpers.UnsignedIntegerKey(key.Type) == typeof(ulong))
         {
             sb.Append('(');
             key.WriteSqlTo(sb);

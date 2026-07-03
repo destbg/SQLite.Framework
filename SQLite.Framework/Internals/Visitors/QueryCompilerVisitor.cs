@@ -232,9 +232,15 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         throw new NotSupportedException($"The label expression '{node}' is not supported.");
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Compile falls back to the expression interpreter without dynamic code.")]
     protected override Expression VisitLambda<T>(Expression<T> node)
     {
-        throw new NotSupportedException($"The lambda expression '{node}' is not supported.");
+        return new CompiledExpression(node.Type, ctx =>
+        {
+            LambdaSqlLeafRewriter rewriter = new(this, ctx);
+            Expression<T> rewritten = (Expression<T>)rewriter.Visit(node);
+            return rewritten.Compile();
+        });
     }
 
     protected override Expression VisitLoop(LoopExpression node)

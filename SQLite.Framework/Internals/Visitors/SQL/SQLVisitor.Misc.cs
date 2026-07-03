@@ -37,7 +37,10 @@ internal partial class SQLVisitor
 
         if (test.SQLiteExpression == null || ifTrue.SQLiteExpression == null || ifFalse.SQLiteExpression == null)
         {
-            return Expression.Condition(test.Expression, ifTrue.Expression, ifFalse.Expression);
+            return Expression.Condition(
+                test.SQLiteExpression != null ? ToClientExpression(node.Test) : test.Expression,
+                ifTrue.SQLiteExpression != null ? ToClientExpression(node.IfTrue) : ifTrue.Expression,
+                ifFalse.SQLiteExpression != null ? ToClientExpression(node.IfFalse) : ifFalse.Expression);
         }
 
         SQLiteExpression ifTrueExpr = CoalesceLiftedOrderComparison(node.IfTrue, ifTrue.SQLiteExpression);
@@ -143,17 +146,41 @@ internal partial class SQLVisitor
             {
                 return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
             }
-            else if (node.Type == typeof(char) && resolved.SQLiteExpression.Type == typeof(int))
+            else if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(char)
+                && TryGetIntegerInfo(Nullable.GetUnderlyingType(resolved.SQLiteExpression.Type) ?? resolved.SQLiteExpression.Type, out _, out _))
             {
-                return Database.Options.CharStorage == CharStorageMode.Integer
-                    ? SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "((", resolved.SQLiteExpression, $") & {Constants.UInt16Mask})", resolved.SQLiteExpression.Parameters)
-                    : SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR((", resolved.SQLiteExpression, $") & {Constants.UInt16Mask})", resolved.SQLiteExpression.Parameters);
+                if (Database.Options.CharStorage == CharStorageMode.Integer)
+                {
+                    return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "((", resolved.SQLiteExpression, $") & {Constants.UInt16Mask})", resolved.SQLiteExpression.Parameters);
+                }
+
+                return Nullable.GetUnderlyingType(node.Type) == null
+                    ? SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR((", resolved.SQLiteExpression, $") & {Constants.UInt16Mask})", resolved.SQLiteExpression.Parameters)
+                    : CommonHelpers.EvaluateOnce(Counters, node.Type, [resolved.SQLiteExpression], v =>
+                        SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+                            ["(CASE WHEN ", " IS NULL THEN NULL ELSE CHAR((", $") & {Constants.UInt16Mask}) END)"],
+                            [v[0], v[0]],
+                            null));
             }
-            else if (node.Type == typeof(int) && resolved.SQLiteExpression.Type == typeof(char))
+            else if ((Nullable.GetUnderlyingType(resolved.SQLiteExpression.Type) ?? resolved.SQLiteExpression.Type) == typeof(char)
+                && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) != typeof(char))
             {
-                return Database.Options.CharStorage == CharStorageMode.Integer
-                    ? SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters)
-                    : SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "UNICODE(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
+                SQLiteExpression charCode = Database.Options.CharStorage == CharStorageMode.Integer
+                    ? resolved.SQLiteExpression
+                    : SQLiteExpression.Wrap(typeof(int), Counters.NextIdentifier(), "UNICODE(", resolved.SQLiteExpression, ")", resolved.SQLiteExpression.Parameters);
+
+                if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(int))
+                {
+                    return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), charCode, charCode.Parameters);
+                }
+
+                if (TryGetNarrowingIntegerWrap(typeof(ushort), node.Type, out string? charWrapBefore, out string? charWrapAfter))
+                {
+                    return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), charWrapBefore!, charCode, charWrapAfter!, charCode.Parameters);
+                }
+
+                string charSqliteType = TypeHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
+                return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CAST(", charCode, $" AS {charSqliteType})", charCode.Parameters);
             }
             else if (resolved.SQLiteExpression.Type.IsEnum && Database.Options.EnumStorage == EnumStorageMode.Text)
             {
@@ -277,7 +304,9 @@ internal partial class SQLVisitor
             string finalName = $"cte{CteRegistry.Ctes.Count}";
             string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
 
-            cteName = CteRegistry.Register(fixedSql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: true, key: cte, columnNames: CteColumnMapper.ScalarColumnNames(elementType, Database.Options));
+            string[]? recursiveColumnNames = CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
+                ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
+            cteName = CteRegistry.Register(fixedSql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: true, key: cte, columnNames: recursiveColumnNames);
 
             CteParameters.Remove(selfParam);
             MethodArguments.Remove(selfParam);
@@ -287,7 +316,9 @@ internal partial class SQLVisitor
             SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
             SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
-            cteName = CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: false, key: cte, columnNames: CteColumnMapper.ScalarColumnNames(elementType, Database.Options));
+            string[]? bodyColumnNames = CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
+                ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
+            cteName = CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: false, key: cte, columnNames: bodyColumnNames);
         }
 
         From = SQLiteExpression.Leaf(elementType, -1, $"{cteName} AS {alias}");

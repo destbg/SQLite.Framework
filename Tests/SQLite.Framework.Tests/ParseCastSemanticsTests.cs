@@ -42,6 +42,21 @@ public class ParseCastSemanticsTests
     }
 
     [Fact]
+    public void DoubleParseOfNanText_ReadsZero()
+    {
+        using TestDatabase db = new();
+        db.Table<ParseUlongRow>().Schema.CreateTable();
+        db.Table<ParseUlongRow>().Add(new ParseUlongRow { Id = 1, Code = "NaN" });
+
+        List<ParseUlongRow> memory = [new ParseUlongRow { Id = 1, Code = "NaN" }];
+        double expected = memory.Select(r => double.Parse(r.Code)).First();
+        Assert.True(double.IsNaN(expected));
+
+        double actual = db.Table<ParseUlongRow>().Select(r => double.Parse(r.Code)).First();
+        Assert.Equal(0.0, actual);
+    }
+
+    [Fact]
     public void EnumParseUlongFromColumn_MatchesSqliteCastSaturation()
     {
         const string s = "9999999999999999999";

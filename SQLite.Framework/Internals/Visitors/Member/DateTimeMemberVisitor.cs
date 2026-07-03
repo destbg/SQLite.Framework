@@ -27,7 +27,7 @@ internal static class DateTimeMemberVisitor
 
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null) || node.Method.Name == nameof(DateTime.ToString))
             {
-                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
             }
 
             if (visitor.Database.Options.DateTimeStorage == DateTimeStorageMode.TextFormatted)
@@ -42,7 +42,7 @@ internal static class DateTimeMemberVisitor
                     $" Use direct SQL queries instead or switch to Integer storage.");
             }
 
-            if (ClientEvalOrThrowForTextTimeSpanArgument(visitor, node, obj, arguments) is { } dateTimeClientEval)
+            if (ClientEvalOrThrowForTextTimeSpanArgument(visitor, node, arguments) is { } dateTimeClientEval)
             {
                 return dateTimeClientEval;
             }
@@ -87,7 +87,7 @@ internal static class DateTimeMemberVisitor
 
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null) || node.Method.Name == nameof(DateTimeOffset.ToString))
             {
-                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
             }
 
             if (visitor.Database.Options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
@@ -99,7 +99,7 @@ internal static class DateTimeMemberVisitor
                     $" Use direct SQL queries instead or switch to Ticks storage.");
             }
 
-            if (ClientEvalOrThrowForTextTimeSpanArgument(visitor, node, obj, arguments) is { } offsetClientEval)
+            if (ClientEvalOrThrowForTextTimeSpanArgument(visitor, node, arguments) is { } offsetClientEval)
             {
                 return offsetClientEval;
             }
@@ -144,14 +144,14 @@ internal static class DateTimeMemberVisitor
 
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null) || node.Method.Name == nameof(TimeSpan.ToString))
             {
-                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
             }
 
             if (visitor.Database.Options.TimeSpanStorage == TimeSpanStorageMode.Text)
             {
                 if (visitor.IsInSelectProjection && visitor.Level == 0)
                 {
-                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                    return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
                 }
 
                 throw new NotSupportedException(
@@ -203,7 +203,7 @@ internal static class DateTimeMemberVisitor
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null) || node.Method.Name == nameof(DateOnly.ToString)
                 || visitor.Database.Options.DateOnlyStorage == DateOnlyStorageMode.Text)
             {
-                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
             }
 
             return node.Method.Name switch
@@ -239,10 +239,10 @@ internal static class DateTimeMemberVisitor
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null) || node.Method.Name == nameof(TimeOnly.ToString)
                 || visitor.Database.Options.TimeOnlyStorage == TimeOnlyStorageMode.Text)
             {
-                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
             }
 
-            if (ClientEvalOrThrowForTextTimeSpanArgument(visitor, node, obj, arguments) is { } timeOnlyClientEval)
+            if (ClientEvalOrThrowForTextTimeSpanArgument(visitor, node, arguments) is { } timeOnlyClientEval)
             {
                 return timeOnlyClientEval;
             }
@@ -399,7 +399,7 @@ internal static class DateTimeMemberVisitor
         };
     }
 
-    private static MethodCallExpression? ClientEvalOrThrowForTextTimeSpanArgument(SQLVisitor visitor, MethodCallExpression node, ResolvedModel obj, List<ResolvedModel> arguments)
+    private static MethodCallExpression? ClientEvalOrThrowForTextTimeSpanArgument(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments)
     {
         if (visitor.Database.Options.TimeSpanStorage != TimeSpanStorageMode.Text)
         {
@@ -411,8 +411,13 @@ internal static class DateTimeMemberVisitor
         {
             if (node.Arguments[i].Type == typeof(TimeSpan) && !arguments[i].IsConstant)
             {
-                hasSpanColumnArgument = true;
-                break;
+                TimeSpanColumnFinderVisitor finder = new(visitor);
+                finder.Visit(node.Arguments[i]);
+                if (finder.Found)
+                {
+                    hasSpanColumnArgument = true;
+                    break;
+                }
             }
         }
 
@@ -423,7 +428,7 @@ internal static class DateTimeMemberVisitor
 
         if (visitor.IsInSelectProjection && visitor.Level == 0)
         {
-            return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+            return Expression.Call(visitor.ToClientExpression(node.Object!), node.Method, node.Arguments.Select(visitor.ToClientExpression));
         }
 
         throw new NotSupportedException(

@@ -88,9 +88,11 @@ internal partial class QueryableVisitor
             }
         }
 
-        Type orderKeyType = sqlExpression.Type.IsEnum
-            ? Enum.GetUnderlyingType(sqlExpression.Type)
-            : sqlExpression.Type;
+        Type orderKeyType = Nullable.GetUnderlyingType(sqlExpression.Type) ?? sqlExpression.Type;
+        if (orderKeyType.IsEnum)
+        {
+            orderKeyType = Enum.GetUnderlyingType(orderKeyType);
+        }
 
         if (orderKeyType == typeof(ulong))
         {

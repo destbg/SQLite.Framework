@@ -66,6 +66,7 @@ internal static class TranslationPatterns
     {
         return name is
             nameof(Enumerable.Count)
+            or nameof(Enumerable.LongCount)
             or nameof(Enumerable.Any)
             or nameof(Enumerable.All)
             or nameof(Enumerable.Min)

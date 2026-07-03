@@ -23,7 +23,11 @@ internal static class ReflectionMaterializerCache
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Value types always have a default constructor.")]
     private static MaterializerPlan Build([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type, SQLiteOptions options)
     {
-        PropertyInfo[] all = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        PropertyInfo[] all = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.GetIndexParameters().Length == 0)
+            .GroupBy(p => p.Name)
+            .Select(g => g.OrderByDescending(p => TypeHelpers.TypeDepth(p.DeclaringType)).First())
+            .ToArray();
         List<PropertySlot> slots = new(all.Length);
 
         foreach (PropertyInfo prop in all)

@@ -17,7 +17,7 @@ internal static class NumericMemberVisitor
 
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null))
             {
-                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
             }
 
             if (node.Method.Name == nameof(int.ToString))
@@ -72,7 +72,7 @@ internal static class NumericMemberVisitor
 
             if (obj.SQLiteExpression == null || arguments.Any(f => f.SQLiteExpression == null))
             {
-                return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
             }
 
             if (node.Method.Name == nameof(double.ToString))

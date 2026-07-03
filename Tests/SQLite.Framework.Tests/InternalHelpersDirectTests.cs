@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals;
+using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Internals.Visitors;
 using SQLite.Framework.Internals.Visitors.SQL;
@@ -372,11 +373,12 @@ public class InternalHelpersDirectTests
             ctor,
             Array.Empty<Expression>(),
             Array.Empty<MemberInfo>());
+        LambdaExpression selector = Expression.Lambda(node);
 
         MethodInfo method = aliasVisitorType.GetMethod(
             "VisitNewExpression",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        method.Invoke(aliasVisitor, new object?[] { node, null });
+        method.Invoke(aliasVisitor, new object?[] { selector, node, null });
     }
 #endif
 
@@ -1562,6 +1564,57 @@ public class InternalHelpersDirectTests
         Assert.IsType<NotSupportedException>(tie.InnerException);
         Assert.Contains("FullTextSearch", tie.InnerException!.Message);
     }
+
+    [Fact]
+    public void SQLiteTable_DispatchActionWithColumns_InvalidAction_Throws()
+    {
+        using TestDatabase db = new();
+        object table = db.Table<RerouteHookRow>();
+
+        MethodInfo method = table.GetType()
+            .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(m => m.Name == "DispatchAction" && m.GetParameters().Length == 3);
+
+        Dictionary<string, object?> columns = new() { ["Name"] = "x" };
+        TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() =>
+            method.Invoke(table, [(SQLite.Framework.Enums.SQLiteAction)999, new RerouteHookRow(), columns]));
+        Assert.IsType<InvalidOperationException>(tie.InnerException);
+    }
+
+    [Fact]
+    public void CteColumnMapper_BodyColumnNames_CountMismatch_ReturnsNull()
+    {
+        Dictionary<string, Expression> bodyColumns = new()
+        {
+            ["A"] = SQLiteExpression.Leaf(typeof(int), 0, "a"),
+            ["B"] = SQLiteExpression.Leaf(typeof(int), 1, "b")
+        };
+        List<SQLiteExpression> selects = [SQLiteExpression.Leaf(typeof(int), 2, "c")];
+
+        string[]? names = CteColumnMapper.BodyColumnNames(bodyColumns, selects);
+
+        Assert.Null(names);
+    }
+
+    [Fact]
+    public void SQLVisitor_FoldConstructedMemberAccess_MemberInitBinding_ReturnsBoundExpression()
+    {
+        Expression<Func<FoldConstructedHolder>> lambda = () => new FoldConstructedHolder(7) { B = 8 };
+        MethodInfo method = typeof(SQLVisitor).GetMethod("FoldConstructedMemberAccess", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Expression bound = (Expression)method.Invoke(null, [lambda.Body, "B"])!;
+        Assert.Equal(8, ((ConstantExpression)bound).Value);
+    }
+
+    [Fact]
+    public void SQLVisitor_FoldConstructedMemberAccess_MemberInitWithoutBinding_FallsToConstructorArgument()
+    {
+        Expression<Func<FoldConstructedHolder>> lambda = () => new FoldConstructedHolder(7) { B = 8 };
+        MethodInfo method = typeof(SQLVisitor).GetMethod("FoldConstructedMemberAccess", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Expression bound = (Expression)method.Invoke(null, [lambda.Body, "A"])!;
+        Assert.Equal(7, ((ConstantExpression)bound).Value);
+    }
 }
 
 public class InternalHelpersOneArg
@@ -1915,6 +1968,18 @@ public sealed class MatchingEnumerable<T> : IEnumerable<T>
 public sealed class NoArgWithMembersHolder
 {
     public int Value { get; set; }
+}
+
+public sealed class FoldConstructedHolder
+{
+    public FoldConstructedHolder(int a)
+    {
+        A = a;
+    }
+
+    public int A { get; }
+
+    public int B { get; set; }
 }
 
 #pragma warning disable CS0618

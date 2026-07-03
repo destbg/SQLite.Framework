@@ -25,7 +25,7 @@ internal partial class JsonCollectionVisitor
 
         string distinctKeyword = distinct ? "DISTINCT " : "";
         string joinClause = crossJoin ?? "";
-        string fromClause = fromOverride ?? $"json_each({sourceSql}){baseJoinSuffix}{joinClause}";
+        string fromClause = fromOverride ?? $"json_each({sourceSql}) {baseAlias}{joinClause}";
 
         List<string> clauses = [$"SELECT {distinctKeyword}{selectExpr}", $"FROM {fromClause}"];
 

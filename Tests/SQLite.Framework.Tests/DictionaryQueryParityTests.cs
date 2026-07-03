@@ -161,14 +161,19 @@ public class DictionaryQueryParityTests
     }
 
     [Fact]
-    public void IntKeyDictionaryContainsKeyNotSupported()
+    public void IntKeyDictionaryContainsKeyFilters()
     {
         using TestDatabase db = new(b => b.TypeConverters[typeof(Dictionary<int, int>)] =
             new SQLiteJsonConverter<Dictionary<int, int>>(JdEdgeIntJsonContext.Default.DictionaryInt32Int32));
         db.Table<JdEdgeIntMapRow>().Schema.CreateTable();
         db.Table<JdEdgeIntMapRow>().Add(new JdEdgeIntMapRow { Id = 1, Map = new Dictionary<int, int> { [1] = 10 } });
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<JdEdgeIntMapRow>().Where(m => m.Map.ContainsKey(1)).Select(m => m.Id).ToList());
+
+        List<JdEdgeIntMapRow> memory = [new JdEdgeIntMapRow { Id = 1, Map = new Dictionary<int, int> { [1] = 10 } }];
+        List<int> expected = memory.Where(m => m.Map.ContainsKey(1)).Select(m => m.Id).ToList();
+        Assert.Equal([1], expected);
+
+        List<int> actual = db.Table<JdEdgeIntMapRow>().Where(m => m.Map.ContainsKey(1)).Select(m => m.Id).ToList();
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
