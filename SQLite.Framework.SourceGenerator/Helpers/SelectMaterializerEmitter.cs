@@ -499,7 +499,8 @@ public static class SelectMaterializerEmitter
             }
 
             ExpressionSyntax element = initializer.Expressions[i];
-            if (!ContainsClientEvalCall(element, ctx))
+            bool elementBuildsObject = element is BaseObjectCreationExpressionSyntax;
+            if (!ContainsClientEvalCall(element, ctx) && !elementBuildsObject)
             {
                 int idx = ctx.Leaves.Count;
                 string varName = "__leaf_" + idx;
@@ -508,7 +509,14 @@ public static class SelectMaterializerEmitter
                 continue;
             }
 
-            if (!TryCollectClientElementLeaves(element, ctx))
+            if (elementBuildsObject)
+            {
+                if (!CollectLeaves(element, ctx))
+                {
+                    return null;
+                }
+            }
+            else if (!TryCollectClientElementLeaves(element, ctx))
             {
                 return null;
             }

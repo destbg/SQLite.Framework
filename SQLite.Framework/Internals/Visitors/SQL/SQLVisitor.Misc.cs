@@ -37,7 +37,10 @@ internal partial class SQLVisitor
 
         if (test.SQLiteExpression == null || ifTrue.SQLiteExpression == null || ifFalse.SQLiteExpression == null)
         {
-            return Expression.Condition(test.Expression, ifTrue.Expression, ifFalse.Expression);
+            return Expression.Condition(
+                test.SQLiteExpression != null ? ToClientExpression(node.Test) : test.Expression,
+                ifTrue.SQLiteExpression != null ? ToClientExpression(node.IfTrue) : ifTrue.Expression,
+                ifFalse.SQLiteExpression != null ? ToClientExpression(node.IfFalse) : ifFalse.Expression);
         }
 
         SQLiteExpression ifTrueExpr = CoalesceLiftedOrderComparison(node.IfTrue, ifTrue.SQLiteExpression);
