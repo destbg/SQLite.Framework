@@ -248,7 +248,18 @@ internal static class WindowFunctionsMemberVisitor
         prev.SQLiteExpression!.WriteSqlTo(sb);
         sb.Length--;
         sb.Append(sep);
-        RequireKeyExpression(arg).WriteSqlTo(sb);
+        SQLiteExpression key = RequireKeyExpression(arg);
+
+        if (TypeHelpers.UnsignedIntegerKey(key.Type) == typeof(ulong))
+        {
+            sb.Append('(');
+            key.WriteSqlTo(sb);
+            sb.Append(") < 0");
+            sb.Append(direction);
+            sb.Append(", ");
+        }
+
+        key.WriteSqlTo(sb);
         sb.Append(direction);
         sb.Append(')');
     }

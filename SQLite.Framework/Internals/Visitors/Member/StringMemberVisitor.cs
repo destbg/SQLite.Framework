@@ -416,7 +416,20 @@ internal static class StringMemberVisitor
             nameof(QueryableExtensions.GroupConcatMarker),
             BindingFlags.Static | BindingFlags.NonPublic)!;
         MethodInfo closedMarker = openMarker.MakeGenericMethod(elementType);
-        MethodCallExpression rewritten = Expression.Call(closedMarker, node.Arguments[1], node.Arguments[0]);
+
+        Expression separator = node.Arguments[0];
+        if (separator.Type == typeof(char))
+        {
+            if (!ExpressionHelpers.IsConstant(separator))
+            {
+                throw new NotSupportedException(
+                    "string.Join with a char separator that is not a constant is not supported. Use a constant separator.");
+            }
+
+            separator = Expression.Constant(((char)ExpressionHelpers.GetConstantValue(separator)!).ToString());
+        }
+
+        MethodCallExpression rewritten = Expression.Call(closedMarker, node.Arguments[1], separator);
 
         SQLiteCallerContext ctx = new(visitor, rewritten);
         return QueryableMemberVisitor.HandleQueryableMethod(ctx);
@@ -430,6 +443,11 @@ internal static class StringMemberVisitor
         {
             StringComparison comparison = (StringComparison)arguments[1].Constant!;
             ignoreCase = comparison is StringComparison.OrdinalIgnoreCase or StringComparison.CurrentCultureIgnoreCase or StringComparison.InvariantCultureIgnoreCase;
+        }
+        else if (arguments.Count == 3)
+        {
+            explicitComparison = true;
+            ignoreCase = (bool)arguments[1].Constant!;
         }
 
         if (!ignoreCase && (visitor.Database.Options.CaseSensitiveStringComparison || explicitComparison))

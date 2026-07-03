@@ -38,6 +38,8 @@ public class TableMapping
         FullTextSearch = FtsMappingReader.TryRead(type);
         RTree = RTreeMappingReader.TryRead(type);
         columns.AddRange(properties
+            .Where(p => p.GetMethod is { IsStatic: false })
+            .Where(p => p.SetMethod != null || p.GetMethod!.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
             .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
             .Where(p => FullTextSearch == null || IsFtsColumn(p))
             .Where(p => RTree == null || IsRTreeColumn(p))

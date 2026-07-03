@@ -127,13 +127,7 @@ internal class AliasVisitor
                 else
                 {
                     string alias = CheckPrefix(prefix, parameter.Name!);
-                    SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
-                    {
-                        MethodArguments = visitor.MethodArguments,
-                        TableColumnPrefixes = visitor.TableColumnPrefixes,
-                        ClientEvalAllowed = visitor.ClientEvalAllowed,
-                        IsInSelectProjection = visitor.IsInSelectProjection
-                    };
+                    SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
                     Expression expression = innerVisitor.Visit(argument);
 
                     result.Add(alias, CoalesceIfLiftedComparison(argument, expression));
@@ -242,13 +236,7 @@ internal class AliasVisitor
             else
             {
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
-                SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
-                {
-                    MethodArguments = visitor.MethodArguments,
-                    TableColumnPrefixes = visitor.TableColumnPrefixes,
-                    ClientEvalAllowed = visitor.ClientEvalAllowed,
-                    IsInSelectProjection = visitor.IsInSelectProjection
-                };
+                SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
                 Expression expression = innerVisitor.Visit(memberAssignment.Expression);
                 result.Add(alias, CoalesceIfLiftedComparison(memberAssignment.Expression, expression));
             }
@@ -296,12 +284,7 @@ internal class AliasVisitor
 
     private void VisitInnerExpression(Expression body, string prefix)
     {
-        SQLVisitor innerVisitor = new(database, visitor.Counters, visitor.Level + 1)
-        {
-            MethodArguments = visitor.MethodArguments,
-            TableColumnPrefixes = visitor.TableColumnPrefixes,
-            ClientEvalAllowed = visitor.ClientEvalAllowed
-        };
+        SQLVisitor innerVisitor = visitor.CloneForProjection(isInSelectProjection: false);
         Expression expression = innerVisitor.Visit(body);
         result.Add(prefix, CoalesceIfLiftedComparison(body, expression));
     }

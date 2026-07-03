@@ -121,7 +121,7 @@ internal static class JsonMethodTranslator
             string? sql = node.Method.Name switch
             {
                 nameof(Enumerable.Any) => $"json_array_length({src}) > 0",
-                nameof(Enumerable.Count) => $"json_array_length({src})",
+                nameof(Enumerable.Count) or nameof(Enumerable.LongCount) => $"json_array_length({src})",
                 nameof(Enumerable.First) or nameof(Enumerable.FirstOrDefault) => $"json_extract({src}, '$[0]')",
                 nameof(Enumerable.Last) or nameof(Enumerable.LastOrDefault) =>
                     $"(SELECT \"value\" FROM json_each({src}) ORDER BY \"key\" DESC LIMIT 1)",
@@ -185,12 +185,30 @@ internal static class JsonMethodTranslator
         if (node.Method.Name == nameof(List<>.Contains) && node.Arguments.Count == 1)
         {
             ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
-            SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
-                source.SQLiteExpression,
-                arg.SQLiteExpression!);
-            string argSql = IsNonStringDictionaryKeys(node.Object)
-                ? $"CAST({arg.SQLiteExpression} AS TEXT)"
-                : arg.SQLiteExpression!.ToString();
+            SQLiteParameter[]? parameters;
+            string argSql;
+
+            if (IsNonStringDictionaryKeys(node.Object) && arg is { IsConstant: true, Constant: Enum enumKey })
+            {
+                SQLiteParameter nameParameter = new()
+                {
+                    Name = visitor.Counters.NextParamName(),
+                    Value = enumKey.ToString()
+                };
+                parameters = [.. source.SQLiteExpression!.Parameters ?? [], nameParameter];
+                argSql = nameParameter.Name;
+            }
+            else if (IsNonStringDictionaryKeys(node.Object))
+            {
+                parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, arg.SQLiteExpression!);
+                argSql = $"CAST({arg.SQLiteExpression} AS TEXT)";
+            }
+            else
+            {
+                parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, arg.SQLiteExpression!);
+                argSql = arg.SQLiteExpression!.ToString();
+            }
+
             return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
                 $"EXISTS (SELECT 1 FROM json_each({src}) WHERE \"value\" IS {argSql})",
                 parameters)

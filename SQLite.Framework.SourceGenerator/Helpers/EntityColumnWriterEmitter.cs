@@ -65,6 +65,7 @@ public static class EntityColumnWriterEmitter
         foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
         {
             if (prop.SetMethod == null
+                || prop.GetMethod == null
                 || prop.DeclaredAccessibility != Accessibility.Public
                 || prop.IsReadOnly
                 || prop.IsStatic)

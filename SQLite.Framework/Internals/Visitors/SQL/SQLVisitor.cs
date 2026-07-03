@@ -106,6 +106,19 @@ internal partial class SQLVisitor : ExpressionVisitor
         };
     }
 
+    public SQLVisitor CloneForProjection(bool isInSelectProjection)
+    {
+        CteRegistry ??= new CteRegistry();
+        return new SQLVisitor(Database, Counters, Level + 1)
+        {
+            MethodArguments = MethodArguments,
+            TableColumnPrefixes = TableColumnPrefixes,
+            ClientEvalAllowed = ClientEvalAllowed,
+            IsInSelectProjection = isInSelectProjection,
+            CteRegistry = CteRegistry
+        };
+    }
+
     public Expression ResolveMember(Expression node)
     {
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node);

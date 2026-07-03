@@ -45,6 +45,7 @@ internal static class TranslationPatterns
             or nameof(Enumerable.Single)
             or nameof(Enumerable.SingleOrDefault)
             or nameof(Enumerable.Count)
+            or nameof(Enumerable.LongCount)
             or nameof(Enumerable.Any)
             or nameof(Enumerable.All)
             or nameof(Enumerable.Min)

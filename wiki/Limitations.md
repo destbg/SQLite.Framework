@@ -47,12 +47,13 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Replace("", ...)` returns the original string.
 - `ToUpper` and `ToLower`, on both `string` and `char`, fold only ASCII unless the SQLite build has ICU.
 - The `CultureInfo` overloads of `ToUpper` and `ToLower`, on both `string` and `char` throw in a `Where`.
-- Case-insensitive `Equals`, `Compare`, `Contains`, `StartsWith` and `EndsWith` (`OrdinalIgnoreCase`) also fold only ASCII.
+- Case-insensitive `Equals`, `Compare`, `Contains`, `StartsWith` and `EndsWith` (`OrdinalIgnoreCase`) also fold only ASCII. The `(value, ignoreCase, culture)` overloads of `StartsWith` and `EndsWith` follow the `ignoreCase` flag with the same ASCII-only folding.
 - `string.Compare` and `CompareTo` order by byte value, the same as the comparison operators, even when a `CultureInfo` or a culture-aware `StringComparison` such as `InvariantCulture` is given. The sign of the result can differ from .NET, which compares by language rules.
 - `Enum.Parse` of a string that is not a defined member name and not a number reads back as the enum's zero value instead of throwing. A string that mixes a number and a name, or that has extra characters after a number, such as `"1,2"`, `"2,Read"` or `"2extra"`, reads back a partial value (the bitwise OR of any matched member names with the leading digits read as a number) instead of the zero value or the `ArgumentException` that .NET throws.
 - `Enum.Parse` of a numeric string that does not fit the enum's underlying type, such as `300` for a `byte` backed enum, wraps to a value in range instead of throwing `OverflowException`.
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text).
 - A `char` taken from a string can be half of a character that needs two slots in .NET, such as an emoji. SQLite stores whole characters only, so reading that half on its own does not come back the same and can throw.
+- A string method over a value that holds an embedded NUL character (`\0`) sees only the text before the NUL. `Length`, `Contains`, `IndexOf`, `Substring` and the other translated string methods follow SQLite's text functions, which stop at the first NUL. The value itself stores, reads back and compares with `==` as the whole string.
 - `Enum.Parse` strips ASCII whitespace anywhere in the string, so the spaced `[Flags]` form like `"Read, Write"` parses but a name with embedded whitespace like `"News\tpaper"` matches `"Newspaper"` where .NET would throw.
 - When an enum is stored as Text, `ToString("D")` and `ToString("X")` return the stored member name for a value that is not one single defined member. A `[Flags]` combination such as `Read, Write` or an undefined number, reads back as the stored text instead of the number or hex string.
 
@@ -94,6 +95,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Aggregates
 
 - A grouped `Min`, `Max` or `Average` over a per-group filter that matches no rows returns the type default instead of throwing. `Sum` returns `0`, the same as LINQ.
+- A correlated subquery inside a projection returns the type default where LINQ-to-Objects throws. `First`, `Single` or a non-nullable `Min`, `Max` or `Average` over an empty subquery read back the type default and `Single` over more than one row reads the first row, since a SQL scalar subquery cannot throw.
 - `Average`, `Min`, `Max` and `Sum` over a per-row expression skip a row whose expression reads back as `NULL`. A divide by zero or a Not-a-Number math call inside the selector, such as `Average(x => x.A / x.B)` where `B` is zero, drops that row from the aggregate.
 - A window `Max`, `Min` or `Average` over a `ulong` column is not correct for values at or above 2^63, since the value is stored as a signed integer. A window `Average` over a `uint` column is exact.
 - A window `Sum` that sees no rows, because the frame is empty or a `Filter` removes every row, reads back as `NULL`, not `0`.
@@ -101,11 +103,11 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Dates, times and storage
 
 - `AddMonths` and `AddYears` whose result lands in December of year 9999 return the default date, since the date math overflows past SQLite's maximum date.
-- `AddSeconds`, `AddMinutes`, `AddHours`, `AddDays`, `AddMilliseconds` and the other `Add` methods that take a fractional amount can land one tick away from the .NET result. SQLite multiplies the amount by the tick scale in one floating-point step, while .NET reaches the tick count through a different intermediate unit, so the last tick can round the other way.
+- `AddSeconds`, `AddMinutes`, `AddHours`, `AddDays`, `AddMilliseconds` and the other `Add` methods that take a fractional amount can land one tick away from the .NET result. SQLite multiplies the amount by the tick scale in one floating-point step, while .NET reaches the tick count through a different intermediate unit, so the last tick can round the other way. Multiplying or dividing a `TimeSpan` by a number rounds to a whole tick the same way and can also differ from .NET in the last tick.
 - `DateTimeOffset` drops its offset.
 - With `DateTimeOffset` stored as `Ticks` (the default), a comparison, ordering, `Distinct` or subtraction across rows whose offsets differ uses the stored local clock ticks, not the UTC instant, so the result can differ from .NET, which normalizes to UTC first. For example `a < b` with `a` at `12:00 +02:00` and `b` at `08:00 -03:00` reads back `false` where .NET gives `true` and `a - b` reads back `04:00` where .NET gives `-01:00`. Store as `UtcTicks` to compare and order by the instant.
 - With `DateTimeOffset` stored as `UtcTicks`, a date or time component read in a query (`.Year`, `.Hour`, ...) comes back in UTC, not in the value's own offset.
-- Adding a `TimeSpan` column to a `DateTime` does not work when the `TimeSpan` is stored as `Text`, because the stored text cannot be added as a duration. A constant or captured `TimeSpan` works.
+- Adding a `TimeSpan` column to a `DateTime` does not work when the `TimeSpan` is stored as `Text`, because the stored text cannot be added as a duration. A constant or captured `TimeSpan` works. The `Add` and `Subtract` method forms on `DateTime`, `DateTimeOffset` and `TimeOnly` with a `TimeSpan` column under `Text` storage run in memory in a `Select` and throw in a `Where`.
 - A `DateTime` stored as `Integer` or `Text` ticks reads back with `Kind` set to `Unspecified`, since the tick count carries no kind.
 - Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
 - A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal` and the `HasFlag`, bitwise and comparison operators on a `Text`-stored enum.
@@ -133,6 +135,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable and `Dictionary.Contains` of a whole key-value pair, are not supported there.
 - On a JSON dictionary, the indexer for a key that is not present returns the type default instead of throwing.
 - On a JSON list of enums, `Contains` and comparisons use the enum form from the global enum storage mode. When the enum is written inside the JSON in a different form, by default as a number, the comparison does not match.
+- The same rule applies to a JSON list of `decimal` under `Text` decimal storage and to a JSON list of `char` under `Integer` char storage. The query value binds in the storage-mode form while the JSON holds a plain number or a one-character string, so `Contains`, `IndexOf` and element comparisons do not match.
 - A `[JsonPropertyName]` whose name contains a character that the JSON writer escapes, such as an apostrophe, reads back its value only on newer SQLite builds. The writer stores the escaped form (for example `it's`) and an older build, such as the one bundled with SQLCipher, does not match it during a query and returns the type default. A name with an unescaped special character, such as a dot, works on all builds.
 
 ## Binary data

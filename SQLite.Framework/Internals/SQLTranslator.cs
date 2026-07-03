@@ -116,8 +116,6 @@ internal class SQLTranslator
             throw new InvalidOperationException("Could not identify FROM clause.");
         }
 
-        CteRegistry? cteRegistry = Visitor.CteRegistry;
-
         string spacing = new(' ', level * 4);
 
         if (queryableMethodVisitor.Joins.Any(f => f.IsGroupJoin))
@@ -131,8 +129,7 @@ internal class SQLTranslator
         bool useExists = queryableMethodVisitor.IsAny || queryableMethodVisitor.IsAll;
         bool hasSetOperations = queryableMethodVisitor.SetOperations.Count > 0;
 
-        // Visit all expressions to collect parameters before composing SQL.
-        if (QueryType == QueryType.Select && (!useExists || hasSetOperations))
+        if ((QueryType == QueryType.Select && (!useExists || hasSetOperations)) || EmitReturning)
         {
             foreach (SQLiteExpression expression in queryableMethodVisitor.Selects)
             {
@@ -192,6 +189,8 @@ internal class SQLTranslator
                 VisitSQLExpression(sqlExpression);
             }
         }
+
+        CteRegistry? cteRegistry = Visitor.CteRegistry;
 
         StringBuilder sb = StringBuilderPool.Rent();
         WriteQuerySql(sb, queryableMethodVisitor, spacing, useExists, hasSetOperations);
@@ -1127,7 +1126,7 @@ internal class SQLTranslator
             nameof(Queryable.Distinct) => QueryLevelParts.Limit,
             nameof(Queryable.Select) when windowSelect => QueryLevelParts.Distinct | QueryLevelParts.Limit,
             nameof(Queryable.Select) => QueryLevelParts.Distinct,
-            nameof(Queryable.GroupBy) => QueryLevelParts.Limit | QueryLevelParts.Distinct,
+            nameof(Queryable.GroupBy) => QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.Window,
             _ when IsJoinLikeMethod(name) => QueryLevelParts.Where | QueryLevelParts.Projection
                 | QueryLevelParts.GroupBy | QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.Reverse,
             _ => QueryLevelParts.None

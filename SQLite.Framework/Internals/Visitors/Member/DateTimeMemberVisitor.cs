@@ -42,6 +42,11 @@ internal static class DateTimeMemberVisitor
                     $" Use direct SQL queries instead or switch to Integer storage.");
             }
 
+            if (ClientEvalOrThrowForTextTimeSpanArgument(visitor, node, obj, arguments) is { } dateTimeClientEval)
+            {
+                return dateTimeClientEval;
+            }
+
             return node.Method.Name switch
             {
                 nameof(DateTime.Add) => ResolveDateAdd(visitor, node.Method, obj.SQLiteExpression, arguments, 1),
@@ -92,6 +97,11 @@ internal static class DateTimeMemberVisitor
                 throw new NotSupportedException(
                     $"DateTimeOffset.{node.Method.Name} cannot be used in a LINQ query when DateTimeOffsetStorage is set to TextFormatted." +
                     $" Use direct SQL queries instead or switch to Ticks storage.");
+            }
+
+            if (ClientEvalOrThrowForTextTimeSpanArgument(visitor, node, obj, arguments) is { } offsetClientEval)
+            {
+                return offsetClientEval;
             }
 
             return node.Method.Name switch
@@ -230,6 +240,11 @@ internal static class DateTimeMemberVisitor
                 || visitor.Database.Options.TimeOnlyStorage == TimeOnlyStorageMode.Text)
             {
                 return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+            }
+
+            if (ClientEvalOrThrowForTextTimeSpanArgument(visitor, node, obj, arguments) is { } timeOnlyClientEval)
+            {
+                return timeOnlyClientEval;
             }
 
             return node.Method.Name switch
@@ -382,6 +397,37 @@ internal static class DateTimeMemberVisitor
             nameof(TimeOnly.Nanosecond) => ModMulExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, TimeSpan.NanosecondsPerTick),
             _ => node
         };
+    }
+
+    private static MethodCallExpression? ClientEvalOrThrowForTextTimeSpanArgument(SQLVisitor visitor, MethodCallExpression node, ResolvedModel obj, List<ResolvedModel> arguments)
+    {
+        if (visitor.Database.Options.TimeSpanStorage != TimeSpanStorageMode.Text)
+        {
+            return null;
+        }
+
+        bool hasSpanColumnArgument = false;
+        for (int i = 0; i < node.Arguments.Count; i++)
+        {
+            if (node.Arguments[i].Type == typeof(TimeSpan) && !arguments[i].IsConstant)
+            {
+                hasSpanColumnArgument = true;
+                break;
+            }
+        }
+
+        if (!hasSpanColumnArgument)
+        {
+            return null;
+        }
+
+        if (visitor.IsInSelectProjection && visitor.Level == 0)
+        {
+            return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+        }
+
+        throw new NotSupportedException(
+            $"{node.Method.DeclaringType!.Name}.{node.Method.Name} with a TimeSpan argument that is not a constant cannot be used in a LINQ query when TimeSpanStorage is set to Text.");
     }
 
     private static SQLiteExpression ResolveDateAdd(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, long multiplyBy)

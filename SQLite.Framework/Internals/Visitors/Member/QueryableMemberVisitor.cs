@@ -90,7 +90,7 @@ internal static class QueryableMemberVisitor
             case nameof(Enumerable.Contains):
             {
                 int itemIndex = node.Object == null ? 1 : 0;
-                SQLiteExpression itemExpr = arguments[itemIndex].SQLiteExpression!;
+                SQLiteExpression itemExpr = visitor.PrepareKeyOperand(node.Arguments[itemIndex], arguments[itemIndex].SQLiteExpression!);
                 Type itemType = node.Arguments[itemIndex].Type;
                 List<object?> values = enumerable.Cast<object?>().ToList();
                 return BuildScalarInExpression(visitor, node.Method.ReturnType, itemExpr, itemType, values);

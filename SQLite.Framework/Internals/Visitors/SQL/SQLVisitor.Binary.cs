@@ -28,7 +28,7 @@ internal partial class SQLVisitor
 
         if (leftNode is UnaryExpression { NodeType: ExpressionType.Convert } leftEnumConvert
             && (Nullable.GetUnderlyingType(leftEnumConvert.Operand.Type) ?? leftEnumConvert.Operand.Type).IsEnum
-            && ShouldStripEnumConvert(leftEnumConvert))
+            && ShouldStripEnumConvert(leftEnumConvert, node.NodeType, rightNode))
         {
             Type enumType = Nullable.GetUnderlyingType(leftEnumConvert.Operand.Type) ?? leftEnumConvert.Operand.Type;
             leftNode = leftEnumConvert.Operand;
@@ -41,7 +41,7 @@ internal partial class SQLVisitor
 
         if (rightNode is UnaryExpression { NodeType: ExpressionType.Convert } rightEnumConvert
             && (Nullable.GetUnderlyingType(rightEnumConvert.Operand.Type) ?? rightEnumConvert.Operand.Type).IsEnum
-            && ShouldStripEnumConvert(rightEnumConvert))
+            && ShouldStripEnumConvert(rightEnumConvert, node.NodeType, leftNode))
         {
             Type enumType = Nullable.GetUnderlyingType(rightEnumConvert.Operand.Type) ?? rightEnumConvert.Operand.Type;
             rightNode = rightEnumConvert.Operand;
@@ -52,14 +52,10 @@ internal partial class SQLVisitor
             }
         }
 
-        // DateTime.DayOfWeek and its DateTimeOffset and DateOnly forms have no stored column form.
-        // The value is always the numeric STRFTIME('%w') result, so a DayOfWeek constant compared to
-        // it must compare as its number, not as its name under Text enum storage. A stored DayOfWeek
-        // column is a plain property, not a DayOfWeek property access, so it keeps the enum storage form.
         if (IsComputedDayOfWeek(leftNode) || IsComputedDayOfWeek(rightNode))
         {
-            leftNode = ConvertDayOfWeekConstantToInt(leftNode);
-            rightNode = ConvertDayOfWeekConstantToInt(rightNode);
+            leftNode = ConvertDayOfWeekOperandToInt(leftNode);
+            rightNode = ConvertDayOfWeekOperandToInt(rightNode);
         }
 
         bool charComparisonOp = node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
@@ -261,6 +257,20 @@ internal partial class SQLVisitor
                 case ExpressionType.Subtract or ExpressionType.SubtractChecked:
                     return BuildUnsignedWrap32(node.Type, " - ", left, right, bothParameters);
             }
+        }
+
+        if (node.NodeType is ExpressionType.Divide
+            && (Nullable.GetUnderlyingType(leftNode.Type) ?? leftNode.Type) == typeof(TimeSpan)
+            && (Nullable.GetUnderlyingType(rightNode.Type) ?? rightNode.Type) == typeof(TimeSpan))
+        {
+            return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "(CAST(", left, " AS REAL) / ", right, ")", bothParameters);
+        }
+
+        if (node.NodeType is ExpressionType.Multiply or ExpressionType.Divide
+            && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(TimeSpan))
+        {
+            string factorOp = node.NodeType == ExpressionType.Multiply ? " * " : " / ";
+            return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "CAST(ROUND(", left, factorOp, right, ") AS INTEGER)", bothParameters);
         }
 
         if (equalityOp)
@@ -481,7 +491,12 @@ internal partial class SQLVisitor
     private static SQLiteExpression BracketConcatOperand(Expression node, SQLiteExpression expr)
     {
         Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
-        if (TranslationPatterns.IsConcatBracketNodeType(stripped.NodeType))
+        bool needsBrackets = expr.RequiresBrackets
+            || TranslationPatterns.IsConcatBracketNodeType(stripped.NodeType)
+            || ((Nullable.GetUnderlyingType(stripped.Type) ?? stripped.Type) == typeof(bool)
+                && stripped.NodeType is ExpressionType.Call);
+
+        if (needsBrackets)
         {
             return SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters);
         }
@@ -564,14 +579,24 @@ internal partial class SQLVisitor
             && (declaring == typeof(DateTime) || declaring == typeof(DateTimeOffset) || declaring == typeof(DateOnly));
     }
 
-    private static Expression ConvertDayOfWeekConstantToInt(Expression node)
+    private Expression ConvertDayOfWeekOperandToInt(Expression node)
     {
-        return ExpressionHelpers.IsConstant(node)
-            ? Expression.Constant((int)(DayOfWeek)ExpressionHelpers.GetConstantValue(node)!, typeof(int))
-            : node;
+        if (ExpressionHelpers.IsConstant(node))
+        {
+            return Expression.Constant((int)(DayOfWeek)ExpressionHelpers.GetConstantValue(node)!, typeof(int));
+        }
+
+        if (Database.Options.EnumStorage == EnumStorageMode.Text
+            && !IsComputedDayOfWeek(node)
+            && node.Type == typeof(DayOfWeek))
+        {
+            return Expression.Convert(node, typeof(int));
+        }
+
+        return node;
     }
 
-    private bool ShouldStripEnumConvert(UnaryExpression enumConvert)
+    private bool ShouldStripEnumConvert(UnaryExpression enumConvert, ExpressionType nodeType, Expression otherSide)
     {
         if (Database.Options.EnumStorage != EnumStorageMode.Text)
         {
@@ -580,7 +605,18 @@ internal partial class SQLVisitor
 
         Type target = Nullable.GetUnderlyingType(enumConvert.Type) ?? enumConvert.Type;
         Type operandEnum = Nullable.GetUnderlyingType(enumConvert.Operand.Type) ?? enumConvert.Operand.Type;
-        return target == Enum.GetUnderlyingType(operandEnum);
+        if (target != Enum.GetUnderlyingType(operandEnum) || nodeType is not (ExpressionType.Equal or ExpressionType.NotEqual))
+        {
+            return false;
+        }
+
+        if (ExpressionHelpers.IsConstant(otherSide) && otherSide.Type == Enum.GetUnderlyingType(operandEnum))
+        {
+            return true;
+        }
+
+        Expression other = otherSide is UnaryExpression { NodeType: ExpressionType.Convert } otherConvert ? otherConvert.Operand : otherSide;
+        return (Nullable.GetUnderlyingType(other.Type) ?? other.Type) == operandEnum;
     }
 
     private static bool IsNullableColumn(Expression operand)
