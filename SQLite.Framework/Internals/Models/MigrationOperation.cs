@@ -52,6 +52,11 @@ internal sealed class MigrationOperation
     public string? TableName { get; init; }
 
     /// <summary>
+    /// Inserts the declared rows and returns the affected row count, for an insert operation.
+    /// </summary>
+    public Func<SQLiteDatabase, int>? InsertRows { get; init; }
+
+    /// <summary>
     /// The raw SQL to run, for a raw-SQL operation.
     /// </summary>
     public string? Sql { get; init; }

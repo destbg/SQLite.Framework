@@ -26,7 +26,10 @@ public sealed class SQLiteMigrationRunner
 
     /// <summary>
     /// Declares the work for one schema version. Versions are applied in ascending order. Each
-    /// version number must be one or more and may be declared only once.
+    /// version number must be one or more and may be declared only once. Never change a version
+    /// that has shipped. Databases that already passed it will not run it again, so declare a
+    /// new version instead. A fresh database runs the whole chain, so a table created in a late
+    /// version exists on new installs just the same.
     /// </summary>
     /// <param name="version">The version number this step brings the database to.</param>
     /// <param name="build">A callback that declares the work, using the passed
@@ -127,11 +130,15 @@ public sealed class SQLiteMigrationRunner
             count += rebuild ? MigrateCore(mapping, sets) : MigrateInPlace(mapping, sets);
         }
 
-        foreach (MigrationOperation operation in operations.Where(o => o.Kind is MigrationOperationKind.DropColumn or MigrationOperationKind.DropTable or MigrationOperationKind.RawSql))
+        foreach (MigrationOperation operation in operations.Where(o => o.Kind is MigrationOperationKind.DropColumn or MigrationOperationKind.DropTable or MigrationOperationKind.RawSql or MigrationOperationKind.InsertRows))
         {
             if (operation.Kind == MigrationOperationKind.RawSql)
             {
                 count += schema.Database.Execute(operation.Sql!);
+            }
+            else if (operation.Kind == MigrationOperationKind.InsertRows)
+            {
+                count += operation.InsertRows!(schema.Database);
             }
             else if (operation.Kind == MigrationOperationKind.DropColumn)
             {

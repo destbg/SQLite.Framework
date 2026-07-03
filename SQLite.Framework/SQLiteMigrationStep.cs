@@ -8,11 +8,12 @@ namespace SQLite.Framework;
 /// </summary>
 /// <remarks>
 /// Within a single run the runner does not apply these in the order written. It applies every
-/// rename first, then one reconcile per table, then drops and raw SQL. So a raw SQL data step reads
-/// the final shape of the table, not an in-between shape. To move data out of a column you are
-/// removing, keep the old column on the model while you copy it, then remove it in a later version.
-/// A reconcile or a column drop for a table that this same run created with <see cref="CreateTable{T}" />
-/// is skipped, since the new table already matches the model.
+/// rename first, then one reconcile per table, then drops, row inserts and raw SQL in the order
+/// declared. So a row insert or a raw SQL data step runs against the final shape of the table,
+/// not an in-between shape. To move data out of a column you are removing, keep the old column
+/// on the model while you copy it, then remove it in a later version. A reconcile or a column
+/// drop for a table that this same run created with <see cref="CreateTable{T}" /> is skipped,
+/// since the new table already matches the model.
 /// </remarks>
 public sealed class SQLiteMigrationStep
 {
@@ -146,8 +147,35 @@ public sealed class SQLiteMigrationStep
     }
 
     /// <summary>
+    /// Inserts the given rows into the table for <typeparamref name="T" />. The rows go through
+    /// the same write pipeline as <see cref="SQLiteTable{T}.Add(T)" />, so storage modes,
+    /// converters, write hooks and auto-increment key write-back all apply. Use this to seed the
+    /// data that belongs to a schema version. The insert runs after the reconcile, against the
+    /// final shape of the table.
+    /// </summary>
+    public SQLiteMigrationStep Insert<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(params T[] rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        if (rows.Length == 0)
+        {
+            throw new ArgumentException("Insert requires at least one row.", nameof(rows));
+        }
+
+        TableMapping mapping = database.TableMapping<T>();
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.InsertRows,
+            Description = $"insert {rows.Length} row(s) into \"{mapping.TableName}\"",
+            Mapping = mapping,
+            InsertRows = db => db.Table<T>().AddRange(rows, runInTransaction: false),
+        });
+        return this;
+    }
+
+    /// <summary>
     /// Runs a raw SQL statement. Use this for data fixes and for changes the typed methods do not
-    /// cover. The statement runs against the final shape of the tables, after the reconcile.
+    /// cover. To seed rows, prefer the typed <see cref="Insert{T}" />. The statement runs against
+    /// the final shape of the tables, after the reconcile.
     /// </summary>
     public SQLiteMigrationStep Sql(string sql)
     {

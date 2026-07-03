@@ -12,4 +12,5 @@ internal enum MigrationOperationKind
     DropColumn,
     DropTable,
     RawSql,
+    InsertRows,
 }
