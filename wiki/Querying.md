@@ -216,30 +216,6 @@ Register a predicate on the options builder and the framework injects it into ev
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
     .AddQueryFilter<Book>(b => !b.IsDeleted)
     .Build();
-
-// The filter is applied automatically.
-List<Book> books = await db.Table<Book>().ToListAsync();
-
-// Composes with the user's Where, ExecuteUpdate and ExecuteDelete.
-await db.Table<Book>().Where(b => b.Price > 10).ToListAsync();
-await db.Table<Book>().ExecuteDeleteAsync();
 ```
 
-The registration type can be an interface, in which case the filter applies to every entity that implements it. One registration covers all matching entities, no per-entity hookup needed.
-
-```csharp
-public interface ISoftDelete
-{
-    bool IsDeleted { get; set; }
-}
-
-builder.AddQueryFilter<ISoftDelete>(e => !e.IsDeleted);
-```
-
-Multiple filters per type are AND-combined. To opt out of every registered filter for a single query, call `IgnoreQueryFilters`:
-
-```csharp
-List<Book> all = await db.Table<Book>().IgnoreQueryFilters().ToListAsync();
-```
-
-The opt-out covers the whole query, including joined tables. Filters compose with `Join`, `GroupJoin`, `Count`, `Any`, `ExecuteUpdate` and `ExecuteDelete`.
+To opt out for a single query, call `IgnoreQueryFilters()`. See the [Query Filters](Query%20Filters) page for interface registrations, exactly where filters apply, plus the soft delete and multi-tenancy patterns.

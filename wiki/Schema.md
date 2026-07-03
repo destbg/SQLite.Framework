@@ -1,6 +1,6 @@
 # Schema
 
-The `db.Schema` property gives you DDL operations on the database: create and drop tables, add and remove indexes, alter columns and inspect what is there.
+The `db.Schema` property gives you DDL operations on the database. Create and drop tables, add and remove indexes, alter columns and inspect what is there.
 
 ## Why a separate class
 
@@ -142,13 +142,13 @@ await db.Table<Book>()
     .UpdateAsync(book);
 ```
 
-`Trigger(name, timing, event, build)` declares a trigger whose body is built from typed LINQ statements. The trigger becomes part of the model, so create and migrate manage it. Reference target tables through the database's own `Table<TTarget>()`, which is in scope inside `OnModelCreating`. See [Triggers](#triggers) below.
+`Trigger(name, timing, event, build)` declares a trigger whose body is built from typed LINQ statements. The trigger becomes part of the model, so create and migrate manage it. Reference target tables through the database's own `Table<TTarget>()`, which is in scope inside `OnModelCreating`. See the [Triggers](Triggers) page.
 
 Constants in computed, CHECK, default and partial-index expressions are inlined as SQL literals because CREATE TABLE / CREATE INDEX cannot bind parameters. Only simple types (numbers, strings, bool) are supported as constants. For exotic types, use raw SQL through `db.Execute`.
 
 ### Running the schema actions
 
-Configuration lives only in `OnModelCreating`. To act on a table, reach its action handle with `db.Schema.Table<T>()` or `db.Table<T>().Schema`, which expose `CreateTable()` and `ValidateModel()`. `db.Schema.CreateTable<T>()` is the same as `db.Schema.Table<T>().CreateTable()`. To bring a live database up to the model, use the migration runner `db.Schema.Migrations()` described under [Migrate](#migrate).
+Configuration lives only in `OnModelCreating`. To act on a table, reach its action handle with `db.Schema.Table<T>()` or `db.Table<T>().Schema`, which expose `CreateTable()` and `ValidateModel()`. `db.Schema.CreateTable<T>()` is the same as `db.Schema.Table<T>().CreateTable()`. To bring a live database up to the model, use the migration runner `db.Schema.Migrations()` described on the [Migrations](Migrations) page.
 
 ```csharp
 await db.Schema.CreateTableAsync<Book>();          // create with all declared indexes and triggers
@@ -198,7 +198,7 @@ It checks columns (missing, extra, type, primary key, nullability), declared ind
 
 ## Migrate
 
-Migrations are versioned. Reach the runner with `db.Schema.Migrations()`, declare each schema version, then apply it. The runner brings the database up to the current model and records the version it reached in `PRAGMA user_version`, so a version that already ran is skipped on the next run.
+Migrations bring a live database up to the current model. They are versioned, run in one transaction and record their progress in `PRAGMA user_version`, so a version that already ran is skipped on the next run.
 
 ```csharp
 await db.Schema.Migrations()
@@ -207,113 +207,7 @@ await db.Schema.Migrations()
     .MigrateAsync();
 ```
 
-`TableChanged<T>()` reconciles the table for `T` to the current model. What it does:
-
-* Creates the table when it does not exist.
-* Adds new columns in place and drops columns the model no longer has. When a change cannot be made in place, it rebuilds the table the way SQLite recommends. It creates a new table from the model, copies the rows, drops the old table and renames the new one. Pass `rebuild: true` to always rebuild, which works on any SQLite version.
-* Preserves the rows for every column the model keeps. A removed column loses its data, a new column gets NULL or its default and a type change keeps the values.
-* Creates or recreates declared indexes and triggers and drops indexes that are no longer declared. Triggers that are not declared on the model are left alone.
-
-A whole run happens in one transaction. If a step fails, the run rolls back to the version it started at and the next run retries from there. FTS5 and R-Tree tables are only ensured to exist.
-
-Migrations always move toward the current model. There is no path back to an older version and no way to stop below the highest declared version.
-
-### One file per migration
-
-To keep each version in its own file instead of one long chain, implement `ISQLiteMigration` once per version, put the classes in a `Migrations` folder and register them with `Add<T>()`.
-
-```csharp
-// Migrations/M0001_InitialSchema.cs
-public sealed class M0001_InitialSchema : ISQLiteMigration
-{
-    public static int Version => 1;
-
-    public void Apply(SQLiteMigrationStep step)
-    {
-        step.CreateTable<Book>()
-            .CreateTable<Author>();
-    }
-}
-```
-
-```csharp
-// Migrations/M0002_AddBookGenre.cs
-public sealed class M0002_AddBookGenre : ISQLiteMigration
-{
-    public static int Version => 2;
-
-    public void Apply(SQLiteMigrationStep step)
-    {
-        step.TableChanged<Book>(s => s.Set(b => b.Genre, "Unknown"));
-    }
-}
-```
-
-```csharp
-await db.Schema.Migrations()
-    .Add<M0001_InitialSchema>()
-    .Add<M0002_AddBookGenre>()
-    .MigrateAsync();
-```
-
-### See what a migration would do
-
-`Plan()` reads the version recorded in the database and reports what a migrate would run, without changing anything.
-
-```csharp
-SQLiteMigrationPlan plan = await db.Schema.Migrations()
-    .Version(1, m => m.TableChanged<Book>())
-    .PlanAsync();
-
-if (!plan.IsUpToDate)
-{
-    foreach (string step in plan.Operations)
-    {
-        Console.WriteLine(step);
-    }
-}
-```
-
-### Filling new columns
-
-A new `NOT NULL` column with no default cannot be filled by copying old rows. If the table has rows, the run stops with a clear error that names the column. You have three ways to fix it. Give the column a default in `OnModelCreating`, make it nullable or pass values to `TableChanged`.
-
-`TableChanged<T>(s => s.Set(...))` fills or overrides columns during the reconcile. Each value is read from the old row. The runner unions the fills from every pending version before it reconciles, so a column added in a later version does not make an earlier version stop.
-
-```csharp
-await db.Schema.Migrations()
-    .Version(1, m => m.TableChanged<Book>(s => s
-        .Set(b => b.Status, "active")          // constant for every row
-        .Set(b => b.Slug, b => b.Title)))      // expression over the old row
-    .MigrateAsync();
-```
-
-The expression form is translated to SQL and runs over the old row, the same way CHECK and computed columns are. To read or write a column that has no CLR property, use `SQLiteColumn.Of<T>(row, "Name")`:
-
-```csharp
-await db.Schema.Migrations()
-    .Version(1, m => m.TableChanged<Book>(s => s
-        .Set(b => SQLiteColumn.Of<string>(b, "Slug"), b => b.Title)))
-    .MigrateAsync();
-```
-
-A column you do not set is copied across unchanged when it still exists.
-
-### Renames, drops and data steps
-
-A reconcile cannot tell a rename from a drop plus an add, so rename a column with an explicit step. Renames are applied before the reconcile, so the data is kept.
-
-```csharp
-await db.Schema.Migrations()
-    .Version(1, m => m
-        .RenameColumn<Book>("BookTitle", "Title")
-        .TableChanged<Book>())
-    .MigrateAsync();
-```
-
-A step can also drop a column with `DropColumn`, drop a table with `DropTable` or run raw SQL with `Sql` for a data fix. Within one run the order is fixed. Renames run first, then one reconcile per table, then drops and raw SQL. So a raw SQL data step reads the final shape of the table. To move data out of a column you are removing, keep the old column on the model while you copy it, then remove it in a later version.
-
-The runner reconciles structure and runs the data steps you declare. For one-off column changes outside a migration, see the next section.
+The [Migrations](Migrations) page covers the whole system. How a run is ordered, what `TableChanged` reconciles, filling new columns, renames, drops, data steps and previewing a run with `Plan()`. For one-off column changes outside a migration, see the next section.
 
 ## Altering tables
 
@@ -355,54 +249,11 @@ Requires SQLite 3.31.0 or newer. SQLite also rejects non-constant defaults on `A
 
 ## Views
 
-`db.Schema.CreateView<T>(...)` creates a SQL view from a LINQ expression. The view name comes from the `[Table("...")]` attribute on the entity, the body is the SQL produced by translating the lambda.
-
-```csharp
-await db.Schema.CreateViewAsync<BookSummary>(() =>
-    from b in db.Table<Book>()
-    where b.Price > 0
-    select new BookSummary { Id = b.Id, Title = b.Title, Price = b.Price });
-
-bool exists = await db.Schema.ViewExistsAsync<BookSummary>();
-IReadOnlyList<string> views = db.Schema.ListViews();
-
-await db.Schema.DropViewAsync<BookSummary>();
-await db.Schema.DropViewAsync("vBookSummary");
-```
-
-The DDL uses `CREATE VIEW IF NOT EXISTS`, so calling `CreateView` twice is safe. Pair the view with `db.ReadOnlyTable<T>()` to query it.
-
-SQLite does not allow placeholders inside view bodies, so any constants in the lambda are inlined as SQL literals when the view is created. Only simple types (numbers, strings, bool) work as inlined constants. For exotic types use raw SQL through `db.Execute`.
+`db.Schema.CreateView<T>(...)` creates a SQL view from a LINQ expression and `db.ReadOnlyTable<T>()` queries it. See the [Views](Views) page for read models, changing a view's definition and writable views.
 
 ## Triggers
 
-`db.Schema.CreateTrigger<T>(...)` creates a trigger on the table for `T`. The body and the optional `WHEN` predicate are raw SQL strings. Use `OLD` and `NEW` to refer to the row.
-
-```csharp
-await db.Schema.CreateTriggerAsync<Book>(
-    name: "trg_book_history",
-    timing: SQLiteTriggerTiming.After,
-    @event: SQLiteTriggerEvent.Update,
-    body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.Id, OLD.BookPrice, NEW.BookPrice)",
-    when: "OLD.BookPrice <> NEW.BookPrice");
-
-await db.Schema.DropTriggerAsync("trg_book_history");
-```
-
-`SQLiteTriggerTiming` is `Before`, `After` or `InsteadOf`. `SQLiteTriggerEvent` is `Insert`, `Update` or `Delete`. `InsteadOf` only works on views. SQLite runs every trigger once per row, so the body can use `NEW` and `OLD` to reference the changed row.
-
-There is also a typed overload that builds the body from LINQ instead of a SQL string. Use the builder's `Old` and `New` rows and add `Update`, `Insert` or `Delete` statements. Columns and the `When` guard are checked at compile time.
-
-```csharp
-await db.Schema.CreateTriggerAsync<Book>("trg_book_history", SQLiteTriggerTiming.After, SQLiteTriggerEvent.Update, t => t
-    .When(() => t.Old.Price != t.New.Price)
-    .Insert(db.Table<BookHistory>(), s => s
-        .Set(h => h.BookId, _ => t.New.Id)
-        .Set(h => h.OldPrice, _ => t.Old.Price)
-        .Set(h => h.NewPrice, _ => t.New.Price)));
-```
-
-`CreateTrigger` creates the trigger right away and is not tracked by the model. To make a trigger part of the model, declare it with `Trigger(...)` in `OnModelCreating` (see [Defining the model](#defining-the-model)). Model triggers are created by `CreateTable` and a `TableChanged` migration creates them when missing and recreates them when their body changes. Inside `OnModelCreating` reach the target table through the database's own `Table<TTarget>()`.
+`db.Schema.CreateTrigger<T>(...)` creates a trigger with a raw SQL or typed LINQ body. `Trigger(...)` in `OnModelCreating` declares one on the model so create and migrate manage it. See the [Triggers](Triggers) page for the builder API and use cases like audit logs and denormalized counters.
 
 ## Customizing schema generation
 

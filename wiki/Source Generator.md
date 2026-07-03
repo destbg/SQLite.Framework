@@ -186,7 +186,7 @@ What is out of scope:
 
 ## Combining with AOT
 
-If you publish with `PublishAot=true`, the source generator is the recommended way to keep the reflected materializer path out of your queries. See [Native AOT](Native%20AOT.md) for the full AOT setup, including the trimmer descriptor and the `[UnconditionalSuppressMessage]` usage on methods that build expression trees directly.
+If you publish with `PublishAot=true`, the source generator is the recommended way to keep the reflected materializer path out of your queries. See [Native AOT](Native%20AOT) for the full AOT setup, including the trimmer descriptor and the `[UnconditionalSuppressMessage]` usage on methods that build expression trees directly.
 
 ## How it works
 

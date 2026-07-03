@@ -38,7 +38,7 @@ var results = await books.Where(b => b.Price < 50).ToListAsync();
 
 ### Declaring a minimum SQLite version
 
-Only iOS is affected. iOS uses the system SQLite and its version is tied to the iOS version, so a method that compiles against the framework may still fail at runtime if the device's SQLite is too old. Android is not affected because this package bundles its own SQLite there and `SQLite.Framework.Bundled` bundles one on every platform. Declare the floor your app commits to:
+The floor matters wherever the OS provides SQLite, which with this package is desktop and iOS. The version is tied to the OS version, so a method that compiles against the framework may still fail at runtime if the device's SQLite is too old. Android is not affected because this package bundles its own SQLite there and `SQLite.Framework.Bundled` bundles one on every platform. Declare the floor your app commits to:
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
@@ -52,6 +52,8 @@ Behavior:
 - A method that needs a newer SQLite version than the floor throws an exception.
 
 The enum is available on `SQLite.Framework` (where the loaded SQLite comes from the OS and the version varies by device) and on `SQLite.Framework.Base` (where you bring your own provider). The `SQLite.Framework.Bundled` and `SQLite.Framework.Cipher` packages ship a SQLite with a known version, so the enum only has `Unspecified` in those.
+
+See [Choosing a SQLite Version](Choosing%20a%20SQLite%20Version) for how to pick the floor for each kind of app and what each floor unlocks.
 
 ## .NET MAUI App
 

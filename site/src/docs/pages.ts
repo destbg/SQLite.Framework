@@ -20,13 +20,20 @@ export const docGroups: DocGroup[] = [
     },
     {
         title: "Getting Started",
-        pages: [page("Overview"), page("Getting Started"), page("Defining Models"), page("Samples")],
+        pages: [
+            page("Overview"),
+            page("Getting Started"),
+            page("Choosing a SQLite Version"),
+            page("Defining Models"),
+            page("Samples"),
+        ],
     },
     {
         title: "Querying",
         pages: [
             page("CRUD Operations"),
             page("Querying"),
+            page("Query Filters"),
             page("Expressions"),
             page("Subqueries"),
             page("Joins"),
@@ -50,12 +57,20 @@ export const docGroups: DocGroup[] = [
             page("Backup"),
             page("Attached Databases"),
             page("Schema"),
+            page("Migrations"),
+            page("Triggers"),
+            page("Views"),
             page("Limitations"),
         ],
     },
     {
         title: "Data Types",
-        pages: [page("Data Types"), page("Storage Options"), page("Custom Converters")],
+        pages: [
+            page("Data Types"),
+            page("Storage Options"),
+            page("Custom Converters"),
+            page("Dates and Times"),
+        ],
     },
     {
         title: "Extra Packages",
@@ -64,6 +79,17 @@ export const docGroups: DocGroup[] = [
     {
         title: "Deployment",
         pages: [page("Performance"), page("Logging"), page("Native AOT"), page("Source Generator")],
+    },
+    {
+        title: "Guides",
+        pages: [
+            page("Platform Support"),
+            page("Testing"),
+            page("Troubleshooting"),
+            page("Data Seeding"),
+            page("Existing Databases"),
+            page("Recipes"),
+        ],
     },
     {
         title: "Migration Guides",

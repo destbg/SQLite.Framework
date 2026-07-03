@@ -107,7 +107,7 @@ Match is a marker method that lives on `SQLiteFunctions`. It works inside `Where
 
 ```csharp
 List<ArticleSearch> hits = await db.Table<ArticleSearch>()
-    .Where(a => SQLiteFunctions.Match(a, "native AND aot"))
+    .Where(a => SQLiteFTS5Functions.Match(a, "native AND aot"))
     .ToListAsync();
 ```
 
@@ -118,13 +118,13 @@ The string is the raw FTS5 query, see the [FTS5 query syntax](https://www.sqlite
 If you do not want to write FTS5 syntax by hand, pass a lambda. The lambda receives a builder `f` with `Term`, `Phrase`, `Prefix`, `Near` and `Column` methods, combined with the standard C# operators `&&`, `||` and `!`.
 
 ```csharp
-.Where(a => SQLiteFunctions.Match(a, f => f.Term("native") && f.Term("aot")))
+.Where(a => SQLiteFTS5Functions.Match(a, f => f.Term("native") && f.Term("aot")))
 
-.Where(a => SQLiteFunctions.Match(a, f => f.Phrase("native aot")))
+.Where(a => SQLiteFTS5Functions.Match(a, f => f.Phrase("native aot")))
 
-.Where(a => SQLiteFunctions.Match(a, f => f.Prefix("nativ")))
+.Where(a => SQLiteFTS5Functions.Match(a, f => f.Prefix("nativ")))
 
-.Where(a => SQLiteFunctions.Match(a, f => f.Near(2, "ahead", "time")))
+.Where(a => SQLiteFTS5Functions.Match(a, f => f.Near(2, "ahead", "time")))
 ```
 
 ### Searching one column
@@ -132,26 +132,26 @@ If you do not want to write FTS5 syntax by hand, pass a lambda. The lambda recei
 Pass a property reference instead of the entity. The translator emits a column-scoped match.
 
 ```csharp
-.Where(a => SQLiteFunctions.Match(a.Title, "native"))
+.Where(a => SQLiteFTS5Functions.Match(a.Title, "native"))
 
-.Where(a => SQLiteFunctions.Match(a.Title, f => f.Prefix("nativ")))
+.Where(a => SQLiteFTS5Functions.Match(a.Title, f => f.Prefix("nativ")))
 ```
 
 To mix a column scope with other terms, use `f.Column` inside the builder lambda:
 
 ```csharp
-.Where(a => SQLiteFunctions.Match(a,
+.Where(a => SQLiteFTS5Functions.Match(a,
     f => f.Column(a.Title, f.Prefix("aot")) || f.Term("trim")))
 ```
 
 ## Ranking
 
-`SQLiteFunctions.Rank(entity)` returns the BM25 score of the row. Use it inside `OrderBy`. The per-column weights from `[FullTextIndexed(Weight = ...)]` are applied automatically.
+`SQLiteFTS5Functions.Rank(entity)` returns the BM25 score of the row. Use it inside `OrderBy`. The per-column weights from `[FullTextIndexed(Weight = ...)]` are applied automatically.
 
 ```csharp
 await db.Table<ArticleSearch>()
-    .Where(a => SQLiteFunctions.Match(a, "native"))
-    .OrderBy(a => SQLiteFunctions.Rank(a))
+    .Where(a => SQLiteFTS5Functions.Match(a, "native"))
+    .OrderBy(a => SQLiteFTS5Functions.Rank(a))
     .Take(20)
     .ToListAsync();
 ```
@@ -162,13 +162,13 @@ Project a column with the matching tokens wrapped in markers:
 
 ```csharp
 var hits = await db.Table<ArticleSearch>()
-    .Where(a => SQLiteFunctions.Match(a, "native"))
-    .OrderBy(a => SQLiteFunctions.Rank(a))
+    .Where(a => SQLiteFTS5Functions.Match(a, "native"))
+    .OrderBy(a => SQLiteFTS5Functions.Rank(a))
     .Select(a => new
     {
         a.Id,
-        Title = SQLiteFunctions.Highlight(a, a.Title, "<b>", "</b>"),
-        Body = SQLiteFunctions.Snippet(a, a.Body, "<b>", "</b>", "...", 32),
+        Title = SQLiteFTS5Functions.Highlight(a, a.Title, "<b>", "</b>"),
+        Body = SQLiteFTS5Functions.Snippet(a, a.Body, "<b>", "</b>", "...", 32),
     })
     .ToListAsync();
 ```
@@ -183,8 +183,8 @@ When `ContentMode = External`, the FTS rowid is the same as the source table's p
 var hits = await (
     from s in db.Table<ArticleSearch>()
     join a in db.Table<Article>() on s.Id equals a.Id
-    where SQLiteFunctions.Match(s, "native aot")
-    orderby SQLiteFunctions.Rank(s)
+    where SQLiteFTS5Functions.Match(s, "native aot")
+    orderby SQLiteFTS5Functions.Rank(s)
     select new { a.Id, a.Title, a.PublishedAt })
     .Take(20)
     .ToListAsync();

@@ -4,7 +4,7 @@ Native AOT compiles your application into a standalone native binary ahead of ti
 
 ## Use the source generator
 
-For AOT builds, add the `SQLite.Framework.SourceGenerator` package and call `UseGeneratedMaterializers` on your options builder. The generator writes the code that turns SQLite rows into .NET objects at build time, so the trimmer can see every public type used in a `Select`. Private types and private methods still go through reflection at runtime. See the [Source Generator](Source%20Generator.md) page for the full setup.
+For AOT builds, add the `SQLite.Framework.SourceGenerator` package and call `UseGeneratedMaterializers` on your options builder. The generator writes the code that turns SQLite rows into .NET objects at build time, so the trimmer can see every public type used in a `Select`. Private types and private methods still go through reflection at runtime. See the [Source Generator](Source%20Generator) page for the full setup.
 
 ```csharp
 using SQLite.Framework.Generated;
@@ -70,7 +70,7 @@ The descriptor should preserve every type that can appear as a column value:
 </linker>
 ```
 
-This covers all the types listed in [Data Types](Data%20Types.md). If you only use a subset of them you can trim this list down, but keeping all of them is safe and simple.
+This covers all the types listed in [Data Types](Data%20Types). If you only use a subset of them you can trim this list down, but keeping all of them is safe and simple.
 
 ## LINQ queries with anonymous types
 

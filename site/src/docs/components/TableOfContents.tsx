@@ -14,28 +14,34 @@ export function TableOfContents({ markdown, pageKey }: TableOfContentsProps) {
         setActiveId(headings[0]?.id ?? null);
         if (headings.length === 0) return;
 
-        const visible = new Set<string>();
-        const observer = new IntersectionObserver(
-            (entries) => {
-                for (const entry of entries) {
-                    if (entry.isIntersecting) visible.add(entry.target.id);
-                    else visible.delete(entry.target.id);
+        let frame = 0;
+        const update = () => {
+            frame = 0;
+            const line = window.innerHeight * 0.35;
+            const atBottom =
+                window.scrollY + window.innerHeight >=
+                document.documentElement.scrollHeight - 2;
+            let current = headings[0].id;
+            for (const heading of headings) {
+                const el = document.getElementById(heading.id);
+                if (el && (atBottom || el.getBoundingClientRect().top <= line)) {
+                    current = heading.id;
                 }
-                for (const heading of headings) {
-                    if (visible.has(heading.id)) {
-                        setActiveId(heading.id);
-                        return;
-                    }
-                }
-            },
-            { rootMargin: "-70px 0px -65% 0px" },
-        );
+            }
+            setActiveId(current);
+        };
+        const schedule = () => {
+            if (frame === 0) frame = requestAnimationFrame(update);
+        };
 
-        for (const heading of headings) {
-            const el = document.getElementById(heading.id);
-            if (el) observer.observe(el);
-        }
-        return () => observer.disconnect();
+        update();
+        window.addEventListener("scroll", schedule, { passive: true });
+        window.addEventListener("resize", schedule);
+        return () => {
+            if (frame !== 0) cancelAnimationFrame(frame);
+            window.removeEventListener("scroll", schedule);
+            window.removeEventListener("resize", schedule);
+        };
     }, [headings, pageKey]);
 
     if (headings.length === 0) return null;
