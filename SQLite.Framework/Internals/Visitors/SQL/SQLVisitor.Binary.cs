@@ -52,6 +52,16 @@ internal partial class SQLVisitor
             }
         }
 
+        // DateTime.DayOfWeek and its DateTimeOffset and DateOnly forms have no stored column form.
+        // The value is always the numeric STRFTIME('%w') result, so a DayOfWeek constant compared to
+        // it must compare as its number, not as its name under Text enum storage. A stored DayOfWeek
+        // column is a plain property, not a DayOfWeek property access, so it keeps the enum storage form.
+        if (IsComputedDayOfWeek(leftNode) || IsComputedDayOfWeek(rightNode))
+        {
+            leftNode = ConvertDayOfWeekConstantToInt(leftNode);
+            rightNode = ConvertDayOfWeekConstantToInt(rightNode);
+        }
+
         bool charComparisonOp = node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
             or ExpressionType.GreaterThan or ExpressionType.LessThan
             or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual;
@@ -485,7 +495,7 @@ internal partial class SQLVisitor
         bool needsBrackets = expr.RequiresBrackets
             || stripped.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
             || ((Nullable.GetUnderlyingType(stripped.Type) ?? stripped.Type) == typeof(bool)
-                && stripped.NodeType is ExpressionType.AndAlso or ExpressionType.And or ExpressionType.ExclusiveOr);
+                && stripped.NodeType is ExpressionType.AndAlso or ExpressionType.And or ExpressionType.ExclusiveOr or ExpressionType.Call);
 
         return needsBrackets
             ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
@@ -545,6 +555,20 @@ internal partial class SQLVisitor
     private static bool IsNaNConstant(object? value)
     {
         return value is double d && double.IsNaN(d) || value is float f && float.IsNaN(f);
+    }
+
+    private static bool IsComputedDayOfWeek(Expression node)
+    {
+        Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
+        return stripped is MemberExpression { Member.Name: nameof(DateTime.DayOfWeek), Member.DeclaringType: { } declaring }
+            && (declaring == typeof(DateTime) || declaring == typeof(DateTimeOffset) || declaring == typeof(DateOnly));
+    }
+
+    private static Expression ConvertDayOfWeekConstantToInt(Expression node)
+    {
+        return ExpressionHelpers.IsConstant(node)
+            ? Expression.Constant((int)(DayOfWeek)ExpressionHelpers.GetConstantValue(node)!, typeof(int))
+            : node;
     }
 
     private bool ShouldStripEnumConvert(UnaryExpression enumConvert)

@@ -357,14 +357,16 @@ internal partial class JsonCollectionVisitor
 
     private void HandleLast(MethodCallExpression call, Type elementType)
     {
+        bool hadOrderBys = orderBys.Count > 0;
         if (limit != null || offset != null)
         {
-            List<string>? reversedOrder = orderBys.Count > 0 ? ReversedOrderBysList() : null;
+            List<string>? reversedOrder = hadOrderBys ? ReversedOrderBysList() : null;
             MaterializeWindow();
             AddOptionalPredicate(call, elementType);
             if (reversedOrder != null)
             {
                 orderBys.AddRange(reversedOrder);
+                orderBys.Add($"{keyColumn} DESC");
             }
             else
             {
@@ -377,6 +379,10 @@ internal partial class JsonCollectionVisitor
 
         AddOptionalPredicate(call, elementType);
         ReverseOrderBys();
+        if (hadOrderBys)
+        {
+            orderBys.Add($"{keyColumn} DESC");
+        }
         limit = "1";
         wrapInArray = false;
     }

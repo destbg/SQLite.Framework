@@ -254,7 +254,7 @@ public class MethodCallTests
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal("test", command.Parameters[0].Value);
         Assert.Equal(1, command.Parameters[1].Value);
-        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE INSTR(b0.\"BookTitle\", @p0) - 1 = @p1", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE (INSTR(b0.\"BookTitle\", @p0) - 1) = @p1", command.CommandText.Replace("\r\n", "\n"));
 
         List<Book> results = query.ToList();
         Assert.Single(results);

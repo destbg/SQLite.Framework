@@ -539,11 +539,11 @@ public class CteTests
             ),
             cte2 AS (
                 SELECT s1."Sud" AS "S",
-                   (INSTR(s1."Sud", @p2) - 1 + @p3) AS "Ind"
+                   ((INSTR(s1."Sud", @p2) - 1) + @p3) AS "Ind"
                 FROM cte0 AS s1
                 UNION ALL
                     SELECT SUBSTR(s3."S", @p34 + 1, (s3."Ind" - @p35)) || s4."Z" || SUBSTR(s3."S", MAX(s3."Ind", 0) + 1) AS "S",
-                   (INSTR(SUBSTR(s3."S", @p37 + 1, (s3."Ind" - @p38)) || s4."Z" || SUBSTR(s3."S", MAX(s3."Ind", 0) + 1), @p36) - 1 + @p39) AS "Ind"
+                   ((INSTR(SUBSTR(s3."S", @p37 + 1, (s3."Ind" - @p38)) || s4."Z" || SUBSTR(s3."S", MAX(s3."Ind", 0) + 1), @p36) - 1) + @p39) AS "Ind"
                 FROM cte2 AS s3
                 CROSS JOIN cte1 AS s4
                 WHERE s3."Ind" > @p11 AND NOT EXISTS (

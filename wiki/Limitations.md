@@ -33,12 +33,13 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Math.Abs(long.MinValue)` throws a `SQLiteException`, since its result does not fit a signed 64-bit integer.
 - Reading an `int` column whose stored value is outside the `int` range, which can happen when a value was written through raw SQL, may read back its low 32 bits instead of throwing `OverflowException`, since reading an `int` takes a fast path that does not range-check. The smaller integer types (`short`, `ushort`, `byte`, `sbyte`) always throw when the stored value is out of their range.
 - The bitwise complement `~` of a native integer (`nint` or `nuint`) is not supported.
+- `Math.Sign` of a value that is Not-a-Number, such as `Math.Sign(Math.Sqrt(-1))`, reads back as `0`.
 
 ## Strings
 
 - `Length` counts code points and `PadLeft`/`PadRight` measure the target width the same way.
 - Ordering and comparison use byte value (`BINARY`), so `"B"` sorts before `"a"`.
-- `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing. `Remove` with a negative count removes nothing and returns the original string.
+- `Substring`, `Remove`, `Insert`, `IndexOf` and `LastIndexOf` clamp out-of-range arguments instead of throwing. `Remove` with a negative count removes nothing and returns the original string. `Substring` with a negative length does not throw. It follows SQLite's `SUBSTR`, where a negative length reads that many characters ending before the start position.
 - `PadLeft` and `PadRight` with a negative total width return the original string instead of throwing, since a negative width is never wider than the value.
 - `Contains`, `StartsWith` and `EndsWith` with a case-sensitive culture-aware `StringComparison` (`InvariantCulture` or `CurrentCulture`) compare byte for byte and do not apply Unicode normalization, so a value written with a combining accent (`e` followed by U+0301) and the same value written with a precomposed character (U+00E9) do not match where .NET's `InvariantCulture` treats them as equal.
 - `IndexOf` and `LastIndexOf` with a `StringComparison` and their count overloads, are not translated to SQL. They run in memory in a `Select` and throw in a `Where`. The plain value and value-plus-start-index overloads are translated and are case-sensitive.
@@ -73,6 +74,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Some LINQ operators are not translated to SQL and throw `NotSupportedException` on a table query. These are `Last`, `LastOrDefault`, `Order`, `OrderDescending`, `MaxBy`, `MinBy`, `DistinctBy`, `SkipLast`, `TakeLast`, `Append`, `Prepend`, `Chunk`, `ExceptBy`, `UnionBy`, `IntersectBy`, `SkipWhile` and `TakeWhile`.
 - The `DefaultIfEmpty` overload that takes an explicit default value is not supported on a table query and throws. The no-argument `DefaultIfEmpty()` used to build a left join works.
 - `Contains` over an inline collection literal, such as `new[] { ... }.Contains(column)` or `new List<T> { ... }.Contains(column)`, works only when every element is a constant or a captured value. An element that is a method call, such as `int.Parse("10")`, is not folded to a value, so the query throws `NotSupportedException`. Assign the collection to a variable first, then call `Contains` on the variable.
+- `Contains` over a collection compares each element with SQLite's byte comparison and ignores a collection's custom comparer. A `HashSet<string>` built with `StringComparer.OrdinalIgnoreCase` still compares byte for byte, so a value with different casing does not match.
 
 ## Grouping
 
@@ -92,6 +94,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Aggregates
 
 - A grouped `Min`, `Max` or `Average` over a per-group filter that matches no rows returns the type default instead of throwing. `Sum` returns `0`, the same as LINQ.
+- `Average`, `Min`, `Max` and `Sum` over a per-row expression skip a row whose expression reads back as `NULL`. A divide by zero or a Not-a-Number math call inside the selector, such as `Average(x => x.A / x.B)` where `B` is zero, drops that row from the aggregate.
 - A window `Max`, `Min` or `Average` over a `ulong` column is not correct for values at or above 2^63, since the value is stored as a signed integer. A window `Average` over a `uint` column is exact.
 - A window `Sum` that sees no rows, because the frame is empty or a `Filter` removes every row, reads back as `NULL`, not `0`.
 
@@ -106,6 +109,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - A `DateTime` stored as `Integer` or `Text` ticks reads back with `Kind` set to `Unspecified`, since the tick count carries no kind.
 - Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage.
 - A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal` and the `HasFlag`, bitwise and comparison operators on a `Text`-stored enum.
+- With `DateTime` stored as `TextTicks`, ordering, comparison, `Min` and `Max` sort by the stored tick text, not by the tick number. Two dates whose tick counts have a different number of digits sort in the wrong order. A date in year 300 sorts after a date in year 400, since its tick count has fewer digits.
 
 ## R-Tree
 

@@ -230,13 +230,16 @@ internal static class QueryableMemberVisitor
 
             if (kvp.Key.StartsWith(path))
             {
-                // +1 for the dot between the path and the key
                 int length = path.Length + nameof(IGrouping<,>.Key).Length + 1;
                 string[] split = kvp.Key[Math.Min(length, kvp.Key.Length)..]
                     .Split('.', StringSplitOptions.RemoveEmptyEntries);
 
                 string newKey = string.Join('.', split);
-                newTableColumns[newKey] = kvp.Value;
+
+                if (!newTableColumns.ContainsKey(newKey))
+                {
+                    newTableColumns[newKey] = kvp.Value;
+                }
             }
         }
 

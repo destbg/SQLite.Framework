@@ -37,8 +37,10 @@ internal partial class SQLVisitor
                     : Expression.Call(node.Method, BoxIfNeeded(obj.Expression), BoxIfNeeded(argument.Expression));
             }
 
-            SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, argument.SQLiteExpression);
-            return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", obj.SQLiteExpression!, " IS ", argument.SQLiteExpression!, "", parameters);
+            SQLiteExpression left = CoalesceLiftedOrderComparison(leftOperand, obj.SQLiteExpression!);
+            SQLiteExpression right = CoalesceLiftedOrderComparison(rightOperand, argument.SQLiteExpression!);
+            SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(left, right);
+            return SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", left, " IS ", right, "", parameters);
         }
 
         Type? declaringType = node.Method.DeclaringType;

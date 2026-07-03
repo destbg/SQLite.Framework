@@ -39,14 +39,16 @@ internal static class StringMemberVisitor
                     {
                         SQLiteExpression needle = CharArgAsText(visitor, arguments[0]);
                         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, needle);
-                        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "INSTR(", obj.SQLiteExpression!, ", ", needle, ") - 1", parameters);
+                        SQLiteExpression indexOf = SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "INSTR(", obj.SQLiteExpression!, ", ", needle, ") - 1", parameters);
+                        indexOf.RequiresBrackets = true;
+                        return indexOf;
                     }
 
                     if (arguments.Count == 2 && node.Arguments[1].Type == typeof(int))
                     {
                         SQLiteExpression objExpr = obj.SQLiteExpression!;
                         SQLiteExpression needle = CharArgAsText(visitor, arguments[0]);
-                        SQLiteExpression start = ClampStartIndex(visitor, arguments[1]);
+                        SQLiteExpression start = ClampNonNegative(visitor, arguments[1]);
                         return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, needle, start], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["CASE WHEN INSTR(SUBSTR(", ", ", " + 1), ", ") = 0 THEN -1 ELSE INSTR(SUBSTR(", ", ", " + 1), ", ") - 1 + ", " END"],
@@ -183,7 +185,7 @@ internal static class StringMemberVisitor
                 }
                 case nameof(string.Substring):
                 {
-                    SQLiteExpression substringStart = ClampStartIndex(visitor, arguments[0]);
+                    SQLiteExpression substringStart = ClampNonNegative(visitor, arguments[0]);
                     if (node.Arguments.Count == 2)
                     {
                         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(obj.SQLiteExpression, substringStart, arguments[1].SQLiteExpression!);
@@ -464,7 +466,7 @@ internal static class StringMemberVisitor
         }
     }
 
-    private static SQLiteExpression ClampStartIndex(SQLVisitor visitor, ResolvedModel start)
+    private static SQLiteExpression ClampNonNegative(SQLVisitor visitor, ResolvedModel start)
     {
         SQLiteExpression startExpr = start.SQLiteExpression!;
         if (start.IsConstant && start.Constant is int value && value >= 0)

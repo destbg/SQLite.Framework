@@ -550,7 +550,9 @@ internal static class DateTimeMemberVisitor
 
     private static SQLiteExpression DivModExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long div, long mod)
     {
-        return SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "(", node, $" / {div}) % {mod}", node.Parameters);
+        SQLiteExpression result = SQLiteExpression.Wrap(type, visitor.Counters.NextIdentifier(), "(", node, $" / {div}) % {mod}", node.Parameters);
+        result.RequiresBrackets = true;
+        return result;
     }
 
     private static SQLiteExpression DivExpression(SQLVisitor visitor, Type type, SQLiteExpression node, long div)
