@@ -61,8 +61,6 @@ public readonly struct SQLiteLockAwaiter : ICriticalNotifyCompletion
             return NoOpLockObject.Instance;
         }
 
-        database.SetConnectionLock();
-
-        return new ConnectionSemaphoreLockObject(database);
+        return new ConnectionSemaphoreLockObject(database, database.SetConnectionLock());
     }
 }

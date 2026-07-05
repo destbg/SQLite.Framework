@@ -36,7 +36,7 @@ public class AsyncLockBehaviorTests
 
         await acquired.Task;
 
-        Task<IDisposable> acquireTask = db.LockAsync().AsTask();
+        Task<IDisposable> acquireTask = AcquireLockAsync(db);
         Assert.False(acquireTask.IsCompleted);
 
         release.Set();
@@ -65,7 +65,7 @@ public class AsyncLockBehaviorTests
         await acquired.Task;
 
         Task<IDisposable>[] queued = Enumerable.Range(0, 16)
-            .Select(_ => db.LockAsync().AsTask())
+            .Select(_ => AcquireLockAsync(db))
             .ToArray();
 
         foreach (Task<IDisposable> t in queued)
@@ -404,7 +404,7 @@ public class AsyncLockBehaviorTests
         await acquired.Task;
 
         using CancellationTokenSource cts = new();
-        Task<IDisposable> queued = db.LockAsync(cts.Token).AsTask();
+        Task<IDisposable> queued = AcquireLockAsync(db, cts.Token);
         Assert.False(queued.IsCompleted);
 
         await cts.CancelAsync();
@@ -446,5 +446,10 @@ public class AsyncLockBehaviorTests
         release.Set();
         await done.Task;
         await syncHolder;
+    }
+
+    private static async Task<IDisposable> AcquireLockAsync(TestDatabase db, CancellationToken cancellationToken = default)
+    {
+        return await db.LockAsync(cancellationToken);
     }
 }

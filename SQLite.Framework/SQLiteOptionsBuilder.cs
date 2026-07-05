@@ -534,21 +534,22 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
-    /// Registers a custom type converter for the given CLR type.
+    /// Registers a custom type converter for the given CLR type. A nullable type registers under
+    /// its underlying type, since every lookup strips the nullable wrapper before it searches.
     /// </summary>
     public SQLiteOptionsBuilder AddTypeConverter(Type clrType, ISQLiteTypeConverter converter)
     {
-        TypeConverters[clrType] = converter;
+        TypeConverters[Nullable.GetUnderlyingType(clrType) ?? clrType] = converter;
         return this;
     }
 
     /// <summary>
-    /// Registers a custom type converter for <typeparamref name="T" />.
+    /// Registers a custom type converter for <typeparamref name="T" />. A nullable type registers
+    /// under its underlying type, since every lookup strips the nullable wrapper before it searches.
     /// </summary>
     public SQLiteOptionsBuilder AddTypeConverter<T>(ISQLiteTypeConverter converter)
     {
-        TypeConverters[typeof(T)] = converter;
-        return this;
+        return AddTypeConverter(typeof(T), converter);
     }
 
     /// <summary>

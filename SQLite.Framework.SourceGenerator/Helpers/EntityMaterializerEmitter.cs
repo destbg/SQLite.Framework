@@ -286,36 +286,39 @@ public static class EntityMaterializerEmitter
             }
         }
 
-        if (!hasAnyParameterlessCtor)
+        if (!hasAnyParameterlessCtor || HasReadOnlyDataProperty(entity))
         {
             IMethodSymbol? positional = TryFindPositionalConstructor(entity);
-            if (positional == null)
+            if (positional == null && !hasAnyParameterlessCtor)
             {
                 return false;
             }
 
-            foreach (IParameterSymbol parameter in positional.Parameters)
+            if (positional != null)
             {
-                if (!IsEmittablePropertyType(parameter.Type))
+                foreach (IParameterSymbol parameter in positional.Parameters)
+                {
+                    if (!IsEmittablePropertyType(parameter.Type))
+                    {
+                        return false;
+                    }
+                }
+
+                bool membersReachable = positional.Parameters.All(p => IsReachableFromGeneratedCode(p.Type))
+                    && EnumerateInstanceProperties(entity)
+                        .Where(p => p.DeclaredAccessibility == Accessibility.Public && p.SetMethod != null)
+                        .All(p => IsReachableFromGeneratedCode(p.Type) && IsEmittablePropertyType(p.Type));
+
+                if (!membersReachable)
                 {
                     return false;
                 }
+
+                strategy = IsReachableFromGeneratedCode(entity) && ArePositionalExtrasAssignable(entity, positional)
+                    ? EmitStrategy.Positional
+                    : EmitStrategy.PositionalReflection;
+                return true;
             }
-
-            bool membersReachable = positional.Parameters.All(p => IsReachableFromGeneratedCode(p.Type))
-                && EnumerateInstanceProperties(entity)
-                    .Where(p => p.DeclaredAccessibility == Accessibility.Public && p.SetMethod != null)
-                    .All(p => IsReachableFromGeneratedCode(p.Type) && IsEmittablePropertyType(p.Type));
-
-            if (!membersReachable)
-            {
-                return false;
-            }
-
-            strategy = IsReachableFromGeneratedCode(entity) && ArePositionalExtrasAssignable(entity, positional)
-                ? EmitStrategy.Positional
-                : EmitStrategy.PositionalReflection;
-            return true;
         }
 
         bool canNameEntity = IsReachableFromGeneratedCode(entity);
@@ -356,6 +359,34 @@ public static class EntityMaterializerEmitter
         foreach (IMethodSymbol ctor in entity.InstanceConstructors)
         {
             if (ctor.Parameters.Length == 0 && ctor.DeclaredAccessibility == Accessibility.Public)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasReadOnlyDataProperty(INamedTypeSymbol entity)
+    {
+        foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
+        {
+            if (prop.SetMethod == null
+                && prop.DeclaredAccessibility == Accessibility.Public
+                && HasBackingField(prop))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasBackingField(IPropertySymbol prop)
+    {
+        foreach (ISymbol member in prop.ContainingType.GetMembers())
+        {
+            if (member is IFieldSymbol field && SymbolEqualityComparer.Default.Equals(field.AssociatedSymbol, prop))
             {
                 return true;
             }
@@ -746,7 +777,9 @@ public static class EntityMaterializerEmitter
         string typeName = entity.ToDisplayString();
         List<IPropertySymbol> requiredNotMapped = GetRequiredNotMappedProperties(entity);
 
-        IMethodSymbol? positionalCtor = HasPublicParameterlessConstructor(entity) ? null : TryFindPositionalConstructor(entity);
+        IMethodSymbol? positionalCtor = HasPublicParameterlessConstructor(entity) && !HasReadOnlyDataProperty(entity)
+            ? null
+            : TryFindPositionalConstructor(entity);
         List<int> inaccessibleIndexes = new();
 
         if (positionalCtor != null)

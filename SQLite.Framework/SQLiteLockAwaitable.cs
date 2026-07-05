@@ -23,19 +23,4 @@ public readonly struct SQLiteLockAwaitable
     {
         return new SQLiteLockAwaiter(database, cancellationToken);
     }
-
-    /// <summary>
-    /// Wraps this awaitable in a <see cref="Task{TResult}" />.
-    /// Use this when you need to store the in-flight acquisition or check its state.
-    /// </summary>
-    public Task<IDisposable> AsTask()
-    {
-        SQLiteLockAwaitable self = this;
-        return Run();
-
-        async Task<IDisposable> Run()
-        {
-            return await self;
-        }
-    }
 }

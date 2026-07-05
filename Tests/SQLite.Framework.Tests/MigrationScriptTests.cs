@@ -74,8 +74,8 @@ public class MigrationScriptTests
     public void ScriptListsRebuildStatements()
     {
         using TestDatabase db = new(useFile: true);
-        db.Table<ScriptRow>().Schema.CreateTable();
-        db.Table<ScriptRow>().Add(new ScriptRow { Id = 1, Name = "old" });
+        db.Execute("CREATE TABLE \"ScriptRows\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Legacy\" TEXT, CHECK (\"Legacy\" IS NULL OR \"Legacy\" <> ''))");
+        db.Execute("INSERT INTO \"ScriptRows\" (\"Id\", \"Name\") VALUES (1, 'old')");
 
         IReadOnlyList<string> statements = db.Schema.Migrations()
             .Version(1, m => m.TableChanged<ScriptRow>(s => s.Set(x => x.Name, "new"), rebuild: true))
@@ -86,15 +86,16 @@ public class MigrationScriptTests
             "PRAGMA foreign_keys = OFF",
             "PRAGMA defer_foreign_keys = ON",
             "CREATE TABLE \"ScriptRows__sqlitefw_migrate\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT NOT NULL)",
-            "INSERT INTO \"ScriptRows__sqlitefw_migrate\" (\"Id\", \"Name\") SELECT \"Id\", 'new' FROM \"ScriptRows\"",
+            "INSERT INTO \"ScriptRows__sqlitefw_migrate\" (\"Id\", \"Name\") SELECT \"Id\", \"Name\" FROM \"ScriptRows\"",
             "DROP TABLE \"ScriptRows\"",
             "PRAGMA legacy_alter_table = ON",
             "ALTER TABLE \"ScriptRows__sqlitefw_migrate\" RENAME TO \"ScriptRows\"",
             "PRAGMA legacy_alter_table = 0",
             "PRAGMA foreign_keys = 1",
+            "UPDATE \"ScriptRows\" SET \"Name\" = 'new'",
             "PRAGMA user_version = 1",
         ], statements);
-        Assert.Equal("old", db.Table<ScriptRow>().Single().Name);
+        Assert.Equal("old", db.ExecuteScalar<string>("SELECT \"Name\" FROM \"ScriptRows\" WHERE \"Id\" = 1"));
     }
 
     [Fact]

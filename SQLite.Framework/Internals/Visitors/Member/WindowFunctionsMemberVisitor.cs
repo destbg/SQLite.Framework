@@ -50,17 +50,28 @@ internal static class WindowFunctionsMemberVisitor
             visitor.SuppressUlongWindowOrderSplit = true;
         }
 
-        List<ResolvedModel> arguments = node.Object != null
-            ? new List<ResolvedModel> { visitor.ResolveExpression(node.Object) }
-            : new List<ResolvedModel>();
+        bool previousProjection = visitor.IsInSelectProjection;
+        visitor.IsInSelectProjection = false;
+        List<ResolvedModel> arguments;
+        try
+        {
+            arguments = node.Object != null
+                ? new List<ResolvedModel> { visitor.ResolveExpression(node.Object) }
+                : new List<ResolvedModel>();
 
-        visitor.SuppressUlongWindowOrderSplit = previousSuppress;
+            visitor.SuppressUlongWindowOrderSplit = previousSuppress;
+
+            IEnumerable<Expression> resolvable = IsFrameMethod(node.Method.Name)
+                ? node.Arguments.Take(node.Arguments.Count - 1)
+                : node.Arguments;
+            arguments.AddRange(resolvable.Select(visitor.ResolveExpression));
+        }
+        finally
+        {
+            visitor.IsInSelectProjection = previousProjection;
+        }
+
         bool allowUlongSplit = !visitor.SuppressUlongWindowOrderSplit;
-
-        IEnumerable<Expression> resolvable = IsFrameMethod(node.Method.Name)
-            ? node.Arguments.Take(node.Arguments.Count - 1)
-            : node.Arguments;
-        arguments.AddRange(resolvable.Select(visitor.ResolveExpression));
 
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(arguments
             .Select(a => a.SQLiteExpression)

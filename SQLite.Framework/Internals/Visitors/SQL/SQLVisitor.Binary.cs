@@ -14,6 +14,52 @@ internal partial class SQLVisitor
         return BracketBinaryOperand(operand, CoalesceLiftedOrderComparison(operand, expr));
     }
 
+    public SQLiteExpression CoerceDayOfWeekOperand(Expression operandNode, SQLiteExpression current, SQLiteExpression otherSide)
+    {
+        if (!otherSide.IsDayOfWeekInteger || current.IsDayOfWeekInteger)
+        {
+            return current;
+        }
+
+        Expression converted = DayOfWeekHelpers.ConvertOperandToInt(Database.Options, operandNode);
+        if (ReferenceEquals(converted, operandNode))
+        {
+            return current;
+        }
+
+        return ResolveExpression(converted).SQLiteExpression!;
+    }
+
+    public SQLiteExpression BuildUnsignedComparison(ExpressionType nodeType, SQLiteExpression a, SQLiteExpression b, bool mayBeNull, SQLiteParameter[]? parameters)
+    {
+        string signedOp = nodeType switch
+        {
+            ExpressionType.GreaterThan => " > ",
+            ExpressionType.LessThan => " < ",
+            ExpressionType.GreaterThanOrEqual => " >= ",
+            _ => " <= "
+        };
+
+        SQLiteExpression elseOperand = nodeType is ExpressionType.GreaterThan or ExpressionType.GreaterThanOrEqual ? a : b;
+
+        if (mayBeNull)
+        {
+            return SQLiteExpression.Multi(
+                typeof(bool),
+                Counters.NextIdentifier(),
+                ["(CASE WHEN ", " IS NULL OR ", " IS NULL THEN NULL WHEN ((", " < 0) = (", " < 0)) THEN ", signedOp, " ELSE ", " < 0 END)"],
+                [a, b, a, b, a, b, elseOperand],
+                parameters);
+        }
+
+        return SQLiteExpression.Multi(
+            typeof(bool),
+            Counters.NextIdentifier(),
+            ["(CASE WHEN ((", " < 0) = (", " < 0)) THEN ", signedOp, " ELSE ", " < 0 END)"],
+            [a, b, a, b, elseOperand],
+            parameters);
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "ToString does exist")]
     protected override Expression VisitBinary(BinaryExpression node)
     {
@@ -172,7 +218,16 @@ internal partial class SQLVisitor
         {
             SQLiteExpression coalesceLeft = CoalesceLiftedOrderComparison(leftNode, left);
             SQLiteExpression coalesceRight = CoalesceLiftedOrderComparison(rightNode, right);
-            return SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "COALESCE(", coalesceLeft, ", ", coalesceRight, ")", bothParameters);
+            bool dayOfWeekSide = coalesceLeft.IsDayOfWeekInteger || coalesceRight.IsDayOfWeekInteger;
+            if (coalesceLeft.IsDayOfWeekInteger != coalesceRight.IsDayOfWeekInteger)
+            {
+                coalesceLeft = CoerceDayOfWeekOperand(leftNode, coalesceLeft, coalesceRight);
+                coalesceRight = CoerceDayOfWeekOperand(rightNode, coalesceRight, coalesceLeft);
+            }
+
+            SQLiteParameter[]? coalesceParameters = ParameterHelpers.CombineParameters(coalesceLeft, coalesceRight);
+            SQLiteExpression coalesce = SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "COALESCE(", coalesceLeft, ", ", coalesceRight, ")", coalesceParameters);
+            return dayOfWeekSide ? coalesce.WithDayOfWeekInteger() : coalesce;
         }
 
         bool equalityOp = node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual;
@@ -338,22 +393,6 @@ internal partial class SQLVisitor
         return current;
     }
 
-    private SQLiteExpression CoerceDayOfWeekOperand(Expression operandNode, SQLiteExpression current, SQLiteExpression otherSide)
-    {
-        if (!otherSide.IsDayOfWeekInteger || current.IsDayOfWeekInteger)
-        {
-            return current;
-        }
-
-        Expression converted = DayOfWeekHelpers.ConvertOperandToInt(Database.Options, operandNode);
-        if (ReferenceEquals(converted, operandNode))
-        {
-            return current;
-        }
-
-        return ResolveExpression(converted).SQLiteExpression!;
-    }
-
     private SQLiteExpression CoerceJsonTemporalOperand(ResolvedModel resolved, SQLiteExpression current, SQLiteExpression otherSide)
     {
         if (!otherSide.IsJsonSource)
@@ -383,36 +422,6 @@ internal partial class SQLVisitor
             Counters.NextIdentifier(),
             ["((", sqlOp, $") & {Constants.UInt32Mask})"],
             [a, b],
-            parameters);
-    }
-
-    private SQLiteExpression BuildUnsignedComparison(ExpressionType nodeType, SQLiteExpression a, SQLiteExpression b, bool mayBeNull, SQLiteParameter[]? parameters)
-    {
-        string signedOp = nodeType switch
-        {
-            ExpressionType.GreaterThan => " > ",
-            ExpressionType.LessThan => " < ",
-            ExpressionType.GreaterThanOrEqual => " >= ",
-            _ => " <= "
-        };
-
-        SQLiteExpression elseOperand = nodeType is ExpressionType.GreaterThan or ExpressionType.GreaterThanOrEqual ? a : b;
-
-        if (mayBeNull)
-        {
-            return SQLiteExpression.Multi(
-                typeof(bool),
-                Counters.NextIdentifier(),
-                ["(CASE WHEN ", " IS NULL OR ", " IS NULL THEN NULL WHEN ((", " < 0) = (", " < 0)) THEN ", signedOp, " ELSE ", " < 0 END)"],
-                [a, b, a, b, a, b, elseOperand],
-                parameters);
-        }
-
-        return SQLiteExpression.Multi(
-            typeof(bool),
-            Counters.NextIdentifier(),
-            ["(CASE WHEN ((", " < 0) = (", " < 0)) THEN ", signedOp, " ELSE ", " < 0 END)"],
-            [a, b, a, b, elseOperand],
             parameters);
     }
 
@@ -625,7 +634,13 @@ internal partial class SQLVisitor
 
         Type target = Nullable.GetUnderlyingType(enumConvert.Type) ?? enumConvert.Type;
         Type operandEnum = Nullable.GetUnderlyingType(enumConvert.Operand.Type) ?? enumConvert.Operand.Type;
-        if (target != Enum.GetUnderlyingType(operandEnum) || nodeType is not (ExpressionType.Equal or ExpressionType.NotEqual))
+        bool comparisonOp = nodeType is ExpressionType.Equal or ExpressionType.NotEqual
+            || (nodeType is ExpressionType.GreaterThan or ExpressionType.LessThan
+                    or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual
+                && (DayOfWeekHelpers.IsComputedDayOfWeek(enumConvert.Operand)
+                    || (otherSide is UnaryExpression { NodeType: ExpressionType.Convert } otherDow
+                        && DayOfWeekHelpers.IsComputedDayOfWeek(otherDow.Operand))));
+        if (target != Enum.GetUnderlyingType(operandEnum) || !comparisonOp)
         {
             return false;
         }

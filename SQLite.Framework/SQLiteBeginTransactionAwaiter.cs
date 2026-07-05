@@ -11,7 +11,7 @@ namespace SQLite.Framework;
 public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
 {
     private readonly SQLiteDatabase database;
-    private readonly Task<string> savepointTask;
+    private readonly Task<(string SavepointName, LockToken Token)> savepointTask;
     private readonly bool ownsLock;
 
     internal SQLiteBeginTransactionAwaiter(SQLiteDatabase database, CancellationToken cancellationToken)
@@ -21,7 +21,7 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
 
         savepointTask = ownsLock
             ? database.AcquireConnectionAndCreateSavepoint(cancellationToken)
-            : Task.FromResult(database.CreateSavepoint());
+            : Task.FromResult((database.CreateSavepoint(), (LockToken)null!));
     }
 
     /// <summary>
@@ -51,14 +51,15 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
     /// </remarks>
     public SQLiteTransaction GetResult()
     {
-        string savepointName = savepointTask.GetAwaiter().GetResult();
+        (string savepointName, LockToken token) = savepointTask.GetAwaiter().GetResult();
 
         if (ownsLock)
         {
-            database.SetConnectionLock();
-            database.NotifyTransactionStarted();
+            database.AdoptConnectionLock(token);
         }
 
-        return new SQLiteTransaction(database, savepointName, ownsLock);
+        database.NotifyTransactionStarted();
+
+        return new SQLiteTransaction(database, savepointName, ownsLock) { OwnedLockToken = ownsLock ? token : null };
     }
 }

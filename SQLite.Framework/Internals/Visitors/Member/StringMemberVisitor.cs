@@ -139,6 +139,11 @@ internal static class StringMemberVisitor
                 }
                 case nameof(string.Replace):
                 {
+                    if (HasCaseChangingReplaceArgument(node, arguments))
+                    {
+                        return visitor.NotTranslatable(node, "string.Replace with a comparison or culture argument other than Ordinal is not translatable to SQL.");
+                    }
+
                     SQLiteExpression oldArg = CharArgAsText(visitor, arguments[0]);
                     SQLiteExpression newArg = CharArgAsText(visitor, arguments[1]);
                     if (node.Arguments[1].Type == typeof(string))
@@ -682,6 +687,34 @@ internal static class StringMemberVisitor
         {
             Type argumentType = node.Arguments[i].Type;
             if ((argumentType == typeof(bool) || argumentType == typeof(StringComparison) || argumentType == typeof(CompareOptions)) && !arguments[i].IsConstant)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasCaseChangingReplaceArgument(MethodCallExpression node, List<ResolvedModel> arguments)
+    {
+        for (int i = 2; i < arguments.Count; i++)
+        {
+            Type argumentType = node.Arguments[i].Type;
+            if (argumentType == typeof(StringComparison))
+            {
+                if ((StringComparison)arguments[i].Constant! != StringComparison.Ordinal)
+                {
+                    return true;
+                }
+            }
+            else if (argumentType == typeof(bool))
+            {
+                if ((bool)arguments[i].Constant!)
+                {
+                    return true;
+                }
+            }
+            else if (argumentType == typeof(CultureInfo))
             {
                 return true;
             }

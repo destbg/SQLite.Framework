@@ -47,6 +47,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Contains`, `StartsWith` and `EndsWith` with a case-sensitive culture-aware `StringComparison` (`InvariantCulture` or `CurrentCulture`) compare byte for byte and do not apply Unicode normalization, so a value written with a combining accent (`e` followed by U+0301) and the same value written with a precomposed character (U+00E9) do not match where .NET's `InvariantCulture` treats them as equal.
 - `IndexOf` and `LastIndexOf` with a `StringComparison` and their count overloads, are not translated to SQL. They run in memory in a `Select` and throw in a `Where`. The plain value and value-plus-start-index overloads are translated and are case-sensitive.
 - `Contains`, `StartsWith`, `EndsWith`, `Equals` and `string.Compare` with a comparison or `ignoreCase` argument that is not a constant, such as a value read from a column, run in memory in a `Select` and throw in a `Where`.
+- The `Replace` overloads that take a comparison, an ignore-case flag or a culture run in memory in a `Select` and throw in a `Where`. Only `StringComparison.Ordinal` is translated, since SQLite's `REPLACE` always matches byte for byte.
 - Reading a character by index, `s[i]`, with an out-of-range index does not throw the index-out-of-range error that .NET throws. A negative index reads a character counted from the end of the string and an index at or past the end fails with a different error.
 - `Replace("", ...)` returns the original string.
 - `ToUpper` and `ToLower`, on both `string` and `char`, fold only ASCII unless the SQLite build has ICU.
@@ -86,6 +87,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Grouping
 
 - Inside a `GroupBy` projection, a `Select` on the group followed by `Distinct`, for example `g.Select(x => x.Name).Distinct().Count()` to count the distinct values in a group, is not supported and throws.
+- `string.Join` and `string.Concat` over a group concatenate the elements in the order SQLite scans the rows. An index over the grouped columns can change that order from the insertion order LINQ-to-Objects keeps.
+- `string.Join` and `string.Concat` over a group translate the group itself, an element `Select`, a `Where` filter and `Distinct` with a comma separator. Other chains, such as `ToList` or `Distinct` with another separator, are not supported and throw.
 
 ## Joins and SelectMany
 

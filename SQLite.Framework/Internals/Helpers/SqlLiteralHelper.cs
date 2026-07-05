@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 namespace SQLite.Framework.Internals.Helpers;
 
 /// <summary>
@@ -21,11 +19,84 @@ internal static class SqlLiteralHelper
             literals[parameter.Name] = FormatLiteral(parameter.Value, options);
         }
 
-        string pattern = string.Join("|", literals.Keys
-            .OrderByDescending(name => name.Length)
-            .Select(Regex.Escape));
+        List<string> names = literals.Keys.OrderByDescending(name => name.Length).ToList();
+        StringBuilder result = new(sql.Length);
+        int i = 0;
+        while (i < sql.Length)
+        {
+            char c = sql[i];
+            if (c is '\'' or '"' or '`' or '[')
+            {
+                int end = SkipQuoted(sql, i);
+                result.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
 
-        return Regex.Replace(sql, pattern, match => literals[match.Value]);
+            if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
+            {
+                int end = sql.IndexOf('\n', i);
+                end = end < 0 ? sql.Length : end;
+                result.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
+
+            if (c == '/' && i + 1 < sql.Length && sql[i + 1] == '*')
+            {
+                int end = sql.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                end = end < 0 ? sql.Length : end + 2;
+                result.Append(sql, i, end - i);
+                i = end;
+                continue;
+            }
+
+            string? matched = null;
+            foreach (string name in names)
+            {
+                if (i + name.Length <= sql.Length && string.CompareOrdinal(sql, i, name, 0, name.Length) == 0)
+                {
+                    matched = name;
+                    break;
+                }
+            }
+
+            if (matched != null)
+            {
+                result.Append(literals[matched]);
+                i += matched.Length;
+                continue;
+            }
+
+            result.Append(c);
+            i++;
+        }
+
+        return result.ToString();
+    }
+
+    private static int SkipQuoted(string sql, int start)
+    {
+        char open = sql[start];
+        char close = open == '[' ? ']' : open;
+        int i = start + 1;
+        while (i < sql.Length)
+        {
+            if (sql[i] == close)
+            {
+                if (close != ']' && i + 1 < sql.Length && sql[i + 1] == close)
+                {
+                    i += 2;
+                    continue;
+                }
+
+                return i + 1;
+            }
+
+            i++;
+        }
+
+        return sql.Length;
     }
 
     public static string FormatLiteral(object? value, SQLiteOptions options)
@@ -110,6 +181,7 @@ internal static class SqlLiteralHelper
             return "-9e999";
         }
 
-        return value.ToString("R", CultureInfo.InvariantCulture);
+        string text = value.ToString("R", CultureInfo.InvariantCulture);
+        return text.IndexOfAny(['.', 'e', 'E']) < 0 ? text + ".0" : text;
     }
 }

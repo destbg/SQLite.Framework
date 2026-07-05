@@ -119,9 +119,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             return RunRangeWithColumns(Database.Options.AddHooks, collection, runInTransaction, SQLiteAction.Add);
         }
 
-        if (Database.Options.OnActionHooks.Count == 0
+        if (GetType() == typeof(SQLiteTable<T>)
+            && Database.Options.OnActionHooks.Count == 0
             && Database.EffectiveCommandInterceptors.Count == 0
-            && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
             TableWriteCache<T>? cache = ResolveWriteCache();
@@ -170,7 +170,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             return RunRangeWithColumns(Database.Options.UpdateHooks, collection, runInTransaction, SQLiteAction.Update);
         }
 
-        if (Database.Options.OnActionHooks.Count == 0 && Database.EffectiveCommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(UpdateItem)))
+        if (GetType() == typeof(SQLiteTable<T>) && Database.Options.OnActionHooks.Count == 0 && Database.EffectiveCommandInterceptors.Count == 0)
         {
             TableWriteCache<T>? cache = ResolveWriteCache();
             TableWriteCacheEntry<T> entry = cache != null ? cache.Update ??= BuildUpdateEntry() : BuildUpdateEntry();
@@ -199,7 +199,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int RemoveRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
-        if (Database.Options.OnActionHooks.Count == 0 && Database.EffectiveCommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(AddOrRemoveItem)))
+        if (GetType() == typeof(SQLiteTable<T>) && Database.Options.OnActionHooks.Count == 0 && Database.EffectiveCommandInterceptors.Count == 0)
         {
             TableWriteCache<T>? cache = ResolveWriteCache();
             TableWriteCacheEntry<T> entry = cache != null ? cache.Remove ??= BuildRemoveEntry() : BuildRemoveEntry();
@@ -236,9 +236,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int AddOrUpdateRange(IEnumerable<T> collection, bool runInTransaction = true, SQLiteConflict conflict = SQLiteConflict.Replace)
     {
-        if (Database.Options.OnActionHooks.Count == 0
+        if (GetType() == typeof(SQLiteTable<T>)
+            && Database.Options.OnActionHooks.Count == 0
             && Database.EffectiveCommandInterceptors.Count == 0
-            && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
             TableWriteCache<T>? cache = ResolveWriteCache();
@@ -302,9 +302,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 #endif
     public virtual int UpsertRange(IEnumerable<T> collection, Action<SQLiteUpsertBuilder<T>> configure, bool runInTransaction = true)
     {
-        if (Database.Options.OnActionHooks.Count == 0
+        if (GetType() == typeof(SQLiteTable<T>)
+            && Database.Options.OnActionHooks.Count == 0
             && Database.EffectiveCommandInterceptors.Count == 0
-            && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
             (TableColumn[] columns, string sql) = GetUpsertInfo(configure);
@@ -485,16 +485,28 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     internal (string Sql, List<SQLiteParameter> Parameters) BuildInsertWithExtraColumns(T item, IDictionary<string, object?> extra, string insertVerb = "INSERT")
     {
         TableColumn[] baseColumns;
+        string baseSql;
+        bool overriddenInfo;
         if (insertVerb == "INSERT")
         {
-            (baseColumns, _) = GetAddInfo();
+            (baseColumns, baseSql) = GetAddInfo();
+            overriddenInfo = IsItemMethodOverridden(nameof(GetAddInfo));
         }
         else
         {
-            (baseColumns, _) = GetAddOrUpdateInfo(SQLiteConflict.Replace);
+            (baseColumns, baseSql) = GetAddOrUpdateInfo(SQLiteConflict.Replace);
+            overriddenInfo = IsItemMethodOverridden(nameof(GetAddOrUpdateInfo));
         }
 
-        baseColumns = FilterColumnsForDefaults(baseColumns, item);
+        TableColumn[] filteredColumns = overriddenInfo ? baseColumns : FilterColumnsForDefaults(baseColumns, item);
+        if (ExtraWriteColumns.Count == 0
+            && filteredColumns.Length == baseColumns.Length
+            && extra.Keys.All(name => baseColumns.Any(c => c.Name == name)))
+        {
+            return (baseSql, BindColumnsWithOverrides(baseColumns, item, extra, GetAutoIncrementColumn()));
+        }
+
+        baseColumns = filteredColumns;
 
         TableColumn? autoIncrement = GetAutoIncrementColumn();
         HashSet<string> overridden = extra.Keys.ToHashSet();
@@ -543,22 +555,26 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             }
         }
 
-        string sql = names.Count == 0
-            ? $"{insertVerb} INTO \"{Table.TableName}\" DEFAULT VALUES"
-            : $"{insertVerb} INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
+        string sql = $"{insertVerb} INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
 
         return (sql, parameters);
     }
 
-    private int UpdateWithExtraColumns(T item, IDictionary<string, object?> extra)
-    {
-        (string sql, List<SQLiteParameter> parameters) = BuildUpdateWithExtraColumns(item, extra);
-        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
-    }
-
     internal (string Sql, List<SQLiteParameter> Parameters) BuildUpdateWithExtraColumns(T item, IDictionary<string, object?> extra)
     {
-        (TableColumn[] baseColumns, TableColumn[] primaryColumns, _) = GetUpdateInfo();
+        (TableColumn[] baseColumns, TableColumn[] primaryColumns, string baseSql) = GetUpdateInfo();
+        if (ExtraWriteColumns.Count == 0 && extra.Keys.All(name => baseColumns.Any(c => c.Name == name)))
+        {
+            List<SQLiteParameter> substituted = BindColumnsWithOverrides(baseColumns, item, extra, autoIncrement: null);
+            int keyIndex = substituted.Count;
+            foreach (TableColumn primaryColumn in primaryColumns)
+            {
+                substituted.Add(new SQLiteParameter { Name = $"@p{keyIndex++}", Value = primaryColumn.PropertyInfo.GetValue(item) });
+            }
+
+            return (baseSql, substituted);
+        }
+
         HashSet<string> overridden = extra.Keys.ToHashSet();
         TableColumn[] setColumns = baseColumns.Where(c => !overridden.Contains(c.Name)).ToArray();
 
@@ -589,15 +605,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             }
 
             setClauses.Add($"{IdentifierGuard.Quote(column)} = {valueSql}");
-        }
-
-        if (setClauses.Count == 0)
-        {
-            foreach (TableColumn primaryColumn in primaryColumns)
-            {
-                string quoted = IdentifierGuard.Quote(primaryColumn.Name);
-                setClauses.Add($"{quoted} = {quoted}");
-            }
         }
 
         List<string> primaryKeyClauses = [];
@@ -994,24 +1001,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         };
     }
 
-    private int DispatchAction(SQLiteAction action, T item, IDictionary<string, object?> columns)
-    {
-        if (columns.Count == 0)
-        {
-            return DispatchAction(action, item);
-        }
-
-        return action switch
-        {
-            SQLiteAction.Skip => 0,
-            SQLiteAction.Add => InsertWithExtraColumns(item, columns),
-            SQLiteAction.Update => UpdateWithExtraColumns(item, columns),
-            SQLiteAction.Remove => DefaultRemove(item),
-            SQLiteAction.AddOrUpdate => InsertWithExtraColumns(item, columns, "INSERT OR REPLACE"),
-            _ => throw new InvalidOperationException($"Unsupported SQLiteAction value: {action}"),
-        };
-    }
-
     /// <summary>
     /// Runs the default INSERT for <paramref name="item" />. Used by
     /// <see cref="DispatchAction(SQLiteAction, T)" /> when the action hook chain settles on
@@ -1229,6 +1218,30 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
     {
         return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
+    }
+
+    private int DispatchAction(SQLiteAction action, T item, IDictionary<string, object?> columns)
+    {
+        if (columns.Count == 0)
+        {
+            return DispatchAction(action, item);
+        }
+
+        return action switch
+        {
+            SQLiteAction.Skip => 0,
+            SQLiteAction.Add => InsertWithExtraColumns(item, columns),
+            SQLiteAction.Update => UpdateWithExtraColumns(item, columns),
+            SQLiteAction.Remove => DefaultRemove(item),
+            SQLiteAction.AddOrUpdate => InsertWithExtraColumns(item, columns, "INSERT OR REPLACE"),
+            _ => throw new InvalidOperationException($"Unsupported SQLiteAction value: {action}"),
+        };
+    }
+
+    private int UpdateWithExtraColumns(T item, IDictionary<string, object?> extra)
+    {
+        (string sql, List<SQLiteParameter> parameters) = BuildUpdateWithExtraColumns(item, extra);
+        return Database.CreateCommand(sql, parameters).ExecuteNonQuery();
     }
 
     private void ThrowIfExtraWriteColumnsReferenceRowOnInsert()
@@ -1550,6 +1563,26 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         configure(builder);
         SQLiteUpsertConflictTarget<T> target = builder.Build();
         return UpsertSqlBuilder.Build(Database, Table, target, (c, p) => WrapParam(p, c), ExtraWriteColumns, insertOverride).Sql;
+    }
+
+    private static List<SQLiteParameter> BindColumnsWithOverrides(TableColumn[] columns, T item, IDictionary<string, object?> extra, TableColumn? autoIncrement)
+    {
+        List<SQLiteParameter> parameters = new(columns.Length);
+        for (int i = 0; i < columns.Length; i++)
+        {
+            TableColumn column = columns[i];
+            object? value = extra.TryGetValue(column.Name, out object? hooked)
+                ? hooked
+                : column.PropertyInfo.GetValue(item);
+            if (column == autoIncrement && IsAutoIncrementUnset(value))
+            {
+                value = null;
+            }
+
+            parameters.Add(new SQLiteParameter { Name = $"@p{i}", Value = value });
+        }
+
+        return parameters;
     }
 
     private static bool UpsertHasDoUpdate(Action<SQLiteUpsertBuilder<T>> configure)

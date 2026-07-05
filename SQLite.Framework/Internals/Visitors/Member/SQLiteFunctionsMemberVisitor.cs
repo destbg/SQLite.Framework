@@ -60,7 +60,18 @@ internal static class SQLiteFunctionsMemberVisitor
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel low = visitor.ResolveExpression(node.Arguments[1]);
         ResolvedModel high = visitor.ResolveExpression(node.Arguments[2]);
-        return SQLiteExpression.Trinary(typeof(bool), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, " BETWEEN ", low.SQLiteExpression!, " AND ", high.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, low.SQLiteExpression!, high.SQLiteExpression!));
+        SQLiteExpression valueExpr = MathMemberVisitor.CastTextDecimal(visitor, value.SQLiteExpression!);
+        SQLiteExpression lowExpr = MathMemberVisitor.CastTextDecimal(visitor, low.SQLiteExpression!);
+        SQLiteExpression highExpr = MathMemberVisitor.CastTextDecimal(visitor, high.SQLiteExpression!);
+
+        if (TypeHelpers.UnsignedIntegerKey(valueExpr.Type) == typeof(ulong))
+        {
+            SQLiteExpression ge = visitor.BuildUnsignedComparison(ExpressionType.GreaterThanOrEqual, valueExpr, lowExpr, mayBeNull: false, ParameterHelpers.CombineParameters(valueExpr, lowExpr));
+            SQLiteExpression le = visitor.BuildUnsignedComparison(ExpressionType.LessThanOrEqual, valueExpr, highExpr, mayBeNull: false, ParameterHelpers.CombineParameters(valueExpr, highExpr));
+            return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", ge, " AND ", le, ")", ParameterHelpers.CombineParameters(ge, le));
+        }
+
+        return SQLiteExpression.Trinary(typeof(bool), visitor.Counters.NextIdentifier(), "(", valueExpr, " BETWEEN ", lowExpr, " AND ", highExpr, ")", ParameterHelpers.CombineParameters(valueExpr, lowExpr, highExpr));
     }
 
     private static SQLiteExpression HandleFunctionsIn(SQLVisitor visitor, MethodCallExpression node)
@@ -91,7 +102,22 @@ internal static class SQLiteFunctionsMemberVisitor
     private static SQLiteExpression HandleFunctionsVariadic(SQLVisitor visitor, MethodCallExpression node, string sqlFunction, Type returnType)
     {
         List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[0]);
-        SQLiteExpression[] itemExprs = items.Select(r => r.SQLiteExpression!).ToArray();
+        bool ordered = sqlFunction is "min" or "max";
+        SQLiteExpression[] itemExprs = items
+            .Select(r => ordered ? MathMemberVisitor.CastTextDecimal(visitor, r.SQLiteExpression!) : r.SQLiteExpression!)
+            .ToArray();
+
+        if (ordered && TypeHelpers.UnsignedIntegerKey(returnType) == typeof(ulong))
+        {
+            SQLiteExpression result = itemExprs[0];
+            for (int i = 1; i < itemExprs.Length; i++)
+            {
+                result = MathMemberVisitor.BuildUnsignedMinMax(visitor, sqlFunction == "max", returnType, result, itemExprs[i], ParameterHelpers.CombineParameters(result, itemExprs[i]));
+            }
+
+            return result;
+        }
+
         return SQLiteExpression.Variadic(returnType, visitor.Counters.NextIdentifier(), $"{sqlFunction}(", itemExprs, ", ", ")", ParameterHelpers.CombineParameters(itemExprs));
     }
 
@@ -167,7 +193,9 @@ internal static class SQLiteFunctionsMemberVisitor
     {
         ResolvedModel a = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel b = visitor.ResolveExpression(node.Arguments[1]);
-        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "nullif(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(a.SQLiteExpression!, b.SQLiteExpression!));
+        SQLiteExpression aExpr = MathMemberVisitor.CastTextDecimal(visitor, a.SQLiteExpression!);
+        SQLiteExpression bExpr = MathMemberVisitor.CastTextDecimal(visitor, b.SQLiteExpression!);
+        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "nullif(", aExpr, ", ", bExpr, ")", ParameterHelpers.CombineParameters(aExpr, bExpr));
     }
 
     private static SQLiteExpression HandleFunctionsDistinctFrom(SQLVisitor visitor, MethodCallExpression node)

@@ -237,7 +237,14 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 args[i] = compiledArgs[i].Call(ctx);
             }
 
-            return ((Delegate)target.Call(ctx)!).DynamicInvoke(args);
+            try
+            {
+                return ((Delegate)target.Call(ctx)!).DynamicInvoke(args);
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                throw ex.InnerException;
+            }
         });
     }
 

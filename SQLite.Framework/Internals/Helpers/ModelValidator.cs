@@ -88,6 +88,14 @@ internal static class ModelValidator
             }
         }
 
+        foreach (ShadowColumnSpec shadow in mapping.ShadowColumns)
+        {
+            if (!byName.ContainsKey(shadow.Name))
+            {
+                issues.Add($"Column '{table}'.'{shadow.Name}' is missing in the database.");
+            }
+        }
+
         foreach (PragmaTableInfo dbColumn in dbColumns)
         {
             if (mapping.Columns.All(c => c.Name != dbColumn.Name)

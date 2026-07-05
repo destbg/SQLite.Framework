@@ -27,7 +27,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         TableMapping mapping = visitor.Database.TableMapping(entityType);
         foreach (FtsIndexedColumn indexed in mapping.FullTextSearch!.IndexedColumns)
         {
-            if (indexed.Name == columnName || indexed.Property.Name == columnName)
+            if (indexed.Property.Name == columnName)
             {
                 return indexed.Name;
             }
@@ -283,7 +283,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
 
         for (int i = 0; i < mapping.FullTextSearch.IndexedColumns.Count; i++)
         {
-            if (mapping.FullTextSearch.IndexedColumns[i].Name == columnName || mapping.FullTextSearch.IndexedColumns[i].Property.Name == columnName)
+            if (mapping.FullTextSearch.IndexedColumns[i].Property.Name == columnName)
             {
                 return i;
             }

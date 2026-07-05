@@ -89,6 +89,7 @@ internal partial class JsonCollectionVisitor
             if (distinct && reverseApplied)
             {
                 string positionAggregate = distinctSeenReverse ? "MAX" : "MIN";
+                List<(string Expr, string Direction)> comboPending = SplitOrderBys().Where(p => p.Expr != keyColumn).ToList();
                 List<string> comboClauses = [$"SELECT {selectExpr} AS \"value\"", $"FROM {fromClause}"];
                 if (wheres.Count > 0)
                 {
@@ -96,7 +97,14 @@ internal partial class JsonCollectionVisitor
                 }
 
                 comboClauses.Add($"GROUP BY {selectExpr}");
-                comboClauses.Add($"ORDER BY {positionAggregate}({keyColumn}) DESC");
+                List<string> comboOrder = [];
+                foreach ((string expr, string direction) in comboPending)
+                {
+                    comboOrder.Add(direction == "DESC" ? $"MAX({expr}) DESC" : $"MIN({expr}) ASC");
+                }
+
+                comboOrder.Add($"{positionAggregate}({keyColumn}) DESC");
+                comboClauses.Add("ORDER BY " + string.Join(", ", comboOrder));
                 string comboInner = string.Join(nl + sp2, comboClauses);
                 return $"({nl}{sp}SELECT json_group_array({ArrayElementExpr("\"value\"")}){nl}{sp}FROM ({nl}{sp2}{comboInner}{nl}{sp}){nl})";
             }

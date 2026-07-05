@@ -368,7 +368,7 @@ public class ViewAndTriggerTests
             .Delete(db.Table<BookHistory>(), h => h.NewPrice > limits.Threshold && h.BookId == t.New.Id));
 
         Assert.Equal(
-            "CREATE TRIGGER \"trg_cap\" AFTER UPDATE ON \"Books\" FOR EACH ROW BEGIN DELETE FROM \"BookHistory\" WHERE \"NewPrice\" > 50 AND \"BookId\" = NEW.\"BookId\"; END",
+            "CREATE TRIGGER \"trg_cap\" AFTER UPDATE ON \"Books\" FOR EACH ROW BEGIN DELETE FROM \"BookHistory\" WHERE \"NewPrice\" > 50.0 AND \"BookId\" = NEW.\"BookId\"; END",
             db.ExecuteScalar<string>("SELECT sql FROM sqlite_master WHERE name = 'trg_cap'"));
     }
 

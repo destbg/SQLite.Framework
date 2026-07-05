@@ -51,6 +51,19 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
         return node.Update(newObject, newArgs);
     }
 
+    protected override Expression VisitInvocation(InvocationExpression node)
+    {
+        Expression target = Visit(node.Expression);
+        Expression[] newArgs = new Expression[node.Arguments.Count];
+        for (int i = 0; i < node.Arguments.Count; i++)
+        {
+            Expression arg = node.Arguments[i];
+            newArgs[i] = LooksLikeRowReference(arg) ? BuildMaterialization(arg) : Visit(arg);
+        }
+
+        return node.Update(target, newArgs);
+    }
+
     private bool LooksLikeRowReference(Expression expression)
     {
         if (expression is ParameterExpression pe && rowParameters.Contains(pe))

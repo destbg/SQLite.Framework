@@ -43,10 +43,10 @@ public class SQLiteSchema
 
         if (mapping.IsFullTextSearch)
         {
-            if (mapping.ComputedColumns.Count > 0 || mapping.Checks.Count > 0 || mapping.Indexes.Count > 0)
+            if (mapping.ComputedColumns.Count > 0 || mapping.Checks.Count > 0 || mapping.Indexes.Count > 0 || mapping.Triggers.Count > 0)
             {
                 throw new InvalidOperationException(
-                    $"FTS5 entity '{mapping.Type.Name}' does not support computed columns, checks or indexes declared on the model. Remove them.");
+                    $"FTS5 entity '{mapping.Type.Name}' does not support computed columns, checks, indexes or triggers declared on the model. Remove them.");
             }
 
             return CreateFullTextSearchTable(mapping);
@@ -174,7 +174,7 @@ public class SQLiteSchema
     {
         ArgumentException.ThrowIfNullOrEmpty(tableName);
         long? count = Database.ExecuteScalar<long?>(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @name",
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @name COLLATE NOCASE",
             [new SQLiteParameter { Name = "@name", Value = tableName }]);
         return count > 0;
     }
@@ -628,6 +628,29 @@ public class SQLiteSchema
     {
         TableMapping mapping = Database.TableMapping(type);
         return new SQLiteModelValidationResult(ModelValidator.Validate(Database, mapping));
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
+    internal int RunFullTextSearchRefill(TableMapping mapping)
+    {
+        FtsTableInfo fts = mapping.FullTextSearch!;
+        string quotedFts = "\"" + mapping.TableName.Replace("\"", "\"\"") + "\"";
+        TableMapping sourceMapping = Database.TableMapping(fts.Attribute.ContentTable!);
+        Dictionary<string, string> sourceColumnByProperty = sourceMapping.Columns
+            .ToDictionary(c => c.PropertyInfo.Name, c => c.Name, StringComparer.Ordinal);
+        bool renamed = fts.IndexedColumns.Any(c =>
+            !string.Equals(c.Name, sourceColumnByProperty[c.Property.Name], StringComparison.Ordinal));
+        if (!renamed)
+        {
+            return Database.Execute($"INSERT INTO {quotedFts}({quotedFts}) VALUES('rebuild')");
+        }
+
+        string sourceTable = ResolveContentTableName(fts);
+        string sourceRowId = IdentifierGuard.Quote(ResolveContentRowIdColumn(fts, mapping));
+        string columnList = string.Join(", ", fts.IndexedColumns.Select(c => IdentifierGuard.Quote(c.Name)));
+        string sourceList = string.Join(", ", fts.IndexedColumns.Select(c => IdentifierGuard.Quote(sourceColumnByProperty[c.Property.Name])));
+        return Database.Execute(
+            $"INSERT INTO {quotedFts}(rowid, {columnList}) SELECT {sourceRowId}, {sourceList} FROM \"{sourceTable.Replace("\"", "\"\"")}\"");
     }
 
     internal int RenameTableCore(string fromTable, string toTable)

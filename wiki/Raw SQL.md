@@ -88,6 +88,8 @@ To avoid this, either select all the columns the type needs, [project into a nar
 
 For cases where you just want to run SQL and get results back without the subquery wrapping that `FromSql` adds, you can use the `Query` family of methods. Write SQL, pass parameters, get typed results.
 
+The query methods accept one statement. SQL with more than one statement throws, since only the first one could run. Use `Execute` for multi-statement batches.
+
 ### Parameters
 
 Pass parameters as an anonymous object:

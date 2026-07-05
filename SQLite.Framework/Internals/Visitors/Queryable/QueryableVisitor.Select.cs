@@ -79,6 +79,11 @@ internal partial class QueryableVisitor
                     sqlExpression.Parameters
                 );
 
+                if (sqlExpression.IsDayOfWeekInteger)
+                {
+                    newSqlExpression.WithDayOfWeekInteger();
+                }
+
                 if (!string.IsNullOrEmpty(tableColumn.Key))
                 {
                     newSqlExpression.IdentifierText = tableColumn.Key;
@@ -135,8 +140,9 @@ internal partial class QueryableVisitor
         }
 
         visitor.ClientEvalUsed = false;
+        Expression selectBody = NormalizeMemberInitOrder(lambda.Body);
         Expression normalSelect;
-        if (lambda.Body is NewArrayExpression arrayBody)
+        if (selectBody is NewArrayExpression arrayBody)
         {
             Type elementType = arrayBody.Type.GetElementType()!;
             List<Expression> elements = arrayBody.Expressions
@@ -146,10 +152,10 @@ internal partial class QueryableVisitor
         }
         else
         {
-            normalSelect = visitor.Visit(lambda.Body);
+            normalSelect = visitor.Visit(selectBody);
             if (normalSelect is SQLiteExpression projectionExpression)
             {
-                normalSelect = visitor.CoalesceLiftedOrderComparison(lambda.Body, projectionExpression);
+                normalSelect = visitor.CoalesceLiftedOrderComparison(selectBody, projectionExpression);
             }
         }
         Expression selectExpression = visitor.ClientEvalUsed
@@ -291,6 +297,21 @@ internal partial class QueryableVisitor
         }
 
         return element;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Projection types are part of the client assembly.")]
+    private static Expression NormalizeMemberInitOrder(Expression body)
+    {
+        if (body is not MemberInitExpression memberInit)
+        {
+            return body;
+        }
+
+        PropertyInfo[] declaredProperties = memberInit.Type.GetProperties();
+        List<MemberBinding> ordered = memberInit.Bindings
+            .OrderBy(binding => Array.FindIndex(declaredProperties, p => p.Name == binding.Member.Name))
+            .ToList();
+        return memberInit.Update(memberInit.NewExpression, ordered);
     }
 
     private static bool HasRowReferencingListBinding(LambdaExpression lambda)

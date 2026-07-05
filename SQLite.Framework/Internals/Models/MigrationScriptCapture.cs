@@ -29,8 +29,9 @@ internal sealed class MigrationScriptCapture : ISQLiteCommandInterceptor
         }
 
         string trimmed = command.CommandText.TrimStart();
-        if (trimmed.StartsWith("SAVEPOINT", StringComparison.OrdinalIgnoreCase)
-            || trimmed.StartsWith("RELEASE", StringComparison.OrdinalIgnoreCase))
+        if (trimmed.StartsWith("SAVEPOINT SQLITE_AUTOINDEX_", StringComparison.Ordinal)
+            || trimmed.StartsWith("RELEASE SQLITE_AUTOINDEX_", StringComparison.Ordinal)
+            || trimmed.StartsWith("ROLLBACK TO SQLITE_AUTOINDEX_", StringComparison.Ordinal))
         {
             return;
         }

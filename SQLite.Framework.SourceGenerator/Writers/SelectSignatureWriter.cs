@@ -880,7 +880,7 @@ public static class SelectSignatureWriter
             foreach (ArgumentSyntax invokeArg in invocation.ArgumentList.Arguments)
             {
                 sb.Append(' ');
-                if (!TryAppend(sb, invokeArg.Expression, ctx))
+                if (!AppendInvocationArgument(sb, invokeArg.Expression, expandRowArgs: true, ctx))
                 {
                     return false;
                 }

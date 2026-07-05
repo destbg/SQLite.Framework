@@ -297,8 +297,8 @@ public class SQLiteTableSchemaTests
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'BooksArchive'");
 
-        Assert.Equal("CREATE TABLE \"BooksArchive\" (\"BookId\" INTEGER PRIMARY KEY, \"BookTitle\" TEXT NOT NULL, \"BookAuthorId\" INTEGER NOT NULL, \"BookPrice\" REAL NOT NULL, CONSTRAINT \"CK_Builder_Price\" CHECK (\"BookPrice\" > 0))", sql);
-        Assert.Equal("CREATE TABLE \"BooksArchive\" (\"BookId\" INTEGER PRIMARY KEY, \"BookTitle\" TEXT NOT NULL, \"BookAuthorId\" INTEGER NOT NULL, \"BookPrice\" REAL NOT NULL, CONSTRAINT \"CK_Builder_Price\" CHECK (\"BookPrice\" > 0))", sql);
+        Assert.Equal("CREATE TABLE \"BooksArchive\" (\"BookId\" INTEGER PRIMARY KEY, \"BookTitle\" TEXT NOT NULL, \"BookAuthorId\" INTEGER NOT NULL, \"BookPrice\" REAL NOT NULL, CONSTRAINT \"CK_Builder_Price\" CHECK (\"BookPrice\" > 0.0))", sql);
+        Assert.Equal("CREATE TABLE \"BooksArchive\" (\"BookId\" INTEGER PRIMARY KEY, \"BookTitle\" TEXT NOT NULL, \"BookAuthorId\" INTEGER NOT NULL, \"BookPrice\" REAL NOT NULL, CONSTRAINT \"CK_Builder_Price\" CHECK (\"BookPrice\" > 0.0))", sql);
     }
 
     [Fact]
@@ -583,8 +583,8 @@ public class SQLiteTableSchemaTests
 
         string indexSql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Partial'");
-        Assert.Equal("CREATE INDEX \"IX_Partial\" ON \"BooksArchive\" (\"BookTitle\") WHERE \"BookPrice\" > 0", indexSql);
-        Assert.Equal("CREATE INDEX \"IX_Partial\" ON \"BooksArchive\" (\"BookTitle\") WHERE \"BookPrice\" > 0", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_Partial\" ON \"BooksArchive\" (\"BookTitle\") WHERE \"BookPrice\" > 0.0", indexSql);
+        Assert.Equal("CREATE INDEX \"IX_Partial\" ON \"BooksArchive\" (\"BookTitle\") WHERE \"BookPrice\" > 0.0", indexSql);
     }
 
     [Fact]

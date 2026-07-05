@@ -254,8 +254,7 @@ public sealed class SQLiteMigrationStep
             {
                 int count = db.Schema.DropTable<T>();
                 count += db.Schema.CreateTable<T>();
-                string quoted = "\"" + mapping.TableName.Replace("\"", "\"\"") + "\"";
-                return count + db.Execute($"INSERT INTO {quoted}({quoted}) VALUES('rebuild')");
+                return count + db.Schema.RunFullTextSearchRefill(mapping);
             },
         });
         return this;

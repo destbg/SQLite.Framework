@@ -21,7 +21,7 @@ The full set of built-in accessors:
 
 | Property | Pragma | Notes |
 |---|---|---|
-| `ForeignKeys` | `foreign_keys` | True or false. Off by default in SQLite. |
+| `ForeignKeys` | `foreign_keys` | True or false. Off by default in SQLite. Cannot change inside a transaction and throws there, since SQLite ignores the change. |
 | `JournalMode` | `journal_mode` | `DELETE`, `WAL`, `MEMORY`, `TRUNCATE`, `PERSIST`, `OFF`. |
 | `CacheSize` | `cache_size` | Number of pages or kibibytes if you pass a negative number. |
 | `SynchronousMode` | `synchronous` | An `SQLiteSynchronousMode` enum: `Off`, `Normal`, `Full`, `Extra`. |

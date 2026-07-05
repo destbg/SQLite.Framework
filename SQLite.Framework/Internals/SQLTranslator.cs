@@ -86,7 +86,7 @@ internal class SQLTranslator
         if (!isInnerQuery)
         {
             FromSqlParameterReserver.Reserve(node, Visitor.Counters);
-            bool ignoreAll = QueryFilterInjector.ShouldIgnoreAll(node, Visitor.Database.Options);
+            bool ignoreAll = Visitor.Counters.IgnoreQueryFilters || QueryFilterInjector.ShouldIgnoreAll(node, Visitor.Database.Options);
             Visitor.Counters.IgnoreQueryFilters = ignoreAll;
             node = QueryFilterInjector.Inject(node, Visitor.Database.Options, ignoreAll);
         }
@@ -750,15 +750,34 @@ internal class SQLTranslator
             {
                 KeyValuePair<string, Expression> shape = innerTranslator.Visitor.TableColumns.First();
                 string columnName = innerTranslator.Selects[0].IdentifierText;
+                SQLiteExpression scalarLeaf = SQLiteExpression.Leaf(entityType, Visitor.Counters.NextIdentifier(), $"{alias}.\"{columnName}\"");
+                if (innerTranslator.Selects[0].IsDayOfWeekInteger)
+                {
+                    scalarLeaf.WithDayOfWeekInteger();
+                }
+
                 Visitor.TableColumns = new Dictionary<string, Expression>
                 {
-                    [shape.Key] = SQLiteExpression.Leaf(entityType, Visitor.Counters.NextIdentifier(), $"{alias}.\"{columnName}\"")
+                    [shape.Key] = scalarLeaf
                 };
             }
             else
             {
+                Dictionary<string, SQLiteExpression> innerSelects = innerTranslator.Selects
+                    .Where(s => !string.IsNullOrEmpty(s.IdentifierText))
+                    .GroupBy(s => s.IdentifierText)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
                 Visitor.TableColumns = entityType.GetProperties()
-                    .ToDictionary(p => p.Name, Expression (p) => SQLiteExpression.Leaf(p.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(p.Name)}"));
+                    .ToDictionary(p => p.Name, Expression (p) =>
+                    {
+                        SQLiteExpression leaf = SQLiteExpression.Leaf(p.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(p.Name)}");
+                        if (innerSelects.TryGetValue(p.Name, out SQLiteExpression? source) && source.IsDayOfWeekInteger)
+                        {
+                            leaf.WithDayOfWeekInteger();
+                        }
+
+                        return leaf;
+                    });
             }
 
             methodCalls.RemoveRange(wrapIdx + 1, methodCalls.Count - (wrapIdx + 1));

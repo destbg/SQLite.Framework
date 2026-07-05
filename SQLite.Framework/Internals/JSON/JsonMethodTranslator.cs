@@ -166,7 +166,7 @@ internal static class JsonMethodTranslator
         }
 
         return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-            "json_extract(", src, $", {pathParameter.Name})", parameters);
+            "json_extract(", src, $", {pathParameter.Name})", parameters).WithJsonSource();
     }
 
     private static bool IsNonStringDictionaryKeys(Expression? expression)

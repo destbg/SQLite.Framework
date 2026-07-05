@@ -30,6 +30,11 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
     public string SavepointName { get; }
 
     /// <summary>
+    /// The lock acquisition this transaction owns, when it took the connection lock itself.
+    /// </summary>
+    internal LockToken? OwnedLockToken { get; init; }
+
+    /// <summary>
     /// Commits the transaction.
     /// </summary>
     public void Commit()
@@ -56,9 +61,10 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             if (ownsLock)
             {
-                Database.ReleaseLock();
-                Database.NotifyTransactionEnded();
+                Database.ReleaseLock(OwnedLockToken!);
             }
+
+            Database.NotifyTransactionEnded();
         }
     }
 
@@ -84,9 +90,10 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             if (ownsLock)
             {
-                Database.ReleaseLock();
-                Database.NotifyTransactionEnded();
+                Database.ReleaseLock(OwnedLockToken!);
             }
+
+            Database.NotifyTransactionEnded();
         }
     }
 
@@ -106,13 +113,18 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
             Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
         }
+        catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
+        {
+            // An enclosing rollback already destroyed the savepoint.
+        }
         finally
         {
             if (ownsLock)
             {
-                Database.ReleaseLock();
-                Database.NotifyTransactionEnded();
+                Database.ReleaseLock(OwnedLockToken!);
             }
+
+            Database.NotifyTransactionEnded();
         }
     }
 

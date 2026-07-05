@@ -184,6 +184,7 @@ public static class QueryableExtensions
         {
             QueryType = QueryType.Update,
         };
+        PreScanSetters(table.Database, translator, setters);
         translator.Visit(source.Expression);
 
         TableMapping targetMapping = table.Database.TableMapping(translator.Visitor.From!.Type);
@@ -284,6 +285,7 @@ public static class QueryableExtensions
             EmitReturning = true,
             OmitTableAlias = true,
         };
+        PreScanSetters(returning.Database, translator, setters);
         IQueryable<TResult> projected = returning.Source.Select(returning.Projection);
         translator.Visit(projected.Expression);
 
@@ -536,6 +538,19 @@ public static class QueryableExtensions
         Expression callExpression = Expression.Call(marker, source.Expression, selector);
 
         return sqliteSource.Provider.Execute<double>(callExpression);
+    }
+
+    private static void PreScanSetters<T>(SQLiteDatabase database, SQLTranslator translator, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
+    {
+        foreach (LambdaExpression setter in SetterRecorder.RecordSetterBodies(setters))
+        {
+            Expression body = CommonHelpers.Inline(setter.Body);
+            FromSqlParameterReserver.Reserve(body, translator.Visitor.Counters);
+            if (QueryFilterInjector.ShouldIgnoreAll(body, database.Options))
+            {
+                translator.Visitor.Counters.IgnoreQueryFilters = true;
+            }
+        }
     }
 
     private static void EnsureWritable(Expression expression)

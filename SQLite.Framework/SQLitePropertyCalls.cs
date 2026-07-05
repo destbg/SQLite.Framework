@@ -7,6 +7,7 @@ public class SQLitePropertyCalls<T>
 {
     private readonly SQLVisitor visitor;
     private readonly TableMapping targetMapping;
+    private readonly List<LambdaExpression>? recordedSetters;
 
     internal SQLitePropertyCalls(SQLVisitor visitor, TableMapping targetMapping)
     {
@@ -14,7 +15,20 @@ public class SQLitePropertyCalls<T>
         this.targetMapping = targetMapping;
     }
 
+    internal SQLitePropertyCalls()
+    {
+        visitor = null!;
+        targetMapping = null!;
+        recordedSetters = [];
+    }
+
     internal List<(string, SQLiteExpression)> SetProperties { get; } = [];
+
+    /// <summary>
+    /// The value lambdas declared through <c>Set</c> while the instance records instead of
+    /// translating. Null on a translating instance.
+    /// </summary>
+    internal IReadOnlyList<LambdaExpression>? RecordedSetters => recordedSetters;
 
     /// <summary>
     /// Sets the value of a specified property for update operations.
@@ -25,6 +39,11 @@ public class SQLitePropertyCalls<T>
     /// <returns>The current <see cref="SQLitePropertyCalls{T}"/> instance for chaining.</returns>
     public SQLitePropertyCalls<T> Set<TValue>(Expression<Func<T, TValue>> propertyGetter, TValue value)
     {
+        if (recordedSetters != null)
+        {
+            return this;
+        }
+
         string propertyName = GetPropertyName(propertyGetter);
         MemberExpression member = (MemberExpression)propertyGetter.Body;
         string paramName = visitor.Counters.NextParamName();
@@ -47,6 +66,12 @@ public class SQLitePropertyCalls<T>
     /// <returns>The current <see cref="SQLitePropertyCalls{T}"/> instance for chaining.</returns>
     public SQLitePropertyCalls<T> Set<TValue>(Expression<Func<T, TValue>> propertyGetter, Expression<Func<T, TValue>> setter)
     {
+        if (recordedSetters != null)
+        {
+            recordedSetters.Add(setter);
+            return this;
+        }
+
         string propertyName = GetPropertyName(propertyGetter);
         visitor.MethodArguments[setter.Parameters[0]] = visitor.TableColumns;
         Expression setterBody = CommonHelpers.Inline(setter.Body);

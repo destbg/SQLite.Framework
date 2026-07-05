@@ -16,7 +16,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly object tableMappingsLock = new();
     private readonly object readGateLock = new();
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
-    private readonly AsyncLocal<bool> holdsConnectionLock = new();
+    private readonly AsyncLocal<LockToken?> holdsConnectionLock = new();
+    private bool disposed;
     private readonly ConcurrentDictionary<Type, TableMapping> tableMappings = [];
     private readonly ConcurrentDictionary<SQLiteDatabase, string> attachedDatabases = new();
     private readonly PreparedStatementPool statementPool = new();
@@ -112,7 +113,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public SQLiteSchema Schema { get => field ??= Options.SchemaFactory(this); private set; }
 
-    internal bool HoldsConnectionLock => holdsConnectionLock.Value;
+    internal bool HoldsConnectionLock => holdsConnectionLock.Value is { Active: true };
 
     /// <summary>
     /// The command interceptors commands notify and the write fast paths gate on. Normally the
@@ -126,6 +127,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// True while a migration run or script rehearsal is applying operations.
+    /// </summary>
+    internal bool MigrationInProgress { get; set; }
+
+    /// <summary>
+    /// True while the connection sits inside an open transaction or savepoint.
+    /// </summary>
+    internal bool InOpenTransaction => IsConnected && Handle != null && raw.sqlite3_get_autocommit(Handle) == 0;
+
+    /// <summary>
     /// True once <see cref="OnModelCreating" /> has completed, after which table mappings no
     /// longer change. The single-item write fast path only caches SQL while this is set.
     /// </summary>
@@ -134,6 +145,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <inheritdoc />
     public virtual void Dispose()
     {
+        disposed = true;
         if (IsConnected)
         {
             IsConnected = false;
@@ -231,29 +243,27 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public SQLiteTransaction BeginTransaction()
     {
-        bool ownsLock = !holdsConnectionLock.Value;
+        bool ownsLock = !HoldsConnectionLock;
+        LockToken? token = null;
 
         if (ownsLock)
         {
             connectionSemaphore.Wait();
-            holdsConnectionLock.Value = true;
+            token = SetConnectionLock();
         }
 
         try
         {
             string savepointName = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
             CreateCommand($"SAVEPOINT {savepointName}", []).ExecuteNonQuery();
-            if (ownsLock)
-            {
-                NotifyTransactionStarted();
-            }
-            return new SQLiteTransaction(this, savepointName, ownsLock);
+            NotifyTransactionStarted();
+            return new SQLiteTransaction(this, savepointName, ownsLock) { OwnedLockToken = token };
         }
         catch
         {
             if (ownsLock)
             {
-                ReleaseLock();
+                ReleaseLock(token!);
             }
             throw;
         }
@@ -274,6 +284,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public virtual void OpenConnection()
     {
+        ObjectDisposedException.ThrowIf(disposed, this);
         lock (connectionOpenLock)
         {
             if (IsConnected)
@@ -618,12 +629,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     public virtual IDisposable Lock()
     {
-        if (holdsConnectionLock.Value)
+        if (HoldsConnectionLock)
         {
             return NoOpLockObject.Instance;
         }
 
-        return new LockObject(connectionSemaphore, holdsConnectionLock);
+        return new LockObject(this, connectionSemaphore);
     }
 
     /// <summary>
@@ -971,10 +982,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 
         sqlite3 handle = GetActiveHandle();
-        SQLiteResult result = (SQLiteResult)raw.sqlite3_prepare_v2(handle, sql, out sqlite3_stmt? stmt);
+        SQLiteResult result = (SQLiteResult)raw.sqlite3_prepare_v2(handle, sql, out sqlite3_stmt? stmt, out string? tail);
         if (result != SQLiteResult.OK)
         {
             throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
+        }
+
+        if (!string.IsNullOrWhiteSpace(tail))
+        {
+            raw.sqlite3_finalize(stmt);
+            throw new InvalidOperationException(
+                "The SQL contains more than one statement, which a query can only run partially. Use Execute for multi-statement batches.");
         }
 
         return stmt;
@@ -1043,9 +1061,10 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return command.ExecuteQueryInternal<T>(query);
     }
 
-    internal void ReleaseLock()
+    internal void ReleaseLock(LockToken token)
     {
-        holdsConnectionLock.Value = false;
+        token.Deactivate();
+        holdsConnectionLock.Value = null;
         connectionSemaphore.Release();
     }
 
@@ -1094,22 +1113,29 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return gate == null ? Task.CompletedTask : gate.WaitAsync(cancellationToken);
     }
 
-    internal void SetConnectionLock()
+    internal LockToken SetConnectionLock()
     {
-        holdsConnectionLock.Value = true;
+        LockToken token = new();
+        holdsConnectionLock.Value = token;
+        return token;
     }
 
-    internal async Task<string> AcquireConnectionAndCreateSavepoint(CancellationToken cancellationToken)
+    internal void AdoptConnectionLock(LockToken token)
+    {
+        holdsConnectionLock.Value = token;
+    }
+
+    internal async Task<(string SavepointName, LockToken Token)> AcquireConnectionAndCreateSavepoint(CancellationToken cancellationToken)
     {
         await connectionSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-        holdsConnectionLock.Value = true;
+        LockToken token = SetConnectionLock();
         try
         {
-            return CreateSavepoint();
+            return (CreateSavepoint(), token);
         }
         catch
         {
-            ReleaseLock();
+            ReleaseLock(token);
             throw;
         }
     }
@@ -1264,7 +1290,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return null;
         }
 
-        if (holdsConnectionLock.Value)
+        if (HoldsConnectionLock)
         {
             return null;
         }

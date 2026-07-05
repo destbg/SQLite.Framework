@@ -27,7 +27,16 @@ public class SQLitePragmas
     public virtual bool ForeignKeys
     {
         get => Database.ExecuteScalar<int>("PRAGMA foreign_keys") == 1;
-        set => Database.Execute($"PRAGMA foreign_keys = {(value ? 1 : 0)}");
+        set
+        {
+            if (Database.InOpenTransaction)
+            {
+                throw new InvalidOperationException(
+                    "PRAGMA foreign_keys cannot change inside a transaction. Set it before the transaction starts.");
+            }
+
+            Database.Execute($"PRAGMA foreign_keys = {(value ? 1 : 0)}");
+        }
     }
 
     /// <summary>

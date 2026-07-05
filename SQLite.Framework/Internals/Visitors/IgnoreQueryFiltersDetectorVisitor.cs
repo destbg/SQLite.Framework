@@ -14,12 +14,38 @@ internal sealed class IgnoreQueryFiltersDetectorVisitor : ExpressionVisitor
 
     protected override Expression VisitConstant(ConstantExpression node)
     {
-        if (!Found && node.Value is SQLiteCte cte && visited.Add(cte))
+        DescendIntoValue(node.Value);
+        return node;
+    }
+
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if (!Found
+            && (node.Type.IsAssignableTo(typeof(SQLiteCte)) || node.Type.IsAssignableTo(typeof(IQueryable)))
+            && ExpressionHelpers.IsConstant(node))
+        {
+            DescendIntoValue(ExpressionHelpers.GetConstantValue(node));
+            return node;
+        }
+
+        return base.VisitMember(node);
+    }
+
+    private void DescendIntoValue(object? value)
+    {
+        if (Found)
+        {
+            return;
+        }
+
+        if (value is SQLiteCte cte && visited.Add(cte))
         {
             Visit(cte.Query.Body);
         }
-
-        return node;
+        else if (value is IQueryable queryable && visited.Add(queryable))
+        {
+            Visit(queryable.Expression);
+        }
     }
 
     protected override Expression VisitMethodCall(MethodCallExpression node)

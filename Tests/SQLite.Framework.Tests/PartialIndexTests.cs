@@ -40,7 +40,7 @@ public class PartialIndexTests
         string sql = db.QueryFirst<string>(
             "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'IX_Title_Active'");
 
-        Assert.Equal("CREATE INDEX \"IX_Title_Active\" ON \"BooksArchive\" (\"BookTitle\") WHERE \"BookPrice\" > 0", sql);
+        Assert.Equal("CREATE INDEX \"IX_Title_Active\" ON \"BooksArchive\" (\"BookTitle\") WHERE \"BookPrice\" > 0.0", sql);
     }
 
     [Fact]

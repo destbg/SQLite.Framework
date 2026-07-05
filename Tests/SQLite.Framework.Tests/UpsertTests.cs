@@ -408,7 +408,7 @@ public class UpsertTests
             .DoUpdate(s => s.Set(b => b.Price, (current, excluded) => current.Price + excluded.Price))
             .Where((current, excluded) => excluded.Price > 0));
         Assert.Equal(
-            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookPrice\" = (\"BookPrice\" + excluded.\"BookPrice\") WHERE excluded.\"BookPrice\" > 0"),
+            N("INSERT INTO \"Books\" (\"BookId\", \"BookTitle\", \"BookAuthorId\", \"BookPrice\") VALUES (@p0, @p1, @p2, @p3) ON CONFLICT (\"BookId\") DO UPDATE SET \"BookPrice\" = (\"BookPrice\" + excluded.\"BookPrice\") WHERE excluded.\"BookPrice\" > 0.0"),
             N(sql));
     }
 

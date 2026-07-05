@@ -442,11 +442,8 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
         }
 
         string[]? targetPropertyNames = target == null ? null : ResolvePropertyNames(target.Body);
-        (string targetTable, string[] targetColumns) = ForeignKeyResolver.ResolveTargets(
-            sourceTable: mapping.TableName,
-            sourceColumns: sourceColumnNames,
-            database.TableMapping<TParent>(),
-            targetPropertyNames);
+        TableMapping sourceMapping = mapping;
+        TableMapping parentMapping = database.TableMapping<TParent>();
 
         ForeignKeyResolver.ValidateSetNullCompatibility(
             sourceTable: mapping.TableName,
@@ -457,8 +454,15 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 
         ForeignKeyInfo info = new(
             columns: sourceColumnNames,
-            targetTable: targetTable,
-            targetColumns: targetColumns,
+            resolveTarget: () =>
+            {
+                (string targetTable, string[] targetColumns) = ForeignKeyResolver.ResolveTargets(
+                    sourceTable: sourceMapping.TableName,
+                    sourceColumns: sourceColumnNames,
+                    parentMapping,
+                    targetPropertyNames);
+                return (targetTable, targetColumns);
+            },
             onDelete: onDelete,
             onUpdate: onUpdate,
             deferred: deferred);

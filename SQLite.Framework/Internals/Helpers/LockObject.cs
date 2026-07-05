@@ -5,20 +5,18 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal class LockObject : IDisposable
 {
-    private readonly SemaphoreSlim semaphore;
-    private readonly AsyncLocal<bool> holdsLock;
+    private readonly SQLiteDatabase database;
+    private readonly LockToken token;
 
-    public LockObject(SemaphoreSlim semaphore, AsyncLocal<bool> holdsLock)
+    public LockObject(SQLiteDatabase database, SemaphoreSlim semaphore)
     {
-        this.semaphore = semaphore;
-        this.holdsLock = holdsLock;
+        this.database = database;
         semaphore.Wait();
-        holdsLock.Value = true;
+        token = database.SetConnectionLock();
     }
 
     public void Dispose()
     {
-        holdsLock.Value = false;
-        semaphore.Release();
+        database.ReleaseLock(token);
     }
 }

@@ -10,7 +10,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
 {
     private readonly SQLiteDatabase database;
     private readonly TableMapping mapping;
-    private readonly List<(string Column, string ValueSql)> sets = [];
+    private readonly List<MigrationSetValue> sets = [];
 
     internal SQLiteMigrationBuilder(SQLiteDatabase database, TableMapping mapping)
     {
@@ -18,7 +18,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
         this.mapping = mapping;
     }
 
-    internal IReadOnlyList<(string Column, string ValueSql)> Sets => sets;
+    internal IReadOnlyList<MigrationSetValue> Sets => sets;
 
     /// <summary>
     /// Sets the target column to a constant value. The target is a property on
@@ -27,7 +27,11 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
     /// </summary>
     public SQLiteMigrationBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, TValue value)
     {
-        sets.Add((CommonHelpers.Resolve(mapping, column), ConverterSql.WrapParameter(SqlLiteralHelper.FormatLiteral(value, database.Options), typeof(TValue), database.Options)));
+        sets.Add(new MigrationSetValue
+        {
+            Column = CommonHelpers.Resolve(mapping, column),
+            ValueSql = ConverterSql.WrapParameter(SqlLiteralHelper.FormatLiteral(value, database.Options), typeof(TValue), database.Options),
+        });
         return this;
     }
 
@@ -39,7 +43,14 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
     /// </summary>
     public SQLiteMigrationBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, Expression<Func<T, TValue>> value)
     {
-        sets.Add((CommonHelpers.Resolve(mapping, column), BareSqlTranslator.Translate(database, mapping, value)));
+        SetReadColumnCollector reads = new(mapping, value.Parameters[0]);
+        reads.Visit(CommonHelpers.Inline(value.Body));
+        sets.Add(new MigrationSetValue
+        {
+            Column = CommonHelpers.Resolve(mapping, column),
+            ValueSql = BareSqlTranslator.Translate(database, mapping, value),
+            ReadColumns = reads.Columns,
+        });
         return this;
     }
 }

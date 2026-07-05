@@ -358,12 +358,22 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
     {
         List<TResult> results = [];
         bool useColumns = columnInsert.HasValue && CommonHelpers.HasColumnHooks<T>(hooks);
+        TableColumn? autoIncrement = runInTransaction ? Source.GetAutoIncrementColumn() : null;
+        List<(T Item, object? Key)>? assignedKeys = autoIncrement != null ? [] : null;
 
         if (runInTransaction)
         {
             using SQLiteTransaction transaction = Database.BeginTransaction();
-            Body();
-            transaction.Commit();
+            try
+            {
+                Body();
+                transaction.Commit();
+            }
+            catch
+            {
+                CommonHelpers.RestoreAssignedKeys(autoIncrement, assignedKeys);
+                throw;
+            }
         }
         else
         {
@@ -376,6 +386,11 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         {
             foreach (T item in collection)
             {
+                if (autoIncrement != null)
+                {
+                    assignedKeys!.Add((item, autoIncrement.PropertyInfo.GetValue(item)));
+                }
+
                 if (useColumns)
                 {
                     results.AddRange(RunWithColumnHooks(item, hooks, startingAction, columnInsert!.Value));

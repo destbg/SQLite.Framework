@@ -140,6 +140,16 @@ internal partial class JsonCollectionVisitor
             clauses.Add("WHERE " + string.Join(" AND ", wheres));
         }
 
+        if (groupBys.Count > 0)
+        {
+            clauses.Add("GROUP BY " + string.Join(", ", groupBys));
+        }
+
+        if (havings.Count > 0)
+        {
+            clauses.Add("HAVING " + string.Join(" AND ", havings));
+        }
+
         if (orderBys.Count > 0)
         {
             clauses.Add("ORDER BY " + string.Join(", ", orderBys));
@@ -151,6 +161,7 @@ internal partial class JsonCollectionVisitor
         fromOverride = $"({string.Join(" ", clauses)}) {wrapAlias}";
         crossJoin = null;
         wheres.Clear();
+        groupBys.Clear();
         havings.Clear();
         orderBys.Clear();
         for (int i = 0; i < pendingOrder.Count; i++)
@@ -196,7 +207,7 @@ internal partial class JsonCollectionVisitor
 
         clauses.Add($"GROUP BY {selectExpr}");
         clauses.Add(groupOrder.Count > 0
-            ? "ORDER BY " + string.Join(", ", groupOrder)
+            ? "ORDER BY " + string.Join(", ", groupOrder) + $", {keyAggregate}({keyColumn}){keyDirection}"
             : $"ORDER BY {keyAggregate}({keyColumn}){keyDirection}");
 
         string wrapAlias = $"j{visitor.Counters.NextTableIndex('j')}";
@@ -209,8 +220,11 @@ internal partial class JsonCollectionVisitor
             orderBys.Add($"{wrapAlias}.\"o{i}\" {pendingOrder[i].Direction}");
         }
 
+        orderBys.Add($"{wrapAlias}.\"key\" {(reverseApplied ? "DESC" : "ASC")}");
+
         distinct = false;
         distinctSeenReverse = false;
+        reverseApplied = false;
         selectExpr = $"{wrapAlias}.\"value\"";
         keyColumn = $"{wrapAlias}.\"key\"";
     }
@@ -324,15 +338,26 @@ internal partial class JsonCollectionVisitor
             string innerSql = VisitLambda(call.Arguments[1], elementType);
             string overrideJoinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
             fromOverride = $"{fromOverride}, json_each({innerSql}) {overrideJoinAlias}";
-            keyColumn = $"{overrideJoinAlias}.\"key\"";
+            keyColumn = CompositePositionKey(keyColumn, overrideJoinAlias);
             ApplySelectManyProjection(resultSelector, outerValueSql, elementType, $"{overrideJoinAlias}.\"value\"", innerElementType);
+            return;
+        }
+
+        if (crossJoin != null)
+        {
+            string chainedOuterValueSql = selectExpr;
+            string chainedInnerSql = VisitLambda(call.Arguments[1], elementType);
+            string chainedJoinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
+            crossJoin = $"{crossJoin}, json_each({chainedInnerSql}) {chainedJoinAlias}";
+            keyColumn = CompositePositionKey(keyColumn, chainedJoinAlias);
+            ApplySelectManyProjection(resultSelector, chainedOuterValueSql, elementType, $"{chainedJoinAlias}.\"value\"", innerElementType);
             return;
         }
 
         string selSql = VisitLambdaAliased(call.Arguments[1], elementType, baseAlias);
         string joinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         crossJoin = $", json_each({selSql}) {joinAlias}";
-        keyColumn = $"{joinAlias}.\"key\"";
+        keyColumn = CompositePositionKey(keyColumn, joinAlias);
         ApplySelectManyProjection(resultSelector, $"{baseAlias}.\"value\"", elementType, $"{joinAlias}.\"value\"", innerElementType);
     }
 
@@ -562,6 +587,11 @@ internal partial class JsonCollectionVisitor
         selectExpr = "1";
         limit = "1";
         wrapInArray = false;
+    }
+
+    private static string CompositePositionKey(string outerKey, string joinAlias)
+    {
+        return $"({outerKey} * 1000000000 + {joinAlias}.\"key\")";
     }
 
     private static string ResolveCountArgument(Expression arg)

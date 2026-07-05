@@ -6,6 +6,8 @@ namespace SQLite.Framework.Models;
 /// </summary>
 public class ForeignKeyInfo
 {
+    private readonly Lazy<(string Table, IReadOnlyList<string> Columns)> target;
+
     /// <summary>
     /// Initializes a new foreign key.
     /// </summary>
@@ -24,8 +26,20 @@ public class ForeignKeyInfo
         }
 
         Columns = columns;
-        TargetTable = targetTable;
-        TargetColumns = targetColumns;
+        target = new Lazy<(string, IReadOnlyList<string>)>(() => (targetTable, targetColumns));
+        OnDelete = onDelete;
+        OnUpdate = onUpdate;
+        Deferred = deferred;
+    }
+
+    /// <summary>
+    /// Initializes a foreign key whose target names resolve on first use. The fluent builder uses
+    /// this so a later rename of the parent's table or columns still reaches the key.
+    /// </summary>
+    internal ForeignKeyInfo(IReadOnlyList<string> columns, Func<(string Table, IReadOnlyList<string> Columns)> resolveTarget, SQLiteForeignKeyAction onDelete, SQLiteForeignKeyAction onUpdate, bool deferred)
+    {
+        Columns = columns;
+        target = new Lazy<(string, IReadOnlyList<string>)>(resolveTarget);
         OnDelete = onDelete;
         OnUpdate = onUpdate;
         Deferred = deferred;
@@ -39,12 +53,12 @@ public class ForeignKeyInfo
     /// <summary>
     /// The referenced table's name.
     /// </summary>
-    public string TargetTable { get; }
+    public string TargetTable => target.Value.Table;
 
     /// <summary>
     /// Column names on the target table, in the same order as <see cref="Columns" />.
     /// </summary>
-    public IReadOnlyList<string> TargetColumns { get; }
+    public IReadOnlyList<string> TargetColumns => target.Value.Columns;
 
     /// <summary>
     /// Action to take when the parent row is deleted.

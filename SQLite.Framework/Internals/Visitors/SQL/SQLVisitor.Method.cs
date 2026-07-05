@@ -49,6 +49,8 @@ internal partial class SQLVisitor
             SQLiteExpression right = BracketBinaryOperand(rightOperand, CoalesceLiftedOrderComparison(rightOperand, argument.SQLiteExpression!));
             left = CoerceJsonTemporalOperand(obj, left, argument.SQLiteExpression!);
             right = CoerceJsonTemporalOperand(argument, right, obj.SQLiteExpression!);
+            left = CoerceDayOfWeekOperand(leftOperand, left, right);
+            right = CoerceDayOfWeekOperand(rightOperand, right, left);
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(left, right);
             SQLiteExpression equalsResult = SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", left, " IS ", right, "", parameters);
             equalsResult.RequiresBrackets = true;

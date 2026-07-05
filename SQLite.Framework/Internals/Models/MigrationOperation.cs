@@ -29,12 +29,19 @@ internal sealed class MigrationOperation
     /// <summary>
     /// The values to write while reconciling, for a reconcile operation.
     /// </summary>
-    public IReadOnlyList<(string Column, string ValueSql)> Sets { get; init; } = [];
+    public IReadOnlyList<MigrationSetValue> Sets { get; init; } = [];
 
     /// <summary>
     /// Whether a reconcile must rebuild the table rather than try in-place changes first.
     /// </summary>
     public bool Rebuild { get; init; }
+
+    /// <summary>
+    /// Whether a create-table operation drops an existing table with the same name first. The
+    /// runner sets this when a pending drop of the table is declared before the create, so a
+    /// collapsed run ends in the same state as running the versions one at a time.
+    /// </summary>
+    public bool DropTableFirst { get; set; }
 
     /// <summary>
     /// The current SQLite table name, for a rename-table operation. The table is renamed to the

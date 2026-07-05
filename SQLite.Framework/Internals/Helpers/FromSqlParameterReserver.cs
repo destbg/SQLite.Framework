@@ -23,16 +23,32 @@ internal sealed class FromSqlParameterReserver : ExpressionVisitor
 
     protected override Expression VisitConstant(ConstantExpression node)
     {
-        if (node.Value is SQLiteCte cte && visited.Add(cte))
+        DescendIntoValue(node.Value);
+        return node;
+    }
+
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if ((node.Type.IsAssignableTo(typeof(SQLiteCte)) || node.Type.IsAssignableTo(typeof(IQueryable)))
+            && ExpressionHelpers.IsConstant(node))
+        {
+            DescendIntoValue(ExpressionHelpers.GetConstantValue(node));
+            return node;
+        }
+
+        return base.VisitMember(node);
+    }
+
+    private void DescendIntoValue(object? value)
+    {
+        if (value is SQLiteCte cte && visited.Add(cte))
         {
             Visit(cte.Query.Body);
         }
-        else if (node.Value is IQueryable queryable && visited.Add(queryable))
+        else if (value is IQueryable queryable && visited.Add(queryable))
         {
             Visit(queryable.Expression);
         }
-
-        return node;
     }
 
     protected override Expression VisitMethodCall(MethodCallExpression node)

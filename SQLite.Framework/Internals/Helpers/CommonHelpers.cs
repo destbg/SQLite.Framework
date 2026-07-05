@@ -294,7 +294,8 @@ internal static class CommonHelpers
 
     /// <summary>
     /// Puts the recorded auto-increment key values back on the entities of a failed range write,
-    /// so the objects do not keep keys of rows that a rollback removed.
+    /// so the objects do not keep keys of rows that a rollback removed. Replays in reverse, so an
+    /// instance that appears more than once in the range ends at its value from before the write.
     /// </summary>
     public static void RestoreAssignedKeys<T>(TableColumn? autoIncrement, List<(T Item, object? Key)>? assignedKeys)
     {
@@ -303,9 +304,9 @@ internal static class CommonHelpers
             return;
         }
 
-        foreach ((T item, object? key) in assignedKeys)
+        for (int i = assignedKeys.Count - 1; i >= 0; i--)
         {
-            autoIncrement.PropertyInfo.SetValue(item, key);
+            autoIncrement.PropertyInfo.SetValue(assignedKeys[i].Item, assignedKeys[i].Key);
         }
     }
 

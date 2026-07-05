@@ -41,6 +41,22 @@ internal static class QueryableMemberVisitor
             ? argParams
             : argParams == null ? queryParams : [.. queryParams, .. argParams];
         string containsColumn = ContainsColumnName(translator);
+        Type containsItemType = Nullable.GetUnderlyingType(node.Arguments[1].Type) ?? node.Arguments[1].Type;
+        if (firstArg.IsDayOfWeekInteger
+            && visitor.Database.Options.EnumStorage == EnumStorageMode.Text
+            && containsItemType == typeof(DayOfWeek))
+        {
+            SQLiteExpression columnLeaf = SQLiteExpression.Leaf(typeof(DayOfWeek), visitor.Counters.NextIdentifier(), $"\"{containsColumn}\"");
+            SQLiteExpression columnNumber = EnumMemberVisitor.BuildTextStorageEnumToNumber(visitor, typeof(int), typeof(DayOfWeek), columnLeaf);
+            SQLiteParameter[] caseParameters = ParameterHelpers.CombineParameters(columnNumber, firstArg)!;
+            SQLiteParameter[] containsParameters = queryParams == null
+                ? caseParameters
+                : [.. queryParams, .. caseParameters];
+            return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                [$"EXISTS ({Environment.NewLine}SELECT 1 FROM ({Environment.NewLine}{querySql}{Environment.NewLine}) WHERE ", " IS ", ")"],
+                [columnNumber, firstArg], containsParameters);
+        }
+
         return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
             $"EXISTS ({Environment.NewLine}SELECT 1 FROM ({Environment.NewLine}{querySql}{Environment.NewLine}) WHERE \"{containsColumn}\" IS ", firstArg, ")", parameters);
     }
@@ -93,7 +109,7 @@ internal static class QueryableMemberVisitor
                 SQLiteExpression itemExpr = visitor.PrepareKeyOperand(node.Arguments[itemIndex], arguments[itemIndex].SQLiteExpression!);
                 Type itemType = node.Arguments[itemIndex].Type;
                 List<object?> values = enumerable.Cast<object?>().ToList();
-                if (DayOfWeekHelpers.IsComputedDayOfWeek(node.Arguments[itemIndex]))
+                if (DayOfWeekHelpers.IsComputedDayOfWeek(node.Arguments[itemIndex]) || itemExpr.IsDayOfWeekInteger)
                 {
                     itemType = typeof(int);
                     values = values.Select(v => v is DayOfWeek dayOfWeek ? (object?)(int)dayOfWeek : v).ToList();
@@ -207,9 +223,15 @@ internal static class QueryableMemberVisitor
         }
 
         Expression receiver = source;
+        bool distinctElements = TryPeelDistinct(ref receiver);
         LambdaExpression? selector = TryPeelSelectSelector(ref receiver);
         LambdaExpression? whereFilter = TryPeelWhereFilter(ref receiver);
         if (receiver is MethodCallExpression)
+        {
+            return null;
+        }
+
+        if (distinctElements && !IsCommaSeparatorJoin(node, isJoin))
         {
             return null;
         }
@@ -281,6 +303,19 @@ internal static class QueryableMemberVisitor
             visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_30, "FILTER (WHERE ...) on aggregates");
         }
 #endif
+
+        if (distinctElements)
+        {
+            if (filterExpression == null)
+            {
+                return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                    "COALESCE(group_concat(DISTINCT COALESCE(", target, ", '')), '')", target.Parameters);
+            }
+
+            return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                "COALESCE(group_concat(DISTINCT COALESCE(", target, ", '')) FILTER (WHERE ", filterExpression, "), '')",
+                ParameterHelpers.CombineParameters(target, filterExpression));
+        }
 
         if (filterExpression == null)
         {
@@ -507,6 +542,34 @@ internal static class QueryableMemberVisitor
         }
 
         return BuildRowValueInExpression(visitor, returnType, keyColumns, rows);
+    }
+
+    private static bool TryPeelDistinct(ref Expression receiver)
+    {
+        if (receiver is MethodCallExpression { Method.Name: nameof(Enumerable.Distinct), Arguments.Count: 1 } distinctCall)
+        {
+            receiver = distinctCall.Arguments[0];
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsCommaSeparatorJoin(MethodCallExpression node, bool isJoin)
+    {
+        if (!isJoin)
+        {
+            return false;
+        }
+
+        Expression separatorArg = node.Arguments[0];
+        if (!ExpressionHelpers.IsConstant(separatorArg))
+        {
+            return false;
+        }
+
+        object? separator = ExpressionHelpers.GetConstantValue(separatorArg);
+        return separator is "," or ',';
     }
 
     private static SQLiteExpression QuantifierExpression(SQLVisitor visitor, MethodCallExpression node, string aggregateFunction, SQLiteExpression? filterExpression)

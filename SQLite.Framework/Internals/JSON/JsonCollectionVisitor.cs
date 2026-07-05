@@ -90,8 +90,8 @@ internal partial class JsonCollectionVisitor
             Type groupElementType = elementType.GetGenericArguments()[1];
             visitor.MethodArguments[param] = new Dictionary<string, Expression>
             {
-                [nameof(IGrouping<,>.Key)] = SQLiteExpression.Leaf(keyType, -1, groupKeySql, null),
-                [string.Empty] = SQLiteExpression.Leaf(groupElementType, -1, groupElementSql!, null)
+                [nameof(IGrouping<,>.Key)] = SQLiteExpression.Leaf(keyType, -1, groupKeySql, null).WithJsonSource(),
+                [string.Empty] = SQLiteExpression.Leaf(groupElementType, -1, groupElementSql!, null).WithJsonSource()
             };
             return;
         }

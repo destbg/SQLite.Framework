@@ -25,6 +25,8 @@ internal partial class QueryableVisitor
                 "Materialize the ordered or paged operand into a list before combining.");
         }
 
+        ReconcileDayOfWeekSelects(sqlTranslator);
+
         string operandSql = sqlTranslator.HasSetOperations
             ? $"SELECT * FROM ({query.Sql})"
             : query.Sql;
@@ -39,6 +41,31 @@ internal partial class QueryableVisitor
         SetOperations.Add((sqlExpression, setType));
 
         return sqlExpression;
+    }
+
+    private void ReconcileDayOfWeekSelects(SQLTranslator operand)
+    {
+        if (visitor.Database.Options.EnumStorage != EnumStorageMode.Text)
+        {
+            return;
+        }
+
+        IReadOnlyList<SQLiteExpression> operandSelects = operand.Selects;
+        int pairCount = Math.Min(Selects.Count, operandSelects.Count);
+        for (int i = 0; i < pairCount; i++)
+        {
+            SQLiteExpression main = Selects[i];
+            if (main.IsDayOfWeekInteger == operandSelects[i].IsDayOfWeekInteger)
+            {
+                continue;
+            }
+
+            SQLiteExpression replacement = main.IsDayOfWeekInteger
+                ? EnumMemberVisitor.BuildEnumToNameText(visitor, typeof(DayOfWeek), main)
+                : EnumMemberVisitor.BuildTextStorageEnumToNumber(visitor, typeof(int), typeof(DayOfWeek), main).WithDayOfWeekInteger();
+            replacement.IdentifierText = main.IdentifierText;
+            Selects[i] = replacement;
+        }
     }
 
     private MethodCallExpression VisitFromSql(MethodCallExpression node)

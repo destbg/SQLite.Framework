@@ -6,7 +6,7 @@ You do not need to set anything up for this. It works out of the box.
 
 ## WAL mode
 
-Calling `UseWalMode()` on the builder switches the database to WAL (Write-Ahead Logging) journal mode. In this mode writes no longer block each other. Multiple writes from different threads can run at the same time and reads are never blocked by writers.
+Calling `UseWalMode()` on the builder switches the database to WAL (Write-Ahead Logging) journal mode. In this mode reads are never blocked by writers and writes are much faster, since a write appends to the log instead of rewriting pages. Writes on the shared connection still run one at a time.
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
@@ -18,7 +18,7 @@ using var db = new SQLiteDatabase(options);
 
 The framework issues `PRAGMA journal_mode = WAL` automatically when the connection is first opened. Configure the builder before calling `Build()`, so the resulting options are immutable.
 
-With WAL enabled, eight concurrent writes run in parallel instead of queuing up:
+With WAL enabled, eight concurrent writes queue up on the shared connection but each one completes much faster:
 
 ```csharp
 Task[] tasks = Enumerable.Range(0, 8).Select(async i =>
@@ -37,7 +37,7 @@ The lock lives inside every command execution. When a query or a write reaches t
 
 In the default mode every write acquires the lock exclusively, so concurrent writes queue up one at a time. Reads never acquire the lock regardless of mode.
 
-In WAL mode multiple writes share the lock concurrently. A non-separate-connection transaction is the only thing that makes writes queue up.
+WAL mode does not change this. A single SQLite connection runs one statement at a time, so writes queue up in every mode. WAL makes each write cheaper and keeps reads running while a write is in progress.
 
 This means you can freely share one `SQLiteDatabase` across threads:
 
@@ -101,7 +101,7 @@ await Task.WhenAll(tasks);
 
 ## Tips
 
-**Use WAL mode for write-heavy workloads.** Set `IsWalMode = true` to let concurrent writes run in parallel. This is the biggest single throughput improvement available for apps that do many writes at once.
+**Use WAL mode for write-heavy workloads.** Set `IsWalMode = true` to make each write cheaper and keep reads running while a write is in progress. This is the biggest single throughput improvement available for apps that do many writes at once.
 
 **Keep transactions short.** While a transaction holds the lock, everything else waits. Do not do network calls, file I/O or other slow work between `BeginTransaction` and `Commit`.
 

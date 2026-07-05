@@ -172,16 +172,23 @@ internal partial class SQLVisitor
                 return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
             }
             else if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(char)
-                && TryGetIntegerInfo(Nullable.GetUnderlyingType(resolved.SQLiteExpression.Type) ?? resolved.SQLiteExpression.Type, out _, out _))
+                && (Nullable.GetUnderlyingType(resolved.SQLiteExpression.Type) ?? resolved.SQLiteExpression.Type) is { } charSourceType
+                && (TryGetIntegerInfo(charSourceType, out _, out _) || IsFloatingPointType(charSourceType)))
             {
+                SQLiteExpression charSource = resolved.SQLiteExpression;
+                if (IsFloatingPointType(charSourceType))
+                {
+                    charSource = SQLiteExpression.Wrap(typeof(long), Counters.NextIdentifier(), "CAST(", charSource, " AS INTEGER)", charSource.Parameters);
+                }
+
                 if (Database.Options.CharStorage == CharStorageMode.Integer)
                 {
-                    return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "((", resolved.SQLiteExpression, $") & {Constants.UInt16Mask})", resolved.SQLiteExpression.Parameters);
+                    return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "((", charSource, $") & {Constants.UInt16Mask})", charSource.Parameters);
                 }
 
                 return Nullable.GetUnderlyingType(node.Type) == null
-                    ? SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR((", resolved.SQLiteExpression, $") & {Constants.UInt16Mask})", resolved.SQLiteExpression.Parameters)
-                    : CommonHelpers.EvaluateOnce(Counters, node.Type, [resolved.SQLiteExpression], v =>
+                    ? SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR((", charSource, $") & {Constants.UInt16Mask})", charSource.Parameters)
+                    : CommonHelpers.EvaluateOnce(Counters, node.Type, [charSource], v =>
                         SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
                             ["(CASE WHEN ", " IS NULL THEN NULL ELSE CHAR((", $") & {Constants.UInt16Mask}) END)"],
                             [v[0], v[0]],
@@ -210,7 +217,16 @@ internal partial class SQLVisitor
             else if (resolved.SQLiteExpression.Type.IsEnum && Database.Options.EnumStorage == EnumStorageMode.Text)
             {
                 Type enumUnderlying = Enum.GetUnderlyingType(resolved.SQLiteExpression.Type);
-                SQLiteExpression numberExpr = EnumMemberVisitor.BuildTextStorageEnumToNumber(this, enumUnderlying, resolved.SQLiteExpression.Type, resolved.SQLiteExpression);
+                if (resolved.SQLiteExpression.IsDayOfWeekInteger
+                    && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == resolved.SQLiteExpression.Type)
+                {
+                    return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters)
+                        .WithDayOfWeekInteger();
+                }
+
+                SQLiteExpression numberExpr = resolved.SQLiteExpression.IsDayOfWeekInteger
+                    ? resolved.SQLiteExpression
+                    : EnumMemberVisitor.BuildTextStorageEnumToNumber(this, enumUnderlying, resolved.SQLiteExpression.Type, resolved.SQLiteExpression);
 
                 if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == enumUnderlying)
                 {
@@ -349,6 +365,11 @@ internal partial class SQLVisitor
         From = SQLiteExpression.Leaf(elementType, -1, $"{cteName} AS {alias}");
 
         TableColumns = CteColumnMapper.BuildColumns(elementType, alias, Database.Options, Counters);
+    }
+
+    private static bool IsFloatingPointType(Type type)
+    {
+        return type == typeof(double) || type == typeof(float) || type == typeof(decimal);
     }
 
     private static bool IsUlongSource(Type sourceType)

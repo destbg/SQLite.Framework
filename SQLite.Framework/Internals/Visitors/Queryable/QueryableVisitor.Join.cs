@@ -81,6 +81,8 @@ internal partial class QueryableVisitor
 
                 SQLiteExpression outerAlias = visitor.PrepareKeyOperand(innerArgument, (SQLiteExpression)visitor.Visit(innerArgument));
                 SQLiteExpression innerAlias = visitor.PrepareKeyOperand(outerArgument, (SQLiteExpression)visitor.Visit(outerArgument));
+                outerAlias = visitor.CoerceDayOfWeekOperand(innerArgument, outerAlias, innerAlias);
+                innerAlias = visitor.CoerceDayOfWeekOperand(outerArgument, innerAlias, outerAlias);
 
                 SQLiteParameter[]? combinedParameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
 
@@ -113,6 +115,8 @@ internal partial class QueryableVisitor
 
             SQLiteExpression outerAlias = visitor.PrepareKeyOperand(outerBody, (SQLiteExpression)visitor.Visit(outerBody));
             SQLiteExpression innerAlias = visitor.PrepareKeyOperand(innerBody, (SQLiteExpression)visitor.Visit(innerBody));
+            outerAlias = visitor.CoerceDayOfWeekOperand(outerBody, outerAlias, innerAlias);
+            innerAlias = visitor.CoerceDayOfWeekOperand(innerBody, innerAlias, outerAlias);
 
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
 

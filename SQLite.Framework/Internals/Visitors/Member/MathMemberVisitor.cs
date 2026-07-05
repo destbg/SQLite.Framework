@@ -71,19 +71,30 @@ internal static class MathMemberVisitor
         };
     }
 
+    public static SQLiteExpression CastTextDecimal(SQLVisitor visitor, SQLiteExpression expr)
+    {
+        return expr.Type == typeof(decimal) && visitor.Database.Options.DecimalStorage == DecimalStorageMode.Text
+            ? visitor.InternDecimalCast(expr)
+            : expr;
+    }
+
+    public static SQLiteExpression BuildUnsignedMinMax(SQLVisitor visitor, bool isMax, Type returnType, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)
+    {
+        string cmpOp = isMax ? " >= " : " <= ";
+        SQLiteExpression elseSide = isMax ? a : b;
+
+        return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
+            ["(CASE WHEN (CASE WHEN ((", " < 0) = (", " < 0)) THEN ", cmpOp, " ELSE ", " < 0 END) THEN ", " ELSE ", " END)"],
+            [a, b, a, b, elseSide, a, b],
+            parameters);
+    }
+
     private static SQLiteExpression BuildSign(SQLVisitor visitor, Type returnType, SQLiteExpression a0, SQLiteParameter[]? parameters)
     {
         SQLiteExpression operand = CastTextDecimal(visitor, a0);
 
         return SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(),
             "(CASE WHEN ", operand, " > 0 THEN 1 WHEN ", operand, " < 0 THEN -1 ELSE 0 END)", parameters);
-    }
-
-    private static SQLiteExpression CastTextDecimal(SQLVisitor visitor, SQLiteExpression expr)
-    {
-        return expr.Type == typeof(decimal) && visitor.Database.Options.DecimalStorage == DecimalStorageMode.Text
-            ? visitor.InternDecimalCast(expr)
-            : expr;
     }
 
     private static Expression BuildClamp(SQLVisitor visitor, MethodCallExpression node, Type returnType, List<ResolvedModel> arguments, SQLiteExpression a0, SQLiteExpression a1, SQLiteExpression a2, SQLiteParameter[]? parameters)
@@ -103,17 +114,6 @@ internal static class MathMemberVisitor
         return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
             ["MAX(", ", MIN(", ", ", "))"],
             [CastTextDecimal(visitor, a1), CastTextDecimal(visitor, a0), CastTextDecimal(visitor, a2)], parameters);
-    }
-
-    private static SQLiteExpression BuildUnsignedMinMax(SQLVisitor visitor, bool isMax, Type returnType, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)
-    {
-        string cmpOp = isMax ? " >= " : " <= ";
-        SQLiteExpression elseSide = isMax ? a : b;
-
-        return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
-            ["(CASE WHEN (CASE WHEN ((", " < 0) = (", " < 0)) THEN ", cmpOp, " ELSE ", " < 0 END) THEN ", " ELSE ", " END)"],
-            [a, b, a, b, elseSide, a, b],
-            parameters);
     }
 
     private static Expression HandleRound(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments, SQLiteParameter[]? parameters)

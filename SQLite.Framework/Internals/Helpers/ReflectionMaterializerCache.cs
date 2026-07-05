@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace SQLite.Framework.Internals.Helpers;
 
@@ -7,16 +8,19 @@ namespace SQLite.Framework.Internals.Helpers;
 /// Looking up <see cref="PropertyInfo" />, <see cref="Nullable.GetUnderlyingType" />,
 /// <see cref="TypeHelpers.IsSimple" /> and so on, only once per type and reusing the result for
 /// every row is much faster than calling <see cref="Type.GetProperties()" /> on each row.
+/// The plans hang off the options instance through a weak table, so short-lived options, for
+/// example from scoped dependency injection, do not pile up in a process-wide cache.
 /// </summary>
 internal static class ReflectionMaterializerCache
 {
-    private static readonly ConcurrentDictionary<(Type Type, SQLiteOptions Options), MaterializerPlan> planCache = new();
+    private static readonly ConditionalWeakTable<SQLiteOptions, ConcurrentDictionary<Type, MaterializerPlan>> planCache = new();
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Type comes from the entity surface. Users keep their entities reachable.")]
     [UnconditionalSuppressMessage("AOT", "IL2077", Justification = "Type comes from the entity surface. Users keep their entities reachable.")]
     public static MaterializerPlan GetPlan([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type, SQLiteOptions options)
     {
-        return planCache.GetOrAdd((type, options), static key => Build(key.Type, key.Options));
+        ConcurrentDictionary<Type, MaterializerPlan> plans = planCache.GetValue(options, static _ => new ConcurrentDictionary<Type, MaterializerPlan>());
+        return plans.GetOrAdd(type, key => Build(key, options));
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface. Users keep their entities reachable.")]
