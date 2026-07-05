@@ -120,7 +120,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         if (Database.Options.OnActionHooks.Count == 0
-            && Database.Options.CommandInterceptors.Count == 0
+            && Database.EffectiveCommandInterceptors.Count == 0
             && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
@@ -170,7 +170,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             return RunRangeWithColumns(Database.Options.UpdateHooks, collection, runInTransaction, SQLiteAction.Update);
         }
 
-        if (Database.Options.OnActionHooks.Count == 0 && Database.Options.CommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(UpdateItem)))
+        if (Database.Options.OnActionHooks.Count == 0 && Database.EffectiveCommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(UpdateItem)))
         {
             TableWriteCache<T>? cache = ResolveWriteCache();
             TableWriteCacheEntry<T> entry = cache != null ? cache.Update ??= BuildUpdateEntry() : BuildUpdateEntry();
@@ -199,7 +199,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int RemoveRange(IEnumerable<T> collection, bool runInTransaction = true)
     {
-        if (Database.Options.OnActionHooks.Count == 0 && Database.Options.CommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(AddOrRemoveItem)))
+        if (Database.Options.OnActionHooks.Count == 0 && Database.EffectiveCommandInterceptors.Count == 0 && !IsItemMethodOverridden(nameof(AddOrRemoveItem)))
         {
             TableWriteCache<T>? cache = ResolveWriteCache();
             TableWriteCacheEntry<T> entry = cache != null ? cache.Remove ??= BuildRemoveEntry() : BuildRemoveEntry();
@@ -237,7 +237,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public virtual int AddOrUpdateRange(IEnumerable<T> collection, bool runInTransaction = true, SQLiteConflict conflict = SQLiteConflict.Replace)
     {
         if (Database.Options.OnActionHooks.Count == 0
-            && Database.Options.CommandInterceptors.Count == 0
+            && Database.EffectiveCommandInterceptors.Count == 0
             && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
@@ -303,7 +303,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     public virtual int UpsertRange(IEnumerable<T> collection, Action<SQLiteUpsertBuilder<T>> configure, bool runInTransaction = true)
     {
         if (Database.Options.OnActionHooks.Count == 0
-            && Database.Options.CommandInterceptors.Count == 0
+            && Database.EffectiveCommandInterceptors.Count == 0
             && !IsItemMethodOverridden(nameof(InsertItem))
             && !HasAnyDatabaseDefault())
         {
@@ -1259,7 +1259,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     {
         if (GetType() != typeof(SQLiteTable<T>)
             || !Database.ModelFrozen
-            || Database.Options.CommandInterceptors.Count != 0)
+            || Database.EffectiveCommandInterceptors.Count != 0)
         {
             return null;
         }

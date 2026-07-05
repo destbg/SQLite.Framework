@@ -99,7 +99,7 @@ public class SupplementalResidualParityTests
             List<string> memory = mem.Select(r => mem.Where(x => x.IntCode > 999).Select(x => x.Name).FirstOrDefault("none")!).ToList();
             Assert.Equal(["none", "none", "none", "none"], memory);
 
-            List<string?> actual = db.Table<ResidualRow>().Select(r => db.Table<ResidualRow>().Where(x => x.IntCode > 999).Select(x => x.Name).FirstOrDefault("none")).ToList();
+            List<string?> actual = db.Table<ResidualRow>().Select(r => (string?)db.Table<ResidualRow>().Where(x => x.IntCode > 999).Select(x => x.Name).FirstOrDefault("none")).ToList();
 
             Assert.Equal([null, null, null, null], actual);
         }

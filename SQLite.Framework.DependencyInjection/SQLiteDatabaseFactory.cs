@@ -8,15 +8,19 @@ internal sealed class SQLiteDatabaseFactory<[DynamicallyAccessedMembers(Dynamica
 {
     private readonly IServiceProvider services;
     private readonly SQLiteOptions options;
+    private readonly Action<SQLiteMigrationRunner>? migrations;
 
-    public SQLiteDatabaseFactory(IServiceProvider services, SQLiteOptions options)
+    public SQLiteDatabaseFactory(IServiceProvider services, SQLiteOptions options, Action<SQLiteMigrationRunner>? migrations)
     {
         this.services = services;
         this.options = options;
+        this.migrations = migrations;
     }
 
     public TDatabase CreateDatabase()
     {
-        return ActivatorUtilities.CreateInstance<TDatabase>(services, options);
+        TDatabase database = ActivatorUtilities.CreateInstance<TDatabase>(services, options);
+        SQLiteDatabaseMigrations.Apply(database, migrations);
+        return database;
     }
 }

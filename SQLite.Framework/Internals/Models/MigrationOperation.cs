@@ -37,6 +37,12 @@ internal sealed class MigrationOperation
     public bool Rebuild { get; init; }
 
     /// <summary>
+    /// The current SQLite table name, for a rename-table operation. The table is renamed to the
+    /// name of <see cref="Mapping" />.
+    /// </summary>
+    public string? FromTable { get; init; }
+
+    /// <summary>
     /// The current SQLite column name, for a rename operation.
     /// </summary>
     public string? FromColumn { get; init; }
@@ -57,14 +63,20 @@ internal sealed class MigrationOperation
     public string? TableName { get; init; }
 
     /// <summary>
-    /// Inserts the declared rows and returns the affected row count, for an insert operation.
+    /// Runs the data work and returns the affected row count, for insert, update, delete, view
+    /// and full-text-search rebuild operations.
     /// </summary>
-    public Func<SQLiteDatabase, int>? InsertRows { get; init; }
+    public Func<SQLiteDatabase, int>? Execute { get; init; }
 
     /// <summary>
     /// The raw SQL to run, for a raw-SQL operation.
     /// </summary>
     public string? Sql { get; init; }
+
+    /// <summary>
+    /// The parameters bound to <see cref="Sql" />, for a raw-SQL operation.
+    /// </summary>
+    public SQLiteParameter[] SqlParameters { get; init; } = [];
 
     /// <summary>
     /// The callback to run, for a run or run-before operation.

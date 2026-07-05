@@ -255,7 +255,7 @@ public class SQLiteCommand
 
     internal void NotifyExecuting()
     {
-        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.EffectiveCommandInterceptors;
         if (interceptors.Count == 0)
         {
             return;
@@ -269,7 +269,7 @@ public class SQLiteCommand
 
     internal void NotifyRowRead(SQLiteDataReader reader)
     {
-        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.EffectiveCommandInterceptors;
         if (interceptors.Count == 0)
         {
             return;
@@ -283,7 +283,7 @@ public class SQLiteCommand
 
     internal void NotifyReaderClosing(SQLiteDataReader reader, int readCount)
     {
-        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.EffectiveCommandInterceptors;
         if (interceptors.Count == 0)
         {
             return;
@@ -297,7 +297,7 @@ public class SQLiteCommand
 
     internal void NotifyExecuted(int? rowsAffected)
     {
-        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.EffectiveCommandInterceptors;
         if (interceptors.Count == 0)
         {
             return;
@@ -311,7 +311,7 @@ public class SQLiteCommand
 
     internal void NotifyFailed(Exception exception)
     {
-        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.Options.CommandInterceptors;
+        IReadOnlyList<ISQLiteCommandInterceptor> interceptors = Database.EffectiveCommandInterceptors;
         if (interceptors.Count == 0)
         {
             return;

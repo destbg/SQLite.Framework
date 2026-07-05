@@ -43,14 +43,27 @@ When you need a new table, a new column or new seed rows, declare the next versi
 Within one run the order is fixed:
 
 1. `RunBefore` callbacks.
-2. Column renames.
-3. Table creates.
-4. One reconcile per table marked with `TableChanged`.
-5. Column drops, table drops, row inserts, raw SQL steps and `Run` callbacks.
+2. Table renames.
+3. Column renames.
+4. Table creates.
+5. One reconcile per table marked with `TableChanged`.
+6. Column drops, table drops, row inserts, updates, deletes, view steps, full text search rebuilds, raw SQL steps and `Run` callbacks, in the order declared.
 
 So a data step always runs against the final shape of the table and a `RunBefore` callback always sees the old shape. A table created in the same run skips its reconcile and drop-column steps, because the create already produced the current model. The `Set` values from `TableChanged` still apply. The runner writes them later in the run, just before the data steps of the version that set them. This way a new database ends up with the same data as an old one that went through each version.
 
 Migrations always move toward the current model. There is no path back to an older version and no way to stop below the highest declared version. Do not set `user_version` by hand when you use migrations (see [Pragmas](Pragmas)).
+
+## When the database is newer than the app
+
+A database can also be ahead of the code, for example after the app is downgraded or when an old build opens a file a newer build created. The recorded version is then above the highest declared one and the schema may not match the model. `Migrate` throws in this state instead of treating the database as up to date. `Plan` does not throw. It reports the state through `DatabaseIsNewer`, so you can show the user a clear message before you migrate.
+
+```csharp
+SQLiteMigrationPlan plan = await runner.PlanAsync();
+if (plan.DatabaseIsNewer)
+{
+    // tell the user to update the app instead of calling MigrateAsync
+}
+```
 
 ## TableChanged
 
@@ -96,7 +109,9 @@ A column you do not set is copied across unchanged when it still exists.
 
 ## Renames, drops and data steps
 
-A reconcile cannot tell a rename from a drop plus an add, so rename a column with an explicit step. Renames are applied before the reconcile, so the data is kept.
+A reconcile cannot tell a rename from a drop plus an add, so rename a table or a column with an explicit step. Renames are applied before every other schema change, so the data is kept.
+
+`RenameColumn` renames a column on the table for the entity. Both names are SQLite column names.
 
 ```csharp
 await db.Schema.Migrations()
@@ -106,9 +121,68 @@ await db.Schema.Migrations()
     .MigrateAsync();
 ```
 
-A step can also insert rows with `Insert`, drop a column with `DropColumn`, drop a table with `DropTable` or run raw SQL with `Sql` for a data fix. These run at the end of the run, in the fixed order above. `Insert` writes through the same pipeline as `Add`, so storage modes, converters and hooks apply, which makes it the right tool for seed rows. `InsertIfMissing` is the same insert but it skips every row whose key value is already in the table, which covers seeds that users may already have, see [Data Seeding](Data%20Seeding). `Sql` is raw SQL, so values are inlined and storage-mode conversions are on you. To move data out of a column you are removing, read it with `RunBefore` and write it back with `Run`, or keep the old column on the model while you copy it and remove it in a later version.
+`RenameTable` renames a table to the name the model declares now. Pass the old SQLite table name. On a fresh database the old table does not exist, the chain creates the table under its current name from the start and the rename is skipped.
 
-Renames and drops are tolerant. A rename whose source column is missing is skipped. A drop is skipped when the column is already gone or when the model still declares it.
+```csharp
+await db.Schema.Migrations()
+    .Version(1, m => m.CreateTable<Book>())
+    .Version(2, m => m
+        .RenameTable<Book>("Publications")
+        .TableChanged<Book>())
+    .MigrateAsync();
+```
+
+A step can also insert rows with `Insert`, drop a column with `DropColumn`, drop a table with `DropTable` or run raw SQL with `Sql` for a change the typed methods do not cover. These run at the end of the run, in the fixed order above. `Insert` writes through the same pipeline as `Add`, so storage modes, converters and hooks apply, which makes it the right tool for seed rows. `InsertIfMissing` is the same insert but it skips every row whose key value is already in the table, which covers seeds that users may already have, see [Data Seeding](Data%20Seeding). To move data out of a column you are removing, read it with `RunBefore` and write it back with `Run`, or keep the old column on the model while you copy it and remove it in a later version.
+
+`Sql` takes optional parameters, so values go through normal binding instead of being pasted into the SQL text.
+
+```csharp
+await db.Schema.Migrations()
+    .Version(4, m => m.Sql(
+        "UPDATE \"Books\" SET \"Status\" = @status WHERE \"Status\" IS NULL",
+        new SQLiteParameter { Name = "@status", Value = "active" }))
+    .MigrateAsync();
+```
+
+Renames and drops are tolerant. A rename whose source table or column is missing is skipped. A drop is skipped when the column is already gone or when the model still declares it.
+
+## Update and delete steps
+
+`Update` and `Delete` are typed data fixes, the same as `ExecuteUpdate` and `ExecuteDelete` on a query. Use them to backfill or clean rows as part of a version, without raw SQL. Both run in the data phase, against the final shape of the table. Query filters are ignored, so every row is visible to the step (see [Query Filters](Query%20Filters)).
+
+```csharp
+await db.Schema.Migrations()
+    .Version(5, m => m
+        .TableChanged<Book>()
+        .Update<Book>(b => b.Status == "unknown", s => s.Set(b => b.Status, "active"))
+        .Delete<Book>(b => b.Title == ""))
+    .MigrateAsync();
+```
+
+Without a predicate, `Update` updates every row and `Delete` deletes every row.
+
+## Views
+
+`CreateView` creates the view named after the entity, with the body produced by translating the query, the same as `CreateView` on the schema API. An existing view with that name is dropped first, so declaring the view again in a later version updates its body. `DropView` drops a view and is skipped when the view does not exist. Both run in the data phase, after every table change of the run.
+
+```csharp
+await db.Schema.Migrations()
+    .Version(6, m => m.CreateView<BookSummary>(() =>
+        from b in db.Table<Book>()
+        where b.Status == "active"
+        select new BookSummary { Id = b.Id, Title = b.Title }))
+    .MigrateAsync();
+```
+
+## Rebuilding a full text search table
+
+A reconcile only ensures that an FTS5 table exists, so a change to the FTS5 declaration needs an explicit step. `RebuildFullTextSearch` drops the FTS5 table with its sync triggers, recreates both from the model and refills the index from the content table with the FTS5 rebuild command. It requires a content table set with `ContentTable` on `[FullTextSearch]`, because the rows are read back from that table (see [Full Text Search](Full%20Text%20Search)).
+
+```csharp
+await db.Schema.Migrations()
+    .Version(7, m => m.RebuildFullTextSearch<BookSearch>())
+    .MigrateAsync();
+```
 
 ## One file per migration
 
@@ -230,6 +304,19 @@ public sealed class M0004_MoveLegacySlugs : ISQLiteMigration
 
 A plan lists a callback as `run callback at version 4`, so `Plan` stays readable without running anything. Work done inside a callback is not part of the count `Migrate` returns.
 
+## Watching progress
+
+A long migration can rebuild large tables, which takes time on a phone. `Progress` registers a callback that fires once per operation, right before the operation is applied. Use it to drive an "updating your data" screen or to log what the runner does. Each update carries the version, the same description a plan shows, the one-based position in the run and the total operation count.
+
+```csharp
+await db.Schema.Migrations()
+    .Progress(p => Console.WriteLine($"{p.Index}/{p.Count} v{p.Version}: {p.Description}"))
+    .Version(1, m => m.TableChanged<Book>())
+    .MigrateAsync();
+```
+
+The callback runs inside the migration transaction, so a throw rolls the whole run back.
+
 ## See what a migration would do
 
 `Plan()` reads the version recorded in the database and reports what a migrate would run, without changing anything.
@@ -247,6 +334,23 @@ if (!plan.IsUpToDate)
     }
 }
 ```
+
+## See the exact SQL
+
+`Script()` goes one step further than `Plan`. It runs every pending version inside a transaction, collects each SQL statement the run executes, then rolls the transaction back. The version and the schema are left as they were. Use it to review the exact statements before an upgrade or to attach them to a bug report.
+
+```csharp
+IReadOnlyList<string> statements = await db.Schema.Migrations()
+    .Version(1, m => m.TableChanged<Book>())
+    .ScriptAsync();
+
+foreach (string statement in statements)
+{
+    Console.WriteLine(statement);
+}
+```
+
+Three things to keep in mind. The statements come from a real run, so on a large database a script takes as long as the migration itself and rows passed to `Insert` can get their auto-increment keys set. Callbacks declared with `Run` and `RunBefore` are not invoked and appear as SQL comments in their place. Statement parameters are inlined, so every entry runs on its own.
 
 ## Relation to the rest of the schema API
 

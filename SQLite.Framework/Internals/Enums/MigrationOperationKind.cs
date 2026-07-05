@@ -8,11 +8,17 @@ internal enum MigrationOperationKind
 {
     CreateTable,
     Reconcile,
+    RenameTable,
     RenameColumn,
     DropColumn,
     DropTable,
     RawSql,
     InsertRows,
+    UpdateRows,
+    DeleteRows,
+    CreateView,
+    DropView,
+    RebuildFullTextSearch,
     Run,
     RunBefore,
 }

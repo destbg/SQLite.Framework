@@ -68,6 +68,25 @@ public static class AsyncSchemaExtensions
     }
 
     /// <summary>
+    /// Runs every pending version inside a transaction, collects each SQL statement the run
+    /// executes, then rolls the transaction back, the same as
+    /// <see cref="SQLiteMigrationRunner.Script" />. Takes the database lock for the duration so
+    /// it is safe to call from async code.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public static Task<IReadOnlyList<string>> ScriptAsync(this SQLiteMigrationRunner runner, CancellationToken ct = default)
+    {
+        return AsyncRunner.Run(async () =>
+        {
+            using IDisposable _ = await runner.Database.LockAsync(ct);
+            return runner.Script();
+        }, ct);
+    }
+
+    /// <summary>
     /// Drops the table for <typeparamref name="T" /> if it exists.
     /// </summary>
     public static Task<int> DropTableAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteSchema schema, CancellationToken ct = default)

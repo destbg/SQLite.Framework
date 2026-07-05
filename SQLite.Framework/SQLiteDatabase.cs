@@ -115,6 +115,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     internal bool HoldsConnectionLock => holdsConnectionLock.Value;
 
     /// <summary>
+    /// The command interceptors commands notify and the write fast paths gate on. Normally the
+    /// list from <see cref="SQLiteOptions.CommandInterceptors" />. A migration script rehearsal
+    /// swaps in a list with its capture appended for the duration of the rehearsal.
+    /// </summary>
+    internal IReadOnlyList<ISQLiteCommandInterceptor> EffectiveCommandInterceptors
+    {
+        get => field ?? Options.CommandInterceptors;
+        set;
+    }
+
+    /// <summary>
     /// True once <see cref="OnModelCreating" /> has completed, after which table mappings no
     /// longer change. The single-item write fast path only caches SQL while this is set.
     /// </summary>

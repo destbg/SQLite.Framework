@@ -25,9 +25,17 @@ public sealed class SQLiteMigrationPlan
     public int TargetVersion { get; }
 
     /// <summary>
-    /// True when the database is already at or past the target version, so there is nothing to do.
+    /// True when the database is exactly at the target version, so there is nothing to do.
     /// </summary>
-    public bool IsUpToDate => CurrentVersion >= TargetVersion;
+    public bool IsUpToDate => CurrentVersion == TargetVersion;
+
+    /// <summary>
+    /// True when the database records a version above the highest declared one, which means a
+    /// newer app version created it. The schema may not match this build of the app.
+    /// <see cref="SQLiteMigrationRunner.Migrate" /> throws in this state, so check this flag to
+    /// give the user a better message.
+    /// </summary>
+    public bool DatabaseIsNewer => CurrentVersion > TargetVersion;
 
     /// <summary>
     /// One short description for each operation that would run, in the order the versions are

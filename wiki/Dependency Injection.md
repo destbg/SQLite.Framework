@@ -119,3 +119,19 @@ public class ImportWorker
 ```
 
 The factory itself is `Singleton` by default. Each `CreateDatabase()` call returns a fresh `LibraryDatabase`. The caller owns the instance and is responsible for disposing it.
+
+## Migrations on startup
+
+Pass a `migrations` callback to declare the [migration](Migrations) chain on the registration. Every database instance the registration creates is migrated right after it is constructed, so the schema is ready before the first query.
+
+```csharp
+services.AddSQLiteDatabase<AppDatabase>(
+    b => b.DatabasePath = "app.db",
+    migrations: r => r
+        .Add<M0001_InitialSchema>()
+        .Add<M0002_AddBookGenre>());
+```
+
+The same parameter exists on `AddSQLiteDatabaseFactory`. Each `CreateDatabase()` call then returns a migrated instance.
+
+The migration runs synchronously during the resolve. Versions that declare `RunAsync` or `RunBeforeAsync` callbacks cannot run here, so migrate those chains with `MigrateAsync`. When the migration fails, the database instance is disposed and the exception leaves the resolve.

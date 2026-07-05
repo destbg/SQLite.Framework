@@ -8,8 +8,9 @@ namespace SQLite.Framework;
 /// </summary>
 /// <remarks>
 /// Within a single run the runner does not apply these in the order written. It runs every
-/// <see cref="RunBefore(Action{SQLiteMigrationContext})" /> callback first, then every rename,
-/// then one reconcile per table, then drops, row inserts, raw SQL and
+/// <see cref="RunBefore(Action{SQLiteMigrationContext})" /> callback first, then every table
+/// rename, then every column rename, then table creates, then one reconcile per table, then
+/// drops, row inserts, updates, deletes, view steps, full text search rebuilds, raw SQL and
 /// <see cref="Run(Action{SQLiteMigrationContext})" /> callbacks in the order declared. So a data
 /// step runs against the final shape of the table, not an in-between shape. To move data out of
 /// a column you are removing, read it in a <c>RunBefore</c> callback or keep the old column on
@@ -73,6 +74,30 @@ public sealed class SQLiteMigrationStep
             Mapping = mapping,
             Sets = builder.Sets,
             Rebuild = rebuild,
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Renames the table <paramref name="fromTable" /> to the table name the model declares for
+    /// <typeparamref name="T" />. A reconcile cannot tell a rename from a drop plus a create, so
+    /// use this when you rename a table to keep its data. The rename runs before every other
+    /// schema change of the run. It is skipped when <paramref name="fromTable" /> does not exist,
+    /// which is what happens on a fresh database, where the table is created under its current
+    /// name from the start.
+    /// </summary>
+    /// <param name="fromTable">The SQLite table name the table has before this version.</param>
+    public SQLiteMigrationStep RenameTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string fromTable)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(fromTable);
+
+        TableMapping mapping = database.TableMapping<T>();
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.RenameTable,
+            Description = $"rename table \"{fromTable}\" to \"{mapping.TableName}\"",
+            Mapping = mapping,
+            FromTable = fromTable,
         });
         return this;
     }
@@ -151,6 +176,92 @@ public sealed class SQLiteMigrationStep
     }
 
     /// <summary>
+    /// Creates or replaces the view named after the SQLite name of <typeparamref name="T" />. The
+    /// body is the SQL produced by translating <paramref name="query" />, the same as
+    /// <see cref="SQLiteSchema.CreateView{T}" />. A view with that name is dropped first, so
+    /// declaring the view again in a later version updates its body. The view is created in the
+    /// data phase, after every table change of the run.
+    /// </summary>
+    /// <param name="query">The query that becomes the view body.</param>
+    public SQLiteMigrationStep CreateView<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(Expression<Func<IQueryable<T>>> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        TableMapping mapping = database.TableMapping<T>();
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.CreateView,
+            Description = $"create view \"{mapping.TableName}\"",
+            Mapping = mapping,
+            Execute = db => db.Schema.DropView(mapping.TableName) + db.Schema.CreateView(query),
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Drops the view named after the SQLite name of <typeparamref name="T" /> if it exists.
+    /// The drop runs in the data phase, in the order it was declared.
+    /// </summary>
+    public SQLiteMigrationStep DropView<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    {
+        return DropView(database.TableMapping<T>().TableName);
+    }
+
+    /// <summary>
+    /// Drops the view with the given SQLite name if it exists. The drop runs in the data phase,
+    /// in the order it was declared.
+    /// </summary>
+    public SQLiteMigrationStep DropView(string viewName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(viewName);
+
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.DropView,
+            Description = $"drop view \"{viewName}\"",
+            Execute = db => db.Schema.DropView(viewName),
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Drops and recreates the FTS5 table for <typeparamref name="T" /> from the model, with its
+    /// sync triggers, then refills it from its content table with the FTS5 rebuild command. Use
+    /// this when the FTS5 declaration changes, since a reconcile only ensures that an FTS5 table
+    /// exists. Requires a content table set with <c>ContentTable</c> on <c>[FullTextSearch]</c>,
+    /// because the rows are read back from that table. The rebuild runs in the data phase, after
+    /// every table change of the run.
+    /// </summary>
+    public SQLiteMigrationStep RebuildFullTextSearch<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>()
+    {
+        TableMapping mapping = database.TableMapping<T>();
+        if (!mapping.IsFullTextSearch)
+        {
+            throw new InvalidOperationException($"'{mapping.Type.Name}' is not an FTS5 entity. Mark it with [FullTextSearch] or remove this step.");
+        }
+
+        if (mapping.FullTextSearch!.ContentMode != FtsContentMode.External)
+        {
+            throw new InvalidOperationException($"'{mapping.Type.Name}' has no content table, so its rows cannot be rebuilt. Set ContentTable on [FullTextSearch] or move the data with Run callbacks.");
+        }
+
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.RebuildFullTextSearch,
+            Description = $"rebuild full text search \"{mapping.TableName}\"",
+            Mapping = mapping,
+            Execute = db =>
+            {
+                int count = db.Schema.DropTable<T>();
+                count += db.Schema.CreateTable<T>();
+                string quoted = "\"" + mapping.TableName.Replace("\"", "\"\"") + "\"";
+                return count + db.Execute($"INSERT INTO {quoted}({quoted}) VALUES('rebuild')");
+            },
+        });
+        return this;
+    }
+
+    /// <summary>
     /// Inserts the given rows into the table for <typeparamref name="T" />. The rows go through
     /// the same write pipeline as <see cref="SQLiteTable{T}.Add(T)" />, so storage modes,
     /// converters, write hooks and auto-increment key write-back all apply. Use this to seed the
@@ -171,7 +282,7 @@ public sealed class SQLiteMigrationStep
             Kind = MigrationOperationKind.InsertRows,
             Description = $"insert {rows.Length} row(s) into \"{mapping.TableName}\"",
             Mapping = mapping,
-            InsertRows = db => db.Table<T>().AddRange(rows, runInTransaction: false),
+            Execute = db => db.Table<T>().AddRange(rows, runInTransaction: false),
         });
         return this;
     }
@@ -214,25 +325,115 @@ public sealed class SQLiteMigrationStep
             Kind = MigrationOperationKind.InsertRows,
             Description = $"insert up to {rows.Length} row(s) into \"{mapping.TableName}\" missing by \"{column.Name}\"",
             Mapping = mapping,
-            InsertRows = db => InsertMissingRows(db, key, rows),
+            Execute = db => InsertMissingRows(db, key, rows),
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Updates every row of the table for <typeparamref name="T" /> with the given setters, the
+    /// same as <c>ExecuteUpdate</c> on a query. Query filters are ignored, so every row is
+    /// updated. The update runs after the reconcile, against the final shape of the table.
+    /// </summary>
+    /// <param name="setters">The columns to set, declared with <c>SetProperty</c> calls.</param>
+    public SQLiteMigrationStep Update<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
+    {
+        ArgumentNullException.ThrowIfNull(setters);
+
+        TableMapping mapping = database.TableMapping<T>();
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.UpdateRows,
+            Description = $"update \"{mapping.TableName}\"",
+            Mapping = mapping,
+            Execute = db => db.Table<T>().IgnoreQueryFilters().ExecuteUpdate(setters),
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Updates the rows of the table for <typeparamref name="T" /> that match
+    /// <paramref name="predicate" /> with the given setters, the same as <c>ExecuteUpdate</c> on
+    /// a filtered query. Query filters are ignored, so every matching row is updated. The update
+    /// runs after the reconcile, against the final shape of the table.
+    /// </summary>
+    /// <param name="predicate">The rows to update.</param>
+    /// <param name="setters">The columns to set, declared with <c>SetProperty</c> calls.</param>
+    public SQLiteMigrationStep Update<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression<Func<T, bool>> predicate, Func<SQLitePropertyCalls<T>, SQLitePropertyCalls<T>> setters)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(setters);
+
+        TableMapping mapping = database.TableMapping<T>();
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.UpdateRows,
+            Description = $"update \"{mapping.TableName}\"",
+            Mapping = mapping,
+            Execute = db => db.Table<T>().IgnoreQueryFilters().Where(predicate).ExecuteUpdate(setters),
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Deletes every row of the table for <typeparamref name="T" />, the same as
+    /// <c>ExecuteDelete</c> on a query. Query filters are ignored, so every row is deleted. The
+    /// delete runs after the reconcile, against the final shape of the table.
+    /// </summary>
+    public SQLiteMigrationStep Delete<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>()
+    {
+        TableMapping mapping = database.TableMapping<T>();
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.DeleteRows,
+            Description = $"delete from \"{mapping.TableName}\"",
+            Mapping = mapping,
+            Execute = db => db.Table<T>().IgnoreQueryFilters().ExecuteDelete(),
+        });
+        return this;
+    }
+
+    /// <summary>
+    /// Deletes the rows of the table for <typeparamref name="T" /> that match
+    /// <paramref name="predicate" />, the same as <c>ExecuteDelete</c> on a filtered query. Query
+    /// filters are ignored, so every matching row is deleted. The delete runs after the
+    /// reconcile, against the final shape of the table.
+    /// </summary>
+    /// <param name="predicate">The rows to delete.</param>
+    public SQLiteMigrationStep Delete<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(Expression<Func<T, bool>> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+
+        TableMapping mapping = database.TableMapping<T>();
+        operations.Add(new MigrationOperation
+        {
+            Kind = MigrationOperationKind.DeleteRows,
+            Description = $"delete from \"{mapping.TableName}\"",
+            Mapping = mapping,
+            Execute = db => db.Table<T>().IgnoreQueryFilters().ExecuteDelete(predicate),
         });
         return this;
     }
 
     /// <summary>
     /// Runs a raw SQL statement. Use this for data fixes and for changes the typed methods do not
-    /// cover. To seed rows, prefer the typed <see cref="Insert{T}" />. The statement runs against
-    /// the final shape of the tables, after the reconcile.
+    /// cover. To seed rows, prefer the typed <see cref="Insert{T}" />. Pass
+    /// <paramref name="parameters" /> to bind values instead of inlining them into the SQL text.
+    /// The statement runs against the final shape of the tables, after the reconcile.
     /// </summary>
-    public SQLiteMigrationStep Sql(string sql)
+    /// <param name="sql">The SQL statement to run.</param>
+    /// <param name="parameters">The parameters bound to the statement.</param>
+    public SQLiteMigrationStep Sql(string sql, params SQLiteParameter[] parameters)
     {
         ArgumentException.ThrowIfNullOrEmpty(sql);
+        ArgumentNullException.ThrowIfNull(parameters);
 
         operations.Add(new MigrationOperation
         {
             Kind = MigrationOperationKind.RawSql,
             Description = "run SQL",
             Sql = sql,
+            SqlParameters = parameters,
         });
         return this;
     }

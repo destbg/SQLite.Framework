@@ -70,6 +70,8 @@ With `External`, every write to the source table needs a matching write to the F
 
 The default is `FtsAutoSync.Manual`, where you write to the FTS table yourself.
 
+When the FTS declaration changes after the table shipped, for example a new indexed column or a different tokenizer, rebuild the table with the `RebuildFullTextSearch` step in a [migration](Migrations). It recreates the table with its triggers and refills the index from the content table.
+
 ## Tokenizers
 
 Pick a tokenizer with one attribute on the class. If you do not pick one, FTS5 uses `unicode61` with default settings.

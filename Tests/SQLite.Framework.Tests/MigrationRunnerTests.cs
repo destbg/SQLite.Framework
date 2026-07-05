@@ -246,7 +246,7 @@ public class MigrationRunnerTests
     public void Migrate_AlreadyAtVersion_DoesNothing()
     {
         using TestDatabase db = new(useFile: true);
-        db.Pragmas.UserVersion = 5;
+        db.Pragmas.UserVersion = 3;
 
         int statements = db.Schema.Migrations()
             .Version(1, m => m.TableChanged<RunnerDataRow>())
@@ -255,7 +255,7 @@ public class MigrationRunnerTests
 
         Assert.Equal(0, statements);
         Assert.False(db.Schema.TableExists<RunnerDataRow>());
-        Assert.Equal(5, db.Pragmas.UserVersion);
+        Assert.Equal(3, db.Pragmas.UserVersion);
     }
 
     [Fact]
@@ -542,14 +542,14 @@ public class MigrationRunnerTests
     public void Add_VersionAlreadyApplied_DoesNotConstructMigration()
     {
         using TestDatabase db = new(useFile: true);
-        db.Pragmas.UserVersion = 5;
+        db.Pragmas.UserVersion = 2;
 
         int statements = db.Schema.Migrations()
             .Add<RunnerThrowingMigration>()
             .Migrate();
 
         Assert.Equal(0, statements);
-        Assert.Equal(5, db.Pragmas.UserVersion);
+        Assert.Equal(2, db.Pragmas.UserVersion);
     }
 
     [Fact]

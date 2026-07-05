@@ -471,8 +471,7 @@ public class SQLiteSchema
         ArgumentException.ThrowIfNullOrEmpty(newTableName);
 
         TableMapping mapping = Database.TableMapping<T>();
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" RENAME TO \"{newTableName.Replace("\"", "\"\"")}\"";
-        return Database.CreateCommand(sql, []).ExecuteNonQuery();
+        return RenameTableCore(mapping.TableName, newTableName);
     }
 
     /// <summary>
@@ -629,6 +628,12 @@ public class SQLiteSchema
     {
         TableMapping mapping = Database.TableMapping(type);
         return new SQLiteModelValidationResult(ModelValidator.Validate(Database, mapping));
+    }
+
+    internal int RenameTableCore(string fromTable, string toTable)
+    {
+        string sql = $"ALTER TABLE \"{fromTable.Replace("\"", "\"\"")}\" RENAME TO \"{toTable.Replace("\"", "\"\"")}\"";
+        return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
     internal int RenameColumnCore(string tableName, string fromColumn, string toColumn)
