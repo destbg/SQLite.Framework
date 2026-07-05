@@ -38,6 +38,12 @@ public abstract class SQLiteExpression : Expression
     public bool IsJsonSource { get; set; }
 
     /// <summary>
+    /// When true, this expression reads a computed <see cref="DayOfWeek" /> as an integer, no matter what
+    /// the enum storage mode is. A comparison against it must bind the other side as an integer too.
+    /// </summary>
+    public bool IsDayOfWeekInteger { get; set; }
+
+    /// <summary>
     /// The parameters used by this SQL expression or <c>null</c> if it has none. Use parameters
     /// to safely pass user input or variable data into a SQL statement, instead of building the
     /// SQL string by hand. Each parameter must have a unique name that matches a placeholder in
@@ -69,6 +75,16 @@ public abstract class SQLiteExpression : Expression
     public SQLiteExpression WithJsonSource()
     {
         IsJsonSource = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets <see cref="IsDayOfWeekInteger"/> to <c>true</c> and returns this expression.
+    /// Useful for chaining with the factory methods.
+    /// </summary>
+    public SQLiteExpression WithDayOfWeekInteger()
+    {
+        IsDayOfWeekInteger = true;
         return this;
     }
 

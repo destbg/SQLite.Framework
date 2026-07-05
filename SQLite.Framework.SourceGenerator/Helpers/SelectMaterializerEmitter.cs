@@ -773,6 +773,35 @@ public static class SelectMaterializerEmitter
             && receiverType.ConstructedFrom.ToDisplayString() == "System.Linq.IGrouping<TKey, TElement>";
     }
 
+    private static bool IsGroupingConcatInvocation(InvocationExpressionSyntax invocation, EmitContext ctx)
+    {
+        if (ctx.Model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method
+            || method.ContainingType?.SpecialType != SpecialType.System_String
+            || method.Name is not (nameof(string.Join) or nameof(string.Concat))
+            || invocation.ArgumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        ExpressionSyntax current = invocation.ArgumentList.Arguments[invocation.ArgumentList.Arguments.Count - 1].Expression;
+        while (true)
+        {
+            if (ctx.Model.GetTypeInfo(current).Type is INamedTypeSymbol { IsGenericType: true } sourceType
+                && sourceType.ConstructedFrom.ToDisplayString() == "System.Linq.IGrouping<TKey, TElement>")
+            {
+                return true;
+            }
+
+            if (current is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax chained })
+            {
+                current = chained.Expression;
+                continue;
+            }
+
+            return false;
+        }
+    }
+
     private static bool TryRegisterRowMemberLeaf(MemberAccessExpressionSyntax access, IdentifierNameSyntax rowIdent, EmitContext ctx, bool allowReflected)
     {
         ITypeSymbol? declaredLeafType = ctx.Model.GetTypeInfo(access).Type;
@@ -780,7 +809,9 @@ public static class SelectMaterializerEmitter
         ITypeSymbol? leafType = declaredLeafType is { IsValueType: true }
             && convertedLeafType is { IsValueType: false }
             ? declaredLeafType
-            : convertedLeafType ?? declaredLeafType;
+            : declaredLeafType != null && convertedLeafType is { TypeKind: TypeKind.Interface }
+                ? declaredLeafType
+                : convertedLeafType ?? declaredLeafType;
         if (leafType == null)
         {
             return false;
@@ -871,7 +902,7 @@ public static class SelectMaterializerEmitter
         }
 
         if (node is InvocationExpressionSyntax aggregateInvoke
-            && IsGroupingAggregateInvocation(aggregateInvoke, ctx)
+            && (IsGroupingAggregateInvocation(aggregateInvoke, ctx) || IsGroupingConcatInvocation(aggregateInvoke, ctx))
             && ctx.Model.GetTypeInfo(aggregateInvoke).Type is { } aggregateType)
         {
             int aggregateIdx = ctx.Leaves.Count;

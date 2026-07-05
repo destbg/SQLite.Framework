@@ -1494,7 +1494,7 @@ public class JsonFunctionsTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT (SELECT json_group_array("value" || @p0) FROM json_each(a0."Tags")) AS "5"
+                     SELECT (SELECT json_group_array(j1."value" || @p0) FROM json_each(a0."Tags") AS j1) AS "5"
                      FROM "ArrayRow" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));
@@ -2483,7 +2483,7 @@ public class JsonFunctionsTests
             .ToSqlCommand();
 
         Assert.Equal("""
-                     SELECT (SELECT json_group_array(json("value")) FROM json_each(a0."Addresses") WHERE json_extract("value", '$.City') = @p0) AS "5"
+                     SELECT (SELECT json_group_array(json(j1."value")) FROM json_each(a0."Addresses") AS j1 WHERE json_extract(j1."value", '$.City') = @p0) AS "5"
                      FROM "AddressListRow" AS a0
                      """.Replace("\r\n", "\n"),
             command.CommandText.Replace("\r\n", "\n"));

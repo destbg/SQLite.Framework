@@ -47,6 +47,8 @@ internal static class CteColumnMapper
             return null;
         }
 
+        OrderKeysBySelects(leafKeys, bodyColumns, selects);
+
         for (int i = 0; i < selects.Count; i++)
         {
             if (selects[i].IdentifierText != leafKeys[i])
@@ -56,6 +58,34 @@ internal static class CteColumnMapper
         }
 
         return null;
+    }
+
+    private static void OrderKeysBySelects(List<string> leafKeys, Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects)
+    {
+        string[] ordered = new string[selects.Count];
+        HashSet<string> used = [];
+        for (int i = 0; i < selects.Count; i++)
+        {
+            string? match = null;
+            foreach (KeyValuePair<string, Expression> column in bodyColumns)
+            {
+                if (ReferenceEquals(column.Value, selects[i]) && used.Add(column.Key))
+                {
+                    match = column.Key;
+                    break;
+                }
+            }
+
+            if (match == null)
+            {
+                return;
+            }
+
+            ordered[i] = match;
+        }
+
+        leafKeys.Clear();
+        leafKeys.AddRange(ordered);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Entity element types have public properties.")]

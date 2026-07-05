@@ -49,7 +49,10 @@ public class SQLitePropertyCalls<T>
     {
         string propertyName = GetPropertyName(propertyGetter);
         visitor.MethodArguments[setter.Parameters[0]] = visitor.TableColumns;
-        SQLiteExpression expr = (SQLiteExpression)visitor.Visit(setter.Body);
+        Expression setterBody = CommonHelpers.Inline(setter.Body);
+        bool ignoreAll = visitor.Counters.IgnoreQueryFilters || QueryFilterInjector.ShouldIgnoreAll(setterBody, visitor.Database.Options);
+        setterBody = QueryFilterInjector.Inject(setterBody, visitor.Database.Options, ignoreAll);
+        SQLiteExpression expr = (SQLiteExpression)visitor.Visit(setterBody);
 
         if (ExpressionHelpers.IsConstant(setter.Body))
         {

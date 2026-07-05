@@ -200,12 +200,11 @@ public class AttachedDatabaseTypedQueryTests
 
             main.DetachDatabase("aux1");
 
-            List<string> afterDetach = (
+            Assert.Throws<NotSupportedException>(() => (
                 from a in main.Table<Author>()
                 join b in aux1.Table<Book>() on a.Id equals b.AuthorId
                 select b.Title
-            ).ToList();
-            Assert.Equal(["main-title"], afterDetach);
+            ).ToList());
 
             List<string> aux2Still = (
                 from a in main.Table<Author>()

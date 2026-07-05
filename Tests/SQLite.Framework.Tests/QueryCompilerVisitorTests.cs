@@ -251,7 +251,6 @@ public class QueryCompilerVisitorTests
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Block(Expression.Constant(1))));
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Default(typeof(int))));
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Goto(target)));
-        Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Invoke(Expression.Lambda<Func<int>>(Expression.Constant(1)))));
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Label(target, Expression.Constant(0))));
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Loop(Expression.Constant(1))));
         Assert.Throws<NotSupportedException>(() => visitor.Visit(Expression.Switch(Expression.Constant(1), Expression.Constant(2), Expression.SwitchCase(Expression.Constant(3), Expression.Constant(1)))));

@@ -183,7 +183,7 @@ public sealed class SQLiteMigrationStep
     /// The rows go through the same write pipeline as <see cref="SQLiteTable{T}.Add(T)" />, the
     /// same as <see cref="Insert{T}" />. The check and the insert run after the reconcile,
     /// against the final shape of the table. Rows in <paramref name="rows" /> are only checked
-    /// against the table, not against each other.
+    /// against the table, not against each other. Query filters do not hide rows from the check.
     /// </summary>
     /// <param name="key">A mapped property on <typeparamref name="T" /> that identifies a row.</param>
     /// <param name="rows">The rows to insert when their key value is not in the table yet.</param>
@@ -326,19 +326,17 @@ public sealed class SQLiteMigrationStep
     private static int InsertMissingRows<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T, TKey>(SQLiteDatabase db, Expression<Func<T, TKey>> key, T[] rows)
     {
         Func<T, TKey> getKey = key.Compile();
-        List<TKey> keys = new(rows.Length);
+        List<T> missing = new(rows.Length);
         foreach (T row in rows)
         {
-            keys.Add(getKey(row));
+            Expression<Func<T, bool>> predicate = Expression.Lambda<Func<T, bool>>(
+                Expression.Equal(key.Body, Expression.Constant(getKey(row), typeof(TKey))), key.Parameters);
+            if (!db.Table<T>().IgnoreQueryFilters().Any(predicate))
+            {
+                missing.Add(row);
+            }
         }
 
-        Expression<Func<List<TKey>, TKey, bool>> containsTemplate = (list, value) => list.Contains(value);
-        MethodInfo containsMethod = ((MethodCallExpression)containsTemplate.Body).Method;
-        Expression<Func<T, bool>> predicate = Expression.Lambda<Func<T, bool>>(
-            Expression.Call(Expression.Constant(keys), containsMethod, key.Body), key.Parameters);
-
-        HashSet<TKey> existing = db.Table<T>().Where(predicate).Select(key).ToHashSet();
-        List<T> missing = rows.Where(row => !existing.Contains(getKey(row))).ToList();
         return missing.Count == 0 ? 0 : db.Table<T>().AddRange(missing, runInTransaction: false);
     }
 }

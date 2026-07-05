@@ -98,7 +98,7 @@ internal partial class JsonCollectionVisitor
 
         if (TypeHelpers.IsSimple(elementType, options))
         {
-            SQLiteExpression valueExpr = SQLiteExpression.Leaf(elementType, -1, valueSql, null);
+            SQLiteExpression valueExpr = SQLiteExpression.Leaf(elementType, -1, valueSql, null).WithJsonSource();
             visitor.MethodArguments[param] = new Dictionary<string, Expression> { [""] = valueExpr };
         }
         else
@@ -122,7 +122,7 @@ internal partial class JsonCollectionVisitor
             if (TypeHelpers.IsSimple(prop.PropertyType, options))
             {
                 string sql = $"json_extract({valueSql}, {CommonHelpers.JsonExtractPathLiteral(jsonKey)})";
-                dict[dictKey] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null);
+                dict[dictKey] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null).WithJsonSource();
             }
             else
             {

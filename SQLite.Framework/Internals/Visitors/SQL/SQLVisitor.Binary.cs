@@ -126,6 +126,9 @@ internal partial class SQLVisitor
         left = CoerceJsonTemporalOperand(resolvedLeft, left, resolvedRight.SQLiteExpression!);
         right = CoerceJsonTemporalOperand(resolvedRight, right, resolvedLeft.SQLiteExpression!);
 
+        left = CoerceDayOfWeekOperand(leftNode, left, right);
+        right = CoerceDayOfWeekOperand(rightNode, right, left);
+
         SQLiteParameter[]? bothParameters = ParameterHelpers.CombineParameters(left, right);
 
         Type nodeUnderlyingType = Nullable.GetUnderlyingType(node.Type) ?? node.Type;
@@ -333,6 +336,22 @@ internal partial class SQLVisitor
         }
 
         return current;
+    }
+
+    private SQLiteExpression CoerceDayOfWeekOperand(Expression operandNode, SQLiteExpression current, SQLiteExpression otherSide)
+    {
+        if (!otherSide.IsDayOfWeekInteger || current.IsDayOfWeekInteger)
+        {
+            return current;
+        }
+
+        Expression converted = DayOfWeekHelpers.ConvertOperandToInt(Database.Options, operandNode);
+        if (ReferenceEquals(converted, operandNode))
+        {
+            return current;
+        }
+
+        return ResolveExpression(converted).SQLiteExpression!;
     }
 
     private SQLiteExpression CoerceJsonTemporalOperand(ResolvedModel resolved, SQLiteExpression current, SQLiteExpression otherSide)

@@ -260,10 +260,15 @@ internal partial class SQLVisitor : ExpressionVisitor
             return table.SchemaName;
         }
 
-        if (table.Database != Database
-            && Database.TryGetAttachedSchema(table.Database, out string? attachedSchema))
+        if (table.Database != Database)
         {
-            return attachedSchema;
+            if (Database.TryGetAttachedSchema(table.Database, out string? attachedSchema))
+            {
+                return attachedSchema;
+            }
+
+            throw new NotSupportedException(
+                $"The query reads the table \"{table.Table.TableName}\" from another database that is not attached to this one. Attach it with AttachDatabase first.");
         }
 
         return null;

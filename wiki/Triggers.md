@@ -13,7 +13,7 @@ await db.Schema.CreateTriggerAsync<Book>(
     name: "trg_book_history",
     timing: SQLiteTriggerTiming.After,
     @event: SQLiteTriggerEvent.Update,
-    body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.Id, OLD.BookPrice, NEW.BookPrice)",
+    body: "INSERT INTO BookHistory(BookId, OldPrice, NewPrice) VALUES (NEW.BookId, OLD.BookPrice, NEW.BookPrice)",
     when: "OLD.BookPrice <> NEW.BookPrice");
 
 await db.Schema.DropTriggerAsync("trg_book_history");

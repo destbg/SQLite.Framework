@@ -372,7 +372,7 @@ public class NoOpSQLite : ISQLite3Provider
 
     public int sqlite3_get_autocommit(sqlite3 db)
     {
-        return 0;
+        return 1;
     }
 
     public long sqlite3_hard_heap_limit64(long n)

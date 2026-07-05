@@ -489,12 +489,20 @@ public class SQLiteSchema
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        string viewName = Database.TableMapping<T>().TableName;
+        TableMapping mapping = Database.TableMapping<T>();
+        string viewName = mapping.TableName;
         SQLTranslator translator = new(Database);
         SQLQuery sqlQuery = translator.Translate(query.Body);
 
+        if (translator.Visitor.ClientEvalUsed)
+        {
+            throw new NotSupportedException(
+                "The view body contains an expression that only runs in memory, which a view cannot do. Move that computation out of the view query.");
+        }
+
+        string columnList = BuildViewColumnList(mapping, translator.Selects);
         string body = SqlLiteralHelper.InlineParameters(sqlQuery.Sql, sqlQuery.Parameters, Database.Options);
-        string sql = $"CREATE VIEW IF NOT EXISTS \"{viewName.Replace("\"", "\"\"")}\" AS{Environment.NewLine}{body}";
+        string sql = $"CREATE VIEW IF NOT EXISTS \"{viewName.Replace("\"", "\"\"")}\"{columnList} AS{Environment.NewLine}{body}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -924,5 +932,20 @@ public class SQLiteSchema
             ?? throw new InvalidOperationException($"Property '{member.Member.Name}' is not mapped on the table.");
 
         return col.Name;
+    }
+
+    private static string BuildViewColumnList(TableMapping mapping, IReadOnlyList<SQLiteExpression> selects)
+    {
+        bool differs = false;
+        string[] names = new string[selects.Count];
+        for (int i = 0; i < selects.Count; i++)
+        {
+            string alias = selects[i].IdentifierText;
+            TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == alias);
+            names[i] = column?.Name ?? alias;
+            differs |= names[i] != alias;
+        }
+
+        return differs ? $" ({string.Join(", ", names.Select(IdentifierGuard.Quote))})" : string.Empty;
     }
 }

@@ -122,9 +122,16 @@ internal partial class JsonCollectionVisitor
     {
         string currentFrom = CurrentFromClause();
 
+        List<(string Expr, string Direction)> pendingOrder = SplitOrderBys();
+        List<string> selectColumns = [$"{selectExpr} AS \"value\"", $"{keyColumn} AS \"key\""];
+        for (int i = 0; i < pendingOrder.Count; i++)
+        {
+            selectColumns.Add($"{pendingOrder[i].Expr} AS \"o{i}\"");
+        }
+
         List<string> clauses =
         [
-            $"SELECT {selectExpr} AS \"value\", {keyColumn} AS \"key\"",
+            $"SELECT {string.Join(", ", selectColumns)}",
             $"FROM {currentFrom}"
         ];
 
@@ -146,6 +153,11 @@ internal partial class JsonCollectionVisitor
         wheres.Clear();
         havings.Clear();
         orderBys.Clear();
+        for (int i = 0; i < pendingOrder.Count; i++)
+        {
+            orderBys.Add($"{wrapAlias}.\"o{i}\" {pendingOrder[i].Direction}");
+        }
+
         limit = null;
         offset = null;
         selectExpr = $"{wrapAlias}.\"value\"";
@@ -159,9 +171,21 @@ internal partial class JsonCollectionVisitor
         string keyAggregate = distinctSeenReverse ? "MAX" : "MIN";
         string keyDirection = reverseApplied ? " DESC" : "";
 
+        List<(string Expr, string Direction)> pendingOrder = SplitOrderBys().Where(p => p.Expr != keyColumn).ToList();
+        List<string> selectColumns = [$"{selectExpr} AS \"value\"", $"{keyAggregate}({keyColumn}) AS \"key\""];
+        List<string> groupOrder = [];
+        for (int i = 0; i < pendingOrder.Count; i++)
+        {
+            string aggregated = pendingOrder[i].Direction == "DESC"
+                ? $"MAX({pendingOrder[i].Expr})"
+                : $"MIN({pendingOrder[i].Expr})";
+            selectColumns.Add($"{aggregated} AS \"o{i}\"");
+            groupOrder.Add($"{aggregated} {pendingOrder[i].Direction}");
+        }
+
         List<string> clauses =
         [
-            $"SELECT {selectExpr} AS \"value\", {keyAggregate}({keyColumn}) AS \"key\"",
+            $"SELECT {string.Join(", ", selectColumns)}",
             $"FROM {currentFrom}"
         ];
 
@@ -171,17 +195,37 @@ internal partial class JsonCollectionVisitor
         }
 
         clauses.Add($"GROUP BY {selectExpr}");
-        clauses.Add($"ORDER BY {keyAggregate}({keyColumn}){keyDirection}");
+        clauses.Add(groupOrder.Count > 0
+            ? "ORDER BY " + string.Join(", ", groupOrder)
+            : $"ORDER BY {keyAggregate}({keyColumn}){keyDirection}");
 
         string wrapAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         fromOverride = $"({string.Join(" ", clauses)}) {wrapAlias}";
         crossJoin = null;
         wheres.Clear();
         orderBys.Clear();
+        for (int i = 0; i < pendingOrder.Count; i++)
+        {
+            orderBys.Add($"{wrapAlias}.\"o{i}\" {pendingOrder[i].Direction}");
+        }
+
         distinct = false;
         distinctSeenReverse = false;
         selectExpr = $"{wrapAlias}.\"value\"";
         keyColumn = $"{wrapAlias}.\"key\"";
+    }
+
+    private List<(string Expr, string Direction)> SplitOrderBys()
+    {
+        List<(string Expr, string Direction)> split = new(orderBys.Count);
+        foreach (string clause in orderBys)
+        {
+            split.Add(clause.EndsWith(" ASC")
+                ? (clause[..^4], "ASC")
+                : (clause[..^5], "DESC"));
+        }
+
+        return split;
     }
 
     private string? LimitOffsetClause()
@@ -354,34 +398,19 @@ internal partial class JsonCollectionVisitor
 
     private void HandleLast(MethodCallExpression call, Type elementType)
     {
-        bool hadOrderBys = orderBys.Count > 0;
         if (limit != null || offset != null)
         {
-            List<string>? reversedOrder = hadOrderBys ? ReversedOrderBysList() : null;
-            string previousSelect = selectExpr;
-            string previousKey = keyColumn;
             MaterializeWindow();
-            AddOptionalPredicate(call, elementType);
-            if (reversedOrder != null)
-            {
-                orderBys.AddRange(RemapOrderBys(reversedOrder, previousSelect, previousKey));
-                orderBys.Add($"{keyColumn} DESC");
-            }
-            else
-            {
-                orderBys.Add($"{keyColumn} DESC");
-            }
-            limit = "1";
-            wrapInArray = false;
-            return;
         }
 
+        bool hadOrderBys = orderBys.Count > 0;
         AddOptionalPredicate(call, elementType);
         ReverseOrderBys();
         if (hadOrderBys)
         {
             orderBys.Add($"{keyColumn} DESC");
         }
+
         limit = "1";
         wrapInArray = false;
     }
@@ -468,33 +497,10 @@ internal partial class JsonCollectionVisitor
 
         if (limit != null || offset != null)
         {
-            List<string>? reversedOrder = orderBys.Count > 0 ? ReversedOrderBysList() : null;
-            string previousSelect = selectExpr;
-            string previousKey = keyColumn;
             MaterializeWindow();
-            if (reversedOrder != null)
-            {
-                orderBys.AddRange(RemapOrderBys(reversedOrder, previousSelect, previousKey));
-            }
-            else
-            {
-                orderBys.Add($"{keyColumn} DESC");
-            }
-            return;
         }
 
         ReverseOrderBys();
-    }
-
-    private List<string> RemapOrderBys(List<string> orders, string previousSelect, string previousKey)
-    {
-        List<string> remapped = new(orders.Count);
-        foreach (string order in orders)
-        {
-            remapped.Add(order.Replace(previousSelect, selectExpr).Replace(previousKey, keyColumn));
-        }
-
-        return remapped;
     }
 
     private void ReverseOrderBys()
@@ -545,8 +551,13 @@ internal partial class JsonCollectionVisitor
     private void HandleContains(MethodCallExpression call)
     {
         ResolvedModel arg = visitor.ResolveExpression(call.Arguments[1]);
-        AddParameters(arg);
-        wheres.Add($"{selectExpr} IS {arg.SQLiteExpression}");
+        (string matchSql, SQLiteParameter[]? matchParameters) = JsonMethodTranslator.ResolveElementMatchArgument(visitor, arg);
+        if (matchParameters != null)
+        {
+            parameters.AddRange(matchParameters);
+        }
+
+        wheres.Add($"{selectExpr} IS {matchSql}");
         existsWrapper = "EXISTS";
         selectExpr = "1";
         limit = "1";

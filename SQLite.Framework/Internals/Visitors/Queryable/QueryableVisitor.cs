@@ -206,7 +206,9 @@ internal partial class QueryableVisitor
                         string finalName = $"cte{visitor.CteRegistry.Ctes.Count}";
                         string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
 
-                        cteName = visitor.CteRegistry.Register(fixedSql, bodyQuery.Parameters.ToArray(), isRecursive: true, key: cte, columnNames: CteColumnMapper.ScalarColumnNames(cteElementType, database.Options));
+                        string[]? recursiveColumnNames = CteColumnMapper.ScalarColumnNames(cteElementType, database.Options)
+                            ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
+                        cteName = visitor.CteRegistry.Register(fixedSql, bodyQuery.Parameters.ToArray(), isRecursive: true, key: cte, columnNames: recursiveColumnNames);
 
                         visitor.CteParameters.Remove(selfParam);
                         visitor.MethodArguments.Remove(selfParam);
@@ -216,7 +218,9 @@ internal partial class QueryableVisitor
                         SQLTranslator bodyTranslator = visitor.CloneDeeper(visitor.Level + 1);
                         SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
-                        cteName = visitor.CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.ToArray(), isRecursive: false, key: cte, columnNames: CteColumnMapper.ScalarColumnNames(cteElementType, database.Options));
+                        string[]? bodyColumnNames = CteColumnMapper.ScalarColumnNames(cteElementType, database.Options)
+                            ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
+                        cteName = visitor.CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.ToArray(), isRecursive: false, key: cte, columnNames: bodyColumnNames);
                     }
                 }
 
@@ -252,7 +256,7 @@ internal partial class QueryableVisitor
                 .ToDictionary(kv => kv.Key, Expression (kv) => SQLiteExpression.Leaf(
                     ((SQLiteExpression)kv.Value).Type,
                     visitor.Counters.NextIdentifier(),
-                    $"{alias}.{IdentifierGuard.Quote(kv.Key)}"));
+                    $"{alias}.{IdentifierGuard.Quote(kv.Key.Length == 0 ? Constants.CteScalarColumn : kv.Key)}"));
             visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
             sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteParamRef.Alias} AS {alias}");
         }

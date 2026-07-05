@@ -292,6 +292,23 @@ internal static class CommonHelpers
         return $"{major}.{minor}.{patch}";
     }
 
+    /// <summary>
+    /// Puts the recorded auto-increment key values back on the entities of a failed range write,
+    /// so the objects do not keep keys of rows that a rollback removed.
+    /// </summary>
+    public static void RestoreAssignedKeys<T>(TableColumn? autoIncrement, List<(T Item, object? Key)>? assignedKeys)
+    {
+        if (autoIncrement == null || assignedKeys == null)
+        {
+            return;
+        }
+
+        foreach ((T item, object? key) in assignedKeys)
+        {
+            autoIncrement.PropertyInfo.SetValue(item, key);
+        }
+    }
+
     private static bool IsSimpleJsonKey(string name)
     {
         foreach (char ch in name)

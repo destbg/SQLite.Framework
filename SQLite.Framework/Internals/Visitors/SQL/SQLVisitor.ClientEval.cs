@@ -78,6 +78,11 @@ internal partial class SQLVisitor
                 : Expression.TypeEqual(ToClientExpression(typeBinary.Expression), typeBinary.TypeOperand);
         }
 
+        if (node is InvocationExpression invocation)
+        {
+            return Expression.Invoke(ToClientExpression(invocation.Expression), invocation.Arguments.Select(ToClientExpression));
+        }
+
         MemberExpression memberExpression = (MemberExpression)node;
         return Expression.MakeMemberAccess(ToClientExpression(memberExpression.Expression!), memberExpression.Member);
     }

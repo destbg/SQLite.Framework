@@ -224,7 +224,21 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
     protected override Expression VisitInvocation(InvocationExpression node)
     {
-        throw new NotSupportedException($"The invocation expression '{node}' is not supported.");
+        CompiledExpression target = (CompiledExpression)Visit(node.Expression);
+        CompiledExpression[] compiledArgs = node.Arguments
+            .Select(arg => (CompiledExpression)Visit(arg))
+            .ToArray();
+
+        return new CompiledExpression(node.Type, ctx =>
+        {
+            object?[] args = new object?[compiledArgs.Length];
+            for (int i = 0; i < args.Length; i++)
+            {
+                args[i] = compiledArgs[i].Call(ctx);
+            }
+
+            return ((Delegate)target.Call(ctx)!).DynamicInvoke(args);
+        });
     }
 
     protected override Expression VisitLabel(LabelExpression node)

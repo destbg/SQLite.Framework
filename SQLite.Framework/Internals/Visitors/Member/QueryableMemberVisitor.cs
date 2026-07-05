@@ -192,6 +192,149 @@ internal static class QueryableMemberVisitor
         };
     }
 
+    public static Expression? TryHandleGroupingConcat(SQLVisitor visitor, MethodCallExpression node)
+    {
+        bool isJoin = node.Method.Name == nameof(string.Join);
+        if ((isJoin && node.Arguments.Count != 2) || (!isJoin && node.Arguments.Count != 1))
+        {
+            return null;
+        }
+
+        Expression source = node.Arguments[isJoin ? 1 : 0];
+        if (!IsGroupingRooted(source))
+        {
+            return null;
+        }
+
+        Expression receiver = source;
+        LambdaExpression? selector = TryPeelSelectSelector(ref receiver);
+        LambdaExpression? whereFilter = TryPeelWhereFilter(ref receiver);
+        if (receiver is MethodCallExpression)
+        {
+            return null;
+        }
+
+        Dictionary<string, Expression> columns = BuildGroupingColumnMap(visitor, receiver);
+
+        SQLiteExpression? filterExpression = null;
+        if (whereFilter != null)
+        {
+            visitor.MethodArguments[whereFilter.Parameters[0]] = columns;
+            if (visitor.Visit(whereFilter.Body) is not SQLiteExpression sqlFilter)
+            {
+                throw new NotSupportedException($"string.{node.Method.Name} could not resolve the group filter.");
+            }
+
+            filterExpression = sqlFilter;
+        }
+
+        SQLiteExpression target;
+        if (selector != null)
+        {
+            visitor.MethodArguments[selector.Parameters[0]] = columns;
+            if (visitor.Visit(selector.Body) is not SQLiteExpression sqlTarget)
+            {
+                throw new NotSupportedException($"string.{node.Method.Name} could not resolve the element selector.");
+            }
+
+            target = sqlTarget;
+        }
+        else if (columns.TryGetValue(string.Empty, out Expression? element) && element is SQLiteExpression sqlElement)
+        {
+            target = sqlElement;
+        }
+        else
+        {
+            throw new NotSupportedException($"string.{node.Method.Name} over a group of rows is not supported.");
+        }
+
+        SQLiteExpression separator;
+        if (isJoin)
+        {
+            Expression separatorArg = node.Arguments[0];
+            if (separatorArg.Type == typeof(char))
+            {
+                if (!ExpressionHelpers.IsConstant(separatorArg))
+                {
+                    throw new NotSupportedException(
+                        "string.Join with a char separator that is not a constant is not supported. Use a constant separator.");
+                }
+
+                separatorArg = Expression.Constant(((char)ExpressionHelpers.GetConstantValue(separatorArg)!).ToString());
+            }
+
+            if (visitor.ResolveExpression(separatorArg).SQLiteExpression is not { } sqlSeparator)
+            {
+                throw new NotSupportedException("string.Join could not resolve the separator.");
+            }
+
+            separator = sqlSeparator;
+        }
+        else
+        {
+            separator = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), "''");
+        }
+
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        if (filterExpression != null)
+        {
+            visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_30, "FILTER (WHERE ...) on aggregates");
+        }
+#endif
+
+        if (filterExpression == null)
+        {
+            return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                ["COALESCE(group_concat(COALESCE(", ", ''), ", "), '')"],
+                [target, separator],
+                ParameterHelpers.CombineParameters(target, separator));
+        }
+
+        return SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+            ["COALESCE(group_concat(COALESCE(", ", ''), ", ") FILTER (WHERE ", "), '')"],
+            [target, separator, filterExpression],
+            ParameterHelpers.CombineParameters(target, separator, filterExpression));
+    }
+
+    public static bool IsGroupingRooted(Expression source)
+    {
+        Expression current = source;
+        while (true)
+        {
+            if (current.Type.IsGenericType && current.Type.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+            {
+                return true;
+            }
+
+            if (current is MethodCallExpression { Object: null, Arguments.Count: > 0 } call)
+            {
+                current = call.Arguments[0];
+                continue;
+            }
+
+            return false;
+        }
+    }
+
+    public static LambdaExpression? TryPeelSelectSelector(ref Expression receiver)
+    {
+        if (receiver is not MethodCallExpression selectCall
+            || selectCall.Method.Name != nameof(Enumerable.Select)
+            || selectCall.Arguments.Count != 2)
+        {
+            return null;
+        }
+
+        LambdaExpression candidate = (LambdaExpression)ExpressionHelpers.StripQuotes(selectCall.Arguments[1]);
+        if (candidate.Parameters.Count != 1)
+        {
+            return null;
+        }
+
+        receiver = selectCall.Arguments[0];
+        return candidate;
+    }
+
     public static LambdaExpression? TryPeelWhereFilter(ref Expression receiver)
     {
         if (receiver is not MethodCallExpression whereCall)

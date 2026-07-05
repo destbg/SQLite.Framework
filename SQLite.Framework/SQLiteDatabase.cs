@@ -357,6 +357,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         using IDisposable sourceLock = Lock();
         using IDisposable destLock = destination.Lock();
 
+        if (raw.sqlite3_get_autocommit(Handle!) == 0 || raw.sqlite3_get_autocommit(destination.Handle!) == 0)
+        {
+            throw new InvalidOperationException(
+                "BackupTo cannot run while a transaction is open on the source or the destination connection. Commit or roll back the transaction first.");
+        }
+
         sqlite3_backup handle = raw.sqlite3_backup_init(destination.Handle!, destName, Handle!, sourceName);
         if (handle == null)
         {
@@ -523,6 +529,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public virtual void AttachDatabase(SQLiteDatabase database, string schemaName)
     {
         ArgumentNullException.ThrowIfNull(database);
+        if (string.IsNullOrEmpty(database.Options.DatabasePath) || database.Options.DatabasePath == ":memory:")
+        {
+            throw new NotSupportedException(
+                "An in-memory database cannot be attached through its path, because every ATTACH of ':memory:' opens a new empty database. Use a file-backed database instead.");
+        }
 
         string? encryptionKey = null;
 #if SQLITECIPHER

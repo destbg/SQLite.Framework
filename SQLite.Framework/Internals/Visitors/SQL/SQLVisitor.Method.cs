@@ -38,13 +38,17 @@ internal partial class SQLVisitor
 
             if (obj.SQLiteExpression == null || argument.SQLiteExpression == null)
             {
+                Expression clientLeft = ToClientExpression(node.Object ?? node.Arguments[0]);
+                Expression clientRight = ToClientExpression(instanceEquals ? node.Arguments[0] : node.Arguments[1]);
                 return instanceEquals
-                    ? Expression.Call(ToClientOperand(leftOperand, obj), node.Method, ToClientOperand(rightOperand, argument))
-                    : Expression.Call(node.Method, BoxIfNeeded(ToClientOperand(leftOperand, obj)), BoxIfNeeded(ToClientOperand(rightOperand, argument)));
+                    ? Expression.Call(clientLeft, node.Method, clientRight)
+                    : Expression.Call(node.Method, BoxIfNeeded(clientLeft), BoxIfNeeded(clientRight));
             }
 
             SQLiteExpression left = BracketBinaryOperand(leftOperand, CoalesceLiftedOrderComparison(leftOperand, obj.SQLiteExpression!));
             SQLiteExpression right = BracketBinaryOperand(rightOperand, CoalesceLiftedOrderComparison(rightOperand, argument.SQLiteExpression!));
+            left = CoerceJsonTemporalOperand(obj, left, argument.SQLiteExpression!);
+            right = CoerceJsonTemporalOperand(argument, right, obj.SQLiteExpression!);
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(left, right);
             SQLiteExpression equalsResult = SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", left, " IS ", right, "", parameters);
             equalsResult.RequiresBrackets = true;

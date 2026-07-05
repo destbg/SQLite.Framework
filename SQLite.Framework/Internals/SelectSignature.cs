@@ -129,6 +129,15 @@ internal static class SelectSignature
                 }
                 AppendSignature(sb, le.Body);
                 break;
+            case InvocationExpression ie:
+                sb.Append(' ');
+                AppendSignature(sb, ie.Expression);
+                foreach (Expression arg in ie.Arguments)
+                {
+                    sb.Append(' ');
+                    AppendSignature(sb, arg);
+                }
+                break;
         }
         sb.Append(')');
     }

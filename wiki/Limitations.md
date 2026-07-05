@@ -14,6 +14,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - On `Real` decimal storage, `ToString()` formats like a `double`: trailing zeros such as `10.50` are dropped and a very small or very large value prints in scientific notation. `Text` storage returns the stored .NET string.
 - On `Text` decimal storage, `Distinct`, the set operators and a subquery `Contains` compare the stored text. Two equal values with a different scale, such as `10.0` and `10.00`, are then treated as different.
 - `Math.Min`, `Math.Max`, `Math.Clamp`, `Math.Abs`, `Math.Floor`, `Math.Ceiling`, `Math.Truncate` and `Math.Round` over a `Text`-stored `decimal` go through a 64-bit float, so a value with more precision than a `double` can hold reads back rounded.
+- `Average` over a `Text`-stored `decimal` goes through a 64-bit float, so the result is rounded to `double` precision where .NET keeps the full `decimal` precision. `Sum` stays exact.
 - `float` math runs in 64-bit precision, so a `float` result can differ from .NET in the last digits and `ToString()` on a fractional `float` prints the digits of the stored 64-bit value. SQLite has no 32-bit float type.
 - A cast of a `double` column to `float` inside a filter keeps the 64-bit value, so a comparison such as `(float)doubleColumn == 0.1f` does not match a stored `0.1`, where .NET rounds the column value to 32 bits first and matches. Reading `(float)doubleColumn` back in a `Select` matches .NET, since the value is rounded while it is read.
 - `ulong.Parse` of a string above the signed 64-bit range reads back the largest signed value (`9223372036854775807`) instead of the true unsigned value, since `CAST` clamps at the signed range.
@@ -80,6 +81,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Contains` over an inline collection literal, such as `new[] { ... }.Contains(column)` or `new List<T> { ... }.Contains(column)`, works only when every element is a constant or a captured value. An element that is a method call, such as `int.Parse("10")`, is not folded to a value, so the query throws `NotSupportedException`. Assign the collection to a variable first, then call `Contains` on the variable.
 - `Contains` over a collection compares each element with SQLite's byte comparison and ignores a collection's custom comparer. A `HashSet<string>` built with `StringComparer.OrdinalIgnoreCase` still compares byte for byte, so a value with different casing does not match.
 - A collection method with a selector lambda over a captured collection, such as `ConvertAll` or `FindAll`, runs in memory in a `Select` and throws in a `Where`.
+- Invoking a captured delegate, such as a stored `Func`, runs in memory in a `Select` and throws in a `Where`.
 
 ## Grouping
 
@@ -99,7 +101,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Aggregates
 
 - A grouped `Min`, `Max` or `Average` over a per-group filter that matches no rows returns the type default instead of throwing. `Sum` returns `0`, the same as LINQ.
-- A correlated subquery inside a projection returns the type default where LINQ-to-Objects throws. `First`, `Single` or a non-nullable `Min`, `Max` or `Average` over an empty subquery read back the type default and `Single` over more than one row reads the first row, since a SQL scalar subquery cannot throw.
+- A correlated subquery inside a projection returns the type default where LINQ-to-Objects throws. `First`, `Single` or a non-nullable `Min`, `Max` or `Average` over an empty subquery read back the type default and `Single` over more than one row reads the first row, since a SQL scalar subquery cannot throw. A correlated `FirstOrDefault` or `SingleOrDefault` with an explicit default value also reads back the type default instead of the given value, since the SQL subquery cannot carry it.
 - `Average`, `Min`, `Max` and `Sum` over a per-row expression skip a row whose expression reads back as `NULL`. A divide by zero or a Not-a-Number math call inside the selector, such as `Average(x => x.A / x.B)` where `B` is zero, drops that row from the aggregate.
 - A window `Max`, `Min` or `Average` over a `ulong` column is not correct for values at or above 2^63, since the value is stored as a signed integer. A window `Average` over a `uint` column is exact.
 - A window ordered by a `ulong` key with a `RANGE` frame that uses a numeric offset sorts by the signed stored value, so a value at or above 2^63 orders before the smaller values. SQLite allows only one ORDER BY key in such a frame, so the unsigned sort correction cannot be added.
@@ -132,6 +134,9 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - On a JSON array that holds a `null` element, `Except` and `Intersect` against another list that also holds `null` drop the rows that SQL `NOT IN` and `IN` cannot decide through `NULL` and `Distinct().Count()` leaves the `null` out of the count. `Except` also drops a `null` from the source even when the other list has no `null`, because SQL `NULL NOT IN (...)` is `NULL` rather than true, so a `null` element cannot survive an `Except` where .NET would keep it.
 - A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so adding a list that holds one fails.
 - `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly` and `TimeSpan` values inside a JSON list are kept as text. Reading a part like `.Year` or ordering them, follows the same rules as `Text` storage, not .NET, so results can differ. An equality or `Contains` against a constant or captured value binds the value in the same text form, so it matches.
+- A date or time element inside a JSON list does not match a comparison against a date or time column of the same row. The JSON element is text while the column keeps its storage form.
+- Adding a JSON date or time element to a date, such as `r.When.Add(r.Spans.First())`, runs in memory in a `Select` and throws in a `Where`, because the JSON value is text and cannot take part in tick arithmetic.
+- On a JSON dictionary with a `[Flags]` enum key, `Keys.Contains` with an enum column that holds a combined value does not match. The JSON key holds the combined name text, such as `Read, Write`, while the column translation covers single member names only.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
 - `GetRange` on a JSON list does not check its arguments. Asking for more items than are there returns the items that fit. A negative count returns the whole list and a negative start index is read as zero. .NET throws in all three cases.
 - `ElementAtOrDefault` on a JSON list with an index taken from a column reads the type default when the index is past the end, but a negative column index fails with an error instead of reading the type default.
@@ -172,6 +177,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Schema
 
 - An attribute foreign key (`[ReferencesTable]` or `[ForeignKey]`) reads the name of the column it points at on the target table from the target type, before the model builder runs. Renaming that target column with the fluent `HasColumnName` afterward does not reach the foreign key, so it keeps the old name and the table fails to accept rows.
+- A typed model trigger writes the SQL name of its target table when the trigger is declared. Renaming that target table with the fluent `ToTable` after the trigger is declared does not reach the trigger, so it still names the old table and fails when the trigger first fires.
 - A composite primary key cannot have an auto-increment member. SQLite only allows auto-increment on a single-column `INTEGER PRIMARY KEY`, so creating such a table throws.
 - Auto-increment is only allowed on a single-column `INTEGER PRIMARY KEY`. Marking a key of another type, such as a `string` key, as auto-increment throws when the table is created.
 - Migrating a column from nullable to NOT NULL fails when existing rows hold `NULL` and the column has no default. Add a default, set a value with `TableChanged(s => s.Set(...))` or keep the column nullable. When the column has a default, the existing `NULL` rows are filled with that default.

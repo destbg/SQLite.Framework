@@ -257,14 +257,18 @@ internal static class ModelValidator
 
     private static void ValidateTriggers(SQLiteDatabase database, string table, TableMapping mapping, List<string> issues)
     {
-        foreach (TriggerSpec trigger in mapping.Triggers)
+        foreach ((string name, string sql) in SchemaSqlBuilder.BuildTriggers(mapping, mapping.TableName, ifNotExists: false))
         {
-            string escaped = trigger.Name.Replace("'", "''");
+            string escaped = name.Replace("'", "''");
             string? live = database.ExecuteScalar<string?>(
-                $"SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = '{escaped}'");
+                $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = '{escaped}'");
             if (live == null)
             {
-                issues.Add($"Trigger '{trigger.Name}' on table '{table}' is missing in the database.");
+                issues.Add($"Trigger '{name}' on table '{table}' is missing in the database.");
+            }
+            else if (!string.Equals(sql, live, StringComparison.Ordinal))
+            {
+                issues.Add($"Trigger '{name}' on table '{table}' does not match the model definition.");
             }
         }
     }

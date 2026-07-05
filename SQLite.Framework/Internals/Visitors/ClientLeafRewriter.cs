@@ -40,13 +40,25 @@ internal sealed class ClientLeafRewriter : ExpressionVisitor
         }
 
         if (node is MethodCallExpression { Object: null, Arguments.Count: > 0 } groupCall
-            && groupCall.Arguments[0].Type.IsGenericType
-            && groupCall.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>)
+            && (IsDirectGroupingCall(groupCall) || IsGroupingConcatCall(groupCall))
             && owner.Visit(node) is SQLiteExpression groupAggregate)
         {
             return groupAggregate;
         }
 
         return base.Visit(node);
+    }
+
+    private static bool IsDirectGroupingCall(MethodCallExpression call)
+    {
+        return call.Arguments[0].Type.IsGenericType
+            && call.Arguments[0].Type.GetGenericTypeDefinition() == typeof(IGrouping<,>);
+    }
+
+    private static bool IsGroupingConcatCall(MethodCallExpression call)
+    {
+        return call.Method.DeclaringType == typeof(string)
+            && call.Method.Name is nameof(string.Join) or nameof(string.Concat)
+            && QueryableMemberVisitor.IsGroupingRooted(call.Arguments[^1]);
     }
 }

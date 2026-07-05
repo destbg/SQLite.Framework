@@ -32,11 +32,13 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
         Expression? newObject = node.Object != null ? Visit(node.Object) : null;
         Expression[] newArgs = new Expression[node.Arguments.Count];
         bool substituteRowArguments = !IsFrameworkTranslatedMethod(node.Method);
+        bool stringConcatMethod = node.Method.DeclaringType == typeof(string)
+            && node.Method.Name is nameof(string.Join) or nameof(string.Concat);
 
         for (int i = 0; i < node.Arguments.Count; i++)
         {
             Expression arg = node.Arguments[i];
-            if (substituteRowArguments && LooksLikeRowReference(arg))
+            if (substituteRowArguments && LooksLikeRowReference(arg) && !(stringConcatMethod && IsGroupingType(arg.Type)))
             {
                 newArgs[i] = BuildMaterialization(arg);
             }
@@ -78,6 +80,11 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
         }
 
         return type.GetConstructor(Type.EmptyTypes) != null;
+    }
+
+    private static bool IsGroupingType(Type type)
+    {
+        return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IGrouping<,>);
     }
 
     private static bool IsFrameworkTranslatedMethod(MethodInfo method)

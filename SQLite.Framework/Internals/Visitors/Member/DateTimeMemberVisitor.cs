@@ -34,7 +34,7 @@ internal static class DateTimeMemberVisitor
             {
                 if (visitor.IsInSelectProjection && visitor.Level == 0)
                 {
-                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                    return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
                 }
 
                 throw new NotSupportedException(
@@ -93,7 +93,7 @@ internal static class DateTimeMemberVisitor
             if (visitor.Database.Options.DateTimeOffsetStorage == DateTimeOffsetStorageMode.TextFormatted)
             {
                 if (visitor.IsInSelectProjection && visitor.Level == 0)
-                    return Expression.Call(obj.Expression, node.Method, arguments.Select(f => f.Expression));
+                    return Expression.Call(visitor.ToClientOperand(node.Object, obj), node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
                 throw new NotSupportedException(
                     $"DateTimeOffset.{node.Method.Name} cannot be used in a LINQ query when DateTimeOffsetStorage is set to TextFormatted." +
                     $" Use direct SQL queries instead or switch to Ticks storage.");
@@ -288,7 +288,7 @@ internal static class DateTimeMemberVisitor
             nameof(DateTime.Microsecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, 1000),
             nameof(DateTime.Nanosecond) => ModMulExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, TimeSpan.NanosecondsPerTick),
             nameof(DateTime.Ticks) => node,
-            nameof(DateTime.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME"),
+            nameof(DateTime.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME").WithDayOfWeekInteger(),
             nameof(DateTime.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
             nameof(DateTime.Date) => DateTruncExpression(visitor, type, node),
             nameof(DateTime.TimeOfDay) => ModExpression(visitor, type, node, TimeSpan.TicksPerDay),
@@ -320,7 +320,7 @@ internal static class DateTimeMemberVisitor
             nameof(DateTimeOffset.Microsecond) => DivModExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, 1000),
             nameof(DateTimeOffset.Nanosecond) => ModMulExpression(visitor, type, node, TimeSpan.TicksPerMicrosecond, TimeSpan.NanosecondsPerTick),
             nameof(DateTimeOffset.Ticks) => node,
-            nameof(DateTimeOffset.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME"),
+            nameof(DateTimeOffset.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATETIME").WithDayOfWeekInteger(),
             nameof(DateTimeOffset.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATETIME"),
             nameof(DateTimeOffset.Date) => DateTruncExpression(visitor, type, node),
             nameof(DateTimeOffset.TimeOfDay) => ModExpression(visitor, type, node, TimeSpan.TicksPerDay),
@@ -371,7 +371,7 @@ internal static class DateTimeMemberVisitor
             nameof(DateOnly.Year) => ResolveDateFormat(visitor, type, node, "Y", "DATE"),
             nameof(DateOnly.Month) => ResolveDateFormat(visitor, type, node, "m", "DATE"),
             nameof(DateOnly.Day) => ResolveDateFormat(visitor, type, node, "d", "DATE"),
-            nameof(DateTime.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATE"),
+            nameof(DateTime.DayOfWeek) => ResolveDateFormat(visitor, type, node, "w", "DATE").WithDayOfWeekInteger(),
             nameof(DateTime.DayOfYear) => ResolveDateFormat(visitor, type, node, "j", "DATE"),
             nameof(DateOnly.DayNumber) => DivExpression(visitor, type, node, TimeSpan.TicksPerDay),
             _ => node
@@ -401,27 +401,36 @@ internal static class DateTimeMemberVisitor
 
     private static MethodCallExpression? ClientEvalOrThrowForTextTimeSpanArgument(SQLVisitor visitor, MethodCallExpression node, List<ResolvedModel> arguments)
     {
-        if (visitor.Database.Options.TimeSpanStorage != TimeSpanStorageMode.Text)
-        {
-            return null;
-        }
-
-        bool hasSpanColumnArgument = false;
+        bool textStorage = visitor.Database.Options.TimeSpanStorage == TimeSpanStorageMode.Text;
+        bool hasTextSpanArgument = false;
+        bool jsonSpanArgument = false;
         for (int i = 0; i < node.Arguments.Count; i++)
         {
-            if (node.Arguments[i].Type == typeof(TimeSpan) && !arguments[i].IsConstant)
+            if (node.Arguments[i].Type != typeof(TimeSpan) || arguments[i].IsConstant)
+            {
+                continue;
+            }
+
+            if (arguments[i].SQLiteExpression is { IsJsonSource: true })
+            {
+                hasTextSpanArgument = true;
+                jsonSpanArgument = true;
+                break;
+            }
+
+            if (textStorage)
             {
                 TimeSpanColumnFinderVisitor finder = new(visitor);
                 finder.Visit(node.Arguments[i]);
                 if (finder.Found)
                 {
-                    hasSpanColumnArgument = true;
+                    hasTextSpanArgument = true;
                     break;
                 }
             }
         }
 
-        if (!hasSpanColumnArgument)
+        if (!hasTextSpanArgument)
         {
             return null;
         }
@@ -431,8 +440,9 @@ internal static class DateTimeMemberVisitor
             return Expression.Call(visitor.ToClientExpression(node.Object!), node.Method, node.Arguments.Select(visitor.ToClientExpression));
         }
 
-        throw new NotSupportedException(
-            $"{node.Method.DeclaringType!.Name}.{node.Method.Name} with a TimeSpan argument that is not a constant cannot be used in a LINQ query when TimeSpanStorage is set to Text.");
+        throw new NotSupportedException(jsonSpanArgument
+            ? $"{node.Method.DeclaringType!.Name}.{node.Method.Name} with a TimeSpan argument read from a JSON collection cannot be used in a LINQ query, because the JSON value is stored as text."
+            : $"{node.Method.DeclaringType!.Name}.{node.Method.Name} with a TimeSpan argument that is not a constant cannot be used in a LINQ query when TimeSpanStorage is set to Text.");
     }
 
     private static SQLiteExpression ResolveDateAdd(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, long multiplyBy)

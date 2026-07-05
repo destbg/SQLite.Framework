@@ -543,6 +543,11 @@ public static class QueryableExtensions
         Expression current = expression;
         while (current is MethodCallExpression { Arguments.Count: > 0 } call)
         {
+            if (call.Method.Name == nameof(SQLiteDatabase.FromSql))
+            {
+                throw new NotSupportedException("ExecuteUpdate and ExecuteDelete are not supported on a FromSql source.");
+            }
+
             current = call.Arguments[0];
         }
 

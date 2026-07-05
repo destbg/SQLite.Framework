@@ -6,6 +6,14 @@ internal static class StringMemberVisitor
     {
         SQLVisitor visitor = ctx.Visitor;
         MethodCallExpression node = (MethodCallExpression)ctx.Node;
+
+        if (node.Object == null
+            && node.Method.Name is nameof(string.Join) or nameof(string.Concat)
+            && QueryableMemberVisitor.TryHandleGroupingConcat(visitor, node) is { } groupingConcat)
+        {
+            return groupingConcat;
+        }
+
         List<ResolvedModel> arguments = node.Arguments
             .Select(visitor.ResolveExpression)
             .ToList();

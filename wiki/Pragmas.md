@@ -6,13 +6,13 @@
 
 ```csharp
 db.Pragmas.ForeignKeys = true;
-db.Pragmas.JournalMode = "WAL";
+db.Pragmas.JournalMode = SQLiteJournalMode.Wal;
 db.Pragmas.SynchronousMode = SQLiteSynchronousMode.Normal;
 db.Pragmas.CacheSize = -4000;
 db.Pragmas.UserVersion = 3;
 
 bool enforced = db.Pragmas.ForeignKeys;
-string mode = db.Pragmas.JournalMode;
+SQLiteJournalMode mode = db.Pragmas.JournalMode;
 long pageSize = db.Pragmas.PageSize;
 long freePages = db.Pragmas.FreelistCount;
 ```

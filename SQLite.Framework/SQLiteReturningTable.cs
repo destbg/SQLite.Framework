@@ -261,9 +261,8 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             case SQLiteAction.AddOrUpdate:
             {
                 (TableColumn[] columns, string sql) = Source.GetAddOrUpdateInfoForItemInternal(item, SQLiteConflict.Replace);
-                TableColumn? autoIncrement = Source.GetAutoIncrementColumn();
-                List<SQLiteParameter> parameters = BuildInsertParameters(columns, autoIncrement, item);
-                return UpsertWithReturning(sql, parameters, autoIncrement, item);
+                List<SQLiteParameter> parameters = BuildInsertParameters(columns, Source.GetAutoIncrementColumn(), item);
+                return ExecuteInsertReturning(sql, parameters, item);
             }
             default:
                 throw new InvalidOperationException($"Unsupported SQLiteAction value: {action}");
@@ -308,6 +307,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
 
     private List<TResult> UpsertWithReturning(string sql, List<SQLiteParameter> parameters, TableColumn? autoIncrement, T item)
     {
+        Database.OpenConnection();
         long lastRowIdBefore = raw.sqlite3_last_insert_rowid(Database.GetActiveHandle());
         List<TResult> projected = ExecuteWithReturning(sql, parameters);
 

@@ -12,6 +12,15 @@ internal static class JsonMethodTranslator
     {
         Type declaring = node.Method.DeclaringType!;
 
+        if (declaring == typeof(MemoryExtensions)
+            && node.Method.Name == nameof(Enumerable.Contains)
+            && node.Arguments.Count == 2
+            && StripSpanConversion(node.Arguments[0]) is { } spanSource
+            && IsJsonCollection(spanSource.Type, visitor.Database.Options))
+        {
+            return TrySpanContains(node, spanSource, visitor);
+        }
+
         Expression? sourceExpr = node.Object ?? (node.Arguments.Count > 0 ? node.Arguments[0] : null);
         bool sourceIsEnumerableChain = sourceExpr is MethodCallExpression mce
             && mce.Method.DeclaringType == typeof(Enumerable);
@@ -55,6 +64,69 @@ internal static class JsonMethodTranslator
         return null;
     }
 
+    public static bool TryGetTemporalText(ResolvedModel arg, out string? text)
+    {
+        if (arg.IsConstant && JsonTemporalText.TryFormat(arg.Constant, out text))
+        {
+            return true;
+        }
+
+        if (arg.SQLiteExpression is { Parameters: [{ } single] } expr
+            && expr.ToString() == single.Name
+            && JsonTemporalText.TryFormat(single.Value, out text))
+        {
+            return true;
+        }
+
+        text = null;
+        return false;
+    }
+
+    public static (string Sql, SQLiteParameter[]? Parameters) ResolveElementMatchArgument(SQLVisitor visitor, ResolvedModel arg)
+    {
+        if (TryGetTemporalText(arg, out string? temporalText))
+        {
+            SQLiteExpression leaf = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), temporalText);
+            return (leaf.ToString(), leaf.Parameters);
+        }
+
+        return (arg.SQLiteExpression!.ToString(), arg.SQLiteExpression!.Parameters);
+    }
+
+    private static SQLiteExpression? TrySpanContains(MethodCallExpression node, Expression spanSource, SQLVisitor visitor)
+    {
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "JSON1 collection translation (json_each, json_extract)");
+#endif
+        ResolvedModel source = visitor.ResolveExpression(spanSource);
+        if (source.IsConstant || source.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        string src = source.SQLiteExpression.ToString();
+        ResolvedModel arg = visitor.ResolveExpression(node.Arguments[1]);
+        (string matchSql, SQLiteParameter[]? matchParameters) = ResolveElementMatchArgument(visitor, arg);
+        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
+            source.SQLiteExpression,
+            SQLiteExpression.Leaf(typeof(object), -1, "", matchParameters));
+        string containsAlias = $"j{visitor.Counters.NextTableIndex('j')}";
+        return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
+            $"EXISTS (SELECT 1 FROM json_each({src}) AS {containsAlias} WHERE {containsAlias}.\"value\" IS {matchSql})",
+            parameters)
+            .WithJsonSource();
+    }
+
+    private static Expression StripSpanConversion(Expression expr)
+    {
+        while (expr is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } implicitCall)
+        {
+            expr = implicitCall.Arguments[0];
+        }
+
+        return expr;
+    }
+
     private static SQLiteExpression? TryDictionary(MethodCallExpression node, SQLVisitor visitor)
     {
         if (node.Method.Name is not ("ContainsKey" or "get_Item")
@@ -63,12 +135,14 @@ internal static class JsonMethodTranslator
             return null;
         }
 
-        string? key = ExpressionHelpers.GetConstantValue(node.Arguments[0]) switch
+        object? keyValue = ExpressionHelpers.GetConstantValue(node.Arguments[0]);
+        string? key = keyValue switch
         {
             string text => text,
             Enum enumKey => enumKey.ToString(),
-            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-            _ => null
+            _ => JsonTemporalText.TryFormat(keyValue, out string? temporalKey)
+                ? temporalKey
+                : keyValue is IFormattable formattable ? formattable.ToString(null, CultureInfo.InvariantCulture) : null
         };
 
         if (key == null)
@@ -109,24 +183,6 @@ internal static class JsonMethodTranslator
             && receiver.Type.IsGenericType
             && receiver.Type.GetGenericTypeDefinition() == typeof(Dictionary<,>)
             && options.HasJsonConverter(receiver.Type);
-    }
-
-    private static bool TryGetTemporalText(ResolvedModel arg, out string? text)
-    {
-        if (arg.IsConstant && JsonTemporalText.TryFormat(arg.Constant, out text))
-        {
-            return true;
-        }
-
-        if (arg.SQLiteExpression is { Parameters: [{ } single] } expr
-            && expr.ToString() == single.Name
-            && JsonTemporalText.TryFormat(single.Value, out text))
-        {
-            return true;
-        }
-
-        text = null;
-        return false;
     }
 
     private static SQLiteExpression? TryEnumerable(MethodCallExpression node, SQLVisitor visitor)
@@ -234,8 +290,17 @@ internal static class JsonMethodTranslator
             }
             else if (IsNonStringDictionaryKeys(node.Object))
             {
-                parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, arg.SQLiteExpression!);
-                argSql = $"CAST({arg.SQLiteExpression} AS TEXT)";
+                if (TryGetTemporalText(arg, out string? temporalKeyText))
+                {
+                    SQLiteExpression keyLeaf = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), temporalKeyText);
+                    parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, keyLeaf);
+                    argSql = keyLeaf.ToString();
+                }
+                else
+                {
+                    parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, arg.SQLiteExpression!);
+                    argSql = $"CAST({arg.SQLiteExpression} AS TEXT)";
+                }
             }
             else if (TryGetTemporalText(arg, out string? temporalText))
             {
@@ -259,12 +324,13 @@ internal static class JsonMethodTranslator
         if (node.Method.Name == nameof(List<>.IndexOf) && node.Arguments.Count == 1)
         {
             ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
+            (string matchSql, SQLiteParameter[]? matchParameters) = ResolveElementMatchArgument(visitor, arg);
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
-                arg.SQLiteExpression!);
+                SQLiteExpression.Leaf(typeof(object), -1, "", matchParameters));
             string indexOfAlias = $"j{visitor.Counters.NextTableIndex('j')}";
             return SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT {indexOfAlias}.\"key\" FROM json_each({src}) AS {indexOfAlias} WHERE {indexOfAlias}.\"value\" IS {arg.SQLiteExpression} LIMIT 1), -1)",
+                $"COALESCE((SELECT {indexOfAlias}.\"key\" FROM json_each({src}) AS {indexOfAlias} WHERE {indexOfAlias}.\"value\" IS {matchSql} LIMIT 1), -1)",
                 parameters)
                 .WithJsonSource();
         }
@@ -272,12 +338,13 @@ internal static class JsonMethodTranslator
         if (node.Method.Name == nameof(List<>.LastIndexOf) && node.Arguments.Count == 1)
         {
             ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
+            (string matchSql, SQLiteParameter[]? matchParameters) = ResolveElementMatchArgument(visitor, arg);
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
-                arg.SQLiteExpression!);
+                SQLiteExpression.Leaf(typeof(object), -1, "", matchParameters));
             string lastIndexOfAlias = $"j{visitor.Counters.NextTableIndex('j')}";
             return SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT {lastIndexOfAlias}.\"key\" FROM json_each({src}) AS {lastIndexOfAlias} WHERE {lastIndexOfAlias}.\"value\" IS {arg.SQLiteExpression} ORDER BY {lastIndexOfAlias}.\"key\" DESC LIMIT 1), -1)",
+                $"COALESCE((SELECT {lastIndexOfAlias}.\"key\" FROM json_each({src}) AS {lastIndexOfAlias} WHERE {lastIndexOfAlias}.\"value\" IS {matchSql} ORDER BY {lastIndexOfAlias}.\"key\" DESC LIMIT 1), -1)",
                 parameters)
                 .WithJsonSource();
         }
@@ -334,31 +401,31 @@ internal static class JsonMethodTranslator
             return null;
         }
 
-        (string predSql, SQLiteParameter[]? predParams) = VisitElementLambda(visitor, lambda);
+        (string predSql, SQLiteParameter[]? predParams, string alias) = VisitElementLambda(visitor, lambda);
         SQLiteParameter[]? combined = CombineAll(source, predParams == null ? null : SQLiteExpression.Leaf(typeof(object), -1, "", predParams).WithJsonSource());
 
         return node.Method.Name switch
         {
             nameof(List<>.Exists) => SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                $"EXISTS (SELECT 1 FROM json_each({src}) WHERE {predSql})", combined)
+                $"EXISTS (SELECT 1 FROM json_each({src}) AS {alias} WHERE {predSql})", combined)
                 .WithJsonSource(),
             nameof(List<>.Find) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1)", combined)
+                $"(SELECT {alias}.\"value\" FROM json_each({src}) AS {alias} WHERE {predSql} ORDER BY {alias}.\"key\" LIMIT 1)", combined)
                 .WithJsonSource(),
             nameof(List<>.FindAll) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT json_group_array({BoolArrayElement(source.Type, visitor.Database.Options)}) FROM json_each({src}) WHERE {predSql})", combined)
+                $"(SELECT json_group_array({BoolArrayElement(source.Type, visitor.Database.Options, $"{alias}.\"value\"")}) FROM json_each({src}) AS {alias} WHERE {predSql})", combined)
                 .WithJsonSource(),
             nameof(List<>.FindIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1), -1)", combined)
+                $"COALESCE((SELECT {alias}.\"key\" FROM json_each({src}) AS {alias} WHERE {predSql} ORDER BY {alias}.\"key\" LIMIT 1), -1)", combined)
                 .WithJsonSource(),
             nameof(List<>.FindLast) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1)", combined)
+                $"(SELECT {alias}.\"value\" FROM json_each({src}) AS {alias} WHERE {predSql} ORDER BY {alias}.\"key\" DESC LIMIT 1)", combined)
                 .WithJsonSource(),
             nameof(List<>.FindLastIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1), -1)", combined)
+                $"COALESCE((SELECT {alias}.\"key\" FROM json_each({src}) AS {alias} WHERE {predSql} ORDER BY {alias}.\"key\" DESC LIMIT 1), -1)", combined)
                 .WithJsonSource(),
             _ => SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                $"NOT EXISTS (SELECT 1 FROM json_each({src}) WHERE ({predSql}) IS NOT 1)", combined)
+                $"NOT EXISTS (SELECT 1 FROM json_each({src}) AS {alias} WHERE ({predSql}) IS NOT 1)", combined)
                 .WithJsonSource(),
         };
     }
@@ -373,50 +440,51 @@ internal static class JsonMethodTranslator
             Expression stripped = ExpressionHelpers.StripQuotes(secondArg);
             if (stripped is LambdaExpression lambda && TranslationPatterns.IsArrayLambdaMethod(node.Method.Name))
             {
-                (string predSql, SQLiteParameter[]? predParams) = VisitElementLambda(visitor, lambda);
+                (string predSql, SQLiteParameter[]? predParams, string alias) = VisitElementLambda(visitor, lambda);
                 SQLiteParameter[]? combined = CombineAll(source.SQLiteExpression, predParams == null ? null : SQLiteExpression.Leaf(typeof(object), -1, "", predParams).WithJsonSource());
                 return node.Method.Name switch
                 {
                     nameof(Array.Exists) => SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                        $"EXISTS (SELECT 1 FROM json_each({src}) WHERE {predSql})", combined)
+                        $"EXISTS (SELECT 1 FROM json_each({src}) AS {alias} WHERE {predSql})", combined)
                         .WithJsonSource(),
                     nameof(Array.Find) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1)", combined)
+                        $"(SELECT {alias}.\"value\" FROM json_each({src}) AS {alias} WHERE {predSql} ORDER BY {alias}.\"key\" LIMIT 1)", combined)
                         .WithJsonSource(),
                     nameof(Array.FindAll) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT json_group_array({BoolArrayElement(source.SQLiteExpression.Type, visitor.Database.Options)}) FROM json_each({src}) WHERE {predSql})", combined)
+                        $"(SELECT json_group_array({BoolArrayElement(source.SQLiteExpression.Type, visitor.Database.Options, $"{alias}.\"value\"")}) FROM json_each({src}) AS {alias} WHERE {predSql})", combined)
                         .WithJsonSource(),
                     nameof(Array.FindIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                        $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" LIMIT 1), -1)", combined)
+                        $"COALESCE((SELECT {alias}.\"key\" FROM json_each({src}) AS {alias} WHERE {predSql} ORDER BY {alias}.\"key\" LIMIT 1), -1)", combined)
                         .WithJsonSource(),
                     nameof(Array.FindLast) => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT \"value\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1)", combined)
+                        $"(SELECT {alias}.\"value\" FROM json_each({src}) AS {alias} WHERE {predSql} ORDER BY {alias}.\"key\" DESC LIMIT 1)", combined)
                         .WithJsonSource(),
                     nameof(Array.FindLastIndex) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                        $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE {predSql} ORDER BY \"key\" DESC LIMIT 1), -1)", combined)
+                        $"COALESCE((SELECT {alias}.\"key\" FROM json_each({src}) AS {alias} WHERE {predSql} ORDER BY {alias}.\"key\" DESC LIMIT 1), -1)", combined)
                         .WithJsonSource(),
                     nameof(Array.TrueForAll) => SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
-                        $"NOT EXISTS (SELECT 1 FROM json_each({src}) WHERE ({predSql}) IS NOT 1)", combined)
+                        $"NOT EXISTS (SELECT 1 FROM json_each({src}) AS {alias} WHERE ({predSql}) IS NOT 1)", combined)
                         .WithJsonSource(),
                     _ => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT json_group_array({BoolArrayElement(node.Type, visitor.Database.Options, predSql)}) FROM json_each({src}))", combined)
+                        $"(SELECT json_group_array({BoolArrayElement(node.Type, visitor.Database.Options, predSql)}) FROM json_each({src}) AS {alias})", combined)
                         .WithJsonSource(),
                 };
             }
 
             ResolvedModel arg = visitor.ResolveExpression(secondArg);
-            string argSql = arg.SQLiteExpression!.ToString();
+            (string argSql, SQLiteParameter[]? matchParameters) = ResolveElementMatchArgument(visitor, arg);
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
                 source.SQLiteExpression,
-                arg.SQLiteExpression!);
+                SQLiteExpression.Leaf(typeof(object), -1, "", matchParameters));
+            string arrayIndexAlias = $"j{visitor.Counters.NextTableIndex('j')}";
 
             return node.Method.Name switch
             {
                 nameof(Array.IndexOf) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                    $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" IS {argSql} LIMIT 1), -1)", parameters)
+                    $"COALESCE((SELECT {arrayIndexAlias}.\"key\" FROM json_each({src}) AS {arrayIndexAlias} WHERE {arrayIndexAlias}.\"value\" IS {argSql} LIMIT 1), -1)", parameters)
                     .WithJsonSource(),
                 nameof(Array.LastIndexOf) => SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(),
-                    $"COALESCE((SELECT \"key\" FROM json_each({src}) WHERE \"value\" IS {argSql} ORDER BY \"key\" DESC LIMIT 1), -1)", parameters)
+                    $"COALESCE((SELECT {arrayIndexAlias}.\"key\" FROM json_each({src}) AS {arrayIndexAlias} WHERE {arrayIndexAlias}.\"value\" IS {argSql} ORDER BY {arrayIndexAlias}.\"key\" DESC LIMIT 1), -1)", parameters)
                     .WithJsonSource(),
                 _ => null,
             };
@@ -425,21 +493,23 @@ internal static class JsonMethodTranslator
         return null;
     }
 
-    private static (string Sql, SQLiteParameter[]? Parameters) VisitElementLambda(SQLVisitor visitor, LambdaExpression lambda)
+    private static (string Sql, SQLiteParameter[]? Parameters, string Alias) VisitElementLambda(SQLVisitor visitor, LambdaExpression lambda)
     {
         ParameterExpression param = lambda.Parameters[0];
         Type elementType = param.Type;
+        string alias = $"j{visitor.Counters.NextTableIndex('j')}";
+        string element = $"{alias}.\"value\"";
 
         Dictionary<string, Expression> bindings;
         if (TypeHelpers.IsSimple(elementType, visitor.Database.Options))
         {
-            SQLiteExpression valueExpr = SQLiteExpression.Leaf(elementType, -1, "\"value\"", (SQLiteParameter[]?)null);
+            SQLiteExpression valueExpr = SQLiteExpression.Leaf(elementType, -1, element, (SQLiteParameter[]?)null).WithJsonSource();
             bindings = new Dictionary<string, Expression> { [""] = valueExpr };
         }
         else
         {
             bindings = new Dictionary<string, Expression>();
-            RegisterProperties(elementType, "\"value\"", bindings);
+            RegisterProperties(elementType, element, bindings);
         }
 
         visitor.MethodArguments[param] = bindings;
@@ -448,7 +518,7 @@ internal static class JsonMethodTranslator
             Expression result = visitor.Visit(lambda.Body);
             if (result is SQLiteExpression sqlExpr)
             {
-                return (sqlExpr.ToString(), sqlExpr.Parameters);
+                return (sqlExpr.ToString(), sqlExpr.Parameters, alias);
             }
 
             throw new NotSupportedException($"Cannot translate lambda body: {lambda.Body}");

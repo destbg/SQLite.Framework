@@ -23,7 +23,9 @@ await db.Schema.CreateViewAsync<BookSummary>(() =>
 
 The body can use anything the query translator supports, including joins, grouping and subqueries. The DDL uses `CREATE VIEW IF NOT EXISTS`, so calling `CreateView` twice is safe.
 
-SQLite does not allow placeholders inside view bodies, so any constants in the lambda are inlined as SQL literals when the view is created. Only simple types (numbers, strings, bool) work as inlined constants. For exotic types use raw SQL through `db.Execute`.
+SQLite does not allow placeholders inside view bodies, so any constants in the lambda are inlined as SQL literals when the view is created. Only simple types (numbers, strings, bool) work as inlined constants. For exotic types use raw SQL through `db.Execute`. Query filters and captured values are baked into the view body with the values they had at create time. A view body cannot run code in memory, so a projection that needs it makes `CreateView` throw.
+
+When the view entity renames a column with `[Column]` or `HasColumnName`, the view is created with an explicit column list, so reads through the entity find the renamed columns.
 
 ## Querying a view
 

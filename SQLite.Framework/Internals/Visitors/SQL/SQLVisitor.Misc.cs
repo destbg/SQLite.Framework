@@ -46,10 +46,30 @@ internal partial class SQLVisitor
         SQLiteExpression ifTrueExpr = CoalesceLiftedOrderComparison(node.IfTrue, ifTrue.SQLiteExpression);
         SQLiteExpression ifFalseExpr = CoalesceLiftedOrderComparison(node.IfFalse, ifFalse.SQLiteExpression);
 
+        bool dayOfWeekBranch = ifTrueExpr.IsDayOfWeekInteger || ifFalseExpr.IsDayOfWeekInteger;
+        if (ifTrueExpr.IsDayOfWeekInteger != ifFalseExpr.IsDayOfWeekInteger)
+        {
+            Expression branchNode = ifTrueExpr.IsDayOfWeekInteger ? node.IfFalse : node.IfTrue;
+            Expression converted = DayOfWeekHelpers.ConvertOperandToInt(Database.Options, branchNode);
+            if (!ReferenceEquals(converted, branchNode))
+            {
+                SQLiteExpression convertedBranch = ResolveExpression(converted).SQLiteExpression!;
+                if (ifTrueExpr.IsDayOfWeekInteger)
+                {
+                    ifFalseExpr = convertedBranch;
+                }
+                else
+                {
+                    ifTrueExpr = convertedBranch;
+                }
+            }
+        }
+
         SQLiteParameter[]? allParameters =
             ParameterHelpers.CombineParameters(test.SQLiteExpression, ifTrueExpr, ifFalseExpr);
 
-        return SQLiteExpression.Trinary(node.Type, Counters.NextIdentifier(), "(CASE WHEN ", test.SQLiteExpression!, " THEN ", ifTrueExpr, " ELSE ", ifFalseExpr, " END)", allParameters);
+        SQLiteExpression conditional = SQLiteExpression.Trinary(node.Type, Counters.NextIdentifier(), "(CASE WHEN ", test.SQLiteExpression!, " THEN ", ifTrueExpr, " ELSE ", ifFalseExpr, " END)", allParameters);
+        return dayOfWeekBranch ? conditional.WithDayOfWeekInteger() : conditional;
     }
 
     protected override Expression VisitParameter(ParameterExpression node)
@@ -70,6 +90,11 @@ internal partial class SQLVisitor
         }
 
         return ResolveMember(node);
+    }
+
+    protected override Expression VisitInvocation(InvocationExpression node)
+    {
+        return NotTranslatable(node, "Invoking a delegate is not translatable to SQL.");
     }
 
     protected override Expression VisitTypeBinary(TypeBinaryExpression node)

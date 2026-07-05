@@ -8,7 +8,19 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </summary>
 internal sealed class IgnoreQueryFiltersDetectorVisitor : ExpressionVisitor
 {
+    private readonly HashSet<object> visited = [];
+
     public bool Found { get; private set; }
+
+    protected override Expression VisitConstant(ConstantExpression node)
+    {
+        if (!Found && node.Value is SQLiteCte cte && visited.Add(cte))
+        {
+            Visit(cte.Query.Body);
+        }
+
+        return node;
+    }
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {

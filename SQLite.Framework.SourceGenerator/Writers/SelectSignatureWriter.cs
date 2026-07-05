@@ -868,6 +868,28 @@ public static class SelectSignatureWriter
             return false;
         }
 
+        if (method.MethodKind == MethodKind.DelegateInvoke)
+        {
+            sb.Append("(Invoke ").Append(FormatType(type, ctx.TypeArgSubstitutions));
+            sb.Append(' ');
+            if (!TryAppend(sb, invocation.Expression, ctx))
+            {
+                return false;
+            }
+
+            foreach (ArgumentSyntax invokeArg in invocation.ArgumentList.Arguments)
+            {
+                sb.Append(' ');
+                if (!TryAppend(sb, invokeArg.Expression, ctx))
+                {
+                    return false;
+                }
+            }
+
+            sb.Append(')');
+            return true;
+        }
+
         ExpressionSyntax? receiver = null;
         if (!method.IsStatic && invocation.Expression is MemberAccessExpressionSyntax ma)
         {

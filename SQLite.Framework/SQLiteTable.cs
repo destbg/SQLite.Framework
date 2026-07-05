@@ -326,11 +326,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <summary>
     /// Wraps this table so the next entity write (<c>Add</c>, <c>Update</c> or <c>Remove</c>)
     /// emits a SQLite <c>RETURNING *</c> clause and hands the written rows back to the caller.
-    /// Useful when <c>INSERT</c>/<c>UPDATE</c>/<c>DELETE</c> triggers populate columns and you need
-    /// to read the final row values atomically with the write.
+    /// Useful when database defaults or generated columns fill values and you need to read the
+    /// written row atomically with the write.
     /// </summary>
     /// <remarks>
-    /// <c>RETURNING</c> requires SQLite 3.35 or later.
+    /// <c>RETURNING</c> requires SQLite 3.35 or later. The returned values show the row as the
+    /// statement wrote it. Changes made by <c>AFTER</c> triggers are not visible in them, since
+    /// SQLite computes <c>RETURNING</c> before those triggers run.
     /// </remarks>
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
     [UnsupportedOSPlatform("ios")]
@@ -620,12 +622,21 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual int RunPreparedRange(string sql, IEnumerable<T> items, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, Action<sqlite3_stmt, T> bindRow, TableColumn? autoIncrement = null, bool detectInsertByRowIdChange = false)
     {
         int count = 0;
+        List<(T Item, object? Key)>? assignedKeys = runInTransaction && autoIncrement != null ? [] : null;
 
         if (runInTransaction)
         {
             using SQLiteTransaction transaction = Database.BeginTransaction();
-            Body();
-            transaction.Commit();
+            try
+            {
+                Body();
+                transaction.Commit();
+            }
+            catch
+            {
+                CommonHelpers.RestoreAssignedKeys(autoIncrement, assignedKeys);
+                throw;
+            }
         }
         else
         {
@@ -713,6 +724,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                     bool inserted = detectInsertByRowIdChange ? rowId != rowIdBefore : changes > 0;
                     if (inserted)
                     {
+                        assignedKeys?.Add((item, autoIncrement.PropertyInfo.GetValue(item)));
                         autoIncrement.PropertyInfo.SetValue(item, ConvertRowIdToType(rowId, autoIncrement.PropertyType));
                     }
                 }
@@ -904,12 +916,22 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     protected virtual int RunRange(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, IEnumerable<T> collection, bool runInTransaction, Func<T, int> execute)
     {
         int count = 0;
+        TableColumn? autoIncrement = runInTransaction ? GetAutoIncrementColumn() : null;
+        List<(T Item, object? Key)>? assignedKeys = autoIncrement != null ? [] : null;
 
         if (runInTransaction)
         {
             using SQLiteTransaction transaction = Database.BeginTransaction();
-            Body();
-            transaction.Commit();
+            try
+            {
+                Body();
+                transaction.Commit();
+            }
+            catch
+            {
+                CommonHelpers.RestoreAssignedKeys(autoIncrement, assignedKeys);
+                throw;
+            }
         }
         else
         {
@@ -925,6 +947,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 if (!RunHooks(hooks, item))
                 {
                     continue;
+                }
+
+                if (autoIncrement != null)
+                {
+                    assignedKeys!.Add((item, autoIncrement.PropertyInfo.GetValue(item)));
                 }
 
                 count += execute(item);
@@ -1444,12 +1471,22 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     private int RunRangeWithColumns(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, IEnumerable<T> collection, bool runInTransaction, SQLiteAction defaultAction)
     {
         int count = 0;
+        TableColumn? autoIncrement = runInTransaction ? GetAutoIncrementColumn() : null;
+        List<(T Item, object? Key)>? assignedKeys = autoIncrement != null ? [] : null;
 
         if (runInTransaction)
         {
             using SQLiteTransaction transaction = Database.BeginTransaction();
-            Body();
-            transaction.Commit();
+            try
+            {
+                Body();
+                transaction.Commit();
+            }
+            catch
+            {
+                CommonHelpers.RestoreAssignedKeys(autoIncrement, assignedKeys);
+                throw;
+            }
         }
         else
         {
@@ -1466,6 +1503,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 if (!RunHooks(hooks, item, columns))
                 {
                     continue;
+                }
+
+                if (autoIncrement != null)
+                {
+                    assignedKeys!.Add((item, autoIncrement.PropertyInfo.GetValue(item)));
                 }
 
                 SQLiteAction action = RunActionHooks(item, defaultAction);

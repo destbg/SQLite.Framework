@@ -30,7 +30,7 @@ public class JsonDateTimeElementPredicateTests
     }
 
     [Fact]
-    public void GreaterThanPredicateOnTextDatesDivergesFromMemory()
+    public void GreaterThanPredicateOnTextDatesMatchesMemory()
     {
         using TestDatabase db = SetupDatabase();
         DateTime cutoff = new(2023, 12, 31);
@@ -43,7 +43,7 @@ public class JsonDateTimeElementPredicateTests
             .Select(r => r.Dates.Count(d => d > cutoff))
             .First();
 
-        Assert.Equal(3, actual);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
