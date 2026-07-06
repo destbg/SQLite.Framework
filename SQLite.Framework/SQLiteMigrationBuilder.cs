@@ -29,7 +29,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
     {
         sets.Add(new MigrationSetValue
         {
-            Column = CommonHelpers.Resolve(mapping, column),
+            Column = ResolveWritableColumn(column),
             ValueSql = ConverterSql.WrapParameter(SqlLiteralHelper.FormatLiteral(value, database.Options), typeof(TValue), database.Options),
         });
         return this;
@@ -47,10 +47,29 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
         reads.Visit(CommonHelpers.Inline(value.Body));
         sets.Add(new MigrationSetValue
         {
-            Column = CommonHelpers.Resolve(mapping, column),
+            Column = ResolveWritableColumn(column),
             ValueSql = BareSqlTranslator.Translate(database, mapping, value),
             ReadColumns = reads.Columns,
         });
         return this;
+    }
+
+    private string ResolveWritableColumn<TValue>(Expression<Func<T, TValue>> column)
+    {
+        string name = CommonHelpers.Resolve(mapping, column);
+        if (mapping.ComputedColumns.Any(c => string.Equals(c.Column.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                $"Column '{name}' on table '{mapping.TableName}' is computed, so a migration fill cannot write it. Remove the Set call and let SQLite compute the value.");
+        }
+
+        if (!mapping.Columns.Any(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))
+            && !mapping.ShadowColumns.Any(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                $"Column '{name}' is not a column on table '{mapping.TableName}'. Set can only fill a mapped column or a shadow column declared in OnModelCreating.");
+        }
+
+        return name;
     }
 }

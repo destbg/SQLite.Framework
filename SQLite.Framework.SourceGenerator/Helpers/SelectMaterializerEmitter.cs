@@ -43,11 +43,6 @@ public static class SelectMaterializerEmitter
                 return false;
             }
 
-            if (emitCtx.Leaves.Count == 0)
-            {
-                return false;
-            }
-
             bool hasReflectedLeaf = emitCtx.Leaves.Any(l => l.IsReflected);
             bool anonHasNonAccessibleArg = body is AnonymousObjectCreationExpressionSyntax anonForCheck
                 && anonForCheck.Initializers.Any(init =>
@@ -123,7 +118,10 @@ public static class SelectMaterializerEmitter
 
         sb.Append("        private static object? ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
         sb.AppendLine("        {");
-        sb.AppendLine("            var reader = ctx.Reader!;");
+        if (emitCtx.Leaves.Count > 0)
+        {
+            sb.AppendLine("            var reader = ctx.Reader!;");
+        }
 
         int reflectedLeafIndex = 0;
         for (int i = 0; i < emitCtx.Leaves.Count; i++)
@@ -748,7 +746,7 @@ public static class SelectMaterializerEmitter
             && access.Kind() == SyntaxKind.SimpleMemberAccessExpression
             && access.Expression is IdentifierNameSyntax rowIdent
             && IsRowReference(rowIdent, ctx)
-            && !SelectSignatureWriter.IsNotMappedMember(ctx.Model.GetSymbolInfo(access).Symbol))
+            && !SelectSignatureWriter.IsUnmappedRowMember(ctx.Model.GetSymbolInfo(access).Symbol))
         {
             return TryRegisterRowMemberLeaf(access, rowIdent, ctx, allowReflected: false);
         }
@@ -915,11 +913,20 @@ public static class SelectMaterializerEmitter
         switch (node)
         {
             case MemberAccessExpressionSyntax access when access.Kind() == SyntaxKind.SimpleMemberAccessExpression:
+                if (access.Expression is CastExpressionSyntax castReceiver
+                    && castReceiver.Expression is IdentifierNameSyntax castIdent
+                    && IsRowReference(castIdent, ctx)
+                    && SelectSignatureWriter.IsExplicitInterfaceOnlyMember(
+                        ctx.Model.GetSymbolInfo(access).Symbol, ctx.Model.GetTypeInfo(castIdent).Type))
+                {
+                    return IsExpandableRow(castIdent, ctx) && RegisterRowExpansion(castIdent, ctx);
+                }
+
                 if (access.Expression is IdentifierNameSyntax rowIdent && IsRowReference(rowIdent, ctx))
                 {
-                    if (SelectSignatureWriter.IsNotMappedMember(ctx.Model.GetSymbolInfo(access).Symbol))
+                    if (SelectSignatureWriter.IsUnmappedRowMember(ctx.Model.GetSymbolInfo(access).Symbol))
                     {
-                        return RegisterRowExpansion(access.Expression, ctx);
+                        return IsExpandableRow(rowIdent, ctx) && RegisterRowExpansion(access.Expression, ctx);
                     }
 
                     return TryRegisterRowMemberLeaf(access, rowIdent, ctx, allowReflected: true);
@@ -965,6 +972,12 @@ public static class SelectMaterializerEmitter
                     if (ctx.WriterCtx.NullableRangeVars.Contains(sym))
                     {
                         return true;
+                    }
+                    if (ctx.WriterCtx.RowBindings.ContainsKey(sym)
+                        && ctx.Model.GetTypeInfo(ident).Type is INamedTypeSymbol rowIdentType
+                        && SelectSignatureWriter.IsConstructibleEntityType(rowIdentType))
+                    {
+                        return RegisterRowExpansion(ident, ctx);
                     }
                     return !ctx.WriterCtx.RowBindings.ContainsKey(sym);
                 }
@@ -1062,6 +1075,12 @@ public static class SelectMaterializerEmitter
         return SelectSignatureWriter.TryGetRowBinding(ident, ctx.WriterCtx, out _);
     }
 
+    private static bool IsExpandableRow(IdentifierNameSyntax ident, EmitContext ctx)
+    {
+        return ctx.Model.GetTypeInfo(ident).Type is INamedTypeSymbol rowType
+            && SelectSignatureWriter.IsConstructibleEntityType(rowType);
+    }
+
     private static int CountLeavesUnder(List<LeafInfo> leaves, int startIndex, SyntaxNode container)
     {
         int count = 0;
@@ -1104,6 +1123,11 @@ public static class SelectMaterializerEmitter
         foreach (IPropertySymbol prop in props)
         {
             if (!IsTypeAccessibleFromGenerator(prop.Type, ctx.GeneratorAssembly))
+            {
+                return false;
+            }
+
+            if (prop.SetMethod!.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.ProtectedOrInternal))
             {
                 return false;
             }

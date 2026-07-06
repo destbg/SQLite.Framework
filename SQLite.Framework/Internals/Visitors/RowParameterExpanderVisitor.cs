@@ -15,13 +15,21 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
 
     protected override Expression VisitMember(MemberExpression node)
     {
-        if (node.Expression is ParameterExpression pe
-            && rowParameters.Contains(pe)
-            && IsConstructibleEntityType(pe.Type)
+        if (node.Expression != null
             && node.Member is PropertyInfo prop
-            && prop.GetCustomAttribute<System.ComponentModel.DataAnnotations.Schema.NotMappedAttribute>() != null)
+            && IsUnmappedProperty(prop)
+            && IsConstructibleEntityType(node.Expression.Type)
+            && LooksLikeRowReference(node.Expression))
         {
-            return Expression.MakeMemberAccess(BuildMaterialization(pe), node.Member);
+            if (node.Expression is not ParameterExpression)
+            {
+                throw new NotSupportedException(
+                    $"Cannot read the computed member '{node.Member.Name}' off '{node.Expression}' in this projection. " +
+                    $"The row is reached through another projection, such as a join result, so the framework cannot " +
+                    $"reconstruct '{node.Expression.Type.Name}' to compute the member. Project the columns you need instead.");
+            }
+
+            return Expression.MakeMemberAccess(BuildMaterialization(node.Expression), node.Member);
         }
 
         return base.VisitMember(node);
@@ -80,6 +88,18 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
         return false;
     }
 
+    private static bool IsUnmappedProperty(PropertyInfo property)
+    {
+        if (property.GetCustomAttribute<System.ComponentModel.DataAnnotations.Schema.NotMappedAttribute>() != null)
+        {
+            return true;
+        }
+
+        return property.SetMethod == null
+            && property.GetMethod is { } getter
+            && !getter.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false);
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Row types are preserved by Queryable<T>.")]
     private static bool IsConstructibleEntityType(Type type)
     {
@@ -133,7 +153,8 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
         List<MemberBinding> bindings = [];
         foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (prop.CanWrite)
+            if (prop.CanWrite
+                && prop.GetCustomAttribute<System.ComponentModel.DataAnnotations.Schema.NotMappedAttribute>() == null)
             {
                 bindings.Add(Expression.Bind(prop, Expression.Property(rowReference, prop)));
             }

@@ -42,6 +42,27 @@ internal static class TypeMetadata
 #endif
     }
 
+    public static JsonTypeInfo? ResolveJsonTypeInfo(this SQLiteOptions options, Type type)
+    {
+        Type stripped = Nullable.GetUnderlyingType(type) ?? type;
+        if (options.TypeConverters.TryGetValue(stripped, out ISQLiteTypeConverter? registered)
+            && registered is IJsonTypeInfoSource direct)
+        {
+            return direct.TypeInfo;
+        }
+
+        foreach (ISQLiteTypeConverter converter in options.TypeConverters.Values)
+        {
+            if (converter is IJsonTypeInfoSource source
+                && source.TypeInfo.Options.TryGetTypeInfo(stripped, out JsonTypeInfo? resolved))
+            {
+                return resolved;
+            }
+        }
+
+        return null;
+    }
+
     public static Type CoercedResultType(this SQLiteOptions options, Type declaredType, Type sourceType)
     {
         if (!options.TypeConverters.ContainsKey(sourceType))

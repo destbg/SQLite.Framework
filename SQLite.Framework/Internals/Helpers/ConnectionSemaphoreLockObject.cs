@@ -8,6 +8,7 @@ internal sealed class ConnectionSemaphoreLockObject : IDisposable
 {
     private readonly SQLiteDatabase database;
     private readonly LockToken token;
+    private bool disposed;
 
     public ConnectionSemaphoreLockObject(SQLiteDatabase database, LockToken token)
     {
@@ -17,6 +18,12 @@ internal sealed class ConnectionSemaphoreLockObject : IDisposable
 
     public void Dispose()
     {
+        if (disposed)
+        {
+            return;
+        }
+
+        disposed = true;
         database.ReleaseLock(token);
     }
 }

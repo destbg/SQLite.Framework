@@ -280,8 +280,8 @@ internal partial class SQLVisitor
         {
             ExpressionType.Negate or ExpressionType.NegateChecked => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "-(", operand, ")", operand.Parameters),
             ExpressionType.Not when (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(bool) => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "NOT ", BracketBooleanCompound(node.Operand, operand), "", operand.Parameters),
-            ExpressionType.Not when (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(uint) => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "(~", operand, $" & {Constants.UInt32Mask})", operand.Parameters),
-            ExpressionType.Not => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "~", operand, "", operand.Parameters),
+            ExpressionType.Not when (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(uint) => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "(~", ExpressionHelpers.BracketIfNeeded(operand), $" & {Constants.UInt32Mask})", operand.Parameters),
+            ExpressionType.Not => SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "~", ExpressionHelpers.BracketIfNeeded(operand), "", operand.Parameters),
             _ => throw new NotSupportedException($"Unsupported unary op {node.NodeType}")
         };
     }

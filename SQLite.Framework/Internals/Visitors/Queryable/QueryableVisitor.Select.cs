@@ -254,6 +254,26 @@ internal partial class QueryableVisitor
             }
         }
 
+        if (isProjection && visitor.TableColumns.Values.Any(v => v is not SQLiteExpression))
+        {
+            visitor.IsInSelectProjection = true;
+            visitor.ClientEvalAllowed = !IsInnerQuery;
+
+            Expression decomposed = visitor.ToClientExpression(resultSelector.Body);
+            if (decomposed is NewExpression { Members: not null } newExpression)
+            {
+                visitor.TableColumns = DecomposeJoinProjectionColumns(newExpression);
+            }
+            else
+            {
+                Selects.Clear();
+                JoinSelectExpression = selectVisitor.Visit(decomposed);
+            }
+
+            visitor.IsInSelectProjection = false;
+            visitor.ClientEvalAllowed = false;
+        }
+
         return node;
     }
 

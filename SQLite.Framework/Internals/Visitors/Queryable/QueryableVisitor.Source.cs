@@ -71,7 +71,7 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitFromSql(MethodCallExpression node)
     {
         Type genericType = node.Method.ReturnType.GetGenericArguments()[0];
-        string sql = (string)ExpressionHelpers.GetConstantValue(node.Arguments[0])!;
+        string sql = SqlTail.TrimStatementTail((string)ExpressionHelpers.GetConstantValue(node.Arguments[0])!);
         IEnumerable<object> arguments = (IEnumerable<object>)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
         SQLiteParameter[] parameters = arguments.Select(a => (SQLiteParameter)a).ToArray();
 

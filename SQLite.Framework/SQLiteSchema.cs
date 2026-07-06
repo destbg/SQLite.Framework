@@ -186,7 +186,7 @@ public class SQLiteSchema
     {
         ArgumentException.ThrowIfNullOrEmpty(indexName);
         long? count = Database.ExecuteScalar<long?>(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = @name",
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = @name COLLATE NOCASE",
             [new SQLiteParameter { Name = "@name", Value = indexName }]);
         return count > 0;
     }
@@ -198,7 +198,7 @@ public class SQLiteSchema
     public virtual bool ColumnExists<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string columnName)
     {
         ArgumentException.ThrowIfNullOrEmpty(columnName);
-        return ListColumns<T>().Any(c => c.Name == columnName);
+        return ListColumns<T>().Any(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -224,7 +224,7 @@ public class SQLiteSchema
         }
 
         return Database.Query<string>(
-            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = @t AND name NOT LIKE 'sqlite_%' ORDER BY name",
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = @t COLLATE NOCASE AND name NOT LIKE 'sqlite_%' ORDER BY name",
             [new SQLiteParameter { Name = "@t", Value = tableName }]);
     }
 
@@ -537,7 +537,7 @@ public class SQLiteSchema
     {
         ArgumentException.ThrowIfNullOrEmpty(viewName);
         long? count = Database.ExecuteScalar<long?>(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'view' AND name = @name",
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'view' AND name = @name COLLATE NOCASE",
             [new SQLiteParameter { Name = "@name", Value = viewName }]);
         return count > 0;
     }
@@ -969,7 +969,7 @@ public class SQLiteSchema
         for (int i = 0; i < selects.Count; i++)
         {
             string alias = selects[i].IdentifierText;
-            TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == alias);
+            TableColumn? column = mapping.Columns.FirstOrDefault(c => string.Equals(c.PropertyInfo.Name, alias, StringComparison.OrdinalIgnoreCase));
             names[i] = column?.Name ?? alias;
             differs |= names[i] != alias;
         }

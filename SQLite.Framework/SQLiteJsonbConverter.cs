@@ -11,7 +11,7 @@ namespace SQLite.Framework;
 #elif SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
 [UnsupportedOSPlatform("ios")]
 #endif
-public class SQLiteJsonbConverter<T> : ISQLiteTypeConverter
+public class SQLiteJsonbConverter<T> : ISQLiteTypeConverter, IJsonTypeInfoSource
 {
     private readonly JsonTypeInfo<T> typeInfo;
 
@@ -25,6 +25,8 @@ public class SQLiteJsonbConverter<T> : ISQLiteTypeConverter
 
     /// <inheritdoc />
     public SQLiteColumnType ColumnType => SQLiteColumnType.Blob;
+
+    JsonTypeInfo IJsonTypeInfoSource.TypeInfo => typeInfo;
 
     /// <inheritdoc />
     public string ParameterSqlExpression => "jsonb({0})";

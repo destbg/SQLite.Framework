@@ -288,13 +288,14 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
-    public void QueryFilterRebinder_ConcreteMemberNotFound_FallsThroughToBaseUpdate()
+    public void QueryFilterRebinder_ConcreteMemberNotFound_Throws()
     {
         Expression<Func<IRebindFoo, bool>> lambda = x => x.Tag == "x";
-        LambdaExpression rebound = CommonHelpers.Rebind(lambda, typeof(RebindEntityWithExplicitImpl));
 
-        Assert.NotSame(lambda, rebound);
-        Assert.Equal(typeof(RebindEntityWithExplicitImpl), rebound.Parameters[0].Type);
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(
+            () => CommonHelpers.Rebind(lambda, typeof(RebindEntityWithExplicitImpl)));
+        Assert.Contains("Tag", ex.Message);
+        Assert.Contains(nameof(RebindEntityWithExplicitImpl), ex.Message);
     }
 
     [Fact]
@@ -1614,6 +1615,51 @@ public class InternalHelpersDirectTests
 
         Expression bound = (Expression)method.Invoke(null, [lambda.Body, "A"])!;
         Assert.Equal(7, ((ConstantExpression)bound).Value);
+    }
+
+    [Fact]
+    public void JsonEnumText_TryFormat_WithoutRegisteredTypeInfo_ReturnsFalse()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder($"json-enum-text-null-{Guid.NewGuid():N}.db3").Build();
+
+        bool result = JsonEnumText.TryFormat(options, DayOfWeek.Monday, out string? text);
+
+        Assert.False(result);
+        Assert.Null(text);
+    }
+
+    [Fact]
+    public void JsonEnumText_NormalizeInValue_NonJsonSource_ReturnsValueUnchanged()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder($"json-enum-norm-plain-{Guid.NewGuid():N}.db3")
+            .AddJsonContext(JselContext.Default)
+            .Build();
+
+        object? result = JsonEnumText.NormalizeInValue(options, isJsonSource: false, JselState.Active);
+
+        Assert.Equal(JselState.Active, result);
+    }
+
+    [Fact]
+    public void JsonEnumText_NormalizeInValue_JsonSourceStringEnum_ReturnsMemberName()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder($"json-enum-norm-name-{Guid.NewGuid():N}.db3")
+            .AddJsonContext(JselContext.Default)
+            .Build();
+
+        object? result = JsonEnumText.NormalizeInValue(options, isJsonSource: true, JselState.Active);
+
+        Assert.Equal("Active", result);
+    }
+
+    [Fact]
+    public void JsonEnumText_NormalizeInValue_JsonSourceWithoutTypeInfo_ReturnsValueUnchanged()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder($"json-enum-norm-num-{Guid.NewGuid():N}.db3").Build();
+
+        object? result = JsonEnumText.NormalizeInValue(options, isJsonSource: true, DayOfWeek.Monday);
+
+        Assert.Equal(DayOfWeek.Monday, result);
     }
 }
 

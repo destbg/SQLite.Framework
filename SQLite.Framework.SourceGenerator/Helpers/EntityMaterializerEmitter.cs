@@ -1407,8 +1407,19 @@ public static class EntityMaterializerEmitter
                 && entitySet.Contains(strippedNamed)
                 && IsCompositeUserType(strippedNamed))
             {
-                EmitEntityProperties(rowBody, preamble, "            ", strippedNamed, propName + ".", "                ", ref nestedCounter, out string nestedResult, entitySet, nestedInitSet);
-                nestedResultLocals[propName] = nestedResult;
+                if (strippedNamed.IsAnonymousType)
+                {
+                    EmitEntityProperties(rowBody, preamble, "            ", strippedNamed, propName + ".", "                ", ref nestedCounter, out string nestedResult, entitySet, nestedInitSet);
+                    nestedResultLocals[propName] = nestedResult;
+                }
+                else
+                {
+                    string compositeSuffix = nestedCounter.ToString();
+                    nestedCounter++;
+                    string compositeLocal = "__val_" + compositeSuffix;
+                    EmitCompositePropertyReadLocal(rowBody, preamble, "            ", prop.Type, strippedNamed, propName, compositeLocal, compositeSuffix, "                ", ref nestedCounter, entitySet, nestedInitSet);
+                    nestedResultLocals[propName] = compositeLocal;
+                }
                 continue;
             }
 

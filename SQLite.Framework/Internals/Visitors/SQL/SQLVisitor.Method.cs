@@ -23,7 +23,7 @@ internal partial class SQLVisitor
         bool instanceEquals = node.Method.Name == nameof(object.Equals) && node.Object != null && node.Arguments.Count == 1;
         bool staticEquals = node.Method.Name == nameof(object.Equals) && node.Object == null
             && node.Arguments.Count == 2 && node.Method.DeclaringType == typeof(object);
-        if (instanceEquals || staticEquals)
+        if ((instanceEquals || staticEquals) && !Database.Options.TryGetMethodTranslator(node.Method, out _))
         {
             Expression leftOperand = node.Object ?? node.Arguments[0];
             Expression rightOperand = instanceEquals ? node.Arguments[0] : node.Arguments[1];
@@ -47,8 +47,8 @@ internal partial class SQLVisitor
 
             SQLiteExpression left = BracketBinaryOperand(leftOperand, CoalesceLiftedOrderComparison(leftOperand, obj.SQLiteExpression!));
             SQLiteExpression right = BracketBinaryOperand(rightOperand, CoalesceLiftedOrderComparison(rightOperand, argument.SQLiteExpression!));
-            left = CoerceJsonTemporalOperand(obj, left, argument.SQLiteExpression!);
-            right = CoerceJsonTemporalOperand(argument, right, obj.SQLiteExpression!);
+            left = CoerceJsonOperand(obj, left, argument.SQLiteExpression!);
+            right = CoerceJsonOperand(argument, right, obj.SQLiteExpression!);
             left = CoerceDayOfWeekOperand(leftOperand, left, right);
             right = CoerceDayOfWeekOperand(rightOperand, right, left);
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(left, right);
@@ -95,6 +95,15 @@ internal partial class SQLVisitor
             return jsonHandled;
         }
 
+        if (Database.Options.TryGetMethodTranslator(node.Method, out SQLiteMemberTranslator? memberTranslator))
+        {
+            bool previousInCustomMethodTranslator = InCustomMethodTranslator;
+            InCustomMethodTranslator = true;
+            Expression translated = memberTranslator(ctx);
+            InCustomMethodTranslator = previousInCustomMethodTranslator;
+            return translated;
+        }
+
         if (node.Method.Name == nameof(Enumerable.SequenceEqual) && node.Arguments.Count == 2)
         {
             Expression seqLeft = StripSpanConversion(node.Arguments[0]);
@@ -103,11 +112,6 @@ internal partial class SQLVisitor
             {
                 return Visit(Expression.Equal(seqLeft, seqRight));
             }
-        }
-
-        if (Database.Options.TryGetMethodTranslator(node.Method, out SQLiteMemberTranslator? memberTranslator))
-        {
-            return memberTranslator(ctx);
         }
 
         if (declaringType != null && Database.Options.MemberTranslators.TryGetValue(declaringType, out SQLiteMemberTranslator? typeTranslator))
@@ -199,6 +203,12 @@ internal partial class SQLVisitor
             if (QueryableMemberVisitor.TryHandleConstantAnyPredicate(this, node) is { } anyHandled)
             {
                 return anyHandled;
+            }
+
+            if (node.Arguments.Any(a => a is not SQLiteExpression && ExpressionHelpers.StripQuotes(a) is LambdaExpression)
+                && IsCapturedCollectionRooted(node.Arguments[0]))
+            {
+                return NotTranslatable(node, $"{node.Method.Name} over a captured collection with a selector runs in memory in a Select and is not translatable in a Where.");
             }
 
             List<ResolvedModel> arguments = node.Arguments
@@ -331,6 +341,20 @@ internal partial class SQLVisitor
         }
 
         return expr;
+    }
+
+    private static bool IsCapturedCollectionRooted(Expression source)
+    {
+        Expression current = source;
+        while (current is MethodCallExpression call
+            && !ExpressionHelpers.IsConstant(call)
+            && (call.Object ?? call.Arguments.FirstOrDefault()) is { } receiver)
+        {
+            current = receiver;
+        }
+
+        return ExpressionHelpers.IsConstant(current)
+            && ExpressionHelpers.GetConstantValue(current) is IEnumerable;
     }
 
     private static IEnumerable? TryGetImplicitlyConvertedConstantCollection(Expression expr)

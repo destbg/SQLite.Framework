@@ -39,10 +39,16 @@ internal sealed class QueryFilterRebinderVisitor : ExpressionVisitor
             && node.Member.DeclaringType.IsAssignableFrom(expression.Type))
         {
             MemberInfo? concrete = FindConcreteMember(expression.Type, node.Member);
-            if (concrete != null)
+            if (concrete == null)
             {
-                return Expression.MakeMemberAccess(expression, concrete);
+                throw new NotSupportedException(
+                    $"The query filter registered for '{node.Member.DeclaringType.Name}' reads '{node.Member.Name}', " +
+                    $"but the entity '{expression.Type.Name}' has no public member with that name, so the filter cannot map it to a column. " +
+                    $"Implement '{node.Member.Name}' as a public mapped property on '{expression.Type.Name}' " +
+                    $"instead of an explicit interface implementation.");
             }
+
+            return Expression.MakeMemberAccess(expression, concrete);
         }
 
         return node.Update(expression);

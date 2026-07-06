@@ -2,10 +2,11 @@ namespace SQLite.Framework.Internals.Models;
 
 /// <summary>
 /// One column value declared with <c>Set</c> while reconciling a table, together with the
-/// database columns its value expression reads. The reads decide where the fill runs. A fill
-/// that reads a column outside the current model runs inside the schema-phase rebuild, so it
-/// can see the old column before it is dropped. Every other fill runs as an UPDATE in the data
-/// phase, in version order.
+/// database columns its value expression reads. The reads and the live table shape decide where
+/// the fill runs. A fill that reads a column outside the current model, targets a column the
+/// live table misses or turns a nullable column into <c>NOT NULL</c> runs inside the
+/// schema-phase rebuild, so it sees the old row exactly once. Every other fill runs as an
+/// UPDATE in the data phase, in version order.
 /// </summary>
 internal sealed class MigrationSetValue
 {

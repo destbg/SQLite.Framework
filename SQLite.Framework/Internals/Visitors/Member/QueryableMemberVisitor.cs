@@ -755,6 +755,8 @@ internal static class QueryableMemberVisitor
                 continue;
             }
 
+            value = JsonEnumText.NormalizeInValue(visitor.Database.Options, itemExpr.IsJsonSource, value);
+
             valueParameters.Add(new SQLiteParameter
             {
                 Name = visitor.Counters.NextParamName(),

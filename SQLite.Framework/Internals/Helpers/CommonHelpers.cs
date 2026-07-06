@@ -15,11 +15,25 @@ internal static class CommonHelpers
     }
 
     /// <summary>
-    /// Resolves the JSON property name for a member, honoring a <see cref="JsonPropertyNameAttribute" />
-    /// so a renamed property matches the key written by the serializer.
+    /// Resolves the JSON property name for a member the way the registered serializer writes it.
+    /// The resolved property list of the converter's <see cref="JsonTypeInfo" /> carries the final
+    /// names, including a naming policy and a <see cref="JsonPropertyNameAttribute" />. When no
+    /// type info is registered for the receiver type, falls back to the attribute or the raw
+    /// member name.
     /// </summary>
-    public static string JsonMemberName(MemberInfo member)
+    public static string JsonMemberName(Type receiverType, MemberInfo member, SQLiteOptions options)
     {
+        if (options.ResolveJsonTypeInfo(receiverType) is { } info)
+        {
+            foreach (JsonPropertyInfo property in info.Properties)
+            {
+                if (property.AttributeProvider is MemberInfo source && source.Name == member.Name)
+                {
+                    return property.Name;
+                }
+            }
+        }
+
         return member.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? member.Name;
     }
 

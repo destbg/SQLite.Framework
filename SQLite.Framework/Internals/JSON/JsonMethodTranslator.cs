@@ -66,16 +66,20 @@ internal static class JsonMethodTranslator
 
     public static bool TryGetTemporalText(ResolvedModel arg, out string? text)
     {
-        if (arg.IsConstant && JsonTemporalText.TryFormat(arg.Constant, out text))
+        if (TryGetComparableConstant(arg, out object? value))
         {
-            return true;
+            return JsonTemporalText.TryFormat(value, out text);
         }
 
-        if (arg.SQLiteExpression is { Parameters: [{ } single] } expr
-            && expr.ToString() == single.Name
-            && JsonTemporalText.TryFormat(single.Value, out text))
+        text = null;
+        return false;
+    }
+
+    public static bool TryGetElementText(SQLiteOptions options, ResolvedModel arg, out string? text)
+    {
+        if (TryGetComparableConstant(arg, out object? value))
         {
-            return true;
+            return JsonTemporalText.TryFormat(value, out text) || JsonEnumText.TryFormat(options, value, out text);
         }
 
         text = null;
@@ -84,13 +88,31 @@ internal static class JsonMethodTranslator
 
     public static (string Sql, SQLiteParameter[]? Parameters) ResolveElementMatchArgument(SQLVisitor visitor, ResolvedModel arg)
     {
-        if (TryGetTemporalText(arg, out string? temporalText))
+        if (TryGetElementText(visitor.Database.Options, arg, out string? elementText))
         {
-            SQLiteExpression leaf = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), temporalText);
+            SQLiteExpression leaf = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), elementText);
             return (leaf.ToString(), leaf.Parameters);
         }
 
         return (arg.SQLiteExpression!.ToString(), arg.SQLiteExpression!.Parameters);
+    }
+
+    private static bool TryGetComparableConstant(ResolvedModel arg, out object? value)
+    {
+        if (arg.IsConstant)
+        {
+            value = arg.Constant;
+            return true;
+        }
+
+        if (arg.SQLiteExpression is { Parameters: [{ } single] } expr && expr.ToString() == single.Name)
+        {
+            value = single.Value;
+            return true;
+        }
+
+        value = null;
+        return false;
     }
 
     private static SQLiteExpression? TrySpanContains(MethodCallExpression node, Expression spanSource, SQLVisitor visitor)
@@ -302,11 +324,11 @@ internal static class JsonMethodTranslator
                     argSql = $"CAST({arg.SQLiteExpression} AS TEXT)";
                 }
             }
-            else if (TryGetTemporalText(arg, out string? temporalText))
+            else if (TryGetElementText(visitor.Database.Options, arg, out string? elementText))
             {
-                SQLiteExpression temporalLeaf = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), temporalText);
-                parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, temporalLeaf);
-                argSql = temporalLeaf.ToString();
+                SQLiteExpression elementLeaf = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), elementText);
+                parameters = ParameterHelpers.CombineParameters(source.SQLiteExpression, elementLeaf);
+                argSql = elementLeaf.ToString();
             }
             else
             {
@@ -509,7 +531,7 @@ internal static class JsonMethodTranslator
         else
         {
             bindings = new Dictionary<string, Expression>();
-            RegisterProperties(elementType, element, bindings);
+            RegisterProperties(elementType, element, bindings, visitor.Database.Options);
         }
 
         visitor.MethodArguments[param] = bindings;
@@ -530,11 +552,11 @@ internal static class JsonMethodTranslator
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
-    private static void RegisterProperties(Type type, string valueSql, Dictionary<string, Expression> dict)
+    private static void RegisterProperties(Type type, string valueSql, Dictionary<string, Expression> dict, SQLiteOptions options)
     {
         foreach (PropertyInfo prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            string jsonKey = CommonHelpers.JsonPathSegment(CommonHelpers.JsonMemberName(prop));
+            string jsonKey = CommonHelpers.JsonPathSegment(CommonHelpers.JsonMemberName(type, prop, options));
             string sql = $"json_extract({valueSql}, {CommonHelpers.JsonExtractPathLiteral(jsonKey)})";
             dict[prop.Name] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null).WithJsonSource();
         }

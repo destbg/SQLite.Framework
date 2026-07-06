@@ -42,6 +42,45 @@ internal partial class SQLVisitor
         return new ClientLeafRewriter(this).Visit(node);
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Entity types are rooted by the user Table<T>().")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Entity types are rooted by the user Table<T>().")]
+    public Expression? TryMaterializeEntityLeaves(Expression node)
+    {
+        (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node);
+        if (pe == null
+            || !MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns)
+            || !Database.TryGetCachedTableMapping(node.Type, out TableMapping? mapping)
+            || node.Type.GetConstructor(Type.EmptyTypes) == null)
+        {
+            return null;
+        }
+
+        string prefix = path.Length == 0 ? "" : path + ".";
+        List<MemberBinding> bindings = [];
+        foreach (TableColumn column in mapping.Columns)
+        {
+            if (!columns.TryGetValue(prefix + column.PropertyInfo.Name, out Expression? expression)
+                || expression is not SQLiteExpression sqlExpression)
+            {
+                return null;
+            }
+
+            bindings.Add(Expression.Bind(column.PropertyInfo, sqlExpression));
+        }
+
+        return Expression.MemberInit(Expression.New(node.Type), bindings);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Entity types are rooted by the user Table<T>().")]
+    public bool IsUnmaterializableRowMember(MemberExpression node)
+    {
+        (string _, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node.Expression!);
+        return pe != null
+            && MethodArguments.ContainsKey(pe)
+            && Database.TryGetCachedTableMapping(node.Expression!.Type, out _)
+            && TryMaterializeEntityLeaves(node.Expression) == null;
+    }
+
     public Expression ToClientOperand(Expression original, ResolvedModel resolved)
     {
         return resolved.SQLiteExpression != null ? ToClientExpression(original) : resolved.Expression;

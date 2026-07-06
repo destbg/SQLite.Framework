@@ -17,7 +17,7 @@ namespace SQLite.Framework;
 public sealed class SQLiteMigrationRunner
 {
     private static readonly Regex fullTextSearchContentRegex = new(
-        """content\s*=\s*(?:"(?<name>[^"]*)"|'(?<name>[^']*)'|(?<name>\w+))""",
+        """content\s*=\s*(?:"(?<name>[^"]*)"|'(?<name>[^']*)'|\[(?<name>[^\]]*)\]|`(?<name>[^`]*)`|(?<name>\w+))""",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private readonly SQLiteSchema schema;
@@ -372,6 +372,7 @@ public sealed class SQLiteMigrationRunner
             TableMapping mapping = group.First().Mapping!;
             bool rebuild = group.Any(o => o.Rebuild);
             bool isNew = newlyCreated.Contains(group.Key) || !schema.TableExists(mapping.TableName);
+            HashSet<MigrationSetValue> applied = [];
             if (isNew)
             {
                 if (!newlyCreated.Contains(group.Key))
@@ -382,14 +383,19 @@ public sealed class SQLiteMigrationRunner
             }
             else
             {
+                IReadOnlyList<MigrationSetValue> schemaSets = mapping.IsFullTextSearch || mapping.IsRTree
+                    ? []
+                    : SchemaPhaseSets(mapping, group);
                 count += rebuild
-                    ? MigrateCore(mapping, SchemaPhaseSets(mapping, group))
-                    : MigrateInPlace(mapping, SchemaPhaseSets(mapping, group));
+                    ? MigrateCore(mapping, schemaSets)
+                    : MigrateInPlace(mapping, schemaSets);
+                applied.UnionWith(schemaSets);
             }
 
             foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
             {
-                IReadOnlyList<MigrationSetValue> versionSets = UnionSets(versionGroup.SelectMany(o => o.Sets).Where(s => !ReadsOutsideModel(mapping, s)));
+                IReadOnlyList<MigrationSetValue> versionSets = UnionSets(versionGroup.SelectMany(o => o.Sets)
+                    .Where(s => !ReadsOutsideModel(mapping, s) && !applied.Contains(s)));
                 if (versionSets.Count > 0)
                 {
                     deferredFills.Add((versionGroup.Key, mapping, versionSets));
@@ -409,12 +415,27 @@ public sealed class SQLiteMigrationRunner
         HashSet<string> notNullModel = mapping.Columns.Where(c => !c.IsNullable).Select(c => c.Name)
             .Concat(mapping.ShadowColumns.Where(s => !s.IsNullable).Select(s => s.Name))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return UnionSets(group
-            .SelectMany(o => o.Sets)
-            .Where(s => ReadsOutsideModel(mapping, s)
-                || !liveColumns.Contains(s.Column)
-                || (notNullModel.Contains(s.Column) && liveNullable.Contains(s.Column)))
-            .Where(s => s.ReadColumns.All(liveColumns.Contains)));
+
+        List<MigrationSetValue> result = [];
+        HashSet<string> taken = new(StringComparer.OrdinalIgnoreCase);
+        foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
+        {
+            IEnumerable<MigrationSetValue> qualifying = versionGroup
+                .SelectMany(o => o.Sets)
+                .Where(s => ReadsOutsideModel(mapping, s)
+                    || !liveColumns.Contains(s.Column)
+                    || (notNullModel.Contains(s.Column) && liveNullable.Contains(s.Column)))
+                .Where(s => s.ReadColumns.All(liveColumns.Contains));
+            foreach (MigrationSetValue set in UnionSets(qualifying))
+            {
+                if (taken.Add(set.Column))
+                {
+                    result.Add(set);
+                }
+            }
+        }
+
+        return result;
     }
 
     private int ApplyDataOperation(MigrationOperation operation, HashSet<string> newlyCreated)
@@ -571,12 +592,14 @@ public sealed class SQLiteMigrationRunner
         }
 
         List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(mapping.TableName).ToList();
-        if (!liveInfo.Any(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase)))
+        PragmaTableInfo? liveColumn = liveInfo.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
+        if (liveColumn == null)
         {
             return 0;
         }
 
-        string? createSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}'");
+        columnName = liveColumn.Name;
+        string? createSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}' COLLATE NOCASE");
         if (IsAlterDroppable(mapping, liveInfo, createSql, columnName, liveInfo.Count))
         {
             return schema.DropColumnCore(mapping.TableName, columnName);
@@ -604,7 +627,7 @@ public sealed class SQLiteMigrationRunner
         foreach (Dictionary<string, object?> index in indexes)
         {
             string sql = (string)index["sql"]!;
-            if (sql.Contains(quoted, StringComparison.Ordinal) || ContainsUnquotedIdentifier(sql, columnName))
+            if (sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName))
             {
                 count += Database.Execute($"DROP INDEX \"{((string)index["name"]!).Replace("\"", "\"\"")}\"");
             }
@@ -615,7 +638,7 @@ public sealed class SQLiteMigrationRunner
         foreach (Dictionary<string, object?> trigger in triggers)
         {
             string sql = (string)trigger["sql"]!;
-            if (sql.Contains(quoted, StringComparison.Ordinal) || ContainsUnquotedIdentifier(sql, columnName))
+            if (sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName))
             {
                 count += Database.Execute($"DROP TRIGGER \"{((string)trigger["name"]!).Replace("\"", "\"\"")}\"");
             }
@@ -647,7 +670,7 @@ public sealed class SQLiteMigrationRunner
         }
 
         string intended = SchemaSqlBuilder.BuildCreateTable(Database, mapping, mapping.TableName, ifNotExists: false);
-        string? live = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}'");
+        string? live = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}' COLLATE NOCASE");
         if (sets.Count > 0 || !string.Equals(StripWhitespace(intended), StripWhitespace(live!), StringComparison.Ordinal))
         {
             count += RebuildTable(mapping, sets);
@@ -691,7 +714,7 @@ public sealed class SQLiteMigrationRunner
             columnCount++;
         }
 
-        string? createSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}'");
+        string? createSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}' COLLATE NOCASE");
         foreach (string liveColumn in liveColumns)
         {
             if (modelColumns.Contains(liveColumn) || !IsAlterDroppable(mapping, liveInfo, createSql, liveColumn, columnCount))
@@ -720,7 +743,7 @@ public sealed class SQLiteMigrationRunner
 
         int count = 0;
         string intended = SchemaSqlBuilder.BuildCreateTable(Database, mapping, mapping.TableName, ifNotExists: false);
-        string? live = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}'");
+        string? live = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{mapping.TableName.Replace("'", "''")}' COLLATE NOCASE");
         if (sets.Count > 0 || !string.Equals(StripWhitespace(intended), StripWhitespace(live!), StringComparison.Ordinal))
         {
             count += RebuildTable(mapping, sets);
@@ -740,7 +763,7 @@ public sealed class SQLiteMigrationRunner
             return false;
         }
 
-        PragmaTableInfo info = liveInfo.First(c => c.Name == columnName);
+        PragmaTableInfo info = liveInfo.First(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
         if (info.PrimaryKeyOrder > 0)
         {
             return false;
@@ -748,7 +771,7 @@ public sealed class SQLiteMigrationRunner
 
         string quoted = "\"" + columnName.Replace("\"", "\"\"") + "\"";
         int occurrences = 0;
-        for (int i = createSql.IndexOf(quoted, StringComparison.Ordinal); i >= 0; i = createSql.IndexOf(quoted, i + quoted.Length, StringComparison.Ordinal))
+        for (int i = createSql.IndexOf(quoted, StringComparison.OrdinalIgnoreCase); i >= 0; i = createSql.IndexOf(quoted, i + quoted.Length, StringComparison.OrdinalIgnoreCase))
         {
             occurrences++;
         }
@@ -764,20 +787,20 @@ public sealed class SQLiteMigrationRunner
         }
 
         bool inForeignKey = Database.Query<Dictionary<string, object?>>($"PRAGMA foreign_key_list(\"{mapping.TableName.Replace("\"", "\"\"")}\")")
-            .Any(row => row["from"] as string == columnName);
+            .Any(row => string.Equals(row["from"] as string, columnName, StringComparison.OrdinalIgnoreCase));
         if (inForeignKey)
         {
             return false;
         }
 
         if (Database.Query<string>($"SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = '{mapping.TableName.Replace("'", "''")}' AND sql IS NOT NULL")
-            .Any(sql => sql.Contains(quoted, StringComparison.Ordinal) || ContainsUnquotedIdentifier(sql, columnName)))
+            .Any(sql => sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName)))
         {
             return false;
         }
 
         return !Database.Query<string>("SELECT sql FROM sqlite_master WHERE type IN ('trigger', 'view') AND sql IS NOT NULL")
-            .Any(sql => sql.Contains(quoted, StringComparison.Ordinal) || ContainsUnquotedIdentifier(sql, columnName));
+            .Any(sql => sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName));
     }
 
     private int RebuildTable(TableMapping mapping, IReadOnlyList<MigrationSetValue> sets)
@@ -898,7 +921,7 @@ public sealed class SQLiteMigrationRunner
         foreach (string candidate in allTables)
         {
             bool referencesTable = Database.Query<Dictionary<string, object?>>($"PRAGMA foreign_key_list(\"{candidate.Replace("\"", "\"\"")}\")")
-                .Any(row => row["table"] as string == table);
+                .Any(row => string.Equals(row["table"] as string, table, StringComparison.OrdinalIgnoreCase));
             if (referencesTable)
             {
                 referencing.Add(candidate);
@@ -978,7 +1001,7 @@ public sealed class SQLiteMigrationRunner
     private bool IsWithoutRowId(string table)
     {
         string? createSql = Database.ExecuteScalar<string?>(
-            $"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{table.Replace("'", "''")}'");
+            $"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{table.Replace("'", "''")}' COLLATE NOCASE");
         return createSql!.Contains("WITHOUT ROWID", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -996,7 +1019,7 @@ public sealed class SQLiteMigrationRunner
             return null;
         }
 
-        List<long> seq = Database.Query<long>($"SELECT seq FROM sqlite_sequence WHERE name = '{table.Replace("'", "''")}'");
+        List<long> seq = Database.Query<long>($"SELECT seq FROM sqlite_sequence WHERE name = '{table.Replace("'", "''")}' COLLATE NOCASE");
         return seq.Count > 0 ? seq[0] : null;
     }
 
@@ -1114,17 +1137,44 @@ public sealed class SQLiteMigrationRunner
             }
 
             string tableName = operation.Mapping?.TableName ?? operation.TableName!;
+            bool superseded = false;
             for (int j = i + 1; j < operations.Count; j++)
             {
                 if (operations[j].Kind == MigrationOperationKind.CreateTable
                     && string.Equals(operations[j].Mapping!.TableName, tableName, StringComparison.OrdinalIgnoreCase))
                 {
                     operations[j].DropTableFirst = true;
-                    operations.RemoveAt(i);
+                    superseded = true;
                     break;
                 }
             }
+
+            if (!superseded)
+            {
+                continue;
+            }
+
+            operations.RemoveAt(i);
+            for (int j = i - 1; j >= 0; j--)
+            {
+                if (IsDiscardedByLaterDrop(operations[j].Kind)
+                    && string.Equals(operations[j].Mapping!.TableName, tableName, StringComparison.OrdinalIgnoreCase))
+                {
+                    operations.RemoveAt(j);
+                    i--;
+                }
+            }
         }
+    }
+
+    private static bool IsDiscardedByLaterDrop(MigrationOperationKind kind)
+    {
+        return kind is MigrationOperationKind.InsertRows
+            or MigrationOperationKind.UpdateRows
+            or MigrationOperationKind.DeleteRows
+            or MigrationOperationKind.Reconcile
+            or MigrationOperationKind.DropColumn
+            or MigrationOperationKind.RebuildFullTextSearch;
     }
 
     private static List<MigrationSetValue> UnionSets(IEnumerable<MigrationSetValue> sets)

@@ -386,36 +386,24 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 
         sqlite3_backup handle = raw.sqlite3_backup_init(destination.Handle!, destName, Handle!, sourceName);
-        if (handle == null)
+        if (handle.IsInvalid)
         {
             SQLiteResult code = (SQLiteResult)raw.sqlite3_errcode(destination.Handle!);
             string message = raw.sqlite3_errmsg(destination.Handle!).utf8_to_string();
             throw new SQLiteException(code, message, null);
         }
 
-        try
+        SQLiteResult result;
+        while ((result = (SQLiteResult)raw.sqlite3_backup_step(handle, -1)) is SQLiteResult.Busy or SQLiteResult.Locked)
         {
-            while (true)
-            {
-                SQLiteResult result = (SQLiteResult)raw.sqlite3_backup_step(handle, -1);
-                if (result == SQLiteResult.Done)
-                {
-                    return;
-                }
-
-                if (result == SQLiteResult.Busy || result == SQLiteResult.Locked)
-                {
-                    Thread.Sleep(50);
-                    continue;
-                }
-
-                string message = raw.sqlite3_errmsg(destination.Handle!).utf8_to_string();
-                throw new SQLiteException(result, message, null);
-            }
+            Thread.Sleep(50);
         }
-        finally
+
+        raw.sqlite3_backup_finish(handle);
+        if (result != SQLiteResult.Done)
         {
-            raw.sqlite3_backup_finish(handle);
+            string message = raw.sqlite3_errmsg(destination.Handle!).utf8_to_string();
+            throw new SQLiteException(result, message, null);
         }
     }
 
@@ -988,7 +976,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
         }
 
-        if (!string.IsNullOrWhiteSpace(tail))
+        if (!SqlTail.IsWhitespaceOrComments(tail))
         {
             raw.sqlite3_finalize(stmt);
             throw new InvalidOperationException(

@@ -16,7 +16,7 @@ public static class NoOpFixture
         RuntimeHelpers.RunClassConstructor(typeof(SQLiteDatabase).TypeHandle);
         raw.SetProvider(Provider);
 
-        NoOpSQLite.BackupInitReturnsNull = false;
+        NoOpSQLite.BackupInitReturnsInvalidHandle = false;
         NoOpSQLite.BackupStepReturnCode = 101;
         NoOpSQLite.ErrCode = 0;
         NoOpSQLite.BeginStepReturnCode = 101;

@@ -27,6 +27,13 @@ internal partial class SQLVisitor
         NewExpression newExpression = (NewExpression)Visit(node.NewExpression);
         List<MemberBinding> bindings = node.Bindings.Select(VisitMemberBinding).ToList();
 
+        if (InCustomMethodTranslator
+            && node.NewExpression.Arguments.Count == 0
+            && bindings is [MemberAssignment { Expression: SQLiteExpression single }])
+        {
+            return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "(", single, ")", single.Parameters);
+        }
+
         return Expression.MemberInit(newExpression, bindings);
     }
 

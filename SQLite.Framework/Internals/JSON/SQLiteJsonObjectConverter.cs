@@ -4,18 +4,19 @@ namespace SQLite.Framework.Internals.JSON;
 /// Non-generic JSON converter used by <c>AddJsonConverters</c> and <c>AddJsonbConverters</c>
 /// to register nested property types.
 /// </summary>
-internal sealed class SQLiteJsonObjectConverter : ISQLiteTypeConverter
+internal sealed class SQLiteJsonObjectConverter : ISQLiteTypeConverter, IJsonTypeInfoSource
 {
-    private readonly JsonTypeInfo typeInfo;
     private readonly bool isJsonb;
 
     public SQLiteJsonObjectConverter(JsonTypeInfo typeInfo, bool isJsonb)
     {
-        this.typeInfo = typeInfo;
+        TypeInfo = typeInfo;
         this.isJsonb = isJsonb;
     }
 
     public SQLiteColumnType ColumnType => isJsonb ? SQLiteColumnType.Blob : SQLiteColumnType.Text;
+
+    public JsonTypeInfo TypeInfo { get; }
 
     public string? ParameterSqlExpression => isJsonb ? "jsonb({0})" : null;
 
@@ -23,11 +24,11 @@ internal sealed class SQLiteJsonObjectConverter : ISQLiteTypeConverter
 
     public object? ToDatabase(object? value)
     {
-        return value == null ? null : JsonSerializer.Serialize(value, typeInfo);
+        return value == null ? null : JsonSerializer.Serialize(value, TypeInfo);
     }
 
     public object? FromDatabase(object? value)
     {
-        return value is string s ? JsonSerializer.Deserialize(s, typeInfo) : null;
+        return value is string s ? JsonSerializer.Deserialize(s, TypeInfo) : null;
     }
 }

@@ -5,7 +5,7 @@ namespace SQLite.Framework.Tests.NoOp;
 
 public class NoOpSQLite : ISQLite3Provider
 {
-    public static bool BackupInitReturnsNull;
+    public static bool BackupInitReturnsInvalidHandle;
     public static int BackupStepReturnCode = 101;
     public static int ErrCode;
     public static int BeginStepReturnCode = 101;
@@ -22,7 +22,7 @@ public class NoOpSQLite : ISQLite3Provider
 
     public sqlite3_backup sqlite3_backup_init(sqlite3 destDb, utf8z destName, sqlite3 sourceDb, utf8z sourceName)
     {
-        return BackupInitReturnsNull ? null! : sqlite3_backup.From(0);
+        return BackupInitReturnsInvalidHandle ? sqlite3_backup.From(0) : sqlite3_backup.From(1);
     }
 
     public int sqlite3_backup_pagecount(sqlite3_backup backup)

@@ -104,6 +104,19 @@ internal partial class SQLVisitor
             rightNode = DayOfWeekHelpers.ConvertOperandToInt(Database.Options, rightNode);
         }
 
+        if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual)
+        {
+            if (IsNullConstant(rightNode) && TryBuildEntitySubqueryExists(leftNode, node.NodeType) is { } leftExists)
+            {
+                return leftExists;
+            }
+
+            if (IsNullConstant(leftNode) && TryBuildEntitySubqueryExists(rightNode, node.NodeType) is { } rightExists)
+            {
+                return rightExists;
+            }
+        }
+
         bool charComparisonOp = node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
             or ExpressionType.GreaterThan or ExpressionType.LessThan
             or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual;
@@ -169,8 +182,8 @@ internal partial class SQLVisitor
             right = CoerceConstantTimeSpanToTicks(resolvedRight, right);
         }
 
-        left = CoerceJsonTemporalOperand(resolvedLeft, left, resolvedRight.SQLiteExpression!);
-        right = CoerceJsonTemporalOperand(resolvedRight, right, resolvedLeft.SQLiteExpression!);
+        left = CoerceJsonOperand(resolvedLeft, left, resolvedRight.SQLiteExpression!);
+        right = CoerceJsonOperand(resolvedRight, right, resolvedLeft.SQLiteExpression!);
 
         left = CoerceDayOfWeekOperand(leftNode, left, right);
         right = CoerceDayOfWeekOperand(rightNode, right, left);
@@ -393,23 +406,30 @@ internal partial class SQLVisitor
         return current;
     }
 
-    private SQLiteExpression CoerceJsonTemporalOperand(ResolvedModel resolved, SQLiteExpression current, SQLiteExpression otherSide)
+    private SQLiteExpression CoerceJsonOperand(ResolvedModel resolved, SQLiteExpression current, SQLiteExpression otherSide)
     {
         if (!otherSide.IsJsonSource)
         {
             return current;
         }
 
-        if (resolved.IsConstant && JsonTemporalText.TryFormat(resolved.Constant, out string? text))
+        object? value;
+        if (resolved.IsConstant)
         {
-            return SQLiteExpression.Leaf(typeof(string), Counters.NextIdentifier(), Counters.NextParamName(), text);
+            value = resolved.Constant;
+        }
+        else if (current.Parameters is [{ } single] && current.ToString() == single.Name)
+        {
+            value = single.Value;
+        }
+        else
+        {
+            return current;
         }
 
-        if (current.Parameters is [{ } single]
-            && current.ToString() == single.Name
-            && JsonTemporalText.TryFormat(single.Value, out string? paramText))
+        if (JsonTemporalText.TryFormat(value, out string? text) || JsonEnumText.TryFormat(Database.Options, value, out text))
         {
-            return SQLiteExpression.Leaf(typeof(string), Counters.NextIdentifier(), Counters.NextParamName(), paramText);
+            return SQLiteExpression.Leaf(typeof(string), Counters.NextIdentifier(), Counters.NextParamName(), text);
         }
 
         return current;
@@ -439,6 +459,44 @@ internal partial class SQLVisitor
             [prefix, " AS aa, ", " AS bb))))"],
             [a, b],
             parameters);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Element type is preserved by SQLiteTable<T>.")]
+    private SQLiteExpression? TryBuildEntitySubqueryExists(Expression operand, ExpressionType nodeType)
+    {
+        if (operand is not MethodCallExpression { Object: null } call
+            || call.Method.DeclaringType != typeof(System.Linq.Queryable)
+            || call.Method.Name is not (nameof(System.Linq.Queryable.FirstOrDefault) or nameof(System.Linq.Queryable.SingleOrDefault) or nameof(System.Linq.Queryable.LastOrDefault))
+            || TypeHelpers.IsSimple(call.Type, Database.Options))
+        {
+            return null;
+        }
+
+        Type elementType = call.Type;
+        MethodCallExpression anyCall;
+
+        if (call.Arguments.Count == 1)
+        {
+            anyCall = Expression.Call(typeof(System.Linq.Queryable), nameof(System.Linq.Queryable.Any), [elementType], call.Arguments[0]);
+        }
+        else if (call.Arguments.Count == 2 && ExpressionHelpers.StripQuotes(call.Arguments[1]) is LambdaExpression)
+        {
+            anyCall = Expression.Call(typeof(System.Linq.Queryable), nameof(System.Linq.Queryable.Any), [elementType], call.Arguments[0], call.Arguments[1]);
+        }
+        else
+        {
+            return null;
+        }
+
+        SQLiteExpression exists = (SQLiteExpression)Visit(anyCall);
+        if (nodeType == ExpressionType.NotEqual)
+        {
+            return exists;
+        }
+
+        SQLiteExpression notExists = SQLiteExpression.Wrap(typeof(bool), Counters.NextIdentifier(), "NOT ", exists, "", exists.Parameters);
+        notExists.RequiresBrackets = true;
+        return notExists;
     }
 
     private SQLiteExpression BuildShift(BinaryExpression node, Type shiftType, SQLiteExpression value, SQLiteExpression count, SQLiteParameter[]? parameters)

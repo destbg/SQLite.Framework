@@ -123,6 +123,47 @@ public static class SelectSignatureWriter
     }
 
     /// <summary>
+    /// Tells if the member does not map to a table column, either through the NotMapped
+    /// attribute or because it is a computed property with no setter and no backing field.
+    /// </summary>
+    public static bool IsUnmappedRowMember(ISymbol? memberSym)
+    {
+        if (IsNotMappedMember(memberSym))
+        {
+            return true;
+        }
+
+        return memberSym is IPropertySymbol { IsStatic: false, IsIndexer: false, SetMethod: null } prop
+            && prop.ContainingType.TypeKind != TypeKind.Interface
+            && !prop.ContainingType.GetMembers()
+                .OfType<IFieldSymbol>()
+                .Any(f => SymbolEqualityComparer.Default.Equals(f.AssociatedSymbol, prop));
+    }
+
+    /// <summary>
+    /// Tells if the member is declared on an interface and the receiver type implements it
+    /// explicitly, so no public member with that name exists on the concrete type.
+    /// </summary>
+    public static bool IsExplicitInterfaceOnlyMember(ISymbol? memberSym, ITypeSymbol? receiverType)
+    {
+        if (memberSym is not IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface } prop)
+        {
+            return false;
+        }
+
+        for (ITypeSymbol? t = receiverType; t != null; t = t.BaseType)
+        {
+            if (t.GetMembers().OfType<IPropertySymbol>()
+                .Any(p => !p.IsStatic && p.Name == prop.Name && p.DeclaredAccessibility == Accessibility.Public))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Tells if the expression refers to a row that can be built as an entity.
     /// </summary>
     public static bool IsRowLikeReference(ExpressionSyntax expr, SelectSignatureCtx ctx)
@@ -150,6 +191,7 @@ public static class SelectSignatureWriter
                     && !prop.IsIndexer
                     && prop.SetMethod != null
                     && prop.DeclaredAccessibility == Accessibility.Public
+                    && !IsNotMappedMember(prop)
                     && !result.Any(p => p.Name == prop.Name))
                 {
                     result.Add(prop);
@@ -846,7 +888,7 @@ public static class SelectSignatureWriter
             }
             sb.Append(')');
         }
-        else if (IsNotMappedMember(memberSym) && IsRowLikeReference(access.Expression, ctx))
+        else if (IsUnmappedRowMember(memberSym) && IsRowLikeReference(access.Expression, ctx))
         {
             if (!AppendExpandedRow(sb, access.Expression, ctx))
             {

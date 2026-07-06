@@ -7,6 +7,8 @@ public class SQLiteDatabaseFaultTests
     public SQLiteDatabaseFaultTests()
     {
         NoOpFixture.Init();
+        NoOpSQLite.BackupInitReturnsInvalidHandle = false;
+        NoOpSQLite.BackupStepReturnCode = 101;
     }
 
     [Fact]
@@ -16,9 +18,9 @@ public class SQLiteDatabaseFaultTests
     }
 
     [Fact]
-    public void BackupTo_BackupInitReturnsNull_ThrowsSQLiteException()
+    public void BackupTo_BackupInitReturnsInvalidHandle_ThrowsSQLiteException()
     {
-        NoOpSQLite.BackupInitReturnsNull = true;
+        NoOpSQLite.BackupInitReturnsInvalidHandle = true;
         NoOpSQLite.ErrCode = 1;
 
         SQLiteOptions options = new SQLiteOptionsBuilder("noop-src.db").Build();

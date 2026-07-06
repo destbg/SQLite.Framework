@@ -469,8 +469,14 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
         return new CompiledExpression(node.Type, ctx =>
         {
+            object? unwrapped = instance?.Call(ctx);
             object?[] args = arguments.Select(arg => arg.Call(ctx)).ToArray();
-            return InvokeUnwrapped(node.Method, instance?.Call(ctx), args);
+            if (unwrapped == null && node.Object is { Type.IsValueType: true })
+            {
+                return node.Method.Name == nameof(object.GetHashCode) ? 0 : (object)string.Empty;
+            }
+
+            return InvokeUnwrapped(node.Method, unwrapped, args);
         });
     }
 

@@ -24,6 +24,7 @@ internal partial class SQLVisitor : ExpressionVisitor
     public SQLiteCounters Counters { get; }
     public int Level { get; }
     public bool IsInSelectProjection { get; set; }
+    public bool InCustomMethodTranslator { get; set; }
     public bool ClientEvalAllowed { get; set; }
     public bool ClientEvalUsed { get; set; }
     public bool SuppressUlongWindowOrderSplit { get; set; }
@@ -151,7 +152,11 @@ internal partial class SQLVisitor : ExpressionVisitor
                 return nestedMember;
             }
 
-            SQLiteExpression? sqlExpression = expressions
+            IEnumerable<KeyValuePair<string, Expression>> candidates = path.Length == 0
+                ? expressions
+                : expressions.Where(f => f.Key.StartsWith(path + ".", StringComparison.Ordinal));
+
+            SQLiteExpression? sqlExpression = candidates
                 .OrderBy(f => f.Key.Count(c => c == '.'))
                 .ThenBy(f => f.Key.Length)
                 .Select(f => f.Value)
@@ -161,6 +166,13 @@ internal partial class SQLVisitor : ExpressionVisitor
             if (sqlExpression != null)
             {
                 return sqlExpression;
+            }
+
+            if (node is MemberExpression unresolvedMember)
+            {
+                return NotTranslatable(node,
+                    $"The member '{unresolvedMember.Member.DeclaringType!.Name}.{unresolvedMember.Member.Name}' " +
+                    "is not mapped to a database column, so it cannot be translated to SQL.");
             }
         }
 
@@ -211,24 +223,24 @@ internal partial class SQLVisitor : ExpressionVisitor
 
     private Expression? ResolveNestedConstructedMember(Dictionary<string, Expression> expressions, string path)
     {
-        int firstDot = path.IndexOf('.');
-        if (firstDot < 0)
+        int splitIndex = path.LastIndexOf('.');
+        while (splitIndex > 0)
         {
-            return null;
+            if (expressions.TryGetValue(path[..splitIndex], out Expression? baseExpression))
+            {
+                Expression current = baseExpression;
+                foreach (string segment in path[(splitIndex + 1)..].Split('.'))
+                {
+                    current = FoldConstructedMemberAccess(current, segment);
+                }
+
+                return Visit(current);
+            }
+
+            splitIndex = path.LastIndexOf('.', splitIndex - 1);
         }
 
-        if (!expressions.TryGetValue(path[..firstDot], out Expression? baseExpression))
-        {
-            return null;
-        }
-
-        Expression current = baseExpression;
-        foreach (string segment in path[(firstDot + 1)..].Split('.'))
-        {
-            current = FoldConstructedMemberAccess(current, segment);
-        }
-
-        return Visit(current);
+        return null;
     }
 
     private SQLiteExpression? ResolvePrimaryKeyColumn(Type entityType, string path, Dictionary<string, Expression> expressions)

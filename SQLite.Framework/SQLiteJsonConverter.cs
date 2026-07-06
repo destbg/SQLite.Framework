@@ -4,7 +4,7 @@ namespace SQLite.Framework;
 /// Stores a .NET object as a JSON text string in a TEXT column.
 /// Pass a <see cref="JsonTypeInfo{T}" /> from a <c>JsonSerializerContext</c> to keep the converter AOT-safe.
 /// </summary>
-public class SQLiteJsonConverter<T> : ISQLiteTypeConverter
+public class SQLiteJsonConverter<T> : ISQLiteTypeConverter, IJsonTypeInfoSource
 {
     private readonly JsonTypeInfo<T> typeInfo;
 
@@ -18,6 +18,8 @@ public class SQLiteJsonConverter<T> : ISQLiteTypeConverter
 
     /// <inheritdoc />
     public SQLiteColumnType ColumnType => SQLiteColumnType.Text;
+
+    JsonTypeInfo IJsonTypeInfoSource.TypeInfo => typeInfo;
 
     /// <inheritdoc />
     public object? ToDatabase(object? value)

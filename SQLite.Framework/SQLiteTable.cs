@@ -555,7 +555,9 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             }
         }
 
-        string sql = $"{insertVerb} INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
+        string sql = names.Count == 0
+            ? $"{insertVerb} INTO \"{Table.TableName}\" DEFAULT VALUES"
+            : $"{insertVerb} INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
 
         return (sql, parameters);
     }

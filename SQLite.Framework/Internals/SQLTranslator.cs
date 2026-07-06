@@ -1233,10 +1233,22 @@ internal class SQLTranslator
         if (selectMethodExpression is MethodCallExpression mce)
         {
             return mce.Method.DeclaringType == typeof(Queryable)
-                   || mce.Method.DeclaringType == typeof(Enumerable);
+                || (mce.Method.DeclaringType == typeof(Enumerable) && IsSqlRootedCall(mce));
         }
 
         return false;
+    }
+
+    private static bool IsSqlRootedCall(MethodCallExpression call)
+    {
+        Expression current = call;
+        while (current is MethodCallExpression methodCall
+            && (methodCall.Object ?? (methodCall.Arguments.Count > 0 ? methodCall.Arguments[0] : null)) is { } receiver)
+        {
+            current = receiver;
+        }
+
+        return current is SQLiteExpression;
     }
 
     private static bool IsRawColumnPassthroughMember(MemberExpression member)

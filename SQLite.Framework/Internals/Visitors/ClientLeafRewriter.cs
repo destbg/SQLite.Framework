@@ -33,6 +33,19 @@ internal sealed class ClientLeafRewriter : ExpressionVisitor
             return leaf;
         }
 
+        if (node is MemberExpression or ParameterExpression && owner.TryMaterializeEntityLeaves(node) is { } entity)
+        {
+            return entity;
+        }
+
+        if (node is MemberExpression unmaterializable && owner.IsUnmaterializableRowMember(unmaterializable))
+        {
+            throw new NotSupportedException(
+                $"The entity '{unmaterializable.Member.DeclaringType!.Name}' cannot be read on its own to compute " +
+                $"'{unmaterializable.Member.Name}' in this projection, since it has no parameterless constructor to " +
+                "build it from its columns or it is only partly available here. Project the columns you need instead.");
+        }
+
         if (node is BinaryExpression { NodeType: ExpressionType.Equal or ExpressionType.NotEqual } binary
             && owner.TryResolveEntityNullCheck(binary) is { } entityNullCheck)
         {

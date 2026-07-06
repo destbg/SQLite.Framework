@@ -148,7 +148,9 @@ internal static class SqlLiteralHelper
         {
             null => "NULL",
             bool b => b ? "1" : "0",
-            string s => "'" + s.Replace("'", "''") + "'",
+            string s => s.Contains('\0')
+                ? "CAST(X'" + Convert.ToHexString(Encoding.UTF8.GetBytes(s)) + "' AS TEXT)"
+                : "'" + s.Replace("'", "''") + "'",
             byte b => b.ToString(CultureInfo.InvariantCulture),
             sbyte b => b.ToString(CultureInfo.InvariantCulture),
             short b => b.ToString(CultureInfo.InvariantCulture),

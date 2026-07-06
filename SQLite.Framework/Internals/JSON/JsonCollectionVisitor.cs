@@ -116,7 +116,7 @@ internal partial class JsonCollectionVisitor
         {
             bool atRoot = string.IsNullOrEmpty(prefix);
             string dictKey = atRoot ? prop.Name : $"{prefix}.{prop.Name}";
-            string jsonName = CommonHelpers.JsonPathSegment(CommonHelpers.JsonMemberName(prop));
+            string jsonName = CommonHelpers.JsonPathSegment(CommonHelpers.JsonMemberName(type, prop, options));
             string jsonKey = atRoot ? jsonName : $"{jsonPrefix}.{jsonName}";
 
             if (TypeHelpers.IsSimple(prop.PropertyType, options))
