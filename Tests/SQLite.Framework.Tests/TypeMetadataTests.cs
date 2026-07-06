@@ -1,9 +1,20 @@
 using System.Linq.Expressions;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Models;
 
 namespace SQLite.Framework.Tests;
+
+[JsonSerializable(typeof(TypeMetadataPoint))]
+internal partial class TypeMetadataJsonContext : JsonSerializerContext;
+
+internal struct TypeMetadataPoint
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+}
 
 public class TypeMetadataTests
 {
@@ -111,6 +122,19 @@ public class TypeMetadataTests
         Assert.True(options.HasJsonConverter(typeof(Address)));
     }
 #endif
+
+    [Fact]
+    public void ResolveJsonTypeInfo_NullableType_StripsAndResolves()
+    {
+        SQLiteOptions options = BuildOptions(b =>
+            b.TypeConverters[typeof(TypeMetadataPoint)] =
+                new SQLiteJsonConverter<TypeMetadataPoint>(TypeMetadataJsonContext.Default.TypeMetadataPoint));
+
+        JsonTypeInfo? info = options.ResolveJsonTypeInfo(typeof(TypeMetadataPoint?));
+
+        Assert.NotNull(info);
+        Assert.Equal(typeof(TypeMetadataPoint), info.Type);
+    }
 
     [Fact]
     public void CoercedResultType_NoConverter_ReturnsDeclared()
