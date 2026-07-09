@@ -121,7 +121,7 @@ public class SQLiteCommand
             ReadOnlySpan<byte> remaining = sqlBytes;
             int changes = 0;
 
-            while (!SqlTail.IsWhitespaceOrComments(Encoding.UTF8.GetString(remaining)))
+            while (SqlTail.HasStatement(Encoding.UTF8.GetString(remaining)))
             {
                 SQLiteResult prepareResult = (SQLiteResult)raw.sqlite3_prepare_v2(handle, remaining, out sqlite3_stmt statement, out ReadOnlySpan<byte> tail);
                 if (prepareResult != SQLiteResult.OK)

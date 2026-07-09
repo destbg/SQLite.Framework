@@ -93,7 +93,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Joins and SelectMany
 
 - A correlated subquery used directly as a second `from` source, for example `from a in db.Table<Author>() from b in db.Table<Book>().Where(b => b.AuthorId == a.Id)`, is not supported, since SQLite has no `LATERAL` join.
-- In a common table expression, a positional constructor projection whose parameter names or order do not match the entity's properties lines the columns up wrong or cannot be read back.
+- In a common table expression or a view, a positional constructor projection whose parameter names or order do not match the entity's properties lines the columns up wrong or cannot be read back. Use a member-initializer projection (`new T { Prop = value }`) instead.
 
 ## Null comparisons
 
@@ -140,6 +140,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - A date or time element inside a JSON list does not match a comparison against a date or time column of the same row. The JSON element is text while the column keeps its storage form.
 - Adding a JSON date or time element to a date, such as `r.When.Add(r.Spans.First())`, runs in memory in a `Select` and throws in a `Where`, because the JSON value is text and cannot take part in tick arithmetic.
 - On a JSON dictionary with a `[Flags]` enum key, `Keys.Contains` with an enum column that holds a combined value does not match. The JSON key holds the combined name text, such as `Read, Write`, while the column translation covers single member names only.
+- On a JSON dictionary with a date or time key, `Keys.Contains` and `Values.Contains` with a date or time column of the same row do not match, the same as the list element case above. The JSON key or value is text while the column keeps its storage form. A constant or captured date or time value matches.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
 - `GetRange` on a JSON list does not check its arguments. Asking for more items than are there returns the items that fit. A negative count returns the whole list and a negative start index is read as zero. .NET throws in all three cases.
 - `ElementAtOrDefault` on a JSON list with an index taken from a column reads the type default when the index is past the end, but a negative column index fails with an error instead of reading the type default.

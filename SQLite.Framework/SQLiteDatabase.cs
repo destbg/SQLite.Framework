@@ -976,7 +976,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), sql);
         }
 
-        if (!SqlTail.IsWhitespaceOrComments(tail))
+        if (SqlTail.HasStatement(tail))
         {
             raw.sqlite3_finalize(stmt);
             throw new InvalidOperationException(

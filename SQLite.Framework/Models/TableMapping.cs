@@ -284,6 +284,6 @@ public class TableMapping
     private static ForeignKeyInfo RebuildWithRenamedSource(ForeignKeyInfo foreignKey, string previousName, string newName)
     {
         string[] renamed = foreignKey.Columns.Select(c => c == previousName ? newName : c).ToArray();
-        return new ForeignKeyInfo(renamed, foreignKey.TargetTable, foreignKey.TargetColumns, foreignKey.OnDelete, foreignKey.OnUpdate, foreignKey.Deferred);
+        return new ForeignKeyInfo(renamed, () => (foreignKey.TargetTable, foreignKey.TargetColumns), foreignKey.OnDelete, foreignKey.OnUpdate, foreignKey.Deferred);
     }
 }

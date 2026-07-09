@@ -5,81 +5,93 @@ namespace SQLite.Framework.Tests;
 public class SqlTailTests
 {
     [Fact]
-    public void NullTailIsClean()
+    public void NullTailHasNoStatement()
     {
-        Assert.True(SqlTail.IsWhitespaceOrComments(null));
+        Assert.False(SqlTail.HasStatement(null));
     }
 
     [Fact]
-    public void EmptyTailIsClean()
+    public void EmptyTailHasNoStatement()
     {
-        Assert.True(SqlTail.IsWhitespaceOrComments(""));
+        Assert.False(SqlTail.HasStatement(""));
     }
 
     [Fact]
-    public void WhitespaceTailIsClean()
+    public void WhitespaceTailHasNoStatement()
     {
-        Assert.True(SqlTail.IsWhitespaceOrComments(" \t\r\n"));
+        Assert.False(SqlTail.HasStatement(" \t\r\n"));
     }
 
     [Fact]
-    public void LineCommentTailIsClean()
+    public void LineCommentTailHasNoStatement()
     {
-        Assert.True(SqlTail.IsWhitespaceOrComments(" -- done"));
+        Assert.False(SqlTail.HasStatement(" -- done"));
     }
 
     [Fact]
-    public void LineCommentThenBlockCommentTailIsClean()
+    public void LineCommentThenBlockCommentTailHasNoStatement()
     {
-        Assert.True(SqlTail.IsWhitespaceOrComments("-- a\n /* b */ "));
+        Assert.False(SqlTail.HasStatement("-- a\n /* b */ "));
     }
 
     [Fact]
-    public void UnterminatedBlockCommentTailIsClean()
+    public void UnterminatedBlockCommentTailHasNoStatement()
     {
-        Assert.True(SqlTail.IsWhitespaceOrComments("/* open"));
+        Assert.False(SqlTail.HasStatement("/* open"));
     }
 
     [Fact]
-    public void SemicolonTailIsNotClean()
+    public void SemicolonTailHasNoStatement()
     {
-        Assert.False(SqlTail.IsWhitespaceOrComments("; "));
+        Assert.False(SqlTail.HasStatement("; "));
     }
 
     [Fact]
-    public void StatementAfterLineCommentIsNotClean()
+    public void StackedEmptyStatementsHaveNoStatement()
     {
-        Assert.False(SqlTail.IsWhitespaceOrComments("-- c\nSELECT 2"));
+        Assert.False(SqlTail.HasStatement(" ;; -- x"));
     }
 
     [Fact]
-    public void StatementAfterBlockCommentIsNotClean()
+    public void EmptyStatementBeforeStatementHasStatement()
     {
-        Assert.False(SqlTail.IsWhitespaceOrComments("/* c */ SELECT 2"));
+        Assert.True(SqlTail.HasStatement("; SELECT 2"));
     }
 
     [Fact]
-    public void LoneDashIsNotClean()
+    public void StatementAfterLineCommentHasStatement()
     {
-        Assert.False(SqlTail.IsWhitespaceOrComments(" -"));
+        Assert.True(SqlTail.HasStatement("-- c\nSELECT 2"));
     }
 
     [Fact]
-    public void DashBeforeValueIsNotClean()
+    public void StatementAfterBlockCommentHasStatement()
     {
-        Assert.False(SqlTail.IsWhitespaceOrComments("- 1"));
+        Assert.True(SqlTail.HasStatement("/* c */ SELECT 2"));
     }
 
     [Fact]
-    public void LoneSlashIsNotClean()
+    public void LoneDashHasStatement()
     {
-        Assert.False(SqlTail.IsWhitespaceOrComments(" /"));
+        Assert.True(SqlTail.HasStatement(" -"));
     }
 
     [Fact]
-    public void SlashBeforeValueIsNotClean()
+    public void DashBeforeValueHasStatement()
     {
-        Assert.False(SqlTail.IsWhitespaceOrComments("/ 2"));
+        Assert.True(SqlTail.HasStatement("- 1"));
+    }
+
+    [Fact]
+    public void LoneSlashHasStatement()
+    {
+        Assert.True(SqlTail.HasStatement(" /"));
+    }
+
+    [Fact]
+    public void SlashBeforeValueHasStatement()
+    {
+        Assert.True(SqlTail.HasStatement("/ 2"));
     }
 
     [Fact]

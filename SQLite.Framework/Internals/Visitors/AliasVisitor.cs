@@ -166,28 +166,33 @@ internal class AliasVisitor
             VisitNewExpression(resultSelector, memberInitExpression.NewExpression, prefix);
         }
 
-        foreach (MemberMemberBinding memberMemberBinding in memberInitExpression.Bindings.OfType<MemberMemberBinding>())
-        {
-            Type memberType = memberMemberBinding.Member is PropertyInfo memberProperty
-                ? memberProperty.PropertyType
-                : ((FieldInfo)memberMemberBinding.Member).FieldType;
-            MemberInitExpression nested = Expression.MemberInit(Expression.New(memberType), memberMemberBinding.Bindings);
-            string alias = CheckPrefix(prefix, memberMemberBinding.Member.Name);
-            AliasVisitor nestedVisitor = new(database, visitor);
-            nestedVisitor.ResolveResultAlias(resultSelector, nested, alias);
-            foreach (KeyValuePair<string, Expression> tableColumn in nestedVisitor.result)
-            {
-                result.Add(tableColumn.Key, tableColumn.Value);
-            }
-        }
-
         PropertyInfo[] declaredProperties = memberInitExpression.Type.GetProperties();
-        IEnumerable<MemberAssignment> orderedBindings = memberInitExpression.Bindings
+        IEnumerable<MemberBinding> orderedBindings = memberInitExpression.Bindings
             .OfType<MemberAssignment>()
+            .Cast<MemberBinding>()
+            .Concat(memberInitExpression.Bindings.OfType<MemberMemberBinding>())
             .OrderBy(binding => Array.FindIndex(declaredProperties, p => p.Name == binding.Member.Name));
 
-        foreach (MemberAssignment memberAssignment in orderedBindings)
+        foreach (MemberBinding binding in orderedBindings)
         {
+            if (binding is MemberMemberBinding memberMemberBinding)
+            {
+                Type memberType = memberMemberBinding.Member is PropertyInfo memberProperty
+                    ? memberProperty.PropertyType
+                    : ((FieldInfo)memberMemberBinding.Member).FieldType;
+                MemberInitExpression nested = Expression.MemberInit(Expression.New(memberType), memberMemberBinding.Bindings);
+                string nestedAlias = CheckPrefix(prefix, memberMemberBinding.Member.Name);
+                AliasVisitor nestedVisitor = new(database, visitor);
+                nestedVisitor.ResolveResultAlias(resultSelector, nested, nestedAlias);
+                foreach (KeyValuePair<string, Expression> tableColumn in nestedVisitor.result)
+                {
+                    result.Add(tableColumn.Key, tableColumn.Value);
+                }
+
+                continue;
+            }
+
+            MemberAssignment memberAssignment = (MemberAssignment)binding;
             if (memberAssignment.Expression is MemberInitExpression or NewExpression)
             {
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
