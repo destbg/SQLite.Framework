@@ -9,12 +9,13 @@ namespace SQLite.Framework.Internals.Helpers;
 internal static class SqlTail
 {
     /// <summary>
-    /// Returns true when <paramref name="sql" /> contains only whitespace and SQL comments.
-    /// Used to accept a harmless leftover after preparing the first statement of a batch.
+    /// Returns true when <paramref name="sql" /> still holds a statement to run. Trailing
+    /// whitespace, SQL comments and empty statements (bare semicolons) do not count, so a batch
+    /// or query tail made of only those is treated as finished rather than as another statement.
     /// </summary>
-    public static bool IsWhitespaceOrComments(string? sql)
+    public static bool HasStatement(string? sql)
     {
-        return sql == null || SignificantLength(sql, skipSemicolons: false) == 0;
+        return sql != null && SignificantLength(sql) > 0;
     }
 
     /// <summary>
@@ -24,17 +25,17 @@ internal static class SqlTail
     /// </summary>
     public static string TrimStatementTail(string sql)
     {
-        return sql[..SignificantLength(sql, skipSemicolons: true)];
+        return sql[..SignificantLength(sql)];
     }
 
-    private static int SignificantLength(string sql, bool skipSemicolons)
+    private static int SignificantLength(string sql)
     {
         int end = 0;
         int i = 0;
         while (i < sql.Length)
         {
             char c = sql[i];
-            if (char.IsWhiteSpace(c) || (skipSemicolons && c == ';'))
+            if (char.IsWhiteSpace(c) || c == ';')
             {
                 i++;
             }

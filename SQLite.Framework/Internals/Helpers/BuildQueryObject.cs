@@ -190,30 +190,37 @@ internal static class BuildQueryObject
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface.")]
     private static ConstructorInfo? FindPositionalConstructor(Type type)
     {
-        ConstructorInfo[] ctors = type.GetConstructors();
-        if (ctors.Length != 1)
-        {
-            return null;
-        }
-
-        ConstructorInfo ctor = ctors[0];
-        ParameterInfo[] parameters = ctor.GetParameters();
-
         HashSet<string> memberNames = type
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Select(p => p.Name)
             .Concat(type.GetFields(BindingFlags.Public | BindingFlags.Instance).Select(f => f.Name))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (ParameterInfo parameter in parameters)
+        foreach (ConstructorInfo ctor in type.GetConstructors())
         {
-            if (!memberNames.Contains(parameter.Name!))
+            ParameterInfo[] parameters = ctor.GetParameters();
+            if (parameters.Length == 0)
             {
-                return null;
+                continue;
+            }
+
+            bool allMatch = true;
+            foreach (ParameterInfo parameter in parameters)
+            {
+                if (!memberNames.Contains(parameter.Name!))
+                {
+                    allMatch = false;
+                    break;
+                }
+            }
+
+            if (allMatch)
+            {
+                return ctor;
             }
         }
 
-        return ctor;
+        return null;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]

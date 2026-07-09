@@ -51,6 +51,10 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
         }
+        catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
+        {
+            // An enclosing rollback destroyed the savepoint
+        }
         catch
         {
             Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
@@ -85,6 +89,10 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+        }
+        catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
+        {
+            // An enclosing rollback destroyed the savepoint
         }
         finally
         {

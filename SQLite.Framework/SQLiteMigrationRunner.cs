@@ -372,7 +372,7 @@ public sealed class SQLiteMigrationRunner
             TableMapping mapping = group.First().Mapping!;
             bool rebuild = group.Any(o => o.Rebuild);
             bool isNew = newlyCreated.Contains(group.Key) || !schema.TableExists(mapping.TableName);
-            HashSet<MigrationSetValue> applied = [];
+            Dictionary<string, int> schemaVersionByColumn = new(StringComparer.OrdinalIgnoreCase);
             if (isNew)
             {
                 if (!newlyCreated.Contains(group.Key))
@@ -383,22 +383,29 @@ public sealed class SQLiteMigrationRunner
             }
             else
             {
-                IReadOnlyList<MigrationSetValue> schemaSets = mapping.IsFullTextSearch || mapping.IsRTree
+                List<(int Version, MigrationSetValue Set)> schemaSets = mapping.IsFullTextSearch || mapping.IsRTree
                     ? []
                     : SchemaPhaseSets(mapping, group);
+                List<MigrationSetValue> schemaSetValues = schemaSets.Select(s => s.Set).ToList();
                 count += rebuild
-                    ? MigrateCore(mapping, schemaSets)
-                    : MigrateInPlace(mapping, schemaSets);
-                applied.UnionWith(schemaSets);
+                    ? MigrateCore(mapping, schemaSetValues)
+                    : MigrateInPlace(mapping, schemaSetValues);
+                foreach ((int version, MigrationSetValue set) in schemaSets)
+                {
+                    schemaVersionByColumn[set.Column] = version;
+                }
             }
 
             foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
             {
-                IReadOnlyList<MigrationSetValue> versionSets = UnionSets(versionGroup.SelectMany(o => o.Sets)
-                    .Where(s => !ReadsOutsideModel(mapping, s) && !applied.Contains(s)));
+                int version = versionGroup.Key;
+                List<MigrationSetValue> versionSets = UnionSets(versionGroup.SelectMany(o => o.Sets))
+                    .Where(s => !ReadsOutsideModel(mapping, s)
+                        && !(schemaVersionByColumn.TryGetValue(s.Column, out int schemaVersion) && version <= schemaVersion))
+                    .ToList();
                 if (versionSets.Count > 0)
                 {
-                    deferredFills.Add((versionGroup.Key, mapping, versionSets));
+                    deferredFills.Add((version, mapping, versionSets));
                 }
             }
         }
@@ -407,7 +414,7 @@ public sealed class SQLiteMigrationRunner
         return count;
     }
 
-    private IReadOnlyList<MigrationSetValue> SchemaPhaseSets(TableMapping mapping, IEnumerable<MigrationOperation> group)
+    private List<(int Version, MigrationSetValue Set)> SchemaPhaseSets(TableMapping mapping, IEnumerable<MigrationOperation> group)
     {
         List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(mapping.TableName).ToList();
         HashSet<string> liveColumns = liveInfo.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -416,8 +423,7 @@ public sealed class SQLiteMigrationRunner
             .Concat(mapping.ShadowColumns.Where(s => !s.IsNullable).Select(s => s.Name))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        List<MigrationSetValue> result = [];
-        HashSet<string> taken = new(StringComparer.OrdinalIgnoreCase);
+        List<(int Version, MigrationSetValue Set)> perVersionWinners = [];
         foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
         {
             IEnumerable<MigrationSetValue> qualifying = versionGroup
@@ -428,11 +434,18 @@ public sealed class SQLiteMigrationRunner
                 .Where(s => s.ReadColumns.All(liveColumns.Contains));
             foreach (MigrationSetValue set in UnionSets(qualifying))
             {
-                if (taken.Add(set.Column))
-                {
-                    result.Add(set);
-                }
+                perVersionWinners.Add((versionGroup.Key, set));
             }
+        }
+
+        List<(int Version, MigrationSetValue Set)> result = [];
+        foreach (IGrouping<string, (int Version, MigrationSetValue Set)> columnGroup in perVersionWinners
+                     .GroupBy(w => w.Set.Column, StringComparer.OrdinalIgnoreCase))
+        {
+            List<(int Version, MigrationSetValue Set)> outsideModel = columnGroup
+                .Where(w => ReadsOutsideModel(mapping, w.Set))
+                .ToList();
+            result.Add(outsideModel.Count > 0 ? outsideModel[^1] : columnGroup.First());
         }
 
         return result;
@@ -799,8 +812,30 @@ public sealed class SQLiteMigrationRunner
             return false;
         }
 
+        if (IsColumnIndexed(mapping.TableName, columnName))
+        {
+            return false;
+        }
+
         return !Database.Query<string>("SELECT sql FROM sqlite_master WHERE type IN ('trigger', 'view') AND sql IS NOT NULL")
             .Any(sql => sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName));
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in index rows keeps their public members reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Querying built-in index rows keeps their public members reachable.")]
+    private bool IsColumnIndexed(string tableName, string columnName)
+    {
+        foreach (PragmaIndexList index in Database.Pragmas.IndexList(tableName).ToList())
+        {
+            bool inIndex = Database.Query<Dictionary<string, object?>>($"PRAGMA index_info(\"{index.Name.Replace("\"", "\"\"")}\")")
+                .Any(row => string.Equals(row["name"] as string, columnName, StringComparison.OrdinalIgnoreCase));
+            if (inIndex)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private int RebuildTable(TableMapping mapping, IReadOnlyList<MigrationSetValue> sets)
@@ -1002,7 +1037,7 @@ public sealed class SQLiteMigrationRunner
     {
         string? createSql = Database.ExecuteScalar<string?>(
             $"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{table.Replace("'", "''")}' COLLATE NOCASE");
-        return createSql!.Contains("WITHOUT ROWID", StringComparison.OrdinalIgnoreCase);
+        return CreateTableInspector.HasWithoutRowIdClause(createSql!);
     }
 
     private long? ReadAutoIncrementSequence(TableMapping mapping, string table)
