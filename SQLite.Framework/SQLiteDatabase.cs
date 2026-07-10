@@ -10,6 +10,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private static readonly MethodInfo ExecuteGroupingQueryGeneric = typeof(SQLiteDatabase)
         .GetMethod(nameof(ExecuteGroupingQuery), BindingFlags.Instance | BindingFlags.NonPublic)!;
 
+    private static readonly ConcurrentDictionary<Type, bool> OnConfiguringOverrides = new();
+
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object connectionOpenLock = new();
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
@@ -41,10 +43,44 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDatabase" /> class from a read-only
     /// <see cref="SQLiteOptions" /> instance. Use <see cref="SQLiteOptionsBuilder" /> to construct one.
+    /// When a subclass overrides <see cref="OnConfiguring" />, the constructor rebuilds a fresh
+    /// builder from <paramref name="options" />, hands it to the override, then uses the rebuilt
+    /// options. The rebuild reads only the frozen <paramref name="options" />, so the same instance
+    /// can be passed to more than one database safely. When the method is not overridden, the
+    /// options are used as is with no extra work.
     /// </summary>
     public SQLiteDatabase(SQLiteOptions options)
     {
+        if (IsOnConfiguringOverridden(GetType()))
+        {
+            SQLiteOptionsBuilder builder = new(options);
+            OnConfiguring(builder);
+            options = builder.Build();
+        }
+
         Options = options;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of a <see cref="SQLiteDatabase" /> subclass that configures itself.
+    /// The subclass must override <see cref="OnConfiguring" />, which receives an empty builder and
+    /// sets every option, including <see cref="SQLiteOptionsBuilder.DatabasePath" />. Use this when a
+    /// subclass owns its whole configuration instead of taking a prebuilt <see cref="SQLiteOptions" />.
+    /// Throws <see cref="InvalidOperationException" /> when the subclass does not override the method,
+    /// because there is no other source of options.
+    /// </summary>
+    protected SQLiteDatabase()
+    {
+        if (!IsOnConfiguringOverridden(GetType()))
+        {
+            throw new InvalidOperationException(
+                "A SQLiteDatabase built with the parameterless constructor must override OnConfiguring to set its options, including the database path. " +
+                "Override OnConfiguring or use the constructor that takes a SQLiteOptions instance.");
+        }
+
+        SQLiteOptionsBuilder builder = new(string.Empty);
+        OnConfiguring(builder);
+        Options = builder.Build();
     }
 
     /// <summary>
@@ -1136,6 +1172,19 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     /// <summary>
+    /// Override to configure the database options in code. The framework calls this once from the
+    /// constructor, only when a subclass overrides it, and hands it a <see cref="SQLiteOptionsBuilder" />
+    /// that mirrors the options passed to the constructor. Mutate the builder to change any setting.
+    /// The framework then rebuilds the options from the builder and uses the result. The base method
+    /// does nothing. This runs during construction, so it cannot read fields set by the subclass
+    /// constructor. It only sees the builder.
+    /// </summary>
+    /// <param name="builder">A mutable builder seeded from the constructor options. Change it to adjust settings.</param>
+    protected virtual void OnConfiguring(SQLiteOptionsBuilder builder)
+    {
+    }
+
+    /// <summary>
     /// Override to declare the database model in one place. The framework calls this once, before
     /// any table mapping is used. Use <paramref name="builder" /> to declare each entity's columns,
     /// keys, computed columns, checks, indexes, foreign keys, defaults, STRICT, WITHOUT ROWID and
@@ -1452,6 +1501,30 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 
         return (TResult)raw!;
+    }
+
+    private static bool IsOnConfiguringOverridden(Type type)
+    {
+        if (OnConfiguringOverrides.TryGetValue(type, out bool overridden))
+        {
+            return overridden;
+        }
+
+        overridden = ComputeOnConfiguringOverridden(type);
+        OnConfiguringOverrides[type] = overridden;
+        return overridden;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "OnConfiguring is rooted by the constructor's virtual call.")]
+    private static bool ComputeOnConfiguringOverridden(Type type)
+    {
+        MethodInfo method = type.GetMethod(
+            nameof(OnConfiguring),
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            null,
+            [typeof(SQLiteOptionsBuilder)],
+            null)!;
+        return method.DeclaringType != typeof(SQLiteDatabase);
     }
 
     private static void ValidateSchemaName(string schemaName)

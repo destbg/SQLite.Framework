@@ -36,6 +36,40 @@ var results = await books.Where(b => b.Price < 50).ToListAsync();
 
 `SQLiteOptionsBuilder` is mutable and lets you chain `Use*` / `Add*` calls. Once you call `Build()`, the returned `SQLiteOptions` is fully immutable, this makes it safe to share through dependency injection and reuse across databases without worrying about a late change affecting live code paths.
 
+### Configuring options in a subclass
+
+If you write a `SQLiteDatabase` subclass, you can set options in code by overriding `OnConfiguring`. The framework calls it once from the constructor and hands it a builder that mirrors the options you passed in. Change the builder and the framework rebuilds the options from it.
+
+```csharp
+public class AppDatabase : SQLiteDatabase
+{
+    public AppDatabase(SQLiteOptions options) : base(options)
+    {
+    }
+
+    protected override void OnConfiguring(SQLiteOptionsBuilder builder)
+    {
+        builder.UseWalMode();
+        builder.LogCommands(Console.WriteLine);
+    }
+}
+```
+
+You can also let the subclass own the whole configuration. Call the parameterless base constructor and set every option in `OnConfiguring`, including the database path. The subclass must override `OnConfiguring` in this form, or the constructor throws because there is no other source of options.
+
+```csharp
+public class AppDatabase : SQLiteDatabase
+{
+    protected override void OnConfiguring(SQLiteOptionsBuilder builder)
+    {
+        builder.DatabasePath = "app.db";
+        builder.UseWalMode();
+    }
+}
+
+using AppDatabase db = new();
+```
+
 ### Declaring a minimum SQLite version
 
 The floor matters wherever the OS provides SQLite, which with this package is desktop and iOS. The version is tied to the OS version, so a method that compiles against the framework may still fail at runtime if the device's SQLite is too old. Android is not affected because this package bundles its own SQLite there and `SQLite.Framework.Bundled` bundles one on every platform. Declare the floor your app commits to:

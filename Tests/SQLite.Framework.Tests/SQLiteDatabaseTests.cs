@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using SQLite.Framework.Enums;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Tests.Entities;
@@ -104,5 +105,170 @@ public class SQLiteDatabaseTests
 
         Assert.Throws<NotSupportedException>(() =>
             provider.Execute(Expression.Constant(1)));
+    }
+
+    [Fact]
+    public void OnConfiguring_NotOverridden_UsesOptionsInstanceUnchanged()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(":memory:").Build();
+
+        using SQLiteDatabase db = new(options);
+
+        Assert.Same(options, db.Options);
+        Assert.False(db.Options.IsWalMode);
+    }
+
+    [Fact]
+    public void OnConfiguring_Overridden_AppliesBuilderChanges()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(":memory:").Build();
+
+        using WalConfiguringDatabase db = new(options);
+
+        Assert.True(db.Options.IsWalMode);
+        Assert.NotSame(options, db.Options);
+        Assert.False(options.IsWalMode);
+    }
+
+    [Fact]
+    public void OnConfiguring_SharedOptionsAcrossTwoDatabases_ConfiguresEachIndependently()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder(":memory:").Build();
+
+        using WalConfiguringDatabase wal = new(options);
+        using CaseSensitiveConfiguringDatabase caseSensitive = new(options);
+
+        Assert.True(wal.Options.IsWalMode);
+        Assert.False(wal.Options.CaseSensitiveStringComparison);
+
+        Assert.True(caseSensitive.Options.CaseSensitiveStringComparison);
+        Assert.False(caseSensitive.Options.IsWalMode);
+
+        Assert.False(options.IsWalMode);
+        Assert.False(options.CaseSensitiveStringComparison);
+    }
+
+    [Fact]
+    public void OnConfiguring_ParameterlessConstructorOverridden_BuildsFromScratch()
+    {
+        using SelfConfiguringDatabase db = new();
+
+        Assert.Equal(":memory:", db.Options.DatabasePath);
+        Assert.True(db.Options.IsWalMode);
+    }
+
+    [Fact]
+    public void OnConfiguring_ParameterlessConstructorNotOverridden_Throws()
+    {
+        Assert.Throws<InvalidOperationException>(() => new UnconfiguredDatabase());
+    }
+
+    [Fact]
+    public void OnConfiguring_Overridden_PreservesEveryOptionCollection()
+    {
+        SQLiteOptionsBuilder builder = new(":memory:");
+        builder.AddTypeConverter<PreservedConverterValue>(new PassthroughConverter());
+        builder.EntityMaterializers[typeof(Book)] = _ => _ => null;
+        builder.SelectMaterializers["select-sig"] = _ => null;
+        builder.GroupByKeyMaterializers["key-sig"] = _ => null;
+        builder.GroupingQueryMaterializers[typeof(IGrouping<int, Book>)] = (_, _) => new object();
+        builder.EntityWriters[typeof(Book)] = new Dictionary<string, SQLiteEntityColumnWriter>();
+        builder.AddQueryFilter<Book>(b => b.Id > 0);
+        builder.OnAdd<Book>(_ => { });
+        builder.OnUpdate<Book>(_ => { });
+        builder.OnRemove<Book>(_ => { });
+        builder.OnAddOrUpdate<Book>(_ => { });
+        builder.OnAction((_, _, action) => action);
+        builder.LogCommands(_ => { });
+        SQLiteOptions options = builder.Build();
+
+        using PreservingConfiguringDatabase db = new(options);
+
+        Assert.NotSame(options, db.Options);
+        Assert.True(db.Options.TypeConverters.ContainsKey(typeof(PreservedConverterValue)));
+        Assert.True(db.Options.EntityMaterializers.ContainsKey(typeof(Book)));
+        Assert.True(db.Options.SelectMaterializers.ContainsKey("select-sig"));
+        Assert.True(db.Options.GroupByKeyMaterializers.ContainsKey("key-sig"));
+        Assert.True(db.Options.GroupingQueryMaterializers.ContainsKey(typeof(IGrouping<int, Book>)));
+        Assert.True(db.Options.EntityWriters.ContainsKey(typeof(Book)));
+        Assert.True(db.Options.QueryFilters.ContainsKey(typeof(Book)));
+        Assert.True(db.Options.AddHooks.ContainsKey(typeof(Book)));
+        Assert.True(db.Options.UpdateHooks.ContainsKey(typeof(Book)));
+        Assert.True(db.Options.RemoveHooks.ContainsKey(typeof(Book)));
+        Assert.True(db.Options.AddOrUpdateHooks.ContainsKey(typeof(Book)));
+        Assert.Single(db.Options.OnActionHooks);
+        Assert.NotEmpty(db.Options.CommandInterceptors);
+    }
+
+    private sealed class SelfConfiguringDatabase : SQLiteDatabase
+    {
+        protected override void OnConfiguring(SQLiteOptionsBuilder builder)
+        {
+            builder.DatabasePath = ":memory:";
+            builder.UseWalMode();
+        }
+    }
+
+    private sealed class UnconfiguredDatabase : SQLiteDatabase
+    {
+    }
+
+    private sealed class PreservingConfiguringDatabase : SQLiteDatabase
+    {
+        public PreservingConfiguringDatabase(SQLiteOptions options)
+            : base(options)
+        {
+        }
+
+        protected override void OnConfiguring(SQLiteOptionsBuilder builder)
+        {
+        }
+    }
+
+    private sealed class PreservedConverterValue
+    {
+        public int Value { get; set; }
+    }
+
+    private sealed class PassthroughConverter : ISQLiteTypeConverter
+    {
+        public SQLiteColumnType ColumnType => SQLiteColumnType.Text;
+
+        public object? ToDatabase(object? value)
+        {
+            return value;
+        }
+
+        public object? FromDatabase(object? value)
+        {
+            return value;
+        }
+    }
+
+    private sealed class WalConfiguringDatabase : SQLiteDatabase
+    {
+        public WalConfiguringDatabase(SQLiteOptions options)
+            : base(options)
+        {
+        }
+
+        protected override void OnConfiguring(SQLiteOptionsBuilder builder)
+        {
+            base.OnConfiguring(builder);
+            builder.UseWalMode();
+        }
+    }
+
+    private sealed class CaseSensitiveConfiguringDatabase : SQLiteDatabase
+    {
+        public CaseSensitiveConfiguringDatabase(SQLiteOptions options)
+            : base(options)
+        {
+        }
+
+        protected override void OnConfiguring(SQLiteOptionsBuilder builder)
+        {
+            builder.UseCaseSensitiveStringComparison();
+        }
     }
 }

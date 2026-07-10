@@ -34,6 +34,25 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db").Build();
 using AppDatabase db = new(options);
 ```
 
+EF Core sets the connection and options in `OnConfiguring`. `SQLiteDatabase` has the same hook. Override `OnConfiguring` on your subclass to set options in code instead of on the builder at the call site.
+
+```csharp
+public class AppDatabase : SQLiteDatabase
+{
+    protected override void OnConfiguring(SQLiteOptionsBuilder builder)
+    {
+        builder.DatabasePath = "app.db";
+        builder.UseWalMode();
+    }
+
+    public SQLiteTable<Book> Books => Table<Book>();
+}
+
+using AppDatabase db = new();
+```
+
+A subclass that uses the parameterless constructor must override `OnConfiguring`, or the constructor throws, because there is no other source of options. See [Getting Started](Getting%20Started) for the details.
+
 The subclass form is the recommended pattern. It puts every table in one place and matches what EF Core users expect. You can also use `SQLiteDatabase` directly for a quick script, in which case you call `db.Table<Book>()` instead of `db.Books`.
 
 You can register the database in dependency injection. See [Dependency Injection](Dependency%20Injection) for the helper that wires it up.

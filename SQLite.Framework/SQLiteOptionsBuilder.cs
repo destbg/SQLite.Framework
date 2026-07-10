@@ -17,6 +17,94 @@ public sealed class SQLiteOptionsBuilder
     }
 
     /// <summary>
+    /// Initializes a new builder seeded from an already-built <see cref="SQLiteOptions" /> instance.
+    /// Every setting is copied, so mutating this builder does not change <paramref name="options" />.
+    /// The default method handlers are not registered again, since the copied
+    /// <see cref="SQLiteOptions.MemberTranslators" /> already contain them plus any user overrides.
+    /// Used by the <see cref="SQLiteDatabase" /> constructor to hand
+    /// <see cref="SQLiteDatabase.OnConfiguring" /> a mutable builder that mirrors the frozen options.
+    /// </summary>
+    internal SQLiteOptionsBuilder(SQLiteOptions options)
+    {
+        DatabasePath = options.DatabasePath;
+        OpenFlags = options.OpenFlags;
+        IsWalMode = options.IsWalMode;
+        IsForeignKeysEnabled = options.IsForeignKeysEnabled;
+        EncryptionKey = options.EncryptionKey;
+        MinimumSqliteVersion = options.MinimumSqliteVersion;
+        DateTimeStorage = options.DateTimeStorage;
+        DateTimeFormat = options.DateTimeFormat;
+        DateTimeOffsetStorage = options.DateTimeOffsetStorage;
+        DateTimeOffsetFormat = options.DateTimeOffsetFormat;
+        TimeSpanStorage = options.TimeSpanStorage;
+        TimeSpanFormat = options.TimeSpanFormat;
+        DateOnlyStorage = options.DateOnlyStorage;
+        DateOnlyFormat = options.DateOnlyFormat;
+        TimeOnlyStorage = options.TimeOnlyStorage;
+        TimeOnlyFormat = options.TimeOnlyFormat;
+        DecimalStorage = options.DecimalStorage;
+        DecimalFormat = options.DecimalFormat;
+        EnumStorage = options.EnumStorage;
+        CharStorage = options.CharStorage;
+        CaseSensitiveStringComparison = options.CaseSensitiveStringComparison;
+        ReflectionFallbackDisabled = options.ReflectionFallbackDisabled;
+        ExplicitAutoIncrementKeysPreserved = options.ExplicitAutoIncrementKeysPreserved;
+        BlockReadsDuringTransaction = options.BlockReadsDuringTransaction;
+        SensitiveParameterLoggingEnabled = options.SensitiveParameterLoggingEnabled;
+        PragmasFactory = options.PragmasFactory;
+        SchemaFactory = options.SchemaFactory;
+
+        foreach (KeyValuePair<Type, ISQLiteTypeConverter> entry in options.TypeConverters)
+        {
+            TypeConverters[entry.Key] = entry.Value;
+        }
+
+        foreach (KeyValuePair<MemberInfo, SQLiteMemberTranslator> entry in options.MemberTranslators)
+        {
+            MemberTranslators[entry.Key] = entry.Value;
+        }
+
+        PropertyTranslators.AddRange(options.PropertyTranslators);
+
+        foreach (KeyValuePair<Type, Func<SQLiteQueryContext, Func<SQLiteQueryContext, object?>>> entry in options.EntityMaterializers)
+        {
+            EntityMaterializers[entry.Key] = entry.Value;
+        }
+
+        foreach (KeyValuePair<string, Func<SQLiteQueryContext, object?>> entry in options.SelectMaterializers)
+        {
+            SelectMaterializers[entry.Key] = entry.Value;
+        }
+
+        foreach (KeyValuePair<string, Func<SQLiteQueryContext, object?>> entry in options.GroupByKeyMaterializers)
+        {
+            GroupByKeyMaterializers[entry.Key] = entry.Value;
+        }
+
+        foreach (KeyValuePair<Type, Func<SQLiteDatabase, Expression, object>> entry in options.GroupingQueryMaterializers)
+        {
+            GroupingQueryMaterializers[entry.Key] = entry.Value;
+        }
+
+        foreach (KeyValuePair<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>> entry in options.EntityWriters)
+        {
+            EntityWriters[entry.Key] = entry.Value;
+        }
+
+        CopyHooks(options.AddHooks, AddHooks);
+        CopyHooks(options.UpdateHooks, UpdateHooks);
+        CopyHooks(options.RemoveHooks, RemoveHooks);
+        CopyHooks(options.AddOrUpdateHooks, AddOrUpdateHooks);
+        OnActionHooks.AddRange(options.OnActionHooks);
+        CommandInterceptors.AddRange(options.CommandInterceptors);
+
+        foreach (KeyValuePair<Type, IReadOnlyList<LambdaExpression>> entry in options.QueryFilters)
+        {
+            QueryFilters[entry.Key] = [.. entry.Value];
+        }
+    }
+
+    /// <summary>
     /// The path to the SQLite database file.
     /// </summary>
     public string DatabasePath { get; set; }
@@ -960,5 +1048,13 @@ public sealed class SQLiteOptionsBuilder
         }
 
         return snapshot;
+    }
+
+    private static void CopyHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> source, Dictionary<Type, List<Delegate>> target)
+    {
+        foreach (KeyValuePair<Type, IReadOnlyList<Delegate>> kvp in source)
+        {
+            target[kvp.Key] = [.. kvp.Value];
+        }
     }
 }

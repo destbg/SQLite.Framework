@@ -107,6 +107,18 @@ await db.Schema.Migrations()
 
 A column you do not set is copied across unchanged when it still exists.
 
+## Re-encoding a column with a changed converter
+
+When a column's converter changes the stored form, the old bytes no longer match the new column. A JSON string column that switches to `JSONB` is one such case. The old value is stored as TEXT but the new column expects a BLOB. `Reconvert` reads the old value and writes it back through the current converter while the table is rebuilt, so the stored form matches the model.
+
+```csharp
+await db.Schema.Migrations()
+    .Version(2, m => m.TableChanged<Book>(s => s.Reconvert(b => b.Details)))
+    .MigrateAsync();
+```
+
+On a STRICT table the runner cannot copy the old form into the new column, because SQLite rejects the wrong storage class. If a rebuild would copy such a column without rewriting it, the run stops with an error that names the column and asks you to re-encode it with `Reconvert` or set a value with `Set`. On a plain table the rewrite is still correct, because it replaces the old form with the new one so later reads decode it the same way. See [JSON and JSONB](JSON%20and%20JSONB) for the TEXT and JSONB storage forms.
+
 ## Renames, drops and data steps
 
 A reconcile cannot tell a rename from a drop plus an add, so rename a table or a column with an explicit step. Renames are applied before every other schema change, so the data is kept.
