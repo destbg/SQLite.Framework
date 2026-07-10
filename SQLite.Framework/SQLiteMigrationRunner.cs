@@ -428,7 +428,8 @@ public sealed class SQLiteMigrationRunner
         {
             IEnumerable<MigrationSetValue> qualifying = versionGroup
                 .SelectMany(o => o.Sets)
-                .Where(s => ReadsOutsideModel(mapping, s)
+                .Where(s => s.RunInRebuild
+                    || ReadsOutsideModel(mapping, s)
                     || !liveColumns.Contains(s.Column)
                     || (notNullModel.Contains(s.Column) && liveNullable.Contains(s.Column)))
                 .Where(s => s.ReadColumns.All(liveColumns.Contains));
@@ -843,7 +844,8 @@ public sealed class SQLiteMigrationRunner
         string table = mapping.TableName;
         string temp = table + "__sqlitefw_migrate";
 
-        HashSet<string> liveColumns = Database.Pragmas.TableInfo(table).Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(table).ToList();
+        HashSet<string> liveColumns = liveInfo.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string> setColumns = sets.Select(s => s.Column).ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string> computedColumns = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -855,6 +857,8 @@ public sealed class SQLiteMigrationRunner
             .Concat(mapping.ShadowColumns.Select(s => s.Name))
             .Where(name => liveColumns.Contains(name) && !setColumns.Contains(name))
             .ToList();
+
+        EnsureNoUncoveredStorageChange(mapping, table, liveInfo, copyColumns);
 
         Dictionary<string, string> backfillDefaults = new(StringComparer.OrdinalIgnoreCase);
         foreach (TableColumn column in mapping.Columns)
@@ -1088,6 +1092,41 @@ public sealed class SQLiteMigrationRunner
         throw new InvalidOperationException(
             $"Cannot migrate table '{table}'. Column '{name}' is new and NOT NULL with no default, but the table has rows. " +
             "Give it a default in OnModelCreating, set a value with TableChanged(s => s.Set(...)) or make it nullable.");
+    }
+
+    private void EnsureNoUncoveredStorageChange(TableMapping mapping, string table, List<PragmaTableInfo> liveInfo, List<string> copyColumns)
+    {
+        if (!mapping.Strict)
+        {
+            return;
+        }
+
+        HashSet<string> copySet = copyColumns.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> liveTypes = liveInfo.ToDictionary(c => c.Name, c => c.Type, StringComparer.OrdinalIgnoreCase);
+        foreach (TableColumn column in mapping.Columns)
+        {
+            if (!copySet.Contains(column.Name))
+            {
+                continue;
+            }
+
+            bool intendedBlob = column.ColumnType == SQLiteColumnType.Blob;
+            bool liveBlob = string.Equals(liveTypes[column.Name], "BLOB", StringComparison.OrdinalIgnoreCase);
+            if (intendedBlob == liveBlob)
+            {
+                continue;
+            }
+
+            if (Database.ExecuteScalar<long>($"SELECT COUNT(*) FROM \"{table}\"") == 0)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Cannot migrate STRICT table '{table}'. Column '{column.Name}' changes storage class from " +
+                $"{liveTypes[column.Name].ToUpperInvariant()} to {column.ColumnType.ToString().ToUpperInvariant()}, but the migration does not rewrite its data. " +
+                "SQLite will not store the old value in the new column. Re-encode it with TableChanged(s => s.Reconvert(...)) or set a value with Set(...).");
+        }
     }
 
     private int ReconcileIndexes(TableMapping mapping)

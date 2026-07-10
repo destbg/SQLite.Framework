@@ -54,6 +54,26 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
         return this;
     }
 
+    /// <summary>
+    /// Re-encodes an existing column through its current converter while the table is rebuilt. Use
+    /// this when a column's converter changed the stored form, for example a JSON string column that
+    /// switched to <c>JSONB</c>, so the old value is rewritten in the new form instead of copied as
+    /// is. The rewrite runs inside the rebuild, which a STRICT table needs because it will not store
+    /// the old form in the new column.
+    /// </summary>
+    public SQLiteMigrationBuilder<T> Reconvert<TValue>(Expression<Func<T, TValue>> column)
+    {
+        string name = ResolveWritableColumn(column);
+        sets.Add(new MigrationSetValue
+        {
+            Column = name,
+            ValueSql = ConverterSql.WrapParameter(IdentifierGuard.Quote(name), typeof(TValue), database.Options),
+            ReadColumns = [name],
+            RunInRebuild = true,
+        });
+        return this;
+    }
+
     private string ResolveWritableColumn<TValue>(Expression<Func<T, TValue>> column)
     {
         string name = CommonHelpers.Resolve(mapping, column);

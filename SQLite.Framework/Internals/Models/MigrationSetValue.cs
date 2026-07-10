@@ -24,4 +24,12 @@ internal sealed class MigrationSetValue
     /// The SQLite names of the columns the value expression reads.
     /// </summary>
     public IReadOnlyList<string> ReadColumns { get; init; } = [];
+
+    /// <summary>
+    /// When <see langword="true" />, the fill always runs inside the schema-phase rebuild instead
+    /// of a data-phase UPDATE, so it rewrites the column while the table is rebuilt. <c>Reconvert</c>
+    /// sets this so a column whose converter changed its stored form is re-encoded during the copy,
+    /// which a STRICT table needs because it will not store the old form in the new column.
+    /// </summary>
+    public bool RunInRebuild { get; init; }
 }
