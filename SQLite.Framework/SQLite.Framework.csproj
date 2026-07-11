@@ -58,6 +58,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="SQLite.Framework.DependencyInjection" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests.Base" />
         <InternalsVisibleTo Include="SQLite.Framework.Tests.Bundled" />

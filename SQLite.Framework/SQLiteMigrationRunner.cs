@@ -23,6 +23,7 @@ public sealed class SQLiteMigrationRunner
     private readonly SQLiteSchema schema;
     private readonly SortedDictionary<int, Action<SQLiteMigrationStep>> versions = new();
     private Action<SQLiteMigrationProgress>? progress;
+    private SQLiteMigrationActivator? migrationActivator;
 
     internal SQLiteMigrationRunner(SQLiteSchema schema)
     {
@@ -59,12 +60,21 @@ public sealed class SQLiteMigrationRunner
     /// <see cref="ISQLiteMigration.Version" />. The version number is read without creating an
     /// instance and the migration is constructed only when its version is applied, so a class that
     /// has already run is never loaded into memory. The same version rules as
-    /// <see cref="Version" /> apply.
+    /// <see cref="Version" /> apply. When the runner is created through the dependency injection
+    /// package, the migration's constructor arguments are resolved from the service provider, so a
+    /// migration class can take services. Otherwise the class is built through its public
+    /// constructor with no arguments.
     /// </summary>
     /// <typeparam name="T">The migration type to register.</typeparam>
-    public SQLiteMigrationRunner Add<T>() where T : ISQLiteMigration, new()
+    public SQLiteMigrationRunner Add<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>() where T : ISQLiteMigration
     {
-        return Version(T.Version, static step => new T().Apply(step));
+        return Version(T.Version, step =>
+        {
+            T migration = migrationActivator != null
+                ? (T)migrationActivator(typeof(T))
+                : Activator.CreateInstance<T>()!;
+            migration.Apply(step);
+        });
     }
 
     /// <summary>
@@ -233,6 +243,11 @@ public sealed class SQLiteMigrationRunner
         }
 
         return statements;
+    }
+
+    internal void UseMigrationActivator(SQLiteMigrationActivator activator)
+    {
+        migrationActivator = activator;
     }
 
     internal async Task<int> MigratePending(CancellationToken cancellationToken)

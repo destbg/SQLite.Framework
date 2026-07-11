@@ -91,7 +91,13 @@ public class SQLiteSchema
     /// </summary>
     public virtual SQLiteMigrationRunner Migrations()
     {
-        return new SQLiteMigrationRunner(this);
+        SQLiteMigrationRunner runner = new(this);
+        if (Database.MigrationActivator != null)
+        {
+            runner.UseMigrationActivator(Database.MigrationActivator);
+        }
+
+        return runner;
     }
 
     /// <summary>

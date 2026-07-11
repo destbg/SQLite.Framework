@@ -135,3 +135,39 @@ services.AddSQLiteDatabase<AppDatabase>(
 The same parameter exists on `AddSQLiteDatabaseFactory`. Each `CreateDatabase()` call then returns a migrated instance.
 
 The migration runs synchronously during the resolve. Versions that declare `RunAsync` or `RunBeforeAsync` callbacks cannot run here, so migrate those chains with `MigrateAsync`. When the migration fails, the database instance is disposed and the exception leaves the resolve.
+
+### Injecting services into a migration class
+
+A migration class added with `Add<T>()` on a database created through this package is built from the service provider, so its constructor can take services. You do not register the migration class itself, only its dependencies.
+
+```csharp
+public sealed class M0002_SeedCountries : ISQLiteMigration
+{
+    public static int Version => 2;
+
+    private readonly ICountrySource countries;
+
+    public M0002_SeedCountries(ICountrySource countries)
+    {
+        this.countries = countries;
+    }
+
+    public void Apply(SQLiteMigrationStep step)
+    {
+        step.TableChanged<Country>();
+        foreach (Country country in countries.All())
+        {
+            step.Insert(country);
+        }
+    }
+}
+```
+
+```csharp
+services.AddSingleton<ICountrySource, StaticCountrySource>();
+services.AddSQLiteDatabase<AppDatabase>(
+    b => b.DatabasePath = "app.db",
+    migrations: r => r
+        .Add<M0001_InitialSchema>()
+        .Add<M0002_SeedCountries>());
+```

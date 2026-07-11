@@ -14,6 +14,29 @@ public class DiMigrationRow
     public string Name { get; set; } = "";
 }
 
+public sealed class MigrationInjectionProbe
+{
+    public bool Constructed { get; set; }
+}
+
+public sealed class InjectedMigration : ISQLiteMigration
+{
+    private readonly MigrationInjectionProbe probe;
+
+    public InjectedMigration(MigrationInjectionProbe probe)
+    {
+        this.probe = probe;
+    }
+
+    public static int Version => 1;
+
+    public void Apply(SQLiteMigrationStep step)
+    {
+        probe.Constructed = true;
+        step.CreateTable<DiMigrationRow>();
+    }
+}
+
 public sealed class DisposeTrackingDatabase : SQLiteDatabase
 {
     public DisposeTrackingDatabase(SQLiteOptions options)
@@ -134,5 +157,63 @@ public class MigrationsOnResolveTests
         SQLiteDatabase db = provider.GetRequiredService<SQLiteDatabase>();
 
         Assert.Equal(0, db.Pragmas.UserVersion);
+    }
+
+    [Fact]
+    public void MigrationClassReceivesConstructorInjection()
+    {
+        ServiceCollection services = new();
+        MigrationInjectionProbe probe = new();
+        services.AddSingleton(probe);
+        services.AddSQLiteDatabase(
+            b => b.DatabasePath = ":memory:",
+            migrations: r => r.Add<InjectedMigration>());
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        SQLiteDatabase db = provider.GetRequiredService<SQLiteDatabase>();
+
+        Assert.True(probe.Constructed);
+        Assert.True(db.Schema.TableExists<DiMigrationRow>());
+        Assert.Equal(1, db.Pragmas.UserVersion);
+    }
+
+    [Fact]
+    public void SchemaMigrationsInjectsByDefaultOnResolvedDatabase()
+    {
+        ServiceCollection services = new();
+        MigrationInjectionProbe probe = new();
+        services.AddSingleton(probe);
+        services.AddSQLiteDatabase(b => b.DatabasePath = ":memory:");
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        SQLiteDatabase db = provider.GetRequiredService<SQLiteDatabase>();
+
+        db.Schema.Migrations()
+            .Add<InjectedMigration>()
+            .Migrate();
+
+        Assert.True(probe.Constructed);
+        Assert.True(db.Schema.TableExists<DiMigrationRow>());
+        Assert.Equal(1, db.Pragmas.UserVersion);
+    }
+
+    [Fact]
+    public void UseServicesInjectsMigrationClassOutsideRegistration()
+    {
+        ServiceCollection services = new();
+        MigrationInjectionProbe probe = new();
+        services.AddSingleton(probe);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        SQLiteOptions options = new SQLiteOptionsBuilder(":memory:").Build();
+        using SQLiteDatabase db = new(options);
+        db.Schema.Migrations()
+            .UseServices(provider)
+            .Add<InjectedMigration>()
+            .Migrate();
+
+        Assert.True(probe.Constructed);
+        Assert.True(db.Schema.TableExists<DiMigrationRow>());
+        Assert.Equal(1, db.Pragmas.UserVersion);
     }
 }

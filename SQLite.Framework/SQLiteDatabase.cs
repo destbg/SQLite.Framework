@@ -168,6 +168,15 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     internal bool MigrationInProgress { get; set; }
 
     /// <summary>
+    /// Builds migration classes for <see cref="SQLiteMigrationRunner.Add{T}" />. Set by the
+    /// dependency injection package to resolve a migration's constructor arguments from the service
+    /// provider. <see cref="SQLiteSchema.Migrations" /> copies it onto every runner it creates, so a
+    /// runner reached through <see cref="Schema" /> injects by default. <see langword="null" /> when
+    /// the database was not created through dependency injection.
+    /// </summary>
+    internal SQLiteMigrationActivator? MigrationActivator { get; set; }
+
+    /// <summary>
     /// True while the connection sits inside an open transaction or savepoint.
     /// </summary>
     internal bool InOpenTransaction => IsConnected && Handle != null && raw.sqlite3_get_autocommit(Handle) == 0;

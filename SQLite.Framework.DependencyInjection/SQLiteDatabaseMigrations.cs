@@ -6,7 +6,10 @@ namespace SQLite.Framework.DependencyInjection;
 internal static class SQLiteDatabaseMigrations
 {
     /// <summary>
-    /// Declares the versions with <paramref name="migrations" /> and migrates the database. On a
+    /// Declares the versions with <paramref name="migrations" /> and migrates the database. The
+    /// runner comes from <see cref="SQLiteSchema.Migrations" />, which is already wired to resolve
+    /// migration classes from the service provider, so classes added with
+    /// <see cref="SQLiteMigrationRunner.Add{T}" /> get their constructor arguments injected. On a
     /// throw the database is disposed before the exception leaves, so a failed resolve does not
     /// leak a connection.
     /// </summary>

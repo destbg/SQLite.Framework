@@ -121,6 +121,7 @@ public static class SQLiteDatabaseServiceCollectionExtensions
         where TDatabase : SQLiteDatabase
     {
         TDatabase database = ActivatorUtilities.CreateInstance<TDatabase>(sp, sp.GetRequiredKeyedService<SQLiteOptions>(typeof(TDatabase)));
+        database.MigrationActivator = MigrationServiceActivator.For(sp);
         SQLiteDatabaseMigrations.Apply(database, migrations);
         return database;
     }

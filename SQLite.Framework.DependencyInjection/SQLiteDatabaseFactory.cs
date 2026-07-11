@@ -20,6 +20,7 @@ internal sealed class SQLiteDatabaseFactory<[DynamicallyAccessedMembers(Dynamica
     public TDatabase CreateDatabase()
     {
         TDatabase database = ActivatorUtilities.CreateInstance<TDatabase>(services, options);
+        database.MigrationActivator = MigrationServiceActivator.For(services);
         SQLiteDatabaseMigrations.Apply(database, migrations);
         return database;
     }
