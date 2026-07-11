@@ -57,9 +57,12 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
     /// <summary>
     /// Re-encodes an existing column through its current converter while the table is rebuilt. Use
     /// this when a column's converter changed the stored form, for example a JSON string column that
-    /// switched to <c>JSONB</c>, so the old value is rewritten in the new form instead of copied as
-    /// is. The rewrite runs inside the rebuild, which a STRICT table needs because it will not store
-    /// the old form in the new column.
+    /// switched to <c>JSONB</c> or a <c>JSONB</c> column that switched back to a JSON string, so the
+    /// old value is rewritten in the new form instead of copied as is. The rewrite runs inside the
+    /// rebuild, which a STRICT table needs because it will not store the old form in the new column.
+    /// The re-encode uses the converter's write wrap when it has one, or <c>json(...)</c> for a JSON
+    /// text converter. It throws when the converter has neither, since there is no SQL expression to
+    /// rewrite the stored value.
     /// </summary>
     public SQLiteMigrationBuilder<T> Reconvert<TValue>(Expression<Func<T, TValue>> column)
     {
@@ -67,11 +70,33 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
         sets.Add(new MigrationSetValue
         {
             Column = name,
-            ValueSql = ConverterSql.WrapParameter(IdentifierGuard.Quote(name), typeof(TValue), database.Options),
+            ValueSql = BuildReconvertSql(name, typeof(TValue)),
             ReadColumns = [name],
             RunInRebuild = true,
         });
         return this;
+    }
+
+    private string BuildReconvertSql(string columnName, Type valueType)
+    {
+        string quoted = IdentifierGuard.Quote(columnName);
+        Type lookupType = Nullable.GetUnderlyingType(valueType) ?? valueType;
+        database.Options.TypeConverters.TryGetValue(lookupType, out ISQLiteTypeConverter? converter);
+
+        if (converter?.ParameterSqlExpression is { } writeWrap)
+        {
+            return string.Format(writeWrap, quoted);
+        }
+
+        if (converter is IJsonTypeInfoSource)
+        {
+            return $"json({quoted})";
+        }
+
+        throw new InvalidOperationException(
+            $"Cannot Reconvert column '{columnName}' on table '{mapping.TableName}'. Its converter has no " +
+            "write wrap and is not a JSON text converter, so there is no SQL expression that can rewrite the " +
+            "stored value while the table is rebuilt. Set the column to a value expression instead.");
     }
 
     private string ResolveWritableColumn<TValue>(Expression<Func<T, TValue>> column)

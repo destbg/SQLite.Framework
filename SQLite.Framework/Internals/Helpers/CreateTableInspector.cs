@@ -3,14 +3,16 @@ namespace SQLite.Framework.Internals.Helpers;
 /// <summary>
 /// Reads structure from a table's stored CREATE statement without preparing it, so a rebuild can
 /// decide whether the table keeps a rowid. The scan skips string literals, comments and quoted
-/// identifiers, so the text WITHOUT ROWID that only appears inside a check, a default, a comment
-/// or a quoted name is not mistaken for the table clause.
+/// identifiers, and tracks parenthesis depth, so the text WITHOUT ROWID that only appears inside a
+/// check, a default, a comment, a quoted name or the column list is not mistaken for the table
+/// clause, which sits at the top level after the closing parenthesis.
 /// </summary>
 internal static class CreateTableInspector
 {
     public static bool HasWithoutRowIdClause(string sql)
     {
         string previousWord = "";
+        int depth = 0;
         int i = 0;
         while (i < sql.Length)
         {
@@ -47,7 +49,8 @@ internal static class CreateTableInspector
                 }
 
                 string word = sql[start..i];
-                if (string.Equals(previousWord, "WITHOUT", StringComparison.OrdinalIgnoreCase)
+                if (depth == 0
+                    && string.Equals(previousWord, "WITHOUT", StringComparison.OrdinalIgnoreCase)
                     && string.Equals(word, "ROWID", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
@@ -57,6 +60,15 @@ internal static class CreateTableInspector
             }
             else
             {
+                if (c == '(')
+                {
+                    depth++;
+                }
+                else if (c == ')')
+                {
+                    depth--;
+                }
+
                 if (!char.IsWhiteSpace(c))
                 {
                     previousWord = "";

@@ -664,6 +664,11 @@ internal partial class SQLVisitor
             stripped = convert.Operand;
         }
 
+        if (stripped.Type.IsValueType)
+        {
+            return Nullable.GetUnderlyingType(stripped.Type) != null;
+        }
+
         return stripped switch
         {
             ConstantExpression constant => constant.Value == null,

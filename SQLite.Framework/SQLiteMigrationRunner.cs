@@ -416,7 +416,9 @@ public sealed class SQLiteMigrationRunner
                 int version = versionGroup.Key;
                 List<MigrationSetValue> versionSets = UnionSets(versionGroup.SelectMany(o => o.Sets))
                     .Where(s => !ReadsOutsideModel(mapping, s)
-                        && !(schemaVersionByColumn.TryGetValue(s.Column, out int schemaVersion) && version <= schemaVersion))
+                        && !(schemaVersionByColumn.TryGetValue(s.Column, out int schemaVersion)
+                            && version <= schemaVersion
+                            && !ReadsAnotherColumn(s)))
                     .ToList();
                 if (versionSets.Count > 0)
                 {
@@ -1199,6 +1201,11 @@ public sealed class SQLiteMigrationRunner
             .Concat(mapping.ComputedColumns.Select(c => c.Column.Name))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         return set.ReadColumns.Any(read => !modelColumns.Contains(read));
+    }
+
+    private static bool ReadsAnotherColumn(MigrationSetValue set)
+    {
+        return set.ReadColumns.Any(read => !string.Equals(read, set.Column, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool IsDataPhase(MigrationOperationKind kind)

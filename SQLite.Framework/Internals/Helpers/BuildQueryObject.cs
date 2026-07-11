@@ -283,11 +283,9 @@ internal static class BuildQueryObject
                 MaterializerPlan positionalPlan = ReflectionMaterializerCache.GetPlan(type, options);
                 ParameterInfo[] parameters = positional.GetParameters();
                 PositionalSlot[] positionalSlots = new PositionalSlot[parameters.Length];
-                HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
                 for (int i = 0; i < parameters.Length; i++)
                 {
                     ParameterInfo p = parameters[i];
-                    ctorParameterNames.Add(p.Name!);
                     int columnIndex = FindColumnIndex(columns, prefix + p.Name);
                     Type targetType = Nullable.GetUnderlyingType(p.ParameterType) ?? p.ParameterType;
                     positionalSlots[i] = new PositionalSlot
@@ -303,11 +301,6 @@ internal static class BuildQueryObject
                 List<SlotPlan> extraSlotPlans = new();
                 foreach (PropertySlot slot in positionalPlan.Slots)
                 {
-                    if (ctorParameterNames.Contains(slot.Property.Name))
-                    {
-                        continue;
-                    }
-
                     string columnName = prefix.Length == 0 ? slot.Name : prefix + slot.Name;
                     extraSlotPlans.Add(BuildSlotPlan(slot, columnName, reader, columns, options));
                 }

@@ -249,7 +249,7 @@ public static class EntityMaterializerEmitter
                 }
             }
 
-            strategy = ArePositionalExtrasAssignable(entity, structPositional) ? EmitStrategy.Positional : EmitStrategy.PositionalReflection;
+            strategy = ArePositionalExtrasAssignable(entity) ? EmitStrategy.Positional : EmitStrategy.PositionalReflection;
             return true;
         }
 
@@ -314,7 +314,7 @@ public static class EntityMaterializerEmitter
                     return false;
                 }
 
-                strategy = IsReachableFromGeneratedCode(entity) && ArePositionalExtrasAssignable(entity, positional)
+                strategy = IsReachableFromGeneratedCode(entity) && ArePositionalExtrasAssignable(entity)
                     ? EmitStrategy.Positional
                     : EmitStrategy.PositionalReflection;
                 return true;
@@ -404,17 +404,11 @@ public static class EntityMaterializerEmitter
                 or Accessibility.NotApplicable;
     }
 
-    private static bool ArePositionalExtrasAssignable(INamedTypeSymbol entity, IMethodSymbol ctor)
+    private static bool ArePositionalExtrasAssignable(INamedTypeSymbol entity)
     {
-        HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
-        foreach (IParameterSymbol parameter in ctor.Parameters)
-        {
-            ctorParameterNames.Add(parameter.Name);
-        }
-
         foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
         {
-            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null || ctorParameterNames.Contains(prop.Name))
+            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null)
             {
                 continue;
             }
@@ -784,12 +778,6 @@ public static class EntityMaterializerEmitter
 
         if (positionalCtor != null)
         {
-            HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
-            foreach (IParameterSymbol parameter in positionalCtor.Parameters)
-            {
-                ctorParameterNames.Add(parameter.Name);
-            }
-
             sb.Append(indent).Append(typeName).Append(" ").Append(resultLocalName).Append(" = new ").Append(FormatNewType(entity)).Append("(");
             for (int pi = 0; pi < positionalCtor.Parameters.Length; pi++)
             {
@@ -807,11 +795,6 @@ public static class EntityMaterializerEmitter
             List<int> extraIndexes = new();
             for (int i = 0; i < writableProps.Count; i++)
             {
-                if (ctorParameterNames.Contains(writableProps[i].Name))
-                {
-                    continue;
-                }
-
                 if (IsSetterAccessibleFromGeneratedCode(writableProps[i]))
                 {
                     extraIndexes.Add(i);
@@ -1085,31 +1068,34 @@ public static class EntityMaterializerEmitter
         IMethodSymbol ctor = TryFindPositionalConstructor(entity)!;
         string typeName = FormatNewType(entity);
 
-        HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
-        foreach (IParameterSymbol parameter in ctor.Parameters)
-        {
-            ctorParameterNames.Add(parameter.Name);
-        }
-
         StringBuilder preamble = new();
         StringBuilder rowBody = new();
 
         int counter = 0;
         List<string> argLocals = new();
+        Dictionary<string, (string Local, ITypeSymbol Type)> argByName = new(StringComparer.OrdinalIgnoreCase);
         foreach (IParameterSymbol parameter in ctor.Parameters)
         {
             string suffix = counter.ToString();
             counter++;
             string argLocal = "__arg_" + suffix;
             argLocals.Add(argLocal);
+            argByName[parameter.Name] = (argLocal, parameter.Type);
             EmitSimpleColumnReadLocal(rowBody, preamble, "            ", parameter.Type, parameter.Name, argLocal, suffix, "                ", caseInsensitive: true);
         }
 
         List<(string Property, string Local)> extras = new();
         foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
         {
-            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null || ctorParameterNames.Contains(prop.Name))
+            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null)
             {
+                continue;
+            }
+
+            if (argByName.TryGetValue(prop.Name, out (string Local, ITypeSymbol Type) arg)
+                && SymbolEqualityComparer.Default.Equals(arg.Type, prop.Type))
+            {
+                extras.Add((prop.Name, arg.Local));
                 continue;
             }
 
@@ -1163,16 +1149,10 @@ public static class EntityMaterializerEmitter
         sb.Append("        private static readonly global::System.Reflection.ConstructorInfo ").Append(ctorField)
             .Append(" = global::System.Array.Find(").Append(typeField).Append(".GetConstructors(), c => c.GetParameters().Length == ").Append(ctor.Parameters.Length).AppendLine(")!;");
 
-        HashSet<string> ctorParameterNames = new(StringComparer.OrdinalIgnoreCase);
-        foreach (IParameterSymbol parameter in ctor.Parameters)
-        {
-            ctorParameterNames.Add(parameter.Name);
-        }
-
         List<IPropertySymbol> extras = new();
         foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
         {
-            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null || ctorParameterNames.Contains(prop.Name))
+            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null)
             {
                 continue;
             }
@@ -1192,18 +1172,27 @@ public static class EntityMaterializerEmitter
         StringBuilder rowBody = new();
         int counter = 0;
         List<string> argLocals = new();
+        Dictionary<string, (string Local, string Suffix, ITypeSymbol Type)> argByName = new(StringComparer.OrdinalIgnoreCase);
         foreach (IParameterSymbol parameter in ctor.Parameters)
         {
             string suffix = counter.ToString();
             counter++;
             string argLocal = "__arg_" + suffix;
             argLocals.Add(argLocal);
+            argByName[parameter.Name] = (argLocal, suffix, parameter.Type);
             EmitReflectionConvertedRead(rowBody, preamble, parameter.Type, parameter.Name, argLocal, suffix);
         }
 
         List<(string Property, string Local, string Suffix)> extraReads = new();
         foreach (IPropertySymbol prop in extras)
         {
+            if (argByName.TryGetValue(prop.Name, out (string Local, string Suffix, ITypeSymbol Type) arg)
+                && SymbolEqualityComparer.Default.Equals(arg.Type, prop.Type))
+            {
+                extraReads.Add((prop.Name, arg.Local, arg.Suffix));
+                continue;
+            }
+
             string suffix = counter.ToString();
             counter++;
             string valueLocal = "__ext_" + suffix;
