@@ -56,4 +56,13 @@ public class SQLiteQueryContext
     /// The generator reads them by index and invokes them with positional arguments.
     /// </summary>
     public IReadOnlyList<ConstructorInfo>? ReflectedConstructors { get; init; }
+
+    /// <summary>
+    /// Dotted result paths the projection builds with an explicit object initializer or
+    /// constructor call. A nested object at one of these paths is always created, even when every
+    /// column it reads is NULL, since the projection code would always run its constructor. A
+    /// nested path not listed here is a projected entity, which reads back as null when all of
+    /// its columns are NULL.
+    /// </summary>
+    public IReadOnlyCollection<string>? ConstructedPaths { get; init; }
 }

@@ -14,7 +14,11 @@ internal class SelectVisitor : ExpressionVisitor
 
     public Expression VisitSQLExpression(SQLiteExpression node)
     {
-        Selects.Add(node);
+        if (!node.ExcludedFromSelect)
+        {
+            Selects.Add(node);
+        }
+
         return node;
     }
 }

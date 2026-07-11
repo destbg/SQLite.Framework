@@ -146,11 +146,13 @@ public sealed class SQLiteMigrationRunner
                 operation.Callback!(context);
             }
 
-            count += ApplySchemaPhases(operations, total, ref reported, out HashSet<string> newlyCreated, out List<(int Version, TableMapping Mapping, IReadOnlyList<MigrationSetValue> Sets)> deferredFills);
+            count += ApplySchemaPhases(operations, total, ref reported, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema);
 
+            int nextSchema = 0;
             int nextFill = 0;
             foreach (MigrationOperation operation in operations.Where(o => IsDataPhase(o.Kind)))
             {
+                count += ApplyDeferredSchemaThrough(deferredSchema, ref nextSchema, operation.Version, deferredFills, ref nextFill);
                 count += ApplyDeferredFillsThrough(deferredFills, ref nextFill, operation.Version);
                 ReportProgress(operation, ref reported, total);
                 if (operation.Kind == MigrationOperationKind.Run)
@@ -163,6 +165,7 @@ public sealed class SQLiteMigrationRunner
                 }
             }
 
+            count += ApplyDeferredSchemaThrough(deferredSchema, ref nextSchema, int.MaxValue, deferredFills, ref nextFill);
             count += ApplyDeferredFillsThrough(deferredFills, ref nextFill, int.MaxValue);
 
             schema.Database.Pragmas.UserVersion = targetVersion;
@@ -215,11 +218,13 @@ public sealed class SQLiteMigrationRunner
                 statements.Add("-- " + operation.Description);
             }
 
-            ApplySchemaPhases(operations, total, ref reported, out HashSet<string> newlyCreated, out List<(int Version, TableMapping Mapping, IReadOnlyList<MigrationSetValue> Sets)> deferredFills);
+            ApplySchemaPhases(operations, total, ref reported, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema);
 
+            int nextSchema = 0;
             int nextFill = 0;
             foreach (MigrationOperation operation in operations.Where(o => IsDataPhase(o.Kind)))
             {
+                ApplyDeferredSchemaThrough(deferredSchema, ref nextSchema, operation.Version, deferredFills, ref nextFill);
                 ApplyDeferredFillsThrough(deferredFills, ref nextFill, operation.Version);
                 ReportProgress(operation, ref reported, total);
                 if (operation.Kind == MigrationOperationKind.Run)
@@ -232,6 +237,7 @@ public sealed class SQLiteMigrationRunner
                 }
             }
 
+            ApplyDeferredSchemaThrough(deferredSchema, ref nextSchema, int.MaxValue, deferredFills, ref nextFill);
             ApplyDeferredFillsThrough(deferredFills, ref nextFill, int.MaxValue);
 
             schema.Database.Pragmas.UserVersion = targetVersion;
@@ -280,11 +286,13 @@ public sealed class SQLiteMigrationRunner
                 }
             }
 
-            count += ApplySchemaPhases(operations, total, ref reported, out HashSet<string> newlyCreated, out List<(int Version, TableMapping Mapping, IReadOnlyList<MigrationSetValue> Sets)> deferredFills);
+            count += ApplySchemaPhases(operations, total, ref reported, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema);
 
+            int nextSchema = 0;
             int nextFill = 0;
             foreach (MigrationOperation operation in operations.Where(o => IsDataPhase(o.Kind)))
             {
+                count += ApplyDeferredSchemaThrough(deferredSchema, ref nextSchema, operation.Version, deferredFills, ref nextFill);
                 count += ApplyDeferredFillsThrough(deferredFills, ref nextFill, operation.Version);
                 ReportProgress(operation, ref reported, total);
                 if (operation.Kind == MigrationOperationKind.Run)
@@ -304,6 +312,7 @@ public sealed class SQLiteMigrationRunner
                 }
             }
 
+            count += ApplyDeferredSchemaThrough(deferredSchema, ref nextSchema, int.MaxValue, deferredFills, ref nextFill);
             count += ApplyDeferredFillsThrough(deferredFills, ref nextFill, int.MaxValue);
 
             schema.Database.Pragmas.UserVersion = targetVersion;
@@ -342,22 +351,44 @@ public sealed class SQLiteMigrationRunner
         return true;
     }
 
-    private int ApplySchemaPhases(List<MigrationOperation> operations, int total, ref int reported, out HashSet<string> newlyCreated, out List<(int Version, TableMapping Mapping, IReadOnlyList<MigrationSetValue> Sets)> deferredFills)
+    private int ApplySchemaPhases(List<MigrationOperation> operations, int total, ref int reported, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema)
     {
         int count = 0;
+        int firstOpaqueVersion = FirstOpaqueVersion(operations);
+        List<DeferredSchemaWork> deferred = [];
         foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RenameTable))
         {
             ReportProgress(operation, ref reported, total);
-            count += RenameTableIfPresent(operation.FromTable!, operation.Mapping!.TableName);
+            string fromTable = operation.FromTable!;
+            string toTable = operation.Mapping!.TableName;
+            if (operation.Version > firstOpaqueVersion && !schema.TableExists(fromTable))
+            {
+                deferred.Add(new DeferredSchemaWork { Version = operation.Version, Order = 0, Apply = () => (RenameTableIfPresent(fromTable, toTable), []) });
+            }
+            else
+            {
+                count += RenameTableIfPresent(fromTable, toTable);
+            }
         }
 
         foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RenameColumn))
         {
             ReportProgress(operation, ref reported, total);
-            count += RenameColumnIfPresent(operation.Mapping!.TableName, operation.FromColumn!, operation.ToColumn!);
+            string tableName = operation.Mapping!.TableName;
+            string fromColumn = operation.FromColumn!;
+            string toColumn = operation.ToColumn!;
+            if (operation.Version > firstOpaqueVersion && !schema.TableExists(tableName))
+            {
+                deferred.Add(new DeferredSchemaWork { Version = operation.Version, Order = 1, Apply = () => (RenameColumnIfPresent(tableName, fromColumn, toColumn), []) });
+            }
+            else
+            {
+                count += RenameColumnIfPresent(tableName, fromColumn, toColumn);
+            }
         }
 
-        newlyCreated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> created = new(StringComparer.OrdinalIgnoreCase);
+        newlyCreated = created;
         foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.CreateTable))
         {
             ReportProgress(operation, ref reported, total);
@@ -368,7 +399,7 @@ public sealed class SQLiteMigrationRunner
 
             if (!schema.TableExists(operation.Mapping!.TableName))
             {
-                newlyCreated.Add(operation.Mapping.TableName);
+                created.Add(operation.Mapping.TableName);
             }
 
             count += schema.CreateTable(operation.Mapping!.Type);
@@ -385,53 +416,73 @@ public sealed class SQLiteMigrationRunner
             }
 
             TableMapping mapping = group.First().Mapping!;
-            bool rebuild = group.Any(o => o.Rebuild);
-            bool isNew = newlyCreated.Contains(group.Key) || !schema.TableExists(mapping.TableName);
-            Dictionary<string, int> schemaVersionByColumn = new(StringComparer.OrdinalIgnoreCase);
-            if (isNew)
+            List<MigrationOperation> groupOps = group.ToList();
+            int groupVersion = groupOps.Min(o => o.Version);
+            if (groupVersion > firstOpaqueVersion && !created.Contains(group.Key) && !schema.TableExists(mapping.TableName))
             {
-                if (!newlyCreated.Contains(group.Key))
-                {
-                    newlyCreated.Add(group.Key);
-                    count += rebuild ? MigrateCore(mapping, []) : MigrateInPlace(mapping, []);
-                }
+                deferred.Add(new DeferredSchemaWork { Version = groupVersion, Order = 2, Apply = () => ProcessReconcileGroup(mapping, groupOps, created) });
             }
             else
             {
-                List<(int Version, MigrationSetValue Set)> schemaSets = mapping.IsFullTextSearch || mapping.IsRTree
-                    ? []
-                    : SchemaPhaseSets(mapping, group);
-                List<MigrationSetValue> schemaSetValues = schemaSets.Select(s => s.Set).ToList();
-                count += rebuild
-                    ? MigrateCore(mapping, schemaSetValues)
-                    : MigrateInPlace(mapping, schemaSetValues);
-                foreach ((int version, MigrationSetValue set) in schemaSets)
-                {
-                    schemaVersionByColumn[set.Column] = version;
-                }
-            }
-
-            foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
-            {
-                int version = versionGroup.Key;
-                List<MigrationSetValue> versionSets = UnionSets(versionGroup.SelectMany(o => o.Sets))
-                    .Where(s => !ReadsOutsideModel(mapping, s)
-                        && !(schemaVersionByColumn.TryGetValue(s.Column, out int schemaVersion)
-                            && version <= schemaVersion
-                            && !ReadsAnotherColumn(s)))
-                    .ToList();
-                if (versionSets.Count > 0)
-                {
-                    deferredFills.Add((version, mapping, versionSets));
-                }
+                (int groupCount, List<DeferredFill> groupFills) = ProcessReconcileGroup(mapping, groupOps, created);
+                count += groupCount;
+                deferredFills.AddRange(groupFills);
             }
         }
 
         deferredFills.Sort((a, b) => a.Version.CompareTo(b.Version));
+        deferred.Sort((a, b) => a.Version != b.Version ? a.Version.CompareTo(b.Version) : a.Order.CompareTo(b.Order));
+        deferredSchema = deferred;
         return count;
     }
 
-    private List<(int Version, MigrationSetValue Set)> SchemaPhaseSets(TableMapping mapping, IEnumerable<MigrationOperation> group)
+    private (int Count, List<DeferredFill> Fills) ProcessReconcileGroup(TableMapping mapping, List<MigrationOperation> group, HashSet<string> newlyCreated)
+    {
+        int count = 0;
+        bool rebuild = group.Any(o => o.Rebuild);
+        bool isNew = newlyCreated.Contains(mapping.TableName) || !schema.TableExists(mapping.TableName);
+        Dictionary<string, (int Version, MigrationSetValue Set)> schemaWinners = new(StringComparer.OrdinalIgnoreCase);
+        if (isNew)
+        {
+            if (!newlyCreated.Contains(mapping.TableName))
+            {
+                newlyCreated.Add(mapping.TableName);
+                count += rebuild ? MigrateCore(mapping, []) : MigrateInPlace(mapping, []);
+            }
+        }
+        else
+        {
+            List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> schemaSets = mapping.IsFullTextSearch || mapping.IsRTree
+                ? []
+                : SchemaPhaseSets(mapping, group);
+            List<MigrationSetValue> schemaSetValues = schemaSets.Select(s => s.ApplySet).ToList();
+            count += rebuild
+                ? MigrateCore(mapping, schemaSetValues)
+                : MigrateInPlace(mapping, schemaSetValues);
+            foreach ((int version, MigrationSetValue set, _) in schemaSets)
+            {
+                schemaWinners[set.Column] = (version, set);
+            }
+        }
+
+        List<DeferredFill> fills = [];
+        foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
+        {
+            int version = versionGroup.Key;
+            List<MigrationSetValue> versionSets = UnionSets(versionGroup.SelectMany(o => o.Sets))
+                .Where(s => !ReadsOutsideModel(mapping, s)
+                    && !IsSettledInSchemaPhase(mapping, s, version, schemaWinners))
+                .ToList();
+            if (versionSets.Count > 0)
+            {
+                fills.Add(new DeferredFill { Version = version, Mapping = mapping, Sets = versionSets });
+            }
+        }
+
+        return (count, fills);
+    }
+
+    private List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> SchemaPhaseSets(TableMapping mapping, IEnumerable<MigrationOperation> group)
     {
         List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(mapping.TableName).ToList();
         HashSet<string> liveColumns = liveInfo.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -456,14 +507,15 @@ public sealed class SQLiteMigrationRunner
             }
         }
 
-        List<(int Version, MigrationSetValue Set)> result = [];
+        List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> result = [];
         foreach (IGrouping<string, (int Version, MigrationSetValue Set)> columnGroup in perVersionWinners
                      .GroupBy(w => w.Set.Column, StringComparer.OrdinalIgnoreCase))
         {
             List<(int Version, MigrationSetValue Set)> outsideModel = columnGroup
                 .Where(w => ReadsOutsideModel(mapping, w.Set))
                 .ToList();
-            result.Add(outsideModel.Count > 0 ? outsideModel[^1] : columnGroup.First());
+            (int version, MigrationSetValue winner) = outsideModel.Count > 0 ? outsideModel[^1] : columnGroup.First();
+            result.Add((version, winner, BuildSchemaApplySet(mapping, winner, liveColumns)));
         }
 
         return result;
@@ -491,15 +543,18 @@ public sealed class SQLiteMigrationRunner
             return DropColumnIfRemovable(operation.Mapping!, operation.ColumnName!);
         }
 
-        if (operation.Mapping != null)
+        int count = operation.Mapping != null
+            ? schema.DropTable(operation.Mapping.Type)
+            : schema.DropTable(operation.TableName!);
+        if (operation.RecreateMapping != null)
         {
-            return schema.DropTable(operation.Mapping.Type);
+            count += schema.CreateTable(operation.RecreateMapping.Type);
         }
 
-        return schema.DropTable(operation.TableName!);
+        return count;
     }
 
-    private int ApplyDeferredFillsThrough(List<(int Version, TableMapping Mapping, IReadOnlyList<MigrationSetValue> Sets)> deferredFills, ref int nextFill, int version)
+    private int ApplyDeferredFillsThrough(List<DeferredFill> deferredFills, ref int nextFill, int version)
     {
         int count = 0;
         while (nextFill < deferredFills.Count && deferredFills[nextFill].Version <= version)
@@ -904,7 +959,7 @@ public sealed class SQLiteMigrationRunner
         if (copyRowId && insertColumns.Count > 0)
         {
             insertColumns.Insert(0, "rowid");
-            selectExpressions.Insert(0, "rowid");
+            selectExpressions.Insert(0, "\"__sqlitefw_rowid\"");
         }
 
         IReadOnlyList<string> liveTriggers = Database.Query<string>(
@@ -930,22 +985,22 @@ public sealed class SQLiteMigrationRunner
                 dependents = [];
             }
 
-            int count = Database.CreateCommand(SchemaSqlBuilder.BuildCreateTable(Database, mapping, temp, ifNotExists: false), []).ExecuteNonQuery();
-            if (insertColumns.Count > 0)
+            if (copyRowId)
             {
-                Database.Execute($"INSERT INTO \"{temp}\" ({string.Join(", ", insertColumns)}) SELECT {string.Join(", ", selectExpressions)} FROM \"{table}\"");
+                Database.Execute($"CREATE TABLE \"{temp}\" AS SELECT rowid AS \"__sqlitefw_rowid\", * FROM \"{table}\"");
+            }
+            else
+            {
+                Database.Execute($"CREATE TABLE \"{temp}\" AS SELECT * FROM \"{table}\"");
             }
             Database.Execute($"DROP TABLE \"{table}\"");
-            long legacyAlter = Database.ExecuteScalar<long>("PRAGMA legacy_alter_table");
-            Database.Execute("PRAGMA legacy_alter_table = ON");
-            try
+            int count = Database.CreateCommand(SchemaSqlBuilder.BuildCreateTable(Database, mapping, table, ifNotExists: false), []).ExecuteNonQuery();
+            ReconcileIndexes(mapping);
+            if (insertColumns.Count > 0)
             {
-                Database.Execute($"ALTER TABLE \"{temp}\" RENAME TO \"{table}\"");
+                Database.Execute($"INSERT INTO \"{table}\" ({string.Join(", ", insertColumns)}) SELECT {string.Join(", ", selectExpressions)} FROM \"{temp}\"");
             }
-            finally
-            {
-                Database.Execute($"PRAGMA legacy_alter_table = {legacyAlter}");
-            }
+            Database.Execute($"DROP TABLE \"{temp}\"");
             if (autoIncrementSeq.HasValue)
             {
                 RestoreAutoIncrementSequence(table, autoIncrementSeq.Value);
@@ -1203,9 +1258,78 @@ public sealed class SQLiteMigrationRunner
         return set.ReadColumns.Any(read => !modelColumns.Contains(read));
     }
 
-    private static bool ReadsAnotherColumn(MigrationSetValue set)
+    private static bool ReadsOwnColumn(MigrationSetValue set)
     {
-        return set.ReadColumns.Any(read => !string.Equals(read, set.Column, StringComparison.OrdinalIgnoreCase));
+        return set.ReadColumns.Any(read => string.Equals(read, set.Column, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsSettledInSchemaPhase(TableMapping mapping, MigrationSetValue set, int version, Dictionary<string, (int Version, MigrationSetValue Set)> schemaWinners)
+    {
+        if (!schemaWinners.TryGetValue(set.Column, out (int Version, MigrationSetValue Set) winner))
+        {
+            return false;
+        }
+
+        if (ReadsOutsideModel(mapping, winner.Set))
+        {
+            return version <= winner.Version;
+        }
+
+        return ReferenceEquals(set, winner.Set) && ReadsOwnColumn(set);
+    }
+
+    private static int FirstOpaqueVersion(List<MigrationOperation> operations)
+    {
+        int first = int.MaxValue;
+        foreach (MigrationOperation operation in operations)
+        {
+            if (operation.Kind is MigrationOperationKind.RawSql or MigrationOperationKind.Run && operation.Version < first)
+            {
+                first = operation.Version;
+            }
+        }
+
+        return first;
+    }
+
+    private static MigrationSetValue BuildSchemaApplySet(TableMapping mapping, MigrationSetValue winner, HashSet<string> liveColumns)
+    {
+        if (ReadsOwnColumn(winner) || ReadsOutsideModel(mapping, winner) || !liveColumns.Contains(winner.Column))
+        {
+            return winner;
+        }
+
+        return new MigrationSetValue
+        {
+            Column = winner.Column,
+            ValueSql = $"COALESCE({IdentifierGuard.Quote(winner.Column)}, {winner.ValueSql})",
+            ReadColumns = [.. winner.ReadColumns, winner.Column],
+            RunInRebuild = winner.RunInRebuild,
+        };
+    }
+
+    private static int ApplyDeferredSchemaThrough(List<DeferredSchemaWork> deferredSchema, ref int nextSchema, int version, List<DeferredFill> deferredFills, ref int nextFill)
+    {
+        int count = 0;
+        while (nextSchema < deferredSchema.Count && deferredSchema[nextSchema].Version <= version)
+        {
+            (int applied, List<DeferredFill> fills) = deferredSchema[nextSchema].Apply();
+            count += applied;
+            foreach (DeferredFill fill in fills)
+            {
+                int insertAt = nextFill;
+                while (insertAt < deferredFills.Count && deferredFills[insertAt].Version <= fill.Version)
+                {
+                    insertAt++;
+                }
+
+                deferredFills.Insert(insertAt, fill);
+            }
+
+            nextSchema++;
+        }
+
+        return count;
     }
 
     private static bool IsDataPhase(MigrationOperationKind kind)
@@ -1240,6 +1364,7 @@ public sealed class SQLiteMigrationRunner
                     && string.Equals(operations[j].Mapping!.TableName, tableName, StringComparison.OrdinalIgnoreCase))
                 {
                     operations[j].DropTableFirst = true;
+                    operation.RecreateMapping = operations[j].Mapping;
                     superseded = true;
                     break;
                 }
@@ -1250,7 +1375,6 @@ public sealed class SQLiteMigrationRunner
                 continue;
             }
 
-            operations.RemoveAt(i);
             for (int j = i - 1; j >= 0; j--)
             {
                 if (IsDiscardedByLaterDrop(operations[j].Kind)

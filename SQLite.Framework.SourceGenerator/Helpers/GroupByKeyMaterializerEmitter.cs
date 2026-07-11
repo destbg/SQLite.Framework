@@ -124,6 +124,20 @@ public static class GroupByKeyMaterializerEmitter
                 return IsBuiltInType(ctx.Model.GetTypeInfo(cast.Type).Type)
                     && IsEmittable(cast.Expression, parameter, ctx);
 
+            case InvocationExpressionSyntax invocation:
+                if (!IsEmittable(invocation.Expression, parameter, ctx))
+                {
+                    return false;
+                }
+                foreach (ArgumentSyntax arg in invocation.ArgumentList.Arguments)
+                {
+                    if (!IsEmittable(arg.Expression, parameter, ctx))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+
             default:
                 return false;
         }

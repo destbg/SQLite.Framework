@@ -192,6 +192,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - An `Upsert` that inserts a row writes the new auto-increment key back to the object only when the new row id differs from the last inserted row id on the connection. An earlier insert, even into another table, that already left the same id stops the write-back.
 - An `Upsert` with a `DoUpdate` action always writes the object's value for every column, even one left at its CLR default that has a database `DEFAULT`. This is needed so a conflict updates the row to the incoming value through `excluded`. So a fresh insert through `DoUpdate` stores the CLR default rather than the database default, unlike `Add`, `AddOrUpdate` or an `Upsert` with `DoNothing`.
+- `AddOrUpdate` and `AddOrUpdateRange` run `INSERT OR REPLACE` by default. On a key conflict SQLite deletes the old row and inserts a new one, so with foreign keys on, an `ON DELETE CASCADE` action removes the rows that reference the replaced row and `ON DELETE SET NULL` clears their references. `Update` and an `Upsert` with `DoUpdate` change the row in place and keep the referencing rows.
 
 ## Raw SQL
 

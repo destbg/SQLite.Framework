@@ -61,7 +61,7 @@ internal partial class JsonCollectionVisitor
 
     private string TranslateBody(Expression body, bool coalesceLiftedComparison = false)
     {
-        Expression result = visitor.Visit(body);
+        Expression result = TryTranslateJsonArrayLiteral(body) ?? visitor.Visit(body);
 
         if (result is not SQLiteExpression sqlExpr)
         {
@@ -79,6 +79,48 @@ internal partial class JsonCollectionVisitor
         }
 
         return sqlExpr.ToString();
+    }
+
+    private SQLiteExpression? TryTranslateJsonArrayLiteral(Expression body)
+    {
+        IReadOnlyList<Expression>? elements = body switch
+        {
+            NewArrayExpression { NodeType: ExpressionType.NewArrayInit } newArray => newArray.Expressions,
+            ListInitExpression listInit when listInit.Initializers.All(i => i.Arguments.Count == 1)
+                => listInit.Initializers.Select(i => i.Arguments[0]).ToList(),
+            _ => null
+        };
+
+        if (elements == null)
+        {
+            return null;
+        }
+
+        if (elements.Count == 0)
+        {
+            return SQLiteExpression.Leaf(body.Type, visitor.Counters.NextIdentifier(), "json_array()", null).WithJsonSource();
+        }
+
+        SQLiteExpression[] parts = new SQLiteExpression[elements.Count];
+        List<SQLiteParameter> combined = [];
+        for (int i = 0; i < elements.Count; i++)
+        {
+            Expression visited = TryTranslateJsonArrayLiteral(elements[i]) ?? visitor.Visit(elements[i]);
+            if (visited is not SQLiteExpression sqlElement)
+            {
+                return null;
+            }
+
+            parts[i] = sqlElement;
+            if (sqlElement.Parameters != null)
+            {
+                combined.AddRange(sqlElement.Parameters);
+            }
+        }
+
+        return SQLiteExpression
+            .Variadic(body.Type, visitor.Counters.NextIdentifier(), "json_array(", parts, ", ", ")", combined.Count > 0 ? [.. combined] : null)
+            .WithJsonSource();
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]

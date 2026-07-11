@@ -38,6 +38,7 @@ internal partial class SQLVisitor : ExpressionVisitor
     public Dictionary<(SQLiteExpression Source, string Member), SQLiteExpression>? JsonExtractIntern { get; set; }
     public Dictionary<ParameterExpression, string?> RowColumnPrefixes { get; } = [];
     public Dictionary<Dictionary<string, Expression>, Dictionary<string, string?>> TableColumnPrefixes { get; set; } = [];
+    public Dictionary<Dictionary<string, Expression>, HashSet<string>> ConstructedProjectionPaths { get; set; } = [];
 
     public SQLiteExpression InternDecimalCast(SQLiteExpression source)
     {
@@ -104,7 +105,8 @@ internal partial class SQLVisitor : ExpressionVisitor
             MethodArguments = MethodArguments,
             CteRegistry = CteRegistry,
             CteParameters = CteParameters,
-            TableColumnPrefixes = TableColumnPrefixes
+            TableColumnPrefixes = TableColumnPrefixes,
+            ConstructedProjectionPaths = ConstructedProjectionPaths
         };
     }
 
@@ -115,6 +117,7 @@ internal partial class SQLVisitor : ExpressionVisitor
         {
             MethodArguments = MethodArguments,
             TableColumnPrefixes = TableColumnPrefixes,
+            ConstructedProjectionPaths = ConstructedProjectionPaths,
             ClientEvalAllowed = ClientEvalAllowed,
             IsInSelectProjection = isInSelectProjection,
             CteRegistry = CteRegistry

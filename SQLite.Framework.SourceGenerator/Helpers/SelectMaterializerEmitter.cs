@@ -971,6 +971,12 @@ public static class SelectMaterializerEmitter
                 {
                     if (ctx.WriterCtx.NullableRangeVars.Contains(sym))
                     {
+                        if (ctx.WriterCtx.RowBindings.ContainsKey(sym)
+                            && ctx.Model.GetTypeInfo(ident).Type is INamedTypeSymbol nullableRowType
+                            && SelectSignatureWriter.IsConstructibleEntityType(nullableRowType))
+                        {
+                            return RegisterRowExpansion(ident, ctx);
+                        }
                         return true;
                     }
                     if (ctx.WriterCtx.RowBindings.ContainsKey(sym)

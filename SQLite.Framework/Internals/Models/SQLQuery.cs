@@ -22,4 +22,5 @@ internal class SQLQuery
     public IReadOnlyList<Type>? ReflectedTypes { get; init; }
     public IReadOnlyList<MemberInfo>? ReflectedMembers { get; init; }
     public IReadOnlyList<ConstructorInfo>? ReflectedConstructors { get; init; }
+    public IReadOnlyCollection<string>? ConstructedPaths { get; init; }
 }

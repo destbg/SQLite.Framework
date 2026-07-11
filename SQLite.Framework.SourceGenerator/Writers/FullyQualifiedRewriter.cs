@@ -616,7 +616,16 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
     {
         string typeText = SelectMaterializerEmitter.FormatType(expansion.RowType, ctx.WriterCtx.TypeArgSubstitutions);
         StringBuilder sb = new();
-        sb.Append("new ").Append(typeText).Append(" { ");
+        sb.Append('(');
+        for (int i = 0; i < expansion.Leaves.Count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(" && ");
+            }
+            sb.Append("ctx.Reader!.IsDBNull(").Append(expansion.Leaves[i].VarName.Substring("__leaf_".Length)).Append(')');
+        }
+        sb.Append(" ? null : new ").Append(typeText).Append(" { ");
         for (int i = 0; i < expansion.Properties.Count; i++)
         {
             if (i > 0)
@@ -625,7 +634,7 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             }
             sb.Append(expansion.Properties[i].Name).Append(" = ").Append(expansion.Leaves[i].VarName);
         }
-        sb.Append(" }");
+        sb.Append(" })");
         return SyntaxFactory.ParseExpression(sb.ToString());
     }
 }

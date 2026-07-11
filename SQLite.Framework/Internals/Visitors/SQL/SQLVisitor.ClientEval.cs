@@ -57,6 +57,7 @@ internal partial class SQLVisitor
 
         string prefix = path.Length == 0 ? "" : path + ".";
         List<MemberBinding> bindings = [];
+        Expression? allNullTest = null;
         foreach (TableColumn column in mapping.Columns)
         {
             if (!columns.TryGetValue(prefix + column.PropertyInfo.Name, out Expression? expression)
@@ -66,9 +67,14 @@ internal partial class SQLVisitor
             }
 
             bindings.Add(Expression.Bind(column.PropertyInfo, sqlExpression));
+            SQLiteExpression secondRead = SQLiteExpression.Alias(typeof(object), Counters.NextIdentifier(), sqlExpression, parameters: null).WithSelectExclusion();
+            secondRead.IdentifierText = sqlExpression.IdentifierText;
+            Expression isNull = Expression.Equal(secondRead, Expression.Constant(null));
+            allNullTest = allNullTest == null ? isNull : Expression.AndAlso(allNullTest, isNull);
         }
 
-        return Expression.MemberInit(Expression.New(node.Type), bindings);
+        Expression materialized = Expression.MemberInit(Expression.New(node.Type), bindings);
+        return Expression.Condition(allNullTest!, Expression.Constant(null, node.Type), materialized);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Entity types are rooted by the user Table<T>().")]

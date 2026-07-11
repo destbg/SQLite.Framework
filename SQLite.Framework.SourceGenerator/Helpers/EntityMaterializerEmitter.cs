@@ -428,12 +428,6 @@ public static class EntityMaterializerEmitter
             .Where(c => c.DeclaredAccessibility == Accessibility.Public && c.Parameters.Length > 0)
             .ToArray();
 
-        if (publicCtors.Length != 1)
-        {
-            return null;
-        }
-
-        IMethodSymbol ctor = publicCtors[0];
         HashSet<string> memberNames = new(StringComparer.OrdinalIgnoreCase);
         for (INamedTypeSymbol? current = entity; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
         {
@@ -454,15 +448,31 @@ public static class EntityMaterializerEmitter
             }
         }
 
-        foreach (IParameterSymbol parameter in ctor.Parameters)
+        IMethodSymbol? widest = null;
+        foreach (IMethodSymbol ctor in publicCtors)
         {
-            if (!memberNames.Contains(parameter.Name))
+            if (widest != null && ctor.Parameters.Length <= widest.Parameters.Length)
             {
-                return null;
+                continue;
+            }
+
+            bool allMatch = true;
+            foreach (IParameterSymbol parameter in ctor.Parameters)
+            {
+                if (!memberNames.Contains(parameter.Name))
+                {
+                    allMatch = false;
+                    break;
+                }
+            }
+
+            if (allMatch)
+            {
+                widest = ctor;
             }
         }
 
-        return ctor;
+        return widest;
     }
 
     private static bool CanEmitGroupingMaterializer(GroupByKeyInvocation invocation)
@@ -874,7 +884,11 @@ public static class EntityMaterializerEmitter
 
         if (columnPrefix.Length > 0 && entity.IsReferenceType && nonNullChecks.Count > 0)
         {
-            sb.Append(indent).Append("if (!(").Append(string.Join(" || ", nonNullChecks)).Append(")) ").Append(resultLocalName).AppendLine(" = null;");
+            string constructedLocal = "__constructed_" + resultSuffix;
+            preamble.Append(preambleIndent).Append("bool ").Append(constructedLocal)
+                .Append(" = ctx.ConstructedPaths != null && global::System.Linq.Enumerable.Contains(ctx.ConstructedPaths, ")
+                .Append(EscapeStringLiteral(columnPrefix.TrimEnd('.'))).AppendLine(");");
+            sb.Append(indent).Append("if (!").Append(constructedLocal).Append(" && !(").Append(string.Join(" || ", nonNullChecks)).Append(")) ").Append(resultLocalName).AppendLine(" = null;");
         }
     }
 
@@ -1147,7 +1161,12 @@ public static class EntityMaterializerEmitter
         sb.Append("        private static readonly global::System.Type ").Append(typeField)
             .Append(" = global::System.Type.GetType(").Append(EscapeStringLiteral(qualifiedName)).AppendLine(", throwOnError: true)!;");
         sb.Append("        private static readonly global::System.Reflection.ConstructorInfo ").Append(ctorField)
-            .Append(" = global::System.Array.Find(").Append(typeField).Append(".GetConstructors(), c => c.GetParameters().Length == ").Append(ctor.Parameters.Length).AppendLine(")!;");
+            .Append(" = global::System.Array.Find(").Append(typeField).Append(".GetConstructors(), c => { global::System.Reflection.ParameterInfo[] p = c.GetParameters(); return p.Length == ").Append(ctor.Parameters.Length);
+        for (int pi = 0; pi < ctor.Parameters.Length; pi++)
+        {
+            sb.Append(" && p[").Append(pi).Append("].Name == ").Append(EscapeStringLiteral(ctor.Parameters[pi].Name));
+        }
+        sb.AppendLine("; })!;");
 
         List<IPropertySymbol> extras = new();
         foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))

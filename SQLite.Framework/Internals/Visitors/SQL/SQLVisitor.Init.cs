@@ -50,7 +50,13 @@ internal partial class SQLVisitor
 
     protected override MemberAssignment VisitMemberAssignment(MemberAssignment node)
     {
-        return node.Update(Visit(node.Expression));
+        Expression expression = Visit(node.Expression);
+        if (expression is SQLiteExpression sqlExpression && sqlExpression.Type != node.Expression.Type)
+        {
+            expression = SQLiteExpression.Alias(node.Expression.Type, Counters.NextIdentifier(), sqlExpression, sqlExpression.Parameters);
+        }
+
+        return node.Update(expression);
     }
 
     protected override MemberMemberBinding VisitMemberMemberBinding(MemberMemberBinding node)

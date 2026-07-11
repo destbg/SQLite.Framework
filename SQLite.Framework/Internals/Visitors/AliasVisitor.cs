@@ -10,6 +10,7 @@ internal class AliasVisitor
     private readonly SQLVisitor visitor;
     private Dictionary<string, Expression> result;
     private Dictionary<string, string?> resultPrefixes;
+    private HashSet<string> constructedPaths;
 
     public AliasVisitor(SQLiteDatabase database, SQLVisitor visitor)
     {
@@ -17,6 +18,7 @@ internal class AliasVisitor
         this.visitor = visitor;
         result = [];
         resultPrefixes = [];
+        constructedPaths = [];
     }
 
     public Dictionary<string, Expression> ResolveResultAlias(LambdaExpression resultSelector)
@@ -27,8 +29,13 @@ internal class AliasVisitor
         {
             visitor.TableColumnPrefixes[newResult] = resultPrefixes;
         }
+        if (constructedPaths.Count > 0)
+        {
+            visitor.ConstructedProjectionPaths[newResult] = constructedPaths;
+        }
         result = [];
         resultPrefixes = [];
+        constructedPaths = [];
         return newResult;
     }
 
@@ -43,6 +50,19 @@ internal class AliasVisitor
         {
             string subPath = sourcePrefix.Key.Length == 0 ? alias : $"{alias}.{sourcePrefix.Key}";
             resultPrefixes[subPath] = sourcePrefix.Value;
+        }
+    }
+
+    private void CarryConstructedPaths(string prefix, Dictionary<string, Expression> sourceColumns)
+    {
+        if (!visitor.ConstructedProjectionPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceConstructed))
+        {
+            return;
+        }
+
+        foreach (string path in sourceConstructed)
+        {
+            constructedPaths.Add(CheckPrefix(prefix, path));
         }
     }
 
@@ -105,6 +125,7 @@ internal class AliasVisitor
                         }
 
                         CarrySubPaths(alias, parameterTableColumns);
+                        CarryConstructedPaths(alias, parameterTableColumns);
                     }
                 }
                 else if (argument is MemberExpression memberExpression
@@ -133,6 +154,9 @@ internal class AliasVisitor
                     {
                         result.Add(tableColumn.Key, tableColumn.Value);
                     }
+
+                    constructedPaths.Add(alias);
+                    constructedPaths.UnionWith(nestedVisitor.constructedPaths);
 
                     SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
                     Expression expression = innerVisitor.Visit(argument);
@@ -189,6 +213,8 @@ internal class AliasVisitor
                     result.Add(tableColumn.Key, tableColumn.Value);
                 }
 
+                constructedPaths.Add(nestedAlias);
+                constructedPaths.UnionWith(nestedVisitor.constructedPaths);
                 continue;
             }
 
@@ -205,6 +231,9 @@ internal class AliasVisitor
                 {
                     result.Add(tableColumn.Key, tableColumn.Value);
                 }
+
+                constructedPaths.Add(alias);
+                constructedPaths.UnionWith(innerVisitor.constructedPaths);
             }
             else if (memberAssignment.Expression is ParameterExpression parameterExpression)
             {
@@ -223,6 +252,7 @@ internal class AliasVisitor
                     }
 
                     CarrySubPaths(alias, parameterTableColumns);
+                    CarryConstructedPaths(alias, parameterTableColumns);
                 }
             }
             else if (memberAssignment.Expression is MemberExpression)
@@ -294,6 +324,8 @@ internal class AliasVisitor
         {
             result.Add(CheckPrefix(prefix, tableColumn.Key), tableColumn.Value);
         }
+
+        CarryConstructedPaths(prefix, tableColumns);
     }
 
     private void VisitMethodCallExpression(MethodCallExpression methodCallExpression, string prefix)

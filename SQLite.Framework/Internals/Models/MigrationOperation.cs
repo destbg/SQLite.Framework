@@ -44,6 +44,13 @@ internal sealed class MigrationOperation
     public bool DropTableFirst { get; set; }
 
     /// <summary>
+    /// The mapping to recreate the table from right after a drop-table operation runs. The runner
+    /// sets this when a pending create of the same table is declared after the drop, so raw SQL
+    /// and callback steps between the two see the drop at its version, like a stepwise run does.
+    /// </summary>
+    public TableMapping? RecreateMapping { get; set; }
+
+    /// <summary>
     /// The current SQLite table name, for a rename-table operation. The table is renamed to the
     /// name of <see cref="Mapping" />.
     /// </summary>

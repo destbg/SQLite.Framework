@@ -44,6 +44,13 @@ public abstract class SQLiteExpression : Expression
     public bool IsDayOfWeekInteger { get; set; }
 
     /// <summary>
+    /// When true, this expression is not added to the select list. Use this for a second read of a
+    /// column that the select list already carries, so the query keeps one column and both reads
+    /// share it through the identifier.
+    /// </summary>
+    public bool ExcludedFromSelect { get; set; }
+
+    /// <summary>
     /// The parameters used by this SQL expression or <c>null</c> if it has none. Use parameters
     /// to safely pass user input or variable data into a SQL statement, instead of building the
     /// SQL string by hand. Each parameter must have a unique name that matches a placeholder in
@@ -85,6 +92,15 @@ public abstract class SQLiteExpression : Expression
     public SQLiteExpression WithDayOfWeekInteger()
     {
         IsDayOfWeekInteger = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets <see cref="ExcludedFromSelect"/> to <c>true</c> and returns this expression.
+    /// </summary>
+    public SQLiteExpression WithSelectExclusion()
+    {
+        ExcludedFromSelect = true;
         return this;
     }
 

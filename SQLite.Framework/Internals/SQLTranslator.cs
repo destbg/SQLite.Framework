@@ -68,6 +68,11 @@ internal class SQLTranslator
         init => Visitor.TableColumnPrefixes = value;
     }
 
+    public Dictionary<Dictionary<string, Expression>, HashSet<string>> ConstructedProjectionPaths
+    {
+        init => Visitor.ConstructedProjectionPaths = value;
+    }
+
     public QueryType QueryType { get; init; }
 
     public bool EmitReturning { get; init; }
@@ -372,6 +377,9 @@ internal class SQLTranslator
             ReflectedTypes = reflectedTypes,
             ReflectedMembers = reflectedMembers,
             ReflectedConstructors = reflectedConstructors,
+            ConstructedPaths = Visitor.ConstructedProjectionPaths.TryGetValue(Visitor.TableColumns, out HashSet<string>? constructed)
+                ? constructed
+                : null,
         };
     }
 
