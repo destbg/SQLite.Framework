@@ -487,6 +487,15 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             .Select(arg => (CompiledExpression)Visit(arg))
             .ToArray();
 
+        if (node.NodeType == ExpressionType.NewArrayBounds)
+        {
+            return new CompiledExpression(node.Type, ctx =>
+            {
+                int[] lengths = expressions.Select(arg => Convert.ToInt32(arg.Call(ctx), CultureInfo.InvariantCulture)).ToArray();
+                return Array.CreateInstance(node.Type.GetElementType()!, lengths);
+            });
+        }
+
         return new CompiledExpression(node.Type, ctx =>
         {
             object?[] args = expressions.Select(arg => arg.Call(ctx)).ToArray();

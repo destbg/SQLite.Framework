@@ -20,6 +20,7 @@ internal static class BuildQueryObject
             ReflectedMembers = query?.ReflectedMembers,
             ReflectedConstructors = query?.ReflectedConstructors,
             ConstructedPaths = query?.ConstructedPaths,
+            SelectValueTypes = query?.SelectValueTypes,
         };
     }
 
@@ -124,9 +125,9 @@ internal static class BuildQueryObject
 
         bool isAnon = IsAnonymousType(elementType);
         bool hasParameterless = HasParameterlessConstructor(elementType);
-        ConstructorInfo? positional = !isAnon && !hasParameterless ? FindPositionalConstructor(elementType) : null;
+        bool hasPositional = !isAnon && !hasParameterless && FindPositionalConstructors(elementType).Count > 0;
 
-        if (!isAnon && !hasParameterless && positional == null)
+        if (!isAnon && !hasParameterless && !hasPositional)
         {
             throw new InvalidOperationException(
                 $"Entity type '{elementType.FullName}' has no parameterless constructor and no usable positional constructor. " +
@@ -142,7 +143,7 @@ internal static class BuildQueryObject
                 "or remove the DisableReflectionFallback call.");
         }
 
-        return BuildReflective(elementType, prefix: string.Empty, reader, columns, options, query?.ConstructedPaths);
+        return BuildReflective(elementType, prefix: string.Empty, reader, columns, options, query?.ConstructedPaths, query?.SelectValueTypes);
     }
 
     /// <summary>
@@ -189,20 +190,27 @@ internal static class BuildQueryObject
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface.")]
-    private static ConstructorInfo? FindPositionalConstructor(Type type)
+    private static List<ConstructorInfo> FindPositionalConstructors(Type type)
     {
-        HashSet<string> memberNames = type
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Select(p => p.Name)
-            .Concat(type.GetFields(BindingFlags.Public | BindingFlags.Instance).Select(f => f.Name))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, Type> memberTypes = new(StringComparer.OrdinalIgnoreCase);
+        foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.GetIndexParameters().Length == 0)
+            {
+                memberTypes[property.Name] = property.PropertyType;
+            }
+        }
 
-        ConstructorInfo? widest = null;
-        int widestLength = 0;
+        foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+        {
+            memberTypes[field.Name] = field.FieldType;
+        }
+
+        List<ConstructorInfo> eligible = new();
         foreach (ConstructorInfo ctor in type.GetConstructors())
         {
             ParameterInfo[] parameters = ctor.GetParameters();
-            if (parameters.Length <= widestLength)
+            if (parameters.Length == 0)
             {
                 continue;
             }
@@ -210,7 +218,9 @@ internal static class BuildQueryObject
             bool allMatch = true;
             foreach (ParameterInfo parameter in parameters)
             {
-                if (!memberNames.Contains(parameter.Name!))
+                if (!memberTypes.TryGetValue(parameter.Name!, out Type? memberType)
+                    || (Nullable.GetUnderlyingType(parameter.ParameterType) ?? parameter.ParameterType)
+                    != (Nullable.GetUnderlyingType(memberType) ?? memberType))
                 {
                     allMatch = false;
                     break;
@@ -219,18 +229,130 @@ internal static class BuildQueryObject
 
             if (allMatch)
             {
-                widest = ctor;
-                widestLength = parameters.Length;
+                eligible.Add(ctor);
             }
         }
 
-        return widest;
+        eligible.Sort((a, b) => b.GetParameters().Length.CompareTo(a.GetParameters().Length));
+        return eligible;
+    }
+
+    private static ConstructorInfo ChooseCoveredConstructor(List<ConstructorInfo> eligible, Dictionary<string, int> columns, string prefix)
+    {
+        foreach (ConstructorInfo ctor in eligible)
+        {
+            bool covered = true;
+            foreach (ParameterInfo parameter in ctor.GetParameters())
+            {
+                if (FindColumnIndex(columns, prefix + parameter.Name) == NotPresentSentinel
+                    && !HasColumnWithPrefix(columns, prefix + parameter.Name + "."))
+                {
+                    covered = false;
+                    break;
+                }
+            }
+
+            if (covered)
+            {
+                return ctor;
+            }
+        }
+
+        return eligible[0];
+    }
+
+    private static bool HasColumnWithPrefix(Dictionary<string, int> columns, string prefix)
+    {
+        foreach (KeyValuePair<string, int> column in columns)
+        {
+            if (column.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Backing fields may be trimmed and are skipped when missing.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Backing fields may be trimmed and are skipped when missing.")]
+    private static ReadOnlyFieldSlot[] BuildReadOnlyFieldSlots(Type type, ParameterInfo[] constructorParameters, string prefix, Dictionary<string, int> columns)
+    {
+        List<ReadOnlyFieldSlot> slots = new();
+        foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.CanWrite || property.GetIndexParameters().Length > 0)
+            {
+                continue;
+            }
+
+            bool coveredByConstructor = false;
+            foreach (ParameterInfo parameter in constructorParameters)
+            {
+                if (string.Equals(parameter.Name, property.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    coveredByConstructor = true;
+                    break;
+                }
+            }
+
+            if (coveredByConstructor)
+            {
+                continue;
+            }
+
+            FieldInfo? backingField = property.DeclaringType!.GetField($"<{property.Name}>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (backingField == null)
+            {
+                continue;
+            }
+
+            int columnIndex = FindColumnIndex(columns, prefix + property.Name);
+            if (columnIndex == NotPresentSentinel)
+            {
+                continue;
+            }
+
+            Type targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            slots.Add(new ReadOnlyFieldSlot
+            {
+                Field = backingField,
+                ColumnIndex = columnIndex,
+                DeclaredType = property.PropertyType,
+                TargetType = targetType,
+                IsEnum = targetType.IsEnum,
+                EnumUnderlyingType = targetType.IsEnum ? Enum.GetUnderlyingType(targetType) : null,
+            });
+        }
+
+        return slots.ToArray();
+    }
+
+    private static bool ApplyReadOnlyFieldSlots(ReadOnlyFieldSlot[] fieldSlots, SQLiteDataReader r, object instance)
+    {
+        bool anyNonNull = false;
+        for (int i = 0; i < fieldSlots.Length; i++)
+        {
+            ReadOnlyFieldSlot slot = fieldSlots[i];
+            object? value = r.GetValue(slot.ColumnIndex, r.GetColumnType(slot.ColumnIndex), slot.DeclaredType);
+            if (value != null)
+            {
+                anyNonNull = true;
+                value = slot.IsEnum
+                    ? Enum.ToObject(slot.TargetType, Convert.ChangeType(value, slot.EnumUnderlyingType!))
+                    : Convert.ChangeType(value, slot.TargetType);
+            }
+
+            slot.Field.SetValue(instance, value);
+        }
+
+        return anyNonNull;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "All types should be part of the client assembly.")]
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "All types should be part of the client assembly.")]
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types should be part of the client assembly.")]
-    private static Func<SQLiteQueryContext, object?> BuildReflective([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, string prefix, SQLiteDataReader reader, Dictionary<string, int> columns, SQLiteOptions options, IReadOnlyCollection<string>? constructedPaths)
+    private static Func<SQLiteQueryContext, object?> BuildReflective([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type type, string prefix, SQLiteDataReader reader, Dictionary<string, int> columns, SQLiteOptions options, IReadOnlyCollection<string>? constructedPaths, IReadOnlyDictionary<string, Type>? selectValueTypes)
     {
         if (TypeHelpers.IsSimple(type, options))
         {
@@ -265,7 +387,7 @@ internal static class BuildQueryObject
             {
                 ParameterInfo p = parameters[i];
                 string paramPrefix = $"{prefix}{p.Name}.";
-                argBuilders[i] = BuildReflective(p.ParameterType, paramPrefix, reader, columns, options, constructedPaths);
+                argBuilders[i] = BuildReflective(p.ParameterType, paramPrefix, reader, columns, options, constructedPaths, selectValueTypes);
             }
 
             return ctx =>
@@ -281,9 +403,10 @@ internal static class BuildQueryObject
 
         if (!HasParameterlessConstructor(type) || HasReadOnlyDataProperty(type))
         {
-            ConstructorInfo? positional = FindPositionalConstructor(type);
-            if (positional != null)
+            List<ConstructorInfo> positionals = FindPositionalConstructors(type);
+            if (positionals.Count > 0)
             {
+                ConstructorInfo positional = ChooseCoveredConstructor(positionals, columns, prefix);
                 MaterializerPlan positionalPlan = ReflectionMaterializerCache.GetPlan(type, options);
                 ParameterInfo[] parameters = positional.GetParameters();
                 PositionalSlot[] positionalSlots = new PositionalSlot[parameters.Length];
@@ -292,6 +415,14 @@ internal static class BuildQueryObject
                     ParameterInfo p = parameters[i];
                     int columnIndex = FindColumnIndex(columns, prefix + p.Name);
                     Type targetType = Nullable.GetUnderlyingType(p.ParameterType) ?? p.ParameterType;
+                    Func<SQLiteQueryContext, object?>? nestedArg = null;
+                    if (columnIndex == NotPresentSentinel
+                        && !TypeHelpers.IsSimple(p.ParameterType, options)
+                        && HasColumnWithPrefix(columns, prefix + p.Name + "."))
+                    {
+                        nestedArg = BuildReflective(targetType, prefix + p.Name + ".", reader, columns, options, constructedPaths, selectValueTypes);
+                    }
+
                     positionalSlots[i] = new PositionalSlot
                     {
                         ColumnIndex = columnIndex,
@@ -299,6 +430,7 @@ internal static class BuildQueryObject
                         TargetType = targetType,
                         IsEnum = targetType.IsEnum,
                         EnumUnderlyingType = targetType.IsEnum ? Enum.GetUnderlyingType(targetType) : null,
+                        NestedMaterializer = nestedArg,
                     };
                 }
 
@@ -306,11 +438,12 @@ internal static class BuildQueryObject
                 foreach (PropertySlot slot in positionalPlan.Slots)
                 {
                     string columnName = prefix.Length == 0 ? slot.Name : prefix + slot.Name;
-                    extraSlotPlans.Add(BuildSlotPlan(slot, columnName, reader, columns, options, constructedPaths));
+                    extraSlotPlans.Add(BuildSlotPlan(slot, columnName, reader, columns, options, constructedPaths, selectValueTypes));
                 }
 
                 ConstructorInfo capturedCtor = positional;
                 SlotPlan[] extras = extraSlotPlans.ToArray();
+                ReadOnlyFieldSlot[] fieldSlots = BuildReadOnlyFieldSlots(type, parameters, prefix, columns);
                 bool trackPositionalNulls = prefix.Length > 0 && !IsConstructedPrefix(constructedPaths, prefix);
                 return ctx =>
                 {
@@ -322,6 +455,12 @@ internal static class BuildQueryObject
                         PositionalSlot s = positionalSlots[i];
                         if (s.ColumnIndex == NotPresentSentinel)
                         {
+                            if (s.NestedMaterializer != null)
+                            {
+                                args[i] = s.NestedMaterializer(ctx);
+                                anyNonNull |= args[i] != null;
+                            }
+
                             continue;
                         }
 
@@ -343,6 +482,7 @@ internal static class BuildQueryObject
                         anyNonNull |= ApplySlotPlan(in extras[i], ctx, r, instance, trackPositionalNulls);
                     }
 
+                    anyNonNull |= ApplyReadOnlyFieldSlots(fieldSlots, r, instance);
                     return trackPositionalNulls && !anyNonNull ? null : instance;
                 };
             }
@@ -354,11 +494,12 @@ internal static class BuildQueryObject
         for (int s = 0; s < slots.Length; s++)
         {
             string columnName = prefix.Length == 0 ? slots[s].Name : prefix + slots[s].Name;
-            slotPlans[s] = BuildSlotPlan(slots[s], columnName, reader, columns, options, constructedPaths);
+            slotPlans[s] = BuildSlotPlan(slots[s], columnName, reader, columns, options, constructedPaths, selectValueTypes);
         }
 
         IInstanceFactory? factory = plan.Factory;
         Type capturedFallback = type;
+        ReadOnlyFieldSlot[] planFieldSlots = BuildReadOnlyFieldSlots(type, [], prefix, columns);
         bool trackNulls = prefix.Length > 0 && !IsConstructedPrefix(constructedPaths, prefix);
         return ctx =>
         {
@@ -373,13 +514,28 @@ internal static class BuildQueryObject
                 anyNonNull |= ApplySlotPlan(in slotPlans[i], ctx, r, instance, trackNulls);
             }
 
+            anyNonNull |= ApplyReadOnlyFieldSlots(planFieldSlots, r, instance);
             return trackNulls && !anyNonNull ? null : instance;
         };
     }
 
     private static bool IsConstructedPrefix(IReadOnlyCollection<string>? constructedPaths, string prefix)
     {
-        return constructedPaths != null && constructedPaths.Contains(prefix[..^1]);
+        if (constructedPaths == null)
+        {
+            return false;
+        }
+
+        string path = prefix[..^1];
+        foreach (string constructed in constructedPaths)
+        {
+            if (string.Equals(constructed, path, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static int FindColumnIndex(Dictionary<string, int> columns, string columnName)
@@ -401,16 +557,44 @@ internal static class BuildQueryObject
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Nested entity type comes from the entity surface.")]
-    private static SlotPlan BuildSlotPlan(PropertySlot slot, string columnName, SQLiteDataReader reader, Dictionary<string, int> columns, SQLiteOptions options, IReadOnlyCollection<string>? constructedPaths)
+    private static SlotPlan BuildSlotPlan(PropertySlot slot, string columnName, SQLiteDataReader reader, Dictionary<string, int> columns, SQLiteOptions options, IReadOnlyCollection<string>? constructedPaths, IReadOnlyDictionary<string, Type>? selectValueTypes)
     {
         if (slot.IsSimple)
         {
+            Type? projectedType = null;
+            if (slot.PropertyType == typeof(object)
+                && selectValueTypes != null
+                && selectValueTypes.TryGetValue(columnName, out Type? projected)
+                && projected != typeof(object))
+            {
+                projectedType = projected;
+            }
+
             return new SlotPlan
             {
                 Slot = slot,
                 ColumnIndex = FindColumnIndex(columns, columnName),
                 NestedMaterializer = null,
+                ProjectedReadType = projectedType,
             };
+        }
+
+        if (slot.PropertyType.IsInterface)
+        {
+            int directIndex = FindColumnIndex(columns, columnName);
+            if (directIndex != NotPresentSentinel)
+            {
+                Type readType = selectValueTypes != null && selectValueTypes.TryGetValue(columnName, out Type? projected)
+                    ? projected
+                    : slot.PropertyType;
+                return new SlotPlan
+                {
+                    Slot = slot,
+                    ColumnIndex = directIndex,
+                    NestedMaterializer = null,
+                    ProjectedReadType = readType,
+                };
+            }
         }
 
         string nestedPrefix = columnName + ".";
@@ -418,7 +602,7 @@ internal static class BuildQueryObject
         int fieldCount = reader.FieldCount;
         for (int j = 0; j < fieldCount; j++)
         {
-            if (reader.GetName(j).StartsWith(nestedPrefix, StringComparison.Ordinal))
+            if (reader.GetName(j).StartsWith(nestedPrefix, StringComparison.OrdinalIgnoreCase))
             {
                 hasNested = true;
                 break;
@@ -430,7 +614,7 @@ internal static class BuildQueryObject
             Slot = slot,
             ColumnIndex = NotPresentSentinel,
             NestedMaterializer = hasNested
-                ? BuildReflective(slot.PropertyType, nestedPrefix, reader, columns, options, constructedPaths)
+                ? BuildReflective(slot.PropertyType, nestedPrefix, reader, columns, options, constructedPaths, selectValueTypes)
                 : null,
         };
     }
@@ -454,6 +638,13 @@ internal static class BuildQueryObject
                 return nonNull;
             }
 
+            if (sp.ProjectedReadType != null)
+            {
+                object? projected = r.GetValue(columnIndex, r.GetColumnType(columnIndex), sp.ProjectedReadType);
+                slot.Setter(instance, projected);
+                return projected != null;
+            }
+
             object? val = r.GetValue(columnIndex, r.GetColumnType(columnIndex), slot.PropertyType);
             if (val == null)
             {
@@ -469,6 +660,13 @@ internal static class BuildQueryObject
                 : Convert.ChangeType(val, slot.TargetType);
             slot.Setter(instance, convertedValue);
             return true;
+        }
+
+        if (sp.ProjectedReadType != null)
+        {
+            object? projectedValue = r.GetValue(columnIndex, r.GetColumnType(columnIndex), sp.ProjectedReadType);
+            slot.Setter(instance, projectedValue);
+            return projectedValue != null;
         }
 
         if (sp.NestedMaterializer != null)

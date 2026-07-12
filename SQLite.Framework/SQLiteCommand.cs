@@ -64,7 +64,7 @@ public class SQLiteCommand
         IDisposable connectionLock = Database.ReadLock();
 
         NotifyExecuting();
-        SQLiteDataReader? reader = null;
+        SQLiteDataReader reader;
         try
         {
             sqlite3_stmt statement = CreateStatement();
@@ -72,23 +72,25 @@ public class SQLiteCommand
             {
                 PooledSql = CommandText,
             };
-            NotifyExecuted(rowsAffected: null);
-            return reader;
         }
         catch (Exception exception)
         {
-            if (reader != null)
-            {
-                reader.Dispose();
-            }
-            else
-            {
-                connectionLock.Dispose();
-            }
-
+            connectionLock.Dispose();
             NotifyFailed(exception);
             throw;
         }
+
+        try
+        {
+            NotifyExecuted(rowsAffected: null);
+        }
+        catch
+        {
+            reader.Dispose();
+            throw;
+        }
+
+        return reader;
     }
 
     /// <summary>
@@ -114,6 +116,7 @@ public class SQLiteCommand
     internal int ExecuteNonQueryCore()
     {
         NotifyExecuting();
+        int totalChanges;
         try
         {
             sqlite3 handle = Database.GetActiveHandle();
@@ -158,19 +161,23 @@ public class SQLiteCommand
                 remaining = tail;
             }
 
-            NotifyExecuted(changes);
-            return changes;
+            totalChanges = changes;
         }
         catch (Exception exception)
         {
             NotifyFailed(exception);
             throw;
         }
+
+        NotifyExecuted(totalChanges);
+        return totalChanges;
     }
 
     internal (int Changes, long RowId) ExecuteWithLastRowIdCore()
     {
         NotifyExecuting();
+        int changes;
+        long rowId;
         try
         {
             sqlite3_stmt statement = CreateStatement();
@@ -183,16 +190,17 @@ public class SQLiteCommand
             }
 
             sqlite3 handle = Database.GetActiveHandle();
-            int changes = raw.sqlite3_changes(handle);
-            long rowId = raw.sqlite3_last_insert_rowid(handle);
-            NotifyExecuted(changes);
-            return (changes, rowId);
+            changes = raw.sqlite3_changes(handle);
+            rowId = raw.sqlite3_last_insert_rowid(handle);
         }
         catch (Exception exception)
         {
             NotifyFailed(exception);
             throw;
         }
+
+        NotifyExecuted(changes);
+        return (changes, rowId);
     }
 
     internal (int Changes, long RowId, bool RowIdChanged) ExecuteWithInsertDetection()
@@ -200,6 +208,9 @@ public class SQLiteCommand
         using IDisposable _ = Database.Lock();
 
         NotifyExecuting();
+        int changes;
+        long rowId;
+        bool rowIdChanged;
         try
         {
             long before = raw.sqlite3_last_insert_rowid(Database.GetActiveHandle());
@@ -214,16 +225,18 @@ public class SQLiteCommand
             }
 
             sqlite3 handle = Database.GetActiveHandle();
-            int changes = raw.sqlite3_changes(handle);
-            long rowId = raw.sqlite3_last_insert_rowid(handle);
-            NotifyExecuted(changes);
-            return (changes, rowId, rowId != before);
+            changes = raw.sqlite3_changes(handle);
+            rowId = raw.sqlite3_last_insert_rowid(handle);
+            rowIdChanged = rowId != before;
         }
         catch (Exception exception)
         {
             NotifyFailed(exception);
             throw;
         }
+
+        NotifyExecuted(changes);
+        return (changes, rowId, rowIdChanged);
     }
 
     internal sqlite3_stmt CreateStatement()
@@ -318,12 +331,45 @@ public class SQLiteCommand
         SQLiteOptions options = Database.Options;
         foreach (SQLiteParameter parameter in Parameters)
         {
-            if (raw.sqlite3_bind_parameter_index(statement, parameter.Name) == 0)
+            if (raw.sqlite3_bind_parameter_index(statement, parameter.Name) != 0)
+            {
+                CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);
+                continue;
+            }
+
+            string? statementName = FindPrefixInsensitiveName(statement, parameter.Name);
+            if (statementName == null)
             {
                 continue;
             }
 
-            CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);
+            CommandHelpers.BindParameter(statement, statementName, parameter.Value, options);
         }
+    }
+
+    private static string? FindPrefixInsensitiveName(sqlite3_stmt statement, string? name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return null;
+        }
+
+        string bare = StripParameterPrefix(name);
+        int count = raw.sqlite3_bind_parameter_count(statement);
+        for (int index = 1; index <= count; index++)
+        {
+            string? candidate = raw.sqlite3_bind_parameter_name(statement, index).utf8_to_string();
+            if (candidate != null && StripParameterPrefix(candidate) == bare)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static string StripParameterPrefix(string name)
+    {
+        return name[0] is '@' or ':' or '$' or '?' ? name[1..] : name;
     }
 }

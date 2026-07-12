@@ -329,6 +329,17 @@ internal partial class SQLVisitor : ExpressionVisitor
 
     private static Expression FoldConstructedMemberAccess(Expression expression, string memberName)
     {
+        if (expression is ConditionalExpression conditional)
+        {
+            Expression? ifTrue = TryFoldConstructedBranch(conditional.IfTrue, memberName);
+            Expression? ifFalse = TryFoldConstructedBranch(conditional.IfFalse, memberName);
+            Type memberType = (ifTrue ?? ifFalse)!.Type;
+            return Expression.Condition(
+                conditional.Test,
+                ifTrue ?? MakeDefaultConstant(memberType),
+                ifFalse ?? MakeDefaultConstant(memberType));
+        }
+
         if (expression is MemberInitExpression memberInitExpression)
         {
             MemberAssignment? binding = memberInitExpression.Bindings
@@ -344,6 +355,22 @@ internal partial class SQLVisitor : ExpressionVisitor
 
         NewExpression newExpression = (NewExpression)expression;
         return newExpression.Arguments[ConstructorArgumentIndex(newExpression, memberName)];
+    }
+
+    private static Expression? TryFoldConstructedBranch(Expression branch, string memberName)
+    {
+        return branch is ConstantExpression { Value: null }
+            ? null
+            : FoldConstructedMemberAccess(branch, memberName);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Value types always have a default constructor.")]
+    private static ConstantExpression MakeDefaultConstant(Type type)
+    {
+        object? value = type.IsValueType && Nullable.GetUnderlyingType(type) == null
+            ? Activator.CreateInstance(type)
+            : null;
+        return Expression.Constant(value, type);
     }
 
     private static int ConstructorArgumentIndex(NewExpression newExpression, string memberName)

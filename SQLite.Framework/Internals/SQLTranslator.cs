@@ -12,6 +12,7 @@ internal class SQLTranslator
     private readonly int level;
     private readonly bool isInnerQuery;
     private readonly List<SQLiteParameter> parameters = [];
+    private readonly Dictionary<string, object?> collectedParameterValues = [];
     private readonly QueryableVisitor queryableMethodVisitor;
     private Expression? selectMethodExpression;
     private bool skipGeneratedMaterializers;
@@ -91,7 +92,7 @@ internal class SQLTranslator
         if (!isInnerQuery)
         {
             FromSqlParameterReserver.Reserve(node, Visitor.Counters);
-            bool ignoreAll = Visitor.Counters.IgnoreQueryFilters || QueryFilterInjector.ShouldIgnoreAll(node, Visitor.Database.Options);
+            bool ignoreAll = Visitor.Counters.IgnoreQueryFilters || QueryFilterInjector.ShouldIgnoreAll(node, Visitor.Database);
             Visitor.Counters.IgnoreQueryFilters = ignoreAll;
             node = QueryFilterInjector.Inject(node, Visitor.Database.Options, ignoreAll);
         }
@@ -127,9 +128,9 @@ internal class SQLTranslator
         if (queryableMethodVisitor.Joins.Any(f => f.IsGroupJoin))
         {
             throw new NotSupportedException(
-                "Group joins are only supported when flattened into a LEFT JOIN. " +
-                "Use the pattern `from x in table join y in other on x.Id equals y.Id into g from y in g.DefaultIfEmpty() select ...` " +
-                "so the framework can translate it to a LEFT JOIN.");
+                "GroupJoin (the LINQ 'into <name>' syntax) is only supported when flattened into a join. " +
+                "Use the pattern `from x in table join y in other on x.Id equals y.Id into g from y in g select ...` " +
+                "for an inner join or `... from y in g.DefaultIfEmpty() select ...` for a left join.");
         }
 
         bool useExists = queryableMethodVisitor.IsAny || queryableMethodVisitor.IsAll;
@@ -380,15 +381,51 @@ internal class SQLTranslator
             ConstructedPaths = Visitor.ConstructedProjectionPaths.TryGetValue(Visitor.TableColumns, out HashSet<string>? constructed)
                 ? constructed
                 : null,
+            SelectValueTypes = BuildSelectValueTypes(),
         };
+    }
+
+    private Dictionary<string, Type>? BuildSelectValueTypes()
+    {
+        return queryableMethodVisitor.SelectValueTypes.Count == 0 ? null : queryableMethodVisitor.SelectValueTypes;
     }
 
     private void VisitSQLExpression(SQLiteExpression node)
     {
-        if (node.Parameters != null)
+        if (node.Parameters == null)
         {
-            parameters.AddRange(node.Parameters);
+            return;
         }
+
+        foreach (SQLiteParameter parameter in node.Parameters)
+        {
+            CollectParameter(parameter);
+        }
+    }
+
+    private void CollectParameter(SQLiteParameter parameter)
+    {
+        if (Visitor.Counters.IsReservedParamName(parameter.Name))
+        {
+            parameters.Add(parameter);
+            return;
+        }
+
+        if (collectedParameterValues.TryGetValue(parameter.Name, out object? existing))
+        {
+            if (!Equals(existing, parameter.Value))
+            {
+                throw new InvalidOperationException(
+                    $"The parameter name \"{parameter.Name}\" is used with two different values in one query. " +
+                    "A custom translator most likely hard-codes a parameter name that collides with a generated name. " +
+                    "Take parameter names from Counters.NextParamName instead.");
+            }
+
+            return;
+        }
+
+        collectedParameterValues[parameter.Name] = parameter.Value;
+        parameters.Add(parameter);
     }
 
     private void WriteQuerySql(StringBuilder sb, Visitors.Queryable.QueryableVisitor q, string spacing, bool useExists, bool hasSetOperations)
@@ -775,17 +812,51 @@ internal class SQLTranslator
                     .Where(s => !string.IsNullOrEmpty(s.IdentifierText))
                     .GroupBy(s => s.IdentifierText)
                     .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
-                Visitor.TableColumns = entityType.GetProperties()
-                    .ToDictionary(p => p.Name, Expression (p) =>
+                Dictionary<string, Expression> outerColumns = new();
+                foreach (PropertyInfo property in entityType.GetProperties())
+                {
+                    bool flattened = false;
+                    if (!TypeHelpers.IsSimple(property.PropertyType, database.Options))
                     {
-                        SQLiteExpression leaf = SQLiteExpression.Leaf(p.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(p.Name)}");
-                        if (innerSelects.TryGetValue(p.Name, out SQLiteExpression? source) && source.IsDayOfWeekInteger)
+                        string dottedPrefix = property.Name + ".";
+                        foreach (KeyValuePair<string, SQLiteExpression> innerSelect in innerSelects)
                         {
-                            leaf.WithDayOfWeekInteger();
-                        }
+                            if (innerSelect.Key.StartsWith(dottedPrefix, StringComparison.Ordinal))
+                            {
+                                SQLiteExpression dottedLeaf = SQLiteExpression.Leaf(innerSelect.Value.Type, Visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(innerSelect.Key)}");
+                                if (innerSelect.Value.IsDayOfWeekInteger)
+                                {
+                                    dottedLeaf.WithDayOfWeekInteger();
+                                }
 
-                        return leaf;
-                    });
+                                outerColumns[innerSelect.Key] = dottedLeaf;
+                                flattened = true;
+                            }
+                        }
+                    }
+
+                    if (flattened)
+                    {
+                        continue;
+                    }
+
+                    if (!TypeHelpers.IsSimple(property.PropertyType, database.Options) && !innerSelects.ContainsKey(property.Name))
+                    {
+                        throw new NotSupportedException(
+                            $"Reading the nested projected object '{property.Name}' after Take, Skip or Distinct is not supported " +
+                            "when the object is built in memory. Read the member before paging or project the columns you need.");
+                    }
+
+                    SQLiteExpression leaf = SQLiteExpression.Leaf(property.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(property.Name)}");
+                    if (innerSelects.TryGetValue(property.Name, out SQLiteExpression? source) && source.IsDayOfWeekInteger)
+                    {
+                        leaf.WithDayOfWeekInteger();
+                    }
+
+                    outerColumns[property.Name] = leaf;
+                }
+
+                Visitor.TableColumns = outerColumns;
             }
 
             methodCalls.RemoveRange(wrapIdx + 1, methodCalls.Count - (wrapIdx + 1));

@@ -11,4 +11,5 @@ internal class SavedTable
     public required List<string> Triggers { get; init; }
     public required List<string> InsertableColumns { get; init; }
     public bool CopyRowId { get; init; }
+    public string? RowIdAccess { get; init; }
 }

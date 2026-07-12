@@ -33,12 +33,12 @@ internal static class ModelValidator
 
     private static void ValidateColumns(SQLiteDatabase database, string table, TableMapping mapping, List<PragmaTableInfo> dbColumns, List<string> issues)
     {
-        Dictionary<string, PragmaTableInfo> byName = dbColumns.ToDictionary(c => c.Name);
-        HashSet<string> computedNames = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet();
+        Dictionary<string, PragmaTableInfo> byName = dbColumns.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
+        HashSet<string> computedNames = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string>? generatedColumnNames = null;
 
         List<TableColumn> modelKey = mapping.Columns.Where(c => c.IsPrimaryKey).OrderBy(c => c.PrimaryKeyOrder).ToList();
-        Dictionary<string, int> modelKeyRank = new();
+        Dictionary<string, int> modelKeyRank = new(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < modelKey.Count; i++)
         {
             modelKeyRank[modelKey[i].Name] = i + 1;
@@ -66,7 +66,7 @@ internal static class ModelValidator
             }
 
             string expectedType = column.ColumnType.ToString().ToUpperInvariant();
-            if (!string.Equals(dbColumn.Type, expectedType, StringComparison.OrdinalIgnoreCase))
+            if (TypeAffinityResolver.Resolve(dbColumn.Type) != TypeAffinityResolver.Resolve(expectedType))
             {
                 issues.Add($"Column '{table}'.'{column.Name}' has type '{dbColumn.Type}' but the model expects '{expectedType}'.");
             }
@@ -98,8 +98,8 @@ internal static class ModelValidator
 
         foreach (PragmaTableInfo dbColumn in dbColumns)
         {
-            if (mapping.Columns.All(c => c.Name != dbColumn.Name)
-                && mapping.ShadowColumns.All(s => s.Name != dbColumn.Name))
+            if (mapping.Columns.All(c => !string.Equals(c.Name, dbColumn.Name, StringComparison.OrdinalIgnoreCase))
+                && mapping.ShadowColumns.All(s => !string.Equals(s.Name, dbColumn.Name, StringComparison.OrdinalIgnoreCase)))
             {
                 issues.Add($"Column '{table}'.'{dbColumn.Name}' exists in the database but not in the model.");
             }
@@ -109,9 +109,9 @@ internal static class ModelValidator
     private static void ValidateIndexes(SQLiteDatabase database, string table, TableMapping mapping, List<string> issues)
     {
         Dictionary<string, (IReadOnlyList<string> Columns, bool Unique)> expected = BuildExpectedIndexes(mapping, table);
-        Dictionary<string, PragmaIndexList> dbIndexes = database.Pragmas.IndexList(table).ToDictionary(i => i.Name);
+        Dictionary<string, PragmaIndexList> dbIndexes = database.Pragmas.IndexList(table).ToDictionary(i => i.Name, StringComparer.OrdinalIgnoreCase);
         Dictionary<string, string> declaredSql = SchemaSqlBuilder.BuildIndexes(mapping, table, ifNotExists: false)
-            .ToDictionary(x => x.Name, x => x.Sql);
+            .ToDictionary(x => x.Name, x => x.Sql, StringComparer.OrdinalIgnoreCase);
 
         foreach ((string name, (IReadOnlyList<string> columns, bool unique)) in expected)
         {
@@ -128,8 +128,8 @@ internal static class ModelValidator
                 mismatchReported = true;
             }
 
-            IReadOnlyList<string> dbColumns = ReadIndexColumns(database, name);
-            if (!dbColumns.SequenceEqual(columns))
+            IReadOnlyList<string> dbColumns = ReadIndexColumns(database, dbIndex.Name);
+            if (!dbColumns.SequenceEqual(columns, StringComparer.OrdinalIgnoreCase))
             {
                 issues.Add($"Index '{name}' on table '{table}' columns do not match the model.");
                 mismatchReported = true;
@@ -138,8 +138,8 @@ internal static class ModelValidator
             if (!mismatchReported)
             {
                 string? liveSql = database.ExecuteScalar<string?>(
-                    $"SELECT sql FROM sqlite_master WHERE type = 'index' AND name = '{name.Replace("'", "''")}'");
-                if (!string.Equals(declaredSql[name], liveSql, StringComparison.Ordinal))
+                    $"SELECT sql FROM sqlite_master WHERE type = 'index' AND name = '{dbIndex.Name.Replace("'", "''")}'");
+                if (!SchemaSqlNormalizer.AreEquivalent(declaredSql[name], liveSql))
                 {
                     issues.Add($"Index '{name}' on table '{table}' definition does not match the model (such as a partial-index filter or column direction).");
                 }
@@ -149,7 +149,7 @@ internal static class ModelValidator
 
     private static Dictionary<string, (IReadOnlyList<string> Columns, bool Unique)> BuildExpectedIndexes(TableMapping mapping, string table)
     {
-        Dictionary<string, (IReadOnlyList<string>, bool)> expected = new();
+        Dictionary<string, (IReadOnlyList<string>, bool)> expected = new(StringComparer.OrdinalIgnoreCase);
 
         IEnumerable<IGrouping<string, (string Name, string Column, int Order, bool Unique)>> groups = mapping.Columns
             .SelectMany(col => col.Indices.Select(idx => (
@@ -157,7 +157,7 @@ internal static class ModelValidator
                 Column: col.Name,
                 idx.Order,
                 Unique: idx.IsUnique)))
-            .GroupBy(x => x.Name);
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
         foreach (IGrouping<string, (string Name, string Column, int Order, bool Unique)> group in groups)
         {
@@ -180,7 +180,7 @@ internal static class ModelValidator
     {
         return database.Query<Dictionary<string, object?>>($"PRAGMA table_xinfo('{table.Replace("'", "''")}')")
             .Select(row => (string)row["name"]!)
-            .ToHashSet();
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in dictionary rows keeps their public members reachable.")]
@@ -197,22 +197,23 @@ internal static class ModelValidator
     private static void ValidateForeignKeys(SQLiteDatabase database, string table, TableMapping mapping, List<string> issues)
     {
         List<PragmaForeignKey> dbForeignKeys = database.Pragmas.ForeignKeyList(table).ToList();
+        Dictionary<string, IReadOnlyList<string>> targetKeys = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (TableColumn column in mapping.Columns)
         {
             if (column.ForeignKey != null)
             {
-                CheckForeignKey(column.ForeignKey, dbForeignKeys, table, issues);
+                CheckForeignKey(database, column.ForeignKey, dbForeignKeys, table, targetKeys, issues);
             }
         }
 
         foreach (ForeignKeyInfo foreignKey in mapping.CompositeForeignKeys)
         {
-            CheckForeignKey(foreignKey, dbForeignKeys, table, issues);
+            CheckForeignKey(database, foreignKey, dbForeignKeys, table, targetKeys, issues);
         }
     }
 
-    private static void CheckForeignKey(ForeignKeyInfo foreignKey, List<PragmaForeignKey> dbForeignKeys, string table, List<string> issues)
+    private static void CheckForeignKey(SQLiteDatabase database, ForeignKeyInfo foreignKey, List<PragmaForeignKey> dbForeignKeys, string table, Dictionary<string, IReadOnlyList<string>> targetKeys, List<string> issues)
     {
         string from = string.Join(", ", foreignKey.Columns);
 
@@ -228,9 +229,10 @@ internal static class ModelValidator
             bool allMatch = true;
             for (int i = 0; i < rows.Length; i++)
             {
-                if (rows[i].FromColumn != foreignKey.Columns[i]
-                    || rows[i].ToColumn != foreignKey.TargetColumns[i]
-                    || rows[i].ReferencedTable != foreignKey.TargetTable)
+                string? target = rows[i].ToColumn ?? ResolveImplicitTarget(database, rows[i].ReferencedTable, i, targetKeys);
+                if (!string.Equals(rows[i].FromColumn, foreignKey.Columns[i], StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(target, foreignKey.TargetColumns[i], StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(rows[i].ReferencedTable, foreignKey.TargetTable, StringComparison.OrdinalIgnoreCase))
                 {
                     allMatch = false;
                     break;
@@ -263,18 +265,33 @@ internal static class ModelValidator
         }
     }
 
+    private static string? ResolveImplicitTarget(SQLiteDatabase database, string targetTable, int position, Dictionary<string, IReadOnlyList<string>> targetKeys)
+    {
+        if (!targetKeys.TryGetValue(targetTable, out IReadOnlyList<string>? key))
+        {
+            key = database.Pragmas.TableInfo(targetTable).ToList()
+                .Where(c => c.PrimaryKeyOrder > 0)
+                .OrderBy(c => c.PrimaryKeyOrder)
+                .Select(c => c.Name)
+                .ToList();
+            targetKeys.Add(targetTable, key);
+        }
+
+        return position < key.Count ? key[position] : null;
+    }
+
     private static void ValidateTriggers(SQLiteDatabase database, string table, TableMapping mapping, List<string> issues)
     {
         foreach ((string name, string sql) in SchemaSqlBuilder.BuildTriggers(mapping, mapping.TableName, ifNotExists: false))
         {
             string escaped = name.Replace("'", "''");
             string? live = database.ExecuteScalar<string?>(
-                $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = '{escaped}'");
+                $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = '{escaped}' COLLATE NOCASE");
             if (live == null)
             {
                 issues.Add($"Trigger '{name}' on table '{table}' is missing in the database.");
             }
-            else if (!string.Equals(sql, live, StringComparison.Ordinal))
+            else if (!SchemaSqlNormalizer.AreEquivalent(sql, live))
             {
                 issues.Add($"Trigger '{name}' on table '{table}' does not match the model definition.");
             }

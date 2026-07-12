@@ -48,6 +48,7 @@ internal partial class QueryableVisitor
     private Expression VisitOrder(MethodCallExpression node)
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+        ThrowIfGroupJoinGroupPredicate(lambda.Body);
         Expression orderBy = visitor.Visit(lambda.Body);
 
         if (orderBy is not SQLiteExpression sqlExpression)

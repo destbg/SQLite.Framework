@@ -285,7 +285,7 @@ internal static class StringMemberVisitor
                 }
             }
         }
-        else if (QueryableMemberVisitor.CheckConstantMethod<string>(visitor, node, arguments, out Expression? expression))
+        else if (!HasInlineArrayArgument(node) && QueryableMemberVisitor.CheckConstantMethod<string>(visitor, node, arguments, out Expression? expression))
         {
             return expression;
         }
@@ -312,12 +312,13 @@ internal static class StringMemberVisitor
                 SQLiteExpression[] concatArgs;
                 if (node.Arguments is [NewArrayExpression concatArray])
                 {
-                    concatArgs = new SQLiteExpression[concatArray.Expressions.Count];
-                    for (int i = 0; i < concatArray.Expressions.Count; i++)
+                    SQLiteExpression[]? resolvedConcatArgs = TryResolveInlineArrayElements(visitor, concatArray);
+                    if (resolvedConcatArgs == null)
                     {
-                        ResolvedModel resolvedElement = visitor.ResolveExpression(concatArray.Expressions[i]);
-                        concatArgs[i] = visitor.CoalesceNullableStringOperand(concatArray.Expressions[i], resolvedElement, resolvedElement.SQLiteExpression!);
+                        return RebuildClientCall(node, arguments);
                     }
+
+                    concatArgs = resolvedConcatArgs;
                 }
                 else
                 {
@@ -333,14 +334,13 @@ internal static class StringMemberVisitor
             case nameof(string.Join):
                 if (node.Arguments[1] is NewArrayExpression arrayExpr)
                 {
+                    SQLiteExpression[]? joinArgs = TryResolveInlineArrayElements(visitor, arrayExpr);
+                    if (joinArgs == null || arguments[0].SQLiteExpression == null)
+                    {
+                        return RebuildClientCall(node, arguments);
+                    }
+
                     SQLiteExpression sep = visitor.CoalesceNullableStringOperand(node.Arguments[0], arguments[0], arguments[0].SQLiteExpression!);
-                    SQLiteExpression[] joinArgs = arrayExpr.Expressions
-                        .Select(e =>
-                        {
-                            ResolvedModel resolvedElement = visitor.ResolveExpression(e);
-                            return visitor.CoalesceNullableStringOperand(e, resolvedElement, resolvedElement.SQLiteExpression!);
-                        })
-                        .ToArray();
                     if (joinArgs.Length == 0)
                     {
                         return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "''");
@@ -679,6 +679,40 @@ internal static class StringMemberVisitor
                     or StringComparison.InvariantCultureIgnoreCase)
             || (constant is bool b && b)
             || (constant is CompareOptions options && options.HasFlag(CompareOptions.IgnoreCase));
+    }
+
+    private static bool HasInlineArrayArgument(MethodCallExpression node)
+    {
+        return (node.Method.Name == nameof(string.Concat) && node.Arguments is [NewArrayExpression])
+            || (node.Method.Name == nameof(string.Join) && node.Arguments.Count == 2 && node.Arguments[1] is NewArrayExpression);
+    }
+
+    private static SQLiteExpression[]? TryResolveInlineArrayElements(SQLVisitor visitor, NewArrayExpression array)
+    {
+        SQLiteExpression[] elements = new SQLiteExpression[array.Expressions.Count];
+        for (int i = 0; i < array.Expressions.Count; i++)
+        {
+            ResolvedModel resolvedElement = visitor.ResolveExpression(array.Expressions[i]);
+            if (resolvedElement.SQLiteExpression == null)
+            {
+                return null;
+            }
+
+            elements[i] = visitor.CoalesceNullableStringOperand(array.Expressions[i], resolvedElement, resolvedElement.SQLiteExpression);
+        }
+
+        return elements;
+    }
+
+    private static MethodCallExpression RebuildClientCall(MethodCallExpression node, List<ResolvedModel> arguments)
+    {
+        ParameterInfo[] parameters = node.Method.GetParameters();
+        IEnumerable<Expression> callArguments = arguments.Select((f, i) =>
+            f.Expression.Type != parameters[i].ParameterType
+                ? Expression.Convert(f.Expression, parameters[i].ParameterType)
+                : f.Expression);
+
+        return Expression.Call(node.Method, callArguments);
     }
 
     private static bool HasNonConstantComparisonArgument(MethodCallExpression node, List<ResolvedModel> arguments)

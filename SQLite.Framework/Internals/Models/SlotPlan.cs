@@ -7,7 +7,8 @@ namespace SQLite.Framework.Internals.Models;
 /// </summary>
 internal struct SlotPlan
 {
-    public PropertySlot Slot;
-    public int ColumnIndex;
-    public Func<SQLiteQueryContext, object?>? NestedMaterializer;
+    public PropertySlot Slot { get; set; }
+    public int ColumnIndex { get; set; }
+    public Func<SQLiteQueryContext, object?>? NestedMaterializer { get; set; }
+    public Type? ProjectedReadType { get; set; }
 }

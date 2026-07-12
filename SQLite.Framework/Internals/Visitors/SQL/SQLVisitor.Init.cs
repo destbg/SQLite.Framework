@@ -5,20 +5,17 @@ internal partial class SQLVisitor
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The array was passed to us.")]
     protected override Expression VisitNewArray(NewArrayExpression node)
     {
+        if (node.NodeType == ExpressionType.NewArrayBounds)
+        {
+            return node.Update(node.Expressions.Select(e => ExpressionHelpers.IsConstant(e) ? e : Visit(e)!));
+        }
+
         List<ResolvedModel> sqlExpressions = node.Expressions
             .Select(ResolveExpression)
             .ToList();
 
-        if (sqlExpressions.Any(f => f.SQLiteExpression == null))
-        {
-            Type elementType = node.Type.GetElementType()!;
-            return Expression.NewArrayInit(elementType, sqlExpressions.Select(f => CoerceClientExpression(f.Expression, elementType)));
-        }
-
-        SQLiteParameter[]? parameters = ParameterHelpers.CombineParametersFromModels(sqlExpressions);
-        SQLiteExpression[] argExprs = sqlExpressions.Select(f => f.SQLiteExpression!).ToArray();
-
-        return SQLiteExpression.Variadic(node.Type, Counters.NextIdentifier(), "(", argExprs, ", ", ")", parameters);
+        Type elementType = node.Type.GetElementType()!;
+        return Expression.NewArrayInit(elementType, sqlExpressions.Select(f => CoerceClientExpression(f.Expression, elementType)));
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types have public properties.")]
@@ -50,10 +47,30 @@ internal partial class SQLVisitor
 
     protected override MemberAssignment VisitMemberAssignment(MemberAssignment node)
     {
-        Expression expression = Visit(node.Expression);
-        if (expression is SQLiteExpression sqlExpression && sqlExpression.Type != node.Expression.Type)
+        Type targetType = node.Expression.Type;
+        if (node.Expression is UnaryExpression { NodeType: ExpressionType.Convert } boxing
+            && (boxing.Type == typeof(object) || boxing.Type.IsInterface)
+            && TypeHelpers.IsSimple(boxing.Operand.Type, Database.Options))
         {
-            expression = SQLiteExpression.Alias(node.Expression.Type, Counters.NextIdentifier(), sqlExpression, sqlExpression.Parameters);
+            targetType = boxing.Operand.Type;
+        }
+
+        Expression expression = Visit(node.Expression);
+        if (expression is SQLiteExpression
+            && node.Expression is not MemberExpression and not ConstantExpression
+            && !ExpressionHelpers.IsConstant(node.Expression))
+        {
+            expression = ToClientExpression(node.Expression);
+        }
+
+        if (expression is SQLiteExpression sqlExpression && sqlExpression.Type != targetType)
+        {
+            expression = SQLiteExpression.Alias(targetType, Counters.NextIdentifier(), sqlExpression, sqlExpression.Parameters);
+        }
+
+        if (targetType != node.Expression.Type && expression is SQLiteExpression unwrapped)
+        {
+            expression = Expression.Convert(unwrapped, node.Expression.Type);
         }
 
         return node.Update(expression);

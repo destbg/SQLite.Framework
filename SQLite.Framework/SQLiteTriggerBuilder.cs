@@ -144,7 +144,7 @@ public sealed class SQLiteTriggerBuilder<T>
         rows.Add((oldRow, triggerMapping, "OLD."));
         rows.Add((newRow, triggerMapping, "NEW."));
 
-        string sql = BareSqlTranslator.TranslateTrigger(database, body, rows.ToArray());
+        string sql = BareSqlTranslator.TranslateTrigger(database, body, rows.ToArray(), wrapConverterReads: wrapColumn == null);
 
         if (wrapColumn != null && ExpressionHelpers.IsConstant(body))
         {

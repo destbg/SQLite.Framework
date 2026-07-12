@@ -64,6 +64,37 @@ internal static class JsonMethodTranslator
         return null;
     }
 
+    public static SQLiteExpression? TryArrayIndex(BinaryExpression node, SQLVisitor visitor)
+    {
+        if (!IsJsonCollection(node.Left.Type, visitor.Database.Options))
+        {
+            return null;
+        }
+
+#if SQLITE_FRAMEWORK_VERSION_AWARE
+        visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "JSON1 collection translation (json_each, json_extract)");
+#endif
+
+        ResolvedModel source = ResolveCollectionSource(visitor, node.Left);
+        if (source.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        ResolvedModel index = visitor.ResolveExpression(node.Right);
+        if (index.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(
+            source.SQLiteExpression,
+            index.SQLiteExpression);
+
+        return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
+            $"json_extract({source.SQLiteExpression}, '$[' || ({index.SQLiteExpression}) || ']')", parameters).WithJsonSource();
+    }
+
     public static bool TryGetTemporalText(ResolvedModel arg, out string? text)
     {
         if (TryGetComparableConstant(arg, out object? value))
@@ -97,7 +128,7 @@ internal static class JsonMethodTranslator
         return (arg.SQLiteExpression!.ToString(), arg.SQLiteExpression!.Parameters);
     }
 
-    private static bool TryGetComparableConstant(ResolvedModel arg, out object? value)
+    public static bool TryGetComparableConstant(ResolvedModel arg, out object? value)
     {
         if (arg.IsConstant)
         {
@@ -209,7 +240,7 @@ internal static class JsonMethodTranslator
 
     private static SQLiteExpression? TryEnumerable(MethodCallExpression node, SQLVisitor visitor)
     {
-        ResolvedModel source = visitor.ResolveExpression(node.Arguments[0]);
+        ResolvedModel source = ResolveCollectionSource(visitor, node.Arguments[0]);
         if (source.SQLiteExpression == null || !IsJsonCollectionExpression(source.SQLiteExpression, visitor.Database.Options))
         {
             return null;
@@ -220,9 +251,23 @@ internal static class JsonMethodTranslator
 
         if (node.Arguments.Count == 1)
         {
-            if (node.Method.Name == nameof(Enumerable.ToArray))
+            if (node.Method.Name is nameof(Enumerable.ToArray) or nameof(Enumerable.ToList))
             {
                 return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(), src, parameters).WithJsonSource();
+            }
+
+            if (node.Method.Name is nameof(Enumerable.Min) or nameof(Enumerable.Max)
+                && TypeHelpers.GetEnumerableElementType(source.SQLiteExpression.Type) is { IsEnum: true } enumElement
+                && JsonEnumText.IsStringStored(visitor.Database.Options, enumElement))
+            {
+                SQLiteExpression valueNumber = EnumMemberVisitor.BuildTextStorageEnumToNumber(
+                    visitor, enumElement, enumElement, SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), "\"value\""));
+                string aggregateName = node.Method.Name == nameof(Enumerable.Min) ? "MIN" : "MAX";
+                SQLiteExpression aggregate = SQLiteExpression.Leaf(enumElement, visitor.Counters.NextIdentifier(),
+                    $"(SELECT {aggregateName}({valueNumber}) FROM json_each({src}))",
+                    ParameterHelpers.CombineParameters(source.SQLiteExpression, valueNumber));
+                SQLiteExpression nameText = EnumMemberVisitor.BuildEnumToNameText(visitor, enumElement, aggregate);
+                return SQLiteExpression.Alias(node.Type, visitor.Counters.NextIdentifier(), nameText, nameText.Parameters).WithJsonSource();
             }
 
             string arrayElem = BoolArrayElement(source.SQLiteExpression.Type, visitor.Database.Options);
@@ -249,7 +294,7 @@ internal static class JsonMethodTranslator
 
         if (node.Arguments.Count == 2)
         {
-            ResolvedModel arg = visitor.ResolveExpression(node.Arguments[1]);
+            ResolvedModel arg = ResolveCollectionSource(visitor, node.Arguments[1]);
 
             if (node.Method.Name == nameof(Enumerable.ElementAtOrDefault)
                 && arg is { IsConstant: true, Constant: int negativeIndex } && negativeIndex < 0)
@@ -287,8 +332,20 @@ internal static class JsonMethodTranslator
 
     private static SQLiteExpression? TryList(MethodCallExpression node, SQLVisitor visitor)
     {
-        ResolvedModel source = visitor.ResolveExpression(node.Object!);
+        ResolvedModel source = ResolveCollectionSource(visitor, node.Object!);
         string src = source.SQLiteExpression!.ToString();
+
+        if (node.Method.Name == "get_Item" && node.Arguments.Count == 1)
+        {
+            ResolvedModel indexArg = visitor.ResolveExpression(node.Arguments[0]);
+            string indexSql = indexArg.SQLiteExpression!.ToString();
+            SQLiteParameter[]? indexParameters = ParameterHelpers.CombineParameters(
+                source.SQLiteExpression!,
+                indexArg.SQLiteExpression!);
+
+            return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
+                $"json_extract({src}, '$[' || ({indexSql}) || ']')", indexParameters).WithJsonSource();
+        }
 
         if (node.Method.Name == nameof(List<>.Contains) && node.Arguments.Count == 1)
         {
@@ -454,7 +511,7 @@ internal static class JsonMethodTranslator
 
     private static SQLiteExpression? TryArray(MethodCallExpression node, SQLVisitor visitor)
     {
-        ResolvedModel source = visitor.ResolveExpression(node.Arguments[0]);
+        ResolvedModel source = ResolveCollectionSource(visitor, node.Arguments[0]);
         string src = source.SQLiteExpression!.ToString();
 
         if (node.Arguments.Count == 2 && node.Arguments[1] is Expression secondArg)
@@ -572,7 +629,7 @@ internal static class JsonMethodTranslator
         List<MethodCallExpression> chain = [];
         Expression source = UnwindChain(node, chain);
 
-        ResolvedModel sourceModel = visitor.ResolveExpression(source);
+        ResolvedModel sourceModel = ResolveCollectionSource(visitor, source);
         if (sourceModel.SQLiteExpression == null)
         {
             return null;
@@ -645,6 +702,23 @@ internal static class JsonMethodTranslator
         }
 
         return declaredType;
+    }
+
+    private static ResolvedModel ResolveCollectionSource(SQLVisitor visitor, Expression source)
+    {
+        if (source is NewArrayExpression or ListInitExpression
+            && JsonArrayLiteralTranslator.TryTranslate(visitor, source) is { } literal)
+        {
+            return new ResolvedModel
+            {
+                IsConstant = false,
+                Constant = null,
+                SQLiteExpression = literal,
+                Expression = literal
+            };
+        }
+
+        return visitor.ResolveExpression(source);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type comes from a JSON collection in the client assembly.")]

@@ -20,6 +20,8 @@ public sealed class SQLiteMigrationRunner
         """content\s*=\s*(?:"(?<name>[^"]*)"|'(?<name>[^']*)'|\[(?<name>[^\]]*)\]|`(?<name>[^`]*)`|(?<name>\w+))""",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    private static readonly string[] rowIdNames = ["rowid", "_rowid_", "oid"];
+
     private readonly SQLiteSchema schema;
     private readonly SortedDictionary<int, Action<SQLiteMigrationStep>> versions = new();
     private Action<SQLiteMigrationProgress>? progress;
@@ -100,9 +102,8 @@ public sealed class SQLiteMigrationRunner
     {
         int currentVersion = schema.Database.Pragmas.UserVersion;
         int targetVersion = versions.Count == 0 ? currentVersion : versions.Keys.Last();
-        List<string> operations = versions
-            .Where(v => v.Key > currentVersion)
-            .SelectMany(v => BuildStep(v.Key, v.Value).Operations.Select(o => o.Description))
+        List<string> operations = BuildPendingOperations(currentVersion)
+            .Select(o => o.Description)
             .ToList();
         return new SQLiteMigrationPlan(currentVersion, targetVersion, operations);
     }
@@ -346,9 +347,18 @@ public sealed class SQLiteMigrationRunner
         }
 
         targetVersion = pending[^1].Key;
-        operations = pending.SelectMany(v => BuildStep(v.Key, v.Value).Operations).ToList();
-        RemoveDropsSupersededByCreate(operations);
+        operations = BuildPendingOperations(recorded);
         return true;
+    }
+
+    private List<MigrationOperation> BuildPendingOperations(int fromVersion)
+    {
+        List<MigrationOperation> operations = versions
+            .Where(v => v.Key > fromVersion)
+            .SelectMany(v => BuildStep(v.Key, v.Value).Operations)
+            .ToList();
+        RemoveDropsSupersededByCreate(operations);
+        return operations;
     }
 
     private int ApplySchemaPhases(List<MigrationOperation> operations, int total, ref int reported, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema)
@@ -392,17 +402,16 @@ public sealed class SQLiteMigrationRunner
         foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.CreateTable))
         {
             ReportProgress(operation, ref reported, total);
-            if (operation.DropTableFirst && schema.TableExists(operation.Mapping!.TableName))
+            if (operation.Version > firstOpaqueVersion
+                && (operation.DropTableFirst || !schema.TableExists(operation.Mapping!.TableName)))
             {
-                count += schema.DropTable(operation.Mapping.Type);
+                MigrationOperation deferredCreate = operation;
+                deferred.Add(new DeferredSchemaWork { Version = operation.Version, Order = 2, Apply = () => (ApplyCreateTable(deferredCreate, created), []) });
             }
-
-            if (!schema.TableExists(operation.Mapping!.TableName))
+            else
             {
-                created.Add(operation.Mapping.TableName);
+                count += ApplyCreateTable(operation, created);
             }
-
-            count += schema.CreateTable(operation.Mapping!.Type);
         }
 
         deferredFills = [];
@@ -418,9 +427,17 @@ public sealed class SQLiteMigrationRunner
             TableMapping mapping = group.First().Mapping!;
             List<MigrationOperation> groupOps = group.ToList();
             int groupVersion = groupOps.Min(o => o.Version);
-            if (groupVersion > firstOpaqueVersion && !created.Contains(group.Key) && !schema.TableExists(mapping.TableName))
+            if ((groupVersion > firstOpaqueVersion && !created.Contains(group.Key) && !schema.TableExists(mapping.TableName))
+                || HasPendingEarlierDrop(operations, group.Key, groupVersion))
             {
-                deferred.Add(new DeferredSchemaWork { Version = groupVersion, Order = 2, Apply = () => ProcessReconcileGroup(mapping, groupOps, created) });
+                deferred.Add(new DeferredSchemaWork { Version = groupVersion, Order = 3, Apply = () => ProcessReconcileGroup(mapping, groupOps, created) });
+                continue;
+            }
+
+            int rebuildVersion = DataPhaseRebuildVersion(mapping, groupOps, operations, created);
+            if (rebuildVersion > 0)
+            {
+                deferred.Add(new DeferredSchemaWork { Version = rebuildVersion, Order = 3, Apply = () => ProcessReconcileGroup(mapping, groupOps, created) });
             }
             else
             {
@@ -434,6 +451,43 @@ public sealed class SQLiteMigrationRunner
         deferred.Sort((a, b) => a.Version != b.Version ? a.Version.CompareTo(b.Version) : a.Order.CompareTo(b.Order));
         deferredSchema = deferred;
         return count;
+    }
+
+    private int ApplyCreateTable(MigrationOperation operation, HashSet<string> newlyCreated)
+    {
+        int count = 0;
+        if (operation.DropTableFirst && schema.TableExists(operation.Mapping!.TableName))
+        {
+            count += schema.DropTable(operation.Mapping.Type);
+        }
+
+        if (!schema.TableExists(operation.Mapping!.TableName))
+        {
+            newlyCreated.Add(operation.Mapping.TableName);
+        }
+
+        return count + schema.CreateTable(operation.Mapping!.Type);
+    }
+
+    private int DataPhaseRebuildVersion(TableMapping mapping, List<MigrationOperation> group, List<MigrationOperation> operations, HashSet<string> newlyCreated)
+    {
+        if (mapping.IsFullTextSearch || mapping.IsRTree || newlyCreated.Contains(mapping.TableName) || !schema.TableExists(mapping.TableName))
+        {
+            return 0;
+        }
+
+        int version = 0;
+        foreach ((int winnerVersion, MigrationSetValue winner, _) in SchemaPhaseSets(mapping, group))
+        {
+            if ((winner.RunInRebuild || ReadsOwnColumn(winner))
+                && winnerVersion > version
+                && HasEarlierDataOperation(operations, mapping.TableName, winnerVersion))
+            {
+                version = winnerVersion;
+            }
+        }
+
+        return version;
     }
 
     private (int Count, List<DeferredFill> Fills) ProcessReconcileGroup(TableMapping mapping, List<MigrationOperation> group, HashSet<string> newlyCreated)
@@ -546,9 +600,11 @@ public sealed class SQLiteMigrationRunner
         int count = operation.Mapping != null
             ? schema.DropTable(operation.Mapping.Type)
             : schema.DropTable(operation.TableName!);
+        newlyCreated.Remove(operation.Mapping?.TableName ?? operation.TableName!);
         if (operation.RecreateMapping != null)
         {
             count += schema.CreateTable(operation.RecreateMapping.Type);
+            newlyCreated.Add(operation.RecreateMapping.TableName);
         }
 
         return count;
@@ -948,7 +1004,14 @@ public sealed class SQLiteMigrationRunner
             }
         }
 
-        bool copyRowId = !HasIntegerKeyAlias(mapping) && !IsWithoutRowId(table);
+        HashSet<string> modelColumns = mapping.Columns.Select(c => c.Name)
+            .Concat(mapping.ShadowColumns.Select(s => s.Name))
+            .Concat(mapping.ComputedColumns.Select(c => c.Column.Name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        string? sourceRowId = FindRowIdAccess(liveColumns);
+        string? targetRowId = FindRowIdAccess(modelColumns);
+        bool copyRowId = !HasIntegerKeyAlias(mapping) && !IsWithoutRowId(table) && !mapping.WithoutRowId
+            && sourceRowId != null && targetRowId != null;
         List<string> insertColumns = copyColumns.Concat(sets.Select(s => s.Column)).Select(IdentifierGuard.Quote).ToList();
         List<string> selectExpressions = copyColumns
             .Select(name => backfillDefaults.TryGetValue(name, out string? defaultSql)
@@ -956,9 +1019,9 @@ public sealed class SQLiteMigrationRunner
                 : IdentifierGuard.Quote(name))
             .Concat(sets.Select(s => s.ValueSql))
             .ToList();
-        if (copyRowId && insertColumns.Count > 0)
+        if (copyRowId)
         {
-            insertColumns.Insert(0, "rowid");
+            insertColumns.Insert(0, targetRowId!);
             selectExpressions.Insert(0, "\"__sqlitefw_rowid\"");
         }
 
@@ -969,6 +1032,7 @@ public sealed class SQLiteMigrationRunner
 
         long foreignKeys = Database.ExecuteScalar<long>("PRAGMA foreign_keys");
         bool foreignKeysEnforced = foreignKeys == 1;
+        long deferForeignKeys = Database.ExecuteScalar<long>("PRAGMA defer_foreign_keys");
         Database.Execute("PRAGMA foreign_keys = OFF");
         try
         {
@@ -987,7 +1051,7 @@ public sealed class SQLiteMigrationRunner
 
             if (copyRowId)
             {
-                Database.Execute($"CREATE TABLE \"{temp}\" AS SELECT rowid AS \"__sqlitefw_rowid\", * FROM \"{table}\"");
+                Database.Execute($"CREATE TABLE \"{temp}\" AS SELECT {sourceRowId} AS \"__sqlitefw_rowid\", * FROM \"{table}\"");
             }
             else
             {
@@ -996,9 +1060,10 @@ public sealed class SQLiteMigrationRunner
             Database.Execute($"DROP TABLE \"{table}\"");
             int count = Database.CreateCommand(SchemaSqlBuilder.BuildCreateTable(Database, mapping, table, ifNotExists: false), []).ExecuteNonQuery();
             ReconcileIndexes(mapping);
+            int copiedRows = 0;
             if (insertColumns.Count > 0)
             {
-                Database.Execute($"INSERT INTO \"{table}\" ({string.Join(", ", insertColumns)}) SELECT {string.Join(", ", selectExpressions)} FROM \"{temp}\"");
+                copiedRows = Database.Execute($"INSERT INTO \"{table}\" ({string.Join(", ", insertColumns)}) SELECT {string.Join(", ", selectExpressions)} FROM \"{temp}\"");
             }
             Database.Execute($"DROP TABLE \"{temp}\"");
             if (autoIncrementSeq.HasValue)
@@ -1011,13 +1076,41 @@ public sealed class SQLiteMigrationRunner
             }
 
             RestoreReferencingTables(dependents);
+            if (copiedRows > 0)
+            {
+                RebuildFullTextSearchIndexes(table, liveTriggers);
+            }
+
             transaction.Commit();
             return count;
         }
         finally
         {
             Database.Execute($"PRAGMA foreign_keys = {foreignKeys}");
+            Database.Execute($"PRAGMA defer_foreign_keys = {deferForeignKeys}");
         }
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in pragma rows keeps their public members reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Querying built-in pragma rows keeps their public members reachable.")]
+    private void ThrowIfChildRowsViolateForeignKeys(string table, string child)
+    {
+        string escapedChild = child.Replace("\"", "\"\"");
+        List<Dictionary<string, object?>> violations = Database.Query<Dictionary<string, object?>>(
+            $"PRAGMA foreign_key_check(\"{escapedChild}\")");
+        if (violations.Count == 0)
+        {
+            return;
+        }
+
+        string parent = (string)violations[0]["parent"]!;
+        long violatedId = Convert.ToInt64(violations[0]["fkid"], CultureInfo.InvariantCulture);
+        string columns = string.Join(", ", Database.Query<Dictionary<string, object?>>($"PRAGMA foreign_key_list(\"{escapedChild}\")")
+            .Where(row => Convert.ToInt64(row["id"], CultureInfo.InvariantCulture) == violatedId)
+            .Select(row => (string)row["from"]!));
+        throw new InvalidOperationException(
+            $"Cannot rebuild table '{table}'. Table '{child}' has rows that violate its foreign key on '{columns}' to '{parent}'. " +
+            "Delete or fix these rows or turn foreign keys off for the migration.");
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in string and foreign key rows keeps their public members reachable.")]
@@ -1046,6 +1139,7 @@ public sealed class SQLiteMigrationRunner
                 continue;
             }
 
+            ThrowIfChildRowsViolateForeignKeys(table, child);
             EmptyReferencingTables(child, saved, visited);
 
             string childEscaped = child.Replace("'", "''");
@@ -1067,19 +1161,21 @@ public sealed class SQLiteMigrationRunner
             List<Dictionary<string, object?>> keyColumns = childInfo
                 .Where(col => Convert.ToInt64(col["pk"], CultureInfo.InvariantCulture) > 0)
                 .ToList();
-            bool copyRowId = !IsWithoutRowId(child)
+            string? childRowId = FindRowIdAccess(insertableColumns.ToHashSet(StringComparer.OrdinalIgnoreCase));
+            bool copyRowId = childRowId != null
+                && !IsWithoutRowId(child)
                 && !(keyColumns.Count == 1 && string.Equals((string?)keyColumns[0]["type"], "INTEGER", StringComparison.OrdinalIgnoreCase));
 
             if (copyRowId)
             {
-                Database.Execute($"CREATE TABLE \"{child}__sqlitefw_hold\" AS SELECT rowid AS \"__sqlitefw_rowid\", * FROM \"{child}\"");
+                Database.Execute($"CREATE TABLE \"{child}__sqlitefw_hold\" AS SELECT {childRowId} AS \"__sqlitefw_rowid\", * FROM \"{child}\"");
             }
             else
             {
                 Database.Execute($"CREATE TABLE \"{child}__sqlitefw_hold\" AS SELECT * FROM \"{child}\"");
             }
             Database.Execute($"DELETE FROM \"{child}\"");
-            saved.Add(new SavedTable { Name = child, Triggers = triggerSql, InsertableColumns = insertableColumns, CopyRowId = copyRowId });
+            saved.Add(new SavedTable { Name = child, Triggers = triggerSql, InsertableColumns = insertableColumns, CopyRowId = copyRowId, RowIdAccess = childRowId });
         }
 
         return saved;
@@ -1091,13 +1187,36 @@ public sealed class SQLiteMigrationRunner
         {
             SavedTable child = saved[i];
             string columnList = string.Join(", ", child.InsertableColumns.Select(c => $"\"{c.Replace("\"", "\"\"")}\""));
-            string insertList = child.CopyRowId ? "rowid, " + columnList : columnList;
+            string insertList = child.CopyRowId ? child.RowIdAccess + ", " + columnList : columnList;
             string selectList = child.CopyRowId ? "\"__sqlitefw_rowid\", " + columnList : columnList;
             Database.Execute($"INSERT INTO \"{child.Name}\" ({insertList}) SELECT {selectList} FROM \"{child.Name}__sqlitefw_hold\"");
             Database.Execute($"DROP TABLE \"{child.Name}__sqlitefw_hold\"");
             foreach (string trigger in child.Triggers)
             {
                 Database.Execute(trigger);
+            }
+        }
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in string rows keeps their public members reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Querying built-in string rows keeps their public members reachable.")]
+    private void RebuildFullTextSearchIndexes(string contentTable, IReadOnlyList<string> liveTriggers)
+    {
+        List<Dictionary<string, object?>> virtualTables = Database.Query<Dictionary<string, object?>>(
+            "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL TABLE%'");
+        foreach (Dictionary<string, object?> row in virtualTables)
+        {
+            string sql = (string)row["sql"]!;
+            Match content = fullTextSearchContentRegex.Match(sql);
+            if (!content.Success || !string.Equals(content.Groups["name"].Value, contentTable, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string quotedName = "\"" + ((string)row["name"]!).Replace("\"", "\"\"") + "\"";
+            if (liveTriggers.Any(trigger => trigger.Contains(quotedName, StringComparison.OrdinalIgnoreCase)))
+            {
+                Database.Execute($"INSERT INTO {quotedName}({quotedName}) VALUES('rebuild')");
             }
         }
     }
@@ -1258,6 +1377,19 @@ public sealed class SQLiteMigrationRunner
         return set.ReadColumns.Any(read => !modelColumns.Contains(read));
     }
 
+    private static string? FindRowIdAccess(HashSet<string> columnNames)
+    {
+        foreach (string candidate in rowIdNames)
+        {
+            if (!columnNames.Contains(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
     private static bool ReadsOwnColumn(MigrationSetValue set)
     {
         return set.ReadColumns.Any(read => string.Equals(read, set.Column, StringComparison.OrdinalIgnoreCase));
@@ -1276,6 +1408,45 @@ public sealed class SQLiteMigrationRunner
         }
 
         return ReferenceEquals(set, winner.Set) && ReadsOwnColumn(set);
+    }
+
+    private static bool HasPendingEarlierDrop(List<MigrationOperation> operations, string tableName, int version)
+    {
+        foreach (MigrationOperation operation in operations)
+        {
+            if (operation.Kind == MigrationOperationKind.DropTable
+                && operation.Version < version
+                && string.Equals(operation.Mapping?.TableName ?? operation.TableName!, tableName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasEarlierDataOperation(List<MigrationOperation> operations, string tableName, int version)
+    {
+        foreach (MigrationOperation operation in operations)
+        {
+            if (operation.Version >= version)
+            {
+                continue;
+            }
+
+            if (operation.Kind is MigrationOperationKind.RawSql or MigrationOperationKind.Run)
+            {
+                return true;
+            }
+
+            if (operation.Kind is MigrationOperationKind.InsertRows or MigrationOperationKind.UpdateRows or MigrationOperationKind.DeleteRows
+                && string.Equals(operation.Mapping!.TableName, tableName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static int FirstOpaqueVersion(List<MigrationOperation> operations)
@@ -1365,6 +1536,14 @@ public sealed class SQLiteMigrationRunner
                 {
                     operations[j].DropTableFirst = true;
                     operation.RecreateMapping = operations[j].Mapping;
+                    superseded = true;
+                    break;
+                }
+
+                if (operations[j].Kind == MigrationOperationKind.Reconcile
+                    && operations[j].Version > operation.Version
+                    && string.Equals(operations[j].Mapping!.TableName, tableName, StringComparison.OrdinalIgnoreCase))
+                {
                     superseded = true;
                     break;
                 }

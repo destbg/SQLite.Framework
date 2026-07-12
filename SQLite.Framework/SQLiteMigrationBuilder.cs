@@ -48,7 +48,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
         sets.Add(new MigrationSetValue
         {
             Column = ResolveWritableColumn(column),
-            ValueSql = BareSqlTranslator.Translate(database, mapping, value),
+            ValueSql = BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: false),
             ReadColumns = reads.Columns,
         });
         return this;

@@ -282,7 +282,22 @@ internal partial class JsonCollectionVisitor
             orderBys.Clear();
         }
 
-        orderBys.Add($"{VisitLambda(call.Arguments[1], elementType, coalesceLiftedComparison: true)} {direction}");
+        string keySql = VisitLambda(call.Arguments[1], elementType, coalesceLiftedComparison: true);
+        Type keyType = ((LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1])).ReturnType;
+        keyType = Nullable.GetUnderlyingType(keyType) ?? keyType;
+        if (keyType.IsEnum && JsonEnumText.IsStringStored(options, keyType))
+        {
+            SQLiteExpression keyNumber = EnumMemberVisitor.BuildTextStorageEnumToNumber(
+                visitor, typeof(long), keyType, SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), keySql));
+            if (keyNumber.Parameters != null)
+            {
+                parameters.AddRange(keyNumber.Parameters);
+            }
+
+            keySql = keyNumber.ToString();
+        }
+
+        orderBys.Add($"{keySql} {direction}");
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<,> is rooted by user code.")]

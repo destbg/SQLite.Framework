@@ -23,7 +23,9 @@ internal sealed class ClientLeafRewriter : ExpressionVisitor
             return node;
         }
 
-        if (node is MemberExpression or ParameterExpression && owner.TryResolveColumnLeaf(node) is { } leaf)
+        if (node is MemberExpression or ParameterExpression
+            && TypeHelpers.IsSimple(node.Type, owner.Database.Options)
+            && owner.TryResolveColumnLeaf(node) is { } leaf)
         {
             if (node.Type != leaf.Type && Nullable.GetUnderlyingType(node.Type) == leaf.Type)
             {
@@ -31,6 +33,18 @@ internal sealed class ClientLeafRewriter : ExpressionVisitor
             }
 
             return leaf;
+        }
+
+        if (node is MemberExpression
+            && TypeHelpers.IsSimple(node.Type, owner.Database.Options)
+            && owner.TryResolveConstructedMemberLeaf(node) is { } constructedLeaf)
+        {
+            if (node.Type != constructedLeaf.Type && Nullable.GetUnderlyingType(node.Type) == constructedLeaf.Type)
+            {
+                return Expression.Convert(constructedLeaf, node.Type);
+            }
+
+            return constructedLeaf;
         }
 
         if (node is MemberExpression or ParameterExpression && owner.TryMaterializeEntityLeaves(node) is { } entity)

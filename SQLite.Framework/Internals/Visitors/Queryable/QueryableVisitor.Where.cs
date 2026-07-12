@@ -7,6 +7,7 @@ internal partial class QueryableVisitor
         ThrowIfSetOperations(node.Method.Name);
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+        ThrowIfGroupJoinGroupPredicate(lambda.Body);
         Expression result = visitor.Visit(lambda.Body);
 
         if (result is not SQLiteExpression sqlExpression)
@@ -111,6 +112,7 @@ internal partial class QueryableVisitor
             ThrowIfSetOperations(node.Method.Name);
 
             LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+            ThrowIfGroupJoinGroupPredicate(lambda.Body);
             Expression result = visitor.Visit(lambda.Body);
 
             if (result is not SQLiteExpression sqlExpression)
@@ -137,6 +139,7 @@ internal partial class QueryableVisitor
             Expression stripped = ExpressionHelpers.StripQuotes(node.Arguments[1]);
             if (stripped is LambdaExpression lambda)
             {
+                ThrowIfGroupJoinGroupPredicate(lambda.Body);
                 Expression result = visitor.Visit(lambda.Body);
 
                 if (result is not SQLiteExpression sqlExpression)
@@ -162,6 +165,27 @@ internal partial class QueryableVisitor
         if (node.Arguments.Count == 3)
         {
             CaptureDefaultValue(node.Arguments[2]);
+        }
+    }
+
+    private void ThrowIfGroupJoinGroupPredicate(Expression body)
+    {
+        List<Type> groupElementTypes = Joins.Where(f => f.IsGroupJoin).Select(f => f.EntityType).ToList();
+        if (groupElementTypes.Count == 0)
+        {
+            return;
+        }
+
+        GroupJoinGroupUsageVisitor finder = new(groupElementTypes);
+        finder.Visit(body);
+
+        if (finder.Found)
+        {
+            throw new NotSupportedException(
+                "GroupJoin (the LINQ 'into <name>' syntax) is only supported when flattened with " +
+                "'from x in <name>' or 'from x in <name>.DefaultIfEmpty()'. Using the group in a filter " +
+                "or ordering (for example 'g.Any()' or 'g.Count()') is not supported. " +
+                "Rewrite the condition as a correlated subquery such as 'where db.Table<Book>().Any(b => b.AuthorId == a.Id)'.");
         }
     }
 

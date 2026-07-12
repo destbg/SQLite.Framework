@@ -51,7 +51,7 @@ internal static class UpsertSqlBuilder
         if (target.WherePredicate != null)
         {
             sb.Append(" WHERE ");
-            sb.Append(BareSqlTranslator.Translate(database, table, target.WherePredicate));
+            sb.Append(BareSqlTranslator.Translate(database, table, target.WherePredicate, wrapConverterReads: true));
         }
 
         SQLiteUpsertAction<T> action = target.ResolvedAction;
@@ -154,7 +154,7 @@ internal static class UpsertSqlBuilder
                 ?? throw new InvalidOperationException($"Upsert.DoUpdate references property '{columnProperty}' which is not a mapped column on '{table.TableName}'.");
             sb.Append(IdentifierGuard.Quote(column.Name));
             sb.Append(" = ");
-            string rhsSql = BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs);
+            string rhsSql = BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs, wrapConverterReads: false);
             if (ExpressionHelpers.IsConstant(rhs.Body))
             {
                 rhsSql = ConverterSql.WrapParameter(rhsSql, column.PropertyType, database.Options);
@@ -171,7 +171,7 @@ internal static class UpsertSqlBuilder
         if (action.UpdateWhere != null)
         {
             sb.Append(" WHERE ");
-            sb.Append(BareSqlTranslator.TranslateUpdateRowExpression(database, table, action.UpdateWhere));
+            sb.Append(BareSqlTranslator.TranslateUpdateRowExpression(database, table, action.UpdateWhere, wrapConverterReads: true));
         }
     }
 

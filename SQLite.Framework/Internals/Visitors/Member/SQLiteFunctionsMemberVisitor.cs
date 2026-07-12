@@ -60,9 +60,11 @@ internal static class SQLiteFunctionsMemberVisitor
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel low = visitor.ResolveExpression(node.Arguments[1]);
         ResolvedModel high = visitor.ResolveExpression(node.Arguments[2]);
-        SQLiteExpression valueExpr = MathMemberVisitor.CastTextDecimal(visitor, value.SQLiteExpression!);
-        SQLiteExpression lowExpr = MathMemberVisitor.CastTextDecimal(visitor, low.SQLiteExpression!);
-        SQLiteExpression highExpr = MathMemberVisitor.CastTextDecimal(visitor, high.SQLiteExpression!);
+        SQLiteExpression[] operands = [value.SQLiteExpression!, low.SQLiteExpression!, high.SQLiteExpression!];
+        CoerceDayOfWeekOperands(visitor, [node.Arguments[0], node.Arguments[1], node.Arguments[2]], operands);
+        SQLiteExpression valueExpr = MathMemberVisitor.CastTextDecimal(visitor, operands[0]);
+        SQLiteExpression lowExpr = MathMemberVisitor.CastTextDecimal(visitor, operands[1]);
+        SQLiteExpression highExpr = MathMemberVisitor.CastTextDecimal(visitor, operands[2]);
 
         if (TypeHelpers.UnsignedIntegerKey(valueExpr.Type) == typeof(ulong))
         {
@@ -77,11 +79,12 @@ internal static class SQLiteFunctionsMemberVisitor
     private static SQLiteExpression HandleFunctionsIn(SQLVisitor visitor, MethodCallExpression node)
     {
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
-        List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[1]);
+        List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[1], out List<Expression> itemNodes);
 
-        SQLiteExpression valueExpr = value.SQLiteExpression!;
-        SQLiteExpression[] itemExprs = items.Select(r => r.SQLiteExpression!).ToArray();
-        SQLiteExpression[] parts = [valueExpr, .. itemExprs];
+        SQLiteExpression[] parts = [value.SQLiteExpression!, .. items.Select(r => r.SQLiteExpression!)];
+        CoerceDayOfWeekOperands(visitor, [node.Arguments[0], .. itemNodes], parts);
+        SQLiteExpression valueExpr = parts[0];
+        SQLiteExpression[] itemExprs = parts[1..];
         if (itemExprs.Length == 0)
         {
             return SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", valueExpr, " IN ())", ParameterHelpers.CombineParameters(parts));
@@ -101,11 +104,17 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsVariadic(SQLVisitor visitor, MethodCallExpression node, string sqlFunction, Type returnType)
     {
-        List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[0]);
+        List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[0], out List<Expression> itemNodes);
         bool ordered = sqlFunction is "min" or "max";
-        SQLiteExpression[] itemExprs = items
-            .Select(r => ordered ? MathMemberVisitor.CastTextDecimal(visitor, r.SQLiteExpression!) : r.SQLiteExpression!)
-            .ToArray();
+        SQLiteExpression[] itemExprs = items.Select(r => r.SQLiteExpression!).ToArray();
+        bool dayOfWeek = CoerceDayOfWeekOperands(visitor, [.. itemNodes], itemExprs);
+        if (ordered)
+        {
+            for (int i = 0; i < itemExprs.Length; i++)
+            {
+                itemExprs[i] = MathMemberVisitor.CastTextDecimal(visitor, itemExprs[i]);
+            }
+        }
 
         if (ordered && TypeHelpers.UnsignedIntegerKey(returnType) == typeof(ulong))
         {
@@ -118,7 +127,8 @@ internal static class SQLiteFunctionsMemberVisitor
             return result;
         }
 
-        return SQLiteExpression.Variadic(returnType, visitor.Counters.NextIdentifier(), $"{sqlFunction}(", itemExprs, ", ", ")", ParameterHelpers.CombineParameters(itemExprs));
+        SQLiteExpression variadic = SQLiteExpression.Variadic(returnType, visitor.Counters.NextIdentifier(), $"{sqlFunction}(", itemExprs, ", ", ")", ParameterHelpers.CombineParameters(itemExprs));
+        return dayOfWeek ? variadic.WithDayOfWeekInteger() : variadic;
     }
 
     private static SQLiteExpression HandleFunctionsTotal(SQLVisitor visitor, MethodCallExpression node)
@@ -193,9 +203,12 @@ internal static class SQLiteFunctionsMemberVisitor
     {
         ResolvedModel a = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel b = visitor.ResolveExpression(node.Arguments[1]);
-        SQLiteExpression aExpr = MathMemberVisitor.CastTextDecimal(visitor, a.SQLiteExpression!);
-        SQLiteExpression bExpr = MathMemberVisitor.CastTextDecimal(visitor, b.SQLiteExpression!);
-        return SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "nullif(", aExpr, ", ", bExpr, ")", ParameterHelpers.CombineParameters(aExpr, bExpr));
+        SQLiteExpression[] operands = [a.SQLiteExpression!, b.SQLiteExpression!];
+        bool dayOfWeek = CoerceDayOfWeekOperands(visitor, [node.Arguments[0], node.Arguments[1]], operands);
+        SQLiteExpression aExpr = MathMemberVisitor.CastTextDecimal(visitor, operands[0]);
+        SQLiteExpression bExpr = MathMemberVisitor.CastTextDecimal(visitor, operands[1]);
+        SQLiteExpression result = SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "nullif(", aExpr, ", ", bExpr, ")", ParameterHelpers.CombineParameters(aExpr, bExpr));
+        return dayOfWeek ? result.WithDayOfWeekInteger() : result;
     }
 
     private static SQLiteExpression HandleFunctionsDistinctFrom(SQLVisitor visitor, MethodCallExpression node)
@@ -205,7 +218,9 @@ internal static class SQLiteFunctionsMemberVisitor
 #endif
         ResolvedModel a = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel b = visitor.ResolveExpression(node.Arguments[1]);
-        return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", a.SQLiteExpression!, " IS DISTINCT FROM ", b.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(a.SQLiteExpression!, b.SQLiteExpression!));
+        SQLiteExpression[] operands = [a.SQLiteExpression!, b.SQLiteExpression!];
+        CoerceDayOfWeekOperands(visitor, [node.Arguments[0], node.Arguments[1]], operands);
+        return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", operands[0], " IS DISTINCT FROM ", operands[1], ")", ParameterHelpers.CombineParameters(operands[0], operands[1]));
     }
 
     private static SQLiteExpression HandleFunctionsIif(SQLVisitor visitor, MethodCallExpression node)
@@ -216,7 +231,10 @@ internal static class SQLiteFunctionsMemberVisitor
         ResolvedModel condition = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel whenTrue = visitor.ResolveExpression(node.Arguments[1]);
         ResolvedModel whenFalse = visitor.ResolveExpression(node.Arguments[2]);
-        return SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "iif(", condition.SQLiteExpression!, ", ", whenTrue.SQLiteExpression!, ", ", whenFalse.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(condition.SQLiteExpression!, whenTrue.SQLiteExpression!, whenFalse.SQLiteExpression!));
+        SQLiteExpression[] branches = [whenTrue.SQLiteExpression!, whenFalse.SQLiteExpression!];
+        bool dayOfWeek = CoerceDayOfWeekOperands(visitor, [node.Arguments[1], node.Arguments[2]], branches);
+        SQLiteExpression result = SQLiteExpression.Trinary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "iif(", condition.SQLiteExpression!, ", ", branches[0], ", ", branches[1], ")", ParameterHelpers.CombineParameters(condition.SQLiteExpression!, branches[0], branches[1]));
+        return dayOfWeek ? result.WithDayOfWeekInteger() : result;
     }
 
     private static SQLiteExpression HandleFunctionsUnaryFn(SQLVisitor visitor, MethodCallExpression node, string sqlFunction, Type returnType)
@@ -232,15 +250,12 @@ internal static class SQLiteFunctionsMemberVisitor
         return SQLiteExpression.Binary(typeof(int), visitor.Counters.NextIdentifier(), "instr(", haystack.SQLiteExpression!, ", ", needle.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(haystack.SQLiteExpression!, needle.SQLiteExpression!));
     }
 
-    private static List<ResolvedModel> ResolveVariadic(SQLVisitor visitor, Expression argument)
+    private static List<ResolvedModel> ResolveVariadic(SQLVisitor visitor, Expression argument, out List<Expression> nodes)
     {
-        List<ResolvedModel> resolved = [];
+        nodes = [];
         if (argument is NewArrayExpression arrayExpr)
         {
-            foreach (Expression e in arrayExpr.Expressions)
-            {
-                resolved.Add(visitor.ResolveExpression(e));
-            }
+            nodes.AddRange(arrayExpr.Expressions);
         }
         else
         {
@@ -248,10 +263,41 @@ internal static class SQLiteFunctionsMemberVisitor
             Type elementType = argument.Type.GetElementType()!;
             foreach (object? item in array)
             {
-                resolved.Add(visitor.ResolveExpression(Expression.Constant(item, elementType)));
+                nodes.Add(Expression.Constant(item, elementType));
             }
         }
+
+        List<ResolvedModel> resolved = [];
+        foreach (Expression e in nodes)
+        {
+            resolved.Add(visitor.ResolveExpression(e));
+        }
         return resolved;
+    }
+
+    private static bool CoerceDayOfWeekOperands(SQLVisitor visitor, Expression[] nodes, SQLiteExpression[] operands)
+    {
+        SQLiteExpression? flagged = null;
+        foreach (SQLiteExpression operand in operands)
+        {
+            if (operand.IsDayOfWeekInteger)
+            {
+                flagged = operand;
+                break;
+            }
+        }
+
+        if (flagged == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < operands.Length; i++)
+        {
+            operands[i] = visitor.CoerceDayOfWeekOperand(nodes[i], operands[i], flagged);
+        }
+
+        return true;
     }
 
     private static SQLiteExpression HandleFunctionsUnixEpoch(SQLVisitor visitor, MethodCallExpression node)
@@ -288,7 +334,7 @@ internal static class SQLiteFunctionsMemberVisitor
     {
         ResolvedModel format = visitor.ResolveExpression(node.Arguments[0]);
 
-        List<ResolvedModel> rest = ResolveVariadic(visitor, node.Arguments[1]);
+        List<ResolvedModel> rest = ResolveVariadic(visitor, node.Arguments[1], out _);
 
         SQLiteExpression formatExpr = format.SQLiteExpression!;
         SQLiteExpression[] restExprs = rest.Select(r => r.SQLiteExpression!).ToArray();
@@ -312,7 +358,7 @@ internal static class SQLiteFunctionsMemberVisitor
 
     private static SQLiteExpression HandleFunctionsChar(SQLVisitor visitor, MethodCallExpression node)
     {
-        List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[0]);
+        List<ResolvedModel> items = ResolveVariadic(visitor, node.Arguments[0], out _);
         SQLiteExpression[] itemExprs = items.Select(r => r.SQLiteExpression!).ToArray();
         return SQLiteExpression.Variadic(typeof(string), visitor.Counters.NextIdentifier(), "char(", itemExprs, ", ", ")", ParameterHelpers.CombineParameters(itemExprs));
     }

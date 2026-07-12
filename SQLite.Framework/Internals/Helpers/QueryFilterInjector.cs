@@ -11,14 +11,14 @@ internal static class QueryFilterInjector
         return injector.Visit(source);
     }
 
-    public static bool ShouldIgnoreAll(Expression source, SQLiteOptions options)
+    public static bool ShouldIgnoreAll(Expression source, SQLiteDatabase database)
     {
-        return options.QueryFilters.Count > 0 && ContainsIgnoreFilters(source);
+        return HasReachableQueryFilters(database) && ContainsIgnoreFilters(source);
     }
 
-    public static Expression InjectCteBody(Expression body, SQLiteOptions options, SQLiteCounters counters)
+    public static Expression InjectCteBody(Expression body, SQLiteDatabase database, SQLiteCounters counters)
     {
-        return Inject(body, options, counters.IgnoreQueryFilters || ShouldIgnoreAll(body, options));
+        return Inject(body, database.Options, counters.IgnoreQueryFilters || ShouldIgnoreAll(body, database));
     }
 
     public static bool IsIgnoreQueryFiltersCall(MethodCallExpression node)
@@ -26,6 +26,11 @@ internal static class QueryFilterInjector
         return node.Method.IsStatic
             && node.Method.DeclaringType == typeof(QueryableExtensions)
             && node.Method.Name == nameof(QueryableExtensions.IgnoreQueryFilters);
+    }
+
+    private static bool HasReachableQueryFilters(SQLiteDatabase database)
+    {
+        return database.Options.QueryFilters.Count > 0 || database.AnyAttachedDatabaseHasQueryFilters();
     }
 
     private static bool ContainsIgnoreFilters(Expression source)

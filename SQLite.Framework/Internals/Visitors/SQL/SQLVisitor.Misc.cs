@@ -319,12 +319,13 @@ internal partial class SQLVisitor
         {
             From = SQLiteExpression.Leaf(elementType, -1, $"{cachedName} AS {alias}");
             TableColumns = CteColumnMapper.BuildColumns(elementType, alias, Database.Options, Counters);
+            CteColumnMapper.ApplyBodyTraits(TableColumns, CteRegistry.Info(cte), this);
             return;
         }
 
         LambdaExpression lambda = cte.Query;
         bool isRecursive = lambda.Parameters.Count == 1;
-        Expression cteBody = QueryFilterInjector.InjectCteBody(CommonHelpers.Inline(lambda.Body), Database.Options, Counters);
+        Expression cteBody = QueryFilterInjector.InjectCteBody(CommonHelpers.Inline(lambda.Body), Database, Counters);
 
         string cteName;
 
@@ -347,7 +348,14 @@ internal partial class SQLVisitor
 
             string[]? recursiveColumnNames = CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
                 ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
-            cteName = CteRegistry.Register(fixedSql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: true, key: cte, columnNames: recursiveColumnNames);
+            cteName = CteRegistry.Register(
+                fixedSql,
+                bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters],
+                isRecursive: true,
+                key: cte,
+                columnNames: recursiveColumnNames,
+                dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns),
+                constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor));
 
             CteParameters.Remove(selfParam);
             MethodArguments.Remove(selfParam);
@@ -359,12 +367,20 @@ internal partial class SQLVisitor
 
             string[]? bodyColumnNames = CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
                 ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
-            cteName = CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters], isRecursive: false, key: cte, columnNames: bodyColumnNames);
+            cteName = CteRegistry.Register(
+                bodyQuery.Sql,
+                bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters],
+                isRecursive: false,
+                key: cte,
+                columnNames: bodyColumnNames,
+                dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns),
+                constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor));
         }
 
         From = SQLiteExpression.Leaf(elementType, -1, $"{cteName} AS {alias}");
 
         TableColumns = CteColumnMapper.BuildColumns(elementType, alias, Database.Options, Counters);
+        CteColumnMapper.ApplyBodyTraits(TableColumns, CteRegistry.Info(cte), this);
     }
 
     private static bool IsFloatingPointType(Type type)

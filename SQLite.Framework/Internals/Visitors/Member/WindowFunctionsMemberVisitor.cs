@@ -91,7 +91,7 @@ internal static class WindowFunctionsMemberVisitor
 
         Type t = node.Type;
         int id = visitor.Counters.NextIdentifier();
-        return node.Method.Name switch
+        SQLiteExpression result = node.Method.Name switch
         {
             nameof(SQLiteWindowFunctions.Sum) => SQLiteExpression.Wrap(t, id, "SUM(COALESCE(", arguments[0].SQLiteExpression!, ", 0)) OVER ()", parameters),
             nameof(SQLiteWindowFunctions.Avg) => FnOver(t, id, "AVG", arguments[0], parameters),
@@ -107,27 +107,49 @@ internal static class WindowFunctionsMemberVisitor
             nameof(SQLiteWindowFunctions.NTile) => FnOver(t, id, "NTILE", arguments[0], parameters),
             nameof(SQLiteWindowFunctions.Lag) when arguments.Count == 1 => FnOver(t, id, "LAG", arguments[0], parameters),
             nameof(SQLiteWindowFunctions.Lag) when arguments.Count == 2 => FnOver(t, id, "LAG", arguments[0], arguments[1], parameters),
-            nameof(SQLiteWindowFunctions.Lag) => FnOver(t, id, "LAG", arguments[0], arguments[1], arguments[2], parameters),
+            nameof(SQLiteWindowFunctions.Lag) => FnOverWithDefault(visitor, t, id, "LAG", node, arguments[0], arguments[1], arguments[2]),
             nameof(SQLiteWindowFunctions.Lead) when arguments.Count == 1 => FnOver(t, id, "LEAD", arguments[0], parameters),
             nameof(SQLiteWindowFunctions.Lead) when arguments.Count == 2 => FnOver(t, id, "LEAD", arguments[0], arguments[1], parameters),
-            nameof(SQLiteWindowFunctions.Lead) => FnOver(t, id, "LEAD", arguments[0], arguments[1], arguments[2], parameters),
+            nameof(SQLiteWindowFunctions.Lead) => FnOverWithDefault(visitor, t, id, "LEAD", node, arguments[0], arguments[1], arguments[2]),
             nameof(SQLiteWindowFunctions.FirstValue) => FnOver(t, id, "FIRST_VALUE", arguments[0], parameters),
             nameof(SQLiteWindowFunctions.LastValue) => FnOver(t, id, "LAST_VALUE", arguments[0], parameters),
             nameof(SQLiteWindowFunctions.NthValue) => FnOver(t, id, "NTH_VALUE", arguments[0], arguments[1], parameters),
             nameof(SQLiteWindow<>.AsValue) => SQLiteExpression.Alias(t, id, arguments[0].SQLiteExpression!, parameters),
             nameof(SQLiteWindow<>.Over) => SQLiteExpression.Alias(t, id, arguments[0].SQLiteExpression!, parameters),
             nameof(SQLiteWindow<>.Filter) => Filter(visitor, t, id, arguments[0], arguments[1], parameters),
-            nameof(SQLiteWindow<>.PartitionBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, arguments[0], " PARTITION BY ", arguments[1]), parameters),
-            nameof(SQLiteWindow<>.ThenPartitionBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, arguments[0], ", ", arguments[1]), parameters),
-            nameof(SQLiteWindow<>.OrderBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], " ORDER BY ", arguments[1], " ASC", allowUlongSplit), parameters),
-            nameof(SQLiteWindow<>.OrderByDescending) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], " ORDER BY ", arguments[1], " DESC", allowUlongSplit), parameters),
-            nameof(SQLiteWindow<>.ThenOrderBy) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], ", ", arguments[1], " ASC", allowUlongSplit), parameters),
-            nameof(SQLiteWindow<>.ThenOrderByDescending) => SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, arguments[0], ", ", arguments[1], " DESC", allowUlongSplit), parameters),
+            nameof(SQLiteWindow<>.PartitionBy) => BuildOverChain(visitor, t, id, node, arguments[0], " PARTITION BY ", arguments[1], parameters),
+            nameof(SQLiteWindow<>.ThenPartitionBy) => BuildOverChain(visitor, t, id, node, arguments[0], ", ", arguments[1], parameters),
+            nameof(SQLiteWindow<>.OrderBy) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], " ORDER BY ", arguments[1], " ASC", allowUlongSplit, parameters),
+            nameof(SQLiteWindow<>.OrderByDescending) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], " ORDER BY ", arguments[1], " DESC", allowUlongSplit, parameters),
+            nameof(SQLiteWindow<>.ThenOrderBy) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], ", ", arguments[1], " ASC", allowUlongSplit, parameters),
+            nameof(SQLiteWindow<>.ThenOrderByDescending) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], ", ", arguments[1], " DESC", allowUlongSplit, parameters),
             nameof(SQLiteWindow<>.Rows) => Frame(visitor, t, id, arguments, " ROWS BETWEEN ", node, parameters),
             nameof(SQLiteWindow<>.Range) => Frame(visitor, t, id, arguments, " RANGE BETWEEN ", node, parameters),
             nameof(SQLiteWindow<>.Groups) => Frame(visitor, t, id, arguments, " GROUPS BETWEEN ", node, parameters),
             _ => throw new NotSupportedException($"{node.Method.DeclaringType!.Name}.{node.Method.Name} is not translatable to SQL."),
         };
+
+        if (CarriesArgumentValue(node.Method.Name)
+            && arguments.Count > 0
+            && arguments[0].SQLiteExpression is { IsDayOfWeekInteger: true })
+        {
+            result.WithDayOfWeekInteger();
+        }
+
+        return result;
+    }
+
+    private static bool CarriesArgumentValue(string name)
+    {
+        return name is nameof(SQLiteWindowFunctions.Min) or nameof(SQLiteWindowFunctions.Max)
+            or nameof(SQLiteWindowFunctions.Lag) or nameof(SQLiteWindowFunctions.Lead)
+            or nameof(SQLiteWindowFunctions.FirstValue) or nameof(SQLiteWindowFunctions.LastValue)
+            or nameof(SQLiteWindowFunctions.NthValue)
+            or nameof(SQLiteWindow<>.AsValue) or nameof(SQLiteWindow<>.Over) or nameof(SQLiteWindow<>.Filter)
+            or nameof(SQLiteWindow<>.PartitionBy) or nameof(SQLiteWindow<>.ThenPartitionBy)
+            or nameof(SQLiteWindow<>.OrderBy) or nameof(SQLiteWindow<>.OrderByDescending)
+            or nameof(SQLiteWindow<>.ThenOrderBy) or nameof(SQLiteWindow<>.ThenOrderByDescending)
+            or nameof(SQLiteWindow<>.Rows) or nameof(SQLiteWindow<>.Range) or nameof(SQLiteWindow<>.Groups);
     }
 
     private static SQLiteExpression FnOver(Type t, int id, string fn, ResolvedModel a, SQLiteParameter[]? parameters)
@@ -140,9 +162,24 @@ internal static class WindowFunctionsMemberVisitor
         return SQLiteExpression.Binary(t, id, $"{fn}(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ") OVER ()", parameters);
     }
 
-    private static SQLiteExpression FnOver(Type t, int id, string fn, ResolvedModel a, ResolvedModel b, ResolvedModel c, SQLiteParameter[]? parameters)
+    private static SQLiteExpression FnOverWithDefault(SQLVisitor visitor, Type t, int id, string fn, MethodCallExpression node, ResolvedModel a, ResolvedModel b, ResolvedModel c)
     {
-        return SQLiteExpression.Trinary(t, id, $"{fn}(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ", ", c.SQLiteExpression!, ") OVER ()", parameters);
+        SQLiteExpression value = a.SQLiteExpression!;
+        SQLiteExpression offset = b.SQLiteExpression!;
+        SQLiteExpression fallback = visitor.CoerceDayOfWeekOperand(node.Arguments[2], c.SQLiteExpression!, value);
+        return SQLiteExpression.Trinary(t, id, $"{fn}(", value, ", ", offset, ", ", fallback, ") OVER ()", ParameterHelpers.CombineParameters(value, offset, fallback));
+    }
+
+    private static SQLiteExpression BuildOverChain(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg, SQLiteParameter[]? parameters)
+    {
+        SQLiteExpression key = visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg));
+        return SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, prev, sep, key), parameters);
+    }
+
+    private static SQLiteExpression BuildOverChainOrderBy(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg, string direction, bool allowUlongSplit, SQLiteParameter[]? parameters)
+    {
+        SQLiteExpression key = visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg));
+        return SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, prev, sep, key, direction, allowUlongSplit), parameters);
     }
 
     private static SQLiteExpression Filter(SQLVisitor visitor, Type t, int id, ResolvedModel prev, ResolvedModel predicate, SQLiteParameter[]? parameters)
@@ -267,21 +304,20 @@ internal static class WindowFunctionsMemberVisitor
                 "To partition or order by several keys, chain ThenPartitionBy or ThenOrderBy.");
     }
 
-    private static void WriteOverChain(StringBuilder sb, ResolvedModel prev, string sep, ResolvedModel arg)
+    private static void WriteOverChain(StringBuilder sb, ResolvedModel prev, string sep, SQLiteExpression key)
     {
         prev.SQLiteExpression!.WriteSqlTo(sb);
         sb.Length--;
         sb.Append(sep);
-        RequireKeyExpression(arg).WriteSqlTo(sb);
+        key.WriteSqlTo(sb);
         sb.Append(')');
     }
 
-    private static void WriteOverChainOrderBy(StringBuilder sb, ResolvedModel prev, string sep, ResolvedModel arg, string direction, bool allowUlongSplit)
+    private static void WriteOverChainOrderBy(StringBuilder sb, ResolvedModel prev, string sep, SQLiteExpression key, string direction, bool allowUlongSplit)
     {
         prev.SQLiteExpression!.WriteSqlTo(sb);
         sb.Length--;
         sb.Append(sep);
-        SQLiteExpression key = RequireKeyExpression(arg);
 
         if (allowUlongSplit && TypeHelpers.UnsignedIntegerKey(key.Type) == typeof(ulong))
         {

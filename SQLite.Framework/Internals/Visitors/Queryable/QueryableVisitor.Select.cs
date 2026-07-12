@@ -47,12 +47,24 @@ internal partial class QueryableVisitor
                     }
                 }
 
+                ConstructedConditionalFinderVisitor shape = new();
+                shape.Visit(signatureBody);
                 RawSelectSignature = SelectSignature.Compute(signatureBody);
                 LastSelectLambdaBody = signatureBody;
+
+                if (!ReferenceEquals(signatureBody, lambda.Body)
+                    && shape.Found
+                    && PreviousSelectSourceColumns != null
+                    && database.Options.SelectMaterializers.ContainsKey(RawSelectSignature))
+                {
+                    lambda = Expression.Lambda(signatureBody, PreviousSelectLambda!.Parameters);
+                    visitor.TableColumns = PreviousSelectSourceColumns;
+                }
             }
         }
 
         PreviousSelectLambda = lambda;
+        PreviousSelectSourceColumns = visitor.TableColumns;
         visitor.IsInSelectProjection = true;
         visitor.ClientEvalAllowed = !IsInnerQuery;
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(lambda);
@@ -87,6 +99,7 @@ internal partial class QueryableVisitor
                 if (!string.IsNullOrEmpty(tableColumn.Key))
                 {
                     newSqlExpression.IdentifierText = tableColumn.Key;
+                    SelectValueTypes[tableColumn.Key] = sqlExpression.Type;
                 }
 
                 Selects.Add(newSqlExpression);
@@ -181,13 +194,16 @@ internal partial class QueryableVisitor
         }
         else
         {
-            Type innerElementType = selector.Body.Type.GetGenericArguments()[^1];
+            Type innerElementType = TypeHelpers.GetEnumerableElementType(selector.Body.Type)!;
             ParameterExpression outerParam = Expression.Parameter(selector.Parameters[0].Type, "s");
             ParameterExpression innerParam = Expression.Parameter(innerElementType, "x");
             resultSelector = Expression.Lambda(innerParam, outerParam, innerParam);
         }
 
-        if (selector.Body is MethodCallExpression { Method.Name: nameof(Enumerable.DefaultIfEmpty) } methodCallExpression)
+        Expression flattenSource = selector.Body;
+        bool hasDefaultIfEmpty = false;
+
+        if (flattenSource is MethodCallExpression { Method.Name: nameof(Enumerable.DefaultIfEmpty) } methodCallExpression)
         {
             if (methodCallExpression.Arguments.Count > 1)
             {
@@ -195,18 +211,49 @@ internal partial class QueryableVisitor
                     "DefaultIfEmpty with a custom default value is not supported in a query.");
             }
 
-            Type type = selector.Body.Type.GetGenericArguments()[^1];
-            JoinInfo? join = Joins.FirstOrDefault(f => f.EntityType == type && f.IsGroupJoin)
-                ?? throw new NotSupportedException(
-                    "DefaultIfEmpty is only supported on a group join, as in " +
-                    "'join x in source on ... into g from x in g.DefaultIfEmpty()', to produce a left join. " +
-                    "A bare DefaultIfEmpty on a second from source is not supported.");
-            join.JoinType = "LEFT JOIN";
-            join.IsGroupJoin = false;
+            hasDefaultIfEmpty = true;
+            flattenSource = methodCallExpression.Arguments[0];
+        }
+
+        Expression chainRoot = flattenSource;
+        while (chainRoot is MethodCallExpression { Object: null, Arguments.Count: > 0 } chainCall
+            && chainCall.Method.DeclaringType == typeof(Enumerable))
+        {
+            chainRoot = chainCall.Arguments[0];
+        }
+
+        JoinInfo? groupJoin = chainRoot is MemberExpression && chainRoot.Type.IsGenericType
+            ? Joins.FirstOrDefault(f => f.EntityType == chainRoot.Type.GetGenericArguments()[^1] && f.IsGroupJoin)
+            : null;
+
+        if (hasDefaultIfEmpty || groupJoin != null)
+        {
+            List<LambdaExpression> groupFilters = [];
+
+            while (flattenSource is MethodCallExpression { Method.Name: nameof(Enumerable.Where) } filterCall
+                && filterCall.Method.DeclaringType == typeof(Enumerable)
+                && ExpressionHelpers.StripQuotes(filterCall.Arguments[1]) is LambdaExpression { Parameters.Count: 1 } filterLambda)
+            {
+                groupFilters.Add(filterLambda);
+                flattenSource = filterCall.Arguments[0];
+            }
+
+            groupFilters.Reverse();
+
+            if (groupJoin == null || flattenSource is not MemberExpression memberExpression)
+            {
+                throw new NotSupportedException(
+                    "DefaultIfEmpty and group filters are only supported directly on a group join group, as in " +
+                    "'join x in source on ... into g from x in g.Where(x => x.Active).DefaultIfEmpty()'. " +
+                    "A bare DefaultIfEmpty on a second from source is not supported and only plain " +
+                    "'Where(x => ...)' filters may sit between the group and DefaultIfEmpty.");
+            }
+
+            groupJoin.JoinType = hasDefaultIfEmpty ? "LEFT JOIN" : "JOIN";
+            groupJoin.IsGroupJoin = false;
 
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
 
-            MemberExpression memberExpression = (MemberExpression)methodCallExpression.Arguments[0];
             Dictionary<string, Expression> result = [];
 
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
@@ -219,6 +266,19 @@ internal partial class QueryableVisitor
             }
 
             visitor.MethodArguments[resultSelector.Parameters[1]] = result;
+
+            foreach (LambdaExpression groupFilter in groupFilters)
+            {
+                visitor.MethodArguments[groupFilter.Parameters[0]] = result;
+                Expression filterResult = visitor.Visit(groupFilter.Body);
+
+                if (filterResult is not SQLiteExpression filterSql)
+                {
+                    throw new NotSupportedException($"Unsupported WHERE expression {groupFilter.Body}");
+                }
+
+                groupJoin.OnClause = AndOnClause(groupJoin.OnClause!, filterSql);
+            }
 
             resultSelector = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
@@ -317,6 +377,13 @@ internal partial class QueryableVisitor
         }
 
         return element;
+    }
+
+    private static SQLiteExpression AndOnClause(SQLiteExpression onClause, SQLiteExpression filter)
+    {
+        SQLiteExpression left = ExpressionHelpers.BracketIfNeeded(onClause);
+        SQLiteExpression right = ExpressionHelpers.BracketIfNeeded(filter);
+        return SQLiteExpression.Binary(typeof(bool), -1, "", left, " AND ", right, "", ParameterHelpers.CombineParameters(left, right));
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Projection types are part of the client assembly.")]

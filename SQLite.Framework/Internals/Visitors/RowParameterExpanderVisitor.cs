@@ -48,7 +48,9 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
             Expression arg = node.Arguments[i];
             if (substituteRowArguments && LooksLikeRowReference(arg) && !(stringConcatMethod && IsGroupingType(arg.Type)))
             {
-                newArgs[i] = BuildMaterialization(arg);
+                newArgs[i] = stringConcatMethod || !HasParameterlessConstructor(arg.Type)
+                    ? BuildMaterialization(arg)
+                    : arg;
             }
             else
             {
@@ -120,6 +122,12 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
         return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IGrouping<,>);
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Row types are preserved by Queryable<T>.")]
+    private static bool HasParameterlessConstructor(Type type)
+    {
+        return type.GetConstructor(Type.EmptyTypes) != null;
+    }
+
     private static bool IsFrameworkTranslatedMethod(MethodInfo method)
     {
         Type? declaringType = method.DeclaringType;
@@ -128,9 +136,20 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
             return false;
         }
 
+        if (declaringType.IsGenericType && declaringType.GetGenericTypeDefinition() == typeof(SQLiteWindow<>))
+        {
+            return true;
+        }
+
         return declaringType == typeof(System.Linq.Queryable)
             || declaringType == typeof(Enumerable)
             || declaringType == typeof(SQLiteColumn)
+            || declaringType == typeof(SQLiteFunctions)
+            || declaringType == typeof(SQLiteDateFunctions)
+            || declaringType == typeof(SQLiteJsonFunctions)
+            || declaringType == typeof(SQLiteFTS5Functions)
+            || declaringType == typeof(SQLiteWindowFunctions)
+            || declaringType == typeof(SQLiteFrameBoundary)
             || declaringType.Namespace == "SQLite.Framework.Extensions";
     }
 

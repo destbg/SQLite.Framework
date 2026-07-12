@@ -65,4 +65,19 @@ public class SQLiteQueryContext
     /// its columns are NULL.
     /// </summary>
     public IReadOnlyCollection<string>? ConstructedPaths { get; init; }
+
+    /// <summary>
+    /// The CLR type each select column carried in the projection, keyed by column name. A
+    /// materializer uses this to read a column bound to an object or interface typed member
+    /// with the value type the projection produced.
+    /// </summary>
+    public IReadOnlyDictionary<string, Type>? SelectValueTypes { get; init; }
+
+    /// <summary>
+    /// Returns the projected CLR type of the named select column or null when it is unknown.
+    /// </summary>
+    public Type? GetSelectValueType(string column)
+    {
+        return SelectValueTypes != null && SelectValueTypes.TryGetValue(column, out Type? type) ? type : null;
+    }
 }

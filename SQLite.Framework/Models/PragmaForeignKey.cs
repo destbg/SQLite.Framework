@@ -34,10 +34,12 @@ public class PragmaForeignKey
     public required string FromColumn { get; set; }
 
     /// <summary>
-    /// The column name on the referenced table.
+    /// The column name on the referenced table or <see langword="null" /> when the foreign key
+    /// was declared without a column list and implicitly targets the referenced table's
+    /// primary key.
     /// </summary>
     [Column("to")]
-    public required string ToColumn { get; set; }
+    public required string? ToColumn { get; set; }
 
     /// <summary>
     /// The action to take when the referenced row is updated. One of <c>NO ACTION</c>,

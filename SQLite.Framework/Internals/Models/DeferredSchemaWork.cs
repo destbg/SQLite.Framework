@@ -1,9 +1,11 @@
 namespace SQLite.Framework.Internals.Models;
 
 /// <summary>
-/// A schema-phase action moved into the data phase. The runner defers a rename or a reconcile of
-/// a table that does not exist yet when raw SQL or a callback of an earlier version is pending,
-/// since that step may create the table, like it did when the versions ran one at a time.
+/// A schema-phase action moved into the data phase. The runner defers a rename, a create or a
+/// reconcile when running it early would not match a stepwise run. That happens when raw SQL or
+/// a callback of an earlier version may create the table, when a pending drop of an earlier
+/// version targets the table or when the reconcile writes values that an earlier data step must
+/// see or produce first.
 /// </summary>
 internal sealed class DeferredSchemaWork
 {
@@ -14,7 +16,7 @@ internal sealed class DeferredSchemaWork
 
     /// <summary>
     /// Orders actions declared at the same version the way the schema phase orders them, table
-    /// renames first, column renames next, reconciles last.
+    /// renames first, column renames next, creates next, reconciles last.
     /// </summary>
     public required int Order { get; init; }
 

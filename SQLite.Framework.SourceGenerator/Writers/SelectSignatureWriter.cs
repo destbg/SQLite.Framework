@@ -922,7 +922,7 @@ public static class SelectSignatureWriter
             foreach (ArgumentSyntax invokeArg in invocation.ArgumentList.Arguments)
             {
                 sb.Append(' ');
-                if (!AppendInvocationArgument(sb, invokeArg.Expression, expandRowArgs: true, ctx))
+                if (!AppendInvocationArgument(sb, invokeArg.Expression, expandRowArgs: true, stringConcatMethod: true, ctx))
                 {
                     return false;
                 }
@@ -944,6 +944,8 @@ public static class SelectSignatureWriter
         sb.Append(' ').Append(FormatType(effectiveContainingType, ctx.TypeArgSubstitutions)).Append('.').Append(method.Name);
 
         bool expandRowArgs = !IsFrameworkTranslatedMethod(method);
+        bool stringConcatMethod = method.ContainingType?.SpecialType == SpecialType.System_String
+            && method.Name is nameof(string.Join) or nameof(string.Concat);
 
         if (receiver != null)
         {
@@ -975,7 +977,7 @@ public static class SelectSignatureWriter
                 for (int j = i; j < args.Count; j++)
                 {
                     sb.Append(' ');
-                    if (!AppendInvocationArgument(sb, args[j].Expression, expandRowArgs, ctx))
+                    if (!AppendInvocationArgument(sb, args[j].Expression, expandRowArgs, stringConcatMethod, ctx))
                     {
                         return false;
                     }
@@ -985,7 +987,7 @@ public static class SelectSignatureWriter
                 break;
             }
 
-            if (!AppendInvocationArgument(sb, args[i].Expression, expandRowArgs, ctx))
+            if (!AppendInvocationArgument(sb, args[i].Expression, expandRowArgs, stringConcatMethod, ctx))
             {
                 return false;
             }
@@ -1000,14 +1002,23 @@ public static class SelectSignatureWriter
         return true;
     }
 
-    private static bool AppendInvocationArgument(StringBuilder sb, ExpressionSyntax argument, bool expandRowArgs, SelectSignatureCtx ctx)
+    private static bool AppendInvocationArgument(StringBuilder sb, ExpressionSyntax argument, bool expandRowArgs, bool stringConcatMethod, SelectSignatureCtx ctx)
     {
         if (expandRowArgs && IsRowLikeReference(argument, ctx))
         {
-            return AppendExpandedRow(sb, argument, ctx);
+            if (stringConcatMethod || !HasPublicParameterlessConstructorType(ctx.Model.GetTypeInfo(argument).Type))
+            {
+                return AppendExpandedRow(sb, argument, ctx);
+            }
         }
 
         return TryAppend(sb, argument, ctx);
+    }
+
+    private static bool HasPublicParameterlessConstructorType(ITypeSymbol? type)
+    {
+        return type is INamedTypeSymbol named
+            && named.InstanceConstructors.Any(c => c.Parameters.Length == 0 && c.DeclaredAccessibility == Accessibility.Public);
     }
 
     private static bool IsExpandedParamsForm(InvocationExpressionSyntax invocation, IMethodSymbol method, SelectSignatureCtx ctx)

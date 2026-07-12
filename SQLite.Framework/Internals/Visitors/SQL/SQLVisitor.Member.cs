@@ -29,6 +29,18 @@ internal partial class SQLVisitor
             node = node.Update(stripped);
         }
 
+        if (node.Expression is ConditionalExpression conditional
+            && !TypeHelpers.IsSimple(conditional.Type, Database.Options)
+            && Database.TryGetCachedTableMapping(conditional.Type, out _)
+            && !IsNullConstant(conditional.IfTrue)
+            && !IsNullConstant(conditional.IfFalse))
+        {
+            return Visit(Expression.Condition(
+                conditional.Test,
+                Expression.MakeMemberAccess(conditional.IfTrue, node.Member),
+                Expression.MakeMemberAccess(conditional.IfFalse, node.Member)));
+        }
+
         if (node.Expression is not MemberExpression and not ParameterExpression)
         {
             node = (MemberExpression)ResolveMember(node);
@@ -50,7 +62,7 @@ internal partial class SQLVisitor
 
             if (MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? expressions))
             {
-                if (expressions.TryGetValue(path, out Expression? expression))
+                if (TryGetColumnPath(expressions, path, out Expression? expression))
                 {
                     if (expression is SQLiteExpression colExpr && !IsInSelectProjection)
                     {
@@ -69,7 +81,7 @@ internal partial class SQLVisitor
 
             if (MethodArguments.TryGetValue(pe, out expressions))
             {
-                if (expressions.TryGetValue(path, out Expression? expression) &&
+                if (TryGetColumnPath(expressions, path, out Expression? expression) &&
                     expression is SQLiteExpression sqlExpression)
                 {
                     return ConvertMemberExpression(node, sqlExpression);
@@ -228,5 +240,25 @@ internal partial class SQLVisitor
         }
 
         return sqlExpression;
+    }
+
+    private static bool TryGetColumnPath(Dictionary<string, Expression> expressions, string path, [NotNullWhen(true)] out Expression? expression)
+    {
+        if (expressions.TryGetValue(path, out expression))
+        {
+            return true;
+        }
+
+        foreach (KeyValuePair<string, Expression> entry in expressions)
+        {
+            if (string.Equals(entry.Key, path, StringComparison.OrdinalIgnoreCase))
+            {
+                expression = entry.Value;
+                return true;
+            }
+        }
+
+        expression = null;
+        return false;
     }
 }

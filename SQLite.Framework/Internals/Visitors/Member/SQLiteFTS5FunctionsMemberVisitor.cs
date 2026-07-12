@@ -163,7 +163,6 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "FTS5 entity type is referenced by user code.")]
     private static SQLiteExpression HandleFTS5Rank(SQLVisitor visitor, MethodCallExpression node)
     {
-        string alias = ResolveEntityAlias(visitor, node.Arguments[0]);
         Type entityType = node.Arguments[0].Type;
         TableMapping mapping = visitor.Database.TableMapping(entityType);
 
@@ -174,6 +173,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             return SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), $"bm25(\"{mapping.TableName}\", {weights})");
         }
 
+        string alias = ResolveEntityAlias(visitor, node.Arguments[0]);
         return SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote("rank")}");
     }
 
@@ -234,33 +234,43 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         {
             foreach (KeyValuePair<string, Expression> kv in dict)
             {
-                if (kv.Value is SQLiteExpression sql)
+                if (kv.Value is SQLiteExpression sql && AliasPrefix(sql) is { } dictAlias)
                 {
-                    string sqlText = sql.ToString();
-                    int dot = sqlText.IndexOf('.');
-                    if (dot > 0)
-                    {
-                        return sqlText[..dot];
-                    }
+                    return dictAlias;
                 }
             }
         }
 
-        if (entity is MemberExpression member)
+        if (entity is MemberExpression member && AliasFromResolved(visitor, member) is { } memberAlias)
         {
-            ResolvedModel resolved = visitor.ResolveExpression(member);
-            if (resolved.SQLiteExpression != null)
+            return memberAlias;
+        }
+
+        if (entity is MemberInitExpression init)
+        {
+            foreach (MemberBinding binding in init.Bindings)
             {
-                string sqlText = resolved.SQLiteExpression.ToString();
-                int dot = sqlText.IndexOf('.');
-                if (dot > 0)
+                if (binding is MemberAssignment assignment && AliasFromResolved(visitor, assignment.Expression) is { } bindingAlias)
                 {
-                    return sqlText[..dot];
+                    return bindingAlias;
                 }
             }
         }
 
         throw new NotSupportedException($"SQLiteFTS5 method requires a direct entity reference, got {entity}.");
+    }
+
+    private static string? AliasFromResolved(SQLVisitor visitor, Expression expression)
+    {
+        ResolvedModel resolved = visitor.ResolveExpression(expression);
+        return resolved.SQLiteExpression == null ? null : AliasPrefix(resolved.SQLiteExpression);
+    }
+
+    private static string? AliasPrefix(SQLiteExpression sql)
+    {
+        string sqlText = sql.ToString();
+        int dot = sqlText.IndexOf('.');
+        return dot > 0 ? sqlText[..dot] : null;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Entity type is referenced by user code via the LINQ expression.")]

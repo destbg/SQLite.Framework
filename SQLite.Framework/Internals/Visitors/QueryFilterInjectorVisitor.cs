@@ -3,7 +3,9 @@ namespace SQLite.Framework.Internals.Visitors;
 /// <summary>
 /// Walks a LINQ expression tree before translation and rewrites every <c>Constant(SQLiteTable&lt;E&gt;)</c>
 /// reference to <c>Table&lt;E&gt;().Where(filter1).Where(filter2)...</c> when the user has registered
-/// <see cref="SQLiteOptions.QueryFilters" /> that apply to <c>E</c>. A subtree under
+/// <see cref="SQLiteOptions.QueryFilters" /> that apply to <c>E</c>. The filters come from the
+/// database that owns the table, so a table read from an attached database uses the filters
+/// registered on that database. A subtree under
 /// <see cref="QueryableExtensions.IgnoreQueryFilters{T}" /> is processed with injection disabled so
 /// the user can opt out per query, including inside subqueries (such as <c>Join</c>).
 /// </summary>
@@ -28,7 +30,7 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
             return node;
         }
 
-        return InjectFilters(node, table.ElementType);
+        return InjectFilters(node, table.ElementType, table.Database.Options);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Element type is preserved by SQLiteTable<T>.")]
@@ -36,12 +38,11 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
     protected override Expression VisitMember(MemberExpression node)
     {
         if (!ignoreFilters
-            && typeof(BaseSQLiteTable).IsAssignableFrom(node.Type)
-            && node.Type.IsGenericType
-            && ExpressionHelpers.IsConstant(node))
+            && node.Type.IsAssignableTo(typeof(IQueryable))
+            && ExpressionHelpers.IsConstant(node)
+            && ExpressionHelpers.GetConstantValue(node) is BaseSQLiteTable table)
         {
-            Type entityType = node.Type.GetGenericArguments()[0];
-            return InjectFilters(node, entityType);
+            return InjectFilters(node, table.ElementType, table.Database.Options);
         }
 
         return base.VisitMember(node);
@@ -68,15 +69,27 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
             && node.Type.IsGenericType)
         {
             Type entityType = node.Type.GetGenericArguments()[0];
-            return InjectFilters(node, entityType);
+            return InjectFilters(node, entityType, ResolveOwnerOptions(node));
         }
 
         return base.VisitMethodCall(node);
     }
 
+    private SQLiteOptions ResolveOwnerOptions(MethodCallExpression node)
+    {
+        if (node.Object != null
+            && ExpressionHelpers.IsConstant(node.Object)
+            && ExpressionHelpers.GetConstantValue(node.Object) is SQLiteDatabase owner)
+        {
+            return owner.Options;
+        }
+
+        return options;
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Element type is preserved by SQLiteTable<T>.")]
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Queryable.Where is rooted by user code that already calls Where.")]
-    private Expression InjectFilters(Expression source, Type entityType)
+    private Expression InjectFilters(Expression source, Type entityType, SQLiteOptions filterOptions)
     {
         if (!injecting.Add(entityType))
         {
@@ -87,7 +100,7 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
         {
             Expression result = source;
 
-            foreach (KeyValuePair<Type, IReadOnlyList<LambdaExpression>> kvp in options.QueryFilters)
+            foreach (KeyValuePair<Type, IReadOnlyList<LambdaExpression>> kvp in filterOptions.QueryFilters)
             {
                 if (!kvp.Key.IsAssignableFrom(entityType))
                 {

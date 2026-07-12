@@ -314,7 +314,7 @@ internal static class CommandHelpers
         return raw.sqlite3_bind_parameter_index(statement, name);
     }
 
-    private static long EnumToInt64(object value)
+    public static long EnumToInt64(object value)
     {
         Type underlying = Enum.GetUnderlyingType(value.GetType());
         return underlying == typeof(ulong)

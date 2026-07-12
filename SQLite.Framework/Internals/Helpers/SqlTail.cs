@@ -28,6 +28,64 @@ internal static class SqlTail
         return sql[..SignificantLength(sql)];
     }
 
+    /// <summary>
+    /// Returns true when <paramref name="sql" /> holds more than one statement, meaning a
+    /// statement-separating semicolon outside string literals, quoted identifiers and comments
+    /// has significant content on both sides.
+    /// </summary>
+    public static bool HasMultipleStatements(string sql)
+    {
+        bool seenContent = false;
+        int i = 0;
+        while (i < sql.Length)
+        {
+            char c = sql[i];
+            if (c == ';')
+            {
+                if (seenContent && HasStatement(sql[(i + 1)..]))
+                {
+                    return true;
+                }
+
+                i++;
+            }
+            else if (char.IsWhiteSpace(c))
+            {
+                i++;
+            }
+            else if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
+            {
+                while (i < sql.Length && sql[i] != '\n')
+                {
+                    i++;
+                }
+            }
+            else if (c == '/' && i + 1 < sql.Length && sql[i + 1] == '*')
+            {
+                int close = sql.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                i = close < 0 ? sql.Length : close + 2;
+            }
+            else if (c == '\'' || c == '"' || c == '`')
+            {
+                i = SkipQuoted(sql, i + 1, c);
+                seenContent = true;
+            }
+            else if (c == '[')
+            {
+                int close = sql.IndexOf(']', i + 1);
+                i = close < 0 ? sql.Length : close + 1;
+                seenContent = true;
+            }
+            else
+            {
+                i++;
+                seenContent = true;
+            }
+        }
+
+        return false;
+    }
+
     private static int SignificantLength(string sql)
     {
         int end = 0;

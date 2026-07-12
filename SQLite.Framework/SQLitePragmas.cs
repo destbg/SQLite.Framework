@@ -335,8 +335,8 @@ public class SQLitePragmas
 
     /// <summary>
     /// <c>PRAGMA wal_checkpoint(<paramref name="mode" />)</c>. Runs a checkpoint with the given
-    /// mode. Returns <see langword="true" /> when the WAL was fully checkpointed,
-    /// <see langword="false" /> when a reader blocked the operation.
+    /// mode. Returns <see langword="true" /> when every WAL frame was checkpointed,
+    /// <see langword="false" /> when a reader or writer blocked part of the work.
     /// </summary>
     public virtual bool WalCheckpoint(SQLiteWalCheckpointMode mode = SQLiteWalCheckpointMode.Passive)
     {
@@ -348,8 +348,11 @@ public class SQLitePragmas
             SQLiteWalCheckpointMode.Truncate => "TRUNCATE",
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
         };
-        int busy = Database.ExecuteScalar<int>($"PRAGMA wal_checkpoint({modeName})");
-        return busy == 0;
+        Dictionary<string, object?> state = Database.Query<Dictionary<string, object?>>($"PRAGMA wal_checkpoint({modeName})").First();
+        long busy = Convert.ToInt64(state["busy"], CultureInfo.InvariantCulture);
+        long log = Convert.ToInt64(state["log"], CultureInfo.InvariantCulture);
+        long checkpointed = Convert.ToInt64(state["checkpointed"], CultureInfo.InvariantCulture);
+        return busy == 0 && log == checkpointed;
     }
 
     /// <summary>

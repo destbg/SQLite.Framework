@@ -236,6 +236,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     public virtual int AddOrUpdateRange(IEnumerable<T> collection, bool runInTransaction = true, SQLiteConflict conflict = SQLiteConflict.Replace)
     {
+        using RecursiveTriggerScope triggerScope = new(Database, Table, conflict == SQLiteConflict.Replace);
+
         if (GetType() == typeof(SQLiteTable<T>)
             && Database.Options.OnActionHooks.Count == 0
             && Database.EffectiveCommandInterceptors.Count == 0
@@ -630,6 +632,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual int RunPreparedRange(string sql, IEnumerable<T> items, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, Action<sqlite3_stmt, T> bindRow, TableColumn? autoIncrement = null, bool detectInsertByRowIdChange = false)
     {
+        items = CommonHelpers.SnapshotLiveSource(Database, items);
         int count = 0;
         List<(T Item, object? Key)>? assignedKeys = runInTransaction && autoIncrement != null ? [] : null;
 
@@ -692,8 +695,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                         Row(item);
                     }
                 }
-
-                command.NotifyExecuted(count);
             }
             catch (Exception exception)
             {
@@ -704,6 +705,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             {
                 Database.ReturnStatement(sql, stmt);
             }
+
+            command.NotifyExecuted(count);
 
             void Row(T item)
             {
@@ -924,6 +927,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual int RunRange(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, IEnumerable<T> collection, bool runInTransaction, Func<T, int> execute)
     {
+        collection = CommonHelpers.SnapshotLiveSource(Database, collection);
         int count = 0;
         TableColumn? autoIncrement = runInTransaction ? GetAutoIncrementColumn() : null;
         List<(T Item, object? Key)>? assignedKeys = autoIncrement != null ? [] : null;
@@ -1073,6 +1077,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected virtual int DefaultAddOrUpdate(T item, SQLiteConflict conflict)
     {
+        using RecursiveTriggerScope triggerScope = new(Database, Table, conflict == SQLiteConflict.Replace);
+
         TableWriteCache<T>? cache = ResolveWriteCache();
         if (cache != null)
         {
@@ -1235,9 +1241,15 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             SQLiteAction.Add => InsertWithExtraColumns(item, columns),
             SQLiteAction.Update => UpdateWithExtraColumns(item, columns),
             SQLiteAction.Remove => DefaultRemove(item),
-            SQLiteAction.AddOrUpdate => InsertWithExtraColumns(item, columns, "INSERT OR REPLACE"),
+            SQLiteAction.AddOrUpdate => ReplaceWithExtraColumns(item, columns),
             _ => throw new InvalidOperationException($"Unsupported SQLiteAction value: {action}"),
         };
+    }
+
+    private int ReplaceWithExtraColumns(T item, IDictionary<string, object?> extra)
+    {
+        using RecursiveTriggerScope triggerScope = new(Database, Table, replaceWrite: true);
+        return InsertWithExtraColumns(item, extra, "INSERT OR REPLACE");
     }
 
     private int UpdateWithExtraColumns(T item, IDictionary<string, object?> extra)
@@ -1485,6 +1497,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     private int RunRangeWithColumns(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, IEnumerable<T> collection, bool runInTransaction, SQLiteAction defaultAction)
     {
+        collection = CommonHelpers.SnapshotLiveSource(Database, collection);
         int count = 0;
         TableColumn? autoIncrement = runInTransaction ? GetAutoIncrementColumn() : null;
         List<(T Item, object? Key)>? assignedKeys = autoIncrement != null ? [] : null;

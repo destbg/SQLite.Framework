@@ -262,6 +262,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             {
                 (TableColumn[] columns, string sql) = Source.GetAddOrUpdateInfoForItemInternal(item, SQLiteConflict.Replace);
                 List<SQLiteParameter> parameters = BuildInsertParameters(columns, Source.GetAutoIncrementColumn(), item);
+                using RecursiveTriggerScope triggerScope = new(Database, Source.Table, replaceWrite: true);
                 return ExecuteInsertReturning(sql, parameters, item);
             }
             default:
@@ -356,6 +357,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
 
     private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, SQLiteAction startingAction, bool runInTransaction, Func<T, List<TResult>> writeUnchanged, bool? columnInsert = null)
     {
+        collection = CommonHelpers.SnapshotLiveSource(Database, collection);
         List<TResult> results = [];
         bool useColumns = columnInsert.HasValue && CommonHelpers.HasColumnHooks<T>(hooks);
         TableColumn? autoIncrement = runInTransaction ? Source.GetAutoIncrementColumn() : null;
@@ -450,6 +452,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             {
                 string insertVerb = action == SQLiteAction.AddOrUpdate ? "INSERT OR REPLACE" : "INSERT";
                 (string sql, List<SQLiteParameter> parameters) = Source.BuildInsertWithExtraColumns(item, columns, insertVerb);
+                using RecursiveTriggerScope triggerScope = new(Database, Source.Table, action == SQLiteAction.AddOrUpdate);
                 return ExecuteInsertReturning(sql, parameters, item);
             }
             case SQLiteAction.Update:

@@ -65,6 +65,12 @@ internal partial class SQLVisitor
     {
         if (node.NodeType == ExpressionType.ArrayIndex)
         {
+            if (!ExpressionHelpers.IsConstant(node.Left)
+                && JsonMethodTranslator.TryArrayIndex(node, this) is { } jsonElement)
+            {
+                return jsonElement;
+            }
+
             Expression resolvedIndex = ExpressionHelpers.IsConstant(node.Right) ? node.Right : Visit(node.Right);
             return Expression.MakeBinary(node.NodeType, node.Left, resolvedIndex, node.IsLiftedToNull, node.Method);
         }

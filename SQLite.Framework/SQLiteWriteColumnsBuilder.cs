@@ -51,7 +51,7 @@ public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(Dynami
             ReferencesRow = true;
         }
 
-        string valueSql = BareSqlTranslator.Translate(database, mapping, value);
+        string valueSql = BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: false);
         if (ExpressionHelpers.IsConstant(value.Body))
         {
             valueSql = ConverterSql.WrapParameter(valueSql, typeof(TValue), database.Options);

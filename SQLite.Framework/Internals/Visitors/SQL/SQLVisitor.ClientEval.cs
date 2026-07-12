@@ -94,11 +94,57 @@ internal partial class SQLVisitor
 
     public SQLiteExpression? TryResolveEntityNullCheck(BinaryExpression node)
     {
-        bool isEntityNullCheck =
-            (IsNullConstant(node.Right) && !TypeHelpers.IsSimple(node.Left.Type, Database.Options))
-            || (IsNullConstant(node.Left) && !TypeHelpers.IsSimple(node.Right.Type, Database.Options));
+        Expression? operand = null;
+        if (IsNullConstant(node.Right) && !TypeHelpers.IsSimple(node.Left.Type, Database.Options))
+        {
+            operand = node.Left;
+        }
+        else if (IsNullConstant(node.Left) && !TypeHelpers.IsSimple(node.Right.Type, Database.Options))
+        {
+            operand = node.Right;
+        }
 
-        return isEntityNullCheck ? Visit(node) as SQLiteExpression : null;
+        if (operand == null)
+        {
+            return null;
+        }
+
+        if (TryGetConstructedComposite(operand) is { } composite
+            && TryFoldCompositeNullCheck(composite, node.NodeType == ExpressionType.Equal) is { } folded)
+        {
+            return Visit(folded) as SQLiteExpression;
+        }
+
+        return Visit(node) as SQLiteExpression;
+    }
+
+    public SQLiteExpression? TryResolveConstructedMemberLeaf(Expression node)
+    {
+        (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node);
+        if (pe == null
+            || !path.Contains('.')
+            || !MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns)
+            || columns.ContainsKey(path)
+            || !HasConstructedBase(columns, path))
+        {
+            return null;
+        }
+
+        return ResolveNestedConstructedMember(columns, path) as SQLiteExpression;
+    }
+
+    private Expression? TryGetConstructedComposite(Expression operand)
+    {
+        (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(operand);
+        if (pe != null
+            && MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns)
+            && columns.TryGetValue(path, out Expression? value)
+            && value is ConditionalExpression or MemberInitExpression or NewExpression)
+        {
+            return value;
+        }
+
+        return null;
     }
 
     private Expression BuildClientEvalFallback(Expression node)
@@ -144,6 +190,66 @@ internal partial class SQLVisitor
             return column is SQLiteExpression;
         }
 
+        foreach (KeyValuePair<string, Expression> entry in columns)
+        {
+            if (string.Equals(entry.Key, path, StringComparison.OrdinalIgnoreCase))
+            {
+                return entry.Value is SQLiteExpression;
+            }
+        }
+
         return path.Length == 0 && columns.Count == 1 && columns.Values.First() is SQLiteExpression;
+    }
+
+    private static bool HasConstructedBase(Dictionary<string, Expression> columns, string path)
+    {
+        int splitIndex = path.LastIndexOf('.');
+        while (splitIndex > 0)
+        {
+            if (columns.TryGetValue(path[..splitIndex], out Expression? baseExpression))
+            {
+                return baseExpression is MemberInitExpression or NewExpression or ConditionalExpression;
+            }
+
+            splitIndex = path.LastIndexOf('.', splitIndex - 1);
+        }
+
+        return false;
+    }
+
+    private static Expression? TryFoldCompositeNullCheck(Expression composite, bool equalNull)
+    {
+        if (composite is MemberInitExpression or NewExpression)
+        {
+            return Expression.Constant(!equalNull);
+        }
+
+        ConditionalExpression conditional = (ConditionalExpression)composite;
+        bool? ifTrue = BranchIsNull(conditional.IfTrue);
+        bool? ifFalse = BranchIsNull(conditional.IfFalse);
+        if (ifTrue == null || ifFalse == null)
+        {
+            return null;
+        }
+
+        return Expression.Condition(
+            conditional.Test,
+            Expression.Constant(equalNull ? ifTrue.Value : !ifTrue.Value),
+            Expression.Constant(equalNull ? ifFalse.Value : !ifFalse.Value));
+    }
+
+    private static bool? BranchIsNull(Expression branch)
+    {
+        if (branch is ConstantExpression { Value: null })
+        {
+            return true;
+        }
+
+        if (branch is MemberInitExpression or NewExpression)
+        {
+            return false;
+        }
+
+        return null;
     }
 }

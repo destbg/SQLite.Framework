@@ -110,9 +110,9 @@ internal static class ExpressionHelpers
 
     public static Expression StripQuotes(Expression node)
     {
-        while (node.NodeType == ExpressionType.Quote)
+        while (node is UnaryExpression { NodeType: ExpressionType.Quote } quote)
         {
-            node = ((UnaryExpression)node).Operand;
+            node = quote.Operand;
         }
 
         return node;

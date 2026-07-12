@@ -26,6 +26,7 @@ internal partial class QueryableVisitor
     public List<SQLiteExpression> Havings { get; } = [];
     public List<(SQLiteExpression Sql, string Type)> SetOperations { get; } = [];
     public List<SQLiteExpression> Selects { get; }
+    public Dictionary<string, Type> SelectValueTypes { get; } = [];
 
     public long? Take { get; private set; }
     public long? Skip { get; private set; }
@@ -48,6 +49,7 @@ internal partial class QueryableVisitor
     public Expression? JoinSelectExpression { get; private set; }
 
     public LambdaExpression? PreviousSelectLambda { get; set; }
+    public Dictionary<string, Expression>? PreviousSelectSourceColumns { get; set; }
 
     public Expression Visit(MethodCallExpression node)
     {
@@ -187,7 +189,7 @@ internal partial class QueryableVisitor
                 {
                     LambdaExpression lambda = cte.Query;
                     bool isRecursive = lambda.Parameters.Count == 1;
-                    Expression cteBody = QueryFilterInjector.InjectCteBody(CommonHelpers.Inline(lambda.Body), visitor.Database.Options, visitor.Counters);
+                    Expression cteBody = QueryFilterInjector.InjectCteBody(CommonHelpers.Inline(lambda.Body), visitor.Database, visitor.Counters);
 
                     if (isRecursive)
                     {
@@ -208,7 +210,14 @@ internal partial class QueryableVisitor
 
                         string[]? recursiveColumnNames = CteColumnMapper.ScalarColumnNames(cteElementType, database.Options)
                             ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
-                        cteName = visitor.CteRegistry.Register(fixedSql, bodyQuery.Parameters.ToArray(), isRecursive: true, key: cte, columnNames: recursiveColumnNames);
+                        cteName = visitor.CteRegistry.Register(
+                            fixedSql,
+                            bodyQuery.Parameters.ToArray(),
+                            isRecursive: true,
+                            key: cte,
+                            columnNames: recursiveColumnNames,
+                            dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns),
+                            constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor));
 
                         visitor.CteParameters.Remove(selfParam);
                         visitor.MethodArguments.Remove(selfParam);
@@ -220,12 +229,20 @@ internal partial class QueryableVisitor
 
                         string[]? bodyColumnNames = CteColumnMapper.ScalarColumnNames(cteElementType, database.Options)
                             ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
-                        cteName = visitor.CteRegistry.Register(bodyQuery.Sql, bodyQuery.Parameters.ToArray(), isRecursive: false, key: cte, columnNames: bodyColumnNames);
+                        cteName = visitor.CteRegistry.Register(
+                            bodyQuery.Sql,
+                            bodyQuery.Parameters.ToArray(),
+                            isRecursive: false,
+                            key: cte,
+                            columnNames: bodyColumnNames,
+                            dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns),
+                            constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor));
                     }
                 }
 
                 entityType = cteElementType;
                 newTableColumns = CteColumnMapper.BuildColumns(cteElementType, cteAlias, database.Options, visitor.Counters);
+                CteColumnMapper.ApplyBodyTraits(newTableColumns, visitor.CteRegistry.Info(cte), visitor);
                 visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = cteAlias };
                 sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteName} AS {cteAlias}");
             }

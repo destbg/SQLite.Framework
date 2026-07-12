@@ -308,21 +308,29 @@ public static class AsyncDatabaseExtensions
 
     /// <summary>
     /// Opens a <see cref="SQLiteBlobStream" /> by table and column name, waiting for the
-    /// connection asynchronously. The returned stream still holds the connection lock, so
-    /// dispose it before issuing other operations.
+    /// connection asynchronously. The connection lock is only held while the blob handle is
+    /// opened, so other operations can run while the stream stays open.
     /// </summary>
     public static Task<SQLiteBlobStream> OpenBlobStreamAsync(this SQLiteDatabase database, string tableName, string columnName, long rowid, bool writable = false, string schema = "main", CancellationToken ct = default)
     {
         return AsyncRunner.Run(async () =>
         {
             IDisposable connectionLock = await database.LockAsync(ct);
-            return database.OpenBlobStreamWithLock(tableName, columnName, rowid, writable, schema, connectionLock);
+            try
+            {
+                return database.OpenBlobStreamWithLock(tableName, columnName, rowid, writable, schema, NoOpLockObject.Instance);
+            }
+            finally
+            {
+                connectionLock.Dispose();
+            }
         }, ct);
     }
 
     /// <summary>
     /// Opens a <see cref="SQLiteBlobStream" /> by entity type and column selector, waiting for
-    /// the connection asynchronously.
+    /// the connection asynchronously. The connection lock is only held while the blob handle is
+    /// opened, so other operations can run while the stream stays open.
     /// </summary>
     public static Task<SQLiteBlobStream> OpenBlobStreamAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteDatabase database, long rowid, Expression<Func<T, byte[]?>> columnSelector, bool writable = false, string schema = "main", CancellationToken ct = default)
     {
@@ -330,7 +338,14 @@ public static class AsyncDatabaseExtensions
         {
             (string tableName, string columnName) = database.ResolveBlobColumn(columnSelector);
             IDisposable connectionLock = await database.LockAsync(ct);
-            return database.OpenBlobStreamWithLock(tableName, columnName, rowid, writable, schema, connectionLock);
+            try
+            {
+                return database.OpenBlobStreamWithLock(tableName, columnName, rowid, writable, schema, NoOpLockObject.Instance);
+            }
+            finally
+            {
+                connectionLock.Dispose();
+            }
         }, ct);
     }
 

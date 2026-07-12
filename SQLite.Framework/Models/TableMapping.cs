@@ -100,6 +100,14 @@ public class TableMapping
     public bool IsFullTextSearch => FullTextSearch != null;
 
     /// <summary>
+    /// Set when this table is the external content source of an FTS5 table that keeps its index
+    /// in sync through triggers. <c>INSERT OR REPLACE</c> writes then run with
+    /// <c>PRAGMA recursive_triggers</c> on, so the delete side of a REPLACE fires the sync
+    /// trigger and stale terms leave the index.
+    /// </summary>
+    public bool HasFtsSyncTriggers { get; internal set; }
+
+    /// <summary>
     /// R-Tree metadata for this table when the class is decorated with
     /// <see cref="RTreeIndexAttribute" />, otherwise <see langword="null" />.
     /// </summary>

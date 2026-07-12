@@ -66,6 +66,22 @@ internal class AliasVisitor
         }
     }
 
+    private void CarryConstructedSubPaths(string alias, Dictionary<string, Expression> sourceColumns, string prefixToMatch)
+    {
+        if (!visitor.ConstructedProjectionPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceConstructed))
+        {
+            return;
+        }
+
+        foreach (string path in sourceConstructed)
+        {
+            if (path.StartsWith(prefixToMatch, StringComparison.Ordinal))
+            {
+                constructedPaths.Add(CheckPrefix(alias, path[prefixToMatch.Length..]));
+            }
+        }
+    }
+
     private void ResolveResultAlias(LambdaExpression resultSelector, Expression body, string prefix)
     {
         switch (body)
@@ -144,6 +160,8 @@ internal class AliasVisitor
                             result.Add($"{alias}.{suffix}", tableColumn.Value);
                         }
                     }
+
+                    CarryConstructedSubPaths(alias, sourceColumns, prefixToMatch);
                 }
                 else if (argument is NewExpression or MemberInitExpression)
                 {
@@ -270,7 +288,16 @@ internal class AliasVisitor
 
                 if (TypeHelpers.IsSimple(memberAssignment.Expression.Type, database.Options))
                 {
-                    result.Add(alias, parameterTableColumns[path]);
+                    if (parameterTableColumns.TryGetValue(path, out Expression? columnExpression))
+                    {
+                        result.Add(alias, columnExpression);
+                    }
+                    else
+                    {
+                        SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
+                        Expression expression = innerVisitor.Visit(memberAssignment.Expression);
+                        result.Add(alias, CoalesceIfLiftedComparison(memberAssignment.Expression, expression));
+                    }
                 }
                 else
                 {
@@ -281,14 +308,17 @@ internal class AliasVisitor
                             result.Add($"{alias}.{tableColumn.Key[(path.Length + 1)..]}", tableColumn.Value);
                         }
                     }
+
+                    CarryConstructedSubPaths(alias, parameterTableColumns, path + ".");
                 }
             }
             else
             {
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
+                Expression valueExpression = ExpressionHelpers.StripUpcast(memberAssignment.Expression);
                 SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
-                Expression expression = innerVisitor.Visit(memberAssignment.Expression);
-                result.Add(alias, CoalesceIfLiftedComparison(memberAssignment.Expression, expression));
+                Expression expression = innerVisitor.Visit(valueExpression);
+                result.Add(alias, CoalesceIfLiftedComparison(valueExpression, expression));
             }
         }
     }
@@ -313,6 +343,8 @@ internal class AliasVisitor
                     result.Add(CheckPrefix(prefix, newPath), tableColumn.Value);
                 }
             }
+
+            CarryConstructedSubPaths(prefix, visitor.TableColumns, prefixToMatch);
         }
     }
 

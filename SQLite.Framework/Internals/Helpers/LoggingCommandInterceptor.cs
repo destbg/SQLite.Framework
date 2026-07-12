@@ -10,8 +10,7 @@ namespace SQLite.Framework.Internals.Helpers;
 internal sealed class LoggingCommandInterceptor : ISQLiteCommandInterceptor
 {
     private readonly Action<string> logger;
-    private readonly Dictionary<SQLiteCommand, long> startedAt = [];
-    private readonly object lockObject = new();
+    private readonly ConditionalWeakTable<SQLiteCommand, StrongBox<long>> startedAt = [];
 
     public LoggingCommandInterceptor(Action<string> logger)
     {
@@ -20,11 +19,7 @@ internal sealed class LoggingCommandInterceptor : ISQLiteCommandInterceptor
 
     public void OnExecuting(SQLiteCommand command)
     {
-        long timestamp = Stopwatch.GetTimestamp();
-        lock (lockObject)
-        {
-            startedAt[command] = timestamp;
-        }
+        startedAt.AddOrUpdate(command, new StrongBox<long>(Stopwatch.GetTimestamp()));
     }
 
     public void OnExecuted(SQLiteCommand command, int? rowsAffected)
@@ -51,15 +46,13 @@ internal sealed class LoggingCommandInterceptor : ISQLiteCommandInterceptor
 
     private TimeSpan TakeElapsed(SQLiteCommand command)
     {
-        long now = Stopwatch.GetTimestamp();
-        long start;
-
-        lock (lockObject)
+        if (!startedAt.TryGetValue(command, out StrongBox<long>? start))
         {
-            startedAt.Remove(command, out start);
+            return TimeSpan.Zero;
         }
 
-        return Stopwatch.GetElapsedTime(start, now);
+        startedAt.Remove(command);
+        return Stopwatch.GetElapsedTime(start.Value, Stopwatch.GetTimestamp());
     }
 
     private static string FormatLine(SQLiteCommand command, TimeSpan elapsed, int? rowsAffected, Exception? exception, bool sensitive)

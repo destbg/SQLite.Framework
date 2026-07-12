@@ -219,7 +219,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return table;
         }
 
-        return tableMappings.GetOrAdd(type, new TableMapping(type, Options));
+        TableMapping created = tableMappings.GetOrAdd(type, new TableMapping(type, Options));
+        MarkFtsContentSource(created);
+        return created;
     }
 
     /// <summary>
@@ -233,7 +235,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return table;
         }
 
-        return tableMappings.GetOrAdd(typeof(T), new TableMapping(typeof(T), Options));
+        TableMapping created = tableMappings.GetOrAdd(typeof(T), new TableMapping(typeof(T), Options));
+        MarkFtsContentSource(created);
+        return created;
     }
 
     /// <summary>
@@ -1007,6 +1011,19 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return attachedDatabases.TryGetValue(other, out schema);
     }
 
+    internal bool AnyAttachedDatabaseHasQueryFilters()
+    {
+        foreach (SQLiteDatabase attached in attachedDatabases.Keys)
+        {
+            if (attached.Options.QueryFilters.Count > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     internal sqlite3_stmt RentStatement(string sql)
     {
         if (statementPool.TryRent(sql, out sqlite3_stmt pooled))
@@ -1329,6 +1346,18 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         throw new NotSupportedException("Only generic queries are supported.");
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
+    private void MarkFtsContentSource(TableMapping mapping)
+    {
+        FtsTableInfo? fts = mapping.FullTextSearch;
+        if (fts == null || fts.ContentMode != FtsContentMode.External || fts.AutoSync != FtsAutoSync.Triggers)
+        {
+            return;
+        }
+
+        TableMapping(fts.Attribute.ContentTable!).HasFtsSyncTriggers = true;
+    }
+
     private Task? TryGetReadGate()
     {
         if (!Options.BlockReadsDuringTransaction)
@@ -1583,8 +1612,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             SQLiteParameter single => [single],
             IEnumerable<SQLiteParameter> list => [.. list],
+            IEnumerable<KeyValuePair<string, object?>> pairs => pairs
+                .Select(pair => new SQLiteParameter
+                {
+                    Name = pair.Key,
+                    Value = pair.Value is SQLiteParameter nested ? nested.Value : pair.Value
+                })
+                .ToList(),
             _ => parameters.GetType()
                 .GetProperties()
+                .Where(p => p.GetIndexParameters().Length == 0)
                 .Select(p => new SQLiteParameter
                 {
                     Name = $"@{p.Name}",

@@ -17,6 +17,18 @@ internal static class JsonEnumText
         return value;
     }
 
+    public static bool IsStringStored(SQLiteOptions options, Type enumType)
+    {
+        Array values = Enum.GetValuesAsUnderlyingType(enumType);
+        if (values.Length == 0)
+        {
+            return false;
+        }
+
+        object value = Enum.ToObject(enumType, values.GetValue(0)!);
+        return TryFormat(options, value, out _);
+    }
+
     public static bool TryFormat(SQLiteOptions options, object? value, out string? text)
     {
         text = null;

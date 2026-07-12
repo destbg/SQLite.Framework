@@ -188,7 +188,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 #endif
 
         TableColumn target = ResolveTargetColumn(column);
-        string expressionSql = TranslateBareSql(sql);
+        string expressionSql = ConverterSql.WrapParameter(TranslateBareSql(sql), target.PropertyType, database.Options);
 
         mapping.AddComputedColumn(new ComputedColumnSpec(target, expressionSql, stored));
         return this;
@@ -397,7 +397,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_31, "Column DEFAULT with computed expression");
 #endif
-        ResolveTargetColumn(column).DefaultSql = "(" + CommonHelpers.Translate(database, defaultExpression, nameof(defaultExpression)) + ")";
+        ResolveTargetColumn(column).DefaultSql = ConverterSql.WrapDefault("(" + CommonHelpers.Translate(database, defaultExpression, nameof(defaultExpression)) + ")", typeof(TValue), database.Options);
         return this;
     }
 
@@ -498,12 +498,12 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
 
     private string TranslateBareSql(LambdaExpression lambda)
     {
-        return BareSqlTranslator.Translate(database, mapping, lambda);
+        return BareSqlTranslator.Translate(database, mapping, lambda, wrapConverterReads: true);
     }
 
     private string TranslateBareSql(ParameterExpression rowParameter, Expression body)
     {
-        return BareSqlTranslator.Translate(database, mapping, rowParameter, body);
+        return BareSqlTranslator.Translate(database, mapping, rowParameter, body, wrapConverterReads: true);
     }
 
     private static bool IsPlainRowMember(Expression expr, ParameterExpression rowParameter, [NotNullWhen(true)] out MemberExpression? member)

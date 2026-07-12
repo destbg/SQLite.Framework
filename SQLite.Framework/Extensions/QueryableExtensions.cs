@@ -546,7 +546,7 @@ public static class QueryableExtensions
         {
             Expression body = CommonHelpers.Inline(setter.Body);
             FromSqlParameterReserver.Reserve(body, translator.Visitor.Counters);
-            if (QueryFilterInjector.ShouldIgnoreAll(body, database.Options))
+            if (QueryFilterInjector.ShouldIgnoreAll(body, database))
             {
                 translator.Visitor.Counters.IgnoreQueryFilters = true;
             }

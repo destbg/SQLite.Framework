@@ -324,6 +324,21 @@ internal static class CommonHelpers
         }
     }
 
+    /// <summary>
+    /// Materializes <paramref name="collection" /> up front when it is a framework queryable over
+    /// <paramref name="database" />, so a range write never inserts into a table while a live query
+    /// over the same database is still being read.
+    /// </summary>
+    public static IEnumerable<T> SnapshotLiveSource<T>(SQLiteDatabase database, IEnumerable<T> collection)
+    {
+        if (collection is BaseSQLiteQueryable queryable && ReferenceEquals(queryable.Database, database))
+        {
+            return collection.ToList();
+        }
+
+        return collection;
+    }
+
     private static bool IsSimpleJsonKey(string name)
     {
         foreach (char ch in name)

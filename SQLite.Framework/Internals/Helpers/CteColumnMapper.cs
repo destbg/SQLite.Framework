@@ -31,6 +31,47 @@ internal static class CteColumnMapper
         return TypeHelpers.IsSimple(elementType, options) ? [Constants.CteScalarColumn] : null;
     }
 
+    public static HashSet<string>? DayOfWeekColumns(Dictionary<string, Expression> bodyColumns)
+    {
+        HashSet<string>? flagged = null;
+        foreach (KeyValuePair<string, Expression> column in bodyColumns)
+        {
+            if (column.Value is SQLiteExpression { IsDayOfWeekInteger: true })
+            {
+                flagged ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                flagged.Add(column.Key);
+            }
+        }
+
+        return flagged;
+    }
+
+    public static HashSet<string>? BodyConstructedPaths(SQLVisitor bodyVisitor)
+    {
+        return bodyVisitor.ConstructedProjectionPaths.TryGetValue(bodyVisitor.TableColumns, out HashSet<string>? constructed)
+            ? constructed
+            : null;
+    }
+
+    public static void ApplyBodyTraits(Dictionary<string, Expression> columns, CteInfo info, SQLVisitor visitor)
+    {
+        if (info.DayOfWeekColumns != null)
+        {
+            foreach (KeyValuePair<string, Expression> column in columns)
+            {
+                if (info.DayOfWeekColumns.Contains(column.Key))
+                {
+                    ((SQLiteExpression)column.Value).WithDayOfWeekInteger();
+                }
+            }
+        }
+
+        if (info.ConstructedPaths != null)
+        {
+            visitor.ConstructedProjectionPaths[columns] = [.. info.ConstructedPaths];
+        }
+    }
+
     public static string[]? BodyColumnNames(Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects)
     {
         List<string> leafKeys = [];

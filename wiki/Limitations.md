@@ -138,6 +138,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - A JSON list of `double` cannot store `NaN`, `+Infinity` or `-Infinity`. JSON has no way to write these values, so adding a list that holds one fails.
 - `DateTime`, `DateTimeOffset`, `DateOnly`, `TimeOnly` and `TimeSpan` values inside a JSON list are kept as text. Reading a part like `.Year` or ordering them, follows the same rules as `Text` storage, not .NET, so results can differ. An equality or `Contains` against a constant or captured value binds the value in the same text form, so it matches.
 - A date or time element inside a JSON list does not match a comparison against a date or time column of the same row. The JSON element is text while the column keeps its storage form.
+- A date or time column of the row placed inside an inline array literal keeps its storage form inside the built JSON array, so reading the projected list back fails when the storage form is not JSON text.
 - Adding a JSON date or time element to a date, such as `r.When.Add(r.Spans.First())`, runs in memory in a `Select` and throws in a `Where`, because the JSON value is text and cannot take part in tick arithmetic.
 - On a JSON dictionary with a `[Flags]` enum key, `Keys.Contains` with an enum column that holds a combined value does not match. The JSON key holds the combined name text, such as `Read, Write`, while the column translation covers single member names only.
 - On a JSON dictionary with a date or time key, `Keys.Contains` and `Values.Contains` with a date or time column of the same row do not match, the same as the list element case above. The JSON key or value is text while the column keeps its storage form. A constant or captured date or time value matches.
@@ -163,6 +164,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - A `bool` column whose converter stores a non-numeric value, such as the text `yes`/`no`, does not work when used directly as a condition, for example `Where(r => r.Flag)` or `r.Flag && other`. SQLite reads the stored text as the number `0`, so the condition is always false.
 - With a custom converter that sets `ColumnSqlExpression` (the read wrap), an equality or `Contains` in a `Where` wraps only the column with `ColumnSqlExpression` and binds the constant through `ToDatabase`. When the read wrap produces a different value than `ToDatabase`, such as an arithmetic offset, the two sides compare in different forms and the row does not match, while the column still reads back correctly in a `Select`. The built-in `jsonb` converter is not affected, since both forms are JSON text.
+- Ordering by a column whose converter maps some value to `NULL` in `ToDatabase` sorts on the stored values. The rows holding that value sort where SQL places `NULL`, first ascending and last descending, not where the restored value would sort.
 
 ## Guid
 
@@ -177,6 +179,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - A projection that builds an object (`Select(r => new Dto { ... })`) binds public properties only. Public fields are left at their default value.
 - Chaining a second `Select` that reads a member set through the constructor of an object built with both constructor arguments and an object initializer, such as `Select(r => new Dto(a) { Note = b }).Select(d => d.A)`, is not supported and throws.
+- An `object`-typed member read back through a conditional projection can carry the storage type, so a boxed `int` can read back as a boxed `long`.
+- A member of a nested object built by a projection cannot be read after `Take`, `Skip` or `Distinct` when the projection runs in memory. The wrapped subquery exposes only plain columns.
 - Calling `GetType` on a value that is `null` throws a different error than LINQ-to-Objects.
 
 ## Schema
@@ -187,6 +191,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Auto-increment is only allowed on a single-column `INTEGER PRIMARY KEY`. Marking a key of another type, such as a `string` key, as auto-increment throws when the table is created.
 - Migrating a column from nullable to NOT NULL fails when existing rows hold `NULL` and the column has no default. Add a default, set a value with `TableChanged(s => s.Set(...))` or keep the column nullable. When the column has a default, the existing `NULL` rows are filled with that default.
 - Adding a column with a default value through `AddColumn` does not apply a custom converter's `ParameterSqlExpression` write wrap to that default, because SQLite's `ALTER TABLE ADD COLUMN` only accepts a constant default, not an expression. For a converter whose `ParameterSqlExpression` transforms the value (rather than the built-in `jsonb`, which reads back through `json()` either way), the backfilled default is stored unwrapped and reads back wrong. Recreate the table through `CreateTable`, which does wrap the default, or add the column with a null default and set the value with a follow-up update.
+- A table rebuild fails when a referencing table holds rows that violate its foreign key. The rebuild moves the referencing rows out and back in while foreign keys stay enforced, and SQLite rejects the violating rows on the way back.
 
 ## Writes
 
@@ -197,3 +202,4 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Raw SQL
 
 - Two `FromSql` fragments composed in the same query that use the same parameter name share one bound value, so the last value wins.
+- A custom translator that hard-codes a parameter name in its SQL text can collide with a generated parameter name in the same query. The query then fails with an error instead of running.

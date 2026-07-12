@@ -187,10 +187,10 @@ public static class EntityMaterializerEmitter
                     EmitAnonymousMaterializer(sb, entity, methodName, entitySet, nestedInitSet);
                     break;
                 case EmitStrategy.Positional:
-                    EmitPositionalMaterializer(sb, entity, methodName);
+                    EmitPositionalMaterializer(sb, entity, methodName, entitySet, nestedInitSet);
                     break;
                 case EmitStrategy.PositionalReflection:
-                    EmitPositionalReflectionMaterializer(sb, entity, methodName);
+                    EmitPositionalReflectionMaterializer(sb, entity, methodName, entitySet, nestedInitSet);
                     break;
             }
         }
@@ -424,34 +424,36 @@ public static class EntityMaterializerEmitter
 
     private static IMethodSymbol? TryFindPositionalConstructor(INamedTypeSymbol entity)
     {
-        IMethodSymbol[] publicCtors = entity.InstanceConstructors
-            .Where(c => c.DeclaredAccessibility == Accessibility.Public && c.Parameters.Length > 0)
-            .ToArray();
+        List<IMethodSymbol> eligible = FindPositionalConstructors(entity);
+        return eligible.Count == 0 ? null : eligible[0];
+    }
 
-        HashSet<string> memberNames = new(StringComparer.OrdinalIgnoreCase);
+    private static List<IMethodSymbol> FindPositionalConstructors(INamedTypeSymbol entity)
+    {
+        Dictionary<string, ITypeSymbol> memberTypes = new(StringComparer.OrdinalIgnoreCase);
         for (INamedTypeSymbol? current = entity; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
         {
             foreach (IPropertySymbol p in current.GetMembers().OfType<IPropertySymbol>())
             {
-                if (p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic && !p.IsIndexer)
+                if (p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic && !p.IsIndexer && !memberTypes.ContainsKey(p.Name))
                 {
-                    memberNames.Add(p.Name);
+                    memberTypes[p.Name] = p.Type;
                 }
             }
 
             foreach (IFieldSymbol f in current.GetMembers().OfType<IFieldSymbol>())
             {
-                if (f.DeclaredAccessibility == Accessibility.Public && !f.IsStatic)
+                if (f.DeclaredAccessibility == Accessibility.Public && !f.IsStatic && !memberTypes.ContainsKey(f.Name))
                 {
-                    memberNames.Add(f.Name);
+                    memberTypes[f.Name] = f.Type;
                 }
             }
         }
 
-        IMethodSymbol? widest = null;
-        foreach (IMethodSymbol ctor in publicCtors)
+        List<IMethodSymbol> eligible = new();
+        foreach (IMethodSymbol ctor in entity.InstanceConstructors)
         {
-            if (widest != null && ctor.Parameters.Length <= widest.Parameters.Length)
+            if (ctor.DeclaredAccessibility != Accessibility.Public || ctor.Parameters.Length == 0)
             {
                 continue;
             }
@@ -459,7 +461,8 @@ public static class EntityMaterializerEmitter
             bool allMatch = true;
             foreach (IParameterSymbol parameter in ctor.Parameters)
             {
-                if (!memberNames.Contains(parameter.Name))
+                if (!memberTypes.TryGetValue(parameter.Name, out ITypeSymbol? memberType)
+                    || !SymbolEqualityComparer.Default.Equals(StripNullableSymbol(parameter.Type), StripNullableSymbol(memberType)))
                 {
                     allMatch = false;
                     break;
@@ -468,11 +471,12 @@ public static class EntityMaterializerEmitter
 
             if (allMatch)
             {
-                widest = ctor;
+                eligible.Add(ctor);
             }
         }
 
-        return widest;
+        eligible.Sort((a, b) => b.Parameters.Length.CompareTo(a.Parameters.Length));
+        return eligible;
     }
 
     private static bool CanEmitGroupingMaterializer(GroupByKeyInvocation invocation)
@@ -638,12 +642,17 @@ public static class EntityMaterializerEmitter
             return true;
         }
 
+        if (type.SpecialType == SpecialType.System_Object || type.TypeKind == TypeKind.Interface)
+        {
+            return true;
+        }
+
         if (type is INamedTypeSymbol nullable && nullable.IsGenericType && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
         {
             type = nullable.TypeArguments[0];
         }
 
-        return type.TypeKind != TypeKind.Interface && !type.IsAbstract;
+        return !type.IsAbstract;
     }
 
     private static bool IsSupportedPropertyType(ITypeSymbol type)
@@ -985,6 +994,20 @@ public static class EntityMaterializerEmitter
         preamble.Append(preambleIndent).Append("int ").Append(idxLocal)
             .Append(" = FindColumnIndex(columns, \"").Append(safeColumn).AppendLine("\");");
 
+        if (propType.SpecialType == SpecialType.System_Object || propType.TypeKind == TypeKind.Interface)
+        {
+            string typeLocal = "__pvt_" + localSuffix;
+            preamble.Append(preambleIndent).Append("global::System.Type ").Append(typeLocal)
+                .Append(" = ctx.GetSelectValueType(\"").Append(safeColumn).Append("\") ?? typeof(").Append(strippedDisplay).AppendLine(");");
+            sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).AppendLine(" = default!;");
+            sb.Append(indent).Append("if (").Append(idxLocal).AppendLine(" >= 0)");
+            sb.Append(indent).AppendLine("{");
+            sb.Append(indent).Append("    object? __raw_").Append(localSuffix).Append(" = reader.GetValue(").Append(idxLocal).Append(", reader.GetColumnType(").Append(idxLocal).Append("), ").Append(typeLocal).AppendLine(");");
+            sb.Append(indent).Append("    if (__raw_").Append(localSuffix).Append(" != null) ").Append(valueLocal).Append(" = (").Append(propTypeDisplay).Append(")__raw_").Append(localSuffix).AppendLine("!;");
+            sb.Append(indent).AppendLine("}");
+            return;
+        }
+
         sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).Append(" = default");
         if (propType.IsReferenceType || propType.NullableAnnotation == NullableAnnotation.Annotated)
         {
@@ -1077,25 +1100,39 @@ public static class EntityMaterializerEmitter
         return sb.ToString();
     }
 
-    private static void EmitPositionalMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName)
+    private static void EmitPositionalMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
-        IMethodSymbol ctor = TryFindPositionalConstructor(entity)!;
+        List<IMethodSymbol> constructors = FindPositionalConstructors(entity);
         string typeName = FormatNewType(entity);
 
         StringBuilder preamble = new();
         StringBuilder rowBody = new();
 
         int counter = 0;
-        List<string> argLocals = new();
-        Dictionary<string, (string Local, ITypeSymbol Type)> argByName = new(StringComparer.OrdinalIgnoreCase);
-        foreach (IParameterSymbol parameter in ctor.Parameters)
+        Dictionary<string, (string Local, string IdxLocal, ITypeSymbol Type)> paramReads = new(StringComparer.OrdinalIgnoreCase);
+        foreach (IMethodSymbol candidate in constructors)
         {
-            string suffix = counter.ToString();
-            counter++;
-            string argLocal = "__arg_" + suffix;
-            argLocals.Add(argLocal);
-            argByName[parameter.Name] = (argLocal, parameter.Type);
-            EmitSimpleColumnReadLocal(rowBody, preamble, "            ", parameter.Type, parameter.Name, argLocal, suffix, "                ", caseInsensitive: true);
+            foreach (IParameterSymbol parameter in candidate.Parameters)
+            {
+                if (paramReads.ContainsKey(parameter.Name))
+                {
+                    continue;
+                }
+
+                string suffix = counter.ToString();
+                counter++;
+                string argLocal = "__arg_" + suffix;
+                if (StripNullableSymbol(parameter.Type) is INamedTypeSymbol nestedArg && ShouldRecurseInto(parameter.Type))
+                {
+                    EmitCompositePropertyReadLocal(rowBody, preamble, "            ", parameter.Type, nestedArg, parameter.Name, argLocal, suffix, "                ", ref counter, entitySet, nestedInitSet);
+                    paramReads[parameter.Name] = (argLocal, "", parameter.Type);
+                }
+                else
+                {
+                    EmitSimpleColumnReadLocal(rowBody, preamble, "            ", parameter.Type, parameter.Name, argLocal, suffix, "                ", caseInsensitive: true);
+                    paramReads[parameter.Name] = (argLocal, "__idx_" + suffix, parameter.Type);
+                }
+            }
         }
 
         List<(string Property, string Local)> extras = new();
@@ -1106,7 +1143,7 @@ public static class EntityMaterializerEmitter
                 continue;
             }
 
-            if (argByName.TryGetValue(prop.Name, out (string Local, ITypeSymbol Type) arg)
+            if (paramReads.TryGetValue(prop.Name, out (string Local, string IdxLocal, ITypeSymbol Type) arg)
                 && SymbolEqualityComparer.Default.Equals(arg.Type, prop.Type))
             {
                 extras.Add((prop.Name, arg.Local));
@@ -1116,42 +1153,151 @@ public static class EntityMaterializerEmitter
             string suffix = counter.ToString();
             counter++;
             string valueLocal = "__ext_" + suffix;
-            EmitSimpleColumnReadLocal(rowBody, preamble, "            ", prop.Type, prop.Name, valueLocal, suffix, "                ", caseInsensitive: true);
+            if (StripNullableSymbol(prop.Type) is INamedTypeSymbol nestedProp && ShouldRecurseInto(prop.Type))
+            {
+                EmitCompositePropertyReadLocal(rowBody, preamble, "            ", prop.Type, nestedProp, prop.Name, valueLocal, suffix, "                ", ref counter, entitySet, nestedInitSet);
+            }
+            else
+            {
+                EmitSimpleColumnReadLocal(rowBody, preamble, "            ", prop.Type, prop.Name, valueLocal, suffix, "                ", caseInsensitive: true);
+            }
             extras.Add((prop.Name, valueLocal));
+        }
+
+        List<(IPropertySymbol Property, string Local, string IdxLocal, List<int> CoveredBy)> fieldWrites = new();
+        foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
+        {
+            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod != null)
+            {
+                continue;
+            }
+
+            List<int> coveredBy = new();
+            for (int c = 0; c < constructors.Count; c++)
+            {
+                if (constructors[c].Parameters.Any(p => string.Equals(p.Name, prop.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    coveredBy.Add(c);
+                }
+            }
+
+            if (coveredBy.Count == constructors.Count)
+            {
+                continue;
+            }
+
+            string suffix = counter.ToString();
+            counter++;
+            string valueLocal = "__fldval_" + suffix;
+            EmitReflectionConvertedRead(rowBody, preamble, prop.Type, prop.Name, valueLocal, suffix);
+            fieldWrites.Add((prop, valueLocal, "__ridx_" + suffix, coveredBy));
+        }
+
+        foreach ((IPropertySymbol prop, _, _, _) in fieldWrites)
+        {
+            sb.Append("        private static readonly global::System.Reflection.FieldInfo? s_fld_").Append(methodName).Append("_").Append(prop.Name)
+                .Append(" = typeof(").Append(prop.ContainingType.ToDisplayString()).Append(").GetField(\"<").Append(prop.Name)
+                .AppendLine(">k__BackingField\", global::System.Reflection.BindingFlags.Instance | global::System.Reflection.BindingFlags.NonPublic);");
         }
 
         sb.Append("        private static global::System.Func<SQLite.Framework.Models.SQLiteQueryContext, object?> ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
         sb.AppendLine("        {");
         sb.AppendLine("            var columns = ctx.Columns!;");
         sb.Append(preamble);
+        if (constructors.Count > 1)
+        {
+            sb.Append("            int __ctorChoice = ");
+            for (int c = 0; c < constructors.Count; c++)
+            {
+                List<string> terms = new();
+                foreach (IParameterSymbol parameter in constructors[c].Parameters)
+                {
+                    string idxLocal = paramReads[parameter.Name].IdxLocal;
+                    if (idxLocal.Length > 0)
+                    {
+                        terms.Add(idxLocal + " >= 0");
+                    }
+                }
+
+                string covered = terms.Count == 0 ? "true" : string.Join(" && ", terms);
+                sb.Append(covered).Append(" ? ").Append(c).Append(" : ");
+            }
+
+            sb.AppendLine("0;");
+        }
+
         sb.AppendLine("            return rowCtx =>");
         sb.AppendLine("            {");
         sb.AppendLine("                var reader = rowCtx.Reader!;");
         sb.Append(rowBody);
-        sb.Append("                return new ").Append(typeName).Append("(");
-        for (int i = 0; i < argLocals.Count; i++)
+        sb.Append("                ").Append(typeName).Append(" __entity = ");
+        for (int c = 0; c < constructors.Count; c++)
         {
-            if (i > 0) sb.Append(", ");
-            sb.Append(argLocals[i]);
+            if (constructors.Count > 1 && c < constructors.Count - 1)
+            {
+                sb.Append("__ctorChoice == ").Append(c).Append(" ? ");
+            }
+
+            AppendConstruction(sb, typeName, constructors[c], paramReads, extras);
+            if (constructors.Count > 1 && c < constructors.Count - 1)
+            {
+                sb.Append(" : ");
+            }
         }
+
+        sb.AppendLine(";");
+        foreach ((IPropertySymbol prop, string local, string idxLocal, List<int> coveredBy) in fieldWrites)
+        {
+            sb.Append("                if (").Append(idxLocal).Append(" >= 0");
+            foreach (int c in coveredBy)
+            {
+                sb.Append(" && __ctorChoice != ").Append(c);
+            }
+
+            sb.AppendLine(")");
+            sb.AppendLine("                {");
+            sb.Append("                    s_fld_").Append(methodName).Append("_").Append(prop.Name).Append("?.SetValue(__entity, ").Append(local).AppendLine(");");
+            sb.AppendLine("                }");
+        }
+
+        sb.AppendLine("                return __entity;");
+        sb.AppendLine("            };");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+    }
+
+    private static void AppendConstruction(StringBuilder sb, string typeName, IMethodSymbol constructor, Dictionary<string, (string Local, string IdxLocal, ITypeSymbol Type)> paramReads, List<(string Property, string Local)> extras)
+    {
+        sb.Append("new ").Append(typeName).Append("(");
+        for (int i = 0; i < constructor.Parameters.Length; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            sb.Append(paramReads[constructor.Parameters[i].Name].Local);
+        }
+
         sb.Append(")");
         if (extras.Count > 0)
         {
             sb.Append(" { ");
             for (int i = 0; i < extras.Count; i++)
             {
-                if (i > 0) sb.Append(", ");
+                if (i > 0)
+                {
+                    sb.Append(", ");
+                }
+
                 sb.Append(extras[i].Property).Append(" = ").Append(extras[i].Local);
             }
+
             sb.Append(" }");
         }
-        sb.AppendLine(";");
-        sb.AppendLine("            };");
-        sb.AppendLine("        }");
-        sb.AppendLine();
     }
 
-    private static void EmitPositionalReflectionMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName)
+    private static void EmitPositionalReflectionMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
         IMethodSymbol ctor = TryFindPositionalConstructor(entity)!;
         string typeField = $"s_type_{methodName}";
@@ -1199,24 +1345,39 @@ public static class EntityMaterializerEmitter
             string argLocal = "__arg_" + suffix;
             argLocals.Add(argLocal);
             argByName[parameter.Name] = (argLocal, suffix, parameter.Type);
-            EmitReflectionConvertedRead(rowBody, preamble, parameter.Type, parameter.Name, argLocal, suffix);
+            if (StripNullableSymbol(parameter.Type) is INamedTypeSymbol nestedArg && ShouldRecurseInto(parameter.Type))
+            {
+                EmitCompositePropertyReadLocal(rowBody, preamble, "            ", parameter.Type, nestedArg, parameter.Name, argLocal, suffix, "                ", ref counter, entitySet, nestedInitSet);
+            }
+            else
+            {
+                EmitReflectionConvertedRead(rowBody, preamble, parameter.Type, parameter.Name, argLocal, suffix);
+            }
         }
 
-        List<(string Property, string Local, string Suffix)> extraReads = new();
+        List<(string Property, string Local, string? GuardIndex)> extraReads = new();
         foreach (IPropertySymbol prop in extras)
         {
             if (argByName.TryGetValue(prop.Name, out (string Local, string Suffix, ITypeSymbol Type) arg)
                 && SymbolEqualityComparer.Default.Equals(arg.Type, prop.Type))
             {
-                extraReads.Add((prop.Name, arg.Local, arg.Suffix));
+                extraReads.Add((prop.Name, arg.Local, StripNullableSymbol(arg.Type) is INamedTypeSymbol && ShouldRecurseInto(arg.Type) ? null : "__ridx_" + arg.Suffix));
                 continue;
             }
 
             string suffix = counter.ToString();
             counter++;
             string valueLocal = "__ext_" + suffix;
-            EmitReflectionConvertedRead(rowBody, preamble, prop.Type, prop.Name, valueLocal, suffix);
-            extraReads.Add((prop.Name, valueLocal, suffix));
+            if (StripNullableSymbol(prop.Type) is INamedTypeSymbol nestedProp && ShouldRecurseInto(prop.Type))
+            {
+                EmitCompositePropertyReadLocal(rowBody, preamble, "            ", prop.Type, nestedProp, prop.Name, valueLocal, suffix, "                ", ref counter, entitySet, nestedInitSet);
+                extraReads.Add((prop.Name, valueLocal, null));
+            }
+            else
+            {
+                EmitReflectionConvertedRead(rowBody, preamble, prop.Type, prop.Name, valueLocal, suffix);
+                extraReads.Add((prop.Name, valueLocal, "__ridx_" + suffix));
+            }
         }
 
         sb.Append("        private static global::System.Func<SQLite.Framework.Models.SQLiteQueryContext, object?> ").Append(methodName).AppendLine("(SQLite.Framework.Models.SQLiteQueryContext ctx)");
@@ -1235,9 +1396,15 @@ public static class EntityMaterializerEmitter
         }
         sb.AppendLine(" };");
         sb.Append("                object __instance = ").Append(ctorField).AppendLine(".Invoke(__args)!;");
-        foreach ((string property, string local, string suffix) in extraReads)
+        foreach ((string property, string local, string? guardIndex) in extraReads)
         {
-            sb.Append("                if (__ridx_").Append(suffix).AppendLine(" >= 0)");
+            if (guardIndex == null)
+            {
+                sb.Append("                s_prop_").Append(methodName).Append("_").Append(property).Append(".SetValue(__instance, ").Append(local).AppendLine(");");
+                continue;
+            }
+
+            sb.Append("                if (").Append(guardIndex).AppendLine(" >= 0)");
             sb.AppendLine("                {");
             sb.Append("                    s_prop_").Append(methodName).Append("_").Append(property).Append(".SetValue(__instance, ").Append(local).AppendLine(");");
             sb.AppendLine("                }");
@@ -1433,7 +1600,7 @@ public static class EntityMaterializerEmitter
 
             if (StripNullableSymbol(prop.Type) is INamedTypeSymbol strippedAnon && strippedAnon.IsAnonymousType)
             {
-                EmitAnonymousProperties(rowBody, preamble, "            ", strippedAnon, propName + ".", "                ", ref nestedCounter, out string nestedResult);
+                EmitAnonymousProperties(rowBody, preamble, "            ", strippedAnon, propName + ".", "                ", ref nestedCounter, out string nestedResult, entitySet, nestedInitSet);
                 nestedResultLocals[propName] = nestedResult;
                 continue;
             }
@@ -1514,7 +1681,7 @@ public static class EntityMaterializerEmitter
         sb.AppendLine();
     }
 
-    private static void EmitAnonymousProperties(StringBuilder sb, StringBuilder preamble, string preambleIndent, INamedTypeSymbol anonType, string columnPrefix, string indent, ref int counter, out string resultLocalName)
+    private static void EmitAnonymousProperties(StringBuilder sb, StringBuilder preamble, string preambleIndent, INamedTypeSymbol anonType, string columnPrefix, string indent, ref int counter, out string resultLocalName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
         List<IPropertySymbol> props = anonType.GetMembers().OfType<IPropertySymbol>().ToList();
         List<string> propValueLocals = new();
@@ -1528,8 +1695,12 @@ public static class EntityMaterializerEmitter
 
             if (StripNullableSymbol(prop.Type) is INamedTypeSymbol nestedAnon && nestedAnon.IsAnonymousType)
             {
-                EmitAnonymousProperties(sb, preamble, preambleIndent, nestedAnon, propColumn + ".", indent, ref counter, out string nestedResult);
+                EmitAnonymousProperties(sb, preamble, preambleIndent, nestedAnon, propColumn + ".", indent, ref counter, out string nestedResult, entitySet, nestedInitSet);
                 sb.Append(indent).Append("var ").Append(valueLocal).Append(" = ").Append(nestedResult).AppendLine(";");
+            }
+            else if (StripNullableSymbol(prop.Type) is INamedTypeSymbol nestedComposite && ShouldRecurseInto(prop.Type))
+            {
+                EmitCompositePropertyReadLocal(sb, preamble, preambleIndent, prop.Type, nestedComposite, propColumn, valueLocal, localSuffix, indent, ref counter, entitySet, nestedInitSet);
             }
             else
             {

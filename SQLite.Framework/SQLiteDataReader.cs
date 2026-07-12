@@ -106,7 +106,9 @@ public class SQLiteDataReader : IDisposable
             return false;
         }
 
-        throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), null);
+        SQLiteException exception = new(result, raw.sqlite3_errmsg(handle).utf8_to_string(), null);
+        Command.NotifyFailed(exception);
+        throw exception;
     }
 
     /// <summary>

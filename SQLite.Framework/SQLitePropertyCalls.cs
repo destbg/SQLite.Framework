@@ -75,7 +75,7 @@ public class SQLitePropertyCalls<T>
         string propertyName = GetPropertyName(propertyGetter);
         visitor.MethodArguments[setter.Parameters[0]] = visitor.TableColumns;
         Expression setterBody = CommonHelpers.Inline(setter.Body);
-        bool ignoreAll = visitor.Counters.IgnoreQueryFilters || QueryFilterInjector.ShouldIgnoreAll(setterBody, visitor.Database.Options);
+        bool ignoreAll = visitor.Counters.IgnoreQueryFilters || QueryFilterInjector.ShouldIgnoreAll(setterBody, visitor.Database);
         setterBody = QueryFilterInjector.Inject(setterBody, visitor.Database.Options, ignoreAll);
         SQLiteExpression expr = (SQLiteExpression)visitor.Visit(setterBody);
 

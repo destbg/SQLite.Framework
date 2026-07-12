@@ -18,6 +18,7 @@ internal partial class QueryableVisitor
         if (node.Arguments.Count == 2)
         {
             LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
+            ThrowIfGroupJoinGroupPredicate(lambda.Body);
             Expression expression = visitor.Visit(lambda.Body);
 
             if (expression is not SQLiteExpression sqlExpression)
@@ -340,10 +341,16 @@ internal partial class QueryableVisitor
                 newTableColumns[Constants.GroupingElementPrefix + tableColumn.Key] = tableColumn.Value;
             }
 
+            HashSet<string> constructedKeyPaths = [];
             for (int i = 0; i < keyNew.Members.Count; i++)
             {
                 string keyName = nameof(IGrouping<,>.Key) + "." + keyNew.Members[i].Name;
-                newTableColumns[keyName] = keyNew.Arguments[i];
+                AddGroupKeyColumns(newTableColumns, constructedKeyPaths, keyName, keyNew.Arguments[i]);
+            }
+
+            if (constructedKeyPaths.Count > 0)
+            {
+                visitor.ConstructedProjectionPaths[newTableColumns] = constructedKeyPaths;
             }
         }
         else if (!isScalarElement)
@@ -366,5 +373,32 @@ internal partial class QueryableVisitor
         visitor.TableColumns = newTableColumns;
 
         return node;
+    }
+
+    private static void AddGroupKeyColumns(Dictionary<string, Expression> columns, HashSet<string> constructedPaths, string path, Expression value)
+    {
+        if (value is MemberInitExpression memberInit)
+        {
+            constructedPaths.Add(path);
+            foreach (MemberAssignment assignment in memberInit.Bindings.OfType<MemberAssignment>())
+            {
+                AddGroupKeyColumns(columns, constructedPaths, path + "." + assignment.Member.Name, assignment.Expression);
+            }
+
+            return;
+        }
+
+        if (value is NewExpression { Members: not null } nested)
+        {
+            constructedPaths.Add(path);
+            for (int i = 0; i < nested.Members.Count; i++)
+            {
+                AddGroupKeyColumns(columns, constructedPaths, path + "." + nested.Members[i].Name, nested.Arguments[i]);
+            }
+
+            return;
+        }
+
+        columns[path] = value;
     }
 }

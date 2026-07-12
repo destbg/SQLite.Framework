@@ -129,7 +129,15 @@ internal partial class JsonCollectionVisitor
                 return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}{ArrayElementExpr(arrayColumn)}){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
             }
 
-            clauses[0] = $"SELECT json_group_array({distinctKeyword}{ArrayElementExpr(selectExpr)})";
+            string aggregatedElement = ArrayElementExpr(selectExpr);
+            if (fromOverride == null
+                && !aggregatedElement.Contains(baseAlias + ".")
+                && !aggregatedElement.Contains("\"value\""))
+            {
+                aggregatedElement = $"(CASE WHEN {baseAlias}.\"key\" IS NOT NULL THEN {aggregatedElement} END)";
+            }
+
+            clauses[0] = $"SELECT json_group_array({distinctKeyword}{aggregatedElement})";
             string simpleSelect = string.Join(nl + sp, clauses);
             return $"({nl}{sp}{simpleSelect}{nl})";
         }

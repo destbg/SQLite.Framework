@@ -91,6 +91,7 @@ public class MigrationScriptTests
             "INSERT INTO \"ScriptRows\" (\"Id\", \"Name\") SELECT \"Id\", \"Name\" FROM \"ScriptRows__sqlitefw_migrate\"",
             "DROP TABLE \"ScriptRows__sqlitefw_migrate\"",
             "PRAGMA foreign_keys = 1",
+            "PRAGMA defer_foreign_keys = 0",
             "UPDATE \"ScriptRows\" SET \"Name\" = 'new'",
             "PRAGMA user_version = 1",
         ], statements);

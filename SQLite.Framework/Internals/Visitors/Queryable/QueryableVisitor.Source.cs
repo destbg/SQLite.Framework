@@ -26,6 +26,7 @@ internal partial class QueryableVisitor
         }
 
         ReconcileDayOfWeekSelects(sqlTranslator);
+        ReconcileConstructedPaths(sqlTranslator);
 
         string operandSql = sqlTranslator.HasSetOperations
             ? $"SELECT * FROM ({query.Sql})"
@@ -41,6 +42,28 @@ internal partial class QueryableVisitor
         SetOperations.Add((sqlExpression, setType));
 
         return sqlExpression;
+    }
+
+    private void ReconcileConstructedPaths(SQLTranslator operand)
+    {
+        if (!visitor.ConstructedProjectionPaths.TryGetValue(visitor.TableColumns, out HashSet<string>? mainPaths))
+        {
+            return;
+        }
+
+        if (operand.Visitor.ConstructedProjectionPaths.TryGetValue(operand.Visitor.TableColumns, out HashSet<string>? operandPaths))
+        {
+            mainPaths.IntersectWith(operandPaths);
+        }
+        else
+        {
+            mainPaths.Clear();
+        }
+
+        if (mainPaths.Count == 0)
+        {
+            visitor.ConstructedProjectionPaths.Remove(visitor.TableColumns);
+        }
     }
 
     private void ReconcileDayOfWeekSelects(SQLTranslator operand)
@@ -71,7 +94,14 @@ internal partial class QueryableVisitor
     private MethodCallExpression VisitFromSql(MethodCallExpression node)
     {
         Type genericType = node.Method.ReturnType.GetGenericArguments()[0];
-        string sql = SqlTail.TrimStatementTail((string)ExpressionHelpers.GetConstantValue(node.Arguments[0])!);
+        string rawSql = (string)ExpressionHelpers.GetConstantValue(node.Arguments[0])!;
+        if (SqlTail.HasMultipleStatements(rawSql))
+        {
+            throw new NotSupportedException(
+                "The SQL contains more than one statement, which a query can only run partially. Use Execute for multi-statement batches.");
+        }
+
+        string sql = SqlTail.TrimStatementTail(rawSql);
         IEnumerable<object> arguments = (IEnumerable<object>)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
         SQLiteParameter[] parameters = arguments.Select(a => (SQLiteParameter)a).ToArray();
 
