@@ -94,28 +94,40 @@ internal partial class SQLVisitor
 
     public SQLiteExpression? TryResolveEntityNullCheck(BinaryExpression node)
     {
-        Expression? operand = null;
-        if (IsNullConstant(node.Right) && !TypeHelpers.IsSimple(node.Left.Type, Database.Options))
-        {
-            operand = node.Left;
-        }
-        else if (IsNullConstant(node.Left) && !TypeHelpers.IsSimple(node.Right.Type, Database.Options))
-        {
-            operand = node.Right;
-        }
-
+        Expression? operand = ExtractNullCheckOperand(node);
         if (operand == null)
         {
             return null;
         }
 
-        if (TryGetConstructedComposite(operand) is { } composite
+        return TryFoldConstructedNullCheck(node) ?? Visit(node) as SQLiteExpression;
+    }
+
+    public SQLiteExpression? TryFoldConstructedNullCheck(BinaryExpression node)
+    {
+        if (ExtractNullCheckOperand(node) is { } operand
+            && TryGetConstructedComposite(operand) is { } composite
             && TryFoldCompositeNullCheck(composite, node.NodeType == ExpressionType.Equal) is { } folded)
         {
             return Visit(folded) as SQLiteExpression;
         }
 
-        return Visit(node) as SQLiteExpression;
+        return null;
+    }
+
+    private Expression? ExtractNullCheckOperand(BinaryExpression node)
+    {
+        if (IsNullConstant(node.Right) && !TypeHelpers.IsSimple(node.Left.Type, Database.Options))
+        {
+            return node.Left;
+        }
+
+        if (IsNullConstant(node.Left) && !TypeHelpers.IsSimple(node.Right.Type, Database.Options))
+        {
+            return node.Right;
+        }
+
+        return null;
     }
 
     public SQLiteExpression? TryResolveConstructedMemberLeaf(Expression node)
@@ -208,7 +220,7 @@ internal partial class SQLVisitor
         {
             if (columns.TryGetValue(path[..splitIndex], out Expression? baseExpression))
             {
-                return baseExpression is MemberInitExpression or NewExpression or ConditionalExpression;
+                return baseExpression is ConditionalExpression;
             }
 
             splitIndex = path.LastIndexOf('.', splitIndex - 1);

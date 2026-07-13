@@ -31,6 +31,46 @@ public class RawSqlParameterVariantTests
     }
 
     [Fact]
+    public void PrefixlessParameterNameBindsToPrefixedPlaceholder()
+    {
+        using TestDatabase db = new();
+
+        string? actual = db.Query<string>("SELECT @v", new SQLiteParameter { Name = "v", Value = "bare" }).Single();
+
+        Assert.Equal("bare", actual);
+    }
+
+    [Fact]
+    public void ColonPrefixedParameterNameBindsAcrossPrefixes()
+    {
+        using TestDatabase db = new();
+
+        string? actual = db.Query<string>("SELECT @v", new SQLiteParameter { Name = ":v", Value = "colon" }).Single();
+
+        Assert.Equal("colon", actual);
+    }
+
+    [Fact]
+    public void DollarPrefixedParameterNameBindsAcrossPrefixes()
+    {
+        using TestDatabase db = new();
+
+        string? actual = db.Query<string>("SELECT @v", new SQLiteParameter { Name = "$v", Value = "money" }).Single();
+
+        Assert.Equal("money", actual);
+    }
+
+    [Fact]
+    public void PrefixedNameBindsToNumberedPositionalPlaceholder()
+    {
+        using TestDatabase db = new();
+
+        string? actual = db.Query<string>("SELECT ?1", new SQLiteParameter { Name = "@1", Value = "posmix" }).Single();
+
+        Assert.Equal("posmix", actual);
+    }
+
+    [Fact]
     public void EmptyParameterNameLeavesValueUnbound()
     {
         using TestDatabase db = new();

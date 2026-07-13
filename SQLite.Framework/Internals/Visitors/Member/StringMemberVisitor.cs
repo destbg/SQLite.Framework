@@ -684,7 +684,7 @@ internal static class StringMemberVisitor
     private static bool HasInlineArrayArgument(MethodCallExpression node)
     {
         return (node.Method.Name == nameof(string.Concat) && node.Arguments is [NewArrayExpression])
-            || (node.Method.Name == nameof(string.Join) && node.Arguments.Count == 2 && node.Arguments[1] is NewArrayExpression);
+            || (node.Method.Name == nameof(string.Join) && node.Arguments is [_, NewArrayExpression]);
     }
 
     private static SQLiteExpression[]? TryResolveInlineArrayElements(SQLVisitor visitor, NewArrayExpression array)
@@ -706,13 +706,7 @@ internal static class StringMemberVisitor
 
     private static MethodCallExpression RebuildClientCall(MethodCallExpression node, List<ResolvedModel> arguments)
     {
-        ParameterInfo[] parameters = node.Method.GetParameters();
-        IEnumerable<Expression> callArguments = arguments.Select((f, i) =>
-            f.Expression.Type != parameters[i].ParameterType
-                ? Expression.Convert(f.Expression, parameters[i].ParameterType)
-                : f.Expression);
-
-        return Expression.Call(node.Method, callArguments);
+        return Expression.Call(node.Method, arguments.Select(f => f.Expression));
     }
 
     private static bool HasNonConstantComparisonArgument(MethodCallExpression node, List<ResolvedModel> arguments)

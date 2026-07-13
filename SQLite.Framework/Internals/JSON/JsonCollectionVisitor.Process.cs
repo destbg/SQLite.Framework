@@ -289,11 +289,7 @@ internal partial class JsonCollectionVisitor
         {
             SQLiteExpression keyNumber = EnumMemberVisitor.BuildTextStorageEnumToNumber(
                 visitor, typeof(long), keyType, SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), keySql));
-            if (keyNumber.Parameters != null)
-            {
-                parameters.AddRange(keyNumber.Parameters);
-            }
-
+            parameters.AddRange(keyNumber.Parameters!);
             keySql = keyNumber.ToString();
         }
 

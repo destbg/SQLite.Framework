@@ -44,4 +44,35 @@ public class FtsRankProjectionVariantTests
         Assert.Single(hits);
         Assert.True(hits[0].Score < 0);
     }
+
+    [Fact]
+    public void RankAfterDoubleEntityCarryReadsScore()
+    {
+        using TestDatabase db = Setup();
+
+        var hits = db.Table<LftsSyncNoteSearch>()
+            .Where(s => SQLiteFTS5Functions.Match(s, "apple"))
+            .Select(s => new { S = s })
+            .Select(x => new { W = x })
+            .Select(y => new { Score = SQLiteFTS5Functions.Rank(y.W.S) })
+            .ToList();
+
+        Assert.Single(hits);
+        Assert.True(hits[0].Score < 0);
+    }
+
+    [Fact]
+    public void RankOrderByOverCarriedEntityReadsRows()
+    {
+        using TestDatabase db = Setup();
+
+        List<string> rows = db.Table<LftsSyncNoteSearch>()
+            .Where(s => SQLiteFTS5Functions.Match(s, "apple"))
+            .Select(s => new { S = s, Tagged = CmcClientFns.Tag("q") })
+            .OrderBy(x => SQLiteFTS5Functions.Rank(x.S))
+            .Select(x => x.Tagged)
+            .ToList();
+
+        Assert.Equal(["[q]"], rows);
+    }
 }

@@ -246,24 +246,12 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
             return memberAlias;
         }
 
-        if (entity is MemberInitExpression init)
-        {
-            foreach (MemberBinding binding in init.Bindings)
-            {
-                if (binding is MemberAssignment assignment && AliasFromResolved(visitor, assignment.Expression) is { } bindingAlias)
-                {
-                    return bindingAlias;
-                }
-            }
-        }
-
         throw new NotSupportedException($"SQLiteFTS5 method requires a direct entity reference, got {entity}.");
     }
 
     private static string? AliasFromResolved(SQLVisitor visitor, Expression expression)
     {
-        ResolvedModel resolved = visitor.ResolveExpression(expression);
-        return resolved.SQLiteExpression == null ? null : AliasPrefix(resolved.SQLiteExpression);
+        return AliasPrefix(visitor.ResolveExpression(expression).SQLiteExpression!);
     }
 
     private static string? AliasPrefix(SQLiteExpression sql)

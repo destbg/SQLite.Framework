@@ -22,6 +22,17 @@ internal sealed class ConstructedConditionalFinderVisitor : ExpressionVisitor
         return base.VisitConditional(node);
     }
 
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if (FindConstructedMemberValue(node) is { } boundValue && ContainsCall(boundValue))
+        {
+            Found = true;
+            return node;
+        }
+
+        return base.VisitMember(node);
+    }
+
     protected override Expression VisitBinary(BinaryExpression node)
     {
         if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
@@ -38,6 +49,30 @@ internal sealed class ConstructedConditionalFinderVisitor : ExpressionVisitor
     private static bool IsNullConstant(Expression node)
     {
         return node is ConstantExpression { Value: null };
+    }
+
+    private static Expression? FindConstructedMemberValue(MemberExpression node)
+    {
+        if (node.Expression is MemberInitExpression init)
+        {
+            return init.Bindings.OfType<MemberAssignment>()
+                .FirstOrDefault(b => b.Member.Name == node.Member.Name)?.Expression;
+        }
+
+        if (node.Expression is NewExpression { Members: not null } anonymous)
+        {
+            int index = anonymous.Members.ToList().FindIndex(m => m.Name == node.Member.Name);
+            return index >= 0 ? anonymous.Arguments[index] : null;
+        }
+
+        return null;
+    }
+
+    private static bool ContainsCall(Expression node)
+    {
+        CallFinderVisitor finder = new();
+        finder.Visit(node);
+        return finder.Found;
     }
 
     private static bool IsConstructedOperand(Expression node)

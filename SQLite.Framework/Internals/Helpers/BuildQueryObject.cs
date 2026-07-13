@@ -586,7 +586,7 @@ internal static class BuildQueryObject
             {
                 Type readType = selectValueTypes != null && selectValueTypes.TryGetValue(columnName, out Type? projected)
                     ? projected
-                    : slot.PropertyType;
+                    : typeof(object);
                 return new SlotPlan
                 {
                     Slot = slot,

@@ -96,6 +96,24 @@ public class GroupJoinPredicateVariantTests
     }
 
     [Fact]
+    public void WhereAfterUnflattenedGroupJoinNotUsingGroupThrowsFlattenGuidance()
+    {
+        using TestDatabase db = Setup(out _, out _);
+        GjpvHolder holder = new() { Seq = [1, 3], Kids = [new GjpvChild { Id = 9, ParentId = 9 }] };
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => (from p in db.Table<GjpvParent>()
+            join c in db.Table<GjpvChild>() on p.Id equals c.ParentId into g
+            where p.Name != "p2" && holder.Seq.Contains(p.Id) && holder.Kids.Any()
+            select p.Id).ToList());
+
+        Assert.Equal(
+            "GroupJoin (the LINQ 'into <name>' syntax) is only supported when flattened into a join. " +
+            "Use the pattern `from x in table join y in other on x.Id equals y.Id into g from y in g select ...` " +
+            "for an inner join or `... from y in g.DefaultIfEmpty() select ...` for a left join.",
+            ex.Message);
+    }
+
+    [Fact]
     public void FilteredGroupWithClientPredicateThrows()
     {
         using TestDatabase db = Setup(out _, out _);

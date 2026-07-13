@@ -54,11 +54,10 @@ internal partial class QueryableVisitor
 
                 if (!ReferenceEquals(signatureBody, lambda.Body)
                     && shape.Found
-                    && PreviousSelectSourceColumns != null
                     && database.Options.SelectMaterializers.ContainsKey(RawSelectSignature))
                 {
                     lambda = Expression.Lambda(signatureBody, PreviousSelectLambda!.Parameters);
-                    visitor.TableColumns = PreviousSelectSourceColumns;
+                    visitor.TableColumns = PreviousSelectSourceColumns!;
                 }
             }
         }

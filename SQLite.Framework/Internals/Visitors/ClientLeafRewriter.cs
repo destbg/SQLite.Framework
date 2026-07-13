@@ -39,11 +39,6 @@ internal sealed class ClientLeafRewriter : ExpressionVisitor
             && TypeHelpers.IsSimple(node.Type, owner.Database.Options)
             && owner.TryResolveConstructedMemberLeaf(node) is { } constructedLeaf)
         {
-            if (node.Type != constructedLeaf.Type && Nullable.GetUnderlyingType(node.Type) == constructedLeaf.Type)
-            {
-                return Expression.Convert(constructedLeaf, node.Type);
-            }
-
             return constructedLeaf;
         }
 

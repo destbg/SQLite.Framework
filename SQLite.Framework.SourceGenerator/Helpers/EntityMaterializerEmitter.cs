@@ -154,7 +154,10 @@ public static class EntityMaterializerEmitter
 
                 if (CanEmitGroupingMaterializer(invocation))
                 {
-                    string keyDisplay = invocation.KeyType.ToDisplayString();
+                    ITypeSymbol keyType = invocation.KeyType.IsReferenceType
+                        ? invocation.KeyType.WithNullableAnnotation(NullableAnnotation.NotAnnotated)
+                        : invocation.KeyType;
+                    string keyDisplay = keyType.ToDisplayString();
                     string elementDisplay = invocation.ParameterType.ToDisplayString();
                     if (emittedGroupingTypes.Add(keyDisplay + "|" + elementDisplay))
                     {
@@ -998,7 +1001,7 @@ public static class EntityMaterializerEmitter
         {
             string typeLocal = "__pvt_" + localSuffix;
             preamble.Append(preambleIndent).Append("global::System.Type ").Append(typeLocal)
-                .Append(" = ctx.GetSelectValueType(\"").Append(safeColumn).Append("\") ?? typeof(").Append(strippedDisplay).AppendLine(");");
+                .Append(" = ctx.GetSelectValueType(\"").Append(safeColumn).AppendLine("\") ?? typeof(object);");
             sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).AppendLine(" = default!;");
             sb.Append(indent).Append("if (").Append(idxLocal).AppendLine(" >= 0)");
             sb.Append(indent).AppendLine("{");

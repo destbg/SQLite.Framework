@@ -45,6 +45,14 @@ public class QcvDowPart
 [JsonSerializable(typeof(List<int>))]
 internal partial class QcvContext : JsonSerializerContext;
 
+public static class QcvClientFns
+{
+    public static int[] Wrap(int[] values)
+    {
+        return values;
+    }
+}
+
 public class QueryCompositionVariantTests
 {
     private static List<QcvRow> Rows() =>
@@ -64,6 +72,15 @@ public class QueryCompositionVariantTests
         db.Table<QcvRow>().Schema.CreateTable();
         db.Table<QcvRow>().AddRange(Rows());
         return db;
+    }
+
+    [Fact]
+    public void SelectManyOverJsonChainAtQueryLevelThrows()
+    {
+        using TestDatabase db = Setup();
+
+        Assert.Throws<NotSupportedException>(() =>
+            db.Table<QcvRow>().SelectMany(r => r.Numbers.Where(n => n > 0)).ToList());
     }
 
     [Fact]
@@ -150,6 +167,28 @@ public class QueryCompositionVariantTests
     }
 
     [Fact]
+    public void ArrayIndexerWithClientIndexMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+
+        List<int> expected = Rows().OrderBy(r => r.Id).Select(r => r.Codes[CmcClientFns.Pass(0)]).ToList();
+        List<int> actual = db.Table<QcvRow>().OrderBy(r => r.Id).Select(r => r.Codes[CmcClientFns.Pass(0)]).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ArrayIndexerOverClientArrayMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+
+        List<int> expected = Rows().OrderBy(r => r.Id).Select(r => QcvClientFns.Wrap(r.Codes)[0]).ToList();
+        List<int> actual = db.Table<QcvRow>().OrderBy(r => r.Id).Select(r => QcvClientFns.Wrap(r.Codes)[0]).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void JsonListContainsColumnArgumentMatchesLinq()
     {
         using TestDatabase db = Setup();
@@ -175,6 +214,65 @@ public class QueryCompositionVariantTests
             .Select(r => new QcvPosDto(r.Label))
             .Select(x => CmcClientFns.Pass(x.Label.Length))
             .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CapturedArrayConcatMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+        string[] parts = ["c", "d"];
+
+        List<string> expected = Rows().OrderBy(r => r.Id).Select(r => r.Label + string.Concat(parts)).ToList();
+        List<string> actual = db.Table<QcvRow>().OrderBy(r => r.Id).Select(r => r.Label + string.Concat(parts)).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void SelectManyOverInlineArrayAtQueryLevelThrows()
+    {
+        using TestDatabase db = Setup();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<QcvRow>().SelectMany(r => new[] { r.Id, 5 }).ToList());
+    }
+
+    [Fact]
+    public void FourArgumentJoinOverInlineArrayMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+
+        List<string> expected = Rows().OrderBy(r => r.Id)
+            .Select(r => string.Join("-", new[] { r.Label, "x", "y" }, 0, 2))
+            .ToList();
+
+        List<string> actual = db.Table<QcvRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => string.Join("-", new[] { r.Label, "x", "y" }, 0, 2))
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void SelectManyOverJsonDefaultIfEmptyAtQueryLevelThrows()
+    {
+        using TestDatabase db = Setup();
+
+        Assert.ThrowsAny<Exception>(() =>
+            db.Table<QcvRow>().SelectMany(r => r.Numbers.DefaultIfEmpty()).ToList());
+    }
+
+    [Fact]
+    public void SingleEnumerableConcatMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+        List<string> parts = ["a", "b"];
+
+        List<string> expected = Rows().OrderBy(r => r.Id).Select(r => r.Label + string.Concat(parts)).ToList();
+        List<string> actual = db.Table<QcvRow>().OrderBy(r => r.Id).Select(r => r.Label + string.Concat(parts)).ToList();
 
         Assert.Equal(expected, actual);
     }

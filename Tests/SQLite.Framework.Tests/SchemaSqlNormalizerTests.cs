@@ -25,6 +25,7 @@ public class SchemaSqlNormalizerTests
     [InlineData("if not a", "if not a")]
     [InlineData("A_1$ where", "a_1$ WHERE")]
     [InlineData("$param a", "$PARAM a")]
+    [InlineData("_lead b", "_LEAD b")]
     public void EquivalentDefinitionsMatch(string expected, string actual)
     {
         Assert.True(SchemaSqlNormalizer.AreEquivalent(expected, actual));

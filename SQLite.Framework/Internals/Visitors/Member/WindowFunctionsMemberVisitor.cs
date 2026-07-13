@@ -130,8 +130,7 @@ internal static class WindowFunctionsMemberVisitor
         };
 
         if (CarriesArgumentValue(node.Method.Name)
-            && arguments.Count > 0
-            && arguments[0].SQLiteExpression is { IsDayOfWeekInteger: true })
+            && arguments[0].SQLiteExpression!.IsDayOfWeekInteger)
         {
             result.WithDayOfWeekInteger();
         }

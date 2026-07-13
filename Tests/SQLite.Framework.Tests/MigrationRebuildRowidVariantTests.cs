@@ -37,8 +37,8 @@ public class MigrationRebuildRowidVariantTests
     public void RebuildTableWithAllRowidNamesShadowedKeepsRows()
     {
         using TestDatabase db = new();
-        db.Table<RowidTrioRow>().Schema.CreateTable();
-        db.Table<RowidTrioRow>().Add(new RowidTrioRow { Code = "a", RowidValue = 1, UnderscoreValue = 2, OidValue = 3, Note = "n" });
+        db.Execute("CREATE TABLE \"RowidTrioRows\" (\"Code\" TEXT NOT NULL PRIMARY KEY, \"rowid\" INTEGER NOT NULL, \"_rowid_\" INTEGER NOT NULL, \"oid\" INTEGER NOT NULL, \"Note\" TEXT, \"Legacy\" TEXT)");
+        db.Execute("INSERT INTO \"RowidTrioRows\" (\"Code\", \"rowid\", \"_rowid_\", \"oid\", \"Note\", \"Legacy\") VALUES ('a', 1, 2, 3, 'n', 'x')");
 
         db.Schema.Migrations()
             .Version(1, m => m.TableChanged<RowidTrioRow>(rebuild: true))
@@ -50,6 +50,7 @@ public class MigrationRebuildRowidVariantTests
         Assert.Equal(2, row.UnderscoreValue);
         Assert.Equal(3, row.OidValue);
         Assert.Equal("n", row.Note);
+        Assert.Equal(0, db.ExecuteScalar<long>("SELECT COUNT(*) FROM pragma_table_info('RowidTrioRows') WHERE name = 'Legacy'"));
     }
 
     [Fact]

@@ -48,17 +48,19 @@ internal partial class SQLVisitor
     protected override MemberAssignment VisitMemberAssignment(MemberAssignment node)
     {
         Type targetType = node.Expression.Type;
+        Expression visitTarget = node.Expression;
         if (node.Expression is UnaryExpression { NodeType: ExpressionType.Convert } boxing
             && (boxing.Type == typeof(object) || boxing.Type.IsInterface)
             && TypeHelpers.IsSimple(boxing.Operand.Type, Database.Options))
         {
             targetType = boxing.Operand.Type;
+            visitTarget = boxing.Operand;
         }
 
-        Expression expression = Visit(node.Expression);
-        if (expression is SQLiteExpression
-            && node.Expression is not MemberExpression and not ConstantExpression
-            && !ExpressionHelpers.IsConstant(node.Expression))
+        Expression expression = Visit(visitTarget);
+        if (ClientEvalAllowed
+            && expression is SQLiteExpression
+            && node.Expression is not MemberExpression and not ConstantExpression)
         {
             expression = ToClientExpression(node.Expression);
         }
@@ -66,11 +68,6 @@ internal partial class SQLVisitor
         if (expression is SQLiteExpression sqlExpression && sqlExpression.Type != targetType)
         {
             expression = SQLiteExpression.Alias(targetType, Counters.NextIdentifier(), sqlExpression, sqlExpression.Parameters);
-        }
-
-        if (targetType != node.Expression.Type && expression is SQLiteExpression unwrapped)
-        {
-            expression = Expression.Convert(unwrapped, node.Expression.Type);
         }
 
         return node.Update(expression);

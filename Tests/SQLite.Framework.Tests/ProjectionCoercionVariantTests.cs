@@ -24,6 +24,23 @@ public class PcvObjDto
     public object? Tag { get; set; }
 }
 
+public struct PcvStamp
+{
+    public int Value { get; set; }
+}
+
+public class PcvMixedDto
+{
+    public object? Tag { get; set; }
+
+    public IComparable? Rank { get; set; }
+}
+
+public class PcvIfaceDto
+{
+    public IComparable? Rank { get; set; }
+}
+
 [Table("PcvRoRows")]
 public class PcvRoRow
 {
@@ -108,5 +125,87 @@ public class ProjectionCoercionVariantTests
         Assert.Equal(typeof(int), withTypes.GetSelectValueType("Tag"));
         Assert.Null(withTypes.GetSelectValueType("Other"));
         Assert.Null(withoutTypes.GetSelectValueType("Tag"));
+    }
+
+    [Fact]
+    public void ConditionalDtoWithStructBoxedObjectMember()
+    {
+        using TestDatabase db = Setup();
+
+        Func<List<int>> query = () => db.Table<PcvRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => new { r.Id, Dto = r.Id > 1 ? new PcvObjDto { Tag = new PcvStamp { Value = r.Id } } : null })
+            .ToList()
+            .Select(x => x.Dto == null ? -1 : ((PcvStamp)x.Dto.Tag!).Value)
+            .ToList();
+
+        if (db.Options.ReflectionFallbackDisabled)
+        {
+            Assert.Equal([-1, 2], query());
+            return;
+        }
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => query());
+        Assert.Equal("The new expression 'new PcvStamp()' is not supported.", ex.Message);
+    }
+
+    [Fact]
+    public void ConditionalDtoWithInterfaceMemberMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+
+        List<int> expected = Rows().OrderBy(r => r.Id)
+            .Select(r => new { r.Id, Dto = r.Id > 1 ? new PcvMixedDto { Rank = r.Id } : null })
+            .Select(x => x.Dto == null ? -1 : Convert.ToInt32(x.Dto.Rank))
+            .ToList();
+
+        List<int> actual = db.Table<PcvRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => new { r.Id, Dto = r.Id > 1 ? new PcvMixedDto { Rank = r.Id } : null })
+            .ToList()
+            .Select(x => x.Dto == null ? -1 : Convert.ToInt32(x.Dto.Rank))
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CteDtoWithObjectMemberReadsStorageType()
+    {
+        using TestDatabase db = Setup();
+
+        SQLiteCte<PcvObjDto> cte = db.With(() => db.Table<PcvRow>().OrderBy(r => r.Id).Select(r => new PcvObjDto { Tag = (object)r.Id }));
+        List<PcvObjDto> rows = (from d in cte select d).ToList();
+
+        Assert.Equal([1L, 2L], rows.Select(d => d.Tag).ToList());
+    }
+
+    [Fact]
+    public void CteDtoWithInterfaceMemberReadsValue()
+    {
+        using TestDatabase db = Setup();
+
+        SQLiteCte<PcvIfaceDto> cte = db.With(() => db.Table<PcvRow>().OrderBy(r => r.Id).Select(r => new PcvIfaceDto { Rank = r.Id }));
+        List<PcvIfaceDto> rows = (from d in cte select d).ToList();
+
+        Assert.Equal([1, 2], rows.Select(d => Convert.ToInt32(d.Rank)).ToList());
+    }
+
+    [Fact]
+    public void DtoWithCoalescedObjectMemberMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+
+        List<object?> expected = Rows().OrderBy(r => r.Id)
+            .Select(r => new PcvObjDto { Tag = r.Name ?? (object)"x" })
+            .Select(d => d.Tag)
+            .ToList();
+
+        List<PcvObjDto> rows = db.Table<PcvRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => new PcvObjDto { Tag = r.Name ?? (object)"x" })
+            .ToList();
+
+        Assert.Equal(expected, rows.Select(d => d.Tag).ToList());
     }
 }

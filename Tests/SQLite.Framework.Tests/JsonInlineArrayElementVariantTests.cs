@@ -41,6 +41,13 @@ public sealed class Json19evPoint
 [JsonSerializable(typeof(List<Json19evEmptyEnum>))]
 [JsonSerializable(typeof(List<Json19evPlainFruit>))]
 [JsonSerializable(typeof(List<char>))]
+[JsonSerializable(typeof(List<short>))]
+[JsonSerializable(typeof(List<byte>))]
+[JsonSerializable(typeof(List<sbyte>))]
+[JsonSerializable(typeof(List<ushort>))]
+[JsonSerializable(typeof(List<uint>))]
+[JsonSerializable(typeof(List<ulong>))]
+[JsonSerializable(typeof(List<float>))]
 internal partial class Json19evContext : JsonSerializerContext;
 
 public class JsonInlineArrayElementVariantTests
@@ -61,6 +68,13 @@ public class JsonInlineArrayElementVariantTests
             b.TypeConverters[typeof(List<Json19evEmptyEnum>)] = new SQLiteJsonConverter<List<Json19evEmptyEnum>>(Json19evContext.Default.ListJson19evEmptyEnum);
             b.TypeConverters[typeof(List<Json19evPlainFruit>)] = new SQLiteJsonConverter<List<Json19evPlainFruit>>(Json19evContext.Default.ListJson19evPlainFruit);
             b.TypeConverters[typeof(List<char>)] = new SQLiteJsonConverter<List<char>>(Json19evContext.Default.ListChar);
+            b.TypeConverters[typeof(List<short>)] = new SQLiteJsonConverter<List<short>>(Json19evContext.Default.ListInt16);
+            b.TypeConverters[typeof(List<byte>)] = new SQLiteJsonConverter<List<byte>>(Json19evContext.Default.ListByte);
+            b.TypeConverters[typeof(List<sbyte>)] = new SQLiteJsonConverter<List<sbyte>>(Json19evContext.Default.ListSByte);
+            b.TypeConverters[typeof(List<ushort>)] = new SQLiteJsonConverter<List<ushort>>(Json19evContext.Default.ListUInt16);
+            b.TypeConverters[typeof(List<uint>)] = new SQLiteJsonConverter<List<uint>>(Json19evContext.Default.ListUInt32);
+            b.TypeConverters[typeof(List<ulong>)] = new SQLiteJsonConverter<List<ulong>>(Json19evContext.Default.ListUInt64);
+            b.TypeConverters[typeof(List<float>)] = new SQLiteJsonConverter<List<float>>(Json19evContext.Default.ListSingle);
         });
         db.Table<Json19evRow>().Schema.CreateTable();
         db.Table<Json19evRow>().Add(new Json19evRow { Id = 1, Numbers = [1, 2] });
@@ -230,6 +244,49 @@ public class JsonInlineArrayElementVariantTests
         List<Json19evPlainFruit> expected = new List<int> { 1, 2 }.SelectMany(x => new[] { fruit }).ToList();
         List<Json19evPlainFruit> actual = db.Table<Json19evRow>()
             .Select(r => r.Numbers.SelectMany(x => new[] { fruit }).ToList())
+            .First();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void BoundsArrayOfSmallIntegerTypesMatchesLinq()
+    {
+        using TestDatabase db = CreateDb();
+
+        List<short> shorts = db.Table<Json19evRow>().Select(r => r.Numbers.SelectMany(x => new short[1]).ToList()).First();
+        List<byte> bytes = db.Table<Json19evRow>().Select(r => r.Numbers.SelectMany(x => new byte[1]).ToList()).First();
+        List<sbyte> sbytes = db.Table<Json19evRow>().Select(r => r.Numbers.SelectMany(x => new sbyte[1]).ToList()).First();
+        List<ushort> ushorts = db.Table<Json19evRow>().Select(r => r.Numbers.SelectMany(x => new ushort[1]).ToList()).First();
+
+        Assert.Equal([0, 0], shorts);
+        Assert.Equal([0, 0], bytes);
+        Assert.Equal([0, 0], sbytes);
+        Assert.Equal([0, 0], ushorts);
+    }
+
+    [Fact]
+    public void BoundsArrayOfWideIntegerAndFloatTypesMatchesLinq()
+    {
+        using TestDatabase db = CreateDb();
+
+        List<uint> uints = db.Table<Json19evRow>().Select(r => r.Numbers.SelectMany(x => new uint[1]).ToList()).First();
+        List<ulong> ulongs = db.Table<Json19evRow>().Select(r => r.Numbers.SelectMany(x => new ulong[1]).ToList()).First();
+        List<float> floats = db.Table<Json19evRow>().Select(r => r.Numbers.SelectMany(x => new float[1]).ToList()).First();
+
+        Assert.Equal([0u, 0u], uints);
+        Assert.Equal([0ul, 0ul], ulongs);
+        Assert.Equal([0f, 0f], floats);
+    }
+
+    [Fact]
+    public void NullableColumnElementInLiteralMatchesLinq()
+    {
+        using TestDatabase db = CreateDb();
+
+        List<int?> expected = new List<int> { 1, 2 }.SelectMany(x => new int?[] { x, null }).ToList();
+        List<int?> actual = db.Table<Json19evRow>()
+            .Select(r => r.Numbers.SelectMany(x => new int?[] { x, null }).ToList())
             .First();
 
         Assert.Equal(expected, actual);

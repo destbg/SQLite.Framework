@@ -86,6 +86,20 @@ public class JsonEnumStorageVariantTests
     }
 
     [Fact]
+    public void CapturedStringEnumConstantInLiteralMatchesLinq()
+    {
+        using TestDatabase db = Seed(out List<Json19esBasketRow> rows);
+        SnFruit? fruit = SnFruit.Apple;
+
+        List<SnFruit?> expected = rows[0].MaybeFruits.SelectMany(f => new[] { fruit }).ToList();
+        List<SnFruit?> actual = db.Table<Json19esBasketRow>()
+            .Select(r => r.MaybeFruits.SelectMany(f => new[] { fruit }).ToList())
+            .First();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void ThenByOverStringEnumJsonListMatchesLinq()
     {
         using TestDatabase db = Seed(out List<Json19esBasketRow> rows);

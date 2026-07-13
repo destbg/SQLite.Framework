@@ -71,8 +71,19 @@ internal partial class SQLVisitor
                 return jsonElement;
             }
 
-            Expression resolvedIndex = ExpressionHelpers.IsConstant(node.Right) ? node.Right : Visit(node.Right);
-            return Expression.MakeBinary(node.NodeType, node.Left, resolvedIndex, node.IsLiftedToNull, node.Method);
+            Expression resolvedArray = ExpressionHelpers.IsConstant(node.Left)
+                ? node.Left
+                : ToClientOperand(node.Left, ResolveExpression(node.Left));
+            Expression resolvedIndex = ExpressionHelpers.IsConstant(node.Right)
+                ? node.Right
+                : ToClientOperand(node.Right, ResolveExpression(node.Right));
+            return Expression.MakeBinary(node.NodeType, resolvedArray, resolvedIndex, node.IsLiftedToNull, node.Method);
+        }
+
+        if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
+            && TryFoldConstructedNullCheck(node) is { } constructedNullCheck)
+        {
+            return constructedNullCheck;
         }
 
         Expression leftNode = node.Left;

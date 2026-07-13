@@ -225,4 +225,21 @@ public class SqlTailTests
     {
         Assert.Equal("", SqlTail.TrimStatementTail(" ; ; -- x"));
     }
+
+    [Theory]
+    [InlineData("SELECT 1; SELECT 2", true)]
+    [InlineData("SELECT 1; DELETE FROM [t]", true)]
+    [InlineData("SELECT [a;b] FROM t", false)]
+    [InlineData("SELECT [a;b", false)]
+    [InlineData("SELECT 1; /* trailing ; note */", false)]
+    [InlineData("SELECT 1; /* trailing ; note", false)]
+    [InlineData("SELECT 1; -- done ;", false)]
+    [InlineData("SELECT ';'", false)]
+    [InlineData("SELECT `a;b`", false)]
+    [InlineData("; SELECT 1", false)]
+    [InlineData(";;", false)]
+    public void MultipleStatementDetectionMatchesStatementBoundaries(string sql, bool expected)
+    {
+        Assert.Equal(expected, SqlTail.HasMultipleStatements(sql));
+    }
 }
