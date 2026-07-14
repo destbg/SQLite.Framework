@@ -202,7 +202,8 @@ internal partial class QueryableVisitor
         Expression flattenSource = selector.Body;
         bool hasDefaultIfEmpty = false;
 
-        if (flattenSource is MethodCallExpression { Method.Name: nameof(Enumerable.DefaultIfEmpty) } methodCallExpression)
+        if (flattenSource is MethodCallExpression methodCallExpression
+            && methodCallExpression.Method.Name == nameof(Enumerable.DefaultIfEmpty))
         {
             if (methodCallExpression.Arguments.Count > 1)
             {

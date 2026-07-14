@@ -45,8 +45,12 @@ public class BlobStreamAsyncOpenWriteParityTests
         db.Table<HkBlobLockRow>().Add(new HkBlobLockRow { Id = 2, Data = [1, 2, 3, 4], Num = 0 });
 
         SQLiteBlobStream stream = await db.OpenBlobStreamAsync("HkBlobLockRows", "Data", 2);
-        Task<int> update = Task.Run(() => db.Execute("UPDATE \"HkBlobLockRows\" SET \"Num\" = 5 WHERE \"Id\" = 2"));
-        bool completed = update.Wait(TimeSpan.FromSeconds(2));
+        Task<int> update = Task.Factory.StartNew(
+            () => db.Execute("UPDATE \"HkBlobLockRows\" SET \"Num\" = 5 WHERE \"Id\" = 2"),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+        bool completed = update.Wait(TimeSpan.FromSeconds(10));
         stream.Dispose();
         int changed = await update;
 
@@ -63,8 +67,12 @@ public class BlobStreamAsyncOpenWriteParityTests
         db.Table<HkBlobLockRow>().Add(new HkBlobLockRow { Id = 3, Data = [9, 8, 7], Num = 0 });
 
         SQLiteBlobStream stream = await db.OpenBlobStreamAsync<HkBlobLockRow>(3, r => r.Data);
-        Task<int> update = Task.Run(() => db.Table<HkBlobLockRow>().Update(new HkBlobLockRow { Id = 3, Data = [9, 8, 7], Num = 6 }));
-        bool completed = update.Wait(TimeSpan.FromSeconds(2));
+        Task<int> update = Task.Factory.StartNew(
+            () => db.Table<HkBlobLockRow>().Update(new HkBlobLockRow { Id = 3, Data = [9, 8, 7], Num = 6 }),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+        bool completed = update.Wait(TimeSpan.FromSeconds(10));
         stream.Dispose();
         int changed = await update;
 

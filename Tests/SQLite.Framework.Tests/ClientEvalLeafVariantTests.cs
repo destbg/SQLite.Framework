@@ -349,6 +349,7 @@ public class ClientEvalLeafVariantTests
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() => query());
         Assert.Equal("The parameter expression 'x' is not supported.", ex.Message);
     }
+
     [Fact]
     public void ChainedAnonymousMemberNullCheckMatchesLinq()
     {
@@ -386,6 +387,97 @@ public class ClientEvalLeafVariantTests
             .ToList();
 
         Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CapturedFallbackBranchMemberReadMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+        ClvPart fallback = new() { Num = 9, Label = "fb" };
+
+        List<int> expected = Rows().OrderBy(r => r.Id)
+            .Select(r => new { Part = r.Id > 1 ? new ClvPart { Num = r.Id } : fallback })
+            .Select(x => x.Part.Num)
+            .ToList();
+
+        List<int> actual = db.Table<ClvRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => new { Part = r.Id > 1 ? new ClvPart { Num = r.Id } : fallback })
+            .Select(x => x.Part.Num)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CapturedFallbackBranchReversedMemberReadMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+        ClvPart fallback = new() { Num = 9, Label = "fb" };
+
+        List<string> expected = Rows().OrderBy(r => r.Id)
+            .Select(r => new { Part = r.Id > 1 ? fallback : new ClvPart { Label = r.Name } })
+            .Select(x => x.Part.Label ?? "empty")
+            .ToList();
+
+        List<string> actual = db.Table<ClvRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => new { Part = r.Id > 1 ? fallback : new ClvPart { Label = r.Name } })
+            .Select(x => x.Part.Label ?? "empty")
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ClientCallOverInnerLambdaMemberChainMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+        List<ClvPart> parts = [new ClvPart { Num = 1, Label = "aaa" }, new ClvPart { Num = 2, Label = "b" }];
+
+        List<string> expected = Rows().OrderBy(r => r.Id)
+            .Select(x => CmcClientFns.Tag(parts.First(c => c.Label!.Length > x.Id).Label!))
+            .ToList();
+
+        Func<List<string>> query = () => db.Table<ClvRow>()
+            .OrderBy(r => r.Id)
+            .Select(x => CmcClientFns.Tag(parts.First(c => c.Label!.Length > x.Id).Label!))
+            .ToList();
+
+        if (db.Options.ReflectionFallbackDisabled)
+        {
+            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => query());
+            Assert.StartsWith("Select projection fell back to runtime reflection but ReflectionFallbackDisabled is set.", ex.Message);
+            return;
+        }
+
+        Assert.Equal(expected, query());
+    }
+
+    [Fact]
+    public void ClientCallOverClientBoundDtoMemberChainMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+
+        List<string> expected = Rows().OrderBy(r => r.Id)
+            .Select(r => new { Part = new ClvPart { Num = r.Id, Label = CmcClientFns.Tag(r.Name ?? "x") } })
+            .Select(y => CmcClientFns.Tag(y.Part.Label!))
+            .ToList();
+
+        Func<List<string>> query = () => db.Table<ClvRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => new { Part = new ClvPart { Num = r.Id, Label = CmcClientFns.Tag(r.Name ?? "x") } })
+            .Select(y => CmcClientFns.Tag(y.Part.Label!))
+            .ToList();
+
+        if (db.Options.ReflectionFallbackDisabled)
+        {
+            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => query());
+            Assert.StartsWith("Select projection fell back to runtime reflection but ReflectionFallbackDisabled is set.", ex.Message);
+            return;
+        }
+
+        Assert.Equal(expected, query());
     }
 }
 

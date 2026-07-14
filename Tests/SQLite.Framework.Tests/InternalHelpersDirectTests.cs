@@ -1598,6 +1598,25 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
+    public void SQLVisitor_TryResolveConstructedMemberLeaf_DirectlyStoredDottedPath_ReturnsNull()
+    {
+        using TestDatabase db = new();
+        SQLVisitor visitor = new(db, new SQLiteCounters(), 0);
+        ParameterExpression pe = Expression.Parameter(typeof(FoldPathHolder), "y");
+        MethodInfo tag = typeof(CmcClientFns).GetMethod(nameof(CmcClientFns.Tag))!;
+        visitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            ["Part.Label"] = Expression.Call(tag, Expression.Constant("v")),
+        };
+
+        MemberExpression node = Expression.Property(
+            Expression.Property(pe, nameof(FoldPathHolder.Part)),
+            nameof(EsfPart.Label));
+
+        Assert.Null(visitor.TryResolveConstructedMemberLeaf(node));
+    }
+
+    [Fact]
     public void SQLVisitor_FoldConstructedMemberAccess_MemberInitBinding_ReturnsBoundExpression()
     {
         Expression<Func<FoldConstructedHolder>> lambda = () => new FoldConstructedHolder(7) { B = 8 };
@@ -2026,6 +2045,11 @@ public sealed class FoldConstructedHolder
     public int A { get; }
 
     public int B { get; set; }
+}
+
+public sealed class FoldPathHolder
+{
+    public EsfPart? Part { get; set; }
 }
 
 #pragma warning disable CS0618

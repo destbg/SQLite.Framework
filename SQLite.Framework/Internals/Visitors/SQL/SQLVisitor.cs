@@ -327,6 +327,7 @@ internal partial class SQLVisitor : ExpressionVisitor
         return columns;
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Projection member types are rooted by the user query.")]
     private static Expression FoldConstructedMemberAccess(Expression expression, string memberName)
     {
         if (expression is ConditionalExpression conditional)
@@ -353,13 +354,17 @@ internal partial class SQLVisitor : ExpressionVisitor
             expression = memberInitExpression.NewExpression;
         }
 
-        NewExpression newExpression = (NewExpression)expression;
-        return newExpression.Arguments[ConstructorArgumentIndex(newExpression, memberName)];
+        if (expression is NewExpression newExpression)
+        {
+            return newExpression.Arguments[ConstructorArgumentIndex(newExpression, memberName)];
+        }
+
+        return Expression.PropertyOrField(expression, memberName);
     }
 
     private static Expression? TryFoldConstructedBranch(Expression branch, string memberName)
     {
-        return branch is ConstantExpression { Value: null }
+        return ExpressionHelpers.IsConstant(branch) && ExpressionHelpers.GetConstantValue(branch) == null
             ? null
             : FoldConstructedMemberAccess(branch, memberName);
     }

@@ -26,4 +26,46 @@ public class StringConcatArrayTests
         Assert.Equal(["HelloWorld!", "FooBar!"], oracle);
         Assert.Equal(oracle, actual);
     }
+
+    [Fact]
+    public void TwoArgumentConcatMatchesDotNet()
+    {
+        using TestDatabase db = new();
+        db.Table<TwoStringEntity>().Schema.CreateTable();
+        db.Table<TwoStringEntity>().Add(new TwoStringEntity { Id = 1, A = "Hello", B = "World" });
+        db.Table<TwoStringEntity>().Add(new TwoStringEntity { Id = 2, A = "Foo", B = "Bar" });
+
+        List<TwoStringEntity> seed =
+        [
+            new TwoStringEntity { Id = 1, A = "Hello", B = "World" },
+            new TwoStringEntity { Id = 2, A = "Foo", B = "Bar" },
+        ];
+
+        List<string> oracle = seed.OrderBy(s => s.Id).Select(s => string.Concat(s.A, s.B)).ToList();
+        List<string> actual = db.Table<TwoStringEntity>().OrderBy(s => s.Id).Select(s => string.Concat(s.A, s.B)).ToList();
+
+        Assert.Equal(["HelloWorld", "FooBar"], oracle);
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void JoinWithStartIndexAndCountMatchesDotNet()
+    {
+        using TestDatabase db = new();
+        db.Table<TwoStringEntity>().Schema.CreateTable();
+        db.Table<TwoStringEntity>().Add(new TwoStringEntity { Id = 1, A = "Hello", B = "World" });
+        db.Table<TwoStringEntity>().Add(new TwoStringEntity { Id = 2, A = "Foo", B = "Bar" });
+
+        List<TwoStringEntity> seed =
+        [
+            new TwoStringEntity { Id = 1, A = "Hello", B = "World" },
+            new TwoStringEntity { Id = 2, A = "Foo", B = "Bar" },
+        ];
+
+        List<string> oracle = seed.OrderBy(s => s.Id).Select(s => string.Join("-", new[] { s.A, s.B, "z" }, 1, 2)).ToList();
+        List<string> actual = db.Table<TwoStringEntity>().OrderBy(s => s.Id).Select(s => string.Join("-", new[] { s.A, s.B, "z" }, 1, 2)).ToList();
+
+        Assert.Equal(["World-z", "Bar-z"], oracle);
+        Assert.Equal(oracle, actual);
+    }
 }

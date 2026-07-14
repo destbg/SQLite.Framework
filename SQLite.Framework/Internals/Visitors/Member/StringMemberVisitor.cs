@@ -683,8 +683,14 @@ internal static class StringMemberVisitor
 
     private static bool HasInlineArrayArgument(MethodCallExpression node)
     {
-        return (node.Method.Name == nameof(string.Concat) && node.Arguments is [NewArrayExpression])
-            || (node.Method.Name == nameof(string.Join) && node.Arguments is [_, NewArrayExpression]);
+        if (node.Method.Name == nameof(string.Concat))
+        {
+            return node.Arguments.Count == 1 && node.Arguments[0] is NewArrayExpression;
+        }
+
+        return node.Method.Name == nameof(string.Join)
+            && node.Arguments.Count == 2
+            && node.Arguments[1] is NewArrayExpression;
     }
 
     private static SQLiteExpression[]? TryResolveInlineArrayElements(SQLVisitor visitor, NewArrayExpression array)
