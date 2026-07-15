@@ -942,9 +942,13 @@ internal class SQLTranslator
             queryableMethodVisitor.Selects.Add(columnExpr);
 
             methodCalls.RemoveRange(1, methodCalls.Count - 1);
-            methodCalls[0] = aggregateName is nameof(Queryable.Max) or nameof(Queryable.Min)
-                ? Expression.Call(typeof(Queryable), aggregateName, [scalarType], projectedInner)
-                : Expression.Call(typeof(Queryable), aggregateName, Type.EmptyTypes, projectedInner);
+            methodCalls[0] = aggregateName switch
+            {
+                nameof(Queryable.Max) => Expression.Call(typeof(Queryable), nameof(Queryable.Max), [scalarType], projectedInner),
+                nameof(Queryable.Min) => Expression.Call(typeof(Queryable), nameof(Queryable.Min), [scalarType], projectedInner),
+                nameof(Queryable.Sum) => Expression.Call(typeof(Queryable), nameof(Queryable.Sum), Type.EmptyTypes, projectedInner),
+                _ => Expression.Call(typeof(Queryable), nameof(Queryable.Average), Type.EmptyTypes, projectedInner),
+            };
             wrappedAsSubquery = true;
         }
 
