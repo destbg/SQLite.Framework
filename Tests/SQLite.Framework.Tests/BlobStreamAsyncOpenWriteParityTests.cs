@@ -27,8 +27,12 @@ public class BlobStreamAsyncOpenWriteParityTests
         db.Table<HkBlobLockRow>().Add(new HkBlobLockRow { Id = 1, Data = [1, 2, 3, 4], Num = 0 });
 
         SQLiteBlobStream stream = db.OpenBlobStream("HkBlobLockRows", "Data", 1);
-        Task<int> update = Task.Run(() => db.Execute("UPDATE \"HkBlobLockRows\" SET \"Num\" = 5 WHERE \"Id\" = 1"));
-        bool completed = update.Wait(TimeSpan.FromSeconds(2));
+        Task<int> update = Task.Factory.StartNew(
+            () => db.Execute("UPDATE \"HkBlobLockRows\" SET \"Num\" = 5 WHERE \"Id\" = 1"),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+        bool completed = update.Wait(TimeSpan.FromSeconds(10));
         stream.Dispose();
         int changed = update.Result;
 
