@@ -51,7 +51,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5.4.0
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 10.0.x
       - name: Install Android workload
@@ -114,7 +114,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5.4.0
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 10.0.x
       - name: Install coverlet
@@ -149,7 +149,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5.4.0
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 10.0.x
       - name: Download coverage artifacts
