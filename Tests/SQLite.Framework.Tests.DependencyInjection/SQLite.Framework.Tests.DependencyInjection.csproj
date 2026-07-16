@@ -17,7 +17,7 @@
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
         <PackageReference Include="xunit.v3.aot.mtp-v2" Version="4.0.0-pre.128"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0-pre.4"/>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10"/>
     </ItemGroup>
 
     <ItemGroup>
