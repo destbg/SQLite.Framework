@@ -16,6 +16,52 @@ public class H20AsyncBusyRow
 public class BackupAsyncCancellationTests
 {
     [Fact]
+    public async Task BackupToAsyncCancelLeavesNoPendingBackup()
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            await CancelOnce();
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+
+        static async Task CancelOnce()
+        {
+            using TestDatabase source = new(useFile: true);
+            source.Execute("CREATE TABLE \"H20AsyncCancelSrc\" (\"Id\" INTEGER PRIMARY KEY, \"Value\" INTEGER NOT NULL)");
+            source.Execute("INSERT INTO \"H20AsyncCancelSrc\" (\"Id\", \"Value\") VALUES (1, 1)");
+
+            using TestDatabase destination = new(b => b.UseWalMode(), useFile: true);
+            destination.Execute("CREATE TABLE \"H20AsyncCancelDest\" (\"Id\" INTEGER PRIMARY KEY)");
+
+            SQLiteOptionsBuilder writerBuilder = new(destination.Options.DatabasePath);
+#if SQLITECIPHER
+            writerBuilder.UseEncryptionKey("test-key");
+#endif
+            using SQLiteDatabase writer = new(writerBuilder.Build());
+            writer.Execute("PRAGMA busy_timeout = 0");
+            SQLiteTransaction held = writer.BeginTransaction();
+            writer.Execute("INSERT INTO \"H20AsyncCancelDest\" (\"Id\") VALUES (1)");
+
+            try
+            {
+                using CancellationTokenSource cts = new();
+                Task backup = source.BackupToAsync(destination, ct: cts.Token);
+                await Task.Delay(200);
+                Assert.False(backup.IsCompleted);
+                cts.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => backup);
+            }
+            finally
+            {
+                held.Rollback();
+            }
+        }
+    }
+
+    [Fact]
     public async Task BackupToAsyncHonorsCancellationWhileDestinationBusy()
     {
         using TestDatabase source = new(useFile: true);

@@ -226,9 +226,17 @@ public static class AsyncDatabaseExtensions
             using IDisposable __ = await destination.LockAsync(ct);
             sqlite3_backup handle = database.BeginBackup(destination, sourceName, destName);
             SQLiteResult result;
-            while ((result = (SQLiteResult)raw.sqlite3_backup_step(handle, -1)) is SQLiteResult.Busy or SQLiteResult.Locked)
+            try
             {
-                await Task.Delay(50, ct);
+                while ((result = (SQLiteResult)raw.sqlite3_backup_step(handle, -1)) is SQLiteResult.Busy or SQLiteResult.Locked)
+                {
+                    await Task.Delay(50, ct);
+                }
+            }
+            catch
+            {
+                raw.sqlite3_backup_finish(handle);
+                throw;
             }
 
             database.EndBackup(destination, handle, result);
@@ -254,9 +262,17 @@ public static class AsyncDatabaseExtensions
             using IDisposable __ = await destination.LockAsync(ct);
             sqlite3_backup handle = database.BeginBackup(destination, "main", "main");
             SQLiteResult result;
-            while ((result = (SQLiteResult)raw.sqlite3_backup_step(handle, -1)) is SQLiteResult.Busy or SQLiteResult.Locked)
+            try
             {
-                await Task.Delay(50, ct);
+                while ((result = (SQLiteResult)raw.sqlite3_backup_step(handle, -1)) is SQLiteResult.Busy or SQLiteResult.Locked)
+                {
+                    await Task.Delay(50, ct);
+                }
+            }
+            catch
+            {
+                raw.sqlite3_backup_finish(handle);
+                throw;
             }
 
             database.EndBackup(destination, handle, result);
