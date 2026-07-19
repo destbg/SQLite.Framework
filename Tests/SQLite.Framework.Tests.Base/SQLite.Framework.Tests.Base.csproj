@@ -22,9 +22,12 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
-        <PackageReference Include="xunit.v3.aot.mtp-v2" Version="4.0.0-pre.128"/>
-        <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0-pre.4"/>
-        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3"/>
+        <PackageReference Include="xunit.v3.aot.mtp-v2" Version="4.0.0-pre.154" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0-pre.5">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4" />
     </ItemGroup>
 
     <ItemGroup>

@@ -45,16 +45,16 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="SQLitePCLRaw.core" Version="3.0.3"/>
+        <PackageReference Include="SQLitePCLRaw.core" Version="3.0.4"/>
     </ItemGroup>
 
     <ItemGroup Condition="'$(IsAndroidTarget)' != 'true'">
-        <PackageReference Include="SQLitePCLRaw.provider.sqlite3" Version="3.0.3"/>
-        <PackageReference Include="SQLitePCLRaw.provider.winsqlite3" Version="3.0.3"/>
+        <PackageReference Include="SQLitePCLRaw.provider.sqlite3" Version="3.0.4"/>
+        <PackageReference Include="SQLitePCLRaw.provider.winsqlite3" Version="3.0.4"/>
     </ItemGroup>
 
     <ItemGroup Condition="'$(IsAndroidTarget)' == 'true'">
-        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3"/>
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4"/>
     </ItemGroup>
 
     <ItemGroup>
