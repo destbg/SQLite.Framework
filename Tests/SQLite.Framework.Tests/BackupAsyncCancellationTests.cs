@@ -109,6 +109,63 @@ public class BackupAsyncCancellationTests
     }
 
     [Fact]
+    public async Task BackupToAsyncToPathHonorsCancellationWhileDestinationBusy()
+    {
+        using TestDatabase source = new(useFile: true);
+        source.Execute("CREATE TABLE \"H20AsyncBusyRows\" (\"Id\" INTEGER PRIMARY KEY, \"Value\" INTEGER NOT NULL)");
+        source.Execute("INSERT INTO \"H20AsyncBusyRows\" (\"Id\", \"Value\") VALUES (1, 1)");
+
+        string destinationPath = $"{nameof(BackupToAsyncToPathHonorsCancellationWhileDestinationBusy)}_{Guid.NewGuid():N}.db3";
+        SQLiteOptionsBuilder destinationBuilder = new(destinationPath);
+        destinationBuilder.UseWalMode();
+#if SQLITECIPHER
+        destinationBuilder.UseEncryptionKey("test-key");
+#endif
+        using (SQLiteDatabase destination = new(destinationBuilder.Build()))
+        {
+            destination.Schema.CreateTable<H20AsyncBusyRow>();
+        }
+
+        SQLiteOptionsBuilder writerBuilder = new(destinationPath);
+#if SQLITECIPHER
+        writerBuilder.UseEncryptionKey("test-key");
+#endif
+        using SQLiteDatabase writer = new(writerBuilder.Build());
+        writer.Execute("PRAGMA busy_timeout = 0");
+        SQLiteTransaction held = writer.BeginTransaction();
+        writer.Execute("INSERT INTO \"H20AsyncBusyRows\" (\"Id\") VALUES (2)");
+
+        using CancellationTokenSource cts = new();
+        Task backup = source.BackupToAsync(destinationPath, cts.Token);
+        try
+        {
+            await Task.Delay(1000);
+            Assert.False(backup.IsCompleted);
+
+            cts.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => backup.WaitAsync(TimeSpan.FromSeconds(30)));
+        }
+        finally
+        {
+            cts.Cancel();
+            held.Rollback();
+            try
+            {
+                await backup.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            if (File.Exists(destinationPath))
+            {
+                File.Delete(destinationPath);
+            }
+        }
+    }
+
+    [Fact]
     public async Task BackupToAsyncToPathWaitsWhileDestinationBusy()
     {
         using TestDatabase source = new(useFile: true);
