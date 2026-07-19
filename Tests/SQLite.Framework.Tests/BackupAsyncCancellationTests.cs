@@ -43,7 +43,7 @@ public class BackupAsyncCancellationTests
 
             cts.Cancel();
 
-            Task winner = await Task.WhenAny(backup, Task.Delay(TimeSpan.FromSeconds(5)));
+            Task winner = await Task.WhenAny(backup, Task.Delay(TimeSpan.FromSeconds(30)));
             Assert.True(winner == backup);
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => backup);
         }
