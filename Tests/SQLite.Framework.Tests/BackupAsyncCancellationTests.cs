@@ -34,10 +34,11 @@ public class BackupAsyncCancellationTests
         SQLiteTransaction held = writer.BeginTransaction();
         writer.Execute("INSERT INTO \"H20AsyncCancelDest\" (\"Id\") VALUES (1)");
 
+        using CancellationTokenSource cts = new();
+        Task backup = source.BackupToAsync(destination, ct: cts.Token);
+
         try
         {
-            using CancellationTokenSource cts = new();
-            Task backup = source.BackupToAsync(destination, ct: cts.Token);
             await Task.Delay(1000);
             Assert.False(backup.IsCompleted);
 
@@ -49,7 +50,15 @@ public class BackupAsyncCancellationTests
         }
         finally
         {
+            cts.Cancel();
             held.Rollback();
+            try
+            {
+                await backup.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
     }
 
@@ -81,9 +90,10 @@ public class BackupAsyncCancellationTests
         writer.Execute("INSERT INTO \"H20AsyncBusyRows\" (\"Id\") VALUES (2)");
 
         bool rolledBack = false;
+        using CancellationTokenSource cts = new();
+        Task backup = source.BackupToAsync(destinationPath, cts.Token);
         try
         {
-            Task backup = source.BackupToAsync(destinationPath);
             await Task.Delay(1000);
             Assert.False(backup.IsCompleted);
 
@@ -96,6 +106,15 @@ public class BackupAsyncCancellationTests
             if (!rolledBack)
             {
                 held.Rollback();
+            }
+
+            cts.Cancel();
+            try
+            {
+                await backup.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            catch (OperationCanceledException)
+            {
             }
 
             if (File.Exists(destinationPath))

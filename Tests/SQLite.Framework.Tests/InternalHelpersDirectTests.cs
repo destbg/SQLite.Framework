@@ -1454,6 +1454,7 @@ public class InternalHelpersDirectTests
 
             using SQLiteDatabase destLocker = new(new SQLiteOptionsBuilder(destPath).Build());
             destLocker.Table<Book>().Schema.CreateTable();
+            destLocker.Execute("PRAGMA busy_timeout = 5000");
             using SQLiteTransaction tx = destLocker.BeginTransaction();
             destLocker.Table<Book>().Add(new Book { Id = 999, Title = "lock", AuthorId = 1, Price = 999 });
 
@@ -1469,9 +1470,19 @@ public class InternalHelpersDirectTests
 
             backupThread.Start();
             Thread.Sleep(300);
-            tx.Commit();
-            done.Wait(TimeSpan.FromSeconds(10));
-            backupThread.Join(TimeSpan.FromSeconds(5));
+
+            try
+            {
+                tx.Commit();
+            }
+            finally
+            {
+                tx.Dispose();
+                Assert.True(done.Wait(TimeSpan.FromSeconds(30)));
+                backupThread.Join();
+            }
+
+            Assert.Null(backupException);
         }
         finally
         {
