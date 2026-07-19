@@ -11,8 +11,15 @@ public enum SnFruit
     Apple = 1,
 }
 
+public enum SnBigFruit : ulong
+{
+    Pear = 0,
+    Apple = 1,
+}
+
 [JsonSourceGenerationOptions(UseStringEnumConverter = true)]
 [JsonSerializable(typeof(List<SnFruit>))]
+[JsonSerializable(typeof(List<SnBigFruit>))]
 public partial class SnFruitContext : JsonSerializerContext;
 
 [Table("SnBasketRows")]
@@ -22,6 +29,15 @@ public class SnBasketRow
     public int Id { get; set; }
 
     public List<SnFruit> Fruits { get; set; } = [];
+}
+
+[Table("SnBigBasketRows")]
+public class SnBigBasketRow
+{
+    [Key]
+    public int Id { get; set; }
+
+    public List<SnBigFruit> Fruits { get; set; } = [];
 }
 
 public class JsonStringEnumAggregateTests
@@ -75,6 +91,32 @@ public class JsonStringEnumAggregateTests
 
         List<SnFruit> expected = rows[0].Fruits.OrderByDescending(f => f).ToList();
         List<SnFruit> actual = db.Table<SnBasketRow>().Select(r => r.Fruits.OrderByDescending(f => f).ToList()).First();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void MinAfterWhereOverUlongBackedStringEnumJsonListMatchesLinq()
+    {
+        using TestDatabase db = new(b => b.AddJsonContext(SnFruitContext.Default), nameof(MinAfterWhereOverUlongBackedStringEnumJsonListMatchesLinq));
+        db.Table<SnBigBasketRow>().Schema.CreateTable();
+        List<SnBigBasketRow> rows = [new SnBigBasketRow { Id = 1, Fruits = [SnBigFruit.Apple, SnBigFruit.Pear] }];
+        db.Table<SnBigBasketRow>().AddRange(rows);
+
+        SnBigFruit expected = rows[0].Fruits.Where(f => f >= SnBigFruit.Pear).Min();
+        SnBigFruit actual = db.Table<SnBigBasketRow>().Select(r => r.Fruits.Where(f => f >= SnBigFruit.Pear).Min()).First();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void MaxOverCapturedStringEnumJsonListMatchesLinq()
+    {
+        using TestDatabase db = Seed(out List<SnBasketRow> rows, nameof(MaxOverCapturedStringEnumJsonListMatchesLinq));
+        SnFruit captured = SnFruit.Apple;
+
+        SnFruit expected = rows[0].Fruits.Max(f => captured);
+        SnFruit actual = db.Table<SnBasketRow>().Select(r => r.Fruits.Max(f => captured)).First();
 
         Assert.Equal(expected, actual);
     }

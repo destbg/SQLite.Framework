@@ -31,7 +31,7 @@ internal static class CteColumnMapper
         return TypeHelpers.IsSimple(elementType, options) ? [Constants.CteScalarColumn] : null;
     }
 
-    public static HashSet<string>? DayOfWeekColumns(Dictionary<string, Expression> bodyColumns)
+    public static HashSet<string>? DayOfWeekColumns(Dictionary<string, Expression> bodyColumns, bool scalarElement)
     {
         HashSet<string>? flagged = null;
         foreach (KeyValuePair<string, Expression> column in bodyColumns)
@@ -39,7 +39,7 @@ internal static class CteColumnMapper
             if (column.Value is SQLiteExpression { IsDayOfWeekInteger: true })
             {
                 flagged ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                flagged.Add(column.Key);
+                flagged.Add(scalarElement ? string.Empty : column.Key);
             }
         }
 
@@ -99,6 +99,56 @@ internal static class CteColumnMapper
         }
 
         return null;
+    }
+
+    public static Dictionary<string, Expression> BuildBodyMappedColumns(Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects, string[]? columnNames, string alias, SQLiteOptions options, SQLiteCounters counters)
+    {
+        HashSet<string> declared = new(StringComparer.Ordinal);
+        for (int i = 0; i < selects.Count; i++)
+        {
+            declared.Add(columnNames != null ? columnNames[i] : selects[i].IdentifierText);
+        }
+
+        CteClientColumnRewriter rewriter = new(selects, columnNames, alias, counters);
+        Dictionary<string, Expression> columns = [];
+        foreach (KeyValuePair<string, Expression> member in bodyColumns)
+        {
+            if (declared.Contains(member.Key))
+            {
+                columns[member.Key] = SQLiteExpression.Leaf(member.Value.Type, counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(member.Key)}");
+                continue;
+            }
+
+            if (member.Value is SQLiteExpression sql)
+            {
+                columns[member.Key] = rewriter.Rewrite(sql);
+                continue;
+            }
+
+            Dictionary<string, Expression> expansion = [];
+            AddColumns(expansion, member.Value.Type, member.Key, alias, options, counters);
+            bool covered = expansion.Count > 0
+                && expansion.Keys.All(key => bodyColumns.TryGetValue(key, out Expression? value) && value is SQLiteExpression);
+            if (!covered)
+            {
+                columns[member.Key] = rewriter.Rewrite(member.Value);
+            }
+        }
+
+        return columns;
+    }
+
+    public static bool HasClientBodyMember(Dictionary<string, Expression> bodyColumns)
+    {
+        foreach (KeyValuePair<string, Expression> member in bodyColumns)
+        {
+            if (member.Value is not SQLiteExpression)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void OrderKeysBySelects(List<string> leafKeys, Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects)

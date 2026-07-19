@@ -199,8 +199,18 @@ internal partial class SQLVisitor
             right = CoerceConstantTimeSpanToTicks(resolvedRight, right);
         }
 
-        left = CoerceJsonOperand(resolvedLeft, left, resolvedRight.SQLiteExpression!);
-        right = CoerceJsonOperand(resolvedRight, right, resolvedLeft.SQLiteExpression!);
+        if (node.NodeType is ExpressionType.GreaterThan or ExpressionType.LessThan
+                or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual
+            && IsStringStoredJsonEnumComparison(leftNode, left, right, out Type? jsonEnumType))
+        {
+            left = EnumMemberVisitor.BuildTextStorageEnumToNumber(this, typeof(long), jsonEnumType, left);
+            right = EnumMemberVisitor.BuildTextStorageEnumToNumber(this, typeof(long), jsonEnumType, right);
+        }
+        else
+        {
+            left = CoerceJsonOperand(resolvedLeft, left, resolvedRight.SQLiteExpression!);
+            right = CoerceJsonOperand(resolvedRight, right, resolvedLeft.SQLiteExpression!);
+        }
 
         left = CoerceDayOfWeekOperand(leftNode, left, right);
         right = CoerceDayOfWeekOperand(rightNode, right, left);
@@ -421,6 +431,14 @@ internal partial class SQLVisitor
         }
 
         return current;
+    }
+
+    private bool IsStringStoredJsonEnumComparison(Expression leftNode, SQLiteExpression left, SQLiteExpression right, out Type enumType)
+    {
+        enumType = Nullable.GetUnderlyingType(leftNode.Type) ?? leftNode.Type;
+        return enumType.IsEnum
+            && (left.IsJsonSource || right.IsJsonSource)
+            && JsonEnumText.IsStringStored(Database.Options, enumType);
     }
 
     private SQLiteExpression CoerceJsonOperand(ResolvedModel resolved, SQLiteExpression current, SQLiteExpression otherSide)

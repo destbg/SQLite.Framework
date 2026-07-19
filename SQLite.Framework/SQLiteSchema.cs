@@ -46,7 +46,7 @@ public class SQLiteSchema
             if (mapping.ComputedColumns.Count > 0 || mapping.Checks.Count > 0 || mapping.Indexes.Count > 0 || mapping.Triggers.Count > 0)
             {
                 throw new InvalidOperationException(
-                    $"FTS5 entity '{mapping.Type.Name}' does not support computed columns, checks, indexes or triggers declared on the model. Remove them.");
+                    $"FTS5 entity '{mapping.Type.Name}' does not support computed columns, checks, indexes or triggers declared on the model.");
             }
 
             return CreateFullTextSearchTable(mapping);
@@ -54,6 +54,12 @@ public class SQLiteSchema
 
         if (mapping.IsRTree)
         {
+            if (mapping.ComputedColumns.Count > 0 || mapping.Checks.Count > 0 || mapping.Indexes.Count > 0 || mapping.Triggers.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"R-Tree entity '{mapping.Type.Name}' does not support computed columns, checks, indexes or triggers declared on the model.");
+            }
+
             return CreateRTreeTable(mapping);
         }
 

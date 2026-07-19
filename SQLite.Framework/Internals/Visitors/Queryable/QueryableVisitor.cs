@@ -216,7 +216,7 @@ internal partial class QueryableVisitor
                             isRecursive: true,
                             key: cte,
                             columnNames: recursiveColumnNames,
-                            dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns),
+                            dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(cteElementType, database.Options)),
                             constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor));
 
                         visitor.CteParameters.Remove(selfParam);
@@ -235,7 +235,7 @@ internal partial class QueryableVisitor
                             isRecursive: false,
                             key: cte,
                             columnNames: bodyColumnNames,
-                            dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns),
+                            dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(cteElementType, database.Options)),
                             constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor));
                     }
                 }

@@ -92,6 +92,12 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
                 return SyntaxFactory.ParseExpression("global::System.Convert.ToBoolean(" + varName + ")");
             }
         }
+
+        if (ctx.LeafIndexBySyntax.TryGetValue(node, out int binLeafIdx))
+        {
+            return SyntaxFactory.IdentifierName(ctx.Leaves[binLeafIdx].VarName);
+        }
+
         return base.VisitBinaryExpression(node);
     }
 

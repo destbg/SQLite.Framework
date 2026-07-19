@@ -833,17 +833,32 @@ public static class SelectSignatureWriter
             return false;
         }
         sb.Append(' ');
-        if (!TryAppend(sb, cond.WhenTrue, ctx))
+        if (!AppendConditionalBranch(sb, cond.WhenTrue, type, ctx))
         {
             return false;
         }
         sb.Append(' ');
-        if (!TryAppend(sb, cond.WhenFalse, ctx))
+        if (!AppendConditionalBranch(sb, cond.WhenFalse, type, ctx))
         {
             return false;
         }
         sb.Append(')');
         return true;
+    }
+
+    private static bool AppendConditionalBranch(StringBuilder sb, ExpressionSyntax branch, ITypeSymbol? conditionalType, SelectSignatureCtx ctx)
+    {
+        if (conditionalType != null
+            && ctx.Model.GetTypeInfo(branch).Type is { } branchType
+            && !SymbolEqualityComparer.Default.Equals(Substitute(branchType, ctx.TypeArgSubstitutions), Substitute(conditionalType, ctx.TypeArgSubstitutions))
+            && !branch.IsKind(SyntaxKind.NullLiteralExpression)
+            && ctx.Model.ClassifyConversion(branch, conditionalType) is { IsImplicit: true } conversion
+            && (conversion.IsBoxing || conversion.IsReference))
+        {
+            return AppendConvertChain(sb, conditionalType, branchType, () => TryAppend(sb, branch, ctx), ctx);
+        }
+
+        return TryAppend(sb, branch, ctx);
     }
 
     private static bool AppendMemberAccess(StringBuilder sb, MemberAccessExpressionSyntax access, ITypeSymbol? type, SelectSignatureCtx ctx)

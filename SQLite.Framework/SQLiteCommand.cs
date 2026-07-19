@@ -67,7 +67,7 @@ public class SQLiteCommand
         SQLiteDataReader reader;
         try
         {
-            sqlite3_stmt statement = CreateStatement();
+            sqlite3_stmt? statement = CreateStatement();
             reader = new(Database.GetActiveHandle(), statement, connectionLock, this)
             {
                 PooledSql = CommandText,
@@ -180,9 +180,12 @@ public class SQLiteCommand
         long rowId;
         try
         {
-            sqlite3_stmt statement = CreateStatement();
-            SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
-            raw.sqlite3_finalize(statement);
+            sqlite3_stmt? statement = CreateStatement();
+            SQLiteResult result = statement is null ? SQLiteResult.Done : (SQLiteResult)raw.sqlite3_step(statement);
+            if (statement != null)
+            {
+                raw.sqlite3_finalize(statement);
+            }
 
             if (result != SQLiteResult.Done)
             {
@@ -215,8 +218,8 @@ public class SQLiteCommand
         {
             long before = raw.sqlite3_last_insert_rowid(Database.GetActiveHandle());
 
-            sqlite3_stmt statement = CreateStatement();
-            SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement);
+            sqlite3_stmt? statement = CreateStatement();
+            SQLiteResult result = (SQLiteResult)raw.sqlite3_step(statement!);
             raw.sqlite3_finalize(statement);
 
             if (result != SQLiteResult.Done)
@@ -239,9 +242,13 @@ public class SQLiteCommand
         return (changes, rowId, rowIdChanged);
     }
 
-    internal sqlite3_stmt CreateStatement()
+    internal sqlite3_stmt? CreateStatement()
     {
-        sqlite3_stmt stmt = Database.RentStatement(CommandText);
+        sqlite3_stmt? stmt = Database.RentStatement(CommandText);
+        if (stmt is null)
+        {
+            return null;
+        }
 
         try
         {

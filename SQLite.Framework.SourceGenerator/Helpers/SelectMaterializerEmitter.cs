@@ -22,13 +22,26 @@ public static class SelectMaterializerEmitter
             return false;
         }
 
+        if (ReferencesOuterLambdaParameter(body, writerCtx))
+        {
+            return false;
+        }
+
         EmitContext emitCtx = new(writerCtx)
         {
             OwnerMethodName = methodName
         };
 
         string? bodyText;
-        if (body is ImplicitArrayCreationExpressionSyntax or ArrayCreationExpressionSyntax)
+        if (body is ArrayCreationExpressionSyntax { Initializer: null } boundsCreation)
+        {
+            bodyText = CollectArrayBoundsLeaves(boundsCreation, emitCtx);
+            if (bodyText == null)
+            {
+                return false;
+            }
+        }
+        else if (body is ImplicitArrayCreationExpressionSyntax or ArrayCreationExpressionSyntax)
         {
             bodyText = CollectArrayLeaves(body, emitCtx);
             if (bodyText == null)
@@ -487,6 +500,55 @@ public static class SelectMaterializerEmitter
         return false;
     }
 
+    private static string? CollectArrayBoundsLeaves(ArrayCreationExpressionSyntax body, EmitContext ctx)
+    {
+        if (body.Type is not ArrayTypeSyntax arrayTypeSyntax)
+        {
+            return null;
+        }
+
+        if (ctx.Model.GetTypeInfo(body).Type is not IArrayTypeSymbol arrayType)
+        {
+            return null;
+        }
+
+        if (!IsTypeAccessibleFromGenerator(arrayType.ElementType, ctx.GeneratorAssembly))
+        {
+            return null;
+        }
+
+        string elementTypeText = FormatType(arrayType.ElementType, ctx.WriterCtx.TypeArgSubstitutions);
+        List<string> sizes = [];
+        foreach (ArrayRankSpecifierSyntax rank in arrayTypeSyntax.RankSpecifiers)
+        {
+            foreach (ExpressionSyntax size in rank.Sizes)
+            {
+                if (size is OmittedArraySizeExpressionSyntax)
+                {
+                    return null;
+                }
+
+                if (ctx.Model.GetConstantValue(size).HasValue)
+                {
+                    sizes.Add(size.ToString());
+                    continue;
+                }
+
+                if (ctx.Model.GetTypeInfo(size).Type is not { } sizeType)
+                {
+                    return null;
+                }
+
+                int idx = ctx.Leaves.Count;
+                string varName = "__leaf_" + idx;
+                ctx.Leaves.Add(new LeafInfo(size, sizeType, varName));
+                sizes.Add("(int)(" + varName + ")");
+            }
+        }
+
+        return "new " + elementTypeText + "[" + string.Join(", ", sizes) + "]";
+    }
+
     private static string? CollectArrayLeaves(ExpressionSyntax body, EmitContext ctx)
     {
         InitializerExpressionSyntax? initializer = body switch
@@ -530,6 +592,25 @@ public static class SelectMaterializerEmitter
             bool elementBuildsObject = element is BaseObjectCreationExpressionSyntax;
             if (!ContainsClientEvalCall(element, ctx) && !elementBuildsObject)
             {
+                if (SelectSignatureWriter.IsRowLikeReference(element, ctx.WriterCtx))
+                {
+                    if (!RegisterRowExpansion(element, ctx))
+                    {
+                        return null;
+                    }
+
+                    SyntaxNode? rewrittenRow = rewriter.Visit(element);
+                    if (rewriter.Failed || rewrittenRow is not ExpressionSyntax rewrittenRowElement)
+                    {
+                        return null;
+                    }
+
+                    bodyBuilder.Append('(').Append(elementTypeText).Append(")(")
+                        .Append(rewrittenRowElement.NormalizeWhitespace(indentation: "", eol: " ").ToFullString())
+                        .Append(')');
+                    continue;
+                }
+
                 int idx = ctx.Leaves.Count;
                 string varName = "__leaf_" + idx;
                 ctx.Leaves.Add(new LeafInfo(element, elementType, varName, isNullableElement));
@@ -851,6 +932,35 @@ public static class SelectMaterializerEmitter
             return true;
         }
 
+        if (node is ArrayCreationExpressionSyntax { Initializer: null } boundsCreation
+            && boundsCreation.Type is ArrayTypeSyntax boundsArrayType)
+        {
+            foreach (ArrayRankSpecifierSyntax rank in boundsArrayType.RankSpecifiers)
+            {
+                foreach (ExpressionSyntax size in rank.Sizes)
+                {
+                    if (size is OmittedArraySizeExpressionSyntax
+                        || ctx.Model.GetConstantValue(size).HasValue
+                        || !ReferencesRow(size, ctx))
+                    {
+                        continue;
+                    }
+
+                    if (ctx.Model.GetTypeInfo(size).Type is not { } sizeType)
+                    {
+                        return false;
+                    }
+
+                    int idx = ctx.Leaves.Count;
+                    string varName = "__leaf_" + idx;
+                    ctx.Leaves.Add(new LeafInfo(size, sizeType, varName));
+                    ctx.LeafIndexBySyntax[size] = idx;
+                }
+            }
+
+            return true;
+        }
+
         if (node is BinaryExpressionSyntax bin
             && (bin.Kind() == SyntaxKind.EqualsExpression || bin.Kind() == SyntaxKind.NotEqualsExpression))
         {
@@ -860,15 +970,31 @@ public static class SelectMaterializerEmitter
 
             if (rangeIdent != null
                 && ctx.Model.GetSymbolInfo(rangeIdent).Symbol is { } binRangeSym
-                && ctx.WriterCtx.NullableRangeVars.Contains(binRangeSym)
                 && ctx.Model.GetTypeInfo(rangeIdent).Type is INamedTypeSymbol rangeType)
             {
-                List<IPropertySymbol> props = SelectSignatureWriter.GetRowProperties(rangeType);
-                if (props.Count > 0)
+                if (ctx.WriterCtx.RowBindings.ContainsKey(binRangeSym))
+                {
+                    List<IPropertySymbol> props = SelectSignatureWriter.GetRowProperties(rangeType);
+                    if (props.Count > 0)
+                    {
+                        int idx = ctx.Leaves.Count;
+                        string varName = "__leaf_" + idx;
+                        ctx.Leaves.Add(new LeafInfo(bin, ctx.Model.Compilation.GetSpecialType(SpecialType.System_Boolean), varName, isNullable: true));
+                        ctx.LeafIndexBySyntax[bin] = idx;
+                        if (!ctx.NullableRangeFirstLeaf.ContainsKey(binRangeSym))
+                        {
+                            ctx.NullableRangeFirstLeaf[binRangeSym] = idx;
+                        }
+
+                        return true;
+                    }
+                }
+                else if (ctx.WriterCtx.ParameterSubstitutions.TryGetValue(binRangeSym, out ExpressionSyntax? substituted)
+                    && substituted is BaseObjectCreationExpressionSyntax or AnonymousObjectCreationExpressionSyntax)
                 {
                     int idx = ctx.Leaves.Count;
                     string varName = "__leaf_" + idx;
-                    ctx.Leaves.Add(new LeafInfo(bin, props[0].Type, varName, isNullable: true));
+                    ctx.Leaves.Add(new LeafInfo(bin, ctx.Model.Compilation.GetSpecialType(SpecialType.System_Boolean), varName, isNullable: true));
                     ctx.LeafIndexBySyntax[bin] = idx;
                     if (!ctx.NullableRangeFirstLeaf.ContainsKey(binRangeSym))
                     {
@@ -877,6 +1003,19 @@ public static class SelectMaterializerEmitter
 
                     return true;
                 }
+            }
+
+            ExpressionSyntax? creationOperand = null;
+            if (bin.Left is BaseObjectCreationExpressionSyntax or AnonymousObjectCreationExpressionSyntax && bin.Right.IsKind(SyntaxKind.NullLiteralExpression)) creationOperand = bin.Left;
+            else if (bin.Right is BaseObjectCreationExpressionSyntax or AnonymousObjectCreationExpressionSyntax && bin.Left.IsKind(SyntaxKind.NullLiteralExpression)) creationOperand = bin.Right;
+
+            if (creationOperand != null)
+            {
+                int idx = ctx.Leaves.Count;
+                string varName = "__leaf_" + idx;
+                ctx.Leaves.Add(new LeafInfo(bin, ctx.Model.Compilation.GetSpecialType(SpecialType.System_Boolean), varName, isNullable: true));
+                ctx.LeafIndexBySyntax[bin] = idx;
+                return true;
             }
         }
 
@@ -1087,6 +1226,20 @@ public static class SelectMaterializerEmitter
             && SelectSignatureWriter.IsConstructibleEntityType(rowType);
     }
 
+    private static bool ReferencesRow(SyntaxNode node, EmitContext ctx)
+    {
+        foreach (IdentifierNameSyntax ident in node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        {
+            if (ctx.Model.GetSymbolInfo(ident).Symbol is { } sym
+                && (ctx.WriterCtx.RowBindings.ContainsKey(sym) || ctx.WriterCtx.ParameterSubstitutions.ContainsKey(sym)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static int CountLeavesUnder(List<LeafInfo> leaves, int startIndex, SyntaxNode container)
     {
         int count = 0;
@@ -1167,6 +1320,42 @@ public static class SelectMaterializerEmitter
         }
 
         return rewritten.NormalizeWhitespace(indentation: "", eol: " ").ToFullString();
+    }
+
+    private static bool ReferencesOuterLambdaParameter(ExpressionSyntax body, SelectSignatureCtx writerCtx)
+    {
+        foreach (IdentifierNameSyntax ident in body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        {
+            ISymbol? sym = writerCtx.Model.GetSymbolInfo(ident).Symbol;
+            if (sym is not (IParameterSymbol or IRangeVariableSymbol))
+            {
+                continue;
+            }
+
+            if (writerCtx.RowBindings.ContainsKey(sym)
+                || writerCtx.ParameterSubstitutions.ContainsKey(sym)
+                || writerCtx.NullableRangeVars.Contains(sym))
+            {
+                continue;
+            }
+
+            bool declaredInsideBody = false;
+            foreach (SyntaxReference syntaxRef in sym.DeclaringSyntaxReferences)
+            {
+                if (syntaxRef.GetSyntax().Ancestors().Contains(body))
+                {
+                    declaredInsideBody = true;
+                    break;
+                }
+            }
+
+            if (!declaredInsideBody)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string? TryGetStructAccessor(ITypeSymbol type)

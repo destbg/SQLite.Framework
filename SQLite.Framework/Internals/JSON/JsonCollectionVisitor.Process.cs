@@ -173,6 +173,8 @@ internal partial class JsonCollectionVisitor
         offset = null;
         selectExpr = $"{wrapAlias}.\"value\"";
         keyColumn = $"{wrapAlias}.\"key\"";
+        innerAliases.Clear();
+        innerAliases.Add(wrapAlias);
     }
 
     private void MaterializeDistinct()
@@ -227,6 +229,8 @@ internal partial class JsonCollectionVisitor
         reverseApplied = false;
         selectExpr = $"{wrapAlias}.\"value\"";
         keyColumn = $"{wrapAlias}.\"key\"";
+        innerAliases.Clear();
+        innerAliases.Add(wrapAlias);
     }
 
     private List<(string Expr, string Direction)> SplitOrderBys()
@@ -350,6 +354,7 @@ internal partial class JsonCollectionVisitor
             string overrideJoinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
             fromOverride = $"{fromOverride}, json_each({innerSql}) {overrideJoinAlias}";
             keyColumn = CompositePositionKey(keyColumn, overrideJoinAlias);
+            innerAliases.Add(overrideJoinAlias);
             ApplySelectManyProjection(resultSelector, outerValueSql, elementType, $"{overrideJoinAlias}.\"value\"", innerElementType);
             return;
         }
@@ -361,6 +366,7 @@ internal partial class JsonCollectionVisitor
             string chainedJoinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
             crossJoin = $"{crossJoin}, json_each({chainedInnerSql}) {chainedJoinAlias}";
             keyColumn = CompositePositionKey(keyColumn, chainedJoinAlias);
+            innerAliases.Add(chainedJoinAlias);
             ApplySelectManyProjection(resultSelector, chainedOuterValueSql, elementType, $"{chainedJoinAlias}.\"value\"", innerElementType);
             return;
         }
@@ -369,6 +375,7 @@ internal partial class JsonCollectionVisitor
         string joinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         crossJoin = $", json_each({selSql}) {joinAlias}";
         keyColumn = CompositePositionKey(keyColumn, joinAlias);
+        innerAliases.Add(joinAlias);
         ApplySelectManyProjection(resultSelector, $"{baseAlias}.\"value\"", elementType, $"{joinAlias}.\"value\"", innerElementType);
     }
 
@@ -515,8 +522,30 @@ internal partial class JsonCollectionVisitor
             ? VisitLambda(call.Arguments[1], elementType)
             : selectExpr;
 
+        Type valueType = hasSelector
+            ? ((LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1])).ReturnType
+            : elementType;
+        valueType = Nullable.GetUnderlyingType(valueType) ?? valueType;
+        bool stringEnumAggregate = sqlFunc is "MIN" or "MAX"
+            && valueType.IsEnum
+            && JsonEnumText.IsStringStored(options, valueType);
+        if (stringEnumAggregate)
+        {
+            SQLiteExpression innerNumber = EnumMemberVisitor.BuildTextStorageEnumToNumber(
+                visitor, typeof(long), valueType, SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), inner),
+                inlineOperand: true);
+            parameters.AddRange(innerNumber.Parameters!);
+            inner = innerNumber.ToString();
+        }
+
+        inner = EnsureInnerReference(inner);
         string aggregate = distinct ? $"{sqlFunc}(DISTINCT {inner})" : $"{sqlFunc}({inner})";
         selectExpr = sqlFunc == "SUM" ? $"COALESCE({aggregate}, 0)" : aggregate;
+        if (stringEnumAggregate)
+        {
+            stringEnumNameWrapType = valueType;
+        }
+
         distinct = false;
         wrapInArray = false;
     }

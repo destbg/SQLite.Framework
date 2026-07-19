@@ -10,4 +10,6 @@ internal class CteInfo
     public string[]? ColumnNames { get; init; }
     public HashSet<string>? DayOfWeekColumns { get; init; }
     public HashSet<string>? ConstructedPaths { get; init; }
+    public Dictionary<string, Expression>? BodyColumns { get; init; }
+    public IReadOnlyList<SQLiteExpression>? BodySelects { get; init; }
 }

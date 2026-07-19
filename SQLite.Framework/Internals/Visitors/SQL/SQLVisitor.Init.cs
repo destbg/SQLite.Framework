@@ -15,7 +15,22 @@ internal partial class SQLVisitor
             .ToList();
 
         Type elementType = node.Type.GetElementType()!;
-        return Expression.NewArrayInit(elementType, sqlExpressions.Select(f => CoerceClientExpression(f.Expression, elementType)));
+        List<Expression> elements = new(node.Expressions.Count);
+        for (int i = 0; i < node.Expressions.Count; i++)
+        {
+            Expression element = node.Expressions[i];
+            if (element is ParameterExpression or MemberExpression
+                && !TypeHelpers.IsSimple(element.Type, Database.Options)
+                && TryMaterializeEntityLeaves(element) is { } materializedEntity)
+            {
+                elements.Add(materializedEntity);
+                continue;
+            }
+
+            elements.Add(CoerceClientExpression(sqlExpressions[i].Expression, elementType));
+        }
+
+        return Expression.NewArrayInit(elementType, elements);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "All types have public properties.")]

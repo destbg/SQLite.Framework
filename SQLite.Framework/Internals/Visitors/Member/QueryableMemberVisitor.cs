@@ -57,8 +57,31 @@ internal static class QueryableMemberVisitor
                 [columnNumber, firstArg], containsParameters);
         }
 
+        if (!firstArg.IsDayOfWeekInteger
+            && visitor.Database.Options.EnumStorage == EnumStorageMode.Text
+            && containsItemType == typeof(DayOfWeek)
+            && ContainsSourceIsDayOfWeekInteger(translator))
+        {
+            SQLiteExpression itemNumber = EnumMemberVisitor.BuildTextStorageEnumToNumber(visitor, typeof(int), typeof(DayOfWeek), firstArg);
+            SQLiteParameter[]? itemParameters = queryParams == null
+                ? itemNumber.Parameters
+                : [.. queryParams, .. itemNumber.Parameters!];
+            return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
+                $"EXISTS ({Environment.NewLine}SELECT 1 FROM ({Environment.NewLine}{querySql}{Environment.NewLine}) WHERE \"{containsColumn}\" IS ", itemNumber, ")", itemParameters);
+        }
+
         return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
             $"EXISTS ({Environment.NewLine}SELECT 1 FROM ({Environment.NewLine}{querySql}{Environment.NewLine}) WHERE \"{containsColumn}\" IS ", firstArg, ")", parameters);
+    }
+
+    private static bool ContainsSourceIsDayOfWeekInteger(SQLTranslator translator)
+    {
+        if (translator.Selects.Count > 0)
+        {
+            return translator.Selects[0].IsDayOfWeekInteger;
+        }
+
+        return ((SQLiteExpression)translator.Visitor.TableColumns.Values.First()).IsDayOfWeekInteger;
     }
 
     public static Expression HandleEnumerableMethod(SQLVisitor visitor, MethodCallExpression node, IEnumerable enumerable, List<ResolvedModel> arguments)

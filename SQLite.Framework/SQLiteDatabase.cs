@@ -422,38 +422,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     {
         ArgumentNullException.ThrowIfNull(destination);
 
-        OpenConnection();
-        destination.OpenConnection();
-
         using IDisposable sourceLock = Lock();
         using IDisposable destLock = destination.Lock();
 
-        if (raw.sqlite3_get_autocommit(Handle!) == 0 || raw.sqlite3_get_autocommit(destination.Handle!) == 0)
-        {
-            throw new InvalidOperationException(
-                "BackupTo cannot run while a transaction is open on the source or the destination connection. Commit or roll back the transaction first.");
-        }
-
-        sqlite3_backup handle = raw.sqlite3_backup_init(destination.Handle!, destName, Handle!, sourceName);
-        if (handle.IsInvalid)
-        {
-            SQLiteResult code = (SQLiteResult)raw.sqlite3_errcode(destination.Handle!);
-            string message = raw.sqlite3_errmsg(destination.Handle!).utf8_to_string();
-            throw new SQLiteException(code, message, null);
-        }
-
+        sqlite3_backup handle = BeginBackup(destination, sourceName, destName);
         SQLiteResult result;
         while ((result = (SQLiteResult)raw.sqlite3_backup_step(handle, -1)) is SQLiteResult.Busy or SQLiteResult.Locked)
         {
             Thread.Sleep(50);
         }
 
-        raw.sqlite3_backup_finish(handle);
-        if (result != SQLiteResult.Done)
-        {
-            string message = raw.sqlite3_errmsg(destination.Handle!).utf8_to_string();
-            throw new SQLiteException(result, message, null);
-        }
+        EndBackup(destination, handle, result);
     }
 
     /// <summary>
@@ -993,12 +972,80 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return connectionSemaphore.WaitAsync(cancellationToken);
     }
 
+    internal sqlite3_backup BeginBackup(SQLiteDatabase destination, string sourceName, string destName)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+
+        OpenConnection();
+        destination.OpenConnection();
+
+        if (raw.sqlite3_get_autocommit(Handle!) == 0 || raw.sqlite3_get_autocommit(destination.Handle!) == 0)
+        {
+            throw new InvalidOperationException(
+                "BackupTo cannot run while a transaction is open on the source or the destination connection. Commit or roll back the transaction first.");
+        }
+
+        if (IsSameDatabaseFile(destination))
+        {
+            throw new InvalidOperationException(
+                "BackupTo cannot copy a database onto itself. The backup would hold a read lock on the source file that the destination write can never pass, so the copy could never finish. Back up to a different file.");
+        }
+
+        sqlite3_backup handle = raw.sqlite3_backup_init(destination.Handle!, destName, Handle!, sourceName);
+        if (handle.IsInvalid)
+        {
+            SQLiteResult code = (SQLiteResult)raw.sqlite3_errcode(destination.Handle!);
+            string message = raw.sqlite3_errmsg(destination.Handle!).utf8_to_string();
+            throw new SQLiteException(code, message, null);
+        }
+
+        return handle;
+    }
+
+    internal void EndBackup(SQLiteDatabase destination, sqlite3_backup handle, SQLiteResult result)
+    {
+        raw.sqlite3_backup_finish(handle);
+        if (result != SQLiteResult.Done)
+        {
+            string message = raw.sqlite3_errmsg(destination.Handle!).utf8_to_string();
+            throw new SQLiteException(result, message, null);
+        }
+    }
+
     /// <summary>
     /// Returns the shared connection handle for the current async context.
     /// </summary>
     internal sqlite3 GetActiveHandle()
     {
         return Handle!;
+    }
+
+    internal bool HasFtsSyncTriggersLive(TableMapping mapping)
+    {
+        if (mapping.HasFtsSyncTriggers || mapping.FtsSyncTriggersProbed)
+        {
+            return mapping.HasFtsSyncTriggers;
+        }
+
+        mapping.FtsSyncTriggersProbed = true;
+        OpenConnection();
+        string escaped = mapping.TableName.Replace("'", "''");
+        string sql = $"SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{escaped}' AND name LIKE '%\\_sync\\_ad' ESCAPE '\\'";
+        sqlite3_stmt statement = RentStatement(sql)!;
+        try
+        {
+            raw.sqlite3_step(statement);
+            if (raw.sqlite3_column_int64(statement, 0) > 0)
+            {
+                mapping.HasFtsSyncTriggers = true;
+            }
+        }
+        finally
+        {
+            ReturnStatement(sql, statement);
+        }
+
+        return mapping.HasFtsSyncTriggers;
     }
 
     internal bool TryGetCachedTableMapping(Type type, [NotNullWhen(true)] out TableMapping? mapping)
@@ -1024,7 +1071,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return false;
     }
 
-    internal sqlite3_stmt RentStatement(string sql)
+    internal sqlite3_stmt? RentStatement(string sql)
     {
         if (statementPool.TryRent(sql, out sqlite3_stmt pooled))
         {
@@ -1045,7 +1092,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 "The SQL contains more than one statement, which a query can only run partially. Use Execute for multi-statement batches.");
         }
 
-        return stmt;
+        return stmt is null || stmt.IsInvalid ? null : stmt;
     }
 
     internal void ReturnStatement(string sql, sqlite3_stmt statement)
@@ -1293,7 +1340,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             if (reader.Read())
             {
-                Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+                Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement!);
                 SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
                 object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
 
@@ -1307,7 +1354,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
         else if (reader.Read())
         {
-            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement!);
             SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
             object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
 
@@ -1527,6 +1574,19 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
             modelFrozen = true;
         }
+    }
+
+    private bool IsSameDatabaseFile(SQLiteDatabase destination)
+    {
+        if (Options.DatabasePath == ":memory:" || destination.Options.DatabasePath == ":memory:")
+        {
+            return false;
+        }
+
+        return string.Equals(
+            Path.GetFullPath(Options.DatabasePath),
+            Path.GetFullPath(destination.Options.DatabasePath),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private static TResult CoerceScalar<TResult>(object? raw)

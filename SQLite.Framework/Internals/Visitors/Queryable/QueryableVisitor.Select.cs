@@ -120,6 +120,12 @@ internal partial class QueryableVisitor
 
         if (lambda.Body is ParameterExpression)
         {
+            if (lambda.Body.Type.IsArray || (lambda.Body.Type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(lambda.Body.Type)))
+            {
+                throw new NotSupportedException(
+                    $"Cannot read a query result into the collection type '{lambda.Body.Type.FullName}'.");
+            }
+
             List<PropertyInfo> properties = visitor.TableColumns
                 .Select(tableColumn => lambda.Body.Type.GetProperty(tableColumn.Key)!)
                 .ToList();
@@ -157,10 +163,23 @@ internal partial class QueryableVisitor
         if (selectBody is NewArrayExpression arrayBody)
         {
             Type elementType = arrayBody.Type.GetElementType()!;
-            List<Expression> elements = arrayBody.Expressions
-                .Select(e => CoerceArrayElement(visitor.Visit(e)!, elementType))
-                .ToList();
-            normalSelect = Expression.NewArrayInit(elementType, elements);
+            if (arrayBody.NodeType == ExpressionType.NewArrayBounds)
+            {
+                normalSelect = Expression.NewArrayBounds(
+                    elementType,
+                    arrayBody.Expressions.Select(e => CoerceArrayElement(visitor.Visit(e)!, typeof(int))));
+            }
+            else
+            {
+                List<Expression> elements = arrayBody.Expressions
+                    .Select(e => e is ParameterExpression or MemberExpression
+                        && !TypeHelpers.IsSimple(e.Type, visitor.Database.Options)
+                        && visitor.TryMaterializeEntityLeaves(e) is { } materializedEntity
+                        ? materializedEntity
+                        : CoerceArrayElement(visitor.Visit(e)!, elementType))
+                    .ToList();
+                normalSelect = Expression.NewArrayInit(elementType, elements);
+            }
         }
         else
         {
@@ -222,8 +241,10 @@ internal partial class QueryableVisitor
             chainRoot = chainCall.Arguments[0];
         }
 
-        JoinInfo? groupJoin = chainRoot is MemberExpression && chainRoot.Type.IsGenericType
-            ? Joins.FirstOrDefault(f => f.EntityType == chainRoot.Type.GetGenericArguments()[^1] && f.IsGroupJoin)
+        JoinInfo? groupJoin = chainRoot is MemberExpression chainMember && chainRoot.Type.IsGenericType
+            ? Joins.FirstOrDefault(f => f.EntityType == chainRoot.Type.GetGenericArguments()[^1]
+                && f.IsGroupJoin
+                && f.GroupMemberName == chainMember.Member.Name)
             : null;
 
         if (hasDefaultIfEmpty || groupJoin != null)
@@ -285,6 +306,14 @@ internal partial class QueryableVisitor
         }
         else
         {
+            if (chainRoot is MemberExpression reusedGroup
+                && Joins.Any(f => f.GroupMemberName == reusedGroup.Member.Name))
+            {
+                throw new NotSupportedException(
+                    $"GroupJoin group '{reusedGroup.Member.Name}' was already flattened into a join. " +
+                    "A GroupJoin group can only be used once, in 'from x in <name>' or 'from x in <name>.DefaultIfEmpty()'.");
+            }
+
             (Dictionary<string, Expression> newTableColumns, Type entityType, SQLiteExpression sql) = ResolveTable(selector.Body);
 
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
@@ -304,17 +333,15 @@ internal partial class QueryableVisitor
         }
 
         bool isProjection = resultSelector.Body is NewExpression or MemberInitExpression;
+        bool isScalarSelector = resultSelector.Body is not (NewExpression or MemberInitExpression or ParameterExpression or MemberExpression);
 
-        if (isProjection)
+        if ((isProjection || isScalarSelector) && database.Options.SelectMaterializers.Count > 0)
         {
-            if (database.Options.SelectMaterializers.Count > 0)
-            {
-                RawSelectSignature = SelectSignature.Compute(resultSelector.Body);
-                LastSelectLambdaBody = resultSelector.Body;
-            }
+            RawSelectSignature = SelectSignature.Compute(resultSelector.Body);
+            LastSelectLambdaBody = resultSelector.Body;
         }
 
-        if (isProjection && visitor.TableColumns.Values.Any(v => v is not SQLiteExpression))
+        if ((isProjection || isScalarSelector) && visitor.TableColumns.Values.Any(v => v is not SQLiteExpression))
         {
             visitor.IsInSelectProjection = true;
             visitor.ClientEvalAllowed = !IsInnerQuery;

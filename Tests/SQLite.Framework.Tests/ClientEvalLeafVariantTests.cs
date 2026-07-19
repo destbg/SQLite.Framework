@@ -206,9 +206,14 @@ public class ClientEvalLeafVariantTests
     }
 
     [Fact]
-    public void ChainedWholeDtoNullCheckCollapsesAllNullRow()
+    public void ChainedWholeDtoNullCheckMatchesLinq()
     {
         using TestDatabase db = Setup();
+
+        List<string> expected = Rows().OrderBy(r => r.Id)
+            .Select(r => new ClvPart { Label = r.Name })
+            .Select(x => x == null ? "none" : x.Label ?? "null")
+            .ToList();
 
         List<string> actual = db.Table<ClvRow>()
             .OrderBy(r => r.Id)
@@ -216,7 +221,25 @@ public class ClientEvalLeafVariantTests
             .Select(x => x == null ? "none" : x.Label ?? "null")
             .ToList();
 
-        List<string> expected = db.Options.ReflectionFallbackDisabled ? ["null", "n2"] : ["none", "n2"];
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ChainedWholeRowNullableMemberNullCheckMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+
+        List<string> expected = Rows().OrderBy(r => r.Id)
+            .Select(r => new { r.Name })
+            .Select(x => x == null ? "none" : x.Name ?? "null")
+            .ToList();
+
+        List<string> actual = db.Table<ClvRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => new { r.Name })
+            .Select(x => x == null ? "none" : x.Name ?? "null")
+            .ToList();
+
         Assert.Equal(expected, actual);
     }
 

@@ -293,6 +293,11 @@ internal static class ExpressionHelpers
             return wrapped;
         }
 
+        if (underlying.IsAssignableFrom(value.GetType()))
+        {
+            return value;
+        }
+
         return Convert.ChangeType(value, underlying, CultureInfo.InvariantCulture);
     }
 

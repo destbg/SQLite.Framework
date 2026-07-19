@@ -7,16 +7,16 @@ namespace SQLite.Framework.Internals.Models;
 /// </summary>
 internal sealed class AliasSqlExpression : SQLiteExpression
 {
-    private readonly SQLiteExpression inner;
-
     public AliasSqlExpression(Type type, int identifier, SQLiteExpression inner, SQLiteParameter[]? parameters)
         : base(type, identifier, parameters)
     {
-        this.inner = inner;
+        Inner = inner;
     }
+
+    public SQLiteExpression Inner { get; }
 
     public override void WriteSqlTo(StringBuilder sb)
     {
-        inner.WriteSqlTo(sb);
+        Inner.WriteSqlTo(sb);
     }
 }

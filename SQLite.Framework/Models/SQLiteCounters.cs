@@ -72,6 +72,11 @@ public class SQLiteCounters
         foreach (string name in names)
         {
             reservedParamNames.Add(name);
+            string bare = name.TrimStart(':', '@', '$', '?');
+            reservedParamNames.Add("@" + bare);
+            reservedParamNames.Add(":" + bare);
+            reservedParamNames.Add("$" + bare);
+            reservedParamNames.Add("?" + bare);
         }
     }
 

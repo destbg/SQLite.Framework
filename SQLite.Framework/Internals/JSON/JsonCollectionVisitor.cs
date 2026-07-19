@@ -10,6 +10,7 @@ internal partial class JsonCollectionVisitor
     private readonly List<string> orderBys = [];
     private readonly List<string> groupBys = [];
     private readonly List<SQLiteParameter> parameters = [];
+    private readonly List<string> innerAliases = [];
     private string selectExpr = "\"value\"";
     private string keyColumn = "\"key\"";
     private string? groupKeySql;
@@ -28,6 +29,7 @@ internal partial class JsonCollectionVisitor
     private bool countsGroups;
     private string? existsWrapper;
     private string? crossJoin;
+    private Type? stringEnumNameWrapType;
 
     public JsonCollectionVisitor(SQLVisitor visitor, SQLiteOptions options)
     {
@@ -151,6 +153,8 @@ internal partial class JsonCollectionVisitor
         baseAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         selectExpr = $"{baseAlias}.\"value\"";
         keyColumn = $"{baseAlias}.\"key\"";
+        innerAliases.Clear();
+        innerAliases.Add(baseAlias);
         Type rt = resultType;
         foreach (MethodCallExpression call in chain)
         {

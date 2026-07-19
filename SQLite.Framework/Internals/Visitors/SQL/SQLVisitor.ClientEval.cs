@@ -105,11 +105,24 @@ internal partial class SQLVisitor
 
     public SQLiteExpression? TryFoldConstructedNullCheck(BinaryExpression node)
     {
-        if (ExtractNullCheckOperand(node) is { } operand
-            && TryGetConstructedComposite(operand) is { } composite
+        if (ExtractNullCheckOperand(node) is not { } operand)
+        {
+            return null;
+        }
+
+        if (TryGetConstructedComposite(operand) is { } composite
             && TryFoldCompositeNullCheck(composite, node.NodeType == ExpressionType.Equal) is { } folded)
         {
             return Visit(folded) as SQLiteExpression;
+        }
+
+        (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(operand);
+        if (pe != null
+            && path.Length == 0
+            && MethodArguments.ContainsKey(pe)
+            && Database.TryGetCachedTableMapping(pe.Type, out _) == false)
+        {
+            return Visit(Expression.Constant(node.NodeType == ExpressionType.NotEqual)) as SQLiteExpression;
         }
 
         return null;
@@ -147,6 +160,11 @@ internal partial class SQLVisitor
 
     private Expression? TryGetConstructedComposite(Expression operand)
     {
+        if (operand is ConditionalExpression or MemberInitExpression or NewExpression)
+        {
+            return operand;
+        }
+
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(operand);
         if (pe != null
             && MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns)
@@ -252,9 +270,9 @@ internal partial class SQLVisitor
 
     private static bool? BranchIsNull(Expression branch)
     {
-        if (branch is ConstantExpression { Value: null })
+        if (ExpressionHelpers.IsConstant(branch))
         {
-            return true;
+            return ExpressionHelpers.GetConstantValue(branch) == null;
         }
 
         if (branch is MemberInitExpression or NewExpression)

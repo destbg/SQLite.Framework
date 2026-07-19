@@ -288,9 +288,7 @@ internal partial class QueryableVisitor
             Expression[] coalesced = new Expression[translatedKey.Arguments.Count];
             for (int i = 0; i < translatedKey.Arguments.Count; i++)
             {
-                coalesced[i] = translatedKey.Arguments[i] is SQLiteExpression argExpression
-                    ? visitor.CoalesceLiftedOrderComparison(originalKey.Arguments[i], argExpression)
-                    : translatedKey.Arguments[i];
+                coalesced[i] = CoalesceNestedGroupKey(originalKey.Arguments[i], translatedKey.Arguments[i]);
             }
 
             groupByExpression = translatedKey.Update(coalesced);
@@ -373,6 +371,47 @@ internal partial class QueryableVisitor
         visitor.TableColumns = newTableColumns;
 
         return node;
+    }
+
+    private Expression CoalesceNestedGroupKey(Expression original, Expression translated)
+    {
+        if (translated is SQLiteExpression sqlExpression)
+        {
+            return visitor.CoalesceLiftedOrderComparison(original, sqlExpression);
+        }
+
+        if (translated is MemberInitExpression memberInit && original is MemberInitExpression originalInit)
+        {
+            List<MemberBinding> bindings = new(memberInit.Bindings.Count);
+            for (int i = 0; i < memberInit.Bindings.Count; i++)
+            {
+                if (memberInit.Bindings[i] is MemberAssignment assignment
+                    && originalInit.Bindings[i] is MemberAssignment originalAssignment)
+                {
+                    bindings.Add(Expression.Bind(assignment.Member, CoalesceNestedGroupKey(originalAssignment.Expression, assignment.Expression)));
+                }
+                else
+                {
+                    bindings.Add(memberInit.Bindings[i]);
+                }
+            }
+
+            return memberInit.Update(memberInit.NewExpression, bindings);
+        }
+
+        if (translated is NewExpression newExpression)
+        {
+            NewExpression originalNew = (NewExpression)original;
+            Expression[] arguments = new Expression[newExpression.Arguments.Count];
+            for (int i = 0; i < arguments.Length; i++)
+            {
+                arguments[i] = CoalesceNestedGroupKey(originalNew.Arguments[i], newExpression.Arguments[i]);
+            }
+
+            return newExpression.Update(arguments);
+        }
+
+        return translated;
     }
 
     private static void AddGroupKeyColumns(Dictionary<string, Expression> columns, HashSet<string> constructedPaths, string path, Expression value)

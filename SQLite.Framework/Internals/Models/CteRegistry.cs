@@ -17,7 +17,7 @@ internal class CteRegistry
         return registeredCtes[cte];
     }
 
-    public string Register(string sql, SQLiteParameter[]? parameters, bool isRecursive, SQLiteCte key, string[]? columnNames = null, HashSet<string>? dayOfWeekColumns = null, HashSet<string>? constructedPaths = null)
+    public string Register(string sql, SQLiteParameter[]? parameters, bool isRecursive, SQLiteCte key, string[]? columnNames = null, HashSet<string>? dayOfWeekColumns = null, HashSet<string>? constructedPaths = null, Dictionary<string, Expression>? bodyColumns = null, IReadOnlyList<SQLiteExpression>? bodySelects = null)
     {
         string name = $"cte{ctes.Count}";
         CteInfo info = new()
@@ -29,7 +29,9 @@ internal class CteRegistry
             Materialization = key.Materialization,
             ColumnNames = columnNames,
             DayOfWeekColumns = dayOfWeekColumns,
-            ConstructedPaths = constructedPaths
+            ConstructedPaths = constructedPaths,
+            BodyColumns = bodyColumns,
+            BodySelects = bodySelects
         };
         ctes.Add(info);
         registeredCtes[key] = info;

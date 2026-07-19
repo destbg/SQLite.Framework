@@ -37,9 +37,18 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        Expression? newObject = node.Object != null ? Visit(node.Object) : null;
-        Expression[] newArgs = new Expression[node.Arguments.Count];
         bool substituteRowArguments = !IsFrameworkTranslatedMethod(node.Method);
+        Expression? newObject;
+        if (node.Object != null && substituteRowArguments && IsExpandableRowReceiver(node.Object))
+        {
+            newObject = BuildMaterialization(node.Object);
+        }
+        else
+        {
+            newObject = node.Object != null ? Visit(node.Object) : null;
+        }
+
+        Expression[] newArgs = new Expression[node.Arguments.Count];
         bool stringConcatMethod = node.Method.DeclaringType == typeof(string)
             && node.Method.Name is nameof(string.Join) or nameof(string.Concat);
 
@@ -88,6 +97,13 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
         }
 
         return false;
+    }
+
+    private bool IsExpandableRowReceiver(Expression expression)
+    {
+        return expression is ParameterExpression pe
+            && rowParameters.Contains(pe)
+            && IsConstructibleEntityType(pe.Type);
     }
 
     private static bool IsUnmappedProperty(PropertyInfo property)

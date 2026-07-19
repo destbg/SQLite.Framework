@@ -41,6 +41,13 @@ internal partial class SQLVisitor
                 Expression.MakeMemberAccess(conditional.IfFalse, node.Member)));
         }
 
+        if (node.Expression is ConditionalExpression conditionalObject
+            && !TypeHelpers.IsSimple(conditionalObject.Type, Database.Options)
+            && !Database.TryGetCachedTableMapping(conditionalObject.Type, out _))
+        {
+            return Visit(FoldConstructedMemberAccess(conditionalObject, node.Member.Name));
+        }
+
         if (node.Expression is not MemberExpression and not ParameterExpression)
         {
             node = (MemberExpression)ResolveMember(node);

@@ -150,4 +150,22 @@ public class ComputedDayOfWeekJoinAndContainsTests
         List<int> actual = db.Table<DowSlotRow>().Where(s => days.Contains(s.Dow)).Select(s => s.Id).OrderBy(id => id).ToList();
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void ParameterizedSubqueryContainsStoredDayOfWeekColumnTextStorage()
+    {
+        using TestDatabase db = Seed(EnumStorageMode.Text);
+
+        int minId = 1;
+
+        List<int> expected = Slots()
+            .Where(t => Schedules().Where(s => s.Id > minId).Select(s => s.When.DayOfWeek).Contains(t.Dow))
+            .Select(t => t.Id).OrderBy(id => id).ToList();
+        Assert.Equal([10], expected);
+
+        List<int> actual = db.Table<DowSlotRow>()
+            .Where(t => db.Table<DowScheduleRow>().Where(s => s.Id > minId).Select(s => s.When.DayOfWeek).Contains(t.Dow))
+            .Select(t => t.Id).OrderBy(id => id).ToList();
+        Assert.Equal(expected, actual);
+    }
 }

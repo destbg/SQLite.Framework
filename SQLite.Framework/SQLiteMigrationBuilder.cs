@@ -45,10 +45,16 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
     {
         SetReadColumnCollector reads = new(mapping, value.Parameters[0]);
         reads.Visit(CommonHelpers.Inline(value.Body));
+        string valueSql = ExpressionHelpers.IsConstant(value.Body)
+            ? ConverterSql.WrapParameter(
+                SqlLiteralHelper.FormatLiteral(ExpressionHelpers.GetConstantValue(value.Body), database.Options),
+                typeof(TValue),
+                database.Options)
+            : BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: false);
         sets.Add(new MigrationSetValue
         {
             Column = ResolveWritableColumn(column),
-            ValueSql = BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: false),
+            ValueSql = valueSql,
             ReadColumns = reads.Columns,
         });
         return this;

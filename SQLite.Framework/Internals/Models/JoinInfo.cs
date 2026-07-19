@@ -10,4 +10,5 @@ internal class JoinInfo
     public required SQLiteExpression Sql { get; init; }
     public required SQLiteExpression? OnClause { get; set; }
     public required bool IsGroupJoin { get; set; }
+    public string? GroupMemberName { get; init; }
 }

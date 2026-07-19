@@ -20,7 +20,7 @@ public static class AsyncSQLiteCommandExtensions
         SQLiteDataReader reader;
         try
         {
-            sqlite3_stmt statement = command.CreateStatement();
+            sqlite3_stmt? statement = command.CreateStatement();
             reader = new(command.Database.GetActiveHandle(), statement, connectionLock, command)
             {
                 PooledSql = command.CommandText,

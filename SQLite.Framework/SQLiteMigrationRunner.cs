@@ -437,7 +437,9 @@ public sealed class SQLiteMigrationRunner
             int rebuildVersion = DataPhaseRebuildVersion(mapping, groupOps, operations, created);
             if (rebuildVersion > 0)
             {
-                deferred.Add(new DeferredSchemaWork { Version = rebuildVersion, Order = 3, Apply = () => ProcessReconcileGroup(mapping, groupOps, created) });
+                List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> deferredSchemaSets = SchemaPhaseSets(mapping, groupOps);
+                deferredFills.AddRange(ComputeReconcileFills(mapping, groupOps, deferredSchemaSets));
+                deferred.Add(new DeferredSchemaWork { Version = rebuildVersion, Order = 3, Apply = () => (ApplyReconcileSchema(mapping, groupOps, created, deferredSchemaSets), []) });
             }
             else
             {
@@ -455,6 +457,11 @@ public sealed class SQLiteMigrationRunner
 
     private int ApplyCreateTable(MigrationOperation operation, HashSet<string> newlyCreated)
     {
+        if (operation.DropTableFirst && newlyCreated.Contains(operation.Mapping!.TableName))
+        {
+            return 0;
+        }
+
         int count = 0;
         if (operation.DropTableFirst && schema.TableExists(operation.Mapping!.TableName))
         {
@@ -492,10 +499,20 @@ public sealed class SQLiteMigrationRunner
 
     private (int Count, List<DeferredFill> Fills) ProcessReconcileGroup(TableMapping mapping, List<MigrationOperation> group, HashSet<string> newlyCreated)
     {
+        bool isNew = newlyCreated.Contains(mapping.TableName) || !schema.TableExists(mapping.TableName);
+        List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> schemaSets = isNew || mapping.IsFullTextSearch || mapping.IsRTree
+            ? []
+            : SchemaPhaseSets(mapping, group);
+
+        int count = ApplyReconcileSchema(mapping, group, newlyCreated, schemaSets);
+        return (count, ComputeReconcileFills(mapping, group, schemaSets));
+    }
+
+    private int ApplyReconcileSchema(TableMapping mapping, List<MigrationOperation> group, HashSet<string> newlyCreated, List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> schemaSets)
+    {
         int count = 0;
         bool rebuild = group.Any(o => o.Rebuild);
         bool isNew = newlyCreated.Contains(mapping.TableName) || !schema.TableExists(mapping.TableName);
-        Dictionary<string, (int Version, MigrationSetValue Set)> schemaWinners = new(StringComparer.OrdinalIgnoreCase);
         if (isNew)
         {
             if (!newlyCreated.Contains(mapping.TableName))
@@ -506,34 +523,13 @@ public sealed class SQLiteMigrationRunner
         }
         else
         {
-            List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> schemaSets = mapping.IsFullTextSearch || mapping.IsRTree
-                ? []
-                : SchemaPhaseSets(mapping, group);
             List<MigrationSetValue> schemaSetValues = schemaSets.Select(s => s.ApplySet).ToList();
             count += rebuild
                 ? MigrateCore(mapping, schemaSetValues)
                 : MigrateInPlace(mapping, schemaSetValues);
-            foreach ((int version, MigrationSetValue set, _) in schemaSets)
-            {
-                schemaWinners[set.Column] = (version, set);
-            }
         }
 
-        List<DeferredFill> fills = [];
-        foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
-        {
-            int version = versionGroup.Key;
-            List<MigrationSetValue> versionSets = UnionSets(versionGroup.SelectMany(o => o.Sets))
-                .Where(s => !ReadsOutsideModel(mapping, s)
-                    && !IsSettledInSchemaPhase(mapping, s, version, schemaWinners))
-                .ToList();
-            if (versionSets.Count > 0)
-            {
-                fills.Add(new DeferredFill { Version = version, Mapping = mapping, Sets = versionSets });
-            }
-        }
-
-        return (count, fills);
+        return count;
     }
 
     private List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> SchemaPhaseSets(TableMapping mapping, IEnumerable<MigrationOperation> group)
@@ -1361,6 +1357,31 @@ public sealed class SQLiteMigrationRunner
         }
 
         return count;
+    }
+
+    private static List<DeferredFill> ComputeReconcileFills(TableMapping mapping, List<MigrationOperation> group, List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> schemaSets)
+    {
+        Dictionary<string, (int Version, MigrationSetValue Set)> schemaWinners = new(StringComparer.OrdinalIgnoreCase);
+        foreach ((int version, MigrationSetValue set, _) in schemaSets)
+        {
+            schemaWinners[set.Column] = (version, set);
+        }
+
+        List<DeferredFill> fills = [];
+        foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
+        {
+            int version = versionGroup.Key;
+            List<MigrationSetValue> versionSets = UnionSets(versionGroup.SelectMany(o => o.Sets))
+                .Where(s => !ReadsOutsideModel(mapping, s)
+                    && !IsSettledInSchemaPhase(mapping, s, version, schemaWinners))
+                .ToList();
+            if (versionSets.Count > 0)
+            {
+                fills.Add(new DeferredFill { Version = version, Mapping = mapping, Sets = versionSets });
+            }
+        }
+
+        return fills;
     }
 
     private static bool ReadsOutsideModel(TableMapping mapping, MigrationSetValue set)

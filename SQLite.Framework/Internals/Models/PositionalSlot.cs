@@ -1,5 +1,3 @@
-using SQLite.Framework.Models;
-
 namespace SQLite.Framework.Internals.Models;
 
 /// <summary>
@@ -12,6 +10,7 @@ internal struct PositionalSlot
     public int ColumnIndex { get; set; }
     public Type DeclaredType { get; set; }
     public Type TargetType { get; set; }
+    public Type ReadType { get; set; }
     public bool IsEnum { get; set; }
     public Type? EnumUnderlyingType { get; set; }
     public Func<SQLiteQueryContext, object?>? NestedMaterializer { get; set; }

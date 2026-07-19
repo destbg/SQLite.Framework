@@ -89,7 +89,7 @@ public class InternalHelpersDirectTests
         reader.Read();
 
         Assert.Throws<NotSupportedException>(() =>
-            CommandHelpers.ReadColumnValue(reader.Statement, 0, (SQLiteColumnType)999, typeof(int), db.Options));
+            CommandHelpers.ReadColumnValue(reader.Statement!, 0, (SQLiteColumnType)999, typeof(int), db.Options));
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class InternalHelpersDirectTests
         using SQLiteDataReader reader = cmd.ExecuteReader();
         reader.Read();
 
-        object? result = CommandHelpers.ReadColumnValue(reader.Statement, 0, SQLiteColumnType.Blob, typeof(string), db.Options);
+        object? result = CommandHelpers.ReadColumnValue(reader.Statement!, 0, SQLiteColumnType.Blob, typeof(string), db.Options);
         Assert.Equal("Hello", result);
     }
 

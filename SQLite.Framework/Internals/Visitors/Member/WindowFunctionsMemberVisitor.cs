@@ -73,6 +73,22 @@ internal static class WindowFunctionsMemberVisitor
 
         bool allowUlongSplit = !visitor.SuppressUlongWindowOrderSplit;
 
+        if (arguments.Count > 0
+            && node.Method.Name is nameof(SQLiteWindowFunctions.Avg)
+                or nameof(SQLiteWindowFunctions.Min) or nameof(SQLiteWindowFunctions.Max)
+                or nameof(SQLiteWindowFunctions.Count) or nameof(SQLiteWindowFunctions.Lag)
+                or nameof(SQLiteWindowFunctions.Lead) or nameof(SQLiteWindowFunctions.FirstValue)
+                or nameof(SQLiteWindowFunctions.LastValue) or nameof(SQLiteWindowFunctions.NthValue))
+        {
+            if (arguments[0].SQLiteExpression == null)
+            {
+                throw new NotSupportedException(
+                    $"The value argument of {node.Method.Name} cannot be translated to SQL. Use a column or a translatable expression.");
+            }
+
+            arguments[0] = CoalesceLiftedValueArgument(visitor, node.Arguments[0], arguments[0]);
+        }
+
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(arguments
             .Select(a => a.SQLiteExpression)
             .Where(s => s != null)
@@ -156,6 +172,17 @@ internal static class WindowFunctionsMemberVisitor
         return SQLiteExpression.Wrap(t, id, $"{fn}(", a.SQLiteExpression!, ") OVER ()", parameters);
     }
 
+    private static ResolvedModel CoalesceLiftedValueArgument(SQLVisitor visitor, Expression original, ResolvedModel arg)
+    {
+        return new ResolvedModel
+        {
+            IsConstant = arg.IsConstant,
+            Constant = arg.Constant,
+            SQLiteExpression = visitor.CoalesceLiftedOrderComparison(original, arg.SQLiteExpression!),
+            Expression = arg.Expression
+        };
+    }
+
     private static SQLiteExpression FnOver(Type t, int id, string fn, ResolvedModel a, ResolvedModel b, SQLiteParameter[]? parameters)
     {
         return SQLiteExpression.Binary(t, id, $"{fn}(", a.SQLiteExpression!, ", ", b.SQLiteExpression!, ") OVER ()", parameters);
@@ -165,7 +192,9 @@ internal static class WindowFunctionsMemberVisitor
     {
         SQLiteExpression value = a.SQLiteExpression!;
         SQLiteExpression offset = b.SQLiteExpression!;
-        SQLiteExpression fallback = visitor.CoerceDayOfWeekOperand(node.Arguments[2], c.SQLiteExpression!, value);
+        SQLiteExpression fallback = visitor.CoalesceLiftedOrderComparison(
+            node.Arguments[2],
+            visitor.CoerceDayOfWeekOperand(node.Arguments[2], c.SQLiteExpression!, value));
         return SQLiteExpression.Trinary(t, id, $"{fn}(", value, ", ", offset, ", ", fallback, ") OVER ()", ParameterHelpers.CombineParameters(value, offset, fallback));
     }
 

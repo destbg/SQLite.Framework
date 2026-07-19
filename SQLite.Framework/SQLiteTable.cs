@@ -669,7 +669,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             sqlite3_stmt stmt;
             try
             {
-                stmt = Database.RentStatement(sql);
+                stmt = Database.RentStatement(sql)!;
             }
             catch (SQLiteException prepareException)
             {
@@ -1361,7 +1361,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         using IDisposable _ = Database.Lock();
 
         sqlite3 handle = Database.GetActiveHandle();
-        sqlite3_stmt statement = Database.RentStatement(sql);
+        sqlite3_stmt statement = Database.RentStatement(sql)!;
         try
         {
             bindRow(statement, item);

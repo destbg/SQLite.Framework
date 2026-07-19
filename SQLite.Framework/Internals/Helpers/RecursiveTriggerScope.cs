@@ -13,7 +13,7 @@ internal readonly struct RecursiveTriggerScope : IDisposable
 
     public RecursiveTriggerScope(SQLiteDatabase database, TableMapping mapping, bool replaceWrite)
     {
-        if (!replaceWrite || !mapping.HasFtsSyncTriggers || database.ExecuteScalar<int>("PRAGMA recursive_triggers") == 1)
+        if (!replaceWrite || !database.HasFtsSyncTriggersLive(mapping) || database.ExecuteScalar<int>("PRAGMA recursive_triggers") == 1)
         {
             this.database = null;
             return;

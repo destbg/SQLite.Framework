@@ -108,6 +108,12 @@ public class TableMapping
     public bool HasFtsSyncTriggers { get; internal set; }
 
     /// <summary>
+    /// Set once the live schema has been checked for FTS sync triggers on this table.
+    /// Later writes skip the check and use the recorded result.
+    /// </summary>
+    public bool FtsSyncTriggersProbed { get; internal set; }
+
+    /// <summary>
     /// R-Tree metadata for this table when the class is decorated with
     /// <see cref="RTreeIndexAttribute" />, otherwise <see langword="null" />.
     /// </summary>

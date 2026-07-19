@@ -12,7 +12,7 @@ internal class SelectVisitor : ExpressionVisitor
 
     public List<SQLiteExpression> Selects { get; }
 
-    public Expression VisitSQLExpression(SQLiteExpression node)
+    public virtual Expression VisitSQLExpression(SQLiteExpression node)
     {
         if (!node.ExcludedFromSelect)
         {

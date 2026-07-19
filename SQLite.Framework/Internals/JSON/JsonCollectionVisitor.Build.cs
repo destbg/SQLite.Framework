@@ -17,6 +17,19 @@ internal partial class JsonCollectionVisitor
         return column;
     }
 
+    private string EnsureInnerReference(string expr)
+    {
+        foreach (string alias in innerAliases)
+        {
+            if (expr.Contains(alias + "."))
+            {
+                return expr;
+            }
+        }
+
+        return $"(CASE WHEN {keyColumn} IS NOT NULL THEN {expr} END)";
+    }
+
     private string BuildSql(string sourceSql)
     {
         string sp = new(' ', (visitor.Level + 1) * 4);
@@ -129,13 +142,7 @@ internal partial class JsonCollectionVisitor
                 return $"({nl}{sp}SELECT json_group_array({(distinct ? "DISTINCT " : "")}{ArrayElementExpr(arrayColumn)}){nl}{sp}FROM ({nl}{sp2}{innerSelect2}{nl}{sp}){nl})";
             }
 
-            string aggregatedElement = ArrayElementExpr(selectExpr);
-            if (fromOverride == null
-                && !aggregatedElement.Contains(baseAlias + ".")
-                && !aggregatedElement.Contains("\"value\""))
-            {
-                aggregatedElement = $"(CASE WHEN {baseAlias}.\"key\" IS NOT NULL THEN {aggregatedElement} END)";
-            }
+            string aggregatedElement = EnsureInnerReference(ArrayElementExpr(selectExpr));
 
             clauses[0] = $"SELECT json_group_array({distinctKeyword}{aggregatedElement})";
             string simpleSelect = string.Join(nl + sp, clauses);
@@ -158,6 +165,15 @@ internal partial class JsonCollectionVisitor
 
             string groupedInner = string.Join(nl + sp2, groupedClauses);
             return $"({nl}{sp}SELECT {selectExpr}{nl}{sp}FROM ({nl}{sp2}{groupedInner}{nl}{sp}){nl})";
+        }
+
+        if (stringEnumNameWrapType is { } enumNameWrapType)
+        {
+            clauses[0] = $"SELECT {distinctKeyword}{selectExpr} AS \"value\"";
+            string enumInnerSelect = string.Join(nl + sp, clauses);
+            SQLiteExpression nameText = EnumMemberVisitor.BuildEnumToNameInline(visitor, enumNameWrapType, "\"value\"");
+            parameters.AddRange(nameText.Parameters!);
+            return $"({nl}{sp}SELECT {nameText}{nl}{sp}FROM ({nl}{sp2}{enumInnerSelect}{nl}{sp}){nl})";
         }
 
         return $"({nl}{sp}{innerSelect}{nl})";

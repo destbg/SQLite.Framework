@@ -583,20 +583,23 @@ public static class EntityMaterializerEmitter
             anyWritable = true;
             ITypeSymbol propType = StripNullableSymbol(prop.Type);
 
-            if (IsSupportedPropertyType(propType))
+            if (IsSupportedPropertyType(propType)
+                || propType.SpecialType == SpecialType.System_Object
+                || propType.TypeKind == TypeKind.Interface)
             {
                 continue;
             }
 
-            if (propType is INamedTypeSymbol nestedNamed
-                && IsNestedCompositeShape(nestedNamed)
-                && CanEmitNestedMaterialization(nestedNamed, visited))
+            if (propType is INamedTypeSymbol nestedNamed && IsNestedCompositeShape(nestedNamed))
             {
-                continue;
-            }
+                if (CanEmitNestedMaterialization(nestedNamed, visited))
+                {
+                    continue;
+                }
 
-            visited.Remove(type);
-            return false;
+                visited.Remove(type);
+                return false;
+            }
         }
 
         visited.Remove(type);

@@ -10,12 +10,12 @@ public class SQLiteDataReader : IDisposable
     private bool disposed;
     private int readCount;
 
-    internal readonly sqlite3_stmt Statement;
+    internal readonly sqlite3_stmt? Statement;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SQLiteDataReader" /> class.
     /// </summary>
-    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt statement, IDisposable connectionLock, SQLiteCommand command)
+    public SQLiteDataReader(sqlite3 handle, sqlite3_stmt? statement, IDisposable connectionLock, SQLiteCommand command)
     {
         this.handle = handle;
         this.connectionLock = connectionLock;
@@ -73,11 +73,11 @@ public class SQLiteDataReader : IDisposable
         }
         finally
         {
-            if (PooledSql != null)
+            if (PooledSql != null && Statement != null)
             {
                 Database.ReturnStatement(PooledSql, Statement);
             }
-            else
+            else if (Statement != null)
             {
                 raw.sqlite3_finalize(Statement);
             }
@@ -94,6 +94,11 @@ public class SQLiteDataReader : IDisposable
     public bool Read()
     {
         ObjectDisposedException.ThrowIf(disposed, this);
+        if (Statement is null)
+        {
+            return false;
+        }
+
         SQLiteResult result = (SQLiteResult)raw.sqlite3_step(Statement);
         if (result == SQLiteResult.Row)
         {
@@ -135,7 +140,7 @@ public class SQLiteDataReader : IDisposable
     public object? GetValue(int index, SQLiteColumnType columnType, Type type)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return CommandHelpers.ReadColumnValue(Statement, index, columnType, type, Options);
+        return CommandHelpers.ReadColumnValue(Statement!, index, columnType, type, Options);
     }
 
     /// <summary>
@@ -300,7 +305,7 @@ public class SQLiteDataReader : IDisposable
         SQLiteColumnType columnType = GetColumnType(index);
         return columnType == SQLiteColumnType.Null
             ? default
-            : CommandHelpers.ReadDateTime(Statement, index, columnType, Options);
+            : CommandHelpers.ReadDateTime(Statement!, index, columnType, Options);
     }
 
     /// <summary>
@@ -311,7 +316,7 @@ public class SQLiteDataReader : IDisposable
         SQLiteColumnType columnType = GetColumnType(index);
         return columnType == SQLiteColumnType.Null
             ? default
-            : CommandHelpers.ReadDateTimeOffset(Statement, index, columnType, Options);
+            : CommandHelpers.ReadDateTimeOffset(Statement!, index, columnType, Options);
     }
 
     /// <summary>
@@ -322,7 +327,7 @@ public class SQLiteDataReader : IDisposable
         SQLiteColumnType columnType = GetColumnType(index);
         return columnType == SQLiteColumnType.Null
             ? default
-            : CommandHelpers.ReadTimeSpan(Statement, index, columnType, Options);
+            : CommandHelpers.ReadTimeSpan(Statement!, index, columnType, Options);
     }
 
     /// <summary>
@@ -333,7 +338,7 @@ public class SQLiteDataReader : IDisposable
         SQLiteColumnType columnType = GetColumnType(index);
         return columnType == SQLiteColumnType.Null
             ? default
-            : CommandHelpers.ReadDateOnly(Statement, index, columnType, Options);
+            : CommandHelpers.ReadDateOnly(Statement!, index, columnType, Options);
     }
 
     /// <summary>
@@ -344,7 +349,7 @@ public class SQLiteDataReader : IDisposable
         SQLiteColumnType columnType = GetColumnType(index);
         return columnType == SQLiteColumnType.Null
             ? default
-            : CommandHelpers.ReadTimeOnly(Statement, index, columnType, Options);
+            : CommandHelpers.ReadTimeOnly(Statement!, index, columnType, Options);
     }
 
     /// <summary>
@@ -355,7 +360,7 @@ public class SQLiteDataReader : IDisposable
         SQLiteColumnType columnType = GetColumnType(index);
         return columnType == SQLiteColumnType.Null
             ? default
-            : CommandHelpers.ReadGuid(Statement, index, columnType);
+            : CommandHelpers.ReadGuid(Statement!, index, columnType);
     }
 
     /// <summary>
@@ -366,6 +371,6 @@ public class SQLiteDataReader : IDisposable
         SQLiteColumnType columnType = GetColumnType(index);
         return columnType == SQLiteColumnType.Null
             ? default
-            : CommandHelpers.ReadDecimal(Statement, index, columnType, Options);
+            : CommandHelpers.ReadDecimal(Statement!, index, columnType, Options);
     }
 }

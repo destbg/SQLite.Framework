@@ -55,6 +55,21 @@ public class ReflectedBindingsCollectorTests
     }
 
     [Fact]
+    public void Collector_VisitsConstantListInit_AddsCapturedValue()
+    {
+        ListInitExpression listInit = Expression.ListInit(
+            Expression.New(typeof(List<int>)),
+            Expression.ElementInit(typeof(List<int>).GetMethod("Add", new[] { typeof(int) })!, Expression.Constant(1)),
+            Expression.ElementInit(typeof(List<int>).GetMethod("Add", new[] { typeof(int) })!, Expression.Constant(2)));
+
+        Internals.Helpers.ReflectedBindingsCollector collector = new();
+        collector.Visit(listInit);
+
+        Assert.Single(collector.CapturedValues);
+        Assert.Equal(new List<int> { 1, 2 }, Assert.IsType<List<int>>(collector.CapturedValues[0]));
+    }
+
+    [Fact]
     public void Collector_VisitsNonPublicStaticMethodCall_AddsNullInstance()
     {
         MethodInfo method = typeof(ReflectedBindingsCollectorTests)

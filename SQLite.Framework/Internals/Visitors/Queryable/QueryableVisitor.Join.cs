@@ -32,7 +32,10 @@ internal partial class QueryableVisitor
         bool isProjection = node.Method.Name != nameof(System.Linq.Queryable.GroupJoin)
             && resultSelector.Body is NewExpression or MemberInitExpression;
 
-        if (isProjection && database.Options.SelectMaterializers.Count > 0)
+        bool isScalarSelector = node.Method.Name != nameof(System.Linq.Queryable.GroupJoin)
+            && resultSelector.Body is not (NewExpression or MemberInitExpression or ParameterExpression or MemberExpression);
+
+        if ((isProjection || isScalarSelector) && database.Options.SelectMaterializers.Count > 0)
         {
             RawSelectSignature = SelectSignature.Compute(resultSelector.Body);
             LastSelectLambdaBody = resultSelector.Body;
@@ -40,7 +43,7 @@ internal partial class QueryableVisitor
 
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
 
-        if (isProjection && visitor.TableColumns.Values.Any(v => v is not SQLiteExpression))
+        if ((isProjection || isScalarSelector) && visitor.TableColumns.Values.Any(v => v is not SQLiteExpression))
         {
             visitor.IsInSelectProjection = true;
             visitor.ClientEvalAllowed = !IsInnerQuery;
@@ -99,7 +102,10 @@ internal partial class QueryableVisitor
                 JoinType = joinType,
                 Sql = sql,
                 OnClause = SQLiteExpression.Variadic(typeof(bool), -1, "", onParts, " AND ", "", sqlParameters),
-                IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
+                IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin),
+                GroupMemberName = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
+                    ? GetGroupMemberName(resultSelector)
+                    : null
             });
         }
         else
@@ -126,7 +132,10 @@ internal partial class QueryableVisitor
                 JoinType = joinType,
                 Sql = sql,
                 OnClause = SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, " = ", innerAlias, "", parameters),
-                IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
+                IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin),
+                GroupMemberName = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
+                    ? GetGroupMemberName(resultSelector)
+                    : null
             });
         }
 
@@ -143,6 +152,34 @@ internal partial class QueryableVisitor
         }
 
         return columns;
+    }
+
+    private static string? GetGroupMemberName(LambdaExpression resultSelector)
+    {
+        ParameterExpression group = resultSelector.Parameters[1];
+        if (resultSelector.Body is NewExpression newExpression && newExpression.Members != null)
+        {
+            for (int i = 0; i < newExpression.Arguments.Count; i++)
+            {
+                if (newExpression.Arguments[i] == group)
+                {
+                    return newExpression.Members[i].Name;
+                }
+            }
+        }
+
+        if (resultSelector.Body is MemberInitExpression memberInit)
+        {
+            foreach (MemberAssignment assignment in memberInit.Bindings.OfType<MemberAssignment>())
+            {
+                if (assignment.Expression == group)
+                {
+                    return assignment.Member.Name;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static string CompositeJoinKeyOperator(Type outerType, Type innerType)

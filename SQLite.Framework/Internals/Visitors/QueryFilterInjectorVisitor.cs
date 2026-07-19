@@ -12,7 +12,7 @@ namespace SQLite.Framework.Internals.Visitors;
 internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
 {
     private readonly SQLiteOptions options;
-    private readonly HashSet<Type> injecting = [];
+    private readonly HashSet<(Type EntityType, SQLiteOptions Options)> injecting = [];
     private bool ignoreFilters;
 
     public QueryFilterInjectorVisitor(SQLiteOptions options, bool ignoreAll)
@@ -42,7 +42,10 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
             && ExpressionHelpers.IsConstant(node)
             && ExpressionHelpers.GetConstantValue(node) is BaseSQLiteTable table)
         {
-            return InjectFilters(node, table.ElementType, table.Database.Options);
+            Expression source = typeof(IQueryable<>).MakeGenericType(table.ElementType).IsAssignableFrom(node.Type)
+                ? node
+                : Expression.Constant(table);
+            return InjectFilters(source, table.ElementType, table.Database.Options);
         }
 
         return base.VisitMember(node);
@@ -91,7 +94,7 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Queryable.Where is rooted by user code that already calls Where.")]
     private Expression InjectFilters(Expression source, Type entityType, SQLiteOptions filterOptions)
     {
-        if (!injecting.Add(entityType))
+        if (!injecting.Add((entityType, filterOptions)))
         {
             return source;
         }
@@ -125,7 +128,7 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
         }
         finally
         {
-            injecting.Remove(entityType);
+            injecting.Remove((entityType, filterOptions));
         }
     }
 }

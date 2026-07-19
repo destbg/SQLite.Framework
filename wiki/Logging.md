@@ -114,7 +114,7 @@ public sealed class RowLogger : ISQLiteCommandInterceptor
 }
 ```
 
-In `OnRowRead`, read column values only. Do not call `Read` or `Dispose` on the reader, since that advances or closes the stream the caller is reading. Only the data-reader path raises `OnRowRead` and `OnReaderClosing`. Scalar reads and writes do not stream rows, so they never call them.
+In `OnRowRead`, read column values only. Do not call `Read` or `Dispose` on the reader, since that advances or closes the stream the caller is reading. `OnRowRead` and `OnReaderClosing` fire on every path that streams rows through a data reader, including a scalar read such as `ExecuteScalar`, which reads its row through a data reader. Writes such as `ExecuteNonQuery` do not stream rows, so they never call them.
 
 ## Multiple interceptors
 

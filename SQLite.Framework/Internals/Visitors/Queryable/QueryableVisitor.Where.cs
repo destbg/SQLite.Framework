@@ -170,7 +170,7 @@ internal partial class QueryableVisitor
 
     private void ThrowIfGroupJoinGroupPredicate(Expression body)
     {
-        List<Type> groupElementTypes = Joins.Where(f => f.IsGroupJoin).Select(f => f.EntityType).ToList();
+        List<Type> groupElementTypes = Joins.Where(f => f.GroupMemberName != null).Select(f => f.EntityType).ToList();
         if (groupElementTypes.Count == 0)
         {
             return;

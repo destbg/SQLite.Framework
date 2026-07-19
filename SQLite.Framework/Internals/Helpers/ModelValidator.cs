@@ -19,8 +19,14 @@ internal static class ModelValidator
             return issues;
         }
 
-        if (mapping.IsFullTextSearch || mapping.IsRTree)
+        if (mapping.IsFullTextSearch)
         {
+            return issues;
+        }
+
+        if (mapping.IsRTree)
+        {
+            ValidateRTree(database, table, mapping, dbColumns, issues);
             return issues;
         }
 
@@ -29,6 +35,57 @@ internal static class ModelValidator
         ValidateForeignKeys(database, table, mapping, issues);
         ValidateTriggers(database, table, mapping, issues);
         return issues;
+    }
+
+    private static void ValidateRTree(SQLiteDatabase database, string table, TableMapping mapping, List<PragmaTableInfo> dbColumns, List<string> issues)
+    {
+        string? liveSql = database.ExecuteScalar<string?>(
+            $"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{table.Replace("'", "''")}'");
+        if (liveSql == null
+            || !liveSql.StartsWith("CREATE VIRTUAL TABLE", StringComparison.OrdinalIgnoreCase)
+            || !liveSql.Contains("rtree", StringComparison.OrdinalIgnoreCase))
+        {
+            issues.Add($"Table '{table}' is not an R-Tree table.");
+            return;
+        }
+
+        Dictionary<string, PragmaTableInfo> byName = dbColumns.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, SQLiteColumnType> typeByColumnName = mapping.Columns
+            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().ColumnType, StringComparer.OrdinalIgnoreCase);
+
+        RTreeTableInfo rtree = mapping.RTree!;
+        List<string> expectedNames =
+        [
+            rtree.RowIdColumnName,
+            .. rtree.Bounds.Select(b => b.ColumnName),
+            .. rtree.Auxiliaries.Select(a => a.ColumnName),
+        ];
+
+        foreach (string name in expectedNames)
+        {
+            if (!byName.TryGetValue(name, out PragmaTableInfo? dbColumn))
+            {
+                issues.Add($"Column '{table}'.'{name}' is missing in the database.");
+                continue;
+            }
+
+            if (dbColumn.Type.Length > 0
+                && typeByColumnName.TryGetValue(name, out SQLiteColumnType modelType)
+                && TypeAffinityResolver.Resolve(dbColumn.Type) != TypeAffinityResolver.Resolve(modelType.ToString().ToUpperInvariant()))
+            {
+                issues.Add($"Column '{table}'.'{name}' has type '{dbColumn.Type}' but the model expects '{modelType.ToString().ToUpperInvariant()}'.");
+            }
+        }
+
+        HashSet<string> expected = expectedNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (PragmaTableInfo dbColumn in dbColumns)
+        {
+            if (!expected.Contains(dbColumn.Name))
+            {
+                issues.Add($"Column '{table}'.'{dbColumn.Name}' exists in the database but not in the model.");
+            }
+        }
     }
 
     private static void ValidateColumns(SQLiteDatabase database, string table, TableMapping mapping, List<PragmaTableInfo> dbColumns, List<string> issues)
@@ -71,6 +128,12 @@ internal static class ModelValidator
                 issues.Add($"Column '{table}'.'{column.Name}' has type '{dbColumn.Type}' but the model expects '{expectedType}'.");
             }
 
+            bool isRowIdAlias = column.IsPrimaryKey && keyCount == 1 && column.ColumnType == SQLiteColumnType.Integer;
+            if (isRowIdAlias && !string.Equals(dbColumn.Type, "INTEGER", StringComparison.OrdinalIgnoreCase))
+            {
+                issues.Add($"Column '{table}'.'{column.Name}' has type '{dbColumn.Type}' but the model expects 'INTEGER'. Only the exact type name 'INTEGER' makes a primary key column the rowid. Any other spelling makes it a normal column that can hold NULLs.");
+            }
+
             bool dbIsKey = dbColumn.PrimaryKeyOrder > 0;
             if (dbIsKey != column.IsPrimaryKey)
             {
@@ -81,7 +144,6 @@ internal static class ModelValidator
                 issues.Add($"Column '{table}'.'{column.Name}' primary-key order does not match the model.");
             }
 
-            bool isRowIdAlias = column.IsPrimaryKey && keyCount == 1 && column.ColumnType == SQLiteColumnType.Integer;
             if (!isRowIdAlias && dbColumn.IsNotNull == column.IsNullable)
             {
                 issues.Add($"Column '{table}'.'{column.Name}' nullability does not match the model.");

@@ -27,7 +27,8 @@ internal static class JsonMethodTranslator
         if (!sourceIsEnumerableChain
             && (sourceExpr == null
                 || (!IsJsonCollection(sourceExpr.Type, visitor.Database.Options)
-                    && !IsJsonDictionaryProjection(sourceExpr, visitor.Database.Options))))
+                    && !IsJsonDictionaryProjection(sourceExpr, visitor.Database.Options)
+                    && !IsInlineArrayChain(sourceExpr))))
         {
             return null;
         }
@@ -257,11 +258,12 @@ internal static class JsonMethodTranslator
             }
 
             if (node.Method.Name is nameof(Enumerable.Min) or nameof(Enumerable.Max)
-                && TypeHelpers.GetEnumerableElementType(source.SQLiteExpression.Type) is { IsEnum: true } enumElement
+                && TypeHelpers.GetEnumerableElementType(source.SQLiteExpression.Type) is { } rawElement
+                && (Nullable.GetUnderlyingType(rawElement) ?? rawElement) is { IsEnum: true } enumElement
                 && JsonEnumText.IsStringStored(visitor.Database.Options, enumElement))
             {
                 SQLiteExpression valueNumber = EnumMemberVisitor.BuildTextStorageEnumToNumber(
-                    visitor, enumElement, enumElement, SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), "\"value\""));
+                    visitor, enumElement, enumElement, SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), "\"value\""), inlineOperand: true);
                 string aggregateName = node.Method.Name == nameof(Enumerable.Min) ? "MIN" : "MAX";
                 SQLiteExpression aggregate = SQLiteExpression.Leaf(enumElement, visitor.Counters.NextIdentifier(),
                     $"(SELECT {aggregateName}({valueNumber}) FROM json_each({src}))",
@@ -706,8 +708,15 @@ internal static class JsonMethodTranslator
 
     private static ResolvedModel ResolveCollectionSource(SQLVisitor visitor, Expression source)
     {
-        if (source is NewArrayExpression or ListInitExpression
-            && JsonArrayLiteralTranslator.TryTranslate(visitor, source) is { } literal)
+        Expression unwrapped = source;
+        if (source is MethodCallExpression { Method.Name: nameof(Enumerable.ToList) or nameof(Enumerable.ToArray) } wrapCall
+            && wrapCall.Method.DeclaringType == typeof(Enumerable))
+        {
+            unwrapped = wrapCall.Arguments[0];
+        }
+
+        if (unwrapped is NewArrayExpression or ListInitExpression
+            && JsonArrayLiteralTranslator.TryTranslate(visitor, unwrapped) is { } literal)
         {
             return new ResolvedModel
             {
@@ -742,6 +751,17 @@ internal static class JsonMethodTranslator
     {
         return options.TypeConverters.ContainsKey(type)
                && TypeHelpers.GetEnumerableElementType(type) != null;
+    }
+
+    private static bool IsInlineArrayChain(Expression expression)
+    {
+        Expression? current = expression;
+        while (current is MethodCallExpression call)
+        {
+            current = call.Object ?? (call.Arguments.Count > 0 ? call.Arguments[0] : null);
+        }
+
+        return current is NewArrayExpression or ListInitExpression;
     }
 
     private static bool IsJsonCollectionExpression(SQLiteExpression expr, SQLiteOptions options)

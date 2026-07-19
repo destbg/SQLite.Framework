@@ -152,7 +152,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable and `Dictionary.Contains` of a whole key-value pair, are not supported there.
 - On a JSON dictionary, the indexer for a key that is not present returns the type default instead of throwing.
 - On a JSON list of enums, when the registered JSON type info writes the enum as a string, for example through `UseStringEnumConverter`, `Contains` and comparisons bind the serialized member name and match the stored text. Otherwise the query value binds in the form of the global enum storage mode, so a JSON that holds the enum in a different form, by default as a number under `Text` enum storage, does not match. A value the string converter still writes as a number, such as an undefined `[Flags]` combination, also binds in the storage-mode form.
-- `OrderBy` on an enum member that the JSON type info writes as a string sorts by the stored member name text, the same way a `Text` stored enum column sorts, not by the numeric value that LINQ-to-Objects uses.
+- On a JSON object member that the JSON type info writes as a string, `OrderBy` sorts by the stored member name text, not by the numeric value that LINQ-to-Objects uses.
 - The same rule applies to a JSON list of `decimal` under `Text` decimal storage and to a JSON list of `char` under `Integer` char storage. The query value binds in the storage-mode form while the JSON holds a plain number or a one-character string, so `Contains`, `IndexOf` and element comparisons do not match.
 - A `[JsonPropertyName]` whose name contains a character that the JSON writer escapes, such as an apostrophe, reads back its value only on newer SQLite builds. The writer stores the escaped form (for example `it's`) and an older build, such as the one bundled with SQLCipher, does not match it during a query and returns the type default. A name with an unescaped special character, such as a dot, works on all builds.
 
@@ -178,6 +178,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Projections
 
 - A projection that builds an object (`Select(r => new Dto { ... })`) binds public properties only. Public fields are left at their default value.
+- Reading a collection-typed member of a projection in a following step, such as `Select(r => new { Arr = new[] { r.A, r.B } }).Select(x => x.Arr)`, throws `NotSupportedException`. The same holds when the projection sits inside a common table expression and the array is the whole row of the expression.
 - Chaining a second `Select` that reads a member set through the constructor of an object built with both constructor arguments and an object initializer, such as `Select(r => new Dto(a) { Note = b }).Select(d => d.A)`, is not supported and throws.
 - An `object`-typed member read back through a conditional projection can carry the storage type, so a boxed `int` can read back as a boxed `long`.
 - A member of a nested object built by a projection cannot be read after `Take`, `Skip` or `Distinct` when the projection runs in memory. The wrapped subquery exposes only plain columns.
@@ -203,3 +204,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 
 - Two `FromSql` fragments composed in the same query that use the same parameter name share one bound value, so the last value wins.
 - A custom translator that hard-codes a parameter name in its SQL text can collide with a generated parameter name in the same query. The query then fails with an error instead of running.
+
+## Backup
+
+- `BackupTo` onto a second connection of the same database file throws `InvalidOperationException`. The copy would hold a read lock on the source file that its own destination write can never pass, so it could never finish.

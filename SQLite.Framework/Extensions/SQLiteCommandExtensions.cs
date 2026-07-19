@@ -18,7 +18,7 @@ public static class SQLiteCommandExtensions
             yield break;
         }
 
-        Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+        Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement!);
         SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query: null);
         Func<SQLiteQueryContext, object?> materializer = BuildQueryObject.BuildMaterializer(reader, columns, query: null, typeof(T));
 
@@ -43,7 +43,7 @@ public static class SQLiteCommandExtensions
                 yield break;
             }
 
-            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement!);
             SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
             Func<SQLiteQueryContext, object?> materializer = BuildQueryObject.BuildMaterializer(reader, columns, query, typeof(T));
 
@@ -68,7 +68,7 @@ public static class SQLiteCommandExtensions
                 yield break;
             }
 
-            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement);
+            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement!);
             SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
             Func<SQLiteQueryContext, object?> materializer = BuildQueryObject.BuildMaterializer(reader, columns, query, elementType);
 

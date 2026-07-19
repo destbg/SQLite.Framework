@@ -21,6 +21,7 @@ internal static class SchemaSqlNormalizer
     private static List<string> Tokenize(string sql)
     {
         List<string> tokens = [];
+        bool literalList = false;
         int i = 0;
         while (i < sql.Length)
         {
@@ -32,8 +33,18 @@ internal static class SchemaSqlNormalizer
             else if (c == '\'')
             {
                 int close = FindClosingQuote(sql, i);
-                tokens.Add(close < 0 ? sql[i..] : sql[i..(close + 1)]);
-                i = close < 0 ? sql.Length : close + 1;
+                if (close < 0)
+                {
+                    tokens.Add(sql[i..]);
+                    i = sql.Length;
+                    continue;
+                }
+
+                string body = sql[(i + 1)..close];
+                tokens.Add(IsLiteralContext(tokens, literalList)
+                    ? sql[i..(close + 1)]
+                    : body.Replace("''", "'", StringComparison.Ordinal).ToLowerInvariant());
+                i = close + 1;
             }
             else if (c is '"' or '`')
             {
@@ -73,6 +84,15 @@ internal static class SchemaSqlNormalizer
             }
             else
             {
+                if (c == '(' && tokens.Count > 0 && tokens[^1] is "values" or "in")
+                {
+                    literalList = true;
+                }
+                else if (c == ')')
+                {
+                    literalList = false;
+                }
+
                 tokens.Add(sql[i].ToString());
                 i++;
             }
@@ -80,6 +100,19 @@ internal static class SchemaSqlNormalizer
 
         RemoveExistsClause(tokens);
         return tokens;
+    }
+
+    private static bool IsLiteralContext(List<string> tokens, bool literalList)
+    {
+        if (literalList || tokens.Count == 0)
+        {
+            return literalList;
+        }
+
+        return tokens[^1] is "=" or "<" or ">"
+            or "is" or "like" or "glob" or "regexp" or "match" or "between" or "default"
+            or "select" or "then" or "else" or "case" or "and" or "or" or "not" or "where" or "when"
+            or "+" or "-" or "*" or "/" or "%";
     }
 
     private static void RemoveExistsClause(List<string> tokens)

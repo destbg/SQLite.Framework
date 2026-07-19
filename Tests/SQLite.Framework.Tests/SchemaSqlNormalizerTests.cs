@@ -42,4 +42,59 @@ public class SchemaSqlNormalizerTests
     {
         Assert.False(SchemaSqlNormalizer.AreEquivalent(expected, actual));
     }
+
+    [Theory]
+    [InlineData("(a)", "( a )")]
+    [InlineData("insert into t values ('A', 1)", "INSERT INTO t VALUES('A',1)")]
+    [InlineData("select * from t where x in ('A')", "SELECT * FROM t WHERE x IN ('A')")]
+    [InlineData("'Ab'", "'aB'")]
+    [InlineData("select x from 'T'", "SELECT x FROM 't'")]
+    public void QuotedListDefinitionsMatch(string expected, string actual)
+    {
+        Assert.True(SchemaSqlNormalizer.AreEquivalent(expected, actual));
+    }
+
+    [Theory]
+    [InlineData("x = 'a'", "x   =   'a'")]
+    [InlineData("x < 'a'", "x<'a'")]
+    [InlineData("x > 'a'", "x>'a'")]
+    [InlineData("x IS 'a'", "x is 'a'")]
+    [InlineData("x LIKE 'a'", "x like 'a'")]
+    [InlineData("x GLOB 'a'", "x glob 'a'")]
+    [InlineData("x REGEXP 'a'", "x regexp 'a'")]
+    [InlineData("x MATCH 'a'", "x match 'a'")]
+    [InlineData("x BETWEEN 'a' AND 'b'", "x between 'a' and 'b'")]
+    [InlineData("x DEFAULT 'a'", "x default 'a'")]
+    [InlineData("SELECT 'a'", "select 'a'")]
+    [InlineData("case when x then 'a' end", "CASE WHEN x THEN 'a' END")]
+    [InlineData("case when x then 1 else 'a' end", "CASE WHEN x THEN 1 ELSE 'a' END")]
+    [InlineData("case 'a' when 1 then 2 end", "CASE 'a' WHEN 1 THEN 2 END")]
+    [InlineData("x or 'a'", "x OR 'a'")]
+    [InlineData("x NOT 'a'", "x not 'a'")]
+    [InlineData("select x from t where 'a'", "SELECT x FROM t WHERE 'a'")]
+    [InlineData("case x when 'a' then 1 end", "CASE x WHEN 'a' THEN 1 END")]
+    [InlineData("x + 'a'", "x+'a'")]
+    [InlineData("x - 'a'", "x-'a'")]
+    [InlineData("x * 'a'", "x*'a'")]
+    [InlineData("x / 'a'", "x/'a'")]
+    [InlineData("x % 'a'", "x%'a'")]
+    [InlineData("[<>] 'a'", "[<>] 'a'")]
+    [InlineData("[!=] 'a'", "[!=] 'a'")]
+    [InlineData("[==] 'a'", "[==] 'a'")]
+    [InlineData("[<=] 'a'", "[<=] 'a'")]
+    [InlineData("[>=] 'a'", "[>=] 'a'")]
+    [InlineData("[||] 'a'", "[||] 'a'")]
+    public void LiteralContextDefinitionsMatch(string expected, string actual)
+    {
+        Assert.True(SchemaSqlNormalizer.AreEquivalent(expected, actual));
+    }
+
+    [Theory]
+    [InlineData("x = 'A'", "x = 'a'")]
+    [InlineData("values ('A')", "values ('a')")]
+    [InlineData("x in ('A')", "x in ('a')")]
+    public void LiteralCaseDifferenceDoesNotMatch(string expected, string actual)
+    {
+        Assert.False(SchemaSqlNormalizer.AreEquivalent(expected, actual));
+    }
 }

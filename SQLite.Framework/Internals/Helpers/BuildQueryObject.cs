@@ -415,6 +415,12 @@ internal static class BuildQueryObject
                     ParameterInfo p = parameters[i];
                     int columnIndex = FindColumnIndex(columns, prefix + p.Name);
                     Type targetType = Nullable.GetUnderlyingType(p.ParameterType) ?? p.ParameterType;
+                    Type readType = p.ParameterType;
+                    if (p.ParameterType.IsInterface)
+                    {
+                        readType = selectValueTypes![prefix + p.Name];
+                    }
+
                     Func<SQLiteQueryContext, object?>? nestedArg = null;
                     if (columnIndex == NotPresentSentinel
                         && !TypeHelpers.IsSimple(p.ParameterType, options)
@@ -428,6 +434,7 @@ internal static class BuildQueryObject
                         ColumnIndex = columnIndex,
                         DeclaredType = p.ParameterType,
                         TargetType = targetType,
+                        ReadType = readType,
                         IsEnum = targetType.IsEnum,
                         EnumUnderlyingType = targetType.IsEnum ? Enum.GetUnderlyingType(targetType) : null,
                         NestedMaterializer = nestedArg,
@@ -464,7 +471,7 @@ internal static class BuildQueryObject
                             continue;
                         }
 
-                        object? value = r.GetValue(s.ColumnIndex, r.GetColumnType(s.ColumnIndex), s.DeclaredType);
+                        object? value = r.GetValue(s.ColumnIndex, r.GetColumnType(s.ColumnIndex), s.ReadType);
                         if (value == null)
                         {
                             continue;
@@ -473,7 +480,9 @@ internal static class BuildQueryObject
                         anyNonNull = true;
                         args[i] = s.IsEnum
                             ? Enum.ToObject(s.TargetType, Convert.ChangeType(value, s.EnumUnderlyingType!))
-                            : Convert.ChangeType(value, s.TargetType);
+                            : s.DeclaredType.IsInterface
+                                ? value
+                                : Convert.ChangeType(value, s.TargetType);
                     }
 
                     object instance = capturedCtor.Invoke(args);
@@ -634,7 +643,7 @@ internal static class BuildQueryObject
             if (slot.Assigner != null)
             {
                 bool nonNull = trackNonNull && r.GetColumnType(columnIndex) != SQLiteColumnType.Null;
-                slot.Assigner(r.Statement, columnIndex, instance);
+                slot.Assigner(r.Statement!, columnIndex, instance);
                 return nonNull;
             }
 

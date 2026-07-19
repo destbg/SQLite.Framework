@@ -312,6 +312,12 @@ internal static class StringMemberVisitor
                 SQLiteExpression[] concatArgs;
                 if (node.Arguments is [NewArrayExpression concatArray])
                 {
+                    if (concatArray.NodeType == ExpressionType.NewArrayBounds)
+                    {
+                        Expression? boundsResult = FoldArrayBoundsCall(visitor, node, concatArray, arguments);
+                        return boundsResult ?? RebuildClientCall(node, arguments);
+                    }
+
                     SQLiteExpression[]? resolvedConcatArgs = TryResolveInlineArrayElements(visitor, concatArray);
                     if (resolvedConcatArgs == null)
                     {
@@ -319,6 +325,16 @@ internal static class StringMemberVisitor
                     }
 
                     concatArgs = resolvedConcatArgs;
+                }
+                else if (node.Arguments.Count == 1 && typeof(IQueryable).IsAssignableFrom(node.Arguments[0].Type))
+                {
+                    return RewriteAsGroupConcat(visitor, Expression.Constant(""), node.Arguments[0]);
+                }
+                else if (node.Arguments.Any(a => a is ConditionalExpression conditionalArg
+                    && (visitor.Database.TryGetCachedTableMapping(ExpressionHelpers.StripUpcast(conditionalArg.IfTrue).Type, out _)
+                        || visitor.Database.TryGetCachedTableMapping(ExpressionHelpers.StripUpcast(conditionalArg.IfFalse).Type, out _))))
+                {
+                    return Expression.Call(node.Method, node.Arguments.Select(visitor.ToClientExpression));
                 }
                 else
                 {
@@ -329,11 +345,22 @@ internal static class StringMemberVisitor
                     }
                 }
 
+                if (concatArgs.Length == 0)
+                {
+                    return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "''");
+                }
+
                 return SQLiteExpression.Variadic(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "", concatArgs, " || ", "", ParameterHelpers.CombineParameters(concatArgs));
             }
             case nameof(string.Join):
                 if (node.Arguments[1] is NewArrayExpression arrayExpr)
                 {
+                    if (arrayExpr.NodeType == ExpressionType.NewArrayBounds)
+                    {
+                        Expression? boundsResult = FoldArrayBoundsCall(visitor, node, arrayExpr, arguments);
+                        return boundsResult ?? RebuildClientCall(node, arguments);
+                    }
+
                     SQLiteExpression[]? joinArgs = TryResolveInlineArrayElements(visitor, arrayExpr);
                     if (joinArgs == null || arguments[0].SQLiteExpression == null)
                     {
@@ -433,14 +460,20 @@ internal static class StringMemberVisitor
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
     private static Expression RewriteJoinAsGroupConcat(SQLVisitor visitor, MethodCallExpression node)
     {
-        Type elementType = node.Arguments[1].Type.GenericTypeArguments[0];
+        return RewriteAsGroupConcat(visitor, node.Arguments[0], node.Arguments[1]);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The marker method is only used to build an Expression tree, it is never invoked.")]
+    private static Expression RewriteAsGroupConcat(SQLVisitor visitor, Expression separatorArgument, Expression sourceArgument)
+    {
+        Type elementType = sourceArgument.Type.GenericTypeArguments[0];
 
         MethodInfo openMarker = typeof(QueryableExtensions).GetMethod(
             nameof(QueryableExtensions.GroupConcatMarker),
             BindingFlags.Static | BindingFlags.NonPublic)!;
         MethodInfo closedMarker = openMarker.MakeGenericMethod(elementType);
 
-        Expression separator = node.Arguments[0];
+        Expression separator = separatorArgument;
         if (separator.Type == typeof(char))
         {
             if (!ExpressionHelpers.IsConstant(separator))
@@ -452,10 +485,38 @@ internal static class StringMemberVisitor
             separator = Expression.Constant(((char)ExpressionHelpers.GetConstantValue(separator)!).ToString());
         }
 
-        MethodCallExpression rewritten = Expression.Call(closedMarker, node.Arguments[1], separator);
+        MethodCallExpression rewritten = Expression.Call(closedMarker, sourceArgument, separator);
 
         SQLiteCallerContext ctx = new(visitor, rewritten);
         return QueryableMemberVisitor.HandleQueryableMethod(ctx);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The array type is rooted by the user query.")]
+    private static Expression? FoldArrayBoundsCall(SQLVisitor visitor, MethodCallExpression node, NewArrayExpression array, List<ResolvedModel> arguments)
+    {
+        Type elementType = array.Type.GetElementType()!;
+        if (node.Method.Name == nameof(string.Concat) && !elementType.IsValueType)
+        {
+            return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "''");
+        }
+
+        if (!ExpressionHelpers.IsConstant(array.Expressions[0]))
+        {
+            return null;
+        }
+
+        if (node.Method.Name == nameof(string.Join) && !arguments[0].IsConstant)
+        {
+            return null;
+        }
+
+        int length = Convert.ToInt32(ExpressionHelpers.GetConstantValue(array.Expressions[0]), CultureInfo.InvariantCulture);
+
+        Array values = Array.CreateInstance(elementType, length);
+        object? result = node.Method.Name == nameof(string.Join)
+            ? node.Method.Invoke(null, [ExpressionHelpers.GetConstantValue(node.Arguments[0]), values])
+            : node.Method.Invoke(null, [values]);
+        return Expression.Constant(result, node.Method.ReturnType);
     }
 
     private static SQLiteExpression ResolveLike(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, Func<object?, string> selectParameter, Func<SQLiteExpression, string> selectValue)
@@ -698,6 +759,13 @@ internal static class StringMemberVisitor
         SQLiteExpression[] elements = new SQLiteExpression[array.Expressions.Count];
         for (int i = 0; i < array.Expressions.Count; i++)
         {
+            if (TryFoldConstantElement(array.Expressions[i], out object? foldedValue))
+            {
+                string foldedElement = foldedValue?.ToString() ?? "";
+                elements[i] = visitor.ResolveExpression(Expression.Constant(foldedElement)).SQLiteExpression!;
+                continue;
+            }
+
             ResolvedModel resolvedElement = visitor.ResolveExpression(array.Expressions[i]);
             if (resolvedElement.SQLiteExpression == null)
             {
@@ -708,6 +776,32 @@ internal static class StringMemberVisitor
         }
 
         return elements;
+    }
+
+    private static bool TryFoldConstantElement(Expression expression, out object? value)
+    {
+        if (ExpressionHelpers.IsConstant(expression))
+        {
+            value = ExpressionHelpers.GetConstantValue(expression);
+            return true;
+        }
+
+        Expression unwrapped = expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert
+            ? convert.Operand
+            : expression;
+
+        if (unwrapped is MethodCallExpression call
+            && (call.Object == null || ExpressionHelpers.IsConstant(call.Object))
+            && call.Arguments.All(ExpressionHelpers.IsConstant))
+        {
+            value = call.Method.Invoke(
+                call.Object == null ? null : ExpressionHelpers.GetConstantValue(call.Object),
+                [.. call.Arguments.Select(ExpressionHelpers.GetConstantValue)]);
+            return true;
+        }
+
+        value = null;
+        return false;
     }
 
     private static MethodCallExpression RebuildClientCall(MethodCallExpression node, List<ResolvedModel> arguments)
