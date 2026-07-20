@@ -857,7 +857,7 @@ public static class EntityMaterializerEmitter
 
             sb.AppendLine(";");
         }
-        else
+        else if (entity.IsValueType || HasPublicParameterlessConstructor(entity))
         {
             List<int> initializerIndexes = new();
             for (int i = 0; i < writableProps.Count; i++)
@@ -893,6 +893,16 @@ public static class EntityMaterializerEmitter
             }
 
             sb.Append(indent).AppendLine("};");
+        }
+        else
+        {
+            sb.Append(indent).Append(typeName).Append(" ").Append(resultLocalName)
+                .Append(" = (").Append(typeName).Append(")global::System.Activator.CreateInstance(typeof(").Append(typeName).AppendLine("), nonPublic: true)!;");
+
+            for (int i = 0; i < writableProps.Count; i++)
+            {
+                inaccessibleIndexes.Add(i);
+            }
         }
 
         EmitInaccessibleSetterAssignments(sb, preamble, preambleIndent, indent, entity, typeName, resultLocalName, resultSuffix, writableProps, propValueLocals, inaccessibleIndexes);
