@@ -81,6 +81,22 @@ def discover_projects(filter_names: list[str] | None) -> list[Path]:
     return csprojs
 
 
+def is_aot_project(csproj: Path) -> bool:
+    try:
+        return "<RunNativeTests>true</RunNativeTests>" in csproj.read_text()
+    except OSError:
+        return False
+
+
+def current_rid() -> str:
+    system = platform.system()
+    if system == "Windows":
+        return "win-x64"
+    if system == "Darwin":
+        return "osx-arm64"
+    return "linux-x64"
+
+
 def run(
     cmd: list[str],
     cwd: Path | None = None,
@@ -125,12 +141,12 @@ def ensure_coverlet() -> str | None:
     return shutil.which("coverlet")
 
 
-def build_project(csproj: Path, configuration: str) -> bool:
+def build_project(csproj: Path, configuration: str, aot: bool) -> bool:
     print(f"  building {csproj.stem}...", flush=True)
     res = run(
         [
             "dotnet",
-            "build",
+            "publish" if aot else "build",
             str(csproj),
             "-c",
             configuration,
@@ -146,27 +162,45 @@ def build_project(csproj: Path, configuration: str) -> bool:
     return True
 
 
-def run_tests(csproj: Path, configuration: str) -> tuple[Path | None, bool, str]:
+def run_tests(
+    csproj: Path, configuration: str, tfm: str, aot: bool, rid: str
+) -> tuple[Path | None, bool, str]:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     junit_name = f"{csproj.stem}.junit.xml"
     junit_path = RESULTS_DIR / junit_name
     if junit_path.exists():
         junit_path.unlink()
-    cmd = [
-        "dotnet",
-        "run",
-        "--project",
-        str(csproj),
-        "-c",
-        configuration,
-        "--no-build",
-        "--",
-        "--report-xunit-junit",
-        "--report-xunit-junit-filename",
-        junit_name,
-        "--results-directory",
-        str(RESULTS_DIR),
-    ]
+    if aot:
+        exe_name = csproj.stem + (".exe" if platform.system() == "Windows" else "")
+        binary = (
+            csproj.parent / "bin" / configuration / tfm / rid / "publish" / exe_name
+        )
+        if not binary.exists():
+            return None, False, f"missing native test binary: {binary}"
+        cmd = [
+            str(binary),
+            "--report-xunit-junit",
+            "--report-xunit-junit-filename",
+            junit_name,
+            "--results-directory",
+            str(RESULTS_DIR),
+        ]
+    else:
+        cmd = [
+            "dotnet",
+            "run",
+            "--project",
+            str(csproj),
+            "-c",
+            configuration,
+            "--no-build",
+            "--",
+            "--report-xunit-junit",
+            "--report-xunit-junit-filename",
+            junit_name,
+            "--results-directory",
+            str(RESULTS_DIR),
+        ]
     res = run(cmd)
     if not junit_path.exists():
         return None, False, (res.stderr or res.stdout or "")
@@ -203,10 +237,13 @@ def parse_junit(path: Path) -> TestStats:
 
 
 def run_coverage(
-    csproj: Path, configuration: str, tfm: str, coverlet: str
+    csproj: Path, configuration: str, tfm: str, coverlet: str, aot: bool, rid: str
 ) -> tuple[Path | None, str]:
     project_dir = csproj.parent
-    dll = project_dir / "bin" / configuration / tfm / f"{csproj.stem}.dll"
+    dll_dir = project_dir / "bin" / configuration / tfm
+    if aot:
+        dll_dir = dll_dir / rid
+    dll = dll_dir / f"{csproj.stem}.dll"
     if not dll.exists():
         return None, f"missing build output: {dll}"
     out = project_dir / "coverage.cobertura.xml"
@@ -345,7 +382,7 @@ def build_phase(
     if skip_build:
         return results
     for csproj in csprojs:
-        if not build_project(csproj, configuration):
+        if not build_project(csproj, configuration, is_aot_project(csproj)):
             results[csproj.stem].build_failed = True
     return results
 
@@ -361,10 +398,12 @@ def run_project(
 ) -> ProjectResult:
     if result.build_failed:
         return result
+    aot = is_aot_project(csproj)
+    rid = current_rid()
     if not skip_tests:
         print(f"  running tests for {csproj.stem}...", flush=True)
         t0 = time.monotonic()
-        junit, ok, err = run_tests(csproj, configuration)
+        junit, ok, err = run_tests(csproj, configuration, tfm, aot, rid)
         elapsed = time.monotonic() - t0
         result.junit_path = junit
         if junit is None:
@@ -384,7 +423,7 @@ def run_project(
             result.notes.append("coverlet not available")
         else:
             print(f"  collecting coverage for {csproj.stem}...", flush=True)
-            cob, err = run_coverage(csproj, configuration, tfm, coverlet)
+            cob, err = run_coverage(csproj, configuration, tfm, coverlet, aot, rid)
             result.cobertura_path = cob
             if cob is None:
                 result.coverage_failed = True

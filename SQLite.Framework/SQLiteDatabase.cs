@@ -71,15 +71,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     protected SQLiteDatabase()
     {
-        if (!IsOnConfiguringOverridden(GetType()))
+        SQLiteOptionsBuilder builder = new(string.Empty);
+        OnConfiguring(builder);
+
+        if (string.IsNullOrEmpty(builder.DatabasePath))
         {
             throw new InvalidOperationException(
                 "A SQLiteDatabase built with the parameterless constructor must override OnConfiguring to set its options, including the database path. " +
                 "Override OnConfiguring or use the constructor that takes a SQLiteOptions instance.");
         }
 
-        SQLiteOptionsBuilder builder = new(string.Empty);
-        OnConfiguring(builder);
         Options = builder.Build();
     }
 
@@ -1613,16 +1614,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return overridden;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "OnConfiguring is rooted by the constructor's virtual call.")]
+    [ExcludeFromCodeCoverage(Justification = "The null branch only occurs when NativeAOT trims reflection metadata. It is covered by the SQLite.Framework.Tests.AotMigrate native test run.")]
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "When NativeAOT trims the non-public metadata, GetMethod returns null and the method is treated as overridden, which is safe.")]
     private static bool ComputeOnConfiguringOverridden(Type type)
     {
-        MethodInfo method = type.GetMethod(
+        MethodInfo? method = type.GetMethod(
             nameof(OnConfiguring),
             BindingFlags.Instance | BindingFlags.NonPublic,
             null,
             [typeof(SQLiteOptionsBuilder)],
-            null)!;
-        return method.DeclaringType != typeof(SQLiteDatabase);
+            null);
+        return method is null || method.DeclaringType != typeof(SQLiteDatabase);
     }
 
     private static void ValidateSchemaName(string schemaName)

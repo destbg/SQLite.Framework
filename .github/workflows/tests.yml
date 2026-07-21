@@ -35,8 +35,19 @@ jobs:
       - name: Install Android workload
         run: dotnet workload install android
       - name: Run tests
+        if: ${{ matrix.project != 'SQLite.Framework.Tests.AotMigrate' }}
         run: |
           dotnet run --project Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release \
             -- --report-xunit-junit \
                --report-xunit-junit-filename ${{ matrix.project }}.junit.xml \
                --results-directory TestResults
+      - name: Publish native tests
+        if: ${{ matrix.project == 'SQLite.Framework.Tests.AotMigrate' }}
+        run: dotnet publish Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release
+      - name: Run native tests
+        if: ${{ matrix.project == 'SQLite.Framework.Tests.AotMigrate' }}
+        run: |
+          Tests/${{ matrix.project }}/bin/Release/net10.0/linux-x64/publish/${{ matrix.project }} \
+            --report-xunit-junit \
+            --report-xunit-junit-filename ${{ matrix.project }}.junit.xml \
+            --results-directory TestResults
