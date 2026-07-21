@@ -125,9 +125,13 @@ jobs:
         run: dotnet build Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release
       - name: Collect coverage
         run: |
-          coverlet Tests/${{ matrix.project }}/bin/Release/net10.0/${{ matrix.project }}.dll \
+          DLL="Tests/${{ matrix.project }}/bin/Release/net10.0/${{ matrix.project }}.dll"
+          if [ ! -f "$DLL" ]; then
+            DLL="Tests/${{ matrix.project }}/bin/Release/net10.0/linux-x64/${{ matrix.project }}.dll"
+          fi
+          coverlet "$DLL" \
             --target dotnet \
-            --targetargs "exec Tests/${{ matrix.project }}/bin/Release/net10.0/${{ matrix.project }}.dll" \
+            --targetargs "exec $DLL" \
             --include "[SQLite.Framework]*" \
             --include "[SQLite.Framework.DependencyInjection]*" \
             --format cobertura \
