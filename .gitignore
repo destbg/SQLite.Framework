@@ -136,10 +136,6 @@ _TeamCity*
 # DotCover is a Code Coverage Tool
 *.dotCover
 
-# AxoCover is a Code Coverage Tool
-.axoCover/*
-!.axoCover/settings.json
-
 # Coverlet is a free, cross platform Code Coverage Tool
 coverage*.json
 coverage*.xml
@@ -157,9 +153,6 @@ nCrunchTemp_*
 # MightyMoose
 *.mm.*
 AutoTest.Net/
-
-# Web workbench (sass)
-.sass-cache/
 
 # Installshield output folder
 [Ee]xpress/
@@ -231,6 +224,8 @@ _pkginfo.txt
 .github/context-mode
 AGENTS.md
 opencode.json
+.github/**/*.md
+!.github/ISSUE_TEMPLATE/**
 
 # Dot folders
 .*/
@@ -321,14 +316,7 @@ node_modules/
 _Pvt_Extensions
 
 # Paket dependency manager
-.paket/paket.exe
 paket-files/
-
-# FAKE - F# Make
-.fake/
-
-# CodeRush personal settings
-.cr/personal
 
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
@@ -362,37 +350,17 @@ ASALocalRun/
 # NVidia Nsight GPU debugger configuration file
 *.nvuser
 
-# MFractors (Xamarin productivity tool) working folder
-.mfractor/
-
-# Local History for Visual Studio
-.localhistory/
-
-# Visual Studio History (VSHistory) files
-.vshistory/
-
 # BeatPulse healthcheck temp database
 healthchecksdb
 
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
 
-# Ionide (cross platform F# VS Code tools) working folder
-.ionide/
-
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
 # VS Code files for those working on multiple tools
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
 *.code-workspace
-
-# Local History for Visual Studio Code
-.history/
 
 # Windows Installer files from build outputs
 *.cab
