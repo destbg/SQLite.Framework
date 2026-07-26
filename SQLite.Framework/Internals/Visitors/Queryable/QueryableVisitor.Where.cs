@@ -58,15 +58,19 @@ internal partial class QueryableVisitor
             throw new Exception($"Unsupported expression type {node.Arguments[1].GetType().Name} in Contains.");
         }
 
+        if (visitor.TableColumns.Values.First() is not SQLiteExpression columnExpr)
+        {
+            string advice = IsInnerQuery
+                ? "Read the projected values into a list first and call Contains on the list."
+                : "Call AsEnumerable before Contains to check the projected values in memory.";
+
+            throw new NotSupportedException(
+                "Contains after a projection that runs in memory is not supported, because SQL cannot compare a " +
+                $"value the database never computes. {advice}");
+        }
+
         if (!IsInnerQuery)
         {
-            if (visitor.TableColumns.Values.First() is not SQLiteExpression columnExpr)
-            {
-                throw new NotSupportedException(
-                    "Contains after a projection that runs in memory is not supported, because SQL cannot compare a " +
-                    "value the database never computes. Call AsEnumerable before Contains to check the projected values in memory.");
-            }
-
             List<SQLiteExpression> sink = GroupBys.Count != 0 ? Havings : Wheres;
 
             if (resolved is { IsConstant: true, Constant: null })
