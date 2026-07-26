@@ -32,6 +32,47 @@ internal static class BuildQueryObject
     [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "The type should be part of the client assemblies.")]
     public static Func<SQLiteQueryContext, object?> BuildMaterializer(SQLiteDataReader reader, Dictionary<string, int> columns, SQLQuery? query, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType)
     {
+        Func<SQLiteQueryContext, object?> materializer = BuildMaterializerCore(reader, columns, query, elementType);
+        if (query is { OptionalRow: true, CreateObject: null }
+            && !elementType.IsValueType
+            && !TypeHelpers.IsSimple(elementType, reader.Options)
+            && columns.Count > 0)
+        {
+            int[] columnIndexes = [.. columns.Values];
+            Func<SQLiteQueryContext, object?> core = materializer;
+            return ctx =>
+            {
+                SQLiteDataReader r = ctx.Reader!;
+                foreach (int columnIndex in columnIndexes)
+                {
+                    if (r.GetColumnType(columnIndex) != SQLiteColumnType.Null)
+                    {
+                        return core(ctx);
+                    }
+                }
+
+                return null;
+            };
+        }
+
+        return materializer;
+    }
+
+    /// <summary>
+    /// Backwards compatible per-row entry point. Equivalent to calling
+    /// <see cref="BuildMaterializer" /> once and invoking the result, but keeps the old
+    /// signature for callers that materialize a single row.
+    /// </summary>
+    public static object? CreateInstance(SQLiteQueryContext context, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, SQLQuery? query)
+    {
+        Func<SQLiteQueryContext, object?> materializer = BuildMaterializer(context.Reader!, context.Columns!, query, elementType);
+        return materializer(context);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "The type should be part of the client assemblies.")]
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "The type should be part of the client assemblies.")]
+    private static Func<SQLiteQueryContext, object?> BuildMaterializerCore(SQLiteDataReader reader, Dictionary<string, int> columns, SQLQuery? query, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType)
+    {
         if (query?.CreateObject != null)
         {
             return query.CreateObject;
@@ -144,17 +185,6 @@ internal static class BuildQueryObject
         }
 
         return BuildReflective(elementType, prefix: string.Empty, reader, columns, options, query?.ConstructedPaths, query?.SelectValueTypes);
-    }
-
-    /// <summary>
-    /// Backwards compatible per-row entry point. Equivalent to calling
-    /// <see cref="BuildMaterializer" /> once and invoking the result, but keeps the old
-    /// signature for callers that materialize a single row.
-    /// </summary>
-    public static object? CreateInstance(SQLiteQueryContext context, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType, SQLQuery? query)
-    {
-        Func<SQLiteQueryContext, object?> materializer = BuildMaterializer(context.Reader!, context.Columns!, query, elementType);
-        return materializer(context);
     }
 
     private static bool IsCollectionResult(Type type)

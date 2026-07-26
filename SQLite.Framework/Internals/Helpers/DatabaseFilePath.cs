@@ -33,6 +33,25 @@ internal static class DatabaseFilePath
             return full;
         }
 
-        return File.ResolveLinkTarget(full, returnFinalTarget: true)?.FullName ?? full;
+        string file = File.ResolveLinkTarget(full, returnFinalTarget: true)?.FullName ?? full;
+        string directory = Path.GetDirectoryName(file)!;
+        return Path.Combine(ResolveDirectory(directory), Path.GetFileName(file));
+    }
+
+    private static string ResolveDirectory(string directory)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return directory;
+        }
+
+        string resolved = Directory.ResolveLinkTarget(directory, returnFinalTarget: true)?.FullName ?? directory;
+        string? parent = Path.GetDirectoryName(resolved);
+        if (parent == null)
+        {
+            return resolved;
+        }
+
+        return Path.Combine(ResolveDirectory(parent), Path.GetFileName(resolved));
     }
 }

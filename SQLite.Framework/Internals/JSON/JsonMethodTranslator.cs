@@ -37,7 +37,7 @@ internal static class JsonMethodTranslator
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "JSON1 collection translation (json_each, json_extract)");
 #endif
 
-        if (IsInlineLiteralContains(node, sourceExpr, visitor.Database.Options))
+        if (IsInlineLiteralContains(node, sourceExpr))
         {
             return null;
         }
@@ -562,7 +562,7 @@ internal static class JsonMethodTranslator
                         $"NOT EXISTS (SELECT 1 FROM json_each({src}) AS {alias} WHERE ({predSql}) IS NOT 1)", combined)
                         .WithJsonSource(),
                     _ => SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(),
-                        $"(SELECT json_group_array({BoolArrayElement(node.Type, visitor.Database.Options, predSql)}) FROM json_each({src}) AS {alias})", combined)
+                        $"(SELECT json_group_array({BoolArrayElement(node.Type, visitor.Database.Options, AnchorElementExpression(predSql, alias))}) FROM json_each({src}) AS {alias})", combined)
                         .WithJsonSource(),
                 };
             }
@@ -768,14 +768,17 @@ internal static class JsonMethodTranslator
                && TypeHelpers.GetEnumerableElementType(type) != null;
     }
 
-    private static bool IsInlineLiteralContains(MethodCallExpression node, Expression? sourceExpr, SQLiteOptions options)
+    private static bool IsInlineLiteralContains(MethodCallExpression node, Expression? sourceExpr)
     {
-        if (node.Method.Name != nameof(List<int>.Contains) || sourceExpr is not (NewArrayExpression or ListInitExpression))
-        {
-            return false;
-        }
+        return node.Method.Name == nameof(List<int>.Contains)
+            && sourceExpr is NewArrayExpression or ListInitExpression;
+    }
 
-        return !IsJsonCollection(sourceExpr.Type, options);
+    private static string AnchorElementExpression(string expr, string alias)
+    {
+        return expr.Contains(alias + ".", StringComparison.Ordinal)
+            ? expr
+            : $"(CASE WHEN {alias}.\"key\" IS NOT NULL THEN {expr} END)";
     }
 
     private static bool IsInlineArrayChain(Expression expression)

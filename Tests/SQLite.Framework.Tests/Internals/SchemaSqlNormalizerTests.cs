@@ -6,6 +6,9 @@ public class SchemaSqlNormalizerTests
 {
     [Theory]
     [InlineData("CREATE INDEX \"IX_A\" ON \"T\" (\"Code\")", "create index [IX_A] on `T` (Code)")]
+    [InlineData("CREATE INDEX \"IX_A\" ON main.\"T\" (\"Code\")", "create index [IX_A] on main.`T` (Code)")]
+    [InlineData("INSERT INTO main.\"T\" (\"Code\") VALUES (1)", "insert into main.[T](Code) values (1)")]
+    [InlineData("select a.b(c)", "SELECT a.b(c)")]
     [InlineData("CREATE INDEX IF NOT EXISTS \"IX_A\" ON \"T\" (\"Code\")", "CREATE INDEX \"IX_A\" ON \"T\" (\"Code\")")]
     [InlineData("SELECT 'it''s'", "SELECT   'it''s'")]
     [InlineData("\"a\"\"b\"", "[a\"b]")]

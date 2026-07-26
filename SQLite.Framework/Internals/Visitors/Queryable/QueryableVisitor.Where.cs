@@ -94,10 +94,23 @@ internal partial class QueryableVisitor
         ThrowIfReverse(node.Method.Name);
         IsRowSelector = true;
 
+        bool clientSide = IsDistinct && LastSelectIsClient;
         if (node.Method.Name is nameof(System.Linq.Queryable.Single) or nameof(System.Linq.Queryable.SingleOrDefault))
         {
-            Take = Take.HasValue ? Math.Min(Take.Value, 2) : 2;
+            if (clientSide)
+            {
+                ClientTake = ClientTake.HasValue ? Math.Min(ClientTake.Value, 2) : 2;
+            }
+            else
+            {
+                Take = Take.HasValue ? Math.Min(Take.Value, 2) : 2;
+            }
+
             ThrowOnMoreThanOne = true;
+        }
+        else if (clientSide)
+        {
+            ClientTake = ClientTake.HasValue ? Math.Min(ClientTake.Value, 1) : 1;
         }
         else
         {
@@ -116,6 +129,7 @@ internal partial class QueryableVisitor
     {
         IsAny = node.Method.Name == nameof(System.Linq.Queryable.Any);
         IsAll = node.Method.Name == nameof(System.Linq.Queryable.All);
+        SuppressSelectMaterializer = true;
 
         if (IsAll && node.Arguments.Count >= 2)
         {

@@ -10,8 +10,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private static readonly MethodInfo ExecuteGroupingQueryGeneric = typeof(SQLiteDatabase)
         .GetMethod(nameof(ExecuteGroupingQuery), BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-    private static readonly ConcurrentDictionary<(Type Type, string Name), bool> MethodOverrides = new();
-
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object connectionOpenLock = new();
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
@@ -28,6 +26,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private int activeTransactionCount;
     private TaskCompletionSource? readGateTcs;
     private long commandIds;
+    private string? pendingForcedSavepoint;
 
 #if SQLITE_FRAMEWORK_TESTING
     private long entityMaterializerHits;
@@ -1174,8 +1173,23 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     internal void ForceSavepointRollback(string savepointName)
     {
         sqlite3 handle = GetActiveHandle();
-        raw.sqlite3_exec(handle, $"ROLLBACK TO {savepointName}");
-        raw.sqlite3_exec(handle, $"RELEASE {savepointName}");
+        int rollbackResult = raw.sqlite3_exec(handle, $"ROLLBACK TO {savepointName}");
+        int releaseResult = raw.sqlite3_exec(handle, $"RELEASE {savepointName}");
+        pendingForcedSavepoint = rollbackResult != raw.SQLITE_OK || releaseResult != raw.SQLITE_OK
+            ? savepointName
+            : null;
+    }
+
+    internal void CompletePendingSavepointCleanup()
+    {
+        string? pending = pendingForcedSavepoint;
+        pendingForcedSavepoint = null;
+        if (pending == null || Handle == null || raw.sqlite3_get_autocommit(Handle) == 1)
+        {
+            return;
+        }
+
+        ForceSavepointRollback(pending);
     }
 
     internal Task WaitForActiveTransactionsAsync(CancellationToken cancellationToken = default)
@@ -1308,39 +1322,64 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         Type elementType = expression.Type;
         SQLiteCommand cmd = CreateCommand(query.Sql, query.Parameters);
 
-        using SQLiteDataReader reader = cmd.ExecuteReader();
-
-        if (query.ThrowOnMoreThanOne)
+        if (query.ClientDistinct)
         {
-            if (reader.Read())
+            MethodCallExpression terminalCall = (MethodCallExpression)expression;
+            Type sequenceElementType = TypeHelpers.GetEnumerableElementType(terminalCall.Arguments[0].Type)!;
+            List<object?> values = cmd.ExecuteQueryUntypedInternal(query, sequenceElementType).Cast<object?>().ToList();
+
+            if (query.ClientCountSemantic)
+            {
+                object count = typeof(TResult) == typeof(long) ? (long)values.Count : (object)values.Count;
+                return (TResult)count;
+            }
+
+            if (values.Count > 0)
+            {
+                if (query.ThrowOnMoreThanOne && values.Count > 1)
+                {
+                    throw new InvalidOperationException("Query returned more than one row");
+                }
+
+                return CoerceScalar<TResult>(values[0]);
+            }
+        }
+        else
+        {
+            using SQLiteDataReader reader = cmd.ExecuteReader();
+
+            if (query.ThrowOnMoreThanOne)
+            {
+                if (reader.Read())
+                {
+                    Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement!);
+                    SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
+                    object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
+
+                    if (reader.Read())
+                    {
+                        throw new InvalidOperationException("Query returned more than one row");
+                    }
+
+                    return CoerceScalar<TResult>(raw);
+                }
+            }
+            else if (reader.Read())
             {
                 Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement!);
                 SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
                 object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
 
-                if (reader.Read())
+                if (raw == null
+                    && typeof(TResult).IsValueType
+                    && Nullable.GetUnderlyingType(typeof(TResult)) == null
+                    && !query.IsRowSelector)
                 {
-                    throw new InvalidOperationException("Query returned more than one row");
+                    throw new InvalidOperationException("Query sequence contains no elements");
                 }
 
                 return CoerceScalar<TResult>(raw);
             }
-        }
-        else if (reader.Read())
-        {
-            Dictionary<string, int> columns = CommandHelpers.GetColumnNames(reader.Statement!);
-            SQLiteQueryContext context = BuildQueryObject.BuildContext(reader, columns, query);
-            object? raw = BuildQueryObject.CreateInstance(context, elementType, query);
-
-            if (raw == null
-                && typeof(TResult).IsValueType
-                && Nullable.GetUnderlyingType(typeof(TResult)) == null
-                && !query.IsRowSelector)
-            {
-                throw new InvalidOperationException("Query sequence contains no elements");
-            }
-
-            return CoerceScalar<TResult>(raw);
         }
 
         if (query.ThrowOnEmpty)
@@ -1383,7 +1422,16 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         Handle = handle;
 
-        OnDatabaseConnecting();
+        try
+        {
+            OnDatabaseConnecting();
+        }
+        catch
+        {
+            raw.sqlite3_close(handle);
+            Handle = null;
+            throw;
+        }
 
 #if SQLITECIPHER
         if (!string.IsNullOrEmpty(Options.EncryptionKey))
@@ -1412,9 +1460,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 #endif
 
-        IsConnected = true;
-        OnDatabaseConnected();
-
         if (Options.IsWalMode)
         {
             raw.sqlite3_prepare_v2(Handle, "PRAGMA journal_mode = WAL", out sqlite3_stmt walStmt);
@@ -1428,6 +1473,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         raw.sqlite3_prepare_v2(Handle, fkPragma, out sqlite3_stmt fkStmt);
         raw.sqlite3_step(fkStmt);
         raw.sqlite3_finalize(fkStmt);
+
+        IsConnected = true;
+        OnDatabaseConnected();
     }
 
     private int ReadScalar(string sql)
@@ -1629,6 +1677,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     private bool IsSameDatabaseFile(SQLiteDatabase destination)
     {
+        if ((Options.OpenFlags & SQLiteOpenFlags.Memory) != 0
+            || (destination.Options.OpenFlags & SQLiteOpenFlags.Memory) != 0)
+        {
+            return false;
+        }
+
         return DatabaseFilePath.IsSame(
             Options.DatabasePath,
             destination.Options.DatabasePath,
@@ -1649,33 +1703,14 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     private static bool IsOnConfiguringOverridden(Type type)
     {
-        return IsMethodOverridden(type, nameof(OnConfiguring), BindingFlags.Instance | BindingFlags.NonPublic, [typeof(SQLiteOptionsBuilder)]);
+        return MethodOverrideCache.IsOverridden(type, typeof(SQLiteDatabase), nameof(OnConfiguring),
+            BindingFlags.Instance | BindingFlags.NonPublic, typeof(SQLiteOptionsBuilder));
     }
 
     private static bool IsBackupToOverridden(Type type)
     {
-        return IsMethodOverridden(type, nameof(BackupTo), BindingFlags.Instance | BindingFlags.Public, [typeof(SQLiteDatabase), typeof(string), typeof(string)]);
-    }
-
-    private static bool IsMethodOverridden(Type type, string name, BindingFlags flags, Type[] parameterTypes)
-    {
-        (Type Type, string Name) key = (type, name);
-        if (MethodOverrides.TryGetValue(key, out bool overridden))
-        {
-            return overridden;
-        }
-
-        overridden = ComputeMethodOverridden(type, name, flags, parameterTypes);
-        MethodOverrides[key] = overridden;
-        return overridden;
-    }
-
-    [ExcludeFromCodeCoverage(Justification = "The null branch only occurs when NativeAOT trims reflection metadata. It is covered by the SQLite.Framework.Tests.AotMigrate native test run.")]
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "When NativeAOT trims the metadata, GetMethod returns null and the method is treated as overridden, which is safe.")]
-    private static bool ComputeMethodOverridden(Type type, string name, BindingFlags flags, Type[] parameterTypes)
-    {
-        MethodInfo? method = type.GetMethod(name, flags, null, parameterTypes, null);
-        return method is null || method.DeclaringType != typeof(SQLiteDatabase);
+        return MethodOverrideCache.IsOverridden(type, typeof(SQLiteDatabase), nameof(BackupTo),
+            typeof(SQLiteDatabase), typeof(string), typeof(string));
     }
 
     private static void ValidateSchemaName(string schemaName)

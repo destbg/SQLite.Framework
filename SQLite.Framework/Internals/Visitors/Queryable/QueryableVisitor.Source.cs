@@ -83,16 +83,29 @@ internal partial class QueryableVisitor
                 continue;
             }
 
+            string mainCanonical = CteSqlCanonicalizer.Canonicalize(main);
             SQLiteExpression replacement = main.IsDayOfWeekInteger
                 ? EnumMemberVisitor.BuildEnumToNameText(visitor, typeof(DayOfWeek), main)
                 : EnumMemberVisitor.BuildTextStorageEnumToNumber(visitor, typeof(int), typeof(DayOfWeek), main).WithDayOfWeekInteger();
             replacement.IdentifierText = main.IdentifierText;
             Selects[i] = replacement;
 
-            if (visitor.TableColumns.TryGetValue(main.IdentifierText, out Expression? column)
+            if (main.IdentifierText is { Length: > 0 } mainName
+                && visitor.TableColumns.TryGetValue(mainName, out Expression? column)
                 && column is SQLiteExpression)
             {
-                visitor.TableColumns[main.IdentifierText] = replacement;
+                visitor.TableColumns[mainName] = replacement;
+                continue;
+            }
+
+            foreach (KeyValuePair<string, Expression> entry in visitor.TableColumns)
+            {
+                if (entry.Value is SQLiteExpression entrySql
+                    && CteSqlCanonicalizer.Canonicalize(entrySql) == mainCanonical)
+                {
+                    visitor.TableColumns[entry.Key] = replacement;
+                    break;
+                }
             }
         }
     }

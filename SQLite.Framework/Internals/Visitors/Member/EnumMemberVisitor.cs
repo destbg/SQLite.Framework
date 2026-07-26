@@ -340,6 +340,11 @@ internal static class EnumMemberVisitor
             return SQLiteExpression.Wrap(targetType, visitor.Counters.NextIdentifier(), "CAST(", objExpr, " AS INTEGER)", objExpr.Parameters);
         }
 
+        if (objExpr.Parameters is { Length: > 0 } operandParameters)
+        {
+            parameters.AddRange(operandParameters);
+        }
+
         string elseArm = caseSb.ToString() + " ELSE (" + string.Join(" | ", flagParts) + ") END)";
         return SQLiteExpression.Wrap(targetType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseArm, parameters.ToArray());
     }
@@ -392,6 +397,19 @@ internal static class EnumMemberVisitor
             caseParams.Add(nameParam);
             caseParams.Add(valueParam);
             caseSb.Append(" WHEN ").Append(nameParam.Name).Append(" THEN ").Append(valueParam.Name);
+        }
+
+        if (enumValuesArray.Length == 0)
+        {
+            if (formatChar == 'D')
+            {
+                return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", objExpr, " AS TEXT)", objExpr.Parameters);
+            }
+
+            (int digits, long mask, bool use64) = HexFormatInfo(enumUnderlying);
+            return use64
+                ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"printf('%0{digits}llX', CAST(", objExpr, " AS INTEGER))", objExpr.Parameters)
+                : SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"printf('%0{digits}X', (CAST(", objExpr, $" AS INTEGER) & {mask}))", objExpr.Parameters);
         }
 
         string elseOpen = caseSb.ToString() + " ELSE ";

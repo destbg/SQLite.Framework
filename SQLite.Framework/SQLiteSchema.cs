@@ -499,6 +499,7 @@ public class SQLiteSchema
         TableMapping mapping = Database.TableMapping<T>();
         string viewName = mapping.TableName;
         SQLTranslator translator = new(Database);
+        translator.Visitor.Counters.IgnoreQueryFilters = true;
         SQLQuery sqlQuery = translator.Translate(query.Body);
 
         if (translator.Visitor.ClientEvalUsed)
@@ -527,7 +528,7 @@ public class SQLiteSchema
     public virtual int DropView(string viewName)
     {
         ArgumentException.ThrowIfNullOrEmpty(viewName);
-        return Database.CreateCommand($"DROP VIEW IF EXISTS \"{viewName.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
+        return Database.CreateCommand($"DROP VIEW IF EXISTS \"main\".\"{viewName.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
     }
 
     /// <summary>
@@ -661,7 +662,7 @@ public class SQLiteSchema
 
     internal int RenameTableCore(string fromTable, string toTable)
     {
-        string sql = $"ALTER TABLE \"{fromTable.Replace("\"", "\"\"")}\" RENAME TO \"{toTable.Replace("\"", "\"\"")}\"";
+        string sql = $"ALTER TABLE \"main\".\"{fromTable.Replace("\"", "\"\"")}\" RENAME TO \"{toTable.Replace("\"", "\"\"")}\"";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -900,16 +901,20 @@ public class SQLiteSchema
     /// A write that replaces a row only clears the stale terms when such a trigger fires, so the
     /// framework runs this to decide whether it must turn <c>PRAGMA recursive_triggers</c> on.
     /// The default matches the trigger body emitted by <see cref="BuildTriggerSql" /> rather than
-    /// the trigger name, so renaming the triggers keeps working. Override when
+    /// the trigger name, so renaming the triggers keeps working. It also checks that the trigger
+    /// writes into a live FTS5 table, so an unrelated audit trigger does not count. Override when
     /// <see cref="BuildTriggerSql" /> emits a different trigger shape.
     /// </summary>
     /// <param name="contentTableName">The SQL name of the content table being written to.</param>
     protected internal virtual string BuildFtsSyncTriggerProbeSql(string contentTableName)
     {
         string escaped = contentTableName.Replace("'", "''");
-        return "SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '"
+        return "SELECT COUNT(*) FROM sqlite_master t WHERE t.type = 'trigger' AND t.tbl_name = '"
             + escaped
-            + "' AND sql LIKE '%AFTER DELETE%' AND sql LIKE '%VALUES(''delete''%'";
+            + "' AND t.sql LIKE '%AFTER DELETE%' AND t.sql LIKE '%VALUES(''delete''%'"
+            + " AND EXISTS (SELECT 1 FROM sqlite_master f WHERE f.type = 'table'"
+            + " AND f.sql LIKE 'CREATE VIRTUAL TABLE%fts5%'"
+            + " AND t.sql LIKE '%INTO \"' || f.name || '\"(\"' || f.name || '\"%')";
     }
 
     /// <summary>
@@ -945,11 +950,21 @@ public class SQLiteSchema
 
         foreach (FtsIndexedColumn column in fts.IndexedColumns)
         {
-            if (!columnByProperty.ContainsKey(column.Property.Name))
+            if (columnByProperty.ContainsKey(column.Property.Name))
             {
-                throw new InvalidOperationException(
-                    $"FTS5 entity '{mapping.Type.Name}' indexes '{column.Property.Name}' but its content table '{sourceMapping.TableName}' has no mapped column for a property with that name. Add a mapped '{column.Property.Name}' property to '{sourceMapping.Type.Name}' or remove [FullTextIndexed] from '{mapping.Type.Name}.{column.Property.Name}'.");
+                continue;
             }
+
+            TableColumn? renamed = sourceMapping.Columns
+                .FirstOrDefault(c => string.Equals(c.Name, column.Name, StringComparison.OrdinalIgnoreCase));
+            if (renamed != null)
+            {
+                columnByProperty[column.Property.Name] = renamed.Name;
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                $"FTS5 entity '{mapping.Type.Name}' indexes '{column.Property.Name}' but its content table '{sourceMapping.TableName}' has no matching column. Add a mapped '{column.Property.Name}' property to '{sourceMapping.Type.Name}', use [Column] to name an existing content column or remove [FullTextIndexed] from '{mapping.Type.Name}.{column.Property.Name}'.");
         }
 
         return columnByProperty;
@@ -1072,6 +1087,11 @@ public class SQLiteSchema
         if (mapping.CompositeForeignKeys.Count > 0 || mapping.Columns.Any(c => c.ForeignKey != null))
         {
             return "a foreign key";
+        }
+
+        if (mapping.Columns.Any(c => c.HasDatabaseDefault))
+        {
+            return "a column default value";
         }
 
         if (mapping.WithoutRowId)

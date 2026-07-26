@@ -28,9 +28,26 @@ internal static class CteColumnMapper
 
     public static Dictionary<string, Expression> BuildOuterColumns(CteInfo info, Type elementType, string alias, SQLiteOptions options, SQLiteCounters counters)
     {
-        return info.BodyColumns != null
-            ? BuildBodyMappedColumns(info.BodyColumns, info.BodySelects!, info.ColumnNames, alias, options, counters)
-            : BuildColumns(elementType, alias, options, counters);
+        if (info.BodyColumns != null)
+        {
+            return BuildBodyMappedColumns(info.BodyColumns, info.BodySelects!, info.ColumnNames, alias, options, counters);
+        }
+
+        Dictionary<string, Expression> columns = BuildColumns(elementType, alias, options, counters);
+        if (info.EmittedColumns != null && !TypeHelpers.IsSimple(elementType, options))
+        {
+            HashSet<string> emitted = new(info.EmittedColumns, StringComparer.OrdinalIgnoreCase);
+            if (columns.Keys.Any(emitted.Contains))
+            {
+                List<string> missing = columns.Keys.Where(key => !emitted.Contains(key)).ToList();
+                foreach (string key in missing)
+                {
+                    columns.Remove(key);
+                }
+            }
+        }
+
+        return columns;
     }
 
     public static Dictionary<string, Expression> BuildSelfColumns(CteSelfReference reference, string alias, SQLiteOptions options, SQLiteCounters counters, SQLVisitor visitor)
@@ -51,6 +68,32 @@ internal static class CteColumnMapper
     public static string[]? ScalarColumnNames(Type elementType, SQLiteOptions options)
     {
         return TypeHelpers.IsSimple(elementType, options) ? [Constants.CteScalarColumn] : null;
+    }
+
+    public static string[]? EmittedColumnNames(string[]? columnNames, IReadOnlyList<SQLiteExpression> selects)
+    {
+        if (columnNames != null)
+        {
+            return columnNames;
+        }
+
+        if (selects.Count == 0)
+        {
+            return null;
+        }
+
+        string[] names = new string[selects.Count];
+        for (int i = 0; i < selects.Count; i++)
+        {
+            if (string.IsNullOrEmpty(selects[i].IdentifierText))
+            {
+                return null;
+            }
+
+            names[i] = selects[i].IdentifierText;
+        }
+
+        return names;
     }
 
     public static string[] BodyColumnNamesWithPlaceholders(Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects)
@@ -229,6 +272,14 @@ internal static class CteColumnMapper
             {
                 return column.Key;
             }
+        }
+
+        if (!string.IsNullOrEmpty(select.IdentifierText)
+            && bodyColumns.TryGetValue(select.IdentifierText, out Expression? named)
+            && named is SQLiteExpression
+            && used.Add(select.IdentifierText))
+        {
+            return select.IdentifierText;
         }
 
         return null;

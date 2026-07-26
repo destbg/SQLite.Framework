@@ -110,11 +110,13 @@ internal partial class QueryableVisitor
 
                 visitor.IsInSelectProjection = false;
                 visitor.ClientEvalAllowed = false;
+                LastSelectIsClient = false;
                 return Expression.MemberInit(mieBody.NewExpression, allBindings);
             }
 
             visitor.IsInSelectProjection = false;
             visitor.ClientEvalAllowed = false;
+            LastSelectIsClient = false;
             return node;
         }
 
@@ -140,6 +142,7 @@ internal partial class QueryableVisitor
 
             visitor.IsInSelectProjection = false;
             visitor.ClientEvalAllowed = false;
+            LastSelectIsClient = false;
 
             if (hasWritableProperties)
             {
@@ -196,6 +199,7 @@ internal partial class QueryableVisitor
         visitor.ClientEvalAllowed = false;
         Expression expression = selectVisitor.Visit(selectExpression);
 
+        LastSelectIsClient = expression is not SQLiteExpression;
         return expression;
     }
 

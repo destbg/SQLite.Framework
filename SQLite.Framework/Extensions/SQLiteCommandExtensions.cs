@@ -31,13 +31,9 @@ public static class SQLiteCommandExtensions
     [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(SQLiteCommandExtensions))]
     internal static IEnumerable<T> ExecuteQueryInternal<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteCommand command, SQLQuery query)
     {
-        IEnumerable<T> enumerable = Enumerate(command, query);
-        if (query.ClientDistinct)
-        {
-            enumerable = enumerable.Distinct();
-        }
+        IEnumerable<T> enumerable = ApplyClientOperators(Enumerate(command, query), query);
 
-        return query.Reverse ? enumerable.Reverse() : enumerable;
+        return enumerable;
 
         static IEnumerable<T> Enumerate(SQLiteCommand command, SQLQuery query)
         {
@@ -61,13 +57,9 @@ public static class SQLiteCommandExtensions
 
     internal static IEnumerable ExecuteQueryUntypedInternal(this SQLiteCommand command, SQLQuery query, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType)
     {
-        IEnumerable<object?> enumerable = Enumerate(command, query, elementType);
-        if (query.ClientDistinct)
-        {
-            enumerable = enumerable.Distinct();
-        }
+        IEnumerable<object?> enumerable = ApplyClientOperators(Enumerate(command, query, elementType), query);
 
-        return query.Reverse ? enumerable.Reverse() : enumerable;
+        return enumerable;
 
         static IEnumerable<object?> Enumerate(SQLiteCommand command, SQLQuery query, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType)
         {
@@ -87,5 +79,39 @@ public static class SQLiteCommandExtensions
                 yield return materializer(context);
             } while (reader.Read());
         }
+    }
+
+    private static IEnumerable<T> ApplyClientOperators<T>(IEnumerable<T> enumerable, SQLQuery query)
+    {
+        if (query.ClientDistinct)
+        {
+            if (query.Reverse && query.ReverseBeforeDistinct)
+            {
+                enumerable = enumerable.Reverse();
+            }
+
+            enumerable = enumerable.Distinct();
+
+            if (query.Reverse && !query.ReverseBeforeDistinct)
+            {
+                enumerable = enumerable.Reverse();
+            }
+        }
+        else if (query.Reverse)
+        {
+            enumerable = enumerable.Reverse();
+        }
+
+        if (query.ClientSkip is { } clientSkip)
+        {
+            enumerable = enumerable.Skip((int)clientSkip);
+        }
+
+        if (query.ClientTake is { } clientTake)
+        {
+            enumerable = enumerable.Take((int)clientTake);
+        }
+
+        return enumerable;
     }
 }

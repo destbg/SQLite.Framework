@@ -9,7 +9,8 @@ internal static class ExpressionHelpers
         ExpressionType.ArrayLength,
         ExpressionType.Negate,
         ExpressionType.NegateChecked,
-        ExpressionType.Not
+        ExpressionType.Not,
+        ExpressionType.TypeAs
     ];
 
     public static (string Path, ParameterExpression Parameter) ResolveParameterPath(Expression node)
@@ -110,11 +111,15 @@ internal static class ExpressionHelpers
 
         return stripped switch
         {
-            ConstantExpression => false,
-            MemberExpression { Member: PropertyInfo property } =>
-                new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
+            ConstantExpression constant => constant.Value == null,
+            MemberExpression { Member: PropertyInfo property } => PropertyMayBeNull(property),
             _ => true
         };
+    }
+
+    public static bool PropertyMayBeNull(PropertyInfo property)
+    {
+        return new NullabilityInfoContext().Create(property).ReadState != NullabilityState.NotNull;
     }
 
     public static bool IsEvaluableUnary(UnaryExpression node)
@@ -130,7 +135,10 @@ internal static class ExpressionHelpers
             MemberExpression me => me.Member is FieldInfo fi
                 ? (me.Expression != null ? fi.GetValue(GetConstantValue(me.Expression)) : fi.GetValue(null))
                 : ((PropertyInfo)me.Member).GetValue(me.Expression != null ? GetConstantValue(me.Expression) : null),
+            UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked, Method: { } conversionOperator } ue =>
+                InvokeConversionOperator(conversionOperator, GetConstantValue(ue.Operand)),
             UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type, ue.NodeType == ExpressionType.ConvertChecked),
+            UnaryExpression { NodeType: ExpressionType.TypeAs } ue => TypeAsConstant(GetConstantValue(ue.Operand), ue.Type),
             UnaryExpression { NodeType: ExpressionType.ArrayLength } ue => ((Array)GetConstantValue(ue.Operand)!).Length,
             UnaryExpression { NodeType: ExpressionType.Negate or ExpressionType.NegateChecked } ue => EvaluateUnary(ue),
             UnaryExpression { NodeType: ExpressionType.Not } ue => EvaluateUnary(ue),
@@ -289,6 +297,23 @@ internal static class ExpressionHelpers
         };
     }
 
+    private static object? InvokeConversionOperator(MethodInfo conversionOperator, object? value)
+    {
+        try
+        {
+            return conversionOperator.Invoke(null, [value]);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            throw ex.InnerException;
+        }
+    }
+
+    private static object? TypeAsConstant(object? value, Type targetType)
+    {
+        return targetType.IsInstanceOfType(value) ? value : null;
+    }
+
     private static object? ConvertConstant(object? value, Type targetType, bool checkedConversion)
     {
         if (value is null)
@@ -319,10 +344,6 @@ internal static class ExpressionHelpers
             else if (value is float flt)
             {
                 value = (float)Math.Truncate(flt);
-            }
-            else if (value is decimal dec)
-            {
-                value = Math.Truncate(dec);
             }
         }
 

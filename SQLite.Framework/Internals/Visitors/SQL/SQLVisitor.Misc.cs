@@ -21,10 +21,10 @@ internal partial class SQLVisitor
             SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
             bool hasClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns);
-            string[]? columnNames = CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
-                ?? (hasClientMember
-                    ? CteColumnMapper.BodyColumnNamesWithPlaceholders(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects)
-                    : CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects));
+            string[]? columnNames = hasClientMember
+                ? CteColumnMapper.BodyColumnNamesWithPlaceholders(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects)
+                : CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
+                    ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
             HashSet<string>? dayOfWeekColumns = CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, scalarElement);
 
             if (pass > 0 || (dayOfWeekColumns == null && !hasClientMember))
@@ -122,6 +122,11 @@ internal partial class SQLVisitor
             ParameterHelpers.CombineParameters(test.SQLiteExpression, ifTrueExpr, ifFalseExpr);
 
         SQLiteExpression conditional = SQLiteExpression.Trinary(node.Type, Counters.NextIdentifier(), "(CASE WHEN ", test.SQLiteExpression!, " THEN ", ifTrueExpr, " ELSE ", ifFalseExpr, " END)", allParameters);
+        if (ifTrueExpr.IsJsonSource && ifFalseExpr.IsJsonSource)
+        {
+            conditional.WithJsonSource();
+        }
+
         return dayOfWeekBranch ? conditional.WithDayOfWeekInteger() : conditional;
     }
 
@@ -265,11 +270,12 @@ internal partial class SQLVisitor
                 string charSqliteType = TypeHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
                 return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CAST(", charCode, $" AS {charSqliteType})", charCode.Parameters);
             }
-            else if (resolved.SQLiteExpression.Type.IsEnum && IsTextStoredEnum(resolved.SQLiteExpression))
+            else if ((Nullable.GetUnderlyingType(resolved.SQLiteExpression.Type) ?? resolved.SQLiteExpression.Type) is { IsEnum: true } sourceEnumType
+                && IsTextStoredEnum(resolved.SQLiteExpression))
             {
-                Type enumUnderlying = Enum.GetUnderlyingType(resolved.SQLiteExpression.Type);
+                Type enumUnderlying = Enum.GetUnderlyingType(sourceEnumType);
                 if (resolved.SQLiteExpression.IsDayOfWeekInteger
-                    && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == resolved.SQLiteExpression.Type)
+                    && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) == sourceEnumType)
                 {
                     return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters)
                         .WithDayOfWeekInteger();
@@ -277,7 +283,7 @@ internal partial class SQLVisitor
 
                 SQLiteExpression numberExpr = resolved.SQLiteExpression.IsDayOfWeekInteger
                     ? resolved.SQLiteExpression
-                    : EnumMemberVisitor.BuildTextStorageEnumToNumber(this, enumUnderlying, resolved.SQLiteExpression.Type, resolved.SQLiteExpression, SubqueryFreeSql);
+                    : EnumMemberVisitor.BuildTextStorageEnumToNumber(this, enumUnderlying, sourceEnumType, resolved.SQLiteExpression, SubqueryFreeSql);
 
                 if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == enumUnderlying)
                 {
@@ -408,7 +414,8 @@ internal partial class SQLVisitor
                 dayOfWeekColumns: recursive.DayOfWeekColumns,
                 constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
                 bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
-                bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null);
+                bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null,
+                emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects));
 
             CteParameters.Remove(selfParam);
             MethodArguments.Remove(selfParam);
@@ -430,7 +437,8 @@ internal partial class SQLVisitor
                 dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(elementType, Database.Options)),
                 constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
                 bodyColumns: hasClientMember ? bodyTranslator.Visitor.TableColumns : null,
-                bodySelects: hasClientMember ? bodyTranslator.Selects : null);
+                bodySelects: hasClientMember ? bodyTranslator.Selects : null,
+                emittedColumns: CteColumnMapper.EmittedColumnNames(bodyColumnNames, bodyTranslator.Selects));
         }
 
         From = SQLiteExpression.Leaf(elementType, -1, $"{cteName} AS {alias}");

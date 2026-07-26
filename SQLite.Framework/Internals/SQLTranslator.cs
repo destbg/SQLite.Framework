@@ -305,7 +305,11 @@ internal class SQLTranslator
            && ne.Type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
            && ne.Arguments.Any(a => !a.Type.IsVisible);
 
-        if (!skipGeneratedMaterializers
+        if (queryableMethodVisitor.SuppressSelectMaterializer)
+        {
+            createObject = null;
+        }
+        else if (!skipGeneratedMaterializers
             && selectMaterializers2.Count > 0
             && hasReflectedArg
             && rawSignature2 != null
@@ -382,6 +386,11 @@ internal class SQLTranslator
             CreateObject = createObject,
             Reverse = queryableMethodVisitor.Reverse,
             ClientDistinct = queryableMethodVisitor.IsDistinct && createObject != null,
+            ReverseBeforeDistinct = queryableMethodVisitor.ReverseBeforeDistinct,
+            ClientTake = queryableMethodVisitor.ClientTake,
+            ClientSkip = queryableMethodVisitor.ClientSkip,
+            ClientCountSemantic = queryableMethodVisitor.ClientCount,
+            OptionalRow = Visitor.OptionalRowColumns.Contains(Visitor.TableColumns),
             ThrowOnEmpty = queryableMethodVisitor.ThrowOnEmpty,
             ElementAtSemantic = queryableMethodVisitor.ElementAtSemantic,
             ThrowOnMoreThanOne = queryableMethodVisitor.ThrowOnMoreThanOne,
@@ -781,6 +790,8 @@ internal class SQLTranslator
             isTextDecimalOrder[i] = IsTextDecimalOrder(methodCalls[i], database.Options);
         }
 
+        SpreadTextDecimalOrderOverChain(methodCalls, isTextDecimalOrder);
+
         int wrapIdx = FindSubqueryBoundary(methodCalls, isWindowProjection, isTextDecimalOrder);
         bool wrappedAsSubquery = false;
 
@@ -867,6 +878,11 @@ internal class SQLTranslator
                     }
 
                     outerColumns[property.Name] = leaf;
+                }
+
+                if (Visitor.OptionalRowColumns.Contains(innerTranslator.Visitor.TableColumns))
+                {
+                    Visitor.OptionalRowColumns.Add(outerColumns);
                 }
 
                 Visitor.TableColumns = outerColumns;
@@ -1212,7 +1228,11 @@ internal class SQLTranslator
             return false;
         }
 
-        LambdaExpression selector = (LambdaExpression)ExpressionHelpers.StripQuotes(candidate.Arguments[^1]);
+        if (ExpressionHelpers.StripQuotes(candidate.Arguments[^1]) is not LambdaExpression selector)
+        {
+            return false;
+        }
+
         if (!isSelect && selector.Parameters.Count != 2)
         {
             return false;
@@ -1231,6 +1251,31 @@ internal class SQLTranslator
 
         LambdaExpression key = (LambdaExpression)ExpressionHelpers.StripQuotes(candidate.Arguments[1]);
         return (Nullable.GetUnderlyingType(key.ReturnType) ?? key.ReturnType) == typeof(decimal);
+    }
+
+    private static void SpreadTextDecimalOrderOverChain(List<MethodCallExpression> methodCalls, bool[] isTextDecimalOrder)
+    {
+        for (int i = 0; i < methodCalls.Count; i++)
+        {
+            if (!isTextDecimalOrder[i]
+                || methodCalls[i].Method.Name is not (nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending)))
+            {
+                continue;
+            }
+
+            for (int j = i + 1; j < methodCalls.Count; j++)
+            {
+                string chained = methodCalls[j].Method.Name;
+                if (chained is nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending))
+                {
+                    isTextDecimalOrder[j] = true;
+                    continue;
+                }
+
+                isTextDecimalOrder[j] = true;
+                break;
+            }
+        }
     }
 
     private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls, bool[] isWindowProjection, bool[] isTextDecimalOrder)

@@ -30,6 +30,14 @@ internal sealed class ConstructedConditionalFinderVisitor : ExpressionVisitor
             return node;
         }
 
+        if (node.Expression is MemberExpression inner
+            && FindConstructedMemberValue(inner) is NewExpression { Members: null, Arguments.Count: > 0 } constructed
+            && !IsConstructorParameter(constructed, node.Member.Name))
+        {
+            Found = true;
+            return node;
+        }
+
         return base.VisitMember(node);
     }
 
@@ -49,6 +57,12 @@ internal sealed class ConstructedConditionalFinderVisitor : ExpressionVisitor
     private static bool IsNullConstant(Expression node)
     {
         return node is ConstantExpression { Value: null };
+    }
+
+    private static bool IsConstructorParameter(NewExpression constructed, string memberName)
+    {
+        return constructed.Constructor!.GetParameters()
+            .Any(p => string.Equals(p.Name, memberName, StringComparison.OrdinalIgnoreCase));
     }
 
     private static Expression? FindConstructedMemberValue(MemberExpression node)

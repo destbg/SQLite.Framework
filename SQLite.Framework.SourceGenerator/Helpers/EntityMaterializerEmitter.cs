@@ -737,7 +737,12 @@ public static class EntityMaterializerEmitter
     {
         bool isAnonymous = entity.IsAnonymousType;
 
+        IMethodSymbol? positionalCtor = isAnonymous || (HasPublicParameterlessConstructor(entity) && !HasReadOnlyDataProperty(entity))
+            ? null
+            : TryFindPositionalConstructor(entity);
+
         List<IPropertySymbol> writableProps = new();
+        List<bool> constructorOnlyProps = new();
         foreach (IPropertySymbol prop in EnumerateInstanceProperties(entity))
         {
             if (prop.DeclaredAccessibility != Accessibility.Public)
@@ -748,6 +753,12 @@ public static class EntityMaterializerEmitter
             if (isAnonymous || prop.SetMethod != null)
             {
                 writableProps.Add(prop);
+                constructorOnlyProps.Add(false);
+            }
+            else if (IsConstructorParameterName(positionalCtor, prop.Name))
+            {
+                writableProps.Add(prop);
+                constructorOnlyProps.Add(true);
             }
         }
 
@@ -804,9 +815,6 @@ public static class EntityMaterializerEmitter
         string typeName = entity.ToDisplayString();
         List<IPropertySymbol> requiredNotMapped = GetRequiredNotMappedProperties(entity);
 
-        IMethodSymbol? positionalCtor = HasPublicParameterlessConstructor(entity) && !HasReadOnlyDataProperty(entity)
-            ? null
-            : TryFindPositionalConstructor(entity);
         List<int> inaccessibleIndexes = new();
         List<int> guardedIndexes = new();
 
@@ -829,6 +837,11 @@ public static class EntityMaterializerEmitter
             List<int> extraIndexes = new();
             for (int i = 0; i < writableProps.Count; i++)
             {
+                if (constructorOnlyProps[i])
+                {
+                    continue;
+                }
+
                 if (!IsSetterAccessibleFromGeneratedCode(writableProps[i]))
                 {
                     inaccessibleIndexes.Add(i);
@@ -854,7 +867,7 @@ public static class EntityMaterializerEmitter
                         sb.Append(", ");
                     }
                     first = false;
-                    sb.Append(writableProps[ei].Name).Append(" = ").Append(propValueLocals[ei]);
+                    sb.Append(writableProps[ei].Name).Append(" = ").Append(InitializerValue(writableProps[ei], propPresentGuards[ei], propValueLocals[ei]));
                 }
                 foreach (IPropertySymbol prop in requiredNotMapped)
                 {
@@ -875,6 +888,11 @@ public static class EntityMaterializerEmitter
             List<int> initializerIndexes = new();
             for (int i = 0; i < writableProps.Count; i++)
             {
+                if (constructorOnlyProps[i])
+                {
+                    continue;
+                }
+
                 if (!IsSetterAccessibleFromGeneratedCode(writableProps[i]))
                 {
                     inaccessibleIndexes.Add(i);
@@ -897,7 +915,7 @@ public static class EntityMaterializerEmitter
             int written = 0;
             foreach (int i in initializerIndexes)
             {
-                sb.Append(indent).Append("    ").Append(writableProps[i].Name).Append(" = ").Append(propValueLocals[i]);
+                sb.Append(indent).Append("    ").Append(writableProps[i].Name).Append(" = ").Append(InitializerValue(writableProps[i], propPresentGuards[i], propValueLocals[i]));
                 written++;
                 sb.AppendLine(written == totalEntries ? "" : ",");
             }
@@ -928,7 +946,7 @@ public static class EntityMaterializerEmitter
                 .Append(resultLocalName).Append('.').Append(writableProps[i].Name).Append(" = ").Append(propValueLocals[i]).AppendLine(";");
         }
 
-        EmitInaccessibleSetterAssignments(sb, preamble, preambleIndent, indent, entity, typeName, resultLocalName, resultSuffix, writableProps, propValueLocals, inaccessibleIndexes);
+        EmitInaccessibleSetterAssignments(sb, preamble, preambleIndent, indent, entity, typeName, resultLocalName, resultSuffix, writableProps, propValueLocals, propPresentGuards, inaccessibleIndexes);
 
         if (columnPrefix.Length > 0 && entity.IsReferenceType && nonNullChecks.Count > 0)
         {
@@ -947,7 +965,51 @@ public static class EntityMaterializerEmitter
             && prop.SetMethod is { IsInitOnly: false };
     }
 
-    private static void EmitInaccessibleSetterAssignments(StringBuilder sb, StringBuilder preamble, string preambleIndent, string indent, INamedTypeSymbol entity, string typeName, string resultLocalName, string resultSuffix, List<IPropertySymbol> writableProps, List<string> propValueLocals, List<int> indexes)
+    private static bool IsConstructorParameterName(IMethodSymbol? constructor, string name)
+    {
+        if (constructor == null)
+        {
+            return false;
+        }
+
+        foreach (IParameterSymbol parameter in constructor.Parameters)
+        {
+            if (string.Equals(parameter.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string InitializerValue(IPropertySymbol prop, string? presentGuard, string valueLocal)
+    {
+        if (presentGuard == null || prop.SetMethod is not { IsInitOnly: true } || prop.IsRequired)
+        {
+            return valueLocal;
+        }
+
+        string? declared = TryGetDeclaredInitializer(prop);
+        return declared == null
+            ? valueLocal
+            : presentGuard + " ? " + valueLocal + " : " + declared;
+    }
+
+    private static string? TryGetDeclaredInitializer(IPropertySymbol prop)
+    {
+        foreach (SyntaxReference reference in prop.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is PropertyDeclarationSyntax { Initializer.Value: LiteralExpressionSyntax literal })
+            {
+                return literal.ToString();
+            }
+        }
+
+        return null;
+    }
+
+    private static void EmitInaccessibleSetterAssignments(StringBuilder sb, StringBuilder preamble, string preambleIndent, string indent, INamedTypeSymbol entity, string typeName, string resultLocalName, string resultSuffix, List<IPropertySymbol> writableProps, List<string> propValueLocals, List<string?> propPresentGuards, List<int> indexes)
     {
         if (indexes.Count == 0)
         {
@@ -967,7 +1029,8 @@ public static class EntityMaterializerEmitter
             sb.Append(indent).Append("object ").Append(boxLocal).Append(" = ").Append(resultLocalName).AppendLine(";");
             foreach (int i in indexes)
             {
-                sb.Append(indent).Append("__pset_").Append(resultSuffix).Append('_').Append(i).Append(".SetValue(").Append(boxLocal).Append(", ").Append(propValueLocals[i]).AppendLine(");");
+                AppendPresenceGuard(sb, indent, propPresentGuards[i]);
+                sb.Append("__pset_").Append(resultSuffix).Append('_').Append(i).Append(".SetValue(").Append(boxLocal).Append(", ").Append(propValueLocals[i]).AppendLine(");");
             }
             sb.Append(indent).Append(resultLocalName).Append(" = (").Append(typeName).Append(')').Append(boxLocal).AppendLine(";");
         }
@@ -975,8 +1038,18 @@ public static class EntityMaterializerEmitter
         {
             foreach (int i in indexes)
             {
-                sb.Append(indent).Append("__pset_").Append(resultSuffix).Append('_').Append(i).Append(".SetValue(").Append(resultLocalName).Append(", ").Append(propValueLocals[i]).AppendLine(");");
+                AppendPresenceGuard(sb, indent, propPresentGuards[i]);
+                sb.Append("__pset_").Append(resultSuffix).Append('_').Append(i).Append(".SetValue(").Append(resultLocalName).Append(", ").Append(propValueLocals[i]).AppendLine(");");
             }
+        }
+    }
+
+    private static void AppendPresenceGuard(StringBuilder sb, string indent, string? presentGuard)
+    {
+        sb.Append(indent);
+        if (presentGuard != null)
+        {
+            sb.Append("if (").Append(presentGuard).Append(") ");
         }
     }
 

@@ -37,16 +37,17 @@ public sealed class GenericInstantiationIndex
     }
 
     /// <summary>
-    /// Records a closed type-argument tuple for a type.
+    /// Records a closed type-argument tuple for a type. Returns true when the tuple was not
+    /// already known, which is what lets the forwarding closure detect that it has settled.
     /// </summary>
-    public void AddType(INamedTypeSymbol type, ImmutableArray<INamedTypeSymbol> typeArgs)
+    public bool AddType(INamedTypeSymbol type, ImmutableArray<INamedTypeSymbol> typeArgs)
     {
         if (!Types.TryGetValue(type, out HashSet<ImmutableArray<INamedTypeSymbol>>? set))
         {
             set = new HashSet<ImmutableArray<INamedTypeSymbol>>(TypeArgTupleComparer.Instance);
             Types[type] = set;
         }
-        set.Add(typeArgs);
+        return set.Add(typeArgs);
     }
 
     /// <summary>

@@ -238,6 +238,12 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(method.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + method.Name);
         }
 
+        if (symbol is IFieldSymbol { IsConst: true } constField
+            && SelectMaterializerEmitter.TryFormatConstantLiteral(constField.ConstantValue, out string? constLiteral))
+        {
+            return SyntaxFactory.ParseExpression(constLiteral!);
+        }
+
         if (symbol is IFieldSymbol { IsStatic: true } field && field.ContainingType != null)
         {
             return SyntaxFactory.ParseName(SelectMaterializerEmitter.FormatType(field.ContainingType, ctx.WriterCtx.TypeArgSubstitutions) + "." + field.Name);

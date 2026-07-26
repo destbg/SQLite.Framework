@@ -156,7 +156,7 @@ internal static class SchemaSqlBuilder
                 IsUnique: idx.IsUnique,
                 Collation: idx.Collation,
                 Direction: idx.Direction)))
-            .GroupBy(x => x.Name);
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase);
 
         foreach (var group in indexGroups)
         {

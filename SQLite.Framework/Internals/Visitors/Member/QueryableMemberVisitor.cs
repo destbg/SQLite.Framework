@@ -84,6 +84,12 @@ internal static class QueryableMemberVisitor
         return ((SQLiteExpression)translator.Visitor.TableColumns.Values.First()).IsDayOfWeekInteger;
     }
 
+    public static bool IsSystemMethod(MethodInfo method)
+    {
+        return method.DeclaringType?.Namespace is { } ns
+            && (ns == "System" || ns.StartsWith("System.", StringComparison.Ordinal));
+    }
+
     public static Expression HandleEnumerableMethod(SQLVisitor visitor, MethodCallExpression node, IEnumerable enumerable, List<ResolvedModel> arguments)
     {
         ComparerArgumentGuard.ThrowIfComparer(node);
@@ -99,6 +105,11 @@ internal static class QueryableMemberVisitor
             && TypeHelpers.IsSimple(node.Method.ReturnType, visitor.Database.Options)
             && arguments.Skip(firstItemArgIndex).All(f => f.IsConstant))
         {
+            if (visitor.ClientEvalAllowed && !IsSystemMethod(node.Method))
+            {
+                return Expression.Call(node.Object, node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
+            }
+
             ParameterInfo[] methodParameters = node.Method.GetParameters();
             object? result;
             if (methodParameters.Length > 0 && methodParameters[0].ParameterType.IsByRefLike)
@@ -113,10 +124,17 @@ internal static class QueryableMemberVisitor
             }
             else
             {
-                result = node.Method.Invoke(null, [
-                    enumerable,
-                    ..node.Arguments.Skip(1).Select(ExpressionHelpers.GetConstantValue)
-                ]);
+                try
+                {
+                    result = node.Method.Invoke(null, [
+                        enumerable,
+                        ..node.Arguments.Skip(1).Select(ExpressionHelpers.GetConstantValue)
+                    ]);
+                }
+                catch (TargetInvocationException ex) when (ex.InnerException != null)
+                {
+                    throw ex.InnerException;
+                }
             }
 
             string pName = visitor.Counters.NextParamName();
@@ -470,7 +488,15 @@ internal static class QueryableMemberVisitor
 
         if (node.Object == null && node.Method.ReturnType.IsAssignableTo(type) && arguments.All(f => f.IsConstant))
         {
-            object? result = node.Method.Invoke(null, arguments.Select(f => f.Constant).ToArray());
+            object? result;
+            try
+            {
+                result = node.Method.Invoke(null, arguments.Select(f => f.Constant).ToArray());
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                throw ex.InnerException;
+            }
 
             string pName = visitor.Counters.NextParamName();
             expression = SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), pName, result);

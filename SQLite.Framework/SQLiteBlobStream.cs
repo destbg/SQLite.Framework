@@ -185,6 +185,7 @@ public sealed class SQLiteBlobStream : Stream
         {
             raw.sqlite3_blob_close(handle);
             handle = null;
+            database.CompletePendingSavepointCleanup();
             connectionLock.Dispose();
         }
         base.Dispose(disposing);

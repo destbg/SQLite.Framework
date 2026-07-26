@@ -108,6 +108,20 @@ internal static class CommandHelpers
         return Convert.ChangeType(value, type, CultureInfo.InvariantCulture);
     }
 
+    public static object? ReadAbsentColumnValue(SQLiteDatabase database, int index, SQLiteColumnType columnType, Type type, SQLiteOptions options)
+    {
+        raw.sqlite3_prepare_v2(database.GetActiveHandle(), "SELECT NULL", out sqlite3_stmt statement);
+        try
+        {
+            raw.sqlite3_step(statement);
+            return ReadColumnValue(statement, Math.Max(index, 0) + 1, columnType, type, options);
+        }
+        finally
+        {
+            raw.sqlite3_finalize(statement);
+        }
+    }
+
     public static object ReadRawValue(sqlite3_stmt statement, int index, SQLiteColumnType columnType)
     {
         return columnType switch

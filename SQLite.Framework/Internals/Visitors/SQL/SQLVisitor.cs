@@ -235,19 +235,33 @@ internal partial class SQLVisitor : ExpressionVisitor
         {
             if (expressions.TryGetValue(path[..splitIndex], out Expression? baseExpression))
             {
-                Expression current = baseExpression;
-                foreach (string segment in path[(splitIndex + 1)..].Split('.'))
-                {
-                    current = FoldConstructedMemberAccess(current, segment);
-                }
-
-                return Visit(current);
+                return baseExpression is ConditionalExpression or MemberInitExpression or NewExpression
+                    ? VisitFoldedMemberPath(baseExpression, path[(splitIndex + 1)..])
+                    : null;
             }
 
             splitIndex = path.LastIndexOf('.', splitIndex - 1);
         }
 
+        if (path.Length > 0
+            && expressions.TryGetValue(string.Empty, out Expression? rootExpression)
+            && rootExpression is ConditionalExpression or MemberInitExpression or NewExpression)
+        {
+            return VisitFoldedMemberPath(rootExpression, path);
+        }
+
         return null;
+    }
+
+    private Expression VisitFoldedMemberPath(Expression baseExpression, string memberPath)
+    {
+        Expression current = baseExpression;
+        foreach (string segment in memberPath.Split('.'))
+        {
+            current = FoldConstructedMemberAccess(current, segment);
+        }
+
+        return Visit(current);
     }
 
     private SQLiteExpression? ResolvePrimaryKeyColumn(Type entityType, string path, Dictionary<string, Expression> expressions)
@@ -366,9 +380,10 @@ internal partial class SQLVisitor : ExpressionVisitor
                 return newExpression.Arguments[argumentIndex];
             }
 
-            if (TryGetSettableMemberType(newExpression.Type, memberName, out Type? unassignedType))
+            if (newExpression.Arguments.Count == 0
+                && TryGetSettableMemberType(newExpression.Type, memberName, out Type? unassignedType))
             {
-                return MakeDefaultConstant(unassignedType);
+                return MakeConstructedMemberConstant(newExpression, memberName, unassignedType);
             }
         }
 
@@ -397,6 +412,17 @@ internal partial class SQLVisitor : ExpressionVisitor
             ? Activator.CreateInstance(type)
             : null;
         return Expression.Constant(value, type);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Constructed projection types are rooted by the user query.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Constructed projection types are rooted by the user query.")]
+    private static ConstantExpression MakeConstructedMemberConstant(NewExpression newExpression, string memberName, Type memberType)
+    {
+        object instance = newExpression.Constructor == null
+            ? Activator.CreateInstance(newExpression.Type)!
+            : newExpression.Constructor.Invoke([]);
+        object? value = newExpression.Type.GetProperty(memberName)!.GetValue(instance);
+        return Expression.Constant(value, memberType);
     }
 
     private static int ConstructorArgumentIndex(NewExpression newExpression, string memberName)

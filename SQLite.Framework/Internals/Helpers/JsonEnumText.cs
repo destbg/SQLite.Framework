@@ -19,6 +19,7 @@ internal static class JsonEnumText
 
     public static bool IsStringStored(SQLiteOptions options, Type enumType)
     {
+        enumType = Nullable.GetUnderlyingType(enumType) ?? enumType;
         Array values = Enum.GetValuesAsUnderlyingType(enumType);
         if (values.Length == 0)
         {

@@ -14,6 +14,12 @@ public static class AsyncSQLiteCommandExtensions
     /// </summary>
     public static async Task<SQLiteDataReader> ExecuteReaderAsync(this SQLiteCommand command, CancellationToken cancellationToken = default)
     {
+        if (MethodOverrideCache.IsOverridden(command.GetType(), typeof(SQLiteCommand), nameof(SQLiteCommand.ExecuteReader)))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return command.ExecuteReader();
+        }
+
         IDisposable connectionLock = await command.Database.ReadLockAsync(cancellationToken);
 
         command.NotifyExecuting();
@@ -51,6 +57,11 @@ public static class AsyncSQLiteCommandExtensions
     /// </summary>
     public static Task<int> ExecuteNonQueryAsync(this SQLiteCommand command, CancellationToken cancellationToken = default)
     {
+        if (MethodOverrideCache.IsOverridden(command.GetType(), typeof(SQLiteCommand), nameof(SQLiteCommand.ExecuteNonQuery)))
+        {
+            return AsyncRunner.Run(() => Task.FromResult(command.ExecuteNonQuery()), cancellationToken);
+        }
+
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await command.Database.LockAsync(cancellationToken);
@@ -63,6 +74,11 @@ public static class AsyncSQLiteCommandExtensions
     /// </summary>
     public static Task<(int Changes, long RowId)> ExecuteWithLastRowIdAsync(this SQLiteCommand command, CancellationToken cancellationToken = default)
     {
+        if (MethodOverrideCache.IsOverridden(command.GetType(), typeof(SQLiteCommand), nameof(SQLiteCommand.ExecuteWithLastRowId)))
+        {
+            return AsyncRunner.Run(() => Task.FromResult(command.ExecuteWithLastRowId()), cancellationToken);
+        }
+
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await command.Database.LockAsync(cancellationToken);

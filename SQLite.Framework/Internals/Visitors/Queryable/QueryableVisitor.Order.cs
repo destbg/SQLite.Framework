@@ -6,6 +6,10 @@ internal partial class QueryableVisitor
     {
         ThrowIfReverse(node.Method.Name);
 
+        bool clientSide = IsDistinct && LastSelectIsClient;
+        long? take = clientSide ? ClientTake : Take;
+        long? skip = clientSide ? ClientSkip : Skip;
+
         object value = ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
         if (value is Range range)
         {
@@ -17,18 +21,31 @@ internal partial class QueryableVisitor
 
             int start = range.Start.Value;
             int length = Math.Max(0, range.End.Value - start);
-            Skip = (Skip ?? 0) + start;
-            if (Take.HasValue)
+            skip = (skip ?? 0) + start;
+            if (take.HasValue)
             {
-                Take = Math.Max(0, Take.Value - start);
+                take = Math.Max(0, take.Value - start);
             }
 
-            Take = Take.HasValue ? Math.Min(Take.Value, length) : length;
-            return node;
+            take = take.HasValue ? Math.Min(take.Value, length) : length;
+        }
+        else
+        {
+            int n = Math.Max(0, (int)value);
+            take = take.HasValue ? Math.Min(take.Value, n) : n;
         }
 
-        int n = Math.Max(0, (int)value);
-        Take = Take.HasValue ? Math.Min(Take.Value, n) : n;
+        if (clientSide)
+        {
+            ClientTake = take;
+            ClientSkip = skip;
+        }
+        else
+        {
+            Take = take;
+            Skip = skip;
+        }
+
         return node;
     }
 
@@ -37,6 +54,17 @@ internal partial class QueryableVisitor
         ThrowIfReverse(node.Method.Name);
 
         int n = Math.Max(0, (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!);
+        if (IsDistinct && LastSelectIsClient)
+        {
+            ClientSkip = (ClientSkip ?? 0) + n;
+            if (ClientTake.HasValue)
+            {
+                ClientTake = Math.Max(0, ClientTake.Value - n);
+            }
+
+            return node;
+        }
+
         Skip = (Skip ?? 0) + n;
         if (Take.HasValue)
         {
@@ -113,6 +141,11 @@ internal partial class QueryableVisitor
         ComparerArgumentGuard.ThrowIfComparer(node);
 
         IsDistinct = true;
+        if (Reverse)
+        {
+            ReverseBeforeDistinct = true;
+        }
+
         return node;
     }
 
@@ -139,7 +172,19 @@ internal partial class QueryableVisitor
                 "Use OrderByDescending instead so you can index from the start.")
         };
 
-        if (n < 0)
+        if (IsDistinct && LastSelectIsClient)
+        {
+            if (n < 0)
+            {
+                ClientTake = 0;
+            }
+            else
+            {
+                ClientSkip = (ClientSkip ?? 0) + n;
+                ClientTake = ClientTake.HasValue ? Math.Min(Math.Max(0, ClientTake.Value - n), 1) : 1;
+            }
+        }
+        else if (n < 0)
         {
             Take = 0;
         }

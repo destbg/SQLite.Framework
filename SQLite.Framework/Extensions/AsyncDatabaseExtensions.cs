@@ -235,6 +235,15 @@ public static class AsyncDatabaseExtensions
     {
         ArgumentException.ThrowIfNullOrEmpty(destinationPath);
 
+        if (MethodOverrideCache.IsOverridden(database.GetType(), typeof(SQLiteDatabase), nameof(SQLiteDatabase.BackupTo), typeof(string)))
+        {
+            return AsyncRunner.Run(() =>
+            {
+                database.BackupTo(destinationPath);
+                return Task.CompletedTask;
+            }, ct);
+        }
+
         return AsyncRunner.Run(async () =>
         {
             SQLiteOptionsBuilder destBuilder = new(destinationPath);

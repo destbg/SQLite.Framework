@@ -124,6 +124,12 @@ internal partial class JsonCollectionVisitor
 
         List<(string Expr, string Direction)> pendingOrder = SplitOrderBys();
         List<string> selectColumns = [$"{selectExpr} AS \"value\"", $"{keyColumn} AS \"key\""];
+        bool carriesGroupKey = groupKeySql != null && groupBys.Count > 0;
+        if (carriesGroupKey)
+        {
+            selectColumns.Add($"{groupKeySql} AS \"grpkey\"");
+        }
+
         for (int i = 0; i < pendingOrder.Count; i++)
         {
             selectColumns.Add($"{pendingOrder[i].Expr} AS \"o{i}\"");
@@ -173,6 +179,11 @@ internal partial class JsonCollectionVisitor
         offset = null;
         selectExpr = $"{wrapAlias}.\"value\"";
         keyColumn = $"{wrapAlias}.\"key\"";
+        if (carriesGroupKey)
+        {
+            groupKeySql = $"{wrapAlias}.\"grpkey\"";
+        }
+
         innerAliases.Clear();
         innerAliases.Add(wrapAlias);
     }
@@ -481,6 +492,11 @@ internal partial class JsonCollectionVisitor
     private void HandleCount(MethodCallExpression call, Type elementType)
     {
         AddOptionalPredicate(call, elementType);
+        if (distinct && groupBys.Count > 0)
+        {
+            MaterializeDistinct();
+        }
+
         if (groupBys.Count > 0)
         {
             countsGroups = true;
@@ -578,7 +594,7 @@ internal partial class JsonCollectionVisitor
 
     private void HandleReverse()
     {
-        reverseApplied = true;
+        reverseApplied = !reverseApplied;
 
         if (limit != null || offset != null)
         {

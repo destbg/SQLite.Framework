@@ -157,7 +157,18 @@ public static class AsyncSQLiteTableExtensions
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await source.Database.LockAsync(ct);
-            return sync(collection, runInTransaction);
+            return sync(ObserveCancellation(collection, ct), runInTransaction);
         }, ct);
+    }
+
+    private static IEnumerable<T> ObserveCancellation<T>(IEnumerable<T> collection, CancellationToken ct)
+    {
+        foreach (T item in collection)
+        {
+            ct.ThrowIfCancellationRequested();
+            yield return item;
+        }
+
+        ct.ThrowIfCancellationRequested();
     }
 }

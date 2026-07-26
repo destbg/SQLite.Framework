@@ -102,10 +102,22 @@ internal partial class JsonCollectionVisitor
 
         if (singleSemantic)
         {
-            List<string> countClauses = [.. clauses];
-            countClauses[0] = distinct ? $"SELECT COUNT(DISTINCT {EnsureInnerReference(selectExpr)})" : "SELECT COUNT(*)";
-            countClauses.Add("LIMIT 2");
-            string countSelect = string.Join(nl + sp2, countClauses);
+            string countSelect;
+            if (groupBys.Count > 0)
+            {
+                List<string> groupedCountClauses = [.. clauses];
+                groupedCountClauses[0] = $"SELECT {distinctKeyword}{selectExpr} AS \"value\"";
+                groupedCountClauses.Add("LIMIT 2");
+                string groupedCountInner = string.Join(nl + sp2, groupedCountClauses);
+                countSelect = $"SELECT COUNT(*){nl}{sp2}FROM ({nl}{sp2}{groupedCountInner}{nl}{sp2})";
+            }
+            else
+            {
+                List<string> countClauses = [.. clauses];
+                countClauses[0] = distinct ? $"SELECT COUNT(DISTINCT {EnsureInnerReference(selectExpr)})" : "SELECT COUNT(*)";
+                countClauses.Add("LIMIT 2");
+                countSelect = string.Join(nl + sp2, countClauses);
+            }
 
             List<string> valueClauses = [.. clauses];
             valueClauses.Add("LIMIT 1");
@@ -124,7 +136,7 @@ internal partial class JsonCollectionVisitor
                 return $"({nl}{sp}SELECT json_group_array({ArrayElementExpr("\"value\"")}){nl}{sp}FROM ({nl}{sp2}{groupedInner}{nl}{sp}){nl})";
             }
 
-            if (distinct && reverseApplied)
+            if (distinct && (reverseApplied || distinctSeenReverse))
             {
                 string positionAggregate = distinctSeenReverse ? "MAX" : "MIN";
                 List<(string Expr, string Direction)> comboPending = SplitOrderBys().Where(p => p.Expr != keyColumn).ToList();
@@ -142,7 +154,7 @@ internal partial class JsonCollectionVisitor
                     comboOrder.Add(direction == "DESC" ? $"MAX({operand}) DESC" : $"MIN({operand}) ASC");
                 }
 
-                comboOrder.Add($"{positionAggregate}({keyColumn}) DESC");
+                comboOrder.Add($"{positionAggregate}({keyColumn}) {(reverseApplied ? "DESC" : "ASC")}");
                 comboClauses.Add("ORDER BY " + string.Join(", ", comboOrder));
                 string comboInner = string.Join(nl + sp2, comboClauses);
                 return $"({nl}{sp}SELECT json_group_array({ArrayElementExpr("\"value\"")}){nl}{sp}FROM ({nl}{sp2}{comboInner}{nl}{sp}){nl})";

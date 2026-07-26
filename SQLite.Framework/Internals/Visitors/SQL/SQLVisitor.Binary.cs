@@ -78,6 +78,15 @@ internal partial class SQLVisitor
     {
         if (node.NodeType == ExpressionType.ArrayIndex)
         {
+            if (node.Left is NewArrayExpression { NodeType: ExpressionType.NewArrayInit } inlineArray
+                && ExpressionHelpers.IsConstant(node.Right)
+                && ExpressionHelpers.GetConstantValue(node.Right) is int inlineIndex
+                && inlineIndex >= 0
+                && inlineIndex < inlineArray.Expressions.Count)
+            {
+                return Visit(inlineArray.Expressions[inlineIndex]);
+            }
+
             if (!ExpressionHelpers.IsConstant(node.Left)
                 && JsonMethodTranslator.TryArrayIndex(node, this) is { } jsonElement)
             {
@@ -108,10 +117,9 @@ internal partial class SQLVisitor
         {
             Type enumType = Nullable.GetUnderlyingType(leftEnumConvert.Operand.Type) ?? leftEnumConvert.Operand.Type;
             leftNode = leftEnumConvert.Operand;
-            if (ExpressionHelpers.IsConstant(rightNode) && rightNode.Type == Enum.GetUnderlyingType(enumType))
+            if (TryRewriteEnumComparisonConstant(rightNode, enumType) is { } rightEnumConstant)
             {
-                object? intValue = ExpressionHelpers.GetConstantValue(rightNode);
-                rightNode = Expression.Constant(Enum.ToObject(enumType, intValue!), enumType);
+                rightNode = rightEnumConstant;
             }
         }
 
@@ -121,10 +129,9 @@ internal partial class SQLVisitor
         {
             Type enumType = Nullable.GetUnderlyingType(rightEnumConvert.Operand.Type) ?? rightEnumConvert.Operand.Type;
             rightNode = rightEnumConvert.Operand;
-            if (ExpressionHelpers.IsConstant(leftNode) && leftNode.Type == Enum.GetUnderlyingType(enumType))
+            if (TryRewriteEnumComparisonConstant(leftNode, enumType) is { } leftEnumConstant)
             {
-                object? intValue = ExpressionHelpers.GetConstantValue(leftNode);
-                leftNode = Expression.Constant(Enum.ToObject(enumType, intValue!), enumType);
+                leftNode = leftEnumConstant;
             }
         }
 
@@ -288,6 +295,11 @@ internal partial class SQLVisitor
 
             SQLiteParameter[]? coalesceParameters = ParameterHelpers.CombineParameters(coalesceLeft, coalesceRight);
             SQLiteExpression coalesce = SQLiteExpression.Binary(node.Type, Counters.NextIdentifier(), "COALESCE(", coalesceLeft, ", ", coalesceRight, ")", coalesceParameters);
+            if (coalesceLeft.IsJsonSource && coalesceRight.IsJsonSource)
+            {
+                coalesce.WithJsonSource();
+            }
+
             return dayOfWeekSide ? coalesce.WithDayOfWeekInteger() : coalesce;
         }
 
@@ -717,7 +729,7 @@ internal partial class SQLVisitor
             BinaryExpression { NodeType: ExpressionType.Coalesce } coalesce =>
                 StringConcatExpressionMayBeNull(coalesce.Right),
             MemberExpression { Member: PropertyInfo property } =>
-                new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
+                ExpressionHelpers.PropertyMayBeNull(property),
             _ => false
         };
     }
@@ -756,6 +768,39 @@ internal partial class SQLVisitor
         return (Nullable.GetUnderlyingType(other.Type) ?? other.Type) == operandEnum;
     }
 
+    private static ConstantExpression? TryRewriteEnumComparisonConstant(Expression side, Type enumType)
+    {
+        Type underlying = Enum.GetUnderlyingType(enumType);
+        Expression stripped = side is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert
+            && (Nullable.GetUnderlyingType(convert.Type) ?? convert.Type) == underlying
+            ? convert.Operand
+            : side;
+
+        if (!ExpressionHelpers.IsConstant(stripped))
+        {
+            return null;
+        }
+
+        Type strippedType = Nullable.GetUnderlyingType(stripped.Type) ?? stripped.Type;
+        if (strippedType != underlying && strippedType != enumType)
+        {
+            return null;
+        }
+
+        object? value = ExpressionHelpers.GetConstantValue(stripped);
+        if (value == null)
+        {
+            return null;
+        }
+
+        if (value is Enum)
+        {
+            value = Convert.ChangeType(value, underlying, CultureInfo.InvariantCulture);
+        }
+
+        return Expression.Constant(Enum.ToObject(enumType, value), enumType);
+    }
+
     private static bool IsNullableColumn(Expression operand)
     {
         Expression stripped = operand;
@@ -770,6 +815,6 @@ internal partial class SQLVisitor
         }
 
         return stripped is MemberExpression { Member: PropertyInfo property }
-            && new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable;
+            && ExpressionHelpers.PropertyMayBeNull(property);
     }
 }

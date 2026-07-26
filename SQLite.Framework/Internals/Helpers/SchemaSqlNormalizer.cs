@@ -93,7 +93,7 @@ internal static class SchemaSqlNormalizer
                 if (c == '(')
                 {
                     parenDepth++;
-                    if (indexListDepth < 0 && tokens.Count >= 2 && tokens[^2] == "on")
+                    if (indexListDepth < 0 && IsColumnListPosition(tokens))
                     {
                         indexListDepth = parenDepth;
                     }
@@ -129,7 +129,22 @@ internal static class SchemaSqlNormalizer
             return true;
         }
 
+        if (tokens[^1] == ".")
+        {
+            return true;
+        }
+
         return identifierKeywords.Contains(tokens[^1]);
+    }
+
+    private static bool IsColumnListPosition(List<string> tokens)
+    {
+        if (tokens.Count >= 2 && tokens[^2] is "on" or "into")
+        {
+            return true;
+        }
+
+        return tokens.Count >= 4 && tokens[^2] == "." && tokens[^4] is "on" or "into";
     }
 
     private static void RemoveExistsClause(List<string> tokens)

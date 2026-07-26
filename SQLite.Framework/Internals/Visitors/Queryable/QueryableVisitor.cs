@@ -41,6 +41,12 @@ internal partial class QueryableVisitor
     public object? DefaultValue { get; private set; }
     public bool HasDefaultValue { get; private set; }
     public bool IsRowSelector { get; private set; }
+    public bool LastSelectIsClient { get; private set; }
+    public bool ReverseBeforeDistinct { get; private set; }
+    public long? ClientTake { get; private set; }
+    public long? ClientSkip { get; private set; }
+    public bool ClientCount { get; private set; }
+    public bool SuppressSelectMaterializer { get; private set; }
 
     public bool IsInnerQuery { get; set; }
 
@@ -211,7 +217,8 @@ internal partial class QueryableVisitor
                             dayOfWeekColumns: recursive.DayOfWeekColumns,
                             constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
                             bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
-                            bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null);
+                            bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null,
+                            emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects));
 
                         visitor.CteParameters.Remove(selfParam);
                         visitor.MethodArguments.Remove(selfParam);
@@ -233,7 +240,8 @@ internal partial class QueryableVisitor
                             dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(cteElementType, database.Options)),
                             constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
                             bodyColumns: hasClientMember ? bodyTranslator.Visitor.TableColumns : null,
-                            bodySelects: hasClientMember ? bodyTranslator.Selects : null);
+                            bodySelects: hasClientMember ? bodyTranslator.Selects : null,
+                            emittedColumns: CteColumnMapper.EmittedColumnNames(bodyColumnNames, bodyTranslator.Selects));
                     }
                 }
 
@@ -252,7 +260,17 @@ internal partial class QueryableVisitor
 
                 TableMapping tableMapping = table.Table;
                 newTableColumns = tableMapping.Columns
-                    .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+                    .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
+                    {
+                        string colSql = $"{alias}.{IdentifierGuard.Quote(f.Name)}";
+                        if (database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? converter)
+                            && converter.ColumnSqlExpression is { } columnSqlExpression)
+                        {
+                            colSql = string.Format(columnSqlExpression, colSql);
+                        }
+
+                        return SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), colSql);
+                    });
                 visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
                 sql = SQLiteExpression.Leaf(body.Type, -1, $"{visitor.QualifiedTableName(table)} AS {alias}");
             }
@@ -284,15 +302,37 @@ internal partial class QueryableVisitor
             {
                 KeyValuePair<string, Expression> shape = innerVisitor.Visitor.TableColumns.First();
                 string columnName = innerVisitor.Selects[0].IdentifierText;
+                SQLiteExpression scalarLeaf = SQLiteExpression.Leaf(entityType, visitor.Counters.NextIdentifier(), $"{alias}.\"{columnName}\"");
+                if (innerVisitor.Selects[0].IsDayOfWeekInteger)
+                {
+                    scalarLeaf.WithDayOfWeekInteger();
+                }
+
                 newTableColumns = new Dictionary<string, Expression>
                 {
-                    [shape.Key] = SQLiteExpression.Leaf(entityType, visitor.Counters.NextIdentifier(), $"{alias}.\"{columnName}\"")
+                    [shape.Key] = scalarLeaf
                 };
             }
             else
             {
-                newTableColumns = entityType.GetProperties()
-                    .ToDictionary(f => f.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+                newTableColumns = [];
+                foreach (SQLiteExpression select in innerVisitor.Selects)
+                {
+                    string columnName = select.IdentifierText;
+                    if (newTableColumns.ContainsKey(columnName))
+                    {
+                        continue;
+                    }
+
+                    Type columnType = query.SelectValueTypes!.GetValueOrDefault(columnName, select.Type);
+                    SQLiteExpression leaf = SQLiteExpression.Leaf(columnType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(columnName)}");
+                    if (select.IsDayOfWeekInteger)
+                    {
+                        leaf.WithDayOfWeekInteger();
+                    }
+
+                    newTableColumns[columnName] = leaf;
+                }
             }
 
             visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };

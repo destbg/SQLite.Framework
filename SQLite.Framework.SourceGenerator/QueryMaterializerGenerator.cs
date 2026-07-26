@@ -158,6 +158,12 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 transform: static (ctx, _) => ExtractForwardedMethodInstantiation(ctx))
             .Where(static t => t is not null);
 
+        IncrementalValuesProvider<ForwardedTypeInstantiation?> forwardedTypeInstantiations = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => node is ObjectCreationExpressionSyntax || node is GenericNameSyntax,
+                transform: static (ctx, _) => ExtractForwardedTypeInstantiation(ctx))
+            .Where(static t => t is not null);
+
         IncrementalValueProvider<ImmutableArray<INamedTypeSymbol?>> allEntities =
             fromInvocations.Collect()
                 .Combine(fromMembers.Collect())
@@ -176,24 +182,25 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             methodInstantiations.Collect()
                 .Combine(typeInstantiations.Collect())
                 .Combine(forwardedInstantiations.Collect())
+                .Combine(forwardedTypeInstantiations.Collect())
                 .Select(static (pair, _) =>
                 {
                     GenericInstantiationIndex index = new();
-                    foreach ((IMethodSymbol Method, ImmutableArray<INamedTypeSymbol> TypeArgs)? entry in pair.Left.Left)
+                    foreach ((IMethodSymbol Method, ImmutableArray<INamedTypeSymbol> TypeArgs)? entry in pair.Left.Left.Left)
                     {
                         if (entry is { } e)
                         {
                             index.AddMethod(e.Method, e.TypeArgs);
                         }
                     }
-                    foreach ((INamedTypeSymbol Type, ImmutableArray<INamedTypeSymbol> TypeArgs)? entry in pair.Left.Right)
+                    foreach ((INamedTypeSymbol Type, ImmutableArray<INamedTypeSymbol> TypeArgs)? entry in pair.Left.Left.Right)
                     {
                         if (entry is { } e)
                         {
                             index.AddType(e.Type, e.TypeArgs);
                         }
                     }
-                    CloseForwardedInstantiations(index, pair.Right);
+                    CloseForwardedInstantiations(index, pair.Left.Right, pair.Right);
                     return index;
                 });
 
@@ -1480,7 +1487,15 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 case AccessorDeclarationSyntax accessorDecl:
                     return model.GetDeclaredSymbol(accessorDecl)?.OriginalDefinition;
                 case LocalFunctionStatementSyntax localFn:
-                    return model.GetDeclaredSymbol(localFn)?.OriginalDefinition;
+                {
+                    IMethodSymbol? declared = model.GetDeclaredSymbol(localFn)?.OriginalDefinition;
+                    if (declared is { TypeParameters.Length: > 0 })
+                    {
+                        return declared;
+                    }
+
+                    break;
+                }
                 case PropertyDeclarationSyntax propDecl when propDecl.ExpressionBody != null:
                     return model.GetDeclaredSymbol(propDecl)?.GetMethod?.OriginalDefinition;
             }
@@ -1796,6 +1811,8 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
+        method = Unreduce(method);
+
         if (method.TypeArguments.Length == 0)
         {
             return null;
@@ -1820,6 +1837,13 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         return (method.OriginalDefinition, builder.ToImmutable());
     }
 
+    private static IMethodSymbol Unreduce(IMethodSymbol method)
+    {
+        return method.ReducedFrom == null
+            ? method
+            : method.GetConstructedReducedFrom() ?? method;
+    }
+
     private static ForwardedMethodInstantiation? ExtractForwardedMethodInstantiation(GeneratorSyntaxContext ctx)
     {
         if (ctx.Node is not InvocationExpressionSyntax invocation)
@@ -1831,6 +1855,8 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         {
             return null;
         }
+
+        method = Unreduce(method);
 
         if (method.TypeArguments.Length == 0)
         {
@@ -1869,7 +1895,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             method.OriginalDefinition, method.TypeArguments, enclosingMethod, enclosingType);
     }
 
-    private static void CloseForwardedInstantiations(GenericInstantiationIndex index, ImmutableArray<ForwardedMethodInstantiation?> forwarded)
+    private static void CloseForwardedInstantiations(GenericInstantiationIndex index, ImmutableArray<ForwardedMethodInstantiation?> forwarded, ImmutableArray<ForwardedTypeInstantiation?> forwardedTypes)
     {
         for (int round = 0; round < MaxForwardingRounds; round++)
         {
@@ -1879,6 +1905,14 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 if (entry is { } edge)
                 {
                     added |= AddForwardedInstantiations(index, edge);
+                }
+            }
+
+            foreach (ForwardedTypeInstantiation? entry in forwardedTypes)
+            {
+                if (entry is { } edge)
+                {
+                    added |= AddForwardedTypeInstantiations(index, edge);
                 }
             }
 
@@ -1913,6 +1947,81 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         return added;
+    }
+
+    private static bool AddForwardedTypeInstantiations(GenericInstantiationIndex index, ForwardedTypeInstantiation edge)
+    {
+        bool added = false;
+        foreach (Dictionary<ITypeParameterSymbol, ITypeSymbol> subs
+                 in EnumerateSubstitutionMaps(edge.EnclosingMethod, edge.EnclosingType, index))
+        {
+            ImmutableArray<INamedTypeSymbol>.Builder builder =
+                ImmutableArray.CreateBuilder<INamedTypeSymbol>(edge.TypeArguments.Length);
+            foreach (ITypeSymbol arg in edge.TypeArguments)
+            {
+                if (SelectSignatureWriter.Substitute(arg, subs) is INamedTypeSymbol named
+                    && !ContainsTypeParameter(named))
+                {
+                    builder.Add(named);
+                }
+            }
+
+            if (builder.Count == edge.TypeArguments.Length)
+            {
+                added |= index.AddType(edge.Target, builder.ToImmutable());
+            }
+        }
+
+        return added;
+    }
+
+    private static ForwardedTypeInstantiation? ExtractForwardedTypeInstantiation(GeneratorSyntaxContext ctx)
+    {
+        INamedTypeSymbol? constructed = ctx.Node switch
+        {
+            ObjectCreationExpressionSyntax oce
+                => ctx.SemanticModel.GetTypeInfo(oce).Type as INamedTypeSymbol,
+            GenericNameSyntax gns when gns.Parent is not InvocationExpressionSyntax
+                                       && gns.Parent is not MemberAccessExpressionSyntax { Name: GenericNameSyntax }
+                => ctx.SemanticModel.GetSymbolInfo(gns).Symbol as INamedTypeSymbol,
+            _ => null
+        };
+
+        if (constructed == null || !constructed.IsGenericType || constructed.IsUnboundGenericType)
+        {
+            return null;
+        }
+
+        bool anyOpen = false;
+        foreach (ITypeSymbol arg in constructed.TypeArguments)
+        {
+            if (ContainsTypeParameter(arg))
+            {
+                anyOpen = true;
+                break;
+            }
+        }
+
+        if (!anyOpen)
+        {
+            return null;
+        }
+
+        IAssemblySymbol? compilationAsm = ctx.SemanticModel.Compilation.Assembly;
+        if (!SymbolEqualityComparer.Default.Equals(constructed.OriginalDefinition.ContainingAssembly, compilationAsm))
+        {
+            return null;
+        }
+
+        IMethodSymbol? enclosingMethod = FindEnclosingSourceMethod(ctx.SemanticModel, ctx.Node);
+        INamedTypeSymbol? enclosingType = enclosingMethod?.ContainingType?.OriginalDefinition;
+        if (enclosingMethod == null && enclosingType == null)
+        {
+            return null;
+        }
+
+        return new ForwardedTypeInstantiation(
+            constructed.OriginalDefinition, constructed.TypeArguments, enclosingMethod, enclosingType);
     }
 
     private static (INamedTypeSymbol Type, ImmutableArray<INamedTypeSymbol> TypeArgs)? ExtractTypeInstantiation(GeneratorSyntaxContext ctx)

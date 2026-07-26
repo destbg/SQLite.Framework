@@ -13,7 +13,7 @@ internal static class ModelValidator
         string table = mapping.TableName;
 
         List<PragmaTableInfo> dbColumns = database.Pragmas.TableInfo(table).ToList();
-        if (dbColumns.Count == 0)
+        if (dbColumns.Count == 0 || !MainObjectExists(database, table))
         {
             issues.Add($"Table '{table}' does not exist in the database.");
             return issues;
@@ -65,10 +65,16 @@ internal static class ModelValidator
         return close < 0 ? string.Empty : createTableSql![(close + 1)..];
     }
 
+    private static bool MainObjectExists(SQLiteDatabase database, string table)
+    {
+        return database.ExecuteScalar<long?>(
+            $"SELECT COUNT(*) FROM sqlite_master WHERE type IN ('table', 'view') AND name = '{table.Replace("'", "''")}' COLLATE NOCASE") > 0;
+    }
+
     private static string? ReadTableSql(SQLiteDatabase database, string table)
     {
         return database.ExecuteScalar<string?>(
-            $"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{table.Replace("'", "''")}'");
+            $"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{table.Replace("'", "''")}' COLLATE NOCASE");
     }
 
     private static void ValidateRTree(SQLiteDatabase database, string table, TableMapping mapping, List<PragmaTableInfo> dbColumns, List<string> issues)

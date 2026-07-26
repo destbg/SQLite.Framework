@@ -2,9 +2,26 @@ namespace SQLite.Framework.Internals.Visitors.Queryable;
 
 internal partial class QueryableVisitor
 {
-    private SQLiteExpression VisitGroupFunction(MethodCallExpression node, string function)
+    private Expression VisitGroupFunction(MethodCallExpression node, string function)
     {
         ThrowIfSetOperations(node.Method.Name);
+
+        if (LastSelectIsClient)
+        {
+            if (function != "COUNT" || node.Arguments.Count != 1)
+            {
+                throw new NotSupportedException(
+                    $"{node.Method.Name} after a projection that runs in memory is not supported, because SQLite " +
+                    "cannot aggregate a value the database never computes. " +
+                    "Materialize the values with ToList and aggregate in memory.");
+            }
+
+            if (IsDistinct)
+            {
+                ClientCount = true;
+                return node;
+            }
+        }
 
         if (Selects.Count == 0 && visitor.TableColumns.Count == 1)
         {
@@ -74,7 +91,15 @@ internal partial class QueryableVisitor
         }
         else if (Selects.Count == 1)
         {
-            select = BuildScalarAggregate(function, node.Method.ReturnType, Selects[0], distinctPrefix);
+            SQLiteExpression aggregateTarget = Selects[0];
+            if (function is "MIN" or "MAX"
+                && database.Options.DecimalStorage == DecimalStorageMode.Text
+                && (Nullable.GetUnderlyingType(node.Method.ReturnType) ?? node.Method.ReturnType) == typeof(decimal))
+            {
+                aggregateTarget = visitor.InternDecimalCast(aggregateTarget);
+            }
+
+            select = BuildScalarAggregate(function, node.Method.ReturnType, aggregateTarget, distinctPrefix);
         }
         else
         {
@@ -88,12 +113,21 @@ internal partial class QueryableVisitor
         Selects.Add(select);
 
         IsDistinct = false;
+        SuppressSelectMaterializer = true;
 
         return select;
     }
 
     private SQLiteExpression VisitGroupConcat(MethodCallExpression node)
     {
+        if (LastSelectIsClient)
+        {
+            throw new NotSupportedException(
+                "string.Join over a projection that runs in memory is not supported, because SQLite " +
+                "cannot concatenate a value the database never computes. " +
+                "Materialize the values with ToList and call string.Join in memory.");
+        }
+
         if (Take != null || Skip != null)
         {
             throw new NotSupportedException(

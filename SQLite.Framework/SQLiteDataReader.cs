@@ -145,7 +145,9 @@ public class SQLiteDataReader : IDisposable
     public object? GetValue(int index, SQLiteColumnType columnType, Type type)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return Statement is null ? null : CommandHelpers.ReadColumnValue(Statement, index, columnType, type, Options);
+        return Statement is null
+            ? CommandHelpers.ReadAbsentColumnValue(Database, index, columnType, type, Options)
+            : CommandHelpers.ReadColumnValue(Statement, index, columnType, type, Options);
     }
 
     /// <summary>

@@ -30,12 +30,14 @@ internal static class WindowFunctionsMemberVisitor
             case nameof(SQLiteFrameBoundary.Preceding):
             {
                 ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
-                return SQLiteExpression.Wrap(node.Type, visitor.Counters.NextIdentifier(), "", arg.SQLiteExpression!, " PRECEDING", arg.SQLiteExpression!.Parameters);
+                SQLiteExpression offset = RequireBoundaryOffset(node, arg);
+                return SQLiteExpression.Wrap(node.Type, visitor.Counters.NextIdentifier(), "", offset, " PRECEDING", offset.Parameters);
             }
             case nameof(SQLiteFrameBoundary.Following):
             {
                 ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
-                return SQLiteExpression.Wrap(node.Type, visitor.Counters.NextIdentifier(), "", arg.SQLiteExpression!, " FOLLOWING", arg.SQLiteExpression!.Parameters);
+                SQLiteExpression offset = RequireBoundaryOffset(node, arg);
+                return SQLiteExpression.Wrap(node.Type, visitor.Counters.NextIdentifier(), "", offset, " FOLLOWING", offset.Parameters);
             }
             default:
                 throw new NotSupportedException($"SQLiteFrameBoundary.{node.Method.Name} is not translatable to SQL.");
@@ -104,7 +106,7 @@ internal static class WindowFunctionsMemberVisitor
             RequirePartitionByFirst(node);
         }
 
-        if (node.Object == null && arguments.Count > 0)
+        if (arguments.Count > 0)
         {
             RequireValueArguments(node, arguments);
         }
@@ -330,6 +332,12 @@ internal static class WindowFunctionsMemberVisitor
         throw new NotSupportedException($"{node.Method.Name} must come right after {required} in the window chain.");
     }
 
+    private static SQLiteExpression RequireBoundaryOffset(MethodCallExpression node, ResolvedModel arg)
+    {
+        return arg.SQLiteExpression
+            ?? throw new NotSupportedException($"The offset argument of SQLiteFrameBoundary.{node.Method.Name} cannot be translated to SQL.");
+    }
+
     private static void RequireValueArguments(MethodCallExpression node, List<ResolvedModel> arguments)
     {
         foreach (ResolvedModel argument in arguments)
@@ -343,7 +351,7 @@ internal static class WindowFunctionsMemberVisitor
 
     private static void EnsureClauseBeforeFrame(ResolvedModel prev, string clause)
     {
-        string sql = prev.SQLiteExpression!.ToString();
+        string sql = StripQuotedText(prev.SQLiteExpression!.ToString());
         if (sql.Contains(" ROWS ", StringComparison.Ordinal)
             || sql.Contains(" RANGE ", StringComparison.Ordinal)
             || sql.Contains(" GROUPS ", StringComparison.Ordinal))
@@ -351,6 +359,30 @@ internal static class WindowFunctionsMemberVisitor
             throw new NotSupportedException(
                 $"{clause} has to come before the window frame. Chain PartitionBy and OrderBy first, then Rows, Range or Groups.");
         }
+    }
+
+    private static string StripQuotedText(string sql)
+    {
+        StringBuilder builder = StringBuilderPool.Rent();
+        bool inQuotedName = false;
+        bool inLiteral = false;
+        foreach (char c in sql)
+        {
+            if (c == '"' && !inLiteral)
+            {
+                inQuotedName = !inQuotedName;
+            }
+            else if (c == '\'' && !inQuotedName)
+            {
+                inLiteral = !inLiteral;
+            }
+            else if (!inQuotedName && !inLiteral)
+            {
+                builder.Append(c);
+            }
+        }
+
+        return StringBuilderPool.ToStringAndReturn(builder);
     }
 
     private static SQLiteExpression RequireKeyExpression(ResolvedModel arg)

@@ -8,6 +8,7 @@ internal class CteInfo
     public bool IsRecursive { get; init; }
     public SQLiteCteMaterialization Materialization { get; init; }
     public string[]? ColumnNames { get; init; }
+    public string[]? EmittedColumns { get; init; }
     public HashSet<string>? DayOfWeekColumns { get; init; }
     public HashSet<string>? ConstructedPaths { get; init; }
     public Dictionary<string, Expression>? BodyColumns { get; init; }

@@ -95,8 +95,9 @@ public static class SelectSignatureWriter
                 return sym switch
                 {
                     ILocalSymbol => true,
-                    IFieldSymbol { IsStatic: false } => true,
-                    IPropertySymbol { IsStatic: false } => true,
+                    IFieldSymbol { IsConst: true } => false,
+                    IFieldSymbol field => !field.Type.IsRefLikeType,
+                    IPropertySymbol property => !property.Type.IsRefLikeType,
                     IParameterSymbol parameter => IsEnclosingMethodParameter(parameter, ctx),
                     _ => false
                 };
@@ -220,6 +221,63 @@ public static class SelectSignatureWriter
     }
 
     /// <summary>
+    /// Returns the row properties including read-only ones that the widest constructor fills.
+    /// </summary>
+    public static List<IPropertySymbol> GetConstructedRowProperties(INamedTypeSymbol rowType)
+    {
+        HashSet<string> constructed = ConstructedParameterNames(rowType);
+        List<IPropertySymbol> result = new();
+        for (ITypeSymbol? t = rowType; t != null; t = t.BaseType)
+        {
+            foreach (ISymbol member in t.GetMembers())
+            {
+                if (member is IPropertySymbol prop
+                    && !prop.IsStatic
+                    && !prop.IsIndexer
+                    && (prop.SetMethod != null || constructed.Contains(prop.Name))
+                    && prop.DeclaredAccessibility == Accessibility.Public
+                    && !IsNotMappedMember(prop)
+                    && !result.Any(p => p.Name == prop.Name))
+                {
+                    result.Add(prop);
+                }
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Returns the parameter names of the widest usable constructor when the type has no
+    /// accessible parameterless constructor.
+    /// </summary>
+    public static HashSet<string> ConstructedParameterNames(INamedTypeSymbol rowType)
+    {
+        HashSet<string> constructed = new(StringComparer.OrdinalIgnoreCase);
+        if (rowType.IsAnonymousType
+            || rowType.InstanceConstructors.Any(c => c.Parameters.Length == 0
+                && c.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal))
+        {
+            return constructed;
+        }
+
+        IMethodSymbol? widest = rowType.InstanceConstructors
+            .Where(c => c.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal)
+            .OrderByDescending(c => c.Parameters.Length)
+            .FirstOrDefault();
+        if (widest == null)
+        {
+            return constructed;
+        }
+
+        foreach (IParameterSymbol parameter in widest.Parameters)
+        {
+            constructed.Add(parameter.Name);
+        }
+
+        return constructed;
+    }
+
+    /// <summary>
     /// Tells if the type can be built with a public parameterless constructor.
     /// </summary>
     public static bool IsConstructibleEntityType(INamedTypeSymbol type)
@@ -248,7 +306,7 @@ public static class SelectSignatureWriter
             }
         }
 
-        List<IPropertySymbol> properties = GetRowProperties(type);
+        List<IPropertySymbol> properties = GetConstructedRowProperties(type);
         IMethodSymbol? widest = type.InstanceConstructors
             .Where(c => c.DeclaredAccessibility == Accessibility.Public)
             .OrderByDescending(c => c.Parameters.Length)
@@ -579,6 +637,12 @@ public static class SelectSignatureWriter
 
             case IdentifierNameSyntax ident when TryGetRowBinding(ident, ctx, out RowBinding binding):
                 AppendRowReference(sb, type, binding, ctx);
+                return true;
+
+            case IdentifierNameSyntax constIdent
+                when ctx.Model.GetSymbolInfo(constIdent).Symbol is IFieldSymbol { IsConst: true }
+                    && ctx.Model.GetConstantValue(constIdent).HasValue:
+                AppendConstant(sb, constIdent, type, ctx);
                 return true;
 
             case IdentifierNameSyntax capturedIdent when IsCapturedValue(capturedIdent, ctx):

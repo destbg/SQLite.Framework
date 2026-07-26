@@ -15,6 +15,11 @@ internal class SQLQuery
 
     public object? DefaultValue { get; init; }
     public bool ClientDistinct { get; init; }
+    public bool ReverseBeforeDistinct { get; init; }
+    public long? ClientTake { get; init; }
+    public long? ClientSkip { get; init; }
+    public bool ClientCountSemantic { get; init; }
+    public bool OptionalRow { get; init; }
     public bool HasDefaultValue { get; init; }
     public bool IsRowSelector { get; init; }
     public IReadOnlyList<MethodInfo>? ReflectedMethods { get; init; }

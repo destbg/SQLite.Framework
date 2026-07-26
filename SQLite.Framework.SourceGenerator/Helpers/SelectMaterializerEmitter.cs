@@ -372,6 +372,25 @@ public static class SelectMaterializerEmitter
     }
 
     /// <summary>
+    /// Formats a compile-time constant as a C# literal for the generated code. Only primitive
+    /// value kinds whose literal round-trips exactly are supported, so the caller falls back to
+    /// another rendering when this returns false.
+    /// </summary>
+    public static bool TryFormatConstantLiteral(object? value, out string? literal)
+    {
+        literal = value switch
+        {
+            null => "null",
+            string or char or bool or int
+                => SymbolDisplay.FormatPrimitive(value, quoteStrings: true, useHexadecimalNumbers: false),
+            long longValue => longValue.ToString(System.Globalization.CultureInfo.InvariantCulture) + "L",
+            _ => null
+        };
+
+        return literal != null;
+    }
+
+    /// <summary>
     /// Tells whether a type is a nullable value type such as <c>int?</c>.
     /// </summary>
     public static bool IsNullableValueType(ITypeSymbol type)
@@ -898,7 +917,7 @@ public static class SelectMaterializerEmitter
         ITypeSymbol? leafType = declaredLeafType is { IsValueType: true }
             && convertedLeafType is { IsValueType: false }
             ? declaredLeafType
-            : declaredLeafType != null && convertedLeafType is { TypeKind: TypeKind.Interface }
+            : declaredLeafType != null && convertedLeafType is { TypeKind: TypeKind.Interface } or { IsRefLikeType: true }
                 ? declaredLeafType
                 : convertedLeafType ?? declaredLeafType;
         if (leafType == null)
@@ -1172,6 +1191,13 @@ public static class SelectMaterializerEmitter
                     return true;
                 }
 
+                if (sym is IFieldSymbol { IsConst: true }
+                    && ctx.Model.GetConstantValue(ident) is { HasValue: true } identConst
+                    && TryFormatConstantLiteral(identConst.Value, out _))
+                {
+                    return true;
+                }
+
                 if (sym is ITypeSymbol identType)
                 {
                     ITypeSymbol? substitutedType = SelectSignatureWriter.Substitute(identType, ctx.WriterCtx.TypeArgSubstitutions);
@@ -1304,7 +1330,8 @@ public static class SelectMaterializerEmitter
             return false;
         }
 
-        List<IPropertySymbol> props = SelectSignatureWriter.GetRowProperties(rowType);
+        HashSet<string> constructed = SelectSignatureWriter.ConstructedParameterNames(rowType);
+        List<IPropertySymbol> props = SelectSignatureWriter.GetConstructedRowProperties(rowType);
         if (props.Count == 0)
         {
             return false;
@@ -1318,7 +1345,8 @@ public static class SelectMaterializerEmitter
                 return false;
             }
 
-            if (prop.SetMethod!.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.ProtectedOrInternal))
+            if (!constructed.Contains(prop.Name)
+                && prop.SetMethod!.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal or Accessibility.ProtectedOrInternal))
             {
                 return false;
             }

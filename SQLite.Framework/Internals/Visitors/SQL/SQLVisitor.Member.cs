@@ -83,7 +83,12 @@ internal partial class SQLVisitor
                     return expression;
                 }
 
-                if (TryResolveUnsetConstructedMember(expressions, path, node.Type, out Expression? unset))
+                if (ResolveNestedConstructedMember(expressions, path) is { } nestedConstructed)
+                {
+                    return nestedConstructed;
+                }
+
+                if (TryResolveUnsetConstructedMember(expressions, path, node, out Expression? unset))
                 {
                     return unset;
                 }
@@ -254,12 +259,11 @@ internal partial class SQLVisitor
         return sqlExpression;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Only value types reach the call.")]
-    private bool TryResolveUnsetConstructedMember(Dictionary<string, Expression> expressions, string path, Type memberType, [NotNullWhen(true)] out Expression? expression)
+    private bool TryResolveUnsetConstructedMember(Dictionary<string, Expression> expressions, string path, MemberExpression node, [NotNullWhen(true)] out Expression? expression)
     {
         expression = null;
         if (path.Length == 0
-            || !TypeHelpers.IsSimple(memberType, Database.Options)
+            || !TypeHelpers.IsSimple(node.Type, Database.Options)
             || !ConstructedProjectionPaths.TryGetValue(expressions, out HashSet<string>? constructed))
         {
             return false;
@@ -270,10 +274,7 @@ internal partial class SQLVisitor
         {
             if (constructed.Contains(path[..separator]))
             {
-                object? unsetValue = memberType.IsValueType && Nullable.GetUnderlyingType(memberType) == null
-                    ? Activator.CreateInstance(memberType)
-                    : null;
-                expression = SQLiteExpression.Leaf(memberType, Counters.NextIdentifier(), Counters.NextParamName(), unsetValue);
+                expression = SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), UnsetConstructedMemberValue(node));
                 return true;
             }
 
@@ -301,5 +302,21 @@ internal partial class SQLVisitor
 
         expression = null;
         return false;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Only value types reach the call.")]
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Constructed projection types are rooted by the user query.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Constructed projection types are rooted by the user query.")]
+    private static object? UnsetConstructedMemberValue(MemberExpression node)
+    {
+        Type declaringType = node.Expression!.Type;
+        if (node.Member is PropertyInfo property && declaringType.GetConstructor(Type.EmptyTypes) != null)
+        {
+            return property.GetValue(Activator.CreateInstance(declaringType));
+        }
+
+        return node.Type.IsValueType && Nullable.GetUnderlyingType(node.Type) == null
+            ? Activator.CreateInstance(node.Type)
+            : null;
     }
 }

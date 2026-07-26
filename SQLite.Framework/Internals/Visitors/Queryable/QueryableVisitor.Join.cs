@@ -5,6 +5,7 @@ internal partial class QueryableVisitor
     private SQLiteExpression VisitJoin(MethodCallExpression node, string joinType)
     {
         ThrowIfSetOperations(node.Method.Name);
+        ComparerArgumentGuard.ThrowIfComparer(node);
 
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         if (joinType == "FULL OUTER JOIN" || joinType == "RIGHT JOIN")
@@ -27,9 +28,23 @@ internal partial class QueryableVisitor
         visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
         visitor.MethodArguments[resultSelector.Parameters[1]] = newTableColumns;
 
+        if (node.Method.Name != nameof(System.Linq.Queryable.GroupJoin))
+        {
+            if (joinType is "LEFT JOIN" or "FULL OUTER JOIN")
+            {
+                visitor.OptionalRowColumns.Add(newTableColumns);
+            }
+
+            if (joinType is "RIGHT JOIN" or "FULL OUTER JOIN")
+            {
+                visitor.OptionalRowColumns.Add(visitor.TableColumns);
+            }
+        }
+
         resultSelector = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
 
         MarkGroupsDroppedByProjection(resultSelector);
+        RemapGroupMemberPaths(resultSelector);
 
         bool isProjection = node.Method.Name != nameof(System.Linq.Queryable.GroupJoin)
             && resultSelector.Body is NewExpression or MemberInitExpression;
@@ -144,6 +159,31 @@ internal partial class QueryableVisitor
         return sql;
     }
 
+    private void RemapGroupMemberPaths(LambdaExpression resultSelector)
+    {
+        List<JoinInfo> openGroups = Joins
+            .Where(f => f is { IsGroupJoin: true, GroupFlattened: false, GroupDropped: false, GroupMemberPath: not null })
+            .ToList();
+        if (openGroups.Count == 0)
+        {
+            return;
+        }
+
+        List<(JoinInfo Group, string? NewPath)> updates = [];
+        foreach (JoinInfo group in openGroups)
+        {
+            updates.Add((group, FindMemberPath(resultSelector.Body, resultSelector.Parameters[0], group.GroupMemberPath!, string.Empty)));
+        }
+
+        foreach ((JoinInfo group, string? newPath) in updates)
+        {
+            if (newPath != null)
+            {
+                group.GroupMemberPath = newPath;
+            }
+        }
+    }
+
     private void MarkGroupsDroppedByProjection(LambdaExpression resultSelector)
     {
         List<JoinInfo> openGroups = Joins.Where(f => f is { IsGroupJoin: true, GroupFlattened: false, GroupDropped: false }).ToList();
@@ -162,6 +202,59 @@ internal partial class QueryableVisitor
                 group.GroupDropped = true;
             }
         }
+    }
+
+    private static string? FindMemberPath(Expression body, ParameterExpression parameter, string sourcePath, string prefix)
+    {
+        if (body is NewExpression { Members: not null } newExpression)
+        {
+            for (int i = 0; i < newExpression.Arguments.Count; i++)
+            {
+                if (FindMemberPath(newExpression.Arguments[i], parameter, sourcePath, Combine(prefix, newExpression.Members[i].Name)) is { } nested)
+                {
+                    return nested;
+                }
+            }
+
+            return null;
+        }
+
+        if (body is MemberInitExpression memberInit)
+        {
+            foreach (MemberAssignment assignment in memberInit.Bindings.OfType<MemberAssignment>())
+            {
+                if (FindMemberPath(assignment.Expression, parameter, sourcePath, Combine(prefix, assignment.Member.Name)) is { } nested)
+                {
+                    return nested;
+                }
+            }
+
+            return null;
+        }
+
+        if (prefix.Length == 0)
+        {
+            return null;
+        }
+
+        (string bodyPath, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(body);
+        if (pe != parameter)
+        {
+            return null;
+        }
+
+        if (bodyPath == sourcePath)
+        {
+            return prefix;
+        }
+
+        if (bodyPath.Length == 0 || sourcePath.StartsWith(bodyPath + ".", StringComparison.Ordinal))
+        {
+            string suffix = bodyPath.Length == 0 ? sourcePath : sourcePath[(bodyPath.Length + 1)..];
+            return prefix + "." + suffix;
+        }
+
+        return null;
     }
 
     private static Dictionary<string, Expression> DecomposeJoinProjectionColumns(NewExpression newExpression)

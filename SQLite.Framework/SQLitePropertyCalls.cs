@@ -90,12 +90,35 @@ public class SQLitePropertyCalls<T>
         }
         else
         {
-            expr = TryReadStoredColumn(setterBody, propertyName) ?? expr;
+            SQLiteExpression? stored = TryReadStoredColumn(setterBody, propertyName);
+            if (stored != null)
+            {
+                expr = stored;
+            }
+            else if (WrapConverterValue(expr, propertyName) is { } wrappedValue)
+            {
+                expr = wrappedValue;
+            }
         }
 
         SetProperties.Add((propertyName, expr));
 
         return this;
+    }
+
+    private SQLiteExpression? WrapConverterValue(SQLiteExpression value, string targetProperty)
+    {
+        TableColumn? target = targetMapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == targetProperty);
+        if (target == null
+            || !visitor.Database.Options.TypeConverters.TryGetValue(target.PropertyType, out ISQLiteTypeConverter? converter)
+            || converter.ParameterSqlExpression is not { } writeWrap
+            || converter.ColumnSqlExpression == null)
+        {
+            return null;
+        }
+
+        string wrapped = string.Format(CultureInfo.InvariantCulture, writeWrap, value.ToString());
+        return SQLiteExpression.Leaf(value.Type, visitor.Counters.NextIdentifier(), wrapped, value.Parameters);
     }
 
     private SQLiteExpression? TryReadStoredColumn(Expression setterBody, string targetProperty)

@@ -813,6 +813,11 @@ internal static class StringMemberVisitor
                 continue;
             }
 
+            if (IsCapturedCallElement(array.Expressions[i]))
+            {
+                return null;
+            }
+
             ResolvedModel resolvedElement = visitor.ResolveExpression(array.Expressions[i]);
             if (resolvedElement.SQLiteExpression == null)
             {
@@ -839,13 +844,22 @@ internal static class StringMemberVisitor
             : expression;
 
         if (unwrapped is MethodCallExpression call
+            && QueryableMemberVisitor.IsSystemMethod(call.Method)
             && (call.Object != null || call.Arguments.Count > 0)
             && (call.Object == null || ExpressionHelpers.IsConstant(call.Object))
             && call.Arguments.All(ExpressionHelpers.IsConstant))
         {
-            object? invoked = call.Method.Invoke(
-                call.Object == null ? null : ExpressionHelpers.GetConstantValue(call.Object),
-                [.. call.Arguments.Select(ExpressionHelpers.GetConstantValue)]);
+            object? invoked;
+            try
+            {
+                invoked = call.Method.Invoke(
+                    call.Object == null ? null : ExpressionHelpers.GetConstantValue(call.Object),
+                    [.. call.Arguments.Select(ExpressionHelpers.GetConstantValue)]);
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                throw ex.InnerException;
+            }
 
             value = ReferenceEquals(unwrapped, expression)
                 ? invoked
@@ -855,6 +869,18 @@ internal static class StringMemberVisitor
 
         value = null;
         return false;
+    }
+
+    private static bool IsCapturedCallElement(Expression expression)
+    {
+        Expression unwrapped = expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } cast
+            ? cast.Operand
+            : expression;
+
+        return unwrapped is MethodCallExpression call
+            && !QueryableMemberVisitor.IsSystemMethod(call.Method)
+            && (call.Object == null || ExpressionHelpers.IsConstant(call.Object))
+            && call.Arguments.All(ExpressionHelpers.IsConstant);
     }
 
     private static MethodCallExpression RebuildClientCall(MethodCallExpression node, List<ResolvedModel> arguments)

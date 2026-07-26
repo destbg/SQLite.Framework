@@ -24,7 +24,9 @@ internal sealed class CarriedPathCollector : ExpressionVisitor
 
         foreach (string read in paths)
         {
-            if (read == path || read.StartsWith(path + ".", StringComparison.Ordinal))
+            if (read == path
+                || read.StartsWith(path + ".", StringComparison.Ordinal)
+                || path.StartsWith(read + ".", StringComparison.Ordinal))
             {
                 return true;
             }

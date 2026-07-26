@@ -14,6 +14,11 @@ internal sealed class GuardOnlyLeaf
     public int Value { get; set; }
 }
 
+internal sealed class GuardTwoLevelBox
+{
+    public GuardOnlyLeaf Leaf { get; set; } = new();
+}
+
 public class GuardIfaceRow
 {
     public GuardIfaceRow(int id, IComparable value)
@@ -102,19 +107,23 @@ public class UnreachableGuardCoverageTests
         Dictionary<string, Expression> columns = [];
         visitor.ConstructedProjectionPaths[columns] = ["Built"];
 
-        object?[] noAncestor = [columns, "Other.Missing", typeof(int), null];
+        MemberExpression intMember = Expression.Property(Expression.Constant(""), nameof(string.Length));
+        MemberExpression leafMember = Expression.Property(
+            Expression.Constant(new GuardTwoLevelBox()), nameof(GuardTwoLevelBox.Leaf));
+
+        object?[] noAncestor = [columns, "Other.Missing", intMember, null];
         Assert.False((bool)method.Invoke(visitor, noAncestor)!);
 
-        object?[] emptyPath = [columns, string.Empty, typeof(int), null];
+        object?[] emptyPath = [columns, string.Empty, intMember, null];
         Assert.False((bool)method.Invoke(visitor, emptyPath)!);
 
-        object?[] notSimple = [columns, "Built.Nested", typeof(GuardOnlyLeaf), null];
+        object?[] notSimple = [columns, "Built.Nested", leafMember, null];
         Assert.False((bool)method.Invoke(visitor, notSimple)!);
 
-        object?[] noConstructedEntry = [new Dictionary<string, Expression>(), "Built.Missing", typeof(int), null];
+        object?[] noConstructedEntry = [new Dictionary<string, Expression>(), "Built.Missing", intMember, null];
         Assert.False((bool)method.Invoke(visitor, noConstructedEntry)!);
 
-        object?[] resolved = [columns, "Built.Missing", typeof(int), null];
+        object?[] resolved = [columns, "Built.Missing", intMember, null];
         Assert.True((bool)method.Invoke(visitor, resolved)!);
     }
 
@@ -174,18 +183,17 @@ public class UnreachableGuardCoverageTests
     {
         MethodInfo method = typeof(SQLite.Framework.Internals.JSON.JsonMethodTranslator).GetMethod(
             "IsInlineLiteralContains", BindingFlags.Static | BindingFlags.NonPublic)!;
-        SQLiteOptions options = new SQLiteOptionsBuilder("guard-inline-literal.db3").Build();
 
         NewArrayExpression array = Expression.NewArrayInit(typeof(int), Expression.Constant(1));
         MethodInfo contains = typeof(List<int>).GetMethod(nameof(List<int>.Contains))!;
         MethodCallExpression call = Expression.Call(Expression.Constant(new List<int>()), contains, Expression.Constant(1));
 
-        Assert.True((bool)method.Invoke(null, [call, array, options])!);
-        Assert.False((bool)method.Invoke(null, [call, Expression.Constant(1), options])!);
+        Assert.True((bool)method.Invoke(null, [call, array])!);
+        Assert.False((bool)method.Invoke(null, [call, Expression.Constant(1)])!);
 
         MethodInfo indexOf = typeof(List<int>).GetMethod(nameof(List<int>.IndexOf), [typeof(int)])!;
         MethodCallExpression other = Expression.Call(Expression.Constant(new List<int>()), indexOf, Expression.Constant(1));
-        Assert.False((bool)method.Invoke(null, [other, array, options])!);
+        Assert.False((bool)method.Invoke(null, [other, array])!);
     }
 
     [Fact]

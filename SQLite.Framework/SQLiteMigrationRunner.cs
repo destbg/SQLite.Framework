@@ -437,8 +437,14 @@ public sealed class SQLiteMigrationRunner
             int rebuildVersion = DataPhaseRebuildVersion(mapping, groupOps, operations, created);
             if (rebuildVersion > 0)
             {
-                List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> deferredSchemaSets = SchemaPhaseSets(mapping, groupOps, operations);
+                List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> deferredSchemaSets = SchemaPhaseSets(mapping, groupOps, operations)
+                    .Where(s => s.Version >= rebuildVersion
+                        || s.Set.RunInRebuild
+                        || ReadsOwnColumn(s.Set)
+                        || ReadsOutsideModel(mapping, s.Set))
+                    .ToList();
                 deferredFills.AddRange(ComputeReconcileFills(mapping, groupOps, deferredSchemaSets));
+                count += AddMissingColumnsBeforeDeferredRebuild(mapping);
                 deferred.Add(new DeferredSchemaWork { Version = rebuildVersion, Order = 3, Apply = () => (ApplyReconcileSchema(mapping, groupOps, created, deferredSchemaSets), []) });
             }
             else
@@ -474,6 +480,41 @@ public sealed class SQLiteMigrationRunner
         }
 
         return count + schema.CreateTable(operation.Mapping!.Type);
+    }
+
+    private bool RequiresRebuildFill(TableMapping mapping, string column)
+    {
+        return ModelDeclaresUnique(mapping, column) || LiveColumnHasNulls(mapping.TableName, column);
+    }
+
+    private bool LiveColumnHasNulls(string tableName, string column)
+    {
+        return Database.ExecuteScalar<long>(
+            $"SELECT EXISTS(SELECT 1 FROM \"main\".{IdentifierGuard.Quote(tableName)} WHERE {IdentifierGuard.Quote(column)} IS NULL)") == 1;
+    }
+
+    private int AddMissingColumnsBeforeDeferredRebuild(TableMapping mapping)
+    {
+        HashSet<string> liveColumns = Database.Pragmas.TableInfo(mapping.TableName)
+            .Select(c => c.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> computed = mapping.ComputedColumns
+            .Select(c => c.Column.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        int count = 0;
+        foreach (TableColumn column in mapping.Columns)
+        {
+            if (liveColumns.Contains(column.Name) || computed.Contains(column.Name))
+            {
+                continue;
+            }
+
+            string sql = $"ALTER TABLE \"main\".{IdentifierGuard.Quote(mapping.TableName)} ADD COLUMN {IdentifierGuard.Quote(column.Name)} {column.ColumnType.ToString().ToUpperInvariant()}";
+            count += Database.Execute(sql);
+        }
+
+        return count;
     }
 
     private int DataPhaseRebuildVersion(TableMapping mapping, List<MigrationOperation> group, List<MigrationOperation> operations, HashSet<string> newlyCreated)
@@ -556,7 +597,8 @@ public sealed class SQLiteMigrationRunner
                     || s.RunInRebuild
                     || ReadsOutsideModel(mapping, s)
                     || !liveColumns.Contains(s.Column)
-                    || !ReadsOwnColumn(s));
+                    || !ReadsOwnColumn(s)
+                    || RequiresRebuildFill(mapping, s.Column));
             foreach (MigrationSetValue set in UnionSets(qualifying))
             {
                 perVersionWinners.Add((versionGroup.Key, set));
@@ -1415,6 +1457,25 @@ public sealed class SQLiteMigrationRunner
         }
 
         return null;
+    }
+
+    private static bool ModelDeclaresUnique(TableMapping mapping, string column)
+    {
+        if (mapping.Columns.Any(c => string.Equals(c.Name, column, StringComparison.OrdinalIgnoreCase)
+            && c.Indices.Any(i => i.IsUnique)))
+        {
+            return true;
+        }
+
+        foreach (IndexSpec index in mapping.Indexes)
+        {
+            if (index.Unique && index.Columns.Contains(column, StringComparer.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool ReadsOwnColumn(MigrationSetValue set)
