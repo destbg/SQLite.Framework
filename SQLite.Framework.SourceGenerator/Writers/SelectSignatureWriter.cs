@@ -48,6 +48,23 @@ public static class SelectSignatureWriter
     }
 
     /// <summary>
+    /// Tells if the parameter belongs to the method that surrounds the projection, so the
+    /// projection reads it through the closure like any other captured value.
+    /// </summary>
+    public static bool IsEnclosingMethodParameter(IParameterSymbol parameter, SelectSignatureCtx ctx)
+    {
+        if (parameter.ContainingSymbol is not IMethodSymbol method
+            || method.MethodKind == MethodKind.AnonymousFunction)
+        {
+            return false;
+        }
+
+        return !ctx.RowBindings.ContainsKey(parameter)
+            && !ctx.ParameterSubstitutions.ContainsKey(parameter)
+            && !ctx.NullableRangeVars.Contains(parameter);
+    }
+
+    /// <summary>
     /// Tells if the node reads a captured local, field or property value.
     /// </summary>
     public static bool IsCapturedValue(ExpressionSyntax node, SelectSignatureCtx ctx)
@@ -80,6 +97,7 @@ public static class SelectSignatureWriter
                     ILocalSymbol => true,
                     IFieldSymbol { IsStatic: false } => true,
                     IPropertySymbol { IsStatic: false } => true,
+                    IParameterSymbol parameter => IsEnclosingMethodParameter(parameter, ctx),
                     _ => false
                 };
             }
@@ -229,7 +247,14 @@ public static class SelectSignatureWriter
                 return true;
             }
         }
-        return false;
+
+        List<IPropertySymbol> properties = GetRowProperties(type);
+        IMethodSymbol? widest = type.InstanceConstructors
+            .Where(c => c.DeclaredAccessibility == Accessibility.Public)
+            .OrderByDescending(c => c.Parameters.Length)
+            .FirstOrDefault();
+        return widest is { Parameters.Length: > 0 }
+            && widest.Parameters.All(p => properties.Any(r => string.Equals(r.Name, p.Name, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>
@@ -1385,8 +1410,13 @@ public static class SelectSignatureWriter
         if (node.Initializer == null)
         {
             sb.Append("(NewArrayBounds ").Append(FormatType(type, ctx.TypeArgSubstitutions));
-            foreach (ExpressionSyntax sizeExpr in node.Type.RankSpecifiers.SelectMany(r => r.Sizes).OfType<ExpressionSyntax>())
+            foreach (ExpressionSyntax sizeExpr in node.Type.RankSpecifiers.SelectMany(r => r.Sizes))
             {
+                if (sizeExpr is OmittedArraySizeExpressionSyntax)
+                {
+                    continue;
+                }
+
                 sb.Append(' ');
                 if (!TryAppend(sb, sizeExpr, ctx))
                 {

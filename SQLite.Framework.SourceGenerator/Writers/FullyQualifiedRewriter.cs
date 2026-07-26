@@ -13,6 +13,7 @@ namespace SQLite.Framework.SourceGenerator.Writers;
 public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
 {
     private readonly EmitContext ctx;
+    private readonly HashSet<ISymbol> lambdaScope = new(SymbolEqualityComparer.Default);
     private int reflectedMethodSlots;
     private int capturedValueSlots;
 
@@ -162,7 +163,7 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
         }
 
-        if (SelectMaterializerEmitter.IsInaccessibleStaticCapture(node, ctx))
+        if (SelectMaterializerEmitter.IsStaticCapture(node, ctx))
         {
             return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);
         }
@@ -193,6 +194,11 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return BuildRowMaterialization(expansion);
         }
 
+        if (ctx.LeafIndexBySyntax.TryGetValue(node, out int identLeafIndex))
+        {
+            return SyntaxFactory.IdentifierName(ctx.Leaves[identLeafIndex].VarName);
+        }
+
         ISymbol? identSym = ctx.Model.GetSymbolInfo(node).Symbol;
         if (identSym != null
             && ctx.WriterCtx.ParameterSubstitutions.TryGetValue(identSym, out ExpressionSyntax? substExpr))
@@ -214,10 +220,11 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
 
         if (symbol is IParameterSymbol or IRangeVariableSymbol)
         {
-            if (ctx.WriterCtx.RowBindings.ContainsKey(symbol))
+            if (!lambdaScope.Contains(symbol))
             {
                 Failed = true;
             }
+
             return node;
         }
 
@@ -242,6 +249,25 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         }
 
         return base.VisitIdentifierName(node);
+    }
+
+    /// <summary>
+    /// Rewrites a one-parameter lambda, keeping its parameter in scope while the body is rewritten so
+    /// the body may name it. A parameter that is not in scope belongs to an enclosing lambda the
+    /// generated method does not have, so naming it would not compile.
+    /// </summary>
+    public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
+    {
+        return VisitInLambdaScope(node, [node.Parameter]);
+    }
+
+    /// <summary>
+    /// Rewrites a lambda with a parameter list, keeping its parameters in scope while the body is
+    /// rewritten.
+    /// </summary>
+    public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
+    {
+        return VisitInLambdaScope(node, node.ParameterList.Parameters);
     }
 
     /// <summary>
@@ -331,6 +357,29 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         }
 
         return visited;
+    }
+
+    private SyntaxNode? VisitInLambdaScope(SyntaxNode node, IReadOnlyList<ParameterSyntax> parameters)
+    {
+        List<ISymbol> added = [];
+        foreach (ParameterSyntax parameter in parameters)
+        {
+            if (ctx.Model.GetDeclaredSymbol(parameter) is { } symbol && lambdaScope.Add(symbol))
+            {
+                added.Add(symbol);
+            }
+        }
+
+        SyntaxNode? rewritten = node is SimpleLambdaExpressionSyntax simple
+            ? base.VisitSimpleLambdaExpression(simple)
+            : base.VisitParenthesizedLambdaExpression((ParenthesizedLambdaExpressionSyntax)node);
+
+        foreach (ISymbol symbol in added)
+        {
+            lambdaScope.Remove(symbol);
+        }
+
+        return rewritten;
     }
 
     private ExpressionSyntax? TryRewriteTupleCreation(BaseObjectCreationExpressionSyntax node, ArgumentListSyntax? argumentList)
@@ -631,16 +680,84 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             }
             sb.Append("ctx.Reader!.IsDBNull(").Append(expansion.Leaves[i].VarName.Substring("__leaf_".Length)).Append(')');
         }
-        sb.Append(" ? null : new ").Append(typeText).Append(" { ");
-        for (int i = 0; i < expansion.Properties.Count; i++)
+        sb.Append(" ? null : ");
+        IMethodSymbol? positional = FindPositionalConstructor(expansion);
+        if (positional == null)
+        {
+            sb.Append("new ").Append(typeText).Append(" { ");
+            for (int i = 0; i < expansion.Properties.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(", ");
+                }
+                sb.Append(expansion.Properties[i].Name).Append(" = ").Append(expansion.Leaves[i].VarName);
+            }
+            sb.Append(" })");
+            return SyntaxFactory.ParseExpression(sb.ToString());
+        }
+
+        sb.Append("new ").Append(typeText).Append('(');
+        for (int i = 0; i < positional.Parameters.Length; i++)
         {
             if (i > 0)
             {
                 sb.Append(", ");
             }
+            sb.Append(LeafForParameter(expansion, positional.Parameters[i].Name));
+        }
+        sb.Append(')');
+
+        bool firstExtra = true;
+        for (int i = 0; i < expansion.Properties.Count; i++)
+        {
+            if (positional.Parameters.Any(p => string.Equals(p.Name, expansion.Properties[i].Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            sb.Append(firstExtra ? " { " : ", ");
+            firstExtra = false;
             sb.Append(expansion.Properties[i].Name).Append(" = ").Append(expansion.Leaves[i].VarName);
         }
-        sb.Append(" })");
+
+        if (!firstExtra)
+        {
+            sb.Append(" }");
+        }
+
+        sb.Append(')');
         return SyntaxFactory.ParseExpression(sb.ToString());
+    }
+
+    private static IMethodSymbol? FindPositionalConstructor(RowExpansion expansion)
+    {
+        if (expansion.RowType.InstanceConstructors.Any(c => c.Parameters.Length == 0 && IsUsableConstructor(c)))
+        {
+            return null;
+        }
+
+        return expansion.RowType.InstanceConstructors
+            .Where(IsUsableConstructor)
+            .OrderByDescending(c => c.Parameters.Length)
+            .FirstOrDefault();
+    }
+
+    private static bool IsUsableConstructor(IMethodSymbol constructor)
+    {
+        return constructor.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal;
+    }
+
+    private static string LeafForParameter(RowExpansion expansion, string parameterName)
+    {
+        for (int i = 0; i < expansion.Properties.Count; i++)
+        {
+            if (string.Equals(expansion.Properties[i].Name, parameterName, StringComparison.OrdinalIgnoreCase))
+            {
+                return expansion.Leaves[i].VarName;
+            }
+        }
+
+        return "default";
     }
 }

@@ -60,7 +60,13 @@ internal partial class QueryableVisitor
 
         if (!IsInnerQuery)
         {
-            SQLiteExpression columnExpr = (SQLiteExpression)visitor.TableColumns.Values.First();
+            if (visitor.TableColumns.Values.First() is not SQLiteExpression columnExpr)
+            {
+                throw new NotSupportedException(
+                    "Contains after a projection that runs in memory is not supported, because SQL cannot compare a " +
+                    "value the database never computes. Call AsEnumerable before Contains to check the projected values in memory.");
+            }
+
             List<SQLiteExpression> sink = GroupBys.Count != 0 ? Havings : Wheres;
 
             if (resolved is { IsConstant: true, Constant: null })
@@ -170,7 +176,7 @@ internal partial class QueryableVisitor
 
     private void ThrowIfGroupJoinGroupPredicate(Expression body)
     {
-        List<Type> groupElementTypes = Joins.Where(f => f.GroupMemberName != null).Select(f => f.EntityType).ToList();
+        List<Type> groupElementTypes = Joins.Where(f => f.GroupMemberPath != null).Select(f => f.EntityType).ToList();
         if (groupElementTypes.Count == 0)
         {
             return;

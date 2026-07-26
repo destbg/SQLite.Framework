@@ -82,8 +82,7 @@ internal static class WindowFunctionsMemberVisitor
         {
             if (arguments[0].SQLiteExpression == null)
             {
-                throw new NotSupportedException(
-                    $"The value argument of {node.Method.Name} cannot be translated to SQL. Use a column or a translatable expression.");
+                throw new NotSupportedException($"The value argument of {node.Method.Name} cannot be translated to SQL.");
             }
 
             arguments[0] = CoalesceLiftedValueArgument(visitor, node.Arguments[0], arguments[0]);
@@ -103,6 +102,11 @@ internal static class WindowFunctionsMemberVisitor
         if (node.Method.Name is nameof(SQLiteWindow<>.PartitionBy))
         {
             RequirePartitionByFirst(node);
+        }
+
+        if (node.Object == null && arguments.Count > 0)
+        {
+            RequireValueArguments(node, arguments);
         }
 
         Type t = node.Type;
@@ -200,12 +204,14 @@ internal static class WindowFunctionsMemberVisitor
 
     private static SQLiteExpression BuildOverChain(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg, SQLiteParameter[]? parameters)
     {
+        EnsureClauseBeforeFrame(prev, node.Method.Name);
         SQLiteExpression key = visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg));
         return SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, prev, sep, key), parameters);
     }
 
     private static SQLiteExpression BuildOverChainOrderBy(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg, string direction, bool allowUlongSplit, SQLiteParameter[]? parameters)
     {
+        EnsureClauseBeforeFrame(prev, node.Method.Name);
         SQLiteExpression key = visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg));
         return SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, prev, sep, key, direction, allowUlongSplit), parameters);
     }
@@ -322,6 +328,29 @@ internal static class WindowFunctionsMemberVisitor
             ? "OrderBy, OrderByDescending, ThenOrderBy or ThenOrderByDescending"
             : "PartitionBy or ThenPartitionBy";
         throw new NotSupportedException($"{node.Method.Name} must come right after {required} in the window chain.");
+    }
+
+    private static void RequireValueArguments(MethodCallExpression node, List<ResolvedModel> arguments)
+    {
+        foreach (ResolvedModel argument in arguments)
+        {
+            if (argument.SQLiteExpression == null)
+            {
+                throw new NotSupportedException($"The value argument of {node.Method.Name} cannot be translated to SQL.");
+            }
+        }
+    }
+
+    private static void EnsureClauseBeforeFrame(ResolvedModel prev, string clause)
+    {
+        string sql = prev.SQLiteExpression!.ToString();
+        if (sql.Contains(" ROWS ", StringComparison.Ordinal)
+            || sql.Contains(" RANGE ", StringComparison.Ordinal)
+            || sql.Contains(" GROUPS ", StringComparison.Ordinal))
+        {
+            throw new NotSupportedException(
+                $"{clause} has to come before the window frame. Chain PartitionBy and OrderBy first, then Rows, Range or Groups.");
+        }
     }
 
     private static SQLiteExpression RequireKeyExpression(ResolvedModel arg)

@@ -197,27 +197,21 @@ internal partial class QueryableVisitor
 
                         string placeholder = $"{cteAliasChar}__cte_self_{visitor.CteRegistry.Ctes.Count}__";
 
-                        Dictionary<string, Expression> selfColumns = CteColumnMapper.BuildColumns(cteElementType, placeholder, database.Options, visitor.Counters);
-
-                        visitor.CteParameters[selfParam] = (placeholder, selfColumns);
-                        visitor.MethodArguments[selfParam] = selfColumns;
-
-                        SQLTranslator bodyTranslator = visitor.CloneDeeper(visitor.Level + 1);
-                        SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
+                        RecursiveCteBody recursive = visitor.TranslateRecursiveCteBody(cteElementType, placeholder, selfParam, cteBody);
 
                         string finalName = $"cte{visitor.CteRegistry.Ctes.Count}";
-                        string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
+                        string fixedSql = recursive.Query.Sql.Replace(placeholder, finalName);
 
-                        string[]? recursiveColumnNames = CteColumnMapper.ScalarColumnNames(cteElementType, database.Options)
-                            ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
                         cteName = visitor.CteRegistry.Register(
                             fixedSql,
-                            bodyQuery.Parameters.ToArray(),
+                            recursive.Query.Parameters.ToArray(),
                             isRecursive: true,
                             key: cte,
-                            columnNames: recursiveColumnNames,
-                            dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(cteElementType, database.Options)),
-                            constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor));
+                            columnNames: recursive.ColumnNames,
+                            dayOfWeekColumns: recursive.DayOfWeekColumns,
+                            constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
+                            bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
+                            bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null);
 
                         visitor.CteParameters.Remove(selfParam);
                         visitor.MethodArguments.Remove(selfParam);
@@ -227,8 +221,9 @@ internal partial class QueryableVisitor
                         SQLTranslator bodyTranslator = visitor.CloneDeeper(visitor.Level + 1);
                         SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
-                        string[]? bodyColumnNames = CteColumnMapper.ScalarColumnNames(cteElementType, database.Options)
-                            ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
+                        string[]? bodyColumnNames = CteColumnMapper.DeclaredColumnNames(
+                            cteElementType, bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects, database.Options);
+                        bool hasClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns);
                         cteName = visitor.CteRegistry.Register(
                             bodyQuery.Sql,
                             bodyQuery.Parameters.ToArray(),
@@ -236,13 +231,16 @@ internal partial class QueryableVisitor
                             key: cte,
                             columnNames: bodyColumnNames,
                             dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(cteElementType, database.Options)),
-                            constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor));
+                            constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
+                            bodyColumns: hasClientMember ? bodyTranslator.Visitor.TableColumns : null,
+                            bodySelects: hasClientMember ? bodyTranslator.Selects : null);
                     }
                 }
 
                 entityType = cteElementType;
-                newTableColumns = CteColumnMapper.BuildColumns(cteElementType, cteAlias, database.Options, visitor.Counters);
-                CteColumnMapper.ApplyBodyTraits(newTableColumns, visitor.CteRegistry.Info(cte), visitor);
+                CteInfo cteInfo = visitor.CteRegistry.Info(cte);
+                newTableColumns = CteColumnMapper.BuildOuterColumns(cteInfo, cteElementType, cteAlias, database.Options, visitor.Counters);
+                CteColumnMapper.ApplyBodyTraits(newTableColumns, cteInfo, visitor);
                 visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = cteAlias };
                 sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteName} AS {cteAlias}");
             }
@@ -263,19 +261,15 @@ internal partial class QueryableVisitor
                 throw new NotSupportedException($"The type {innerValue!.GetType().Name} is not supported in join.");
             }
         }
-        else if (body is ParameterExpression paramBody && visitor.CteParameters.TryGetValue(paramBody, out (string Alias, Dictionary<string, Expression> Columns) cteParamRef))
+        else if (body is ParameterExpression paramBody && visitor.CteParameters.TryGetValue(paramBody, out CteSelfReference? cteParamRef))
         {
             entityType = body.Type.GetGenericArguments()[0];
             char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));
             string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
-            newTableColumns = cteParamRef.Columns
-                .ToDictionary(kv => kv.Key, Expression (kv) => SQLiteExpression.Leaf(
-                    ((SQLiteExpression)kv.Value).Type,
-                    visitor.Counters.NextIdentifier(),
-                    $"{alias}.{IdentifierGuard.Quote(kv.Key.Length == 0 ? Constants.CteScalarColumn : kv.Key)}"));
+            newTableColumns = CteColumnMapper.BuildSelfColumns(cteParamRef, alias, database.Options, visitor.Counters, visitor);
             visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
-            sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteParamRef.Alias} AS {alias}");
+            sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteParamRef.Placeholder} AS {alias}");
         }
         else if (TryGetQueryableElementType(body.Type) is { } queryableElementType)
         {

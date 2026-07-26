@@ -15,7 +15,7 @@ internal static class BareSqlTranslator
 
     public static string Translate(SQLiteDatabase database, TableMapping mapping, ParameterExpression rowParameter, Expression body, bool wrapConverterReads)
     {
-        SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
+        SQLVisitor visitor = new(database, new SQLiteCounters(), 0) { SubqueryFreeSql = true };
         visitor.MethodArguments[rowParameter] = RowColumns(visitor, rowParameter, mapping, null, wrapConverterReads);
         return Finish(visitor, body);
     }

@@ -43,23 +43,13 @@ public class SQLiteSchema
 
         if (mapping.IsFullTextSearch)
         {
-            if (mapping.ComputedColumns.Count > 0 || mapping.Checks.Count > 0 || mapping.Indexes.Count > 0 || mapping.Triggers.Count > 0)
-            {
-                throw new InvalidOperationException(
-                    $"FTS5 entity '{mapping.Type.Name}' does not support computed columns, checks, indexes or triggers declared on the model.");
-            }
-
+            EnsureVirtualTableDeclarationsSupported(mapping, "FTS5");
             return CreateFullTextSearchTable(mapping);
         }
 
         if (mapping.IsRTree)
         {
-            if (mapping.ComputedColumns.Count > 0 || mapping.Checks.Count > 0 || mapping.Indexes.Count > 0 || mapping.Triggers.Count > 0)
-            {
-                throw new InvalidOperationException(
-                    $"R-Tree entity '{mapping.Type.Name}' does not support computed columns, checks, indexes or triggers declared on the model.");
-            }
-
+            EnsureVirtualTableDeclarationsSupported(mapping, "R-Tree");
             return CreateRTreeTable(mapping);
         }
 
@@ -127,11 +117,11 @@ public class SQLiteSchema
         {
             foreach (string trigger in TriggerNames(mapping))
             {
-                count += Database.CreateCommand($"DROP TRIGGER IF EXISTS \"{trigger}\"", []).ExecuteNonQuery();
+                count += Database.CreateCommand($"DROP TRIGGER IF EXISTS \"main\".\"{trigger}\"", []).ExecuteNonQuery();
             }
         }
 
-        count += Database.CreateCommand($"DROP TABLE IF EXISTS \"{mapping.TableName}\"", []).ExecuteNonQuery();
+        count += Database.CreateCommand($"DROP TABLE IF EXISTS \"main\".\"{mapping.TableName}\"", []).ExecuteNonQuery();
         return count;
     }
 
@@ -142,7 +132,7 @@ public class SQLiteSchema
     public virtual int DropTable(string tableName)
     {
         ArgumentException.ThrowIfNullOrEmpty(tableName);
-        return Database.CreateCommand($"DROP TABLE IF EXISTS \"{tableName.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
+        return Database.CreateCommand($"DROP TABLE IF EXISTS \"main\".\"{tableName.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
     }
 
     /// <summary>
@@ -168,7 +158,7 @@ public class SQLiteSchema
     public virtual int DropIndex(string indexName)
     {
         ArgumentException.ThrowIfNullOrEmpty(indexName);
-        return Database.CreateCommand($"DROP INDEX IF EXISTS \"{indexName.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
+        return Database.CreateCommand($"DROP INDEX IF EXISTS \"main\".\"{indexName.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
     }
 
     /// <summary>
@@ -220,7 +210,7 @@ public class SQLiteSchema
     public virtual IReadOnlyList<string> ListTables()
     {
         return Database.Query<string>(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY name");
     }
 
     /// <summary>
@@ -232,11 +222,11 @@ public class SQLiteSchema
         if (tableName == null)
         {
             return Database.Query<string>(
-                "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY name");
         }
 
         return Database.Query<string>(
-            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = @t COLLATE NOCASE AND name NOT LIKE 'sqlite_%' ORDER BY name",
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = @t COLLATE NOCASE AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY name",
             [new SQLiteParameter { Name = "@t", Value = tableName }]);
     }
 
@@ -257,7 +247,7 @@ public class SQLiteSchema
         ArgumentException.ThrowIfNullOrEmpty(tableName);
 
         string escaped = tableName.Replace("\"", "\"\"");
-        SQLiteCommand cmd = Database.CreateCommand($"PRAGMA table_info(\"{escaped}\")", []);
+        SQLiteCommand cmd = Database.CreateCommand($"PRAGMA main.table_info(\"{escaped}\")", []);
         using SQLiteDataReader reader = cmd.ExecuteReader();
 
         int nameIdx = -1, typeIdx = -1, notNullIdx = -1, defaultIdx = -1, pkIdx = -1;
@@ -315,6 +305,7 @@ public class SQLiteSchema
         TableMapping mapping = Database.TableMapping<T>();
         TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
+        EnsureMainTableExists(mapping, typeof(T));
 
         if (TryAddComputedColumn(mapping, column, propertyName) is { } computedCount)
         {
@@ -338,7 +329,7 @@ public class SQLiteSchema
         }
 
         string? defaultOverride = defaultValue == null ? null : SqlLiteralHelper.FormatLiteral(defaultValue, Database.Options);
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {CommonHelpers.GetCreateColumnSql(column, defaultOverride: defaultOverride, emitForeignKey: true)}";
+        string sql = $"ALTER TABLE \"main\".\"{mapping.TableName}\" ADD COLUMN {CommonHelpers.GetCreateColumnSql(column, defaultOverride: defaultOverride, emitForeignKey: true)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -387,6 +378,7 @@ public class SQLiteSchema
         TableMapping mapping = Database.TableMapping<T>();
         TableColumn? column = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
             ?? throw new InvalidOperationException($"Property '{propertyName}' is not mapped on {typeof(T).Name}.");
+        EnsureMainTableExists(mapping, typeof(T));
 
         if (TryAddComputedColumn(mapping, column, propertyName) is { } computedCount)
         {
@@ -410,7 +402,7 @@ public class SQLiteSchema
         }
 
         string defaultSql = TranslateDefaultExpression(defaultExpression);
-        string sql = $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {CommonHelpers.GetCreateColumnSql(column, defaultOverride: $"({defaultSql})", emitForeignKey: true)}";
+        string sql = $"ALTER TABLE \"main\".\"{mapping.TableName}\" ADD COLUMN {CommonHelpers.GetCreateColumnSql(column, defaultOverride: $"({defaultSql})", emitForeignKey: true)}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -445,7 +437,9 @@ public class SQLiteSchema
     {
         ArgumentException.ThrowIfNullOrEmpty(fromColumn);
         ArgumentException.ThrowIfNullOrEmpty(toColumn);
-        return RenameColumnCore(Database.TableMapping<T>().TableName, fromColumn, toColumn);
+        TableMapping mapping = Database.TableMapping<T>();
+        EnsureMainTableExists(mapping, typeof(T));
+        return RenameColumnCore(mapping.TableName, fromColumn, toColumn);
     }
 
     /// <summary>
@@ -459,7 +453,9 @@ public class SQLiteSchema
     public virtual int DropColumn<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string columnName)
     {
         ArgumentException.ThrowIfNullOrEmpty(columnName);
-        return DropColumnCore(Database.TableMapping<T>().TableName, columnName);
+        TableMapping mapping = Database.TableMapping<T>();
+        EnsureMainTableExists(mapping, typeof(T));
+        return DropColumnCore(mapping.TableName, columnName);
     }
 
     /// <summary>
@@ -560,7 +556,7 @@ public class SQLiteSchema
     public virtual IReadOnlyList<string> ListViews()
     {
         return Database.Query<string>(
-            "SELECT name FROM sqlite_master WHERE type = 'view' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+            "SELECT name FROM sqlite_master WHERE type = 'view' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY name");
     }
 
     /// <summary>
@@ -617,7 +613,7 @@ public class SQLiteSchema
     public virtual int DropTrigger(string name)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
-        return Database.CreateCommand($"DROP TRIGGER IF EXISTS \"{name.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
+        return Database.CreateCommand($"DROP TRIGGER IF EXISTS \"main\".\"{name.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
     }
 
     /// <summary>
@@ -647,9 +643,7 @@ public class SQLiteSchema
     {
         FtsTableInfo fts = mapping.FullTextSearch!;
         string quotedFts = "\"" + mapping.TableName.Replace("\"", "\"\"") + "\"";
-        TableMapping sourceMapping = Database.TableMapping(fts.Attribute.ContentTable!);
-        Dictionary<string, string> sourceColumnByProperty = sourceMapping.Columns
-            .ToDictionary(c => c.PropertyInfo.Name, c => c.Name, StringComparer.Ordinal);
+        Dictionary<string, string> sourceColumnByProperty = ResolveContentColumnByProperty(fts, mapping);
         bool renamed = fts.IndexedColumns.Any(c =>
             !string.Equals(c.Name, sourceColumnByProperty[c.Property.Name], StringComparison.Ordinal));
         if (!renamed)
@@ -676,7 +670,7 @@ public class SQLiteSchema
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_25, "ALTER TABLE RENAME COLUMN");
 #endif
-        string sql = $"ALTER TABLE \"{tableName}\" RENAME COLUMN \"{fromColumn.Replace("\"", "\"\"")}\" TO \"{toColumn.Replace("\"", "\"\"")}\"";
+        string sql = $"ALTER TABLE \"main\".\"{tableName}\" RENAME COLUMN \"{fromColumn.Replace("\"", "\"\"")}\" TO \"{toColumn.Replace("\"", "\"\"")}\"";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -685,7 +679,7 @@ public class SQLiteSchema
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_35, "ALTER TABLE DROP COLUMN");
 #endif
-        string sql = $"ALTER TABLE \"{tableName}\" DROP COLUMN \"{columnName.Replace("\"", "\"\"")}\"";
+        string sql = $"ALTER TABLE \"main\".\"{tableName}\" DROP COLUMN \"{columnName.Replace("\"", "\"\"")}\"";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 
@@ -702,6 +696,11 @@ public class SQLiteSchema
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "FTS5 virtual tables");
 #endif
         FtsTableInfo fts = mapping.FullTextSearch!;
+        if (fts.ContentMode == FtsContentMode.External)
+        {
+            ResolveContentColumnByProperty(fts, mapping);
+        }
+
         StringBuilder sb = new();
         sb.Append("CREATE VIRTUAL TABLE IF NOT EXISTS \"");
         sb.Append(mapping.TableName);
@@ -861,16 +860,13 @@ public class SQLiteSchema
     /// virtual table aligned with its external content table. Override to change the trigger
     /// shape, for example to add a <c>WHERE</c> clause or use partial triggers.
     /// </summary>
-    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
     protected virtual IEnumerable<string> BuildTriggerSql(FtsTableInfo fts, TableMapping mapping)
     {
         string ftsName = mapping.TableName;
         string sourceTable = ResolveContentTableName(fts);
         string sourceRowId = IdentifierGuard.Quote(ResolveContentRowIdColumn(fts, mapping));
 
-        TableMapping sourceMapping = Database.TableMapping(fts.Attribute.ContentTable!);
-        Dictionary<string, string> sourceColumnByProperty = sourceMapping.Columns
-            .ToDictionary(c => c.PropertyInfo.Name, c => c.Name, StringComparer.Ordinal);
+        Dictionary<string, string> sourceColumnByProperty = ResolveContentColumnByProperty(fts, mapping);
 
         string columnList = string.Join(", ", fts.IndexedColumns.Select(c => IdentifierGuard.Quote(c.Name)));
         string newValues = string.Join(", ", fts.IndexedColumns.Select(c => "new." + IdentifierGuard.Quote(sourceColumnByProperty[c.Property.Name])));
@@ -900,6 +896,23 @@ public class SQLiteSchema
     }
 
     /// <summary>
+    /// Returns the query that counts the FTS5 sync delete triggers living on a content table.
+    /// A write that replaces a row only clears the stale terms when such a trigger fires, so the
+    /// framework runs this to decide whether it must turn <c>PRAGMA recursive_triggers</c> on.
+    /// The default matches the trigger body emitted by <see cref="BuildTriggerSql" /> rather than
+    /// the trigger name, so renaming the triggers keeps working. Override when
+    /// <see cref="BuildTriggerSql" /> emits a different trigger shape.
+    /// </summary>
+    /// <param name="contentTableName">The SQL name of the content table being written to.</param>
+    protected internal virtual string BuildFtsSyncTriggerProbeSql(string contentTableName)
+    {
+        string escaped = contentTableName.Replace("'", "''");
+        return "SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '"
+            + escaped
+            + "' AND sql LIKE '%AFTER DELETE%' AND sql LIKE '%VALUES(''delete''%'";
+    }
+
+    /// <summary>
     /// Enumerates the trigger names that <see cref="DropTable{T}" /> drops before the virtual table.
     /// Override if <see cref="TriggerNamesTuple" /> alone is not enough to express which triggers
     /// belong to this table.
@@ -910,6 +923,36 @@ public class SQLiteSchema
         yield return ai;
         yield return ad;
         yield return au;
+    }
+
+    private void EnsureMainTableExists(TableMapping mapping, Type entityType)
+    {
+        if (TableExists(mapping.TableName))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Table '{mapping.TableName}' for entity '{entityType.Name}' does not exist in the main database, so its columns cannot be changed. Create the table with CreateTable first.");
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
+    private Dictionary<string, string> ResolveContentColumnByProperty(FtsTableInfo fts, TableMapping mapping)
+    {
+        TableMapping sourceMapping = Database.TableMapping(fts.Attribute.ContentTable!);
+        Dictionary<string, string> columnByProperty = sourceMapping.Columns
+            .ToDictionary(c => c.PropertyInfo.Name, c => c.Name, StringComparer.Ordinal);
+
+        foreach (FtsIndexedColumn column in fts.IndexedColumns)
+        {
+            if (!columnByProperty.ContainsKey(column.Property.Name))
+            {
+                throw new InvalidOperationException(
+                    $"FTS5 entity '{mapping.Type.Name}' indexes '{column.Property.Name}' but its content table '{sourceMapping.TableName}' has no mapped column for a property with that name. Add a mapped '{column.Property.Name}' property to '{sourceMapping.Type.Name}' or remove [FullTextIndexed] from '{mapping.Type.Name}.{column.Property.Name}'.");
+            }
+        }
+
+        return columnByProperty;
     }
 
     private int? TryAddComputedColumn(TableMapping mapping, TableColumn column, string propertyName)
@@ -929,7 +972,7 @@ public class SQLiteSchema
         }
 
         string computedSql =
-            $"ALTER TABLE \"{mapping.TableName}\" ADD COLUMN {IdentifierGuard.Quote(column.Name)} " +
+            $"ALTER TABLE \"main\".\"{mapping.TableName}\" ADD COLUMN {IdentifierGuard.Quote(column.Name)} " +
             $"{column.ColumnType.ToString().ToUpperInvariant()} GENERATED ALWAYS AS ({computed.ExpressionSql}) VIRTUAL";
         return Database.CreateCommand(computedSql, []).ExecuteNonQuery();
     }
@@ -987,5 +1030,55 @@ public class SQLiteSchema
         }
 
         return differs ? $" ({string.Join(", ", names.Select(IdentifierGuard.Quote))})" : string.Empty;
+    }
+
+    private static void EnsureVirtualTableDeclarationsSupported(TableMapping mapping, string kind)
+    {
+        string? unsupported = FindUnsupportedVirtualTableDeclaration(mapping);
+        if (unsupported != null)
+        {
+            throw new InvalidOperationException(
+                $"{kind} entity '{mapping.Type.Name}' declares {unsupported}, which a virtual table cannot have.");
+        }
+    }
+
+    private static string? FindUnsupportedVirtualTableDeclaration(TableMapping mapping)
+    {
+        if (mapping.ComputedColumns.Count > 0)
+        {
+            return "a computed column";
+        }
+
+        if (mapping.Checks.Count > 0)
+        {
+            return "a check constraint";
+        }
+
+        if (mapping.Indexes.Count > 0 || mapping.Columns.Any(c => c.Indices.Count > 0))
+        {
+            return "an index";
+        }
+
+        if (mapping.Triggers.Count > 0)
+        {
+            return "a trigger";
+        }
+
+        if (mapping.ShadowColumns.Count > 0)
+        {
+            return "an extra model column";
+        }
+
+        if (mapping.CompositeForeignKeys.Count > 0 || mapping.Columns.Any(c => c.ForeignKey != null))
+        {
+            return "a foreign key";
+        }
+
+        if (mapping.WithoutRowId)
+        {
+            return "WITHOUT ROWID";
+        }
+
+        return mapping.Strict ? "STRICT" : null;
     }
 }

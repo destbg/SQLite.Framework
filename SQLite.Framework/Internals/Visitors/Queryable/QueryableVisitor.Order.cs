@@ -57,6 +57,7 @@ internal partial class QueryableVisitor
         }
 
         sqlExpression = visitor.CoalesceLiftedOrderComparison(lambda.Body, sqlExpression);
+        sqlExpression = visitor.CastTextDecimalForOrdering(sqlExpression);
 
         if (node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.OrderByDescending))
         {

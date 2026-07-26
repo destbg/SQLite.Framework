@@ -430,20 +430,20 @@ public sealed class SQLiteMigrationRunner
             if ((groupVersion > firstOpaqueVersion && !created.Contains(group.Key) && !schema.TableExists(mapping.TableName))
                 || HasPendingEarlierDrop(operations, group.Key, groupVersion))
             {
-                deferred.Add(new DeferredSchemaWork { Version = groupVersion, Order = 3, Apply = () => ProcessReconcileGroup(mapping, groupOps, created) });
+                deferred.Add(new DeferredSchemaWork { Version = groupVersion, Order = 3, Apply = () => ProcessReconcileGroup(mapping, groupOps, created, operations) });
                 continue;
             }
 
             int rebuildVersion = DataPhaseRebuildVersion(mapping, groupOps, operations, created);
             if (rebuildVersion > 0)
             {
-                List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> deferredSchemaSets = SchemaPhaseSets(mapping, groupOps);
+                List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> deferredSchemaSets = SchemaPhaseSets(mapping, groupOps, operations);
                 deferredFills.AddRange(ComputeReconcileFills(mapping, groupOps, deferredSchemaSets));
                 deferred.Add(new DeferredSchemaWork { Version = rebuildVersion, Order = 3, Apply = () => (ApplyReconcileSchema(mapping, groupOps, created, deferredSchemaSets), []) });
             }
             else
             {
-                (int groupCount, List<DeferredFill> groupFills) = ProcessReconcileGroup(mapping, groupOps, created);
+                (int groupCount, List<DeferredFill> groupFills) = ProcessReconcileGroup(mapping, groupOps, created, operations);
                 count += groupCount;
                 deferredFills.AddRange(groupFills);
             }
@@ -484,7 +484,7 @@ public sealed class SQLiteMigrationRunner
         }
 
         int version = 0;
-        foreach ((int winnerVersion, MigrationSetValue winner, _) in SchemaPhaseSets(mapping, group))
+        foreach ((int winnerVersion, MigrationSetValue winner, _) in SchemaPhaseSets(mapping, group, operations))
         {
             if ((winner.RunInRebuild || ReadsOwnColumn(winner))
                 && winnerVersion > version
@@ -497,12 +497,12 @@ public sealed class SQLiteMigrationRunner
         return version;
     }
 
-    private (int Count, List<DeferredFill> Fills) ProcessReconcileGroup(TableMapping mapping, List<MigrationOperation> group, HashSet<string> newlyCreated)
+    private (int Count, List<DeferredFill> Fills) ProcessReconcileGroup(TableMapping mapping, List<MigrationOperation> group, HashSet<string> newlyCreated, List<MigrationOperation> operations)
     {
         bool isNew = newlyCreated.Contains(mapping.TableName) || !schema.TableExists(mapping.TableName);
         List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> schemaSets = isNew || mapping.IsFullTextSearch || mapping.IsRTree
             ? []
-            : SchemaPhaseSets(mapping, group);
+            : SchemaPhaseSets(mapping, group, operations);
 
         int count = ApplyReconcileSchema(mapping, group, newlyCreated, schemaSets);
         return (count, ComputeReconcileFills(mapping, group, schemaSets));
@@ -532,7 +532,7 @@ public sealed class SQLiteMigrationRunner
         return count;
     }
 
-    private List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> SchemaPhaseSets(TableMapping mapping, IEnumerable<MigrationOperation> group)
+    private List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> SchemaPhaseSets(TableMapping mapping, IEnumerable<MigrationOperation> group, List<MigrationOperation> operations)
     {
         List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(mapping.TableName).ToList();
         HashSet<string> liveColumns = liveInfo.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -544,13 +544,19 @@ public sealed class SQLiteMigrationRunner
         List<(int Version, MigrationSetValue Set)> perVersionWinners = [];
         foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
         {
+            bool afterEarlierData = HasEarlierDataOperation(operations, mapping.TableName, versionGroup.Key);
             IEnumerable<MigrationSetValue> qualifying = versionGroup
                 .SelectMany(o => o.Sets)
                 .Where(s => s.RunInRebuild
                     || ReadsOutsideModel(mapping, s)
                     || !liveColumns.Contains(s.Column)
                     || (notNullModel.Contains(s.Column) && liveNullable.Contains(s.Column)))
-                .Where(s => s.ReadColumns.All(liveColumns.Contains));
+                .Where(s => s.ReadColumns.All(liveColumns.Contains))
+                .Where(s => !afterEarlierData
+                    || s.RunInRebuild
+                    || ReadsOutsideModel(mapping, s)
+                    || !liveColumns.Contains(s.Column)
+                    || !ReadsOwnColumn(s));
             foreach (MigrationSetValue set in UnionSets(qualifying))
             {
                 perVersionWinners.Add((versionGroup.Key, set));

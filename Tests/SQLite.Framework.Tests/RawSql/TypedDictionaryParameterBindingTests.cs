@@ -38,6 +38,18 @@ public class TypedDictionaryParameterBindingTests
     }
 
     [Fact]
+    public void DictionaryWithNonStringKeysIsRejected()
+    {
+        using TestDatabase db = new();
+        Dictionary<int, string> parameters = new() { [1] = "abc" };
+
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => db.ExecuteScalar<string>("SELECT @v", parameters));
+
+        Assert.Contains("must be strings", exception.Message);
+    }
+
+    [Fact]
     public void IntValuedDictionaryFiltersRows()
     {
         using TestDatabase db = new();

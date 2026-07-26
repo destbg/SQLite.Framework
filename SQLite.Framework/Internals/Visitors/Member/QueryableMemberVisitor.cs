@@ -673,7 +673,11 @@ internal static class QueryableMemberVisitor
             {
                 throw new NotSupportedException("Sum could not resolve the expression.");
             }
-            target = sql;
+            target = visitor.CoalesceLiftedOrderComparison(lambda.Body, sql);
+            if (aggregateFunction is "MIN" or "MAX")
+            {
+                target = visitor.CastTextDecimalForOrdering(target);
+            }
         }
 
         bool coalesce = aggregateFunction == "SUM";

@@ -82,6 +82,11 @@ internal partial class SQLVisitor
 
                     return expression;
                 }
+
+                if (TryResolveUnsetConstructedMember(expressions, path, node.Type, out Expression? unset))
+                {
+                    return unset;
+                }
             }
 
             (path, pe) = ExpressionHelpers.ResolveParameterPath(node.Expression);
@@ -247,6 +252,35 @@ internal partial class SQLVisitor
         }
 
         return sqlExpression;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Only value types reach the call.")]
+    private bool TryResolveUnsetConstructedMember(Dictionary<string, Expression> expressions, string path, Type memberType, [NotNullWhen(true)] out Expression? expression)
+    {
+        expression = null;
+        if (path.Length == 0
+            || !TypeHelpers.IsSimple(memberType, Database.Options)
+            || !ConstructedProjectionPaths.TryGetValue(expressions, out HashSet<string>? constructed))
+        {
+            return false;
+        }
+
+        int separator = path.LastIndexOf('.');
+        while (separator > 0)
+        {
+            if (constructed.Contains(path[..separator]))
+            {
+                object? unsetValue = memberType.IsValueType && Nullable.GetUnderlyingType(memberType) == null
+                    ? Activator.CreateInstance(memberType)
+                    : null;
+                expression = SQLiteExpression.Leaf(memberType, Counters.NextIdentifier(), Counters.NextParamName(), unsetValue);
+                return true;
+            }
+
+            separator = path.LastIndexOf('.', separator - 1);
+        }
+
+        return false;
     }
 
     private static bool TryGetColumnPath(Dictionary<string, Expression> expressions, string path, [NotNullWhen(true)] out Expression? expression)

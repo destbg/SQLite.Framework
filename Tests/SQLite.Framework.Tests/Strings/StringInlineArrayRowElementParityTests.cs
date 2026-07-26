@@ -109,7 +109,13 @@ public class StringInlineArrayRowElementParityTests
             .Select(r => r.Id)
             .ToList();
 
+        Assert.Throws<NotSupportedException>(() => db.Table<H21dRowElementRow>()
+            .Where(r => string.Concat(new object?[] { r.Name, r }).EndsWith("/a"))
+            .Select(r => r.Id)
+            .ToList());
+
         List<int> actual = db.Table<H21dRowElementRow>()
+            .AsEnumerable()
             .Where(r => string.Concat(new object?[] { r.Name, r }).EndsWith("/a"))
             .Select(r => r.Id)
             .ToList();

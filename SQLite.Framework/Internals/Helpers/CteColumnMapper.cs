@@ -26,9 +26,44 @@ internal static class CteColumnMapper
         return columns;
     }
 
+    public static Dictionary<string, Expression> BuildOuterColumns(CteInfo info, Type elementType, string alias, SQLiteOptions options, SQLiteCounters counters)
+    {
+        return info.BodyColumns != null
+            ? BuildBodyMappedColumns(info.BodyColumns, info.BodySelects!, info.ColumnNames, alias, options, counters)
+            : BuildColumns(elementType, alias, options, counters);
+    }
+
+    public static Dictionary<string, Expression> BuildSelfColumns(CteSelfReference reference, string alias, SQLiteOptions options, SQLiteCounters counters, SQLVisitor visitor)
+    {
+        Dictionary<string, Expression> columns = reference.BodyColumns != null
+            ? BuildBodyMappedColumns(reference.BodyColumns, reference.BodySelects!, reference.ColumnNames, alias, options, counters)
+            : BuildColumns(reference.ElementType, alias, options, counters);
+
+        ApplyDayOfWeekColumns(columns, reference.DayOfWeekColumns);
+        if (reference.ConstructedPaths != null)
+        {
+            visitor.ConstructedProjectionPaths[columns] = [.. reference.ConstructedPaths];
+        }
+
+        return columns;
+    }
+
     public static string[]? ScalarColumnNames(Type elementType, SQLiteOptions options)
     {
         return TypeHelpers.IsSimple(elementType, options) ? [Constants.CteScalarColumn] : null;
+    }
+
+    public static string[] BodyColumnNamesWithPlaceholders(Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects)
+    {
+        string[] names = new string[selects.Count];
+        HashSet<string> used = new(StringComparer.Ordinal);
+        for (int i = 0; i < selects.Count; i++)
+        {
+            names[i] = MatchBodyColumnKey(bodyColumns, selects[i], used)
+                ?? $"{Constants.CteBodyColumnPrefix}{i}";
+        }
+
+        return names;
     }
 
     public static HashSet<string>? DayOfWeekColumns(Dictionary<string, Expression> bodyColumns, bool scalarElement)
@@ -55,20 +90,27 @@ internal static class CteColumnMapper
 
     public static void ApplyBodyTraits(Dictionary<string, Expression> columns, CteInfo info, SQLVisitor visitor)
     {
-        if (info.DayOfWeekColumns != null)
-        {
-            foreach (KeyValuePair<string, Expression> column in columns)
-            {
-                if (info.DayOfWeekColumns.Contains(column.Key))
-                {
-                    ((SQLiteExpression)column.Value).WithDayOfWeekInteger();
-                }
-            }
-        }
+        ApplyDayOfWeekColumns(columns, info.DayOfWeekColumns);
 
         if (info.ConstructedPaths != null)
         {
             visitor.ConstructedProjectionPaths[columns] = [.. info.ConstructedPaths];
+        }
+    }
+
+    public static void ApplyDayOfWeekColumns(Dictionary<string, Expression> columns, HashSet<string>? dayOfWeekColumns)
+    {
+        if (dayOfWeekColumns == null)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<string, Expression> column in columns)
+        {
+            if (dayOfWeekColumns.Contains(column.Key) && column.Value is SQLiteExpression sql)
+            {
+                sql.WithDayOfWeekInteger();
+            }
         }
     }
 
@@ -101,6 +143,14 @@ internal static class CteColumnMapper
         return null;
     }
 
+    public static string[]? DeclaredColumnNames(Type elementType, Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects, SQLiteOptions options)
+    {
+        string[]? names = ScalarColumnNames(elementType, options) ?? BodyColumnNames(bodyColumns, selects);
+        return names != null && names.Length != selects.Count
+            ? BodyColumnNamesWithPlaceholders(bodyColumns, selects)
+            : names;
+    }
+
     public static Dictionary<string, Expression> BuildBodyMappedColumns(Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects, string[]? columnNames, string alias, SQLiteOptions options, SQLiteCounters counters)
     {
         HashSet<string> declared = new(StringComparer.Ordinal);
@@ -129,10 +179,23 @@ internal static class CteColumnMapper
             AddColumns(expansion, member.Value.Type, member.Key, alias, options, counters);
             bool covered = expansion.Count > 0
                 && expansion.Keys.All(key => bodyColumns.TryGetValue(key, out Expression? value) && value is SQLiteExpression);
-            if (!covered)
+            if (covered)
             {
-                columns[member.Key] = rewriter.Rewrite(member.Value);
+                continue;
             }
+
+            List<string> declaredParts = expansion.Keys.Where(declared.Contains).ToList();
+            if (declaredParts.Count > 0)
+            {
+                foreach (string part in declaredParts)
+                {
+                    columns[part] = expansion[part];
+                }
+
+                continue;
+            }
+
+            columns[member.Key] = rewriter.Rewrite(member.Value);
         }
 
         return columns;
@@ -149,6 +212,31 @@ internal static class CteColumnMapper
         }
 
         return false;
+    }
+
+    private static string? MatchBodyColumnKey(Dictionary<string, Expression> bodyColumns, SQLiteExpression select, HashSet<string> used)
+    {
+        SQLiteExpression inner = Unaliased(select);
+        foreach (KeyValuePair<string, Expression> column in bodyColumns)
+        {
+            if (column.Value is not SQLiteExpression columnSql)
+            {
+                continue;
+            }
+
+            if ((ReferenceEquals(columnSql, select) || ReferenceEquals(Unaliased(columnSql), inner))
+                && used.Add(column.Key))
+            {
+                return column.Key;
+            }
+        }
+
+        return null;
+    }
+
+    private static SQLiteExpression Unaliased(SQLiteExpression expression)
+    {
+        return expression is AliasSqlExpression alias ? alias.Inner : expression;
     }
 
     private static void OrderKeysBySelects(List<string> leafKeys, Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects)

@@ -88,6 +88,12 @@ internal partial class QueryableVisitor
                 : EnumMemberVisitor.BuildTextStorageEnumToNumber(visitor, typeof(int), typeof(DayOfWeek), main).WithDayOfWeekInteger();
             replacement.IdentifierText = main.IdentifierText;
             Selects[i] = replacement;
+
+            if (visitor.TableColumns.TryGetValue(main.IdentifierText, out Expression? column)
+                && column is SQLiteExpression)
+            {
+                visitor.TableColumns[main.IdentifierText] = replacement;
+            }
         }
     }
 

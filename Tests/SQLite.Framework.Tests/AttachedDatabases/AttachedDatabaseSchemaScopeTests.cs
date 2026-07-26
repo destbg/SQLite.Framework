@@ -28,6 +28,77 @@ public class H21lVaultAlt
 public class AttachedDatabaseSchemaScopeTests
 {
     [Fact]
+    public void RenameColumnLeavesTheAttachedDatabaseSchemaUnchanged()
+    {
+        string auxPath = AuxPath();
+        try
+        {
+            using (SQLiteDatabase auxDb = OpenAux(auxPath))
+            {
+                auxDb.Execute("CREATE TABLE \"H21lVaultsAlt\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT)");
+            }
+
+            using TestDatabase main = new();
+            main.AttachDatabase(auxPath, "h21laux", AuxEncryptionKey);
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => main.Schema.RenameColumn<H21lVaultAlt>("Name", "Label"));
+            Assert.Equal(
+                "Table 'H21lVaultsAlt' for entity 'H21lVaultAlt' does not exist in the main database, so its columns cannot be changed. Create the table with CreateTable first.",
+                exception.Message);
+
+            Assert.Equal(
+                "CREATE TABLE \"H21lVaultsAlt\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT)",
+                main.ExecuteScalar<string>("SELECT sql FROM h21laux.sqlite_master WHERE name = 'H21lVaultsAlt'"));
+        }
+        finally
+        {
+            Cleanup(auxPath);
+        }
+    }
+
+    [Fact]
+    public void DropColumnLeavesTheAttachedDatabaseSchemaUnchanged()
+    {
+        string auxPath = AuxPath();
+        try
+        {
+            using (SQLiteDatabase auxDb = OpenAux(auxPath))
+            {
+                auxDb.Execute("CREATE TABLE \"H21lVaultsAlt\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT)");
+            }
+
+            using TestDatabase main = new();
+            main.AttachDatabase(auxPath, "h21laux", AuxEncryptionKey);
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => main.Schema.DropColumn<H21lVaultAlt>("Name"));
+            Assert.Equal(
+                "Table 'H21lVaultsAlt' for entity 'H21lVaultAlt' does not exist in the main database, so its columns cannot be changed. Create the table with CreateTable first.",
+                exception.Message);
+
+            Assert.Equal(
+                "CREATE TABLE \"H21lVaultsAlt\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT)",
+                main.ExecuteScalar<string>("SELECT sql FROM h21laux.sqlite_master WHERE name = 'H21lVaultsAlt'"));
+        }
+        finally
+        {
+            Cleanup(auxPath);
+        }
+    }
+
+    [Fact]
+    public void AddColumnOnAMainTableStillWorks()
+    {
+        using TestDatabase main = new();
+        main.Execute("CREATE TABLE \"H21lVaultsAlt\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT)");
+
+        main.Schema.AddColumn<H21lVaultAlt>("Extra");
+
+        Assert.True(main.Schema.ColumnExists<H21lVaultAlt>("Extra"));
+    }
+
+    [Fact]
     public void DropTableLeavesTheAttachedDatabaseTableInPlace()
     {
         string auxPath = AuxPath();
@@ -141,7 +212,12 @@ public class AttachedDatabaseSchemaScopeTests
 
             using TestDatabase main = new();
             main.AttachDatabase(auxPath, "h21laux", AuxEncryptionKey);
-            main.Schema.AddColumn<H21lVaultAlt>("Extra");
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => main.Schema.AddColumn<H21lVaultAlt>("Extra"));
+            Assert.Equal(
+                "Table 'H21lVaultsAlt' for entity 'H21lVaultAlt' does not exist in the main database, so its columns cannot be changed. Create the table with CreateTable first.",
+                exception.Message);
 
             Assert.Equal(
                 "CREATE TABLE \"H21lVaultsAlt\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT)",

@@ -36,11 +36,13 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         "ExecuteScalarAsync",
         "ExecuteQuery",
         "Values",
+        "ValuesRange",
         "Cast",
         "OfType",
     };
 
     private const string SQLiteDatabaseFullName = "SQLite.Framework.SQLiteDatabase";
+    private const int MaxForwardingRounds = 8;
 
     private static readonly string[] BuiltInEntityTypeNames =
     {
@@ -65,6 +67,17 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 predicate: static (node, _) => IsCandidateInvocation(node),
                 transform: static (ctx, _) => ExtractUnresolvedGenericEntity(ctx))
             .Where(static t => t is not null);
+
+        IncrementalValuesProvider<UnresolvedGenericEntity?> fromGenericProjections = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => IsCandidateSelectInvocation(node),
+                transform: static (ctx, _) => ExtractUnresolvedProjectionEntity(ctx))
+            .Where(static t => t is not null);
+
+        IncrementalValueProvider<ImmutableArray<UnresolvedGenericEntity?>> allUnresolvedEntities =
+            fromGenericInvocations.Collect()
+                .Combine(fromGenericProjections.Collect())
+                .Select(static (pair, _) => pair.Left.AddRange(pair.Right));
 
         IncrementalValuesProvider<INamedTypeSymbol?> fromMembers = context.SyntaxProvider
             .CreateSyntaxProvider(
@@ -139,6 +152,12 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 transform: static (ctx, _) => ExtractTypeInstantiation(ctx))
             .Where(static t => t.HasValue);
 
+        IncrementalValuesProvider<ForwardedMethodInstantiation?> forwardedInstantiations = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (node, _) => IsGenericInvocationCandidate(node),
+                transform: static (ctx, _) => ExtractForwardedMethodInstantiation(ctx))
+            .Where(static t => t is not null);
+
         IncrementalValueProvider<ImmutableArray<INamedTypeSymbol?>> allEntities =
             fromInvocations.Collect()
                 .Combine(fromMembers.Collect())
@@ -156,29 +175,31 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         IncrementalValueProvider<GenericInstantiationIndex> genericIndex =
             methodInstantiations.Collect()
                 .Combine(typeInstantiations.Collect())
+                .Combine(forwardedInstantiations.Collect())
                 .Select(static (pair, _) =>
                 {
                     GenericInstantiationIndex index = new();
-                    foreach ((IMethodSymbol Method, ImmutableArray<INamedTypeSymbol> TypeArgs)? entry in pair.Left)
+                    foreach ((IMethodSymbol Method, ImmutableArray<INamedTypeSymbol> TypeArgs)? entry in pair.Left.Left)
                     {
                         if (entry is { } e)
                         {
                             index.AddMethod(e.Method, e.TypeArgs);
                         }
                     }
-                    foreach ((INamedTypeSymbol Type, ImmutableArray<INamedTypeSymbol> TypeArgs)? entry in pair.Right)
+                    foreach ((INamedTypeSymbol Type, ImmutableArray<INamedTypeSymbol> TypeArgs)? entry in pair.Left.Right)
                     {
                         if (entry is { } e)
                         {
                             index.AddType(e.Type, e.TypeArgs);
                         }
                     }
+                    CloseForwardedInstantiations(index, pair.Right);
                     return index;
                 });
 
         IncrementalValueProvider<GeneratorPipelineModel> source =
             context.CompilationProvider.Combine(allEntities)
-                .Combine(fromGenericInvocations.Collect())
+                .Combine(allUnresolvedEntities)
                 .Combine(selectInvocations.Collect())
                 .Combine(querySelects.Collect())
                 .Combine(unresolvedSelects.Collect())
@@ -338,19 +359,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return false;
         }
 
-        if (invocation.Expression is not MemberAccessExpressionSyntax access)
-        {
-            return false;
-        }
-
-        string name = access.Name switch
-        {
-            GenericNameSyntax generic => generic.Identifier.ValueText,
-            IdentifierNameSyntax ident => ident.Identifier.ValueText,
-            _ => string.Empty
-        };
-
-        return name == "GroupBy";
+        return InvokedMethodName(invocation) == "GroupBy";
     }
 
     private static (GroupByKeyInvocation Invocation, SemanticModel Model)? ExtractGroupByKey(GeneratorSyntaxContext ctx)
@@ -1219,14 +1228,20 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return false;
         }
 
-        if (invocation.Expression is MemberAccessExpressionSyntax access
-            && access.Name is GenericNameSyntax generic
-            && EntityReturningGenericMethods.Contains(generic.Identifier.ValueText))
-        {
-            return true;
-        }
+        return EntityReturningGenericMethods.Contains(InvokedMethodName(invocation));
+    }
 
-        return false;
+    private static string InvokedMethodName(InvocationExpressionSyntax invocation)
+    {
+        SimpleNameSyntax? name = invocation.Expression switch
+        {
+            MemberAccessExpressionSyntax access => access.Name,
+            MemberBindingExpressionSyntax binding => binding.Name,
+            SimpleNameSyntax bare => bare,
+            _ => null
+        };
+
+        return name?.Identifier.ValueText ?? string.Empty;
     }
 
     private static INamedTypeSymbol? ExtractEntityFromInvocation(GeneratorSyntaxContext ctx)
@@ -1267,17 +1282,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return false;
         }
 
-        if (invocation.Expression is not MemberAccessExpressionSyntax access)
-        {
-            return false;
-        }
-
-        string name = access.Name switch
-        {
-            GenericNameSyntax generic => generic.Identifier.ValueText,
-            IdentifierNameSyntax ident => ident.Identifier.ValueText,
-            _ => string.Empty
-        };
+        string name = InvokedMethodName(invocation);
 
         return name == "Select" || name == "SelectMany" || name == "Returning" || name == "GroupBy" || IsJoinMethodName(name);
     }
@@ -1653,6 +1658,40 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         return new UnresolvedGenericEntity(typeParam);
     }
 
+    private static UnresolvedGenericEntity? ExtractUnresolvedProjectionEntity(GeneratorSyntaxContext ctx)
+    {
+        InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)ctx.Node;
+        if (ctx.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+        {
+            return null;
+        }
+
+        if (method.Name != "Select" && method.Name != "SelectMany")
+        {
+            return null;
+        }
+
+        string containingType = method.ContainingType.ToDisplayString();
+        if (containingType != "System.Linq.Queryable" && containingType != "System.Linq.Enumerable")
+        {
+            return null;
+        }
+
+        ITypeSymbol? projection = null;
+        if (method.ReturnType is INamedTypeSymbol { IsGenericType: true } namedReturn && namedReturn.TypeArguments.Length > 0)
+        {
+            projection = namedReturn.TypeArguments[namedReturn.TypeArguments.Length - 1];
+        }
+        projection ??= method.TypeArguments.LastOrDefault();
+
+        if (projection is not ITypeParameterSymbol typeParam)
+        {
+            return null;
+        }
+
+        return new UnresolvedGenericEntity(typeParam);
+    }
+
     private static IEnumerable<INamedTypeSymbol> ExpandTypeParameter(ITypeParameterSymbol param, GenericInstantiationIndex index)
     {
         HashSet<INamedTypeSymbol> seen = new(SymbolEqualityComparer.Default);
@@ -1779,6 +1818,101 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         return (method.OriginalDefinition, builder.ToImmutable());
+    }
+
+    private static ForwardedMethodInstantiation? ExtractForwardedMethodInstantiation(GeneratorSyntaxContext ctx)
+    {
+        if (ctx.Node is not InvocationExpressionSyntax invocation)
+        {
+            return null;
+        }
+
+        if (ctx.SemanticModel.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+        {
+            return null;
+        }
+
+        if (method.TypeArguments.Length == 0)
+        {
+            return null;
+        }
+
+        bool anyOpen = false;
+        foreach (ITypeSymbol arg in method.TypeArguments)
+        {
+            if (ContainsTypeParameter(arg))
+            {
+                anyOpen = true;
+                break;
+            }
+        }
+
+        if (!anyOpen)
+        {
+            return null;
+        }
+
+        IAssemblySymbol? compilationAsm = ctx.SemanticModel.Compilation.Assembly;
+        if (!SymbolEqualityComparer.Default.Equals(method.OriginalDefinition.ContainingAssembly, compilationAsm))
+        {
+            return null;
+        }
+
+        IMethodSymbol? enclosingMethod = FindEnclosingSourceMethod(ctx.SemanticModel, invocation);
+        INamedTypeSymbol? enclosingType = enclosingMethod?.ContainingType?.OriginalDefinition;
+        if (enclosingMethod == null && enclosingType == null)
+        {
+            return null;
+        }
+
+        return new ForwardedMethodInstantiation(
+            method.OriginalDefinition, method.TypeArguments, enclosingMethod, enclosingType);
+    }
+
+    private static void CloseForwardedInstantiations(GenericInstantiationIndex index, ImmutableArray<ForwardedMethodInstantiation?> forwarded)
+    {
+        for (int round = 0; round < MaxForwardingRounds; round++)
+        {
+            bool added = false;
+            foreach (ForwardedMethodInstantiation? entry in forwarded)
+            {
+                if (entry is { } edge)
+                {
+                    added |= AddForwardedInstantiations(index, edge);
+                }
+            }
+
+            if (!added)
+            {
+                return;
+            }
+        }
+    }
+
+    private static bool AddForwardedInstantiations(GenericInstantiationIndex index, ForwardedMethodInstantiation edge)
+    {
+        bool added = false;
+        foreach (Dictionary<ITypeParameterSymbol, ITypeSymbol> subs
+                 in EnumerateSubstitutionMaps(edge.EnclosingMethod, edge.EnclosingType, index))
+        {
+            ImmutableArray<INamedTypeSymbol>.Builder builder =
+                ImmutableArray.CreateBuilder<INamedTypeSymbol>(edge.TypeArguments.Length);
+            foreach (ITypeSymbol arg in edge.TypeArguments)
+            {
+                if (SelectSignatureWriter.Substitute(arg, subs) is INamedTypeSymbol named
+                    && !ContainsTypeParameter(named))
+                {
+                    builder.Add(named);
+                }
+            }
+
+            if (builder.Count == edge.TypeArguments.Length)
+            {
+                added |= index.AddMethod(edge.Target, builder.ToImmutable());
+            }
+        }
+
+        return added;
     }
 
     private static (INamedTypeSymbol Type, ImmutableArray<INamedTypeSymbol> TypeArgs)? ExtractTypeInstantiation(GeneratorSyntaxContext ctx)

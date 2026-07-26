@@ -88,10 +88,37 @@ public class SQLitePropertyCalls<T>
                 expr = SQLiteExpression.Leaf(expr.Type, expr.Identifier, wrapped, expr.Parameters);
             }
         }
+        else
+        {
+            expr = TryReadStoredColumn(setterBody, propertyName) ?? expr;
+        }
 
         SetProperties.Add((propertyName, expr));
 
         return this;
+    }
+
+    private SQLiteExpression? TryReadStoredColumn(Expression setterBody, string targetProperty)
+    {
+        if (setterBody is not MemberExpression { Expression: ParameterExpression } member)
+        {
+            return null;
+        }
+
+        TableColumn? source = targetMapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name);
+        TableColumn? target = targetMapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == targetProperty);
+        if (source == null || target == null || source.PropertyType != target.PropertyType)
+        {
+            return null;
+        }
+
+        if (!visitor.Database.Options.TypeConverters.TryGetValue(source.PropertyType, out ISQLiteTypeConverter? converter)
+            || converter.ColumnSqlExpression == null)
+        {
+            return null;
+        }
+
+        return SQLiteExpression.Leaf(source.PropertyType, visitor.Counters.NextIdentifier(), IdentifierGuard.Quote(source.Name));
     }
 
     private string GetPropertyName<TValue>(Expression<Func<T, TValue>> propertyGetter)

@@ -8,6 +8,7 @@ public class SQLiteDataReader : IDisposable
     private readonly IDisposable connectionLock;
     private readonly sqlite3 handle;
     private bool disposed;
+    private bool finished;
     private int readCount;
 
     internal readonly sqlite3_stmt? Statement;
@@ -39,14 +40,14 @@ public class SQLiteDataReader : IDisposable
     public SQLiteOptions Options => Database.Options;
 
     /// <summary>
-    /// The number of columns in the current row.
+    /// The number of columns in the current row. Zero when the SQL held no statement.
     /// </summary>
     public int FieldCount
     {
         get
         {
             ObjectDisposedException.ThrowIf(disposed, this);
-            return raw.sqlite3_column_count(Statement);
+            return Statement is null ? 0 : raw.sqlite3_column_count(Statement);
         }
     }
 
@@ -87,14 +88,15 @@ public class SQLiteDataReader : IDisposable
     }
 
     /// <summary>
-    /// Reads the next row from the data reader.
+    /// Reads the next row from the data reader. Once the last row has been read, every later call
+    /// returns <see langword="false" />.
     /// </summary>
     /// <returns>If the next row was retrieved.</returns>
     /// <exception cref="SQLiteException">When reading past the max rows.</exception>
     public bool Read()
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        if (Statement is null)
+        if (Statement is null || finished)
         {
             return false;
         }
@@ -108,6 +110,7 @@ public class SQLiteDataReader : IDisposable
         }
         else if (result == SQLiteResult.Done)
         {
+            finished = true;
             return false;
         }
 
@@ -117,12 +120,14 @@ public class SQLiteDataReader : IDisposable
     }
 
     /// <summary>
-    /// Gets the name of the column at the specified index.
+    /// Gets the name of the column at the specified index. Returns <see langword="null" /> when
+    /// the index names no column, which is also the case for every index when the SQL held no
+    /// statement at all.
     /// </summary>
     public string GetName(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return raw.sqlite3_column_name(Statement, index).utf8_to_string();
+        return Statement is null ? null! : raw.sqlite3_column_name(Statement, index).utf8_to_string();
     }
 
     /// <summary>
@@ -131,7 +136,7 @@ public class SQLiteDataReader : IDisposable
     public SQLiteColumnType GetColumnType(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return (SQLiteColumnType)raw.sqlite3_column_type(Statement, index);
+        return Statement is null ? SQLiteColumnType.Null : (SQLiteColumnType)raw.sqlite3_column_type(Statement, index);
     }
 
     /// <summary>
@@ -140,7 +145,7 @@ public class SQLiteDataReader : IDisposable
     public object? GetValue(int index, SQLiteColumnType columnType, Type type)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return CommandHelpers.ReadColumnValue(Statement!, index, columnType, type, Options);
+        return Statement is null ? null : CommandHelpers.ReadColumnValue(Statement, index, columnType, type, Options);
     }
 
     /// <summary>
@@ -149,7 +154,7 @@ public class SQLiteDataReader : IDisposable
     public bool IsDBNull(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return raw.sqlite3_column_type(Statement, index) == raw.SQLITE_NULL;
+        return Statement is null || raw.sqlite3_column_type(Statement, index) == raw.SQLITE_NULL;
     }
 
     /// <summary>
@@ -168,7 +173,7 @@ public class SQLiteDataReader : IDisposable
     public int GetInt32(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return raw.sqlite3_column_int(Statement, index);
+        return Statement is null ? 0 : raw.sqlite3_column_int(Statement, index);
     }
 
     /// <summary>
@@ -177,7 +182,7 @@ public class SQLiteDataReader : IDisposable
     public long GetInt64(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return raw.sqlite3_column_int64(Statement, index);
+        return Statement is null ? 0 : raw.sqlite3_column_int64(Statement, index);
     }
 
     /// <summary>
@@ -187,7 +192,7 @@ public class SQLiteDataReader : IDisposable
     public short GetInt16(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return checked((short)raw.sqlite3_column_int64(Statement, index));
+        return Statement is null ? (short)0 : checked((short)raw.sqlite3_column_int64(Statement, index));
     }
 
     /// <summary>
@@ -197,7 +202,7 @@ public class SQLiteDataReader : IDisposable
     public ushort GetUInt16(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return checked((ushort)raw.sqlite3_column_int64(Statement, index));
+        return Statement is null ? (ushort)0 : checked((ushort)raw.sqlite3_column_int64(Statement, index));
     }
 
     /// <summary>
@@ -207,7 +212,7 @@ public class SQLiteDataReader : IDisposable
     public byte GetByteValue(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return checked((byte)raw.sqlite3_column_int64(Statement, index));
+        return Statement is null ? (byte)0 : checked((byte)raw.sqlite3_column_int64(Statement, index));
     }
 
     /// <summary>
@@ -217,7 +222,7 @@ public class SQLiteDataReader : IDisposable
     public sbyte GetSByteValue(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return checked((sbyte)raw.sqlite3_column_int64(Statement, index));
+        return Statement is null ? (sbyte)0 : checked((sbyte)raw.sqlite3_column_int64(Statement, index));
     }
 
     /// <summary>
@@ -227,7 +232,7 @@ public class SQLiteDataReader : IDisposable
     public uint GetUInt32(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return unchecked((uint)raw.sqlite3_column_int(Statement, index));
+        return Statement is null ? 0u : unchecked((uint)raw.sqlite3_column_int(Statement, index));
     }
 
     /// <summary>
@@ -237,7 +242,7 @@ public class SQLiteDataReader : IDisposable
     public ulong GetUInt64(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return unchecked((ulong)raw.sqlite3_column_int64(Statement, index));
+        return Statement is null ? 0ul : unchecked((ulong)raw.sqlite3_column_int64(Statement, index));
     }
 
     /// <summary>
@@ -246,7 +251,7 @@ public class SQLiteDataReader : IDisposable
     public double GetDouble(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return raw.sqlite3_column_double(Statement, index);
+        return Statement is null ? 0d : raw.sqlite3_column_double(Statement, index);
     }
 
     /// <summary>
@@ -256,7 +261,7 @@ public class SQLiteDataReader : IDisposable
     public float GetSingle(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return (float)raw.sqlite3_column_double(Statement, index);
+        return Statement is null ? 0f : (float)raw.sqlite3_column_double(Statement, index);
     }
 
     /// <summary>
@@ -265,7 +270,7 @@ public class SQLiteDataReader : IDisposable
     public bool GetBoolean(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return raw.sqlite3_column_int(Statement, index) != 0;
+        return Statement is not null && raw.sqlite3_column_int(Statement, index) != 0;
     }
 
     /// <summary>
@@ -276,7 +281,7 @@ public class SQLiteDataReader : IDisposable
     public string? GetString(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        if (raw.sqlite3_column_type(Statement, index) == raw.SQLITE_NULL)
+        if (Statement is null || raw.sqlite3_column_type(Statement, index) == raw.SQLITE_NULL)
         {
             return null;
         }
@@ -292,7 +297,7 @@ public class SQLiteDataReader : IDisposable
     public ReadOnlySpan<byte> GetBlobSpan(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return raw.sqlite3_column_blob(Statement, index);
+        return Statement is null ? default : raw.sqlite3_column_blob(Statement, index);
     }
 
     /// <summary>

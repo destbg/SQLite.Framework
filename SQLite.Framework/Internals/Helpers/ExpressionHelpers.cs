@@ -2,6 +2,16 @@ namespace SQLite.Framework.Internals.Helpers;
 
 internal static class ExpressionHelpers
 {
+    private static readonly HashSet<ExpressionType> evaluableUnaryOperators =
+    [
+        ExpressionType.Convert,
+        ExpressionType.ConvertChecked,
+        ExpressionType.ArrayLength,
+        ExpressionType.Negate,
+        ExpressionType.NegateChecked,
+        ExpressionType.Not
+    ];
+
     public static (string Path, ParameterExpression Parameter) ResolveParameterPath(Expression node)
     {
         List<string> paths = [];
@@ -83,6 +93,33 @@ internal static class ExpressionHelpers
                 IsConstant(mce.Object!) && mce.Arguments.All(IsConstant),
             _ => false
         };
+    }
+
+    public static bool MayBeNull(Expression operand)
+    {
+        Expression stripped = operand;
+        while (stripped is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
+        {
+            stripped = convert.Operand;
+        }
+
+        if (stripped.Type.IsValueType)
+        {
+            return Nullable.GetUnderlyingType(stripped.Type) != null;
+        }
+
+        return stripped switch
+        {
+            ConstantExpression => false,
+            MemberExpression { Member: PropertyInfo property } =>
+                new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
+            _ => true
+        };
+    }
+
+    public static bool IsEvaluableUnary(UnaryExpression node)
+    {
+        return evaluableUnaryOperators.Contains(node.NodeType);
     }
 
     public static object? GetConstantValue(Expression node)
@@ -247,6 +284,7 @@ internal static class ExpressionHelpers
             float f => -f,
             double d => -d,
             decimal m => -m,
+            TimeSpan ts => -ts,
             _ => throw new NotSupportedException($"Cannot evaluate a constant {node.NodeType} expression on operand type {operand.GetType()}.")
         };
     }

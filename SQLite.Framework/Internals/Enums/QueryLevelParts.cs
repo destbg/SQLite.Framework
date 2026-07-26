@@ -17,4 +17,5 @@ internal enum QueryLevelParts
     Join = 1 << 6,
     Reverse = 1 << 7,
     Window = 1 << 8,
+    SetOperation = 1 << 9,
 }

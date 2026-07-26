@@ -19,15 +19,40 @@ internal partial class JsonCollectionVisitor
 
     private string EnsureInnerReference(string expr)
     {
+        string bare = WithoutQuotedText(expr);
         foreach (string alias in innerAliases)
         {
-            if (expr.Contains(alias + "."))
+            if (bare.Contains(alias + ".", StringComparison.Ordinal))
             {
                 return expr;
             }
         }
 
         return $"(CASE WHEN {keyColumn} IS NOT NULL THEN {expr} END)";
+    }
+
+    private static string WithoutQuotedText(string expr)
+    {
+        StringBuilder builder = StringBuilderPool.Rent();
+        bool inQuotedName = false;
+        bool inLiteral = false;
+        foreach (char c in expr)
+        {
+            if (c == '"' && !inLiteral)
+            {
+                inQuotedName = !inQuotedName;
+            }
+            else if (c == '\'' && !inQuotedName)
+            {
+                inLiteral = !inLiteral;
+            }
+            else if (!inQuotedName && !inLiteral)
+            {
+                builder.Append(c);
+            }
+        }
+
+        return StringBuilderPool.ToStringAndReturn(builder);
     }
 
     private string BuildSql(string sourceSql)
@@ -78,7 +103,7 @@ internal partial class JsonCollectionVisitor
         if (singleSemantic)
         {
             List<string> countClauses = [.. clauses];
-            countClauses[0] = distinct ? $"SELECT COUNT(DISTINCT {selectExpr})" : "SELECT COUNT(*)";
+            countClauses[0] = distinct ? $"SELECT COUNT(DISTINCT {EnsureInnerReference(selectExpr)})" : "SELECT COUNT(*)";
             countClauses.Add("LIMIT 2");
             string countSelect = string.Join(nl + sp2, countClauses);
 
@@ -113,7 +138,8 @@ internal partial class JsonCollectionVisitor
                 List<string> comboOrder = [];
                 foreach ((string expr, string direction) in comboPending)
                 {
-                    comboOrder.Add(direction == "DESC" ? $"MAX({expr}) DESC" : $"MIN({expr}) ASC");
+                    string operand = EnsureInnerReference(expr);
+                    comboOrder.Add(direction == "DESC" ? $"MAX({operand}) DESC" : $"MIN({operand}) ASC");
                 }
 
                 comboOrder.Add($"{positionAggregate}({keyColumn}) DESC");

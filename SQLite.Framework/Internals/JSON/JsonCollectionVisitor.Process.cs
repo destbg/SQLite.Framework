@@ -15,16 +15,16 @@ internal partial class JsonCollectionVisitor
                 HandleWhere(call, currentElementType);
                 break;
             case nameof(Enumerable.OrderBy):
-                HandleOrderBy(call, currentElementType, "ASC", clear: true);
+                HandleOrderBy(call, currentElementType, "ASC", primary: true);
                 break;
             case nameof(Enumerable.OrderByDescending):
-                HandleOrderBy(call, currentElementType, "DESC", clear: true);
+                HandleOrderBy(call, currentElementType, "DESC", primary: true);
                 break;
             case nameof(Enumerable.ThenBy):
-                HandleOrderBy(call, currentElementType, "ASC", clear: false);
+                HandleOrderBy(call, currentElementType, "ASC", primary: false);
                 break;
             case nameof(Enumerable.ThenByDescending):
-                HandleOrderBy(call, currentElementType, "DESC", clear: false);
+                HandleOrderBy(call, currentElementType, "DESC", primary: false);
                 break;
             case nameof(Enumerable.GroupBy):
                 HandleGroupBy(call, currentElementType);
@@ -179,6 +179,11 @@ internal partial class JsonCollectionVisitor
 
     private void MaterializeDistinct()
     {
+        if (groupBys.Count > 0 || havings.Count > 0)
+        {
+            MaterializeWindow();
+        }
+
         string currentFrom = CurrentFromClause();
 
         string keyAggregate = distinctSeenReverse ? "MAX" : "MIN";
@@ -189,9 +194,10 @@ internal partial class JsonCollectionVisitor
         List<string> groupOrder = [];
         for (int i = 0; i < pendingOrder.Count; i++)
         {
+            string orderOperand = EnsureInnerReference(pendingOrder[i].Expr);
             string aggregated = pendingOrder[i].Direction == "DESC"
-                ? $"MAX({pendingOrder[i].Expr})"
-                : $"MIN({pendingOrder[i].Expr})";
+                ? $"MAX({orderOperand})"
+                : $"MIN({orderOperand})";
             selectColumns.Add($"{aggregated} AS \"o{i}\"");
             groupOrder.Add($"{aggregated} {pendingOrder[i].Direction}");
         }
@@ -279,13 +285,8 @@ internal partial class JsonCollectionVisitor
         }
     }
 
-    private void HandleOrderBy(MethodCallExpression call, Type elementType, string direction, bool clear)
+    private void HandleOrderBy(MethodCallExpression call, Type elementType, string direction, bool primary)
     {
-        if (clear)
-        {
-            orderBys.Clear();
-        }
-
         string keySql = VisitLambda(call.Arguments[1], elementType, coalesceLiftedComparison: true);
         Type keyType = ((LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1])).ReturnType;
         keyType = Nullable.GetUnderlyingType(keyType) ?? keyType;
@@ -297,7 +298,19 @@ internal partial class JsonCollectionVisitor
             keySql = keyNumber.ToString();
         }
 
-        orderBys.Add($"{keySql} {direction}");
+        orderBys.Insert(primary ? 0 : primaryOrderCount, $"{keySql} {direction}");
+        primaryOrderCount = primary ? 1 : primaryOrderCount + 1;
+    }
+
+    private string? TrailingPositionTiebreak()
+    {
+        if (orderBys.Count == 0)
+        {
+            return null;
+        }
+
+        (string expr, string _) = SplitOrderBys()[^1];
+        return expr == keyColumn ? orderBys[^1] : null;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "IGrouping<,> is rooted by user code.")]
@@ -341,6 +354,11 @@ internal partial class JsonCollectionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
     private void HandleSelectMany(MethodCallExpression call, Type elementType)
     {
+        if (distinct)
+        {
+            MaterializeDistinct();
+        }
+
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1]);
         Type innerElementType = TypeHelpers.GetEnumerableElementType(lambda.ReturnType)!;
         LambdaExpression? resultSelector = call.Arguments.Count == 3
@@ -446,13 +464,8 @@ internal partial class JsonCollectionVisitor
             MaterializeWindow();
         }
 
-        bool hadOrderBys = orderBys.Count > 0;
         AddOptionalPredicate(call, elementType);
-        ReverseOrderBys();
-        if (hadOrderBys)
-        {
-            orderBys.Add($"{keyColumn} DESC");
-        }
+        ReverseOrderWithPosition();
 
         limit = "1";
         wrapInArray = false;
@@ -475,7 +488,7 @@ internal partial class JsonCollectionVisitor
         }
         else
         {
-            selectExpr = distinct ? $"COUNT(DISTINCT {selectExpr})" : "COUNT(*)";
+            selectExpr = distinct ? $"COUNT(DISTINCT {EnsureInnerReference(selectExpr)})" : "COUNT(*)";
         }
 
         distinct = false;
@@ -522,6 +535,13 @@ internal partial class JsonCollectionVisitor
             ? VisitLambda(call.Arguments[1], elementType)
             : selectExpr;
 
+        if (groupBys.Count > 0)
+        {
+            selectExpr = inner;
+            MaterializeWindow();
+            inner = selectExpr;
+        }
+
         Type valueType = hasSelector
             ? ((LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1])).ReturnType
             : elementType;
@@ -565,7 +585,18 @@ internal partial class JsonCollectionVisitor
             MaterializeWindow();
         }
 
+        ReverseOrderWithPosition();
+    }
+
+    private void ReverseOrderWithPosition()
+    {
+        bool hadOrderBys = orderBys.Count > 0;
+        bool ordersByPosition = TrailingPositionTiebreak() != null;
         ReverseOrderBys();
+        if (hadOrderBys && !ordersByPosition)
+        {
+            orderBys.Add($"{keyColumn} DESC");
+        }
     }
 
     private void ReverseOrderBys()

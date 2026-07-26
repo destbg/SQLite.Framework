@@ -69,7 +69,7 @@ internal static class CommandHelpers
 
         object value = ReadRawValue(statement, index, columnType);
 
-        if (type == typeof(object))
+        if (type == typeof(object) || type.IsInstanceOfType(value))
         {
             return value;
         }

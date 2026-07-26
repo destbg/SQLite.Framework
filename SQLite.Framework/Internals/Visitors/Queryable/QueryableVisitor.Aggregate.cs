@@ -51,7 +51,13 @@ internal partial class QueryableVisitor
                         "would apply to the selector result instead of to the source rows.");
                 }
 
-                select = BuildScalarAggregate(function, node.Method.ReturnType, sqlExpression, distinctPrefix);
+                SQLiteExpression aggregateTarget = visitor.CoalesceLiftedOrderComparison(lambda.Body, sqlExpression);
+                if (function is "MIN" or "MAX")
+                {
+                    aggregateTarget = visitor.CastTextDecimalForOrdering(aggregateTarget);
+                }
+
+                select = BuildScalarAggregate(function, node.Method.ReturnType, aggregateTarget, distinctPrefix);
             }
         }
         else if (function == "COUNT")

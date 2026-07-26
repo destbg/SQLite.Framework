@@ -29,7 +29,7 @@ public class WindowValueArgumentMessageTests
             })
             .ToList());
 
-        Assert.Equal("The value argument of Sum cannot be translated to SQL. Use a column or a translatable expression.", ex.Message);
+        Assert.Equal("The value argument of Sum cannot be translated to SQL.", ex.Message);
     }
 
     [Fact]

@@ -29,16 +29,18 @@ internal partial class SQLVisitor : ExpressionVisitor
     public bool ClientEvalUsed { get; set; }
     public bool SuppressUlongWindowOrderSplit { get; set; }
     public bool OmitTableAlias { get; set; }
+    public bool SubqueryFreeSql { get; set; }
     public SQLiteExpression? From { get; internal set; }
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments { get; set; } = [];
     public Dictionary<string, Expression> TableColumns { get; set; } = [];
     public CteRegistry? CteRegistry { get; set; }
-    public Dictionary<ParameterExpression, (string Alias, Dictionary<string, Expression> Columns)> CteParameters { get; set; } = [];
+    public Dictionary<ParameterExpression, CteSelfReference> CteParameters { get; set; } = [];
     public Dictionary<SQLiteExpression, SQLiteExpression>? DecimalCastIntern { get; set; }
     public Dictionary<(SQLiteExpression Source, string Member), SQLiteExpression>? JsonExtractIntern { get; set; }
     public Dictionary<ParameterExpression, string?> RowColumnPrefixes { get; } = [];
     public Dictionary<Dictionary<string, Expression>, Dictionary<string, string?>> TableColumnPrefixes { get; set; } = [];
     public Dictionary<Dictionary<string, Expression>, HashSet<string>> ConstructedProjectionPaths { get; set; } = [];
+    public HashSet<Dictionary<string, Expression>> OptionalRowColumns { get; set; } = [];
 
     public SQLiteExpression InternDecimalCast(SQLiteExpression source)
     {
@@ -106,7 +108,8 @@ internal partial class SQLVisitor : ExpressionVisitor
             CteRegistry = CteRegistry,
             CteParameters = CteParameters,
             TableColumnPrefixes = TableColumnPrefixes,
-            ConstructedProjectionPaths = ConstructedProjectionPaths
+            ConstructedProjectionPaths = ConstructedProjectionPaths,
+            OptionalRowColumns = OptionalRowColumns
         };
     }
 
@@ -118,6 +121,7 @@ internal partial class SQLVisitor : ExpressionVisitor
             MethodArguments = MethodArguments,
             TableColumnPrefixes = TableColumnPrefixes,
             ConstructedProjectionPaths = ConstructedProjectionPaths,
+            OptionalRowColumns = OptionalRowColumns,
             ClientEvalAllowed = ClientEvalAllowed,
             IsInSelectProjection = isInSelectProjection,
             CteRegistry = CteRegistry
@@ -356,10 +360,27 @@ internal partial class SQLVisitor : ExpressionVisitor
 
         if (expression is NewExpression newExpression)
         {
-            return newExpression.Arguments[ConstructorArgumentIndex(newExpression, memberName)];
+            int argumentIndex = ConstructorArgumentIndex(newExpression, memberName);
+            if (argumentIndex < newExpression.Arguments.Count)
+            {
+                return newExpression.Arguments[argumentIndex];
+            }
+
+            if (TryGetSettableMemberType(newExpression.Type, memberName, out Type? unassignedType))
+            {
+                return MakeDefaultConstant(unassignedType);
+            }
         }
 
         return Expression.PropertyOrField(expression, memberName);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Projected shapes are rooted by user code.")]
+    private static bool TryGetSettableMemberType(Type type, string memberName, [NotNullWhen(true)] out Type? memberType)
+    {
+        PropertyInfo? property = type.GetProperty(memberName);
+        memberType = property?.PropertyType;
+        return property is { CanWrite: true };
     }
 
     private static Expression? TryFoldConstructedBranch(Expression branch, string memberName)

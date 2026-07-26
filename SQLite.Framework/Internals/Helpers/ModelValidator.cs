@@ -30,6 +30,7 @@ internal static class ModelValidator
             return issues;
         }
 
+        ValidateTableOptions(database, table, mapping, issues);
         ValidateColumns(database, table, mapping, dbColumns, issues);
         ValidateIndexes(database, table, mapping, issues);
         ValidateForeignKeys(database, table, mapping, issues);
@@ -37,10 +38,42 @@ internal static class ModelValidator
         return issues;
     }
 
+    private static void ValidateTableOptions(SQLiteDatabase database, string table, TableMapping mapping, List<string> issues)
+    {
+        string options = TableOptionClause(ReadTableSql(database, table));
+        bool liveWithoutRowId = options.Contains("WITHOUT", StringComparison.OrdinalIgnoreCase);
+        bool liveStrict = options.Contains("STRICT", StringComparison.OrdinalIgnoreCase);
+
+        if (liveWithoutRowId != mapping.WithoutRowId)
+        {
+            issues.Add(mapping.WithoutRowId
+                ? $"Table '{table}' is a rowid table in the database but the model declares WITHOUT ROWID."
+                : $"Table '{table}' is a WITHOUT ROWID table in the database but the model does not declare it.");
+        }
+
+        if (liveStrict != mapping.Strict)
+        {
+            issues.Add(mapping.Strict
+                ? $"Table '{table}' is not STRICT in the database but the model declares STRICT."
+                : $"Table '{table}' is STRICT in the database but the model does not declare it.");
+        }
+    }
+
+    private static string TableOptionClause(string? createTableSql)
+    {
+        int close = createTableSql?.LastIndexOf(')') ?? -1;
+        return close < 0 ? string.Empty : createTableSql![(close + 1)..];
+    }
+
+    private static string? ReadTableSql(SQLiteDatabase database, string table)
+    {
+        return database.ExecuteScalar<string?>(
+            $"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{table.Replace("'", "''")}'");
+    }
+
     private static void ValidateRTree(SQLiteDatabase database, string table, TableMapping mapping, List<PragmaTableInfo> dbColumns, List<string> issues)
     {
-        string? liveSql = database.ExecuteScalar<string?>(
-            $"SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '{table.Replace("'", "''")}'");
+        string? liveSql = ReadTableSql(database, table);
         if (liveSql == null
             || !liveSql.StartsWith("CREATE VIRTUAL TABLE", StringComparison.OrdinalIgnoreCase)
             || !liveSql.Contains("rtree", StringComparison.OrdinalIgnoreCase))
@@ -50,9 +83,6 @@ internal static class ModelValidator
         }
 
         Dictionary<string, PragmaTableInfo> byName = dbColumns.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
-        Dictionary<string, SQLiteColumnType> typeByColumnName = mapping.Columns
-            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().ColumnType, StringComparer.OrdinalIgnoreCase);
 
         RTreeTableInfo rtree = mapping.RTree!;
         List<string> expectedNames =
@@ -61,6 +91,7 @@ internal static class ModelValidator
             .. rtree.Bounds.Select(b => b.ColumnName),
             .. rtree.Auxiliaries.Select(a => a.ColumnName),
         ];
+        Dictionary<string, string> expectedTypes = BuildExpectedRTreeTypes(mapping, rtree);
 
         foreach (string name in expectedNames)
         {
@@ -71,10 +102,19 @@ internal static class ModelValidator
             }
 
             if (dbColumn.Type.Length > 0
-                && typeByColumnName.TryGetValue(name, out SQLiteColumnType modelType)
-                && TypeAffinityResolver.Resolve(dbColumn.Type) != TypeAffinityResolver.Resolve(modelType.ToString().ToUpperInvariant()))
+                && expectedTypes.TryGetValue(name, out string? expectedType)
+                && TypeAffinityResolver.Resolve(dbColumn.Type) != TypeAffinityResolver.Resolve(expectedType))
             {
-                issues.Add($"Column '{table}'.'{name}' has type '{dbColumn.Type}' but the model expects '{modelType.ToString().ToUpperInvariant()}'.");
+                issues.Add($"Column '{table}'.'{name}' has type '{dbColumn.Type}' but the model expects '{expectedType}'.");
+            }
+        }
+
+        for (int i = 0; i < dbColumns.Count && i < expectedNames.Count; i++)
+        {
+            if (!string.Equals(dbColumns[i].Name, expectedNames[i], StringComparison.OrdinalIgnoreCase))
+            {
+                issues.Add($"Column '{table}'.'{dbColumns[i].Name}' sits at position {i + 1} in the database but the model puts '{expectedNames[i]}' there. R-Tree column order decides which value is the minimum and which is the maximum of a dimension.");
+                break;
             }
         }
 
@@ -86,6 +126,34 @@ internal static class ModelValidator
                 issues.Add($"Column '{table}'.'{dbColumn.Name}' exists in the database but not in the model.");
             }
         }
+    }
+
+    private static Dictionary<string, string> BuildExpectedRTreeTypes(TableMapping mapping, RTreeTableInfo rtree)
+    {
+        Dictionary<string, string> expectedTypes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            [rtree.RowIdColumnName] = "INTEGER"
+        };
+
+        string boundType = rtree.Storage == SQLiteRTreeStorage.Int32 ? "INTEGER" : "REAL";
+        foreach (RTreeBoundsColumn bound in rtree.Bounds)
+        {
+            expectedTypes[bound.ColumnName] = boundType;
+        }
+
+        Dictionary<string, SQLiteColumnType> modelTypes = mapping.Columns
+            .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().ColumnType, StringComparer.OrdinalIgnoreCase);
+
+        foreach (RTreeAuxiliaryColumn auxiliary in rtree.Auxiliaries)
+        {
+            if (modelTypes.TryGetValue(auxiliary.ColumnName, out SQLiteColumnType modelType))
+            {
+                expectedTypes[auxiliary.ColumnName] = modelType.ToString().ToUpperInvariant();
+            }
+        }
+
+        return expectedTypes;
     }
 
     private static void ValidateColumns(SQLiteDatabase database, string table, TableMapping mapping, List<PragmaTableInfo> dbColumns, List<string> issues)

@@ -29,6 +29,8 @@ internal partial class QueryableVisitor
 
         resultSelector = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
 
+        MarkGroupsDroppedByProjection(resultSelector);
+
         bool isProjection = node.Method.Name != nameof(System.Linq.Queryable.GroupJoin)
             && resultSelector.Body is NewExpression or MemberInitExpression;
 
@@ -103,8 +105,8 @@ internal partial class QueryableVisitor
                 Sql = sql,
                 OnClause = SQLiteExpression.Variadic(typeof(bool), -1, "", onParts, " AND ", "", sqlParameters),
                 IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin),
-                GroupMemberName = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
-                    ? GetGroupMemberName(resultSelector)
+                GroupMemberPath = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
+                    ? GetGroupMemberPath(resultSelector)
                     : null
             });
         }
@@ -133,13 +135,33 @@ internal partial class QueryableVisitor
                 Sql = sql,
                 OnClause = SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, " = ", innerAlias, "", parameters),
                 IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin),
-                GroupMemberName = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
-                    ? GetGroupMemberName(resultSelector)
+                GroupMemberPath = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
+                    ? GetGroupMemberPath(resultSelector)
                     : null
             });
         }
 
         return sql;
+    }
+
+    private void MarkGroupsDroppedByProjection(LambdaExpression resultSelector)
+    {
+        List<JoinInfo> openGroups = Joins.Where(f => f is { IsGroupJoin: true, GroupFlattened: false, GroupDropped: false }).ToList();
+        if (openGroups.Count == 0)
+        {
+            return;
+        }
+
+        CarriedPathCollector collector = new(resultSelector.Parameters[0]);
+        collector.Visit(resultSelector.Body);
+
+        foreach (JoinInfo group in openGroups)
+        {
+            if (group.GroupMemberPath is { } path && !collector.Carries(path))
+            {
+                group.GroupDropped = true;
+            }
+        }
     }
 
     private static Dictionary<string, Expression> DecomposeJoinProjectionColumns(NewExpression newExpression)
@@ -154,32 +176,50 @@ internal partial class QueryableVisitor
         return columns;
     }
 
-    private static string? GetGroupMemberName(LambdaExpression resultSelector)
+    private static string? GetGroupMemberPath(LambdaExpression resultSelector)
     {
-        ParameterExpression group = resultSelector.Parameters[1];
-        if (resultSelector.Body is NewExpression newExpression && newExpression.Members != null)
+        return FindGroupPath(resultSelector.Body, resultSelector.Parameters[1], string.Empty);
+    }
+
+    private static string? FindGroupPath(Expression body, ParameterExpression group, string prefix)
+    {
+        if (body == group)
+        {
+            return prefix.Length == 0 ? null : prefix;
+        }
+
+        if (body is NewExpression newExpression && newExpression.Members != null)
         {
             for (int i = 0; i < newExpression.Arguments.Count; i++)
             {
-                if (newExpression.Arguments[i] == group)
+                string path = Combine(prefix, newExpression.Members[i].Name);
+                if (FindGroupPath(newExpression.Arguments[i], group, path) is { } found)
                 {
-                    return newExpression.Members[i].Name;
+                    return found;
                 }
             }
         }
 
-        if (resultSelector.Body is MemberInitExpression memberInit)
+        if (body is MemberInitExpression memberInit)
         {
             foreach (MemberAssignment assignment in memberInit.Bindings.OfType<MemberAssignment>())
             {
-                if (assignment.Expression == group)
+                string path = Combine(prefix, assignment.Member.Name);
+                if (FindGroupPath(assignment.Expression, group, path) is { } found)
                 {
-                    return assignment.Member.Name;
+                    return found;
                 }
             }
+
+            return FindGroupPath(memberInit.NewExpression, group, prefix);
         }
 
         return null;
+    }
+
+    private static string Combine(string prefix, string name)
+    {
+        return prefix.Length == 0 ? name : prefix + "." + name;
     }
 
     private static string CompositeJoinKeyOperator(Type outerType, Type innerType)

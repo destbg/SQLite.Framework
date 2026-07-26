@@ -247,10 +247,10 @@ public static class SelectMaterializerEmitter
     }
 
     /// <summary>
-    /// Tells whether a member access reads a static field or property that the generated
-    /// code cannot reference directly and must read as a captured value instead.
+    /// Tells whether a member access reads a static field or property. The runtime treats every
+    /// such read as a captured value, so the generated code must read it from the same slot.
     /// </summary>
-    public static bool IsInaccessibleStaticCapture(MemberAccessExpressionSyntax access, EmitContext ctx)
+    public static bool IsStaticCapture(MemberAccessExpressionSyntax access, EmitContext ctx)
     {
         if (access.Kind() != SyntaxKind.SimpleMemberAccessExpression)
         {
@@ -268,12 +268,7 @@ public static class SelectMaterializerEmitter
             return false;
         }
 
-        if (ctx.Model.GetSymbolInfo(access.Expression).Symbol is not ITypeSymbol)
-        {
-            return false;
-        }
-
-        return !IsSymbolAccessibleFromGenerator(symbol, ctx.GeneratorAssembly);
+        return ctx.Model.GetSymbolInfo(access.Expression).Symbol is ITypeSymbol;
     }
 
     /// <summary>
@@ -517,15 +512,28 @@ public static class SelectMaterializerEmitter
             return null;
         }
 
-        string elementTypeText = FormatType(arrayType.ElementType, ctx.WriterCtx.TypeArgSubstitutions);
-        List<string> sizes = [];
+        ITypeSymbol innermost = arrayType;
+        for (int rankIndex = 0; rankIndex < arrayTypeSyntax.RankSpecifiers.Count; rankIndex++)
+        {
+            if (innermost is not IArrayTypeSymbol nested)
+            {
+                return null;
+            }
+
+            innermost = nested.ElementType;
+        }
+
+        StringBuilder text = new();
+        text.Append("new ").Append(FormatType(innermost, ctx.WriterCtx.TypeArgSubstitutions));
         foreach (ArrayRankSpecifierSyntax rank in arrayTypeSyntax.RankSpecifiers)
         {
+            List<string> sizes = [];
             foreach (ExpressionSyntax size in rank.Sizes)
             {
                 if (size is OmittedArraySizeExpressionSyntax)
                 {
-                    return null;
+                    sizes.Add(string.Empty);
+                    continue;
                 }
 
                 if (ctx.Model.GetConstantValue(size).HasValue)
@@ -544,9 +552,11 @@ public static class SelectMaterializerEmitter
                 ctx.Leaves.Add(new LeafInfo(size, sizeType, varName));
                 sizes.Add("(int)(" + varName + ")");
             }
+
+            text.Append('[').Append(string.Join(", ", sizes)).Append(']');
         }
 
-        return "new " + elementTypeText + "[" + string.Join(", ", sizes) + "]";
+        return text.ToString();
     }
 
     private static string? CollectArrayLeaves(ExpressionSyntax body, EmitContext ctx)
@@ -917,6 +927,22 @@ public static class SelectMaterializerEmitter
         return true;
     }
 
+    private static bool TryRegisterScalarRowLeaf(IdentifierNameSyntax ident, EmitContext ctx)
+    {
+        ITypeSymbol? leafType = ctx.Model.GetTypeInfo(ident).Type;
+        if (leafType == null
+            || !EntityMaterializerEmitter.IsSupportedPropertyType(leafType)
+            || !IsTypeAccessibleFromGenerator(leafType, ctx.GeneratorAssembly))
+        {
+            return false;
+        }
+
+        int idx = ctx.Leaves.Count;
+        ctx.Leaves.Add(new LeafInfo(ident, leafType, "__leaf_" + idx));
+        ctx.LeafIndexBySyntax[ident] = idx;
+        return true;
+    }
+
     private static bool CollectLeaves(SyntaxNode node, EmitContext ctx)
     {
         if (node is IdentifierNameSyntax substIdent
@@ -1076,7 +1102,7 @@ public static class SelectMaterializerEmitter
                     return true;
                 }
 
-                if (IsInaccessibleStaticCapture(access, ctx))
+                if (IsStaticCapture(access, ctx))
                 {
                     return true;
                 }
@@ -1124,7 +1150,13 @@ public static class SelectMaterializerEmitter
                     {
                         return RegisterRowExpansion(ident, ctx);
                     }
-                    return !ctx.WriterCtx.RowBindings.ContainsKey(sym);
+
+                    if (ctx.WriterCtx.RowBindings.ContainsKey(sym))
+                    {
+                        return TryRegisterScalarRowLeaf(ident, ctx);
+                    }
+
+                    return true;
                 }
 
                 if (sym is ITypeSymbol
@@ -1298,6 +1330,20 @@ public static class SelectMaterializerEmitter
             propLeaves.Add(leaf);
         }
 
+        if (!rowType.InstanceConstructors.Any(c => c.Parameters.Length == 0
+                && c.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal))
+        {
+            IMethodSymbol? widest = rowType.InstanceConstructors
+                .Where(c => c.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal)
+                .OrderByDescending(c => c.Parameters.Length)
+                .FirstOrDefault();
+            if (widest == null
+                || widest.Parameters.Any(p => !props.Any(r => string.Equals(r.Name, p.Name, StringComparison.OrdinalIgnoreCase))))
+            {
+                return false;
+            }
+        }
+
         ctx.RowExpansions[rowExpr] = new RowExpansion(rowType, props, propLeaves);
         return true;
     }
@@ -1335,6 +1381,11 @@ public static class SelectMaterializerEmitter
             if (writerCtx.RowBindings.ContainsKey(sym)
                 || writerCtx.ParameterSubstitutions.ContainsKey(sym)
                 || writerCtx.NullableRangeVars.Contains(sym))
+            {
+                continue;
+            }
+
+            if (sym is IParameterSymbol parameter && SelectSignatureWriter.IsEnclosingMethodParameter(parameter, writerCtx))
             {
                 continue;
             }

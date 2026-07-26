@@ -178,7 +178,14 @@ internal static class EnumMemberVisitor
                 parts.Add($"CAST({vsql} AS INTEGER)");
                 string body = $"({string.Join(" | ", parts)})";
 
-                return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), body, tokenParameters.ToArray());
+                SQLiteExpression number = SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), body, tokenParameters.ToArray());
+                if (visitor.Database.Options.EnumStorage != EnumStorageMode.Text)
+                {
+                    return number;
+                }
+
+                SQLiteExpression name = BuildEnumToNameText(visitor, enumType, number);
+                return SQLiteExpression.Alias(node.Method.ReturnType, visitor.Counters.NextIdentifier(), name, name.Parameters);
             });
         }
 
@@ -211,6 +218,13 @@ internal static class EnumMemberVisitor
             caseSb.Append(numericValue);
             caseSb.Append(" THEN ");
             caseSb.Append(nameParam.Name);
+        }
+
+        if (enumValuesArray.Length == 0)
+        {
+            return isUlongBacked
+                ? SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "printf('%llu', ", objExpr, ")", objExpr.Parameters)
+                : SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "CAST(", objExpr, " AS TEXT)", objExpr.Parameters);
         }
 
         string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
@@ -270,6 +284,11 @@ internal static class EnumMemberVisitor
             caseSb.Append(" WHEN ").Append(nameParam.Name).Append(" THEN ").Append(numericValue);
         }
 
+        if (enumNames.Length == 0)
+        {
+            return SQLiteExpression.Wrap(targetType, visitor.Counters.NextIdentifier(), "CAST(", objExpr, " AS INTEGER)", objExpr.Parameters);
+        }
+
         return CommonHelpers.EvaluateOnce(visitor.Counters, targetType, [objExpr], v =>
         {
             string vsql = v[0].ToString();
@@ -316,6 +335,11 @@ internal static class EnumMemberVisitor
         }
 
         flagParts.Add($"CAST({vsql} AS INTEGER)");
+        if (enumNames.Length == 0)
+        {
+            return SQLiteExpression.Wrap(targetType, visitor.Counters.NextIdentifier(), "CAST(", objExpr, " AS INTEGER)", objExpr.Parameters);
+        }
+
         string elseArm = caseSb.ToString() + " ELSE (" + string.Join(" | ", flagParts) + ") END)";
         return SQLiteExpression.Wrap(targetType, visitor.Counters.NextIdentifier(), "(CASE ", objExpr, elseArm, parameters.ToArray());
     }

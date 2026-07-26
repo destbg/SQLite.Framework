@@ -109,9 +109,9 @@ public class TableMapping
 
     /// <summary>
     /// Set once the live schema has been checked for FTS sync triggers on this table.
-    /// Later writes skip the check and use the recorded result.
+    /// Later writes reuse the recorded result until the schema changes.
     /// </summary>
-    public bool FtsSyncTriggersProbed { get; internal set; }
+    public bool FtsSyncTriggersProbed => FtsSyncTriggersProbedVersion != null;
 
     /// <summary>
     /// R-Tree metadata for this table when the class is decorated with
@@ -163,6 +163,13 @@ public class TableMapping
     /// written by <see cref="SQLiteTable{T}" /> after the model is frozen.
     /// </summary>
     internal TableWriteCache? SingleWriteCache { get; set; }
+
+    /// <summary>
+    /// The <c>PRAGMA schema_version</c> value that was current when the live schema was last
+    /// checked for FTS sync triggers on this table, or <see langword="null" /> when it has never
+    /// been checked. The check runs again once the schema changes.
+    /// </summary>
+    internal int? FtsSyncTriggersProbedVersion { get; set; }
 
     internal void AddCompositeForeignKey(ForeignKeyInfo info)
     {

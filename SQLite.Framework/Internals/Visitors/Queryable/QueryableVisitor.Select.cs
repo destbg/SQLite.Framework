@@ -241,11 +241,29 @@ internal partial class QueryableVisitor
             chainRoot = chainCall.Arguments[0];
         }
 
-        JoinInfo? groupJoin = chainRoot is MemberExpression chainMember && chainRoot.Type.IsGenericType
-            ? Joins.FirstOrDefault(f => f.EntityType == chainRoot.Type.GetGenericArguments()[^1]
-                && f.IsGroupJoin
-                && f.GroupMemberName == chainMember.Member.Name)
+        string? chainPath = chainRoot is MemberExpression chainMember
+            ? ExpressionHelpers.ResolveNullableParameterPath(chainMember).Path
             : null;
+        JoinInfo? groupJoin = null;
+        if (chainPath is { Length: > 0 } && chainRoot.Type.IsGenericType)
+        {
+            Type groupElementType = chainRoot.Type.GetGenericArguments()[^1];
+            groupJoin = Joins.LastOrDefault(f => f.EntityType == groupElementType
+                && f.IsGroupJoin
+                && !f.GroupFlattened
+                && f.GroupMemberPath == chainPath);
+
+            if (groupJoin == null)
+            {
+                List<JoinInfo> openGroups = Joins
+                    .Where(f => f.EntityType == groupElementType && f.IsGroupJoin && !f.GroupFlattened)
+                    .ToList();
+                if (openGroups.Count == 1)
+                {
+                    groupJoin = openGroups[0];
+                }
+            }
+        }
 
         if (hasDefaultIfEmpty || groupJoin != null)
         {
@@ -272,21 +290,27 @@ internal partial class QueryableVisitor
 
             groupJoin.JoinType = hasDefaultIfEmpty ? "LEFT JOIN" : "JOIN";
             groupJoin.IsGroupJoin = false;
+            groupJoin.GroupFlattened = true;
 
             visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
 
             Dictionary<string, Expression> result = [];
 
+            string groupPrefix = chainPath! + ".";
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
-                if (tableColumn.Key.StartsWith(memberExpression.Member.Name + '.'))
+                if (tableColumn.Key.StartsWith(groupPrefix, StringComparison.Ordinal))
                 {
-                    string path = tableColumn.Key[(memberExpression.Member.Name.Length + 1)..];
-                    result.Add(path, tableColumn.Value);
+                    result.Add(tableColumn.Key[groupPrefix.Length..], tableColumn.Value);
                 }
             }
 
             visitor.MethodArguments[resultSelector.Parameters[1]] = result;
+
+            if (hasDefaultIfEmpty)
+            {
+                visitor.OptionalRowColumns.Add(result);
+            }
 
             foreach (LambdaExpression groupFilter in groupFilters)
             {
@@ -306,11 +330,12 @@ internal partial class QueryableVisitor
         }
         else
         {
-            if (chainRoot is MemberExpression reusedGroup
-                && Joins.Any(f => f.GroupMemberName == reusedGroup.Member.Name))
+            if (chainPath is { Length: > 0 }
+                && chainRoot.Type.IsGenericType
+                && Joins.Any(f => f.GroupFlattened && f.EntityType == chainRoot.Type.GetGenericArguments()[^1]))
             {
                 throw new NotSupportedException(
-                    $"GroupJoin group '{reusedGroup.Member.Name}' was already flattened into a join. " +
+                    $"GroupJoin group '{chainPath}' was already flattened into a join. " +
                     "A GroupJoin group can only be used once, in 'from x in <name>' or 'from x in <name>.DefaultIfEmpty()'.");
             }
 

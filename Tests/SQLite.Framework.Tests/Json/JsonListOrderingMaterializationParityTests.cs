@@ -98,7 +98,7 @@ public class JsonListOrderingMaterializationParityTests
         };
         db.Table<JlEdgePersonRow>().Add(new JlEdgePersonRow { Id = 1, People = seed });
 
-        List<string> expected = seed.OrderByDescending(p => p.Name).Select(p => p.Home.City).ToList();
+        List<string> expected = seed.OrderBy(p => p.Name).Reverse().Select(p => p.Home.City).ToList();
         List<Person> got = db.Table<JlEdgePersonRow>()
             .Select(r => r.People.OrderBy(p => p.Name).Reverse().ToList())
             .First();

@@ -8,6 +8,11 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class SchemaSqlNormalizer
 {
+    private static readonly HashSet<string> identifierKeywords = new(StringComparer.Ordinal)
+    {
+        "from", "on", "references", "collate", "table", "index", "view", "trigger", "into", "join", "using"
+    };
+
     public static bool AreEquivalent(string expectedSql, string? actualSql)
     {
         if (actualSql == null)
@@ -21,7 +26,8 @@ internal static class SchemaSqlNormalizer
     private static List<string> Tokenize(string sql)
     {
         List<string> tokens = [];
-        bool literalList = false;
+        int parenDepth = 0;
+        int indexListDepth = -1;
         int i = 0;
         while (i < sql.Length)
         {
@@ -41,9 +47,9 @@ internal static class SchemaSqlNormalizer
                 }
 
                 string body = sql[(i + 1)..close];
-                tokens.Add(IsLiteralContext(tokens, literalList)
-                    ? sql[i..(close + 1)]
-                    : body.Replace("''", "'", StringComparison.Ordinal).ToLowerInvariant());
+                tokens.Add(IsIdentifierPosition(tokens, parenDepth, indexListDepth)
+                    ? body.Replace("''", "'", StringComparison.Ordinal).ToLowerInvariant()
+                    : sql[i..(close + 1)]);
                 i = close + 1;
             }
             else if (c is '"' or '`')
@@ -84,13 +90,22 @@ internal static class SchemaSqlNormalizer
             }
             else
             {
-                if (c == '(' && tokens.Count > 0 && tokens[^1] is "values" or "in")
+                if (c == '(')
                 {
-                    literalList = true;
+                    parenDepth++;
+                    if (indexListDepth < 0 && tokens.Count >= 2 && tokens[^2] == "on")
+                    {
+                        indexListDepth = parenDepth;
+                    }
                 }
                 else if (c == ')')
                 {
-                    literalList = false;
+                    if (indexListDepth == parenDepth)
+                    {
+                        indexListDepth = -1;
+                    }
+
+                    parenDepth--;
                 }
 
                 tokens.Add(sql[i].ToString());
@@ -102,17 +117,19 @@ internal static class SchemaSqlNormalizer
         return tokens;
     }
 
-    private static bool IsLiteralContext(List<string> tokens, bool literalList)
+    private static bool IsIdentifierPosition(List<string> tokens, int parenDepth, int indexListDepth)
     {
-        if (literalList || tokens.Count == 0)
+        if (tokens.Count == 0)
         {
-            return literalList;
+            return true;
         }
 
-        return tokens[^1] is "=" or "<" or ">"
-            or "is" or "like" or "glob" or "regexp" or "match" or "between" or "default"
-            or "select" or "then" or "else" or "case" or "and" or "or" or "not" or "where" or "when"
-            or "+" or "-" or "*" or "/" or "%";
+        if (indexListDepth == parenDepth)
+        {
+            return true;
+        }
+
+        return identifierKeywords.Contains(tokens[^1]);
     }
 
     private static void RemoveExistsClause(List<string> tokens)

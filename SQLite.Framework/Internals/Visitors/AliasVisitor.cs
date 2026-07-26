@@ -11,6 +11,7 @@ internal class AliasVisitor
     private Dictionary<string, Expression> result;
     private Dictionary<string, string?> resultPrefixes;
     private HashSet<string> constructedPaths;
+    private bool carriesOptionalRow;
 
     public AliasVisitor(SQLiteDatabase database, SQLVisitor visitor)
     {
@@ -33,9 +34,14 @@ internal class AliasVisitor
         {
             visitor.ConstructedProjectionPaths[newResult] = constructedPaths;
         }
+        if (carriesOptionalRow)
+        {
+            visitor.OptionalRowColumns.Add(newResult);
+        }
         result = [];
         resultPrefixes = [];
         constructedPaths = [];
+        carriesOptionalRow = false;
         return newResult;
     }
 
@@ -358,6 +364,10 @@ internal class AliasVisitor
         }
 
         CarryConstructedPaths(prefix, tableColumns);
+        if (prefix.Length == 0 && visitor.OptionalRowColumns.Contains(tableColumns))
+        {
+            carriesOptionalRow = true;
+        }
     }
 
     private void VisitMethodCallExpression(MethodCallExpression methodCallExpression, string prefix)

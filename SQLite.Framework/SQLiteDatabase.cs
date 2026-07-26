@@ -10,7 +10,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private static readonly MethodInfo ExecuteGroupingQueryGeneric = typeof(SQLiteDatabase)
         .GetMethod(nameof(ExecuteGroupingQuery), BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-    private static readonly ConcurrentDictionary<Type, bool> OnConfiguringOverrides = new();
+    private static readonly ConcurrentDictionary<(Type Type, string Name), bool> MethodOverrides = new();
 
     // ReSharper disable once ChangeFieldTypeToSystemThreadingLock, it doesn't exist in .NET 8
     private readonly object connectionOpenLock = new();
@@ -337,76 +337,20 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         ObjectDisposedException.ThrowIf(disposed, this);
         lock (connectionOpenLock)
         {
-            if (IsConnected)
+            if (IsConnected || IsConnecting)
             {
                 return;
             }
 
             IsConnecting = true;
-
-            SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
-                Options.DatabasePath,
-                out sqlite3 handle,
-                (int)Options.OpenFlags,
-                null
-            );
-
-            if (result != SQLiteResult.OK)
+            try
+            {
+                OpenConnectionCore();
+            }
+            finally
             {
                 IsConnecting = false;
-                throw new SQLiteException(result, "Unable to open database", null);
             }
-
-            Handle = handle;
-
-            OnDatabaseConnecting();
-
-#if SQLITECIPHER
-            if (!string.IsNullOrEmpty(Options.EncryptionKey))
-            {
-                raw.sqlite3_prepare_v2(Handle, $"PRAGMA key = '{Options.EncryptionKey.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
-                raw.sqlite3_step(keyStmt);
-                raw.sqlite3_finalize(keyStmt);
-            }
-#endif
-
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-            if (Options.MinimumSqliteVersion != SQLiteMinimumVersion.Unspecified)
-            {
-                int loadedVersion = raw.sqlite3_libversion_number();
-                if (loadedVersion < (int)Options.MinimumSqliteVersion)
-                {
-                    raw.sqlite3_close(Handle);
-                    Handle = null;
-                    IsConnecting = false;
-                    throw new NotSupportedException(
-                        $"The loaded SQLite version {CommonHelpers.Format(loadedVersion)} " +
-                        $"is below the configured minimum {CommonHelpers.Format((int)Options.MinimumSqliteVersion)}. " +
-                        $"Use the SQLite.Framework.Bundled package to ship a known SQLite version, " +
-                        $"or lower the value passed to UseMinimumSqliteVersion (and retest your queries)."
-                    );
-                }
-            }
-#endif
-
-            IsConnected = true;
-            OnDatabaseConnected();
-
-            if (Options.IsWalMode)
-            {
-                raw.sqlite3_prepare_v2(Handle, "PRAGMA journal_mode = WAL", out sqlite3_stmt walStmt);
-                raw.sqlite3_step(walStmt);
-                raw.sqlite3_finalize(walStmt);
-            }
-
-            string fkPragma = Options.IsForeignKeysEnabled
-                ? "PRAGMA foreign_keys = ON"
-                : "PRAGMA foreign_keys = OFF";
-            raw.sqlite3_prepare_v2(Handle, fkPragma, out sqlite3_stmt fkStmt);
-            raw.sqlite3_step(fkStmt);
-            raw.sqlite3_finalize(fkStmt);
-
-            IsConnecting = false;
         }
     }
 
@@ -1003,6 +947,32 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return handle;
     }
 
+    internal async Task RunBackupAsync(SQLiteDatabase destination, string sourceName, string destName, CancellationToken ct)
+    {
+        if (IsBackupToOverridden(GetType()))
+        {
+            BackupTo(destination, sourceName, destName);
+            return;
+        }
+
+        sqlite3_backup handle = BeginBackup(destination, sourceName, destName);
+        SQLiteResult result;
+        try
+        {
+            while ((result = (SQLiteResult)raw.sqlite3_backup_step(handle, -1)) is SQLiteResult.Busy or SQLiteResult.Locked)
+            {
+                await Task.Delay(50, ct);
+            }
+        }
+        catch
+        {
+            raw.sqlite3_backup_finish(handle);
+            throw;
+        }
+
+        EndBackup(destination, handle, result);
+    }
+
     internal void EndBackup(SQLiteDatabase destination, sqlite3_backup handle, SQLiteResult result)
     {
         raw.sqlite3_backup_finish(handle);
@@ -1018,32 +988,28 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     internal sqlite3 GetActiveHandle()
     {
+        ObjectDisposedException.ThrowIf(disposed, this);
         return Handle!;
     }
 
     internal bool HasFtsSyncTriggersLive(TableMapping mapping)
     {
-        if (mapping.HasFtsSyncTriggers || mapping.FtsSyncTriggersProbed)
+        if (mapping.HasFtsSyncTriggers)
         {
-            return mapping.HasFtsSyncTriggers;
+            return true;
         }
 
-        mapping.FtsSyncTriggersProbed = true;
         OpenConnection();
-        string escaped = mapping.TableName.Replace("'", "''");
-        string sql = $"SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{escaped}' AND name LIKE '%\\_sync\\_ad' ESCAPE '\\'";
-        sqlite3_stmt statement = RentStatement(sql)!;
-        try
+        int schemaVersion = ReadScalar("PRAGMA schema_version");
+        if (mapping.FtsSyncTriggersProbedVersion == schemaVersion)
         {
-            raw.sqlite3_step(statement);
-            if (raw.sqlite3_column_int64(statement, 0) > 0)
-            {
-                mapping.HasFtsSyncTriggers = true;
-            }
+            return false;
         }
-        finally
+
+        mapping.FtsSyncTriggersProbedVersion = schemaVersion;
+        if (ReadScalar(Schema.BuildFtsSyncTriggerProbeSql(mapping.TableName)) > 0)
         {
-            ReturnStatement(sql, statement);
+            mapping.HasFtsSyncTriggers = true;
         }
 
         return mapping.HasFtsSyncTriggers;
@@ -1203,6 +1169,13 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         {
             toSignal.TrySetResult();
         }
+    }
+
+    internal void ForceSavepointRollback(string savepointName)
+    {
+        sqlite3 handle = GetActiveHandle();
+        raw.sqlite3_exec(handle, $"ROLLBACK TO {savepointName}");
+        raw.sqlite3_exec(handle, $"RELEASE {savepointName}");
     }
 
     internal Task WaitForActiveTransactionsAsync(CancellationToken cancellationToken = default)
@@ -1394,6 +1367,83 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         throw new NotSupportedException("Only generic queries are supported.");
     }
 
+    private void OpenConnectionCore()
+    {
+        SQLiteResult result = (SQLiteResult)raw.sqlite3_open_v2(
+            Options.DatabasePath,
+            out sqlite3 handle,
+            (int)Options.OpenFlags,
+            null
+        );
+
+        if (result != SQLiteResult.OK)
+        {
+            throw new SQLiteException(result, "Unable to open database", null);
+        }
+
+        Handle = handle;
+
+        OnDatabaseConnecting();
+
+#if SQLITECIPHER
+        if (!string.IsNullOrEmpty(Options.EncryptionKey))
+        {
+            raw.sqlite3_prepare_v2(Handle, $"PRAGMA key = '{Options.EncryptionKey.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
+            raw.sqlite3_step(keyStmt);
+            raw.sqlite3_finalize(keyStmt);
+        }
+#endif
+
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+        if (Options.MinimumSqliteVersion != SQLiteMinimumVersion.Unspecified)
+        {
+            int loadedVersion = raw.sqlite3_libversion_number();
+            if (loadedVersion < (int)Options.MinimumSqliteVersion)
+            {
+                raw.sqlite3_close(Handle);
+                Handle = null;
+                throw new NotSupportedException(
+                    $"The loaded SQLite version {CommonHelpers.Format(loadedVersion)} " +
+                    $"is below the configured minimum {CommonHelpers.Format((int)Options.MinimumSqliteVersion)}. " +
+                    $"Use the SQLite.Framework.Bundled package to ship a known SQLite version, " +
+                    $"or lower the value passed to UseMinimumSqliteVersion (and retest your queries)."
+                );
+            }
+        }
+#endif
+
+        IsConnected = true;
+        OnDatabaseConnected();
+
+        if (Options.IsWalMode)
+        {
+            raw.sqlite3_prepare_v2(Handle, "PRAGMA journal_mode = WAL", out sqlite3_stmt walStmt);
+            raw.sqlite3_step(walStmt);
+            raw.sqlite3_finalize(walStmt);
+        }
+
+        string fkPragma = Options.IsForeignKeysEnabled
+            ? "PRAGMA foreign_keys = ON"
+            : "PRAGMA foreign_keys = OFF";
+        raw.sqlite3_prepare_v2(Handle, fkPragma, out sqlite3_stmt fkStmt);
+        raw.sqlite3_step(fkStmt);
+        raw.sqlite3_finalize(fkStmt);
+    }
+
+    private int ReadScalar(string sql)
+    {
+        sqlite3_stmt statement = RentStatement(sql)!;
+        try
+        {
+            raw.sqlite3_step(statement);
+            return raw.sqlite3_column_int(statement, 0);
+        }
+        finally
+        {
+            ReturnStatement(sql, statement);
+        }
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
     private void MarkFtsContentSource(TableMapping mapping)
     {
@@ -1579,15 +1629,10 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     private bool IsSameDatabaseFile(SQLiteDatabase destination)
     {
-        if (Options.DatabasePath == ":memory:" || destination.Options.DatabasePath == ":memory:")
-        {
-            return false;
-        }
-
-        return string.Equals(
-            Path.GetFullPath(Options.DatabasePath),
-            Path.GetFullPath(destination.Options.DatabasePath),
-            StringComparison.OrdinalIgnoreCase);
+        return DatabaseFilePath.IsSame(
+            Options.DatabasePath,
+            destination.Options.DatabasePath,
+            OperatingSystem.IsWindows());
     }
 
     private static TResult CoerceScalar<TResult>(object? raw)
@@ -1604,26 +1649,32 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     private static bool IsOnConfiguringOverridden(Type type)
     {
-        if (OnConfiguringOverrides.TryGetValue(type, out bool overridden))
+        return IsMethodOverridden(type, nameof(OnConfiguring), BindingFlags.Instance | BindingFlags.NonPublic, [typeof(SQLiteOptionsBuilder)]);
+    }
+
+    private static bool IsBackupToOverridden(Type type)
+    {
+        return IsMethodOverridden(type, nameof(BackupTo), BindingFlags.Instance | BindingFlags.Public, [typeof(SQLiteDatabase), typeof(string), typeof(string)]);
+    }
+
+    private static bool IsMethodOverridden(Type type, string name, BindingFlags flags, Type[] parameterTypes)
+    {
+        (Type Type, string Name) key = (type, name);
+        if (MethodOverrides.TryGetValue(key, out bool overridden))
         {
             return overridden;
         }
 
-        overridden = ComputeOnConfiguringOverridden(type);
-        OnConfiguringOverrides[type] = overridden;
+        overridden = ComputeMethodOverridden(type, name, flags, parameterTypes);
+        MethodOverrides[key] = overridden;
         return overridden;
     }
 
     [ExcludeFromCodeCoverage(Justification = "The null branch only occurs when NativeAOT trims reflection metadata. It is covered by the SQLite.Framework.Tests.AotMigrate native test run.")]
-    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "When NativeAOT trims the non-public metadata, GetMethod returns null and the method is treated as overridden, which is safe.")]
-    private static bool ComputeOnConfiguringOverridden(Type type)
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "When NativeAOT trims the metadata, GetMethod returns null and the method is treated as overridden, which is safe.")]
+    private static bool ComputeMethodOverridden(Type type, string name, BindingFlags flags, Type[] parameterTypes)
     {
-        MethodInfo? method = type.GetMethod(
-            nameof(OnConfiguring),
-            BindingFlags.Instance | BindingFlags.NonPublic,
-            null,
-            [typeof(SQLiteOptionsBuilder)],
-            null);
+        MethodInfo? method = type.GetMethod(name, flags, null, parameterTypes, null);
         return method is null || method.DeclaringType != typeof(SQLiteDatabase);
     }
 
@@ -1681,6 +1732,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                     Value = pair.Value is SQLiteParameter nested ? nested.Value : pair.Value
                 })
                 .ToList(),
+            IDictionary dictionary => ToDictionaryParameterList(dictionary),
             _ => parameters.GetType()
                 .GetProperties()
                 .Where(p => p.GetIndexParameters().Length == 0)
@@ -1691,5 +1743,27 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
                 })
                 .ToList()
         };
+    }
+
+    private static List<SQLiteParameter> ToDictionaryParameterList(IDictionary parameters)
+    {
+        List<SQLiteParameter> list = new(parameters.Count);
+        foreach (DictionaryEntry entry in parameters)
+        {
+            if (entry.Key is not string name)
+            {
+                throw new ArgumentException(
+                    $"Parameter dictionary keys must be strings, but one key is of type '{entry.Key.GetType().Name}'.",
+                    nameof(parameters));
+            }
+
+            list.Add(new SQLiteParameter
+            {
+                Name = name,
+                Value = entry.Value is SQLiteParameter nested ? nested.Value : entry.Value
+            });
+        }
+
+        return list;
     }
 }

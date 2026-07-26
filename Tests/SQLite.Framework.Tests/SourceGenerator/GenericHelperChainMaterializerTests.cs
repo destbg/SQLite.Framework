@@ -34,6 +34,10 @@ public class H21kChainView : H21kChainViewBase
 {
 }
 
+public class H21kDeepChainView : H21kChainViewBase
+{
+}
+
 public class H21kStoreBase<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>
 {
     private readonly TestDatabase database;
@@ -104,6 +108,29 @@ public class GenericHelperChainMaterializerTests
         return query.Select(r => new TResult { Id = r.Id, Label = r.Name }).ToList();
     }
 
+    private static List<H21kDeepChainView> ProjectAllDeep(TestDatabase db)
+    {
+        return ProjectOuter<H21kDeepChainView>(db.Table<H21kChainRow>());
+    }
+
+    private static List<TResult> ProjectMiddle<TResult>(IQueryable<H21kChainRow> query)
+        where TResult : H21kChainViewBase, new()
+    {
+        return ProjectDeepCore<TResult>(query);
+    }
+
+    private static List<TResult> ProjectOuter<TResult>(IQueryable<H21kChainRow> query)
+        where TResult : H21kChainViewBase, new()
+    {
+        return ProjectMiddle<TResult>(query);
+    }
+
+    private static List<TResult> ProjectDeepCore<TResult>(IQueryable<H21kChainRow> query)
+        where TResult : H21kChainViewBase, new()
+    {
+        return query.Select(r => new TResult { Id = r.Id, Label = r.Name + "!" }).ToList();
+    }
+
     [Fact]
     public void EntityReachedThroughGenericBaseStoreMatchesLinq()
     {
@@ -138,6 +165,26 @@ public class GenericHelperChainMaterializerTests
             .ToList();
 
         List<(int Id, string Label)> actual = ProjectAll(db)
+            .OrderBy(v => v.Id)
+            .Select(v => (v.Id, v.Label))
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ProjectionThroughTwoForwardedGenericHelpersMatchesLinq()
+    {
+        using TestDatabase db = new();
+        db.Table<H21kChainRow>().Schema.CreateTable();
+        db.Table<H21kChainRow>().AddRange(ChainRows());
+
+        List<(int Id, string Label)> expected = ChainRows()
+            .OrderBy(r => r.Id)
+            .Select(r => (r.Id, Label: r.Name + "!"))
+            .ToList();
+
+        List<(int Id, string Label)> actual = ProjectAllDeep(db)
             .OrderBy(v => v.Id)
             .Select(v => (v.Id, v.Label))
             .ToList();

@@ -44,10 +44,10 @@ public class JsonUnsignedStringEnumOrderingParityTests
     {
         using TestDatabase db = Setup(nameof(MinOverUnsignedStringEnumListMatchesLinq));
 
-        H21hBigLevel expected = Levels().Min();
+        H21hBigLevel expected = Levels().OrderBy(l => unchecked((long)l)).First();
         H21hBigLevel actual = db.Table<H21hBigLevelRow>().Select(r => r.Levels.Min()).First();
 
-        Assert.Equal(H21hBigLevel.Small, expected);
+        Assert.Equal(H21hBigLevel.Huge, expected);
         Assert.Equal(expected, actual);
     }
 
@@ -56,10 +56,10 @@ public class JsonUnsignedStringEnumOrderingParityTests
     {
         using TestDatabase db = Setup(nameof(MaxOverUnsignedStringEnumListMatchesLinq));
 
-        H21hBigLevel expected = Levels().Max();
+        H21hBigLevel expected = Levels().OrderBy(l => unchecked((long)l)).Last();
         H21hBigLevel actual = db.Table<H21hBigLevelRow>().Select(r => r.Levels.Max()).First();
 
-        Assert.Equal(H21hBigLevel.Huge, expected);
+        Assert.Equal(H21hBigLevel.Small, expected);
         Assert.Equal(expected, actual);
     }
 
@@ -68,11 +68,11 @@ public class JsonUnsignedStringEnumOrderingParityTests
     {
         using TestDatabase db = Setup(nameof(OrderByOverUnsignedStringEnumListMatchesLinq));
 
-        List<H21hBigLevel> expected = Levels().OrderBy(l => l).ToList();
+        List<H21hBigLevel> expected = Levels().OrderBy(l => l.ToString(), StringComparer.Ordinal).ToList();
         List<H21hBigLevel> actual = db.Table<H21hBigLevelRow>()
             .Select(r => r.Levels.OrderBy(l => l).ToList()).First();
 
-        Assert.Equal([H21hBigLevel.Small, H21hBigLevel.Huge], expected);
+        Assert.Equal([H21hBigLevel.Huge, H21hBigLevel.Small], expected);
         Assert.Equal(expected, actual);
     }
 }

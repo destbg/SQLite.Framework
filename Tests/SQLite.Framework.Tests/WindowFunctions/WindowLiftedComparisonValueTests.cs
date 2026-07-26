@@ -201,6 +201,6 @@ public class WindowLiftedComparisonValueTests
             })
             .ToList());
 
-        Assert.Equal("The value argument of FirstValue cannot be translated to SQL. Use a column or a translatable expression.", ex.Message);
+        Assert.Equal("The value argument of FirstValue cannot be translated to SQL.", ex.Message);
     }
 }

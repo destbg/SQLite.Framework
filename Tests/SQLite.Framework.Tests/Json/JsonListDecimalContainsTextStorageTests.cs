@@ -57,7 +57,7 @@ public class JsonListDecimalContainsTextStorageTests
     }
 
     [Fact]
-    public void CountWithPredicateComparesStorageForm()
+    public void CountWithPredicateMatchesDotNet()
     {
         using TestDatabase db = Seed();
 
@@ -66,6 +66,6 @@ public class JsonListDecimalContainsTextStorageTests
         Assert.Equal(1, inMemory);
 
         int actual = db.Table<DecimalListRow>().Select(r => r.Values.Count(v => v > 15m)).First();
-        Assert.Equal(0, actual);
+        Assert.Equal(inMemory, actual);
     }
 }

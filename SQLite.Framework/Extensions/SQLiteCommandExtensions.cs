@@ -32,6 +32,11 @@ public static class SQLiteCommandExtensions
     internal static IEnumerable<T> ExecuteQueryInternal<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this SQLiteCommand command, SQLQuery query)
     {
         IEnumerable<T> enumerable = Enumerate(command, query);
+        if (query.ClientDistinct)
+        {
+            enumerable = enumerable.Distinct();
+        }
+
         return query.Reverse ? enumerable.Reverse() : enumerable;
 
         static IEnumerable<T> Enumerate(SQLiteCommand command, SQLQuery query)
@@ -57,6 +62,11 @@ public static class SQLiteCommandExtensions
     internal static IEnumerable ExecuteQueryUntypedInternal(this SQLiteCommand command, SQLQuery query, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType)
     {
         IEnumerable<object?> enumerable = Enumerate(command, query, elementType);
+        if (query.ClientDistinct)
+        {
+            enumerable = enumerable.Distinct();
+        }
+
         return query.Reverse ? enumerable.Reverse() : enumerable;
 
         static IEnumerable<object?> Enumerate(SQLiteCommand command, SQLQuery query, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicConstructors)] Type elementType)

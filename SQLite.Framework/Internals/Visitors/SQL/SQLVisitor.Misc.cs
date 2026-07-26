@@ -2,6 +2,59 @@ namespace SQLite.Framework.Internals.Visitors.SQL;
 
 internal partial class SQLVisitor
 {
+    public RecursiveCteBody TranslateRecursiveCteBody(Type elementType, string placeholder, ParameterExpression selfParam, Expression cteBody)
+    {
+        bool scalarElement = TypeHelpers.IsSimple(elementType, Database.Options);
+        CteSelfReference reference = new()
+        {
+            Placeholder = placeholder,
+            ElementType = elementType,
+            Columns = CteColumnMapper.BuildColumns(elementType, placeholder, Database.Options, Counters)
+        };
+
+        for (int pass = 0; ; pass++)
+        {
+            CteParameters[selfParam] = reference;
+            MethodArguments[selfParam] = reference.Columns;
+
+            SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
+            SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
+
+            bool hasClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns);
+            string[]? columnNames = CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
+                ?? (hasClientMember
+                    ? CteColumnMapper.BodyColumnNamesWithPlaceholders(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects)
+                    : CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects));
+            HashSet<string>? dayOfWeekColumns = CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, scalarElement);
+
+            if (pass > 0 || (dayOfWeekColumns == null && !hasClientMember))
+            {
+                return new RecursiveCteBody
+                {
+                    Translator = bodyTranslator,
+                    Query = bodyQuery,
+                    ColumnNames = columnNames,
+                    DayOfWeekColumns = dayOfWeekColumns,
+                    HasClientMember = hasClientMember
+                };
+            }
+
+            Dictionary<string, Expression>? bodyColumns = hasClientMember ? bodyTranslator.Visitor.TableColumns : null;
+            reference = new CteSelfReference
+            {
+                Placeholder = placeholder,
+                ElementType = elementType,
+                Columns = CteColumnMapper.BuildColumns(elementType, placeholder, Database.Options, Counters),
+                ColumnNames = columnNames,
+                DayOfWeekColumns = dayOfWeekColumns,
+                ConstructedPaths = CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
+                BodyColumns = bodyColumns,
+                BodySelects = bodyColumns != null ? bodyTranslator.Selects : null
+            };
+            CteColumnMapper.ApplyDayOfWeekColumns(reference.Columns, dayOfWeekColumns);
+        }
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "All types have public properties.")]
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "The type is an entity.")]
     protected override Expression VisitConstant(ConstantExpression node)
@@ -74,17 +127,13 @@ internal partial class SQLVisitor
 
     protected override Expression VisitParameter(ParameterExpression node)
     {
-        if (CteParameters.TryGetValue(node, out (string Alias, Dictionary<string, Expression> Columns) cteRef))
+        if (CteParameters.TryGetValue(node, out CteSelfReference? cteRef))
         {
-            char aliasChar = cteRef.Alias[0];
+            char aliasChar = cteRef.Placeholder[0];
             string alias = $"{aliasChar}{Counters.NextTableIndex(aliasChar)}";
 
-            From = SQLiteExpression.Leaf(node.Type, -1, $"{cteRef.Alias} AS {alias}");
-            TableColumns = cteRef.Columns
-                .ToDictionary(kv => kv.Key, Expression (kv) => SQLiteExpression.Leaf(
-                    ((SQLiteExpression)kv.Value).Type,
-                    Counters.NextIdentifier(),
-                    $"{alias}.{IdentifierGuard.Quote(kv.Key.Length == 0 ? Constants.CteScalarColumn : kv.Key)}"));
+            From = SQLiteExpression.Leaf(node.Type, -1, $"{cteRef.Placeholder} AS {alias}");
+            TableColumns = CteColumnMapper.BuildSelfColumns(cteRef, alias, Database.Options, Counters, this);
 
             return SQLiteExpression.Alias(node.Type, -1, From, null);
         }
@@ -142,7 +191,9 @@ internal partial class SQLVisitor
 
         if (resolved.IsConstant)
         {
-            return resolved.SQLiteExpression!;
+            return ExpressionHelpers.IsEvaluableUnary(node)
+                ? ResolveExpression(node).SQLiteExpression!
+                : resolved.SQLiteExpression!;
         }
 
         if (node.NodeType == ExpressionType.ArrayLength
@@ -214,7 +265,7 @@ internal partial class SQLVisitor
                 string charSqliteType = TypeHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
                 return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CAST(", charCode, $" AS {charSqliteType})", charCode.Parameters);
             }
-            else if (resolved.SQLiteExpression.Type.IsEnum && Database.Options.EnumStorage == EnumStorageMode.Text)
+            else if (resolved.SQLiteExpression.Type.IsEnum && IsTextStoredEnum(resolved.SQLiteExpression))
             {
                 Type enumUnderlying = Enum.GetUnderlyingType(resolved.SQLiteExpression.Type);
                 if (resolved.SQLiteExpression.IsDayOfWeekInteger
@@ -226,7 +277,7 @@ internal partial class SQLVisitor
 
                 SQLiteExpression numberExpr = resolved.SQLiteExpression.IsDayOfWeekInteger
                     ? resolved.SQLiteExpression
-                    : EnumMemberVisitor.BuildTextStorageEnumToNumber(this, enumUnderlying, resolved.SQLiteExpression.Type, resolved.SQLiteExpression);
+                    : EnumMemberVisitor.BuildTextStorageEnumToNumber(this, enumUnderlying, resolved.SQLiteExpression.Type, resolved.SQLiteExpression, SubqueryFreeSql);
 
                 if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == enumUnderlying)
                 {
@@ -236,6 +287,15 @@ internal partial class SQLVisitor
                 if (TryGetNarrowingIntegerWrap(enumUnderlying, node.Type, out string? enumWrapBefore, out string? enumWrapAfter))
                 {
                     return SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), enumWrapBefore!, numberExpr, enumWrapAfter!, numberExpr.Parameters);
+                }
+
+                if (IsUlongSource(enumUnderlying) && IsRealTarget(node.Type))
+                {
+                    return CommonHelpers.EvaluateOnce(Counters, node.Type, [numberExpr], v =>
+                        SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+                            ["(CAST(", " AS REAL) + (CASE WHEN ", $" < 0 THEN {Constants.UInt64ToRealOffset} ELSE 0 END))"],
+                            [v[0], v[0]],
+                            null));
                 }
 
                 string enumSqliteType = TypeHelpers.TypeToSQLiteType(node.Type, Database.Options).ToString().ToUpper();
@@ -334,30 +394,21 @@ internal partial class SQLVisitor
 
             string placeholder = $"{aliasChar}__cte_self_{CteRegistry.Ctes.Count}__";
 
-            Dictionary<string, Expression> selfColumns = CteColumnMapper.BuildColumns(elementType, placeholder, Database.Options, Counters);
-
-            CteParameters[selfParam] = (placeholder, selfColumns);
-            MethodArguments[selfParam] = selfColumns;
-
-            SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
-            SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
+            RecursiveCteBody recursive = TranslateRecursiveCteBody(elementType, placeholder, selfParam, cteBody);
 
             string finalName = $"cte{CteRegistry.Ctes.Count}";
-            string fixedSql = bodyQuery.Sql.Replace(placeholder, finalName);
+            string fixedSql = recursive.Query.Sql.Replace(placeholder, finalName);
 
-            string[]? recursiveColumnNames = CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
-                ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
-            bool hasRecursiveClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns);
             cteName = CteRegistry.Register(
                 fixedSql,
-                bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters],
+                recursive.Query.Parameters.Count == 0 ? null : [.. recursive.Query.Parameters],
                 isRecursive: true,
                 key: cte,
-                columnNames: recursiveColumnNames,
-                dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(elementType, Database.Options)),
-                constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
-                bodyColumns: hasRecursiveClientMember ? bodyTranslator.Visitor.TableColumns : null,
-                bodySelects: hasRecursiveClientMember ? bodyTranslator.Selects : null);
+                columnNames: recursive.ColumnNames,
+                dayOfWeekColumns: recursive.DayOfWeekColumns,
+                constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
+                bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
+                bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null);
 
             CteParameters.Remove(selfParam);
             MethodArguments.Remove(selfParam);
@@ -367,8 +418,8 @@ internal partial class SQLVisitor
             SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
             SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
-            string[]? bodyColumnNames = CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
-                ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
+            string[]? bodyColumnNames = CteColumnMapper.DeclaredColumnNames(
+                elementType, bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects, Database.Options);
             bool hasClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns);
             cteName = CteRegistry.Register(
                 bodyQuery.Sql,
@@ -390,10 +441,14 @@ internal partial class SQLVisitor
     private void AssignCteColumns(SQLiteCte cte, Type elementType, string alias)
     {
         CteInfo info = CteRegistry!.Info(cte);
-        TableColumns = info.BodyColumns != null
-            ? CteColumnMapper.BuildBodyMappedColumns(info.BodyColumns, info.BodySelects!, info.ColumnNames, alias, Database.Options, Counters)
-            : CteColumnMapper.BuildColumns(elementType, alias, Database.Options, Counters);
+        TableColumns = CteColumnMapper.BuildOuterColumns(info, elementType, alias, Database.Options, Counters);
         CteColumnMapper.ApplyBodyTraits(TableColumns, info, this);
+    }
+
+    private bool IsTextStoredEnum(SQLiteExpression expression)
+    {
+        return Database.Options.EnumStorage == EnumStorageMode.Text
+            || (expression.IsJsonSource && JsonEnumText.IsStringStored(Database.Options, expression.Type));
     }
 
     private static bool IsFloatingPointType(Type type)

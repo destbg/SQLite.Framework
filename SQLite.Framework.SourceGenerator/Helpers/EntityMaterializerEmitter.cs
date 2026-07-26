@@ -206,6 +206,56 @@ public static class EntityMaterializerEmitter
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Tells whether the type reads back from a single column, so a row of that type is one value
+    /// rather than a set of members.
+    /// </summary>
+    public static bool IsSupportedPropertyType(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol named && named.IsGenericType && named.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
+        {
+            type = named.TypeArguments[0];
+        }
+
+        if (type is IArrayTypeSymbol arr && arr.ElementType.SpecialType == SpecialType.System_Byte)
+        {
+            return true;
+        }
+
+        switch (type.SpecialType)
+        {
+            case SpecialType.System_Boolean:
+            case SpecialType.System_Byte:
+            case SpecialType.System_SByte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+            case SpecialType.System_Single:
+            case SpecialType.System_Double:
+            case SpecialType.System_Decimal:
+            case SpecialType.System_Char:
+            case SpecialType.System_String:
+            case SpecialType.System_DateTime:
+                return true;
+        }
+
+        if (type.TypeKind == TypeKind.Enum)
+        {
+            return true;
+        }
+
+        string fullName = type.ToDisplayString();
+        return fullName is "System.DateTimeOffset"
+            or "System.TimeSpan"
+            or "System.DateOnly"
+            or "System.TimeOnly"
+            or "System.Guid"
+            or "byte[]";
+    }
+
     private static string EscapeStringLiteral(string value)
     {
         StringBuilder sb = new(value.Length + 2);
@@ -661,52 +711,6 @@ public static class EntityMaterializerEmitter
         return !type.IsAbstract;
     }
 
-    private static bool IsSupportedPropertyType(ITypeSymbol type)
-    {
-        if (type is INamedTypeSymbol named && named.IsGenericType && named.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
-        {
-            type = named.TypeArguments[0];
-        }
-
-        if (type is IArrayTypeSymbol arr && arr.ElementType.SpecialType == SpecialType.System_Byte)
-        {
-            return true;
-        }
-
-        switch (type.SpecialType)
-        {
-            case SpecialType.System_Boolean:
-            case SpecialType.System_Byte:
-            case SpecialType.System_SByte:
-            case SpecialType.System_Int16:
-            case SpecialType.System_UInt16:
-            case SpecialType.System_Int32:
-            case SpecialType.System_UInt32:
-            case SpecialType.System_Int64:
-            case SpecialType.System_UInt64:
-            case SpecialType.System_Single:
-            case SpecialType.System_Double:
-            case SpecialType.System_Decimal:
-            case SpecialType.System_Char:
-            case SpecialType.System_String:
-            case SpecialType.System_DateTime:
-                return true;
-        }
-
-        if (type.TypeKind == TypeKind.Enum)
-        {
-            return true;
-        }
-
-        string fullName = type.ToDisplayString();
-        return fullName is "System.DateTimeOffset"
-            or "System.TimeSpan"
-            or "System.DateOnly"
-            or "System.TimeOnly"
-            or "System.Guid"
-            or "byte[]";
-    }
-
     private static void EmitMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
         StringBuilder preamble = new();
@@ -748,6 +752,7 @@ public static class EntityMaterializerEmitter
         }
 
         List<string> propValueLocals = new();
+        List<string?> propPresentGuards = new();
         List<string> nonNullChecks = new();
         foreach (IPropertySymbol prop in writableProps)
         {
@@ -766,11 +771,14 @@ public static class EntityMaterializerEmitter
                 {
                     nonNullChecks.Add("(" + valueLocal + " != null)");
                 }
+
+                propPresentGuards.Add(null);
             }
             else
             {
                 EmitSimpleColumnReadLocal(sb, preamble, preambleIndent, prop.Type, propColumn, valueLocal, localSuffix, indent);
                 nonNullChecks.Add("(__idx_" + localSuffix + " >= 0 && !reader.IsDBNull(__idx_" + localSuffix + "))");
+                propPresentGuards.Add("__idx_" + localSuffix + " >= 0");
             }
 
             propValueLocals.Add(valueLocal);
@@ -800,6 +808,7 @@ public static class EntityMaterializerEmitter
             ? null
             : TryFindPositionalConstructor(entity);
         List<int> inaccessibleIndexes = new();
+        List<int> guardedIndexes = new();
 
         if (positionalCtor != null)
         {
@@ -820,13 +829,17 @@ public static class EntityMaterializerEmitter
             List<int> extraIndexes = new();
             for (int i = 0; i < writableProps.Count; i++)
             {
-                if (IsSetterAccessibleFromGeneratedCode(writableProps[i]))
+                if (!IsSetterAccessibleFromGeneratedCode(writableProps[i]))
                 {
-                    extraIndexes.Add(i);
+                    inaccessibleIndexes.Add(i);
+                }
+                else if (IsColumnPresenceGuarded(writableProps[i], propPresentGuards[i]))
+                {
+                    guardedIndexes.Add(i);
                 }
                 else
                 {
-                    inaccessibleIndexes.Add(i);
+                    extraIndexes.Add(i);
                 }
             }
 
@@ -862,13 +875,17 @@ public static class EntityMaterializerEmitter
             List<int> initializerIndexes = new();
             for (int i = 0; i < writableProps.Count; i++)
             {
-                if (IsSetterAccessibleFromGeneratedCode(writableProps[i]))
+                if (!IsSetterAccessibleFromGeneratedCode(writableProps[i]))
                 {
-                    initializerIndexes.Add(i);
+                    inaccessibleIndexes.Add(i);
+                }
+                else if (IsColumnPresenceGuarded(writableProps[i], propPresentGuards[i]))
+                {
+                    guardedIndexes.Add(i);
                 }
                 else
                 {
-                    inaccessibleIndexes.Add(i);
+                    initializerIndexes.Add(i);
                 }
             }
 
@@ -905,6 +922,12 @@ public static class EntityMaterializerEmitter
             }
         }
 
+        foreach (int i in guardedIndexes)
+        {
+            sb.Append(indent).Append("if (").Append(propPresentGuards[i]).Append(") ")
+                .Append(resultLocalName).Append('.').Append(writableProps[i].Name).Append(" = ").Append(propValueLocals[i]).AppendLine(";");
+        }
+
         EmitInaccessibleSetterAssignments(sb, preamble, preambleIndent, indent, entity, typeName, resultLocalName, resultSuffix, writableProps, propValueLocals, inaccessibleIndexes);
 
         if (columnPrefix.Length > 0 && entity.IsReferenceType && nonNullChecks.Count > 0)
@@ -915,6 +938,13 @@ public static class EntityMaterializerEmitter
                 .Append(EscapeStringLiteral(columnPrefix.TrimEnd('.'))).AppendLine(");");
             sb.Append(indent).Append("if (!").Append(constructedLocal).Append(" && !(").Append(string.Join(" || ", nonNullChecks)).Append(")) ").Append(resultLocalName).AppendLine(" = null;");
         }
+    }
+
+    private static bool IsColumnPresenceGuarded(IPropertySymbol prop, string? presentGuard)
+    {
+        return presentGuard != null
+            && !prop.IsRequired
+            && prop.SetMethod is { IsInitOnly: false };
     }
 
     private static void EmitInaccessibleSetterAssignments(StringBuilder sb, StringBuilder preamble, string preambleIndent, string indent, INamedTypeSymbol entity, string typeName, string resultLocalName, string resultSuffix, List<IPropertySymbol> writableProps, List<string> propValueLocals, List<int> indexes)
@@ -1595,7 +1625,8 @@ public static class EntityMaterializerEmitter
 
             if (StripNullableSymbol(prop.Type) is INamedTypeSymbol strippedNamed
                 && strippedNamed.TypeKind == TypeKind.Class
-                && entitySet.Contains(strippedNamed)
+                && (entitySet.Contains(strippedNamed)
+                    || (!strippedNamed.IsAnonymousType && IsReachableFromGeneratedCode(strippedNamed)))
                 && IsCompositeUserType(strippedNamed))
             {
                 if (strippedNamed.IsAnonymousType)

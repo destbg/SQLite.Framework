@@ -180,6 +180,9 @@ public class SQLiteCommand
         long rowId;
         try
         {
+            sqlite3 handle = Database.GetActiveHandle();
+            int totalChangesBefore = raw.sqlite3_total_changes(handle);
+
             sqlite3_stmt? statement = CreateStatement();
             SQLiteResult result = statement is null ? SQLiteResult.Done : (SQLiteResult)raw.sqlite3_step(statement);
             if (statement != null)
@@ -189,11 +192,10 @@ public class SQLiteCommand
 
             if (result != SQLiteResult.Done)
             {
-                throw new SQLiteException(result, raw.sqlite3_errmsg(Database.GetActiveHandle()).utf8_to_string(), CommandText);
+                throw new SQLiteException(result, raw.sqlite3_errmsg(handle).utf8_to_string(), CommandText);
             }
 
-            sqlite3 handle = Database.GetActiveHandle();
-            changes = raw.sqlite3_changes(handle);
+            changes = raw.sqlite3_total_changes(handle) == totalChangesBefore ? 0 : raw.sqlite3_changes(handle);
             rowId = raw.sqlite3_last_insert_rowid(handle);
         }
         catch (Exception exception)

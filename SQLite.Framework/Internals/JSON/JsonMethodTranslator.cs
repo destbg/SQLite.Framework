@@ -37,6 +37,11 @@ internal static class JsonMethodTranslator
         visitor.Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_9, "JSON1 collection translation (json_each, json_extract)");
 #endif
 
+        if (IsInlineLiteralContains(node, sourceExpr, visitor.Database.Options))
+        {
+            return null;
+        }
+
         if (declaring == typeof(Enumerable))
         {
             return TryHandleChain(node, visitor) ?? TryEnumerable(node, visitor);
@@ -252,7 +257,7 @@ internal static class JsonMethodTranslator
 
         if (node.Arguments.Count == 1)
         {
-            if (node.Method.Name is nameof(Enumerable.ToArray) or nameof(Enumerable.ToList))
+            if (node.Method.Name is nameof(Enumerable.ToArray) or nameof(Enumerable.ToList) or nameof(Enumerable.AsEnumerable))
             {
                 return SQLiteExpression.Leaf(node.Type, visitor.Counters.NextIdentifier(), src, parameters).WithJsonSource();
             }
@@ -335,7 +340,12 @@ internal static class JsonMethodTranslator
     private static SQLiteExpression? TryList(MethodCallExpression node, SQLVisitor visitor)
     {
         ResolvedModel source = ResolveCollectionSource(visitor, node.Object!);
-        string src = source.SQLiteExpression!.ToString();
+        if (source.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        string src = source.SQLiteExpression.ToString();
 
         if (node.Method.Name == "get_Item" && node.Arguments.Count == 1)
         {
@@ -514,7 +524,12 @@ internal static class JsonMethodTranslator
     private static SQLiteExpression? TryArray(MethodCallExpression node, SQLVisitor visitor)
     {
         ResolvedModel source = ResolveCollectionSource(visitor, node.Arguments[0]);
-        string src = source.SQLiteExpression!.ToString();
+        if (source.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        string src = source.SQLiteExpression.ToString();
 
         if (node.Arguments.Count == 2 && node.Arguments[1] is Expression secondArg)
         {
@@ -751,6 +766,16 @@ internal static class JsonMethodTranslator
     {
         return options.TypeConverters.ContainsKey(type)
                && TypeHelpers.GetEnumerableElementType(type) != null;
+    }
+
+    private static bool IsInlineLiteralContains(MethodCallExpression node, Expression? sourceExpr, SQLiteOptions options)
+    {
+        if (node.Method.Name != nameof(List<int>.Contains) || sourceExpr is not (NewArrayExpression or ListInitExpression))
+        {
+            return false;
+        }
+
+        return !IsJsonCollection(sourceExpr.Type, options);
     }
 
     private static bool IsInlineArrayChain(Expression expression)

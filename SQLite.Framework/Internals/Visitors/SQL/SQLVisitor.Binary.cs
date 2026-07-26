@@ -9,6 +9,19 @@ internal partial class SQLVisitor
             : expr;
     }
 
+    public SQLiteExpression CastTextDecimalForOrdering(SQLiteExpression expr)
+    {
+        if (Database.Options.DecimalStorage != DecimalStorageMode.Text
+            || (Nullable.GetUnderlyingType(expr.Type) ?? expr.Type) != typeof(decimal))
+        {
+            return expr;
+        }
+
+        return DecimalCastIntern != null && DecimalCastIntern.ContainsValue(expr)
+            ? expr
+            : InternDecimalCast(expr);
+    }
+
     public SQLiteExpression PrepareKeyOperand(Expression operand, SQLiteExpression expr)
     {
         return BracketBinaryOperand(operand, CoalesceLiftedOrderComparison(operand, expr));
@@ -185,10 +198,18 @@ internal partial class SQLVisitor
         SQLiteExpression left = BracketBinaryOperand(leftNode, resolvedLeft.SQLiteExpression);
         SQLiteExpression right = BracketBinaryOperand(rightNode, resolvedRight.SQLiteExpression);
 
-        if (!IsInSelectProjection && Database.Options.DecimalStorage == DecimalStorageMode.Text)
+        bool isDecimalComparison = node.NodeType is ExpressionType.GreaterThan or ExpressionType.LessThan
+            or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual;
+        if ((!IsInSelectProjection || isDecimalComparison) && Database.Options.DecimalStorage == DecimalStorageMode.Text)
         {
             left = CoerceDecimalConstantToReal(resolvedLeft, left);
             right = CoerceDecimalConstantToReal(resolvedRight, right);
+
+            if (isDecimalComparison)
+            {
+                left = CastTextDecimalForOrdering(left);
+                right = CastTextDecimalForOrdering(right);
+            }
         }
 
         if (isArithmeticOp
@@ -665,24 +686,7 @@ internal partial class SQLVisitor
 
     private static bool MayBeNull(Expression operand)
     {
-        Expression stripped = operand;
-        while (stripped is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
-        {
-            stripped = convert.Operand;
-        }
-
-        if (stripped.Type.IsValueType)
-        {
-            return Nullable.GetUnderlyingType(stripped.Type) != null;
-        }
-
-        return stripped switch
-        {
-            ConstantExpression => false,
-            MemberExpression { Member: PropertyInfo property } =>
-                new NullabilityInfoContext().Create(property).ReadState == NullabilityState.Nullable,
-            _ => true
-        };
+        return ExpressionHelpers.MayBeNull(operand);
     }
 
     private static bool StringConcatOperandMayBeNull(Expression operand, ResolvedModel resolved)

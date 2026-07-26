@@ -23,6 +23,13 @@ internal static class Constants
     public const string CteScalarColumn = "Value";
 
     /// <summary>
+    /// Prefix of the column names a recursive common table expression declares when its body projects
+    /// a client-built member. The names have to be stable, because the recursive arm reads them while
+    /// the body that produces them is still being translated.
+    /// </summary>
+    public const string CteBodyColumnPrefix = "$c";
+
+    /// <summary>
     /// Unicode whitespace code points that .NET treats as whitespace.
     /// </summary>
     public static readonly int[] WhitespaceCodePoints =

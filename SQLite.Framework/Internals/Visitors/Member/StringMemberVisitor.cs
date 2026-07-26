@@ -318,6 +318,11 @@ internal static class StringMemberVisitor
                         return boundsResult ?? RebuildClientCall(node, arguments);
                     }
 
+                    if (HasMappedEntityElement(visitor, concatArray))
+                    {
+                        return Expression.Call(node.Method, node.Arguments.Select(visitor.ToClientExpression));
+                    }
+
                     SQLiteExpression[]? resolvedConcatArgs = TryResolveInlineArrayElements(visitor, concatArray);
                     if (resolvedConcatArgs == null)
                     {
@@ -329,6 +334,13 @@ internal static class StringMemberVisitor
                 else if (node.Arguments.Count == 1 && typeof(IQueryable).IsAssignableFrom(node.Arguments[0].Type))
                 {
                     return RewriteAsGroupConcat(visitor, Expression.Constant(""), node.Arguments[0]);
+                }
+                else if (node.Arguments.Count == 1
+                    && node.Arguments[0].Type != typeof(string)
+                    && TypeHelpers.GetEnumerableElementType(node.Arguments[0].Type) != null
+                    && arguments[0].SQLiteExpression is { } jsonSource)
+                {
+                    return JsonElementConcat(visitor, node.Method.ReturnType, jsonSource);
                 }
                 else if (node.Arguments.Any(a => a is ConditionalExpression conditionalArg
                     && (visitor.Database.TryGetCachedTableMapping(ExpressionHelpers.StripUpcast(conditionalArg.IfTrue).Type, out _)
@@ -359,6 +371,11 @@ internal static class StringMemberVisitor
                     {
                         Expression? boundsResult = FoldArrayBoundsCall(visitor, node, arrayExpr, arguments);
                         return boundsResult ?? RebuildClientCall(node, arguments);
+                    }
+
+                    if (HasMappedEntityElement(visitor, arrayExpr))
+                    {
+                        return Expression.Call(node.Method, node.Arguments.Select(visitor.ToClientExpression));
                     }
 
                     SQLiteExpression[]? joinArgs = TryResolveInlineArrayElements(visitor, arrayExpr);
@@ -516,7 +533,7 @@ internal static class StringMemberVisitor
         object? result = node.Method.Name == nameof(string.Join)
             ? node.Method.Invoke(null, [ExpressionHelpers.GetConstantValue(node.Arguments[0]), values])
             : node.Method.Invoke(null, [values]);
-        return Expression.Constant(result, node.Method.ReturnType);
+        return visitor.ResolveExpression(Expression.Constant(result, node.Method.ReturnType)).SQLiteExpression;
     }
 
     private static SQLiteExpression ResolveLike(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, Func<object?, string> selectParameter, Func<SQLiteExpression, string> selectValue)
@@ -754,6 +771,36 @@ internal static class StringMemberVisitor
             && node.Arguments[1] is NewArrayExpression;
     }
 
+    private static SQLiteExpression JsonElementConcat(SQLVisitor visitor, Type returnType, SQLiteExpression source)
+    {
+        return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(),
+            "COALESCE((SELECT group_concat(\"value\", '') FROM (SELECT \"value\" FROM json_each(",
+            source,
+            ") ORDER BY \"key\")), '')",
+            source.Parameters);
+    }
+
+    private static bool HasMappedEntityElement(SQLVisitor visitor, NewArrayExpression array)
+    {
+        foreach (Expression element in array.Expressions)
+        {
+            Expression stripped = ExpressionHelpers.StripUpcast(element);
+            if (visitor.Database.TryGetCachedTableMapping(stripped.Type, out _))
+            {
+                return true;
+            }
+
+            if (stripped is ConditionalExpression conditional
+                && (visitor.Database.TryGetCachedTableMapping(ExpressionHelpers.StripUpcast(conditional.IfTrue).Type, out _)
+                    || visitor.Database.TryGetCachedTableMapping(ExpressionHelpers.StripUpcast(conditional.IfFalse).Type, out _)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static SQLiteExpression[]? TryResolveInlineArrayElements(SQLVisitor visitor, NewArrayExpression array)
     {
         SQLiteExpression[] elements = new SQLiteExpression[array.Expressions.Count];
@@ -786,17 +833,23 @@ internal static class StringMemberVisitor
             return true;
         }
 
-        Expression unwrapped = expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert
-            ? convert.Operand
+        UnaryExpression? cast = expression as UnaryExpression;
+        Expression unwrapped = cast is { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked }
+            ? cast.Operand
             : expression;
 
         if (unwrapped is MethodCallExpression call
+            && (call.Object != null || call.Arguments.Count > 0)
             && (call.Object == null || ExpressionHelpers.IsConstant(call.Object))
             && call.Arguments.All(ExpressionHelpers.IsConstant))
         {
-            value = call.Method.Invoke(
+            object? invoked = call.Method.Invoke(
                 call.Object == null ? null : ExpressionHelpers.GetConstantValue(call.Object),
                 [.. call.Arguments.Select(ExpressionHelpers.GetConstantValue)]);
+
+            value = ReferenceEquals(unwrapped, expression)
+                ? invoked
+                : ExpressionHelpers.GetConstantValue(cast!.Update(Expression.Constant(invoked, unwrapped.Type)));
             return true;
         }
 

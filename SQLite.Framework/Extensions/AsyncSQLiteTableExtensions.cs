@@ -156,23 +156,8 @@ public static class AsyncSQLiteTableExtensions
     {
         return AsyncRunner.Run(async () =>
         {
-            if (!runInTransaction)
-            {
-                using IDisposable _ = await source.Database.LockAsync(ct);
-                return sync(collection, false);
-            }
-
-            SQLiteTransaction transaction = await source.Database.BeginTransactionAsync(ct);
-            try
-            {
-                int count = sync(collection, false);
-                await transaction.CommitAsync(ct);
-                return count;
-            }
-            finally
-            {
-                await transaction.DisposeAsync();
-            }
+            using IDisposable _ = await source.Database.LockAsync(ct);
+            return sync(collection, runInTransaction);
         }, ct);
     }
 }

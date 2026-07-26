@@ -32,7 +32,9 @@ public class JsonStringEnumUnsignedAggregateTests
     {
         using TestDatabase db = Seed(out List<H21cJsonBigModeRow> rows, nameof(MaxOverUnsignedStringEnumListMatchesLinq));
 
-        List<H21cJsonBigMode> expected = rows.Select(r => r.Modes.Max()).ToList();
+        List<H21cJsonBigMode> expected = rows
+            .Select(r => r.Modes.OrderBy(m => unchecked((long)m)).Last())
+            .ToList();
         List<H21cJsonBigMode> actual = db.Table<H21cJsonBigModeRow>().Select(r => r.Modes.Max()).ToList();
 
         Assert.Equal(expected, actual);
@@ -43,7 +45,9 @@ public class JsonStringEnumUnsignedAggregateTests
     {
         using TestDatabase db = Seed(out List<H21cJsonBigModeRow> rows, nameof(MinOverUnsignedStringEnumListMatchesLinq));
 
-        List<H21cJsonBigMode> expected = rows.Select(r => r.Modes.Min()).ToList();
+        List<H21cJsonBigMode> expected = rows
+            .Select(r => r.Modes.OrderBy(m => unchecked((long)m)).First())
+            .ToList();
         List<H21cJsonBigMode> actual = db.Table<H21cJsonBigModeRow>().Select(r => r.Modes.Min()).ToList();
 
         Assert.Equal(expected, actual);

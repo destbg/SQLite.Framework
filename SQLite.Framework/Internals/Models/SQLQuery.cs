@@ -14,6 +14,7 @@ internal class SQLQuery
     public required bool ThrowOnMoreThanOne { get; init; }
 
     public object? DefaultValue { get; init; }
+    public bool ClientDistinct { get; init; }
     public bool HasDefaultValue { get; init; }
     public bool IsRowSelector { get; init; }
     public IReadOnlyList<MethodInfo>? ReflectedMethods { get; init; }

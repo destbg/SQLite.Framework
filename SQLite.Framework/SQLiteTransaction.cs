@@ -57,8 +57,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         }
         catch
         {
-            Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
-            Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+            Database.ForceSavepointRollback(SavepointName);
             throw;
         }
         finally
@@ -94,6 +93,11 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             // An enclosing rollback destroyed the savepoint
         }
+        catch
+        {
+            Database.ForceSavepointRollback(SavepointName);
+            throw;
+        }
         finally
         {
             if (ownsLock)
@@ -124,6 +128,11 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
             // An enclosing rollback already destroyed the savepoint.
+        }
+        catch
+        {
+            Database.ForceSavepointRollback(SavepointName);
+            throw;
         }
         finally
         {

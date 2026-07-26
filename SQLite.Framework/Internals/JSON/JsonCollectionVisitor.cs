@@ -21,6 +21,7 @@ internal partial class JsonCollectionVisitor
     private string? fromOverride;
     private string? limit;
     private string? offset;
+    private int primaryOrderCount;
     private bool distinct;
     private bool reverseApplied;
     private bool distinctSeenReverse;

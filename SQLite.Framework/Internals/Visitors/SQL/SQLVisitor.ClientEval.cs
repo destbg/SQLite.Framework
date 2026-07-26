@@ -49,15 +49,13 @@ internal partial class SQLVisitor
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node);
         if (pe == null
             || !MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns)
-            || !Database.TryGetCachedTableMapping(node.Type, out TableMapping? mapping)
-            || node.Type.GetConstructor(Type.EmptyTypes) == null)
+            || !Database.TryGetCachedTableMapping(node.Type, out TableMapping? mapping))
         {
             return null;
         }
 
         string prefix = path.Length == 0 ? "" : path + ".";
-        List<MemberBinding> bindings = [];
-        Expression? allNullTest = null;
+        Dictionary<string, SQLiteExpression> leaves = new(StringComparer.OrdinalIgnoreCase);
         foreach (TableColumn column in mapping.Columns)
         {
             if (!columns.TryGetValue(prefix + column.PropertyInfo.Name, out Expression? expression)
@@ -66,25 +64,40 @@ internal partial class SQLVisitor
                 return null;
             }
 
-            bindings.Add(Expression.Bind(column.PropertyInfo, sqlExpression));
-            SQLiteExpression secondRead = SQLiteExpression.Alias(typeof(object), Counters.NextIdentifier(), sqlExpression, parameters: null).WithSelectExclusion();
-            secondRead.IdentifierText = sqlExpression.IdentifierText;
+            leaves[column.PropertyInfo.Name] = sqlExpression;
+        }
+
+        Expression? materialized = BuildEntityFromLeaves(node.Type, mapping, leaves, out List<SQLiteExpression> used);
+        if (materialized == null)
+        {
+            return null;
+        }
+
+        Expression? allNullTest = null;
+        foreach (SQLiteExpression leaf in used)
+        {
+            SQLiteExpression secondRead = SQLiteExpression.Alias(typeof(object), Counters.NextIdentifier(), leaf, parameters: null).WithSelectExclusion();
+            secondRead.IdentifierText = leaf.IdentifierText;
             Expression isNull = Expression.Equal(secondRead, Expression.Constant(null));
             allNullTest = allNullTest == null ? isNull : Expression.AndAlso(allNullTest, isNull);
         }
 
-        Expression materialized = Expression.MemberInit(Expression.New(node.Type), bindings);
-        return Expression.Condition(allNullTest!, Expression.Constant(null, node.Type), materialized);
+        return allNullTest == null
+            ? materialized
+            : Expression.Condition(allNullTest, Expression.Constant(null, node.Type), materialized);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Entity types are rooted by the user Table<T>().")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Entity types are rooted by the user Table<T>().")]
     public bool IsUnmaterializableRowMember(MemberExpression node)
     {
         (string _, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node.Expression!);
+
         return pe != null
             && MethodArguments.ContainsKey(pe)
             && Database.TryGetCachedTableMapping(node.Expression!.Type, out _)
-            && TryMaterializeEntityLeaves(node.Expression) == null;
+            && (node.Expression.Type.GetConstructor(Type.EmptyTypes) == null
+                || TryMaterializeEntityLeaves(node.Expression) == null);
     }
 
     public Expression ToClientOperand(Expression original, ResolvedModel resolved)
@@ -119,13 +132,46 @@ internal partial class SQLVisitor
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(operand);
         if (pe != null
             && path.Length == 0
-            && MethodArguments.ContainsKey(pe)
+            && MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? rowColumns)
             && Database.TryGetCachedTableMapping(pe.Type, out _) == false)
         {
+            if (OptionalRowColumns.Contains(rowColumns))
+            {
+                return BuildOptionalRowNullCheck(rowColumns, node.NodeType == ExpressionType.Equal);
+            }
+
             return Visit(Expression.Constant(node.NodeType == ExpressionType.NotEqual)) as SQLiteExpression;
         }
 
         return null;
+    }
+
+    private SQLiteExpression? BuildOptionalRowNullCheck(Dictionary<string, Expression> rowColumns, bool wantNull)
+    {
+        List<SQLiteExpression> leaves = [];
+        foreach (KeyValuePair<string, Expression> column in rowColumns)
+        {
+            if (column.Value is SQLiteExpression leaf)
+            {
+                leaves.Add(leaf);
+            }
+        }
+
+        if (leaves.Count == 0)
+        {
+            return null;
+        }
+
+        string separator = wantNull ? " IS NULL AND " : " IS NOT NULL OR ";
+        string[] parts = new string[leaves.Count + 1];
+        parts[0] = "(";
+        for (int i = 0; i < leaves.Count; i++)
+        {
+            parts[i + 1] = i == leaves.Count - 1 ? (wantNull ? " IS NULL)" : " IS NOT NULL)") : separator;
+        }
+
+        return SQLiteExpression.Multi(typeof(bool), Counters.NextIdentifier(), parts, [.. leaves],
+            ParameterHelpers.CombineParameters([.. leaves]));
     }
 
     private Expression? ExtractNullCheckOperand(BinaryExpression node)
@@ -206,6 +252,64 @@ internal partial class SQLVisitor
 
         MemberExpression memberExpression = (MemberExpression)node;
         return Expression.MakeMemberAccess(ToClientExpression(memberExpression.Expression!), memberExpression.Member);
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Entity types are rooted by Table<T>().")]
+    private static Expression? BuildEntityFromLeaves(Type entityType, TableMapping mapping, Dictionary<string, SQLiteExpression> leaves, out List<SQLiteExpression> used)
+    {
+        used = [];
+        ConstructorInfo? parameterless = entityType.GetConstructor(Type.EmptyTypes);
+        if (parameterless != null)
+        {
+            List<MemberBinding> bindings = [];
+            foreach (TableColumn column in mapping.Columns)
+            {
+                if (column.PropertyInfo.CanWrite)
+                {
+                    SQLiteExpression leaf = leaves[column.PropertyInfo.Name];
+                    used.Add(leaf);
+                    bindings.Add(Expression.Bind(column.PropertyInfo, leaf));
+                }
+            }
+
+            return Expression.MemberInit(Expression.New(parameterless), bindings);
+        }
+
+        ConstructorInfo? widest = entityType.GetConstructors()
+            .OrderByDescending(c => c.GetParameters().Length)
+            .FirstOrDefault();
+        if (widest == null)
+        {
+            return null;
+        }
+
+        List<Expression> arguments = [];
+        foreach (ParameterInfo parameter in widest.GetParameters())
+        {
+            if (!leaves.TryGetValue(parameter.Name!, out SQLiteExpression? leaf))
+            {
+                return null;
+            }
+
+            used.Add(leaf);
+            arguments.Add(leaf);
+        }
+
+        List<MemberBinding> extra = [];
+        foreach (TableColumn column in mapping.Columns)
+        {
+            if (column.PropertyInfo.CanWrite
+                && !widest.GetParameters().Any(p => string.Equals(p.Name, column.PropertyInfo.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                SQLiteExpression leaf = leaves[column.PropertyInfo.Name];
+                used.Add(leaf);
+                extra.Add(Expression.Bind(column.PropertyInfo, leaf));
+            }
+        }
+
+        return extra.Count == 0
+            ? Expression.New(widest, arguments)
+            : Expression.MemberInit(Expression.New(widest, arguments), extra);
     }
 
     private static bool IsNullConstant(Expression node)

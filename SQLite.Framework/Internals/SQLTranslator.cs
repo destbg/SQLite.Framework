@@ -8,6 +8,14 @@ namespace SQLite.Framework.Internals;
 /// </remarks>
 internal class SQLTranslator
 {
+    private static readonly HashSet<string> orderMethodNames = new(StringComparer.Ordinal)
+    {
+        nameof(Queryable.OrderBy),
+        nameof(Queryable.OrderByDescending),
+        nameof(Queryable.ThenBy),
+        nameof(Queryable.ThenByDescending)
+    };
+
     private readonly SQLiteDatabase database;
     private readonly int level;
     private readonly bool isInnerQuery;
@@ -59,7 +67,7 @@ internal class SQLTranslator
         init => Visitor.CteRegistry = value;
     }
 
-    public Dictionary<ParameterExpression, (string Alias, Dictionary<string, Expression> Columns)> CteParameters
+    public Dictionary<ParameterExpression, CteSelfReference> CteParameters
     {
         init => Visitor.CteParameters = value;
     }
@@ -72,6 +80,11 @@ internal class SQLTranslator
     public Dictionary<Dictionary<string, Expression>, HashSet<string>> ConstructedProjectionPaths
     {
         init => Visitor.ConstructedProjectionPaths = value;
+    }
+
+    public HashSet<Dictionary<string, Expression>> OptionalRowColumns
+    {
+        init => Visitor.OptionalRowColumns = value;
     }
 
     public QueryType QueryType { get; init; }
@@ -124,6 +137,8 @@ internal class SQLTranslator
         }
 
         string spacing = new(' ', level * 4);
+
+        queryableMethodVisitor.Joins.RemoveAll(f => f.GroupDropped);
 
         if (queryableMethodVisitor.Joins.Any(f => f.IsGroupJoin))
         {
@@ -366,6 +381,7 @@ internal class SQLTranslator
             Parameters = parameters,
             CreateObject = createObject,
             Reverse = queryableMethodVisitor.Reverse,
+            ClientDistinct = queryableMethodVisitor.IsDistinct && createObject != null,
             ThrowOnEmpty = queryableMethodVisitor.ThrowOnEmpty,
             ElementAtSemantic = queryableMethodVisitor.ElementAtSemantic,
             ThrowOnMoreThanOne = queryableMethodVisitor.ThrowOnMoreThanOne,
@@ -757,18 +773,15 @@ internal class SQLTranslator
             }
         }
 
-        bool[] isWindowSelect = new bool[methodCalls.Count];
+        bool[] isWindowProjection = new bool[methodCalls.Count];
+        bool[] isTextDecimalOrder = new bool[methodCalls.Count];
         for (int i = 0; i < methodCalls.Count; i++)
         {
-            MethodCallExpression candidate = methodCalls[i];
-            if (candidate.Method.Name == nameof(Queryable.Select)
-                && WindowCallDetector.Contains(((LambdaExpression)ExpressionHelpers.StripQuotes(candidate.Arguments[1])).Body))
-            {
-                isWindowSelect[i] = true;
-            }
+            isWindowProjection[i] = HasWindowProjection(methodCalls[i]);
+            isTextDecimalOrder[i] = IsTextDecimalOrder(methodCalls[i], database.Options);
         }
 
-        int wrapIdx = FindSubqueryBoundary(methodCalls, isWindowSelect);
+        int wrapIdx = FindSubqueryBoundary(methodCalls, isWindowProjection, isTextDecimalOrder);
         bool wrappedAsSubquery = false;
 
         if (wrapIdx >= 0)
@@ -1190,7 +1203,37 @@ internal class SQLTranslator
         return false;
     }
 
-    private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls, bool[] isWindowSelect)
+    private static bool HasWindowProjection(MethodCallExpression candidate)
+    {
+        string name = candidate.Method.Name;
+        bool isSelect = name == nameof(Queryable.Select);
+        if (!isSelect && !IsJoinLikeMethod(name))
+        {
+            return false;
+        }
+
+        LambdaExpression selector = (LambdaExpression)ExpressionHelpers.StripQuotes(candidate.Arguments[^1]);
+        if (!isSelect && selector.Parameters.Count != 2)
+        {
+            return false;
+        }
+
+        return WindowCallDetector.Contains(selector.Body);
+    }
+
+    private static bool IsTextDecimalOrder(MethodCallExpression candidate, SQLiteOptions options)
+    {
+        if (options.DecimalStorage != DecimalStorageMode.Text
+            || !orderMethodNames.Contains(candidate.Method.Name))
+        {
+            return false;
+        }
+
+        LambdaExpression key = (LambdaExpression)ExpressionHelpers.StripQuotes(candidate.Arguments[1]);
+        return (Nullable.GetUnderlyingType(key.ReturnType) ?? key.ReturnType) == typeof(decimal);
+    }
+
+    private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls, bool[] isWindowProjection, bool[] isTextDecimalOrder)
     {
         QueryLevelParts level = QueryLevelParts.None;
         int boundary = -1;
@@ -1198,22 +1241,22 @@ internal class SQLTranslator
         for (int i = methodCalls.Count - 1; i >= 0; i--)
         {
             string name = methodCalls[i].Method.Name;
-            bool windowSelect = isWindowSelect[i];
+            bool windowProjection = isWindowProjection[i];
             bool hasPredicate = methodCalls[i].Arguments.Count > 1;
 
-            if (ConflictsWithLevel(name, level, windowSelect, hasPredicate))
+            if (ConflictsWithLevel(name, level, windowProjection, hasPredicate, isTextDecimalOrder[i]))
             {
                 boundary = i;
                 level = QueryLevelParts.None;
             }
 
-            level |= MethodParts(name, windowSelect);
+            level |= MethodParts(name, windowProjection);
         }
 
         return boundary;
     }
 
-    private static bool ConflictsWithLevel(string name, QueryLevelParts level, bool windowSelect, bool hasPredicate)
+    private static bool ConflictsWithLevel(string name, QueryLevelParts level, bool windowProjection, bool hasPredicate, bool textDecimalOrder)
     {
         QueryLevelParts blockedBy = name switch
         {
@@ -1225,20 +1268,22 @@ internal class SQLTranslator
             nameof(Queryable.Count) or nameof(Queryable.LongCount) or nameof(Queryable.Sum)
                 or nameof(Queryable.Max) or nameof(Queryable.Min) or nameof(Queryable.Average) => QueryLevelParts.Window | QueryLevelParts.Limit,
             nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
-                or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) => QueryLevelParts.Limit,
+                or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) =>
+                textDecimalOrder ? QueryLevelParts.Limit | QueryLevelParts.SetOperation : QueryLevelParts.Limit,
             nameof(Queryable.Distinct) => QueryLevelParts.Limit,
-            nameof(Queryable.Select) when windowSelect => QueryLevelParts.Distinct | QueryLevelParts.Limit,
+            nameof(Queryable.Select) when windowProjection => QueryLevelParts.Distinct | QueryLevelParts.Limit | QueryLevelParts.Window,
             nameof(Queryable.Select) => QueryLevelParts.Distinct,
             nameof(Queryable.GroupBy) => QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.Window,
             _ when IsJoinLikeMethod(name) => QueryLevelParts.Where | QueryLevelParts.Projection
-                | QueryLevelParts.GroupBy | QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.Reverse,
+                | QueryLevelParts.GroupBy | QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.Reverse
+                | QueryLevelParts.Window,
             _ => QueryLevelParts.None
         };
 
         return (level & blockedBy) != QueryLevelParts.None;
     }
 
-    private static QueryLevelParts MethodParts(string name, bool windowSelect)
+    private static QueryLevelParts MethodParts(string name, bool windowProjection)
     {
         QueryLevelParts parts = name switch
         {
@@ -1253,11 +1298,13 @@ internal class SQLTranslator
                 or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault)
                 or nameof(Queryable.ElementAt) or nameof(Queryable.ElementAtOrDefault) => QueryLevelParts.Limit,
             nameof(Queryable.Reverse) => QueryLevelParts.Reverse,
+            nameof(Queryable.Concat) or nameof(Queryable.Union)
+                or nameof(Queryable.Intersect) or nameof(Queryable.Except) => QueryLevelParts.SetOperation,
             _ when IsJoinLikeMethod(name) => QueryLevelParts.Join,
             _ => QueryLevelParts.None
         };
 
-        if (windowSelect)
+        if (windowProjection)
         {
             parts |= QueryLevelParts.Window;
         }

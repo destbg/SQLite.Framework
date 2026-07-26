@@ -418,7 +418,10 @@ internal static class BuildQueryObject
                     Type readType = p.ParameterType;
                     if (p.ParameterType.IsInterface)
                     {
-                        readType = selectValueTypes![prefix + p.Name];
+                        readType = selectValueTypes != null
+                            && selectValueTypes.TryGetValue(prefix + p.Name, out Type? projectedType)
+                            ? projectedType
+                            : typeof(object);
                     }
 
                     Func<SQLiteQueryContext, object?>? nestedArg = null;

@@ -52,7 +52,8 @@ internal static class SQLiteFunctionsMemberVisitor
     {
         ResolvedModel pattern = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[1]);
-        return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, " GLOB ", pattern.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, pattern.SQLiteExpression!));
+        SQLiteExpression match = SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, " GLOB ", pattern.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, pattern.SQLiteExpression!));
+        return CollapseNullToFalse(visitor, match, node.Arguments);
     }
 
     private static SQLiteExpression HandleFunctionsBetween(SQLVisitor visitor, MethodCallExpression node)
@@ -70,10 +71,25 @@ internal static class SQLiteFunctionsMemberVisitor
         {
             SQLiteExpression ge = visitor.BuildUnsignedComparison(ExpressionType.GreaterThanOrEqual, valueExpr, lowExpr, mayBeNull: false, ParameterHelpers.CombineParameters(valueExpr, lowExpr));
             SQLiteExpression le = visitor.BuildUnsignedComparison(ExpressionType.LessThanOrEqual, valueExpr, highExpr, mayBeNull: false, ParameterHelpers.CombineParameters(valueExpr, highExpr));
-            return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", ge, " AND ", le, ")", ParameterHelpers.CombineParameters(ge, le));
+            SQLiteExpression unsignedRange = SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", ge, " AND ", le, ")", ParameterHelpers.CombineParameters(ge, le));
+            return CollapseNullToFalse(visitor, unsignedRange, node.Arguments);
         }
 
-        return SQLiteExpression.Trinary(typeof(bool), visitor.Counters.NextIdentifier(), "(", valueExpr, " BETWEEN ", lowExpr, " AND ", highExpr, ")", ParameterHelpers.CombineParameters(valueExpr, lowExpr, highExpr));
+        SQLiteExpression range = SQLiteExpression.Trinary(typeof(bool), visitor.Counters.NextIdentifier(), "(", valueExpr, " BETWEEN ", lowExpr, " AND ", highExpr, ")", ParameterHelpers.CombineParameters(valueExpr, lowExpr, highExpr));
+        return CollapseNullToFalse(visitor, range, node.Arguments);
+    }
+
+    private static SQLiteExpression CollapseNullToFalse(SQLVisitor visitor, SQLiteExpression predicate, IReadOnlyList<Expression> operands)
+    {
+        foreach (Expression operand in operands)
+        {
+            if (ExpressionHelpers.MayBeNull(operand))
+            {
+                return SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", predicate, " IS 1)", predicate.Parameters);
+            }
+        }
+
+        return predicate;
     }
 
     private static SQLiteExpression HandleFunctionsIn(SQLVisitor visitor, MethodCallExpression node)
@@ -99,7 +115,8 @@ internal static class SQLiteFunctionsMemberVisitor
             children[i + 1] = itemExprs[i];
             partsArr[i + 2] = i == itemExprs.Length - 1 ? "))" : ", ";
         }
-        return SQLiteExpression.Multi(typeof(bool), visitor.Counters.NextIdentifier(), partsArr, children, ParameterHelpers.CombineParameters(parts));
+        SQLiteExpression membership = SQLiteExpression.Multi(typeof(bool), visitor.Counters.NextIdentifier(), partsArr, children, ParameterHelpers.CombineParameters(parts));
+        return CollapseNullToFalse(visitor, membership, [node.Arguments[0], .. itemNodes]);
     }
 
     private static SQLiteExpression HandleFunctionsVariadic(SQLVisitor visitor, MethodCallExpression node, string sqlFunction, Type returnType)
@@ -367,7 +384,8 @@ internal static class SQLiteFunctionsMemberVisitor
     {
         ResolvedModel value = visitor.ResolveExpression(node.Arguments[0]);
         ResolvedModel pattern = visitor.ResolveExpression(node.Arguments[1]);
-        return SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, " REGEXP ", pattern.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, pattern.SQLiteExpression!));
+        SQLiteExpression match = SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "(", value.SQLiteExpression!, " REGEXP ", pattern.SQLiteExpression!, ")", ParameterHelpers.CombineParameters(value.SQLiteExpression!, pattern.SQLiteExpression!));
+        return CollapseNullToFalse(visitor, match, node.Arguments);
     }
 
     private static SQLiteExpression HandleFunctionsCollate(SQLVisitor visitor, MethodCallExpression node)

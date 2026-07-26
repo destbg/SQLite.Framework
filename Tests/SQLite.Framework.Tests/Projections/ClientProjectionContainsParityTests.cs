@@ -33,7 +33,14 @@ public class ClientProjectionContainsParityTests
 
         bool expected = local.Select(r => H21mHeadFold.Head(r.Name)).Contains("a");
 
-        bool actual = db.Table<H21mHeadRow>().Select(r => H21mHeadFold.Head(r.Name)).Contains("a");
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(
+            () => db.Table<H21mHeadRow>().Select(r => H21mHeadFold.Head(r.Name)).Contains("a"));
+        Assert.Contains("Call AsEnumerable before Contains", exception.Message);
+
+        bool actual = db.Table<H21mHeadRow>()
+            .Select(r => H21mHeadFold.Head(r.Name))
+            .AsEnumerable()
+            .Contains("a");
 
         Assert.Equal(expected, actual);
     }
