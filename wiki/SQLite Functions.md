@@ -163,7 +163,7 @@ List<Book> withLph = await db.Table<Book>()
 
 ## Per-row min and max
 
-`Min` and `Max` here are the scalar form: they return the smallest or largest of their arguments **for each row**.
+`Min` and `Max` here are the scalar form. They return the smallest or largest of their arguments **for each row**.
 
 ```csharp
 List<int> floors = await db.Table<Book>()

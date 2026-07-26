@@ -34,7 +34,7 @@ var results = await books.Where(b => b.Price < 50).ToListAsync();
 
 ### Why a builder?
 
-`SQLiteOptionsBuilder` is mutable and lets you chain `Use*` / `Add*` calls. Once you call `Build()`, the returned `SQLiteOptions` is fully immutable, this makes it safe to share through dependency injection and reuse across databases without worrying about a late change affecting live code paths.
+`SQLiteOptionsBuilder` is mutable and lets you chain `Use*` / `Add*` calls. Once you call `Build()`, the returned `SQLiteOptions` is fully immutable. This makes it safe to share through dependency injection and reuse across databases without worrying about a late change affecting live code paths.
 
 ### Configuring options in a subclass
 
@@ -87,7 +87,7 @@ Behavior:
 
 The enum is available on `SQLite.Framework` (where the loaded SQLite comes from the OS and the version varies by device) and on `SQLite.Framework.Base` (where you bring your own provider). The `SQLite.Framework.Bundled` and `SQLite.Framework.Cipher` packages ship a SQLite with a known version, so the enum only has `Unspecified` in those.
 
-See [Choosing a SQLite Version](Choosing%20a%20SQLite%20Version) for how to pick the floor for each kind of app and what each floor unlocks.
+See [Choosing a SQLite Version](Choosing%20a%20SQLite%20Version) for how to pick the floor for each kind of app and what each floor enables.
 
 ## .NET MAUI App
 

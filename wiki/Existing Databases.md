@@ -21,7 +21,7 @@ public class Book
 
 The builder equivalents are `ToTable`, `HasColumnName`, `HasKey` and friends, see [Defining Models](Defining%20Models).
 
-Columns that exist in the file but not on your entity are simply ignored by queries, the framework only selects mapped columns. To keep such a column across a migration rebuild without giving it a CLR property, declare it as a shadow column with `Column(...)` in `OnModelCreating`, see [Schema](Schema).
+Columns that exist in the file but not on your entity are ignored by queries. The framework only selects mapped columns. To keep such a column across a migration rebuild without giving it a CLR property, declare it as a shadow column with `Column(...)` in `OnModelCreating`, see [Schema](Schema).
 
 ## Match the value formats
 
@@ -61,4 +61,4 @@ When the file belongs to another application, make the intent explicit:
 
 ## Be careful with schema APIs
 
-`CreateTable` is safe, it does nothing when the table exists. The [migration](Migrations) reconcile is not a tool for databases you do not own. `TableChanged` makes the table match your model, which includes dropping columns your model does not declare. On a foreign database, prefer reading what is there. If you must evolve it, declare every existing column, as a property or a shadow column, before reconciling.
+`CreateTable` is safe. It does nothing when the table exists. The [migration](Migrations) reconcile is not a tool for databases you do not own. `TableChanged` makes the table match your model, which includes dropping columns your model does not declare. On a foreign database, prefer reading what is there. If you must evolve it, declare every existing column, as a property or a shadow column, before reconciling.

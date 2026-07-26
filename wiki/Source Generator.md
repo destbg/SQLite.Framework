@@ -2,14 +2,11 @@
 
 `SQLite.Framework.SourceGenerator` is an optional package that produces materializers for your entities and `Select` projections at build time. A materializer is the small piece of code that reads column values from a SQLite row and builds a .NET object out of them.
 
-Without the source generator, SQLite.Framework walks the expression tree of every query at runtime and uses reflection to create the result objects. That works fine on normal .NET but it has two costs:
-
-- **Startup and per-query cost**: every row goes through reflected constructor, property and method calls.
-- **AOT compatibility**: the expression tree methods the C# compiler generates for a `Select` (like `Expression.New` and `Expression.Bind`) are annotated with `[RequiresUnreferencedCode]`, which produces trimmer warnings under `PublishAot`. The trimmer can also strip types that are only reached through reflection.
+Without the source generator, SQLite.Framework walks the expression tree of every query at runtime and uses reflection to create the result objects. That works fine on normal .NET but it has two costs. Every row goes through reflected constructor, property and method calls, so startup and per-query cost stay higher than they need to be. And the expression tree methods the C# compiler generates for a `Select` (like `Expression.New` and `Expression.Bind`) are annotated with `[RequiresUnreferencedCode]`, which produces trimmer warnings under `PublishAot`. The trimmer can also strip types that are only reached through reflection.
 
 The source generator solves both. It reads your code at build time and writes plain C# that creates the objects directly. Every public type or method the generator can see is referenced by name, so the trimmer keeps it and the reflected materializer path is not used for those.
 
-Reflection is still used in two narrow cases: when a `Select` or entity target is a `private` or `internal` type that the generated code cannot name and when a `Select` body calls a private method. In those cases the generator falls back to `MethodInfo.Invoke` / `Activator.CreateInstance` on types and members that are captured at query-build time. If you want the reflected path off your hot path entirely, keep the types and methods that appear in your `Select` projections `public` or `internal` with `InternalsVisibleTo`.
+Reflection is still used in two narrow cases. One is a `Select` or entity target that is `private` or `internal`, so the generated code cannot name it. The other is a `Select` body that calls a private method. In those cases the generator falls back to `MethodInfo.Invoke` / `Activator.CreateInstance` on types and members that are captured at query-build time. If you want the reflected path off your hot path entirely, keep the types and methods that appear in your `Select` projections `public` or `internal` with `InternalsVisibleTo`.
 
 ## What it provides
 
@@ -19,14 +16,14 @@ The source generator is what makes Native AOT (`PublishAot`) work without the re
 
 The generated materializers skip the runtime expression-tree walk and use typed reader accessors that avoid the boxing that the runtime path goes through. The savings depend on the shape of the query.
 
-**End-to-end query**: the source-generated path is up to **24% faster** and uses up to **37% less allocated memory** than the runtime path:
+**End-to-end query.** The source-generated path is up to **24% faster** and uses up to **37% less allocated memory** than the runtime path:
 
 | Path                 | Mean       | Allocated |
 |----------------------|------------|-----------|
 | Runtime              | 148.86 us  | 55.55 KB  |
 | Source generator     | 117.12 us  | 35.08 KB  |
 
-**Materialization only** (with SQLite execution stubbed out): the source-generated path is up to **63% faster** than the runtime path. This is just the part of the query that the source generator actually changes.
+**Materialization only** (with SQLite execution stubbed out). The source-generated path is up to **63% faster** than the runtime path. This is just the part of the query that the source generator actually changes.
 
 | Path                 | Mean       | Allocated |
 |----------------------|------------|-----------|
@@ -124,11 +121,11 @@ The generator produces two kinds of materializers.
 
 **Select materializers** cover the body of a `Select`, `SelectMany`, `Join` or `GroupBy` key selector. This includes:
 
-- Anonymous types: `Select(b => new { b.Id, b.Title })`
-- Object initialisers: `Select(b => new BookView { Id = b.Id, Title = b.Title })`
-- Object initialisers with nested entity construction: `Select(b => new BookDto { Id = b.Id, Author = new AuthorDto { ... } })`
-- Method calls on rows, including your own methods: `Select(b => FormatTitle(b))`
-- Captured locals from the surrounding method: `Select(b => new { b.Id, Prefix = prefix + b.Title })`
+- Anonymous types like `Select(b => new { b.Id, b.Title })`
+- Object initialisers like `Select(b => new BookView { Id = b.Id, Title = b.Title })`
+- Object initialisers with nested entity construction like `Select(b => new BookDto { Id = b.Id, Author = new AuthorDto { ... } })`
+- Method calls on rows, including your own methods like `Select(b => FormatTitle(b))`
+- Captured locals from the surrounding method like `Select(b => new { b.Id, Prefix = prefix + b.Title })`
 - Joins and group joins written in query syntax.
 - Anonymous types returned from chains, with correct member names preserved.
 
@@ -180,9 +177,9 @@ What the generator can follow:
 
 What is out of scope:
 
-- Cross-assembly helpers. If `Repo<T>` lives in a referenced library, the generator only sees its compiled signature, not its body and cannot tell that it calls `ExecuteQuery<T>`. Move the helper into the project that runs the generator or pre-call `ExecuteQuery<ConcreteType>()` directly.
-- Helpers with no concrete callsite in the same project. The generator has nothing to substitute. The runtime path is used.
-- Reflection inside the helper body (`Activator.CreateInstance(typeof(TResult))` and similar). The generator only follows real `new TResult { ... }` syntax.
+- The generator cannot follow a helper into another assembly. If `Repo<T>` lives in a referenced library, it only sees the compiled signature, not the body and cannot tell that the helper calls `ExecuteQuery<T>`. Move the helper into the project that runs the generator or pre-call `ExecuteQuery<ConcreteType>()` directly.
+- A helper with no concrete callsite in the same project gives the generator nothing to substitute, so the runtime path is used.
+- Reflection inside the helper body (`Activator.CreateInstance(typeof(TResult))` and similar) is not followed. The generator only follows real `new TResult { ... }` syntax.
 
 ## Combining with AOT
 

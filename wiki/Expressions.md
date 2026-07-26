@@ -20,7 +20,7 @@ var evens = await db.Table<Book>()
     .ToListAsync();
 ```
 
-Supported operators: `+`, `-`, `*`, `/`, `%`.
+Supported operators are `+`, `-`, `*`, `/` and `%`.
 
 A few arithmetic and comparison cases have SQLite-specific behavior, such as division by zero, floating-point domain errors and order comparisons on a nullable column. See [Limitations](Limitations).
 
@@ -160,7 +160,7 @@ var years = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Supported properties: `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Millisecond`, `Ticks`, `DayOfWeek`, `DayOfYear`, `Date`, `TimeOfDay`.
+Supported properties are `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Millisecond`, `Ticks`, `DayOfWeek`, `DayOfYear`, `Date` and `TimeOfDay`.
 
 ## DateTime Methods
 
@@ -170,7 +170,7 @@ var shifted = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Supported methods: `Add`, `AddYears`, `AddMonths`, `AddDays`, `AddHours`, `AddMinutes`, `AddSeconds`, `AddMilliseconds`, `AddMicroseconds`, `AddTicks`.
+Supported methods are `Add`, `AddYears`, `AddMonths`, `AddDays`, `AddHours`, `AddMinutes`, `AddSeconds`, `AddMilliseconds`, `AddMicroseconds` and `AddTicks`.
 
 ## DateOnly Properties
 
@@ -182,7 +182,7 @@ var recent = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Supported properties: `Year`, `Month`, `Day`, `DayOfWeek`, `DayOfYear`.
+Supported properties are `Year`, `Month`, `Day`, `DayOfWeek` and `DayOfYear`.
 
 ## DateOnly Methods
 
@@ -192,27 +192,27 @@ var shifted = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Supported methods: `AddYears`, `AddMonths`, `AddDays`.
+Supported methods are `AddYears`, `AddMonths` and `AddDays`.
 
 ## DateTimeOffset Properties
 
-Supported properties: `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Millisecond`, `Ticks`, `DayOfWeek`, `DayOfYear`, `Date`, `TimeOfDay`.
+Supported properties are `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Millisecond`, `Ticks`, `DayOfWeek`, `DayOfYear`, `Date` and `TimeOfDay`.
 
 ## DateTimeOffset Methods
 
-Supported methods: `Add`, `AddYears`, `AddMonths`, `AddDays`, `AddHours`, `AddMinutes`, `AddSeconds`, `AddMilliseconds`, `AddMicroseconds`, `AddTicks`.
+Supported methods are `Add`, `AddYears`, `AddMonths`, `AddDays`, `AddHours`, `AddMinutes`, `AddSeconds`, `AddMilliseconds`, `AddMicroseconds` and `AddTicks`.
 
 ## TimeOnly Properties
 
-Supported properties: `Hour`, `Minute`, `Second`, `Ticks`.
+Supported properties are `Hour`, `Minute`, `Second` and `Ticks`.
 
 ## TimeOnly Methods
 
-Supported methods: `Add`, `AddHours`, `AddMinutes`.
+Supported methods are `Add`, `AddHours` and `AddMinutes`.
 
 ## TimeSpan Properties
 
-Supported properties: `Days`, `TotalDays`, `Hours`, `TotalHours`, `Minutes`, `TotalMinutes`, `Seconds`, `TotalSeconds`, `Milliseconds`, `TotalMilliseconds`, `Ticks`.
+Supported properties are `Days`, `TotalDays`, `Hours`, `TotalHours`, `Minutes`, `TotalMinutes`, `Seconds`, `TotalSeconds`, `Milliseconds`, `TotalMilliseconds` and `Ticks`.
 
 ## TimeSpan Methods
 
@@ -222,7 +222,7 @@ var results = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Supported methods: `Add`, `Subtract`, `Negate`, `Duration`.
+Supported methods are `Add`, `Subtract`, `Negate` and `Duration`.
 
 You can also call the static `TimeSpan` creation methods inside an expression:
 
@@ -232,7 +232,7 @@ var results = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Supported static methods: `FromDays`, `FromHours`, `FromMinutes`, `FromSeconds`, `FromMilliseconds`, `FromMicroseconds`, `FromTicks`.
+Supported static methods are `FromDays`, `FromHours`, `FromMinutes`, `FromSeconds`, `FromMilliseconds`, `FromMicroseconds` and `FromTicks`.
 
 ## Guid
 

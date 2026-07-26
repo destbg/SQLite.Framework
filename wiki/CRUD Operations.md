@@ -60,7 +60,7 @@ await db.Table<Book>().AddOrUpdateAsync(book);
 
 Uses `INSERT OR REPLACE`. If a row with the same primary key already exists it is replaced, otherwise a new row is inserted.
 
-When the primary key is `[AutoIncrement]`, the value you set on the object decides what happens. Leave it at its default (`0` for an `int` Id) and SQLite assigns a new id, which is then written back to the property. Set it to a non-default value and that id is used directly: an existing row with that id is replaced or a new row is inserted at that id if none exists. The same applies to `AddOrUpdateRange`, which decides per entity in the list.
+When the primary key is `[AutoIncrement]`, the value you set on the object decides what happens. Leave it at its default (`0` for an `int` Id) and SQLite assigns a new id, which is then written back to the property. Set it to a non-default value and that id is used directly. An existing row with that id is replaced or a new row is inserted at that id if none exists. The same applies to `AddOrUpdateRange`, which decides per entity in the list.
 
 ## Add or Update Many
 
@@ -129,7 +129,7 @@ var book = await db.Table<Book>().FirstAsync(b => b.Id == 1);
 await db.Table<Book>().RemoveAsync(book);
 ```
 
-The model must have a `[Key]` property, Remove matches the row by that key. To remove rows in tables without a `[Key]` property, see [Bulk Operations](Bulk%20Operations).
+The model must have a `[Key]` property. Remove matches the row by that key. To remove rows in tables without a `[Key]` property, see [Bulk Operations](Bulk%20Operations).
 
 ## Remove Many
 
@@ -201,7 +201,7 @@ await db.Table<Book>().AddOrUpdateAsync(book, SQLiteConflict.Ignore);
 await db.Table<Book>().AddOrUpdateAsync(book, SQLiteConflict.Abort);
 ```
 
-The values map directly to SQLite's clauses: `Replace` (default), `Ignore`, `Abort`, `Fail`, `Rollback`. `AddOrUpdateRange` takes the same parameter.
+The values map directly to SQLite's `Replace` (default), `Ignore`, `Abort`, `Fail` and `Rollback` clauses. `AddOrUpdateRange` takes the same parameter.
 
 ## Upsert with `ON CONFLICT (...) DO UPDATE`
 
@@ -251,7 +251,7 @@ await db.Table<Book>().UpsertAsync(book, c => c
     .Where((current, excluded) => excluded.Price > current.Price));
 ```
 
-When the new value is not just a copy of the incoming column, pass a setter lambda to `DoUpdate`. Each `Set` assigns one column to an expression. The expression can read the existing row and the incoming `excluded` row, so this is the shape for counters and merges. It reads the same way as `ExecuteUpdate`:
+When the new value is not a direct copy of the incoming column, pass a setter lambda to `DoUpdate`. Each `Set` assigns one column to an expression. The expression can read the existing row and the incoming `excluded` row, so this is the shape for counters and merges. It reads the same way as `ExecuteUpdate`:
 
 ```csharp
 // Counter: add the incoming Price to the stored Price. Merge: keep the later title.
@@ -310,7 +310,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
 
 A value keyed by a mapped column name replaces the one taken from the entity. These hooks apply to `Add`, `AddRange`, `Update` and `UpdateRange`.
 
-Hooks run before any subclass override of the protected helpers, so the two compose: a hook on `OnAdd<Book>` mutates the entity, then a subclass override of `AddOrRemoveItem` sees the mutated entity.
+Hooks run before any subclass override of the protected helpers, so the two compose. A hook on `OnAdd<Book>` mutates the entity, then a subclass override of `AddOrRemoveItem` sees the mutated entity.
 
 ## Cross-cutting action hooks
 
@@ -358,7 +358,7 @@ For deeper changes that the hooks above cannot express (custom SQL, replacing ho
 | `UpdateItem(columns, primaryColumns, sql, item)` | Same as above but for Update. |
 | `Clear()` | Replace the row-clear operation entirely. To customize DDL, subclass `SQLiteSchema` and register it with `UseSchema`. |
 
-Example: an auditing table that stamps a row counter on every insert.
+This example shows an auditing table that stamps a row counter on every insert.
 
 ```csharp
 public class AuditingTable : SQLiteTable<Book>

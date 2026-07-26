@@ -113,7 +113,7 @@ var books = await db.QueryAsync<BookSummary>(
 
 ### Dictionary Rows
 
-Pass `Dictionary<string, object?>` (or `Dictionary<string, object>`) as the type to get each row as a column-name to value map. Values come back in their SQLite native form: `long` for INTEGER, `double` for REAL, `string` for TEXT, `byte[]` for BLOB, `null` for NULL.
+Pass `Dictionary<string, object?>` (or `Dictionary<string, object>`) as the type to get each row as a column-name to value map. Values come back in their SQLite native form. INTEGER comes back as `long`, REAL as `double`, TEXT as `string`, BLOB as `byte[]` and NULL as `null`.
 
 ```csharp
 List<Dictionary<string, object?>> rows = await db.QueryAsync<Dictionary<string, object?>>(

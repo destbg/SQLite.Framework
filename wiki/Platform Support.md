@@ -4,7 +4,7 @@ Every package exposes the same API and assembly name, so your code does not chan
 
 ## Which SQLite loads where
 
-With the default `SQLite.Framework` package the provider is picked once, when the first database is created:
+With the default `SQLite.Framework` package the provider is picked once, when the first database is created.
 
 | Platform | SQLite used |
 |---|---|

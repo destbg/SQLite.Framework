@@ -8,7 +8,7 @@ export const avaloniaWalkthrough: Walkthrough = {
         {
             title: "What you will build",
             description:
-                "A cross-platform Avalonia app that uses a single SQLite database for desktop, Android, and iOS. The flow is loading, login, sync, main, with the same database layer shared across every target.",
+                "A cross-platform Avalonia app that uses a single SQLite database for desktop, Android and iOS. The flow is loading, login, sync, main, with the same database layer shared across every target.",
         },
         {
             title: "Create the project",
@@ -319,7 +319,7 @@ public partial class LoadingViewModel : ObservableObject
         {
             title: "Build the login page",
             description:
-                "Email, password, and a sign-in button. The view model raises an event on success, the page reacts by navigating back to loading. The second loading pass then syncs and lands on main.",
+                "Email, password and a sign-in button. The view model raises an event on success, the page reacts by navigating back to loading. The second loading pass then syncs and lands on main.",
             code: {
                 language: "xml",
                 filename: "Pages/LoginPage.axaml",
@@ -460,7 +460,7 @@ public partial class LoadingViewModel : ObservableObject
         {
             title: "You are done",
             description:
-                "Run any of the heads, desktop, Android, or iOS. The first launch migrates, sends you to login, then back to loading to sync, then to main. The whole DB layer is shared across every target.",
+                "Run any of the heads, desktop, Android or iOS. The first launch migrates, sends you to login, then back to loading to sync, then to main. The whole DB layer is shared across every target.",
         },
     ],
 };

@@ -96,7 +96,7 @@ When the server OS is not under your control, `SQLite.Framework.Bundled` is a be
 
 The provider packages (`SQLite.Framework`, `Bundled`, `Cipher`, `Base`) share the same assembly name and API, so your class libraries do not lock the choice in. Only the package referenced by the root project, the app you actually ship, decides which SQLite loads. A shared library can reference `SQLite.Framework` while the desktop head references `SQLite.Framework.Bundled`. NuGet replaces the provider in every referenced project with the root's choice.
 
-## What each floor unlocks
+## What each floor enables
 
 The floor is also an opt-in. A framework method that needs a newer SQLite than the floor throws `NotSupportedException` and a few translations pick a better SQL shape when the floor allows it. The main gates:
 

@@ -126,7 +126,7 @@ public class Book
 }
 ```
 
-Set `OnDelete`, `OnUpdate` or `Deferred` for richer behavior. `SetNull` requires the column to be nullable. Pass a column name to target a non-primary-key column: `[ReferencesTable(typeof(Country), nameof(Country.Code))]`.
+Set `OnDelete`, `OnUpdate` or `Deferred` for additional behavior. `SetNull` requires the column to be nullable. Pass a column name to target a non-primary-key column with `[ReferencesTable(typeof(Country), nameof(Country.Code))]`.
 
 For composite keys, declare the foreign key in `OnModelCreating`:
 

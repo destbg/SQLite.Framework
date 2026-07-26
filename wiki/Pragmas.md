@@ -17,7 +17,7 @@ long pageSize = db.Pragmas.PageSize;
 long freePages = db.Pragmas.FreelistCount;
 ```
 
-The full set of built-in accessors:
+The full set of built-in accessors.
 
 | Property | Pragma | Notes |
 |---|---|---|
@@ -49,7 +49,7 @@ The full set of built-in accessors:
 
 ## SQLCipher pragmas
 
-On the `SQLite.Framework.Cipher` package the same accessor adds the `cipher_*` family. These are only visible when the `SQLITECIPHER` compile symbol is defined (the Cipher package sets it):
+On the `SQLite.Framework.Cipher` package the same accessor adds the `cipher_*` family. These are only visible when the `SQLITECIPHER` compile symbol is defined (the Cipher package sets it).
 
 | Property or method | Pragma | Notes |
 |---|---|---|

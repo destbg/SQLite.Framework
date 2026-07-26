@@ -184,8 +184,8 @@
                 </p>
                 <p data-reveal>
                     My lead did not want us to write raw SQL for queries or inserts. So we
-                    switched to sqlite-net-pcl. It worked well. The app had no complex queries,
-                    and we ran them in sync on a background thread. I was naive back then, and
+                    switched to sqlite-net-pcl. It worked well. The app had no complex queries.
+                    We ran them in sync on a background thread. I was naive back then. I
                     did not notice that most queries were read into memory first, then projected
                     or joined in C# instead of in SQLite.
                 </p>
@@ -215,7 +215,7 @@
                     <a href="https://github.com/dotnet/macios/issues/17194"
                        target="_blank"
                        rel="noopener">this one</a>.
-                    You can enable the interpreter, but that has a huge performance cost, and it
+                    You can enable the interpreter, but that has a huge performance cost. It
                     broke some other parts of the app.
                 </p>
                 <p data-reveal>
@@ -224,16 +224,16 @@
                     regions took over a minute for the administrators.
                 </p>
                 <p data-reveal>
-                    Don't get me wrong, there are ways to fix this, and I do not mean raw SQL,
+                    Don't get me wrong, there are ways to fix this. I do not mean raw SQL,
                     because that defeats the point of an ORM. I instead started asking myself a
-                    different question:
+                    different question.
                 </p>
                 <blockquote data-reveal>
                     <p>Why did we deal with any of this in the first place?</p>
                 </blockquote>
                 <p data-reveal>
                     This all happened in the middle of 2024. That is when I started building
-                    SQLite.Framework on the side as a hobby, the main idea at the time was to
+                    SQLite.Framework on the side as a hobby. The main idea at the time was to
                     have something similar to sqlite-net-pcl, but with full IQueryable support
                     and no dynamic code generation.
                 </p>
@@ -277,15 +277,15 @@
                 </div>
 
                 <p data-reveal>
-                    And it is not just this app. In our benchmarks, bulk inserts run about 16
+                    And it is not limited to this app. In our benchmarks, bulk inserts run about 16
                     times faster than EF Core (on a computer without using AOT). See the
-                    <a href="/Docs/Performance">benchmarks</a>, or
+                    <a href="/Docs/Performance">benchmarks</a> or
                     <a href="https://github.com/destbg/SQLite.Framework/tree/main/Sample/SQLite.Framework.Benchmarks"
                        target="_blank"
                        rel="noopener">run them yourself</a>.
                 </p>
                 <p data-reveal>
-                    Who is it for? Offline mobile apps, MAUI and Avalonia, and anything you ship
+                    Who is it for? Offline mobile apps, MAUI, Avalonia and anything you ship
                     with Native AOT. If you recognize your own setup here, the migration guides
                     show the move step by step, from
                     <a href="/Docs/Migrating-from-EF-Core">EF Core</a> and from

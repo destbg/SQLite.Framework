@@ -43,7 +43,7 @@ public class ArticleSearch
 }
 ```
 
-`Weight` controls the BM25 score: matches in `Title` count ten times more than matches in `Body`.
+`Weight` controls the BM25 score. Matches in `Title` count ten times more than matches in `Body`.
 
 Create the table the normal way:
 
@@ -113,7 +113,7 @@ List<ArticleSearch> hits = await db.Table<ArticleSearch>()
     .ToListAsync();
 ```
 
-The string is the raw FTS5 query, see the [FTS5 query syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax) docs.
+The string is the raw FTS5 query. See the [FTS5 query syntax](https://www.sqlite.org/fts5.html#full_text_query_syntax) docs.
 
 ### Builder form
 

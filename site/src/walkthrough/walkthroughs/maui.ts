@@ -8,7 +8,7 @@ export const mauiWalkthrough: Walkthrough = {
         {
             title: "What you will build",
             description:
-                "A fresh .NET MAUI app that opens on a loading page, runs schema migrations, sends you to login, and after sign-in returns to the loading page to download the lookup data before landing on the main screen.",
+                "A fresh .NET MAUI app that opens on a loading page, runs schema migrations, sends you to login and after sign-in returns to the loading page to download the lookup data before landing on the main screen.",
         },
         {
             title: "Create the project",
@@ -98,7 +98,7 @@ public class AppDatabase : SQLiteDatabase
         {
             title: "Register everything in MauiProgram",
             description:
-                "The database is a singleton. Pages, page models, and services are added so MAUI's DI can hand them out.",
+                "The database is a singleton. Pages, page models and services are added so MAUI's DI can hand them out.",
             code: {
                 language: "csharp",
                 filename: "MauiProgram.cs",
@@ -228,7 +228,7 @@ return builder.Build();`,
         {
             title: "Branch on sign-in state",
             description:
-                "The first pass migrates and sends the user to login. After sign-in the loading page reappears, sees IsLoggedIn = true, and syncs lookups before going to main.",
+                "The first pass migrates and sends the user to login. After sign-in the loading page reappears, sees IsLoggedIn = true and syncs lookups before going to main.",
             code: {
                 language: "csharp",
                 filename: "PageModels/LoadingPageModel.cs",

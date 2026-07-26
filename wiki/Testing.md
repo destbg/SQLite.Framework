@@ -1,6 +1,6 @@
 # Testing
 
-The framework needs no test doubles. SQLite itself is fast enough to run in every test, so tests exercise the real query translation, the real schema and the real data instead of a mock that agrees with whatever you assert. This page shows the patterns, they match how the framework's own test suite (over 25000 tests) is built.
+The framework needs no test doubles. SQLite itself is fast enough to run in every test, so tests exercise the real query translation, the real schema and the real data instead of a mock that agrees with whatever you assert. This page shows the patterns. They match how the framework's own test suite (over 25000 tests) is built.
 
 ## An in-memory database per test
 

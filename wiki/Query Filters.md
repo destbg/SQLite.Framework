@@ -50,8 +50,8 @@ A filter body may itself query another table. When that table has its own filter
 
 ## What filters do not cover
 
-* Entity-level writes by primary key. `Add`, `Update`, `Remove`, `AddOrUpdate` and `Upsert` target the row by key and do not inject filters, so code holding a reference to a soft-deleted entity can still update it.
-* [Raw SQL](Raw%20SQL) through `FromSql`. You wrote the SQL, so you own the predicate.
+* Filters do not apply to entity-level writes by primary key. `Add`, `Update`, `Remove`, `AddOrUpdate` and `Upsert` target the row by key, so code holding a reference to a soft-deleted entity can still update it.
+* Filters do not apply to [Raw SQL](Raw%20SQL) through `FromSql`. You wrote the SQL, so you own the predicate.
 
 ## Opting out
 

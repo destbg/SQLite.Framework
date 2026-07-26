@@ -51,7 +51,7 @@ public class AppDatabase : SQLiteDatabase
 using AppDatabase db = new();
 ```
 
-A subclass that uses the parameterless constructor must override `OnConfiguring`, or the constructor throws, because there is no other source of options. See [Getting Started](Getting%20Started) for the details.
+A subclass that uses the parameterless constructor must override `OnConfiguring` or the constructor throws, because there is no other source of options. See [Getting Started](Getting%20Started) for the details.
 
 The subclass form is the recommended pattern. It puts every table in one place and matches what EF Core users expect. You can also use `SQLiteDatabase` directly for a quick script, in which case you call `db.Table<Book>()` instead of `db.Books`.
 
@@ -59,7 +59,7 @@ You can register the database in dependency injection. See [Dependency Injection
 
 ## Defining Models
 
-EF Core lets you describe a model in two places: attributes (`DataAnnotations`) on the class and the Fluent API in `OnModelCreating`. In `SQLite.Framework`, the column-level metadata (primary key, column name, table name, what to skip) lives on the class as attributes. There is no `OnModelCreating`.
+EF Core lets you describe a model with attributes (`DataAnnotations`) on the class or with the Fluent API in `OnModelCreating`. In `SQLite.Framework`, the column-level metadata (primary key, column name, table name, what to skip) lives on the class as attributes. There is no `OnModelCreating`.
 
 The attribute names are the same as the ones EF Core understands. `[Key]` marks the primary key, `[Table]` and `[Column]` rename the table and column, `[NotMapped]` skips a property. The only new attribute is `[AutoIncrement]`, which tells SQLite to assign the primary key for you.
 
@@ -99,7 +99,7 @@ await db.Books.UpdateAsync(book);
 
 The methods are similar to EF Core's `DbSet` methods, only you call them on the property you exposed on your `SQLiteDatabase` subclass. See [CRUD Operations](CRUD%20Operations) for the full list.
 
-## AutoIncrement Keys: Match EF Core's Behavior
+## AutoIncrement Keys - Match EF Core's Behavior
 
 By default, EF Core's `Add` looks at the primary key. If the value is the type default (zero for an `int`), EF Core asks the database to assign one. If the value is set to anything else, EF Core uses that value when inserting.
 
@@ -152,7 +152,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
     .Build();
 ```
 
-With this on, `Contains` becomes `instr(x, value) > 0` and `StartsWith` / `EndsWith` become `substr(...) = value`, all case-sensitive like .NET and EF Core. The `StringComparison.OrdinalIgnoreCase` overloads stay case-insensitive. Note that case-sensitive `StartsWith` no longer uses a `LIKE 'prefix%'` index scan.
+With this on, `Contains` becomes `instr(x, value) > 0` and `StartsWith` / `EndsWith` become `substr(...) = value`, all case-sensitive like .NET and EF Core. The `StringComparison.OrdinalIgnoreCase` overloads stay case-insensitive. Case-sensitive `StartsWith` no longer uses a `LIKE 'prefix%'` index scan.
 
 ## No Navigation Properties or Include
 

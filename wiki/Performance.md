@@ -4,7 +4,7 @@
 
 Against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 100 rows per operation, .NET 10, BenchmarkDotNet. Lower is better.
 
-**Read 100 rows into a `List<Book>`:**
+**Read 100 rows into a `List<Book>`**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
@@ -13,7 +13,7 @@ Against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 10
 | sqlite-net-pcl | 43.5 us | 15.4 KB |
 | EF Core 10 (`AsNoTracking`) | 72.0 us | 47.6 KB |
 
-**Bulk insert 100 rows (single transaction):**
+**Bulk insert 100 rows (single transaction)**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
@@ -22,7 +22,7 @@ Against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 10
 | sqlite-net-pcl (`InsertAll`) | 145.2 us | 20.6 KB |
 | EF Core 10 (`AddRange` + `SaveChanges`) | 2,082 us | 915.9 KB |
 
-**Bulk update 100 rows by predicate:**
+**Bulk update 100 rows by predicate**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
@@ -30,7 +30,7 @@ Against EF Core 10 and sqlite-net-pcl 1.9 on the same in-process SQLite file. 10
 | EF Core 10 (`ExecuteUpdate`) | 166.9 us | 17.0 KB |
 | sqlite-net-pcl (`UpdateAll`) | 474.7 us | 198.3 KB |
 
-**Join + project (1000 Books and 50 Authors, filter `Price > 50`, sort, project to a DTO with a sub-query in the projection):**
+**Join + project (1000 Books and 50 Authors, filter `Price > 50`, sort, project to a DTO with a sub-query in the projection)**
 
 | ORM | Mean | Allocated |
 |---|---:|---:|
@@ -56,7 +56,7 @@ The same four operations measured on a real Android device. BenchmarkDotNet does
 
 The harness lives at [`Sample/SQLite.Framework.AndroidBench`](https://github.com/destbg/SQLite.Framework/tree/main/Sample/SQLite.Framework.AndroidBench). Launching it runs all four. To run one ORM use `adb shell am start -n com.sqliteframework.androidbench/.MainActivity --es orm ef` (values `framework`, `frameworkgen`, `ef`, `sqlitenet` or `all`).
 
-## Benchmark: Bulk Insert
+## Benchmark - Bulk Insert
 
 Inserting 1000 rows with a transaction takes a fraction of the time compared to inserting them one by one without one. SQLite commits each write to disk by default, so individual inserts are slow.
 

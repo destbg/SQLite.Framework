@@ -1,6 +1,6 @@
 # Data Seeding
 
-Seeding puts rows into a fresh database, reference data like currencies and categories or demo content for first run. The framework has no dedicated seeding API because two existing pieces cover it, a guarded insert at startup and the migration chain. Pick by how the data should behave later.
+Seeding puts reference data like currencies and categories or demo content for a first run into a fresh database. The framework has no dedicated seeding API because two existing pieces cover it, a guarded insert at startup and the migration chain. Pick by how the data should behave later.
 
 ## Insert when empty
 
@@ -20,7 +20,7 @@ if (!await db.Table<Category>().AnyAsync())
 }
 ```
 
-`AddRange` wraps the inserts in one transaction by default. This pattern never touches a database that already has data, so users keep their edits. That is also its limit, it cannot add the new category you introduce in version two. Use it for demo content and starting points the user owns afterwards.
+`AddRange` wraps the inserts in one transaction by default. This pattern never touches a database that already has data, so users keep their edits. That is also its limit. It cannot add the new category you introduce in version two. Use it for demo content and starting points the user owns afterwards.
 
 ## Idempotent seed with fixed keys
 
@@ -34,7 +34,7 @@ await db.Table<Country>().AddOrUpdateRangeAsync(
 ]);
 ```
 
-New rows appear, existing rows are refreshed to the shipped values, user data in other tables is untouched. `AddOrUpdate` replaces the whole row on conflict. When user-editable columns must survive, use `Upsert` with a `DoUpdate` that lists only the columns you own, see [CRUD Operations](CRUD%20Operations).
+New rows appear. Existing rows are refreshed to the shipped values. User data in other tables is untouched. `AddOrUpdate` replaces the whole row on conflict. When user-editable columns must survive, use `Upsert` with a `DoUpdate` that lists only the columns you own, see [CRUD Operations](CRUD%20Operations).
 
 ## Seeding inside a migration
 
@@ -81,8 +81,8 @@ if (!await db.Table<Book>().AnyAsync())
 }
 ```
 
-The Avalonia sample in the repository ships `SeedData.json` and a small seed service built exactly this way, see [Samples](Samples).
+The Avalonia sample in the repository ships `SeedData.json` and a small seed service built exactly this way. See [Samples](Samples).
 
 ## What seeding is not
 
-A column `DEFAULT` is not seeding, it fills a column on rows inserted later, see [Schema](Schema). And test fixtures are not seeding either, tests build their own data per test, see [Testing](Testing).
+A column `DEFAULT` is not seeding. It fills a column on rows inserted later. See [Schema](Schema). Test fixtures are not seeding either. Tests build their own data per test. See [Testing](Testing).

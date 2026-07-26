@@ -51,7 +51,7 @@ public class Note
         {
             title: "A factory keyed by user id",
             description:
-                "Resolve the path from the user id, build SQLiteOptions on demand, and cache the database per user. The cache lives for the lifetime of the process, one connection per user.",
+                "Resolve the path from the user id, build SQLiteOptions on demand and cache the database per user. The cache lives for the lifetime of the process, one connection per user.",
             code: {
                 language: "csharp",
                 filename: "Data/UserDatabaseFactory.cs",

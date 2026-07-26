@@ -8,7 +8,7 @@ export const blazorWalkthrough: Walkthrough = {
         {
             title: "What you will build",
             description:
-                "A Blazor WebAssembly app that ships SQLite inside the WASM bundle, holds the database in the in-memory filesystem, and round-trips the file bytes to localStorage so the data survives a page reload. No backend required.",
+                "A Blazor WebAssembly app that ships SQLite inside the WASM bundle, holds the database in the in-memory filesystem and round-trips the file bytes to localStorage so the data survives a page reload. No backend required.",
         },
         {
             title: "Create the project",
@@ -96,7 +96,7 @@ public sealed class TodoStore
         {
             title: "Persist after every change",
             description:
-                "Read the file bytes back out and stash them as base64. Call this after every insert, update, or delete.",
+                "Read the file bytes back out and stash them as base64. Call this after every insert, update or delete.",
             code: {
                 language: "csharp",
                 filename: "Services/TodoStore.cs",
@@ -222,7 +222,7 @@ await builder.Build().RunAsync();`,
         {
             title: "You are done",
             description:
-                "Reload the page. Your todos are still there. The database lives entirely client-side, ships in the WASM bundle, and survives reloads thanks to one base64 round trip per write.",
+                "Reload the page. Your todos are still there. The database lives entirely client-side, ships in the WASM bundle and survives reloads thanks to one base64 round trip per write.",
         },
     ],
 };

@@ -1,6 +1,6 @@
 # Migrating from sqlite-net-pcl
 
-This page covers some of the key differences between `sqlite-net-pcl` and `SQLite.Framework` to help you move an existing project over.
+This page covers some differences between `sqlite-net-pcl` and `SQLite.Framework` to help you move an existing project over.
 
 ## LINQ Select Is Fully Supported
 
@@ -87,7 +87,7 @@ When `TimeSpanStorage` is set to `Text`, LINQ property access like `.Days` and `
 
 `sqlite-net-pcl` supports a `[StoreAsText]` attribute that stores enum values as their name instead of their number. Set `EnumStorage = EnumStorageMode.Text` to write enums as text names.
 
-Note that `sqlite-net-pcl`'s `[StoreAsText]` is applied per enum type, while `SQLite.Framework`'s `EnumStorage` is a global setting that applies to all enums. If your existing database has a mix of text and integer enums, reading still works correctly because `SQLite.Framework` detects the format automatically. Writing consistently will require that all enums use the same format.
+`sqlite-net-pcl`'s `[StoreAsText]` is applied per enum type, while `SQLite.Framework`'s `EnumStorage` is a global setting that applies to all enums. If your existing database has a mix of text and integer enums, reading still works correctly because `SQLite.Framework` detects the format automatically. Writing consistently will require that all enums use the same format.
 
 ### DateTimeOffset
 

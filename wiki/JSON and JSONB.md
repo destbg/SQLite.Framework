@@ -1,6 +1,6 @@
 # JSON and JSONB
 
-JSON support is built into every SQLite-provider package. You get two things: type converters that store .NET objects as JSON inside a SQLite column and method translators that let you call SQLite's built-in JSON functions from LINQ queries. The translators are registered automatically when you build the options.
+JSON support is built into every SQLite-provider package. Type converters store .NET objects as JSON inside a SQLite column. Method translators let you call SQLite's built-in JSON functions from LINQ queries. The translators are registered automatically when you build the options.
 
 ---
 
@@ -155,7 +155,7 @@ When you store a `List<T>` or `T[]` as JSON, the framework also routes many stan
 
 ### Supported LINQ methods (Enumerable)
 
-**Scalar results (no predicate):**
+**Scalar results (no predicate)**
 
 | Method | What it does |
 |---|---|
@@ -168,7 +168,7 @@ When you store a `List<T>` or `T[]` as JSON, the framework also routes many stan
 | `Min()` / `Max()` | Smallest or largest element |
 | `Sum()` / `Average()` | Sum or average of numeric elements |
 
-**Scalar results (with predicate):**
+**Scalar results (with predicate)**
 
 | Method | What it does |
 |---|---|
@@ -179,7 +179,7 @@ When you store a `List<T>` or `T[]` as JSON, the framework also routes many stan
 | `Last(x => ...)` / `LastOrDefault(x => ...)` | Last matching element |
 | `Single(x => ...)` / `SingleOrDefault(x => ...)` | The only matching element |
 
-**Aggregate with selector:**
+**Aggregate with selector**
 
 | Method | What it does |
 |---|---|
@@ -188,7 +188,7 @@ When you store a `List<T>` or `T[]` as JSON, the framework also routes many stan
 | `Sum(x => x.Prop)` | Sum of a numeric property |
 | `Average(x => x.Prop)` | Average of a numeric property |
 
-**Collection results:**
+**Collection results**
 
 | Method | What it does |
 |---|---|
@@ -336,12 +336,12 @@ This also means that combinations like `.Where(...).Count()`, `.OrderBy(...).The
 
 These patterns are not translated to SQL and will either fall back to client-side evaluation or throw an error:
 
-- **Predicate overloads with start index or count.** `FindIndex(int startIndex, Predicate<T>)` and similar overloads that take a start index are not supported. Only the single-predicate overloads work.
-- **`OrderBy` / `OrderByDescending` as the final result in a Select.** The C# return type is `IOrderedEnumerable<T>`, which cannot be deserialized back to `List<T>`. Chain another method after it instead, like `.First()` or `.Take(n)`.
-- **`List<T>.Reverse()` in a Select.** The C# compiler picks the void instance method over the LINQ extension. Use `Enumerable.Reverse(list)` with the static call syntax instead.
-- **`Zip`.** This is not supported.
-- **`GroupBy` with result selector.** `GroupBy(x => x.Key, (key, group) => ...)` with a result selector is not supported yet. You can use `GroupBy(x => x.Key).Count()` and similar aggregations.
-- **Predicate methods that return complex objects directly.** `Find(x => ...)` and `First(x => ...)` return the raw JSON value from the database. If you access a property on the result (like `.Street`), it works. If you try to return the whole object, you get the JSON string, not the deserialized object.
+- `FindIndex(int startIndex, Predicate<T>)` and similar predicate overloads that take a start index or count are not supported. Only the single-predicate overloads work.
+- `OrderBy` / `OrderByDescending` as the final result in a Select gives the C# return type `IOrderedEnumerable<T>`, which cannot be deserialized back to `List<T>`. Chain another method after it instead, like `.First()` or `.Take(n)`.
+- `List<T>.Reverse()` in a Select binds to the void instance method instead of the LINQ extension. Use `Enumerable.Reverse(list)` with the static call syntax instead.
+- `Zip` is not supported.
+- `GroupBy(x => x.Key, (key, group) => ...)` with a result selector is not supported yet. You can use `GroupBy(x => x.Key).Count()` and similar aggregations.
+- `Find(x => ...)` and `First(x => ...)` return the raw JSON value from the database. If you access a property on the result (like `.Street`), it works. If you try to return the whole object, you get the JSON string, not the deserialized object.
 
 ---
 

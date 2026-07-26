@@ -20,7 +20,7 @@ public class Book
 }
 ```
 
-Without `[AutoIncrement]`, you are responsible for setting the key to an unique value before inserting.
+Without `[AutoIncrement]`, you are responsible for setting the key to a unique value before inserting.
 
 ## Custom Table Name
 
@@ -122,7 +122,7 @@ public int AuthorId { get; set; }
 public string? Genre { get; set; }
 ```
 
-This produces one index: `CREATE INDEX "IX_Book_AuthorGenre" ON "Books" (AuthorId, Genre)`.
+This produces one index. `CREATE INDEX "IX_Book_AuthorGenre" ON "Books" (AuthorId, Genre)`.
 
 Set `IsUnique = true` on any of the attributes to make the composite index unique:
 

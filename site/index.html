@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SQLite.Framework - LINQ-friendly ORM for SQLite in .NET</title>
-    <meta name="description" content="SQLite.Framework is a LINQ-friendly ORM for SQLite in .NET 8, 9, and 10. IQueryable, async, FTS5, JSON, window functions, and Native AOT support." />
+    <meta name="description" content="SQLite.Framework is a LINQ-friendly ORM for SQLite in .NET 8, 9 and 10. IQueryable, async, FTS5, JSON, window functions and Native AOT support." />
     <meta name="keywords" content="SQLite, .NET, ORM, LINQ, IQueryable, EF Core alternative, sqlite-net-pcl alternative, MAUI, Avalonia, Native AOT, FTS5, JSON, source generator" />
     <meta name="title" content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
     <meta name="author" content="Nikolay Kostadinov" />
@@ -25,25 +25,25 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://sqlite-framework.net/" />
     <meta property="og:title" content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
-    <meta property="og:description" content="Write LINQ. Query SQLite. Typed tables, async queries, and Native AOT support for .NET 8, 9, and 10." />
+    <meta property="og:description" content="Write LINQ. Query SQLite. Typed tables, async queries and Native AOT support for .NET 8, 9 and 10." />
     <meta property="og:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
-    <meta name="twitter:description" content="Write LINQ. Query SQLite. Typed tables, async queries, and Native AOT support for .NET 8, 9, and 10." />
+    <meta name="twitter:description" content="Write LINQ. Query SQLite. Typed tables, async queries and Native AOT support for .NET 8, 9 and 10." />
     <meta name="twitter:image" content="https://sqlite-framework.net/SQLite.Framework.png" />
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "SQLite.Framework",
-        "description": "A LINQ-friendly ORM for SQLite in .NET 8, 9, and 10. IQueryable, async, FTS5, JSON, window functions, and Native AOT support.",
+        "description": "A LINQ-friendly ORM for SQLite in .NET 8, 9 and 10. IQueryable, async, FTS5, JSON, window functions and Native AOT support.",
         "url": "https://sqlite-framework.net/",
         "image": "https://sqlite-framework.net/SQLite.Framework.png",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Cross-platform",
         "programmingLanguage": "C#",
         "runtimePlatform": [".NET 8", ".NET 9", ".NET 10"],
-        "softwareRequirements": ".NET 8, .NET 9, or .NET 10",
+        "softwareRequirements": ".NET 8, .NET 9 or .NET 10",
         "license": "https://spdx.org/licenses/MIT.html",
         "codeRepository": "https://github.com/destbg/SQLite.Framework",
         "downloadUrl": "https://www.nuget.org/packages/SQLite.Framework/",
@@ -98,8 +98,8 @@
                     <p class="eyebrow">lightweight ORM for SQLite on .NET</p>
                     <h1>Write <span class="accent">LINQ</span>.<br />Query SQLite.</h1>
                     <p class="hero-sub">
-                        Typed tables, async queries, and a familiar EF-style API that translates
-                        your whole IQueryable to SQL. Built for MAUI, Avalonia, and Native AOT.
+                        Typed tables, async queries and a familiar EF-style API that translates
+                        your whole IQueryable to SQL. Built for MAUI, Avalonia and Native AOT.
                     </p>
                     <div class="hero-install">
                         <pre data-copy><code data-lang="bash">dotnet add package SQLite.Framework</code></pre>
@@ -244,12 +244,12 @@ LIMIT @p1;</code></pre>
                     <article class="feature-card" data-reveal>
                         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
                         <h3>LINQ first</h3>
-                        <p>Full IQueryable support. Joins, group by, subqueries, window functions, and CTEs all translate to SQL.</p>
+                        <p>Full IQueryable support. Joins, group by, subqueries, window functions and CTEs all translate to SQL.</p>
                     </article>
                     <article class="feature-card" data-reveal>
                         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
                         <h3>Async everywhere</h3>
-                        <p>Every operation has an async sibling. ToListAsync, FirstOrDefaultAsync, ExecuteUpdateAsync, and more.</p>
+                        <p>Every operation has an async sibling. ToListAsync, FirstOrDefaultAsync, ExecuteUpdateAsync and more.</p>
                     </article>
                     <article class="feature-card" data-reveal>
                         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9zM4 9h-2M4 15h-2M22 9h-2M22 15h-2M9 4V2M15 4V2M9 22v-2M15 22v-2"/></svg>
@@ -413,7 +413,7 @@ LIMIT @p1;</code></pre>
                 <div class="faq-list" data-reveal>
                     <details>
                         <summary>Does it support Native AOT?</summary>
-                        <p>Yes. The framework never generates code at runtime. Add the optional source generator and call UseGeneratedMaterializers, and queries run with no reflection on the materialization path, so the trimmer keeps every type. See <a href="/Docs/Native%20AOT">Native AOT</a>.</p>
+                        <p>Yes. The framework never generates code at runtime. Add the optional source generator and call UseGeneratedMaterializers. Queries run with no reflection on the materialization path, so the trimmer keeps every type. See <a href="/Docs/Native%20AOT">Native AOT</a>.</p>
                     </details>
                     <details>
                         <summary>Is it safe to use from multiple threads?</summary>
@@ -421,15 +421,15 @@ LIMIT @p1;</code></pre>
                     </details>
                     <details>
                         <summary>Can I encrypt the database?</summary>
-                        <p>Yes. Use the SQLite.Framework.Cipher package, which ships SQLCipher, and call UseEncryptionKey on the options builder.</p>
+                        <p>Yes. Use the SQLite.Framework.Cipher package, which ships SQLCipher. Call UseEncryptionKey on the options builder.</p>
                     </details>
                     <details>
                         <summary>Which .NET and SQLite versions are supported?</summary>
-                        <p>.NET 8, 9, and 10. It uses the SQLite that ships with your OS by default, and you can set a minimum version on the builder or ship a pinned binary with the Bundled package.</p>
+                        <p>.NET 8, 9 and 10. It uses the SQLite that ships with your OS by default. You can set a minimum version on the builder or ship a pinned binary with the Bundled package.</p>
                     </details>
                     <details>
                         <summary>Does it have a change tracker or migrations?</summary>
-                        <p>It does not have a change tracker like EF Core. That is by design. It has lightweight stand-ins instead. Write hooks (OnAdd and OnUpdate) run before a save for audit and derived values. A versioned migration runner reconciles and versions the schema. There is no automatic change tracker, unit of work, or lazy loading.</p>
+                        <p>It does not have a change tracker like EF Core. That is by design. It has lightweight stand-ins instead. Write hooks (OnAdd and OnUpdate) run before a save for audit and derived values. A versioned migration runner reconciles and versions the schema. There is no automatic change tracker, unit of work or lazy loading.</p>
                     </details>
                     <details>
                         <summary>How is it different from EF Core or sqlite-net-pcl?</summary>
@@ -444,7 +444,7 @@ LIMIT @p1;</code></pre>
                 <h2>Ready to try it?</h2>
                 <p>
                     Pick the host you ship on and step through a guided setup.
-                    Console, MAUI, Avalonia, ASP.NET, or Blazor.
+                    Console, MAUI, Avalonia, ASP.NET or Blazor.
                 </p>
                 <div class="hero-ctas">
                     <a class="btn btn-primary" href="/Walkthrough/">Browse Walkthroughs</a>

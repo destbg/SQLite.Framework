@@ -40,7 +40,7 @@ var results = await (
 ).ToListAsync();
 ```
 
-The "from" must be always right after the join.
+The "from" must always be right after the join.
 
 ## Full Outer Join
 

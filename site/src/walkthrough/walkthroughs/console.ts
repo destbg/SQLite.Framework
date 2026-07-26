@@ -8,7 +8,7 @@ export const consoleWalkthrough: Walkthrough = {
         {
             title: "What you will build",
             description:
-                "A tiny console app that creates a SQLite database, seeds it, and runs a handful of LINQ queries. Pure C# with no UI in the way.",
+                "A tiny console app that creates a SQLite database, seeds it and runs a handful of LINQ queries. Pure C# with no UI in the way.",
         },
         {
             title: "Create the project",
@@ -24,7 +24,7 @@ dotnet add package SQLite.Framework`,
         {
             title: "Define your entities",
             description:
-                "Two related tables: Authors and Books. The attributes mark primary keys, auto-increment, and required columns.",
+                "Two related tables. Authors and Books. The attributes mark primary keys, auto-increment and required columns.",
             code: {
                 language: "csharp",
                 filename: "Models.cs",
@@ -219,7 +219,7 @@ Console.WriteLine($"Removed {removed} expensive books.");`,
         {
             title: "You are done",
             description:
-                "You have a working database, seed data, joins, group-by, bulk operations, and transactions, all in one short Program.cs. From here you have the full LINQ surface to build on.",
+                "You have a working database, seed data, joins, group-by, bulk operations and transactions, all in one short Program.cs. From here you have the full LINQ surface to build on.",
         },
     ],
 };

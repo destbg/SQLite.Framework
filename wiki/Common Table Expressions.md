@@ -1,6 +1,6 @@
 # Common Table Expressions
 
-Common Table Expressions (CTEs) let you create a subquery and refer to it later in the same statement. SQLite supports two forms: non-recursive (`WITH`) and recursive (`WITH RECURSIVE`).
+Common Table Expressions (CTEs) let you create a subquery and refer to it later in the same statement. SQLite supports two forms, non-recursive (`WITH`) and recursive (`WITH RECURSIVE`).
 
 ## Non-recursive CTE
 
@@ -230,7 +230,7 @@ FROM cte1 AS w0
 
 ### Sudoku solver
 
-This example is taken directly from the [SQLite WITH documentation](https://sqlite.org/lang_with.html). It solves a Sudoku puzzle entirely in SQL using three CTEs: one for the input grid, one to enumerate digits 1 to 9 and one recursive CTE that fills in blanks one at a time using `NOT EXISTS` to check row, column and box constraints.
+This example is taken directly from the [SQLite WITH documentation](https://sqlite.org/lang_with.html). It solves a Sudoku puzzle entirely in SQL using three CTEs. One is for the input grid, one enumerates digits 1 to 9 and one is a recursive CTE that fills in blanks one at a time using `NOT EXISTS` to check row, column and box constraints.
 
 The puzzle string is 81 characters where `.` marks an empty cell.
 

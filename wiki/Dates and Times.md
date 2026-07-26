@@ -20,7 +20,7 @@ The trade is simple. Tick storage supports querying date parts (`Year`, `Month`,
 
 Tick storage keeps only the tick count, so `Kind` is not stored. Every value reads back with `Kind == DateTimeKind.Unspecified`, whether you wrote it as UTC or local.
 
-The robust convention is to store UTC everywhere and convert at the edges of the app. If you must round-trip `Kind`, use `TextFormatted` with the round-trip format `"o"`. The framework parses with `DateTimeStyles.RoundtripKind`, so a format that encodes the zone brings `Kind` back.
+The safe convention is to store UTC everywhere and convert at the edges of the app. If you must round-trip `Kind`, use `TextFormatted` with the round-trip format `"o"`. The framework parses with `DateTimeStyles.RoundtripKind`, so a format that encodes the zone brings `Kind` back.
 
 ## DateTimeOffset
 
@@ -28,7 +28,7 @@ The default `Ticks` mode stores the local clock ticks and drops the offset, so v
 
 Pick per use case:
 
-* `UtcTicks` stores the UTC instant. Comparisons and ordering match .NET. Date parts read in a query (`.Year`, `.Hour`) come back in UTC. The offset is still not stored, keep a second column when you need it back.
+* `UtcTicks` stores the UTC instant. Comparisons and ordering match .NET. Date parts read in a query (`.Year`, `.Hour`) come back in UTC. The offset is still not stored. Keep a second column when you need it back.
 * `TextFormatted` keeps the offset in the string, but no date-part queries.
 
 ```csharp
@@ -39,7 +39,7 @@ If none of that matters because all writers use one offset, the default is fine.
 
 ## Now in queries
 
-`DateTime.UtcNow` in a query expression is evaluated by your app when the query runs and bound as an ordinary parameter. That is almost always what you want and it is testable, see [Testing](Testing).
+`DateTime.UtcNow` in a query expression is evaluated by your app when the query runs and bound as an ordinary parameter. That is almost always what you want and it is testable. See [Testing](Testing).
 
 ```csharp
 DateTime cutoff = DateTime.UtcNow.AddDays(-30);
@@ -63,7 +63,7 @@ var byYear = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Arithmetic translates too. The `Add*` family, `Subtract` and `DateTime` minus `DateTime` yielding a `TimeSpan`. `AddMonths` and `AddYears` clamp to the end of the month the way .NET does. Two known divergences are pinned in [Limitations](Limitations). Fractional `Add*` amounts can land one tick away from .NET and month math that lands in December 9999 overflows SQLite's date range.
+Arithmetic translates too. The `Add*` family and `Subtract` translate. `DateTime` minus `DateTime` translates to a `TimeSpan`. `AddMonths` and `AddYears` clamp to the end of the month the way .NET does. Two known divergences are pinned in [Limitations](Limitations). Fractional `Add*` amounts can land one tick away from .NET and month math that lands in December 9999 overflows SQLite's date range.
 
 ## Interop with data from other tools
 
@@ -71,7 +71,7 @@ Tick integers are the framework's format, not SQLite's. SQLite's own date functi
 
 Reading columns another tool wrote:
 
-* ISO text like `2023-06-15 12:00:00` reads back correctly even under the default mode, the reader falls back to a general parse for TEXT values. To also write that shape, switch to `TextFormatted`.
+* ISO text like `2023-06-15 12:00:00` reads back correctly even under the default mode. The reader falls back to a general parse for TEXT values. To also write that shape, switch to `TextFormatted`.
 * Unix seconds in an INTEGER column are misread as ticks, which produces dates in year 0001. There is no unix-seconds mode. Either map the column as `long` and convert in code or read it through `SQLiteDateFunctions.Datetime(o.CreatedAtUnix, "unixepoch")`.
 
 Using raw SQL against tick columns, a plain `strftime('%Y', Created)` gives the wrong answer on ticks. Convert first:

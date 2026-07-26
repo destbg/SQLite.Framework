@@ -17,7 +17,7 @@ public interface ISQLiteTypeConverter
 }
 ```
 
-### Example: storing a custom value object as TEXT
+### Storing a custom value object as TEXT
 
 Say you have a `Money` type that wraps a decimal amount and a currency code:
 
@@ -92,21 +92,21 @@ The delegate gets a `SQLiteCallerContext` for the call. It returns an `Expressio
 
 `SQLiteCallerContext` gives you:
 
-- `Node`: the original `MethodCallExpression` being translated.
-- `Visit(Expression)`: translate a child expression. Call this for each argument so you can use its translated form.
-- `Counters.NextIdentifier()` and `Counters.NextParamName()`: give you a new identifier or a new `@p`-prefixed parameter name that is unique inside the query.
+- `Node` - the original `MethodCallExpression` being translated.
+- `Visit(Expression)` - translate a child expression. Call this for each argument so you can use its translated form.
+- `Counters.NextIdentifier()` and `Counters.NextParamName()` - give you a new identifier or a new `@p`-prefixed parameter name that is unique inside the query.
 
 Build the result with one of the `SQLiteExpression` factory methods:
 
-- `SQLiteExpression.Leaf(type, id, sql, parameters)`: a plain SQL string with no child expressions.
-- `SQLiteExpression.Wrap(type, id, before, child, after, parameters)`: one child slot.
-- `SQLiteExpression.Binary(type, id, before, a, mid, b, after, parameters)`: two child slots.
-- `SQLiteExpression.Trinary(type, id, before, a, mid1, b, mid2, c, after, parameters)`: three child slots.
-- `SQLiteExpression.Variadic(type, id, before, children, sep, after, parameters)`: a list of children joined by `sep`.
+- `SQLiteExpression.Leaf(type, id, sql, parameters)` - a plain SQL string with no child expressions.
+- `SQLiteExpression.Wrap(type, id, before, child, after, parameters)` - one child slot.
+- `SQLiteExpression.Binary(type, id, before, a, mid, b, after, parameters)` - two child slots.
+- `SQLiteExpression.Trinary(type, id, before, a, mid1, b, mid2, c, after, parameters)` - three child slots.
+- `SQLiteExpression.Variadic(type, id, before, children, sep, after, parameters)` - a list of children joined by `sep`.
 
 The last `parameters` argument is the full list of parameters for the new expression. Each time you visit a child, take its `Parameters` and add them to your list, so the database can bind them when the query runs.
 
-### Example: SQLite JSON functions
+### SQLite JSON functions
 
 Add stub methods that throw at run time. The query engine replaces them with SQL. If you call them by mistake from normal code, the error makes it clear what went wrong:
 
@@ -182,7 +182,7 @@ SELECT * FROM "Log" AS l0
 WHERE json_extract(l0."Data", '$.level') = 'error'
 ```
 
-### Example: instance method on a custom type
+### Instance method on a custom type
 
 If your type has methods that should translate to SQL functions, add them the same way. For instance methods, `MethodCallExpression.Object` holds the object the method is called on. Visit it the same way you visit each argument:
 
