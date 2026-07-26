@@ -2,16 +2,6 @@ namespace SQLite.Framework.Internals.Visitors.Member;
 
 internal static class DateTimeMemberVisitor
 {
-    private static readonly long[] DescendingUnitTicks =
-    [
-        TimeSpan.TicksPerDay,
-        TimeSpan.TicksPerHour,
-        TimeSpan.TicksPerMinute,
-        TimeSpan.TicksPerSecond,
-        TimeSpan.TicksPerMillisecond,
-        TimeSpan.TicksPerMicrosecond,
-    ];
-
     public static Expression HandleDateTimeMethod(SQLiteCallerContext ctx)
     {
 
@@ -520,7 +510,7 @@ internal static class DateTimeMemberVisitor
             );
         }
 
-        int startIndex = Array.IndexOf(DescendingUnitTicks, multiplyBy);
+        int startIndex = DescendingUnitIndex(multiplyBy);
         List<(long Unit, SQLiteExpression Expr)> terms = [];
         for (int i = 0; i < arguments.Count; i++)
         {
@@ -530,7 +520,7 @@ internal static class DateTimeMemberVisitor
                 continue;
             }
 
-            terms.Add((DescendingUnitTicks[startIndex + i], arg.SQLiteExpression!));
+            terms.Add((DescendingUnitTicksAt(startIndex + i), arg.SQLiteExpression!));
         }
 
         string[] parts = new string[terms.Count + 1];
@@ -550,6 +540,31 @@ internal static class DateTimeMemberVisitor
             exprs,
             ParameterHelpers.CombineParameters(exprs)
         );
+    }
+
+    private static int DescendingUnitIndex(long ticksPerUnit)
+    {
+        return ticksPerUnit switch
+        {
+            TimeSpan.TicksPerDay => 0,
+            TimeSpan.TicksPerHour => 1,
+            TimeSpan.TicksPerMinute => 2,
+            TimeSpan.TicksPerSecond => 3,
+            _ => 4
+        };
+    }
+
+    private static long DescendingUnitTicksAt(int index)
+    {
+        return index switch
+        {
+            0 => TimeSpan.TicksPerDay,
+            1 => TimeSpan.TicksPerHour,
+            2 => TimeSpan.TicksPerMinute,
+            3 => TimeSpan.TicksPerSecond,
+            4 => TimeSpan.TicksPerMillisecond,
+            _ => TimeSpan.TicksPerMicrosecond
+        };
     }
 
     private static SQLiteExpression ResolveRelativeDate(SQLVisitor visitor, MethodInfo method, SQLiteExpression obj, List<ResolvedModel> arguments, string addType)

@@ -2,17 +2,6 @@ namespace SQLite.Framework.Internals.Helpers;
 
 internal static class ExpressionHelpers
 {
-    private static readonly HashSet<ExpressionType> evaluableUnaryOperators =
-    [
-        ExpressionType.Convert,
-        ExpressionType.ConvertChecked,
-        ExpressionType.ArrayLength,
-        ExpressionType.Negate,
-        ExpressionType.NegateChecked,
-        ExpressionType.Not,
-        ExpressionType.TypeAs
-    ];
-
     public static (string Path, ParameterExpression Parameter) ResolveParameterPath(Expression node)
     {
         List<string> paths = [];
@@ -124,7 +113,13 @@ internal static class ExpressionHelpers
 
     public static bool IsEvaluableUnary(UnaryExpression node)
     {
-        return evaluableUnaryOperators.Contains(node.NodeType);
+        return node.NodeType is ExpressionType.Convert
+            or ExpressionType.ConvertChecked
+            or ExpressionType.ArrayLength
+            or ExpressionType.Negate
+            or ExpressionType.NegateChecked
+            or ExpressionType.Not
+            or ExpressionType.TypeAs;
     }
 
     public static object? GetConstantValue(Expression node)

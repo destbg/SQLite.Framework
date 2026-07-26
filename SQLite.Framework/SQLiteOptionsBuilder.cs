@@ -987,8 +987,7 @@ public sealed class SQLiteOptionsBuilder
         MemberTranslators[typeof(decimal)] = floatHandler;
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2075",
-        Justification = "JsonSerializerContext members are rooted by the JSON source generator.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "JsonSerializerContext members are rooted by the JSON source generator.")]
     private static IEnumerable<JsonTypeInfo> EnumerateContextRoots(JsonSerializerContext context)
     {
         foreach (PropertyInfo pi in context.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))

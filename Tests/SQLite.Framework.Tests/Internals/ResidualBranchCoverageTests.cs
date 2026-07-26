@@ -232,6 +232,29 @@ public class ResidualBranchCoverageTests
     }
 
     [Fact]
+    public void IsIdentifierPositionMatchesEveryKeywordShape()
+    {
+        MethodInfo method = typeof(SchemaSqlNormalizer).GetMethod(
+            "IsIdentifierPosition", BindingFlags.NonPublic | BindingFlags.Static)!;
+        string[] keywords = ["from", "on", "references", "collate", "table", "index", "view", "trigger", "into", "join", "using"];
+        foreach (string keyword in keywords)
+        {
+            Assert.Equal(true, method.Invoke(null, [new List<string> { keyword }, 0, -1]));
+        }
+
+        string[] probes =
+        [
+            "xx", "no", "xyz", "frxx", "vixx", "inxx", "joxx", "onxx", "xxxx",
+            "taxxx", "inxxx", "usxxx", "vixxx", "xxxxx", "coxxxxx", "trxxxxx",
+            "xxxxxxx", "referencex", "xxxxxxxxxx", "xxxxxxxxxxxx"
+        ];
+        foreach (string probe in probes)
+        {
+            Assert.Equal(false, method.Invoke(null, [new List<string> { probe }, 0, -1]));
+        }
+    }
+
+    [Fact]
     public void ResolveDirectoryReturnsMissingDirectoryUnchanged()
     {
         MethodInfo method = typeof(DatabaseFilePath).GetMethod(
@@ -310,6 +333,20 @@ public class ResidualBranchCoverageTests
 
         Assert.Equal("x", ExpressionHelpers.GetConstantValue(matching));
         Assert.Null(ExpressionHelpers.GetConstantValue(mismatched));
+    }
+
+    [Fact]
+    public void IsEvaluableUnaryAcceptsEveryFoldableOperator()
+    {
+        Assert.True(ExpressionHelpers.IsEvaluableUnary(Expression.Convert(Expression.Constant(1), typeof(long))));
+        Assert.True(ExpressionHelpers.IsEvaluableUnary(Expression.ConvertChecked(Expression.Constant(1), typeof(long))));
+        Assert.True(ExpressionHelpers.IsEvaluableUnary(Expression.ArrayLength(Expression.Constant(Array.Empty<int>()))));
+        Assert.True(ExpressionHelpers.IsEvaluableUnary(Expression.Negate(Expression.Constant(1))));
+        Assert.True(ExpressionHelpers.IsEvaluableUnary(Expression.NegateChecked(Expression.Constant(1))));
+        Assert.True(ExpressionHelpers.IsEvaluableUnary(Expression.Not(Expression.Constant(true))));
+        Assert.True(ExpressionHelpers.IsEvaluableUnary(Expression.TypeAs(Expression.Constant("x", typeof(object)), typeof(string))));
+        Assert.False(ExpressionHelpers.IsEvaluableUnary(Expression.UnaryPlus(Expression.Constant(1))));
+        Assert.False(ExpressionHelpers.IsEvaluableUnary(Expression.OnesComplement(Expression.Constant(1))));
     }
 
     [Fact]

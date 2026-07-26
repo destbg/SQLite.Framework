@@ -8,14 +8,6 @@ namespace SQLite.Framework.Internals;
 /// </remarks>
 internal class SQLTranslator
 {
-    private static readonly HashSet<string> orderMethodNames = new(StringComparer.Ordinal)
-    {
-        nameof(Queryable.OrderBy),
-        nameof(Queryable.OrderByDescending),
-        nameof(Queryable.ThenBy),
-        nameof(Queryable.ThenByDescending)
-    };
-
     private readonly SQLiteDatabase database;
     private readonly int level;
     private readonly bool isInnerQuery;
@@ -1244,7 +1236,8 @@ internal class SQLTranslator
     private static bool IsTextDecimalOrder(MethodCallExpression candidate, SQLiteOptions options)
     {
         if (options.DecimalStorage != DecimalStorageMode.Text
-            || !orderMethodNames.Contains(candidate.Method.Name))
+            || candidate.Method.Name is not (nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
+                or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending)))
         {
             return false;
         }

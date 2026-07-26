@@ -79,4 +79,26 @@ public class TimeSpanFromUnitMultiArgumentParityTests
 
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void FromSeconds_SecondsAndMilliseconds_MatchesDotNet()
+    {
+        using TestDatabase db = Seed(4, 250);
+
+        long expected = new[] { new { A = 4, B = 250 } }.Select(r => TimeSpan.FromSeconds(r.A, r.B).Ticks).First();
+        long actual = db.Table<TsFromRow>().Where(r => r.Id == 1).Select(r => TimeSpan.FromSeconds(r.A, r.B).Ticks).First();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void FromMilliseconds_MillisecondsAndMicroseconds_MatchesDotNet()
+    {
+        using TestDatabase db = Seed(5, 750);
+
+        long expected = new[] { new { A = 5, B = 750 } }.Select(r => TimeSpan.FromMilliseconds(r.A, r.B).Ticks).First();
+        long actual = db.Table<TsFromRow>().Where(r => r.Id == 1).Select(r => TimeSpan.FromMilliseconds(r.A, r.B).Ticks).First();
+
+        Assert.Equal(expected, actual);
+    }
 }

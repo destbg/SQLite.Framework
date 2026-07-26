@@ -20,8 +20,6 @@ public sealed class SQLiteMigrationRunner
         """content\s*=\s*(?:"(?<name>[^"]*)"|'(?<name>[^']*)'|\[(?<name>[^\]]*)\]|`(?<name>[^`]*)`|(?<name>\w+))""",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    private static readonly string[] rowIdNames = ["rowid", "_rowid_", "oid"];
-
     private readonly SQLiteSchema schema;
     private readonly SortedDictionary<int, Action<SQLiteMigrationStep>> versions = new();
     private Action<SQLiteMigrationProgress>? progress;
@@ -1448,15 +1446,17 @@ public sealed class SQLiteMigrationRunner
 
     private static string? FindRowIdAccess(HashSet<string> columnNames)
     {
-        foreach (string candidate in rowIdNames)
+        if (!columnNames.Contains("rowid"))
         {
-            if (!columnNames.Contains(candidate))
-            {
-                return candidate;
-            }
+            return "rowid";
         }
 
-        return null;
+        if (!columnNames.Contains("_rowid_"))
+        {
+            return "_rowid_";
+        }
+
+        return columnNames.Contains("oid") ? null : "oid";
     }
 
     private static bool ModelDeclaresUnique(TableMapping mapping, string column)

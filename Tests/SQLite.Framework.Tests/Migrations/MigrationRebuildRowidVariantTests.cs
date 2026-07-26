@@ -31,6 +31,21 @@ public class RowidTrioOther
     public int Id { get; set; }
 }
 
+[Table("RowidDuoRows")]
+public class RowidDuoRow
+{
+    [Key]
+    public string Code { get; set; } = "";
+
+    [Column("rowid")]
+    public int RowidValue { get; set; }
+
+    [Column("_rowid_")]
+    public int UnderscoreValue { get; set; }
+
+    public string? Note { get; set; }
+}
+
 public class MigrationRebuildRowidVariantTests
 {
     [Fact]
@@ -51,6 +66,25 @@ public class MigrationRebuildRowidVariantTests
         Assert.Equal(3, row.OidValue);
         Assert.Equal("n", row.Note);
         Assert.Equal(0, db.ExecuteScalar<long>("SELECT COUNT(*) FROM pragma_table_info('RowidTrioRows') WHERE name = 'Legacy'"));
+    }
+
+    [Fact]
+    public void RebuildTableWithTwoRowidNamesShadowedKeepsRows()
+    {
+        using TestDatabase db = new();
+        db.Execute("CREATE TABLE \"RowidDuoRows\" (\"Code\" TEXT NOT NULL PRIMARY KEY, \"rowid\" INTEGER NOT NULL, \"_rowid_\" INTEGER NOT NULL, \"Note\" TEXT, \"Legacy\" TEXT)");
+        db.Execute("INSERT INTO \"RowidDuoRows\" (\"Code\", \"rowid\", \"_rowid_\", \"Note\", \"Legacy\") VALUES ('a', 1, 2, 'n', 'x')");
+
+        db.Schema.Migrations()
+            .Version(1, m => m.TableChanged<RowidDuoRow>(rebuild: true))
+            .Migrate();
+
+        RowidDuoRow row = db.Table<RowidDuoRow>().Single();
+        Assert.Equal("a", row.Code);
+        Assert.Equal(1, row.RowidValue);
+        Assert.Equal(2, row.UnderscoreValue);
+        Assert.Equal("n", row.Note);
+        Assert.Equal(0, db.ExecuteScalar<long>("SELECT COUNT(*) FROM pragma_table_info('RowidDuoRows') WHERE name = 'Legacy'"));
     }
 
     [Fact]

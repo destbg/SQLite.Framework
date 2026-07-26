@@ -8,11 +8,6 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class SchemaSqlNormalizer
 {
-    private static readonly HashSet<string> identifierKeywords = new(StringComparer.Ordinal)
-    {
-        "from", "on", "references", "collate", "table", "index", "view", "trigger", "into", "join", "using"
-    };
-
     public static bool AreEquivalent(string expectedSql, string? actualSql)
     {
         if (actualSql == null)
@@ -134,7 +129,8 @@ internal static class SchemaSqlNormalizer
             return true;
         }
 
-        return identifierKeywords.Contains(tokens[^1]);
+        return tokens[^1] is "from" or "on" or "references" or "collate" or "table"
+            or "index" or "view" or "trigger" or "into" or "join" or "using";
     }
 
     private static bool IsColumnListPosition(List<string> tokens)
