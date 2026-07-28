@@ -294,6 +294,17 @@ public static class SelectMaterializerEmitter
                 continue;
             }
 
+            if (current is IMethodSymbol { TypeArguments.Length: > 0 } genericMethod)
+            {
+                foreach (ITypeSymbol arg in genericMethod.TypeArguments)
+                {
+                    if (!IsTypeAccessibleFromGenerator(arg, generatorAssembly))
+                    {
+                        return false;
+                    }
+                }
+            }
+
             Accessibility acc = current.DeclaredAccessibility;
             if (acc == Accessibility.Public || acc == Accessibility.NotApplicable)
             {
@@ -327,6 +338,11 @@ public static class SelectMaterializerEmitter
     /// </summary>
     public static bool IsTypeAccessibleFromGenerator(ITypeSymbol type, IAssemblySymbol? generatorAssembly)
     {
+        if (type is ITypeParameterSymbol)
+        {
+            return true;
+        }
+
         if (type is INamedTypeSymbol nullable
             && nullable.IsGenericType
             && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
@@ -969,6 +985,13 @@ public static class SelectMaterializerEmitter
             && ctx.WriterCtx.ParameterSubstitutions.TryGetValue(substSym, out ExpressionSyntax? substExpr))
         {
             return CollectLeaves(substExpr, ctx);
+        }
+
+        if (node is InvocationExpressionSyntax constantInvocation
+            && ctx.Model.GetConstantValue(constantInvocation).Value is { } invocationConstant
+            && TryFormatConstantLiteral(invocationConstant, out _))
+        {
+            return true;
         }
 
         if (node is BaseObjectCreationExpressionSyntax boc

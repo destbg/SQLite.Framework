@@ -11,6 +11,8 @@ internal class AliasVisitor
     private Dictionary<string, Expression> result;
     private Dictionary<string, string?> resultPrefixes;
     private HashSet<string> constructedPaths;
+    private HashSet<string> optionalRowPaths;
+    private Dictionary<string, Expression> constructedNodes;
     private bool carriesOptionalRow;
 
     public AliasVisitor(SQLiteDatabase database, SQLVisitor visitor)
@@ -20,6 +22,8 @@ internal class AliasVisitor
         result = [];
         resultPrefixes = [];
         constructedPaths = [];
+        optionalRowPaths = [];
+        constructedNodes = [];
     }
 
     public Dictionary<string, Expression> ResolveResultAlias(LambdaExpression resultSelector)
@@ -38,9 +42,19 @@ internal class AliasVisitor
         {
             visitor.OptionalRowColumns.Add(newResult);
         }
+        if (optionalRowPaths.Count > 0)
+        {
+            visitor.OptionalRowPaths[newResult] = optionalRowPaths;
+        }
+        if (constructedNodes.Count > 0)
+        {
+            visitor.ConstructedProjectionNodes[newResult] = constructedNodes;
+        }
         result = [];
         resultPrefixes = [];
         constructedPaths = [];
+        optionalRowPaths = [];
+        constructedNodes = [];
         carriesOptionalRow = false;
         return newResult;
     }
@@ -148,6 +162,7 @@ internal class AliasVisitor
 
                         CarrySubPaths(alias, parameterTableColumns);
                         CarryConstructedPaths(alias, parameterTableColumns);
+                        CarryOptionalRow(alias, parameterTableColumns);
                     }
                 }
                 else if (argument is MemberExpression memberExpression
@@ -168,6 +183,7 @@ internal class AliasVisitor
                     }
 
                     CarryConstructedSubPaths(alias, sourceColumns, prefixToMatch);
+                    CarryOptionalRowFromPath(alias, sourceColumns, path);
                 }
                 else if (argument is NewExpression or MemberInitExpression)
                 {
@@ -181,6 +197,7 @@ internal class AliasVisitor
 
                     constructedPaths.Add(alias);
                     constructedPaths.UnionWith(nestedVisitor.constructedPaths);
+                    optionalRowPaths.UnionWith(nestedVisitor.optionalRowPaths);
 
                     SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
                     Expression expression = innerVisitor.Visit(argument);
@@ -239,6 +256,7 @@ internal class AliasVisitor
 
                 constructedPaths.Add(nestedAlias);
                 constructedPaths.UnionWith(nestedVisitor.constructedPaths);
+                optionalRowPaths.UnionWith(nestedVisitor.optionalRowPaths);
                 continue;
             }
 
@@ -258,6 +276,11 @@ internal class AliasVisitor
 
                 constructedPaths.Add(alias);
                 constructedPaths.UnionWith(innerVisitor.constructedPaths);
+                optionalRowPaths.UnionWith(innerVisitor.optionalRowPaths);
+
+                SQLVisitor nestedNodeVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
+                Expression nestedNode = nestedNodeVisitor.Visit(memberAssignment.Expression);
+                constructedNodes[alias] = CoalesceIfLiftedComparison(memberAssignment.Expression, nestedNode);
             }
             else if (memberAssignment.Expression is ParameterExpression parameterExpression)
             {
@@ -277,6 +300,7 @@ internal class AliasVisitor
 
                     CarrySubPaths(alias, parameterTableColumns);
                     CarryConstructedPaths(alias, parameterTableColumns);
+                    CarryOptionalRow(alias, parameterTableColumns);
                 }
             }
             else if (memberAssignment.Expression is MemberExpression)
@@ -316,6 +340,7 @@ internal class AliasVisitor
                     }
 
                     CarryConstructedSubPaths(alias, parameterTableColumns, path + ".");
+                    CarryOptionalRowFromPath(alias, parameterTableColumns, path);
                 }
             }
             else
@@ -351,6 +376,55 @@ internal class AliasVisitor
             }
 
             CarryConstructedSubPaths(prefix, visitor.TableColumns, prefixToMatch);
+            CarryOptionalRowFromPath(prefix, visitor.TableColumns, path);
+        }
+    }
+
+    private void CarryOptionalRow(string alias, Dictionary<string, Expression> sourceColumns)
+    {
+        if (visitor.OptionalRowColumns.Contains(sourceColumns))
+        {
+            MarkOptionalRow(alias);
+        }
+
+        if (visitor.OptionalRowPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceOptional))
+        {
+            foreach (string optionalPath in sourceOptional)
+            {
+                optionalRowPaths.Add(CheckPrefix(alias, optionalPath));
+            }
+        }
+    }
+
+    private void CarryOptionalRowFromPath(string alias, Dictionary<string, Expression> sourceColumns, string path)
+    {
+        if (!visitor.OptionalRowPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceOptional))
+        {
+            return;
+        }
+
+        foreach (string optionalPath in sourceOptional)
+        {
+            if (optionalPath == path)
+            {
+                MarkOptionalRow(alias);
+            }
+            else if (optionalPath.StartsWith(path + ".", StringComparison.Ordinal))
+            {
+                optionalRowPaths.Add(CheckPrefix(alias, optionalPath[(path.Length + 1)..]));
+            }
+        }
+    }
+
+    private void MarkOptionalRow(string prefix)
+    {
+        if (prefix.Length == 0)
+        {
+            carriesOptionalRow = true;
+        }
+        else
+        {
+            optionalRowPaths.Add(prefix);
         }
     }
 
@@ -364,10 +438,7 @@ internal class AliasVisitor
         }
 
         CarryConstructedPaths(prefix, tableColumns);
-        if (prefix.Length == 0 && visitor.OptionalRowColumns.Contains(tableColumns))
-        {
-            carriesOptionalRow = true;
-        }
+        CarryOptionalRow(prefix, tableColumns);
     }
 
     private void VisitMethodCallExpression(MethodCallExpression methodCallExpression, string prefix)

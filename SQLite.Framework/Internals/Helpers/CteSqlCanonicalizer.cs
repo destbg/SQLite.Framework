@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace SQLite.Framework.Internals.Helpers;
 
 /// <summary>
@@ -5,15 +7,18 @@ namespace SQLite.Framework.Internals.Helpers;
 /// expressions can be compared by content. Parameter placeholders are replaced with positional
 /// markers and each parameter value is appended in a stable per-type text form.
 /// </summary>
-internal static class CteSqlCanonicalizer
+internal static partial class CteSqlCanonicalizer
 {
+    private static readonly Regex GeneratedIdentifierPattern = GeneratedIdentifierRegex();
+    private static readonly Regex WhitespacePattern = WhitespaceRegex();
+
     public static string Canonicalize(SQLiteExpression node)
     {
         string sql = node.ToString();
         SQLiteParameter[]? parameters = node.Parameters;
         if (parameters == null || parameters.Length == 0)
         {
-            return sql;
+            return NormalizeGeneratedIdentifiers(sql);
         }
 
         int[] byLongestName = Enumerable.Range(0, parameters.Length)
@@ -24,12 +29,14 @@ internal static class CteSqlCanonicalizer
             sql = sql.Replace(parameters[i].Name, $"?{i}", StringComparison.Ordinal);
         }
 
+        sql = NormalizeGeneratedIdentifiers(sql);
+
         StringBuilder builder = StringBuilderPool.Rent();
         builder.Append(sql);
         foreach (SQLiteParameter parameter in parameters)
         {
             string value = CanonicalParameterValue(parameter.Value);
-            builder.Append('');
+            builder.Append('\u001f');
             builder.Append(parameter.Value?.GetType().Name);
             builder.Append(';');
             builder.Append(value.Length);
@@ -38,6 +45,23 @@ internal static class CteSqlCanonicalizer
         }
 
         return StringBuilderPool.ToStringAndReturn(builder);
+    }
+
+    private static string NormalizeGeneratedIdentifiers(string sql)
+    {
+        sql = WhitespacePattern.Replace(sql, " ");
+        Dictionary<string, string>? seen = null;
+        return GeneratedIdentifierPattern.Replace(sql, match =>
+        {
+            seen ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            if (!seen.TryGetValue(match.Value, out string? replacement))
+            {
+                replacement = "?i" + seen.Count.ToString(CultureInfo.InvariantCulture);
+                seen[match.Value] = replacement;
+            }
+
+            return replacement;
+        });
     }
 
     private static string CanonicalParameterValue(object? value)
@@ -53,7 +77,14 @@ internal static class CteSqlCanonicalizer
             double d => d.ToString("R", CultureInfo.InvariantCulture),
             float f => f.ToString("R", CultureInfo.InvariantCulture),
             byte[] blob => Convert.ToHexString(blob),
-            _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null"
+            IConvertible or IFormattable => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null",
+            _ => "#" + value.GetHashCode().ToString(CultureInfo.InvariantCulture)
         };
     }
+
+    [GeneratedRegex("(?<![\\w@\"])[a-z]+[0-9]+\\b|\"[0-9]+\"")]
+    private static partial Regex GeneratedIdentifierRegex();
+
+    [GeneratedRegex("\\s+")]
+    private static partial Regex WhitespaceRegex();
 }

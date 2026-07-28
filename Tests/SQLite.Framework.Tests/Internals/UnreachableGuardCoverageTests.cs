@@ -169,13 +169,13 @@ public class UnreachableGuardCoverageTests
         MethodInfo method = typeof(SQLitePropertyCalls<GuardCopyRow>).GetMethod(
             "TryReadStoredColumn", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
+        TableColumn target = mapping.Columns.First(c => c.PropertyInfo.Name == nameof(GuardCopyRow.Target));
         ParameterExpression row = Expression.Parameter(typeof(GuardCopyRow), "r");
         Expression unknown = Expression.Property(row, nameof(GuardCopyRow.Ignored));
-        Assert.Null(method.Invoke(calls, [unknown, nameof(GuardCopyRow.Target)]));
+        Assert.Null(method.Invoke(calls, [unknown, target]));
 
         Expression known = Expression.Property(row, nameof(GuardCopyRow.Source));
-        Assert.Null(method.Invoke(calls, [known, "NoSuchTarget"]));
-        Assert.Null(method.Invoke(calls, [known, nameof(GuardCopyRow.Target)]));
+        Assert.Null(method.Invoke(calls, [known, target]));
     }
 
     [Fact]

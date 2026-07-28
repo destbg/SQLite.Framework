@@ -131,16 +131,28 @@ internal partial class SQLVisitor
 
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(operand);
         if (pe != null
-            && path.Length == 0
             && MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? rowColumns)
-            && Database.TryGetCachedTableMapping(pe.Type, out _) == false)
+            && Database.TryGetCachedTableMapping(operand.Type, out _) == false)
         {
-            if (OptionalRowColumns.Contains(rowColumns))
+            if (path.Length == 0)
             {
-                return BuildOptionalRowNullCheck(rowColumns, node.NodeType == ExpressionType.Equal);
+                if (OptionalRowColumns.Contains(rowColumns))
+                {
+                    return BuildOptionalRowNullCheck(rowColumns, node.NodeType == ExpressionType.Equal);
+                }
+
+                return Visit(Expression.Constant(node.NodeType == ExpressionType.NotEqual)) as SQLiteExpression;
             }
 
-            return Visit(Expression.Constant(node.NodeType == ExpressionType.NotEqual)) as SQLiteExpression;
+            if (OptionalRowPaths.TryGetValue(rowColumns, out HashSet<string>? optionalPaths)
+                && optionalPaths.Contains(path))
+            {
+                Dictionary<string, Expression> memberColumns = CollectMemberColumns(rowColumns, path);
+                if (memberColumns.Count > 0)
+                {
+                    return BuildOptionalRowNullCheck(memberColumns, node.NodeType == ExpressionType.Equal);
+                }
+            }
         }
 
         return null;
@@ -315,6 +327,21 @@ internal partial class SQLVisitor
     private static bool IsNullConstant(Expression node)
     {
         return ExpressionHelpers.IsConstant(node) && ExpressionHelpers.GetConstantValue(node) == null;
+    }
+
+    private static Dictionary<string, Expression> CollectMemberColumns(Dictionary<string, Expression> rowColumns, string path)
+    {
+        Dictionary<string, Expression> subset = [];
+        string prefix = path + ".";
+        foreach (KeyValuePair<string, Expression> column in rowColumns)
+        {
+            if (column.Key.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                subset[column.Key[prefix.Length..]] = column.Value;
+            }
+        }
+
+        return subset;
     }
 
     private static bool IsSingleLeafColumn(Dictionary<string, Expression> columns, string path)

@@ -83,6 +83,8 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Contains` over a collection compares each element with SQLite's byte comparison and ignores a collection's custom comparer. A `HashSet<string>` built with `StringComparer.OrdinalIgnoreCase` still compares byte for byte, so a value with different casing does not match.
 - A collection method with a selector lambda over a captured collection, such as `ConvertAll` or `FindAll`, runs in memory in a `Select` and throws in a `Where`.
 - Invoking a captured delegate, such as a stored `Func`, runs in memory in a `Select` and throws in a `Where`.
+- After a `Select` that runs in memory, only `Distinct`, `Take`, `Skip`, `Reverse`, `ElementAt`, `First`, `Single`, `Count` and `Any` without a predicate continue the query. Any other operator over the projected value, such as a `Where`, a `GroupBy`, a join, a set operation or a `Select` that cannot be folded into the projection, is not supported and throws, because SQLite cannot compute the projected value inside the database.
+- `Union`, `Concat`, `Intersect` and `Except` are not supported when either side ends in a `Select` that runs in memory and throw.
 
 ## Grouping
 
@@ -143,6 +145,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - On a JSON dictionary with a `[Flags]` enum key, `Keys.Contains` with an enum column that holds a combined value does not match. The JSON key holds the combined name text, such as `Read, Write`, while the column translation covers single member names only.
 - On a JSON dictionary with a date or time key, `Keys.Contains` and `Values.Contains` with a date or time column of the same row do not match, the same as the list element case above. The JSON key or value is text while the column keeps its storage form. A constant or captured date or time value matches.
 - `Skip` and `Take` on a JSON list take a fixed number or a value from a local variable, not a column of the outer row.
+- On a JSON grouping, a group aggregate such as `Count` or `Sum` after `Take` or `Skip` is not supported and throws. The paged groups no longer carry their elements. Reading `Key` after `Take` or `Skip` works.
 - `GetRange` on a JSON list does not check its arguments. Asking for more items than are there returns the items that fit. A negative count returns the whole list and a negative start index is read as zero. .NET throws in all three cases.
 - `ElementAtOrDefault` on a JSON list with an index taken from a column reads the type default when the index is past the end, but a negative column index fails with an error instead of reading the type default.
 - An inline array that holds a whole entity, such as `string.Concat(new object?[] { r.Name, r })`, renders that element through the entity's own `ToString`, so the call runs in memory. It works in a `Select` and throws in a `Where` or `OrderBy`.
@@ -185,6 +188,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Chaining a second `Select` that reads a member set through the constructor of an object built with both constructor arguments and an object initializer, such as `Select(r => new Dto(a) { Note = b }).Select(d => d.A)`, is not supported and throws.
 - An `object`-typed member read back through a conditional projection can carry the storage type, so a boxed `int` can read back as a boxed `long`.
 - A member of a nested object built by a projection cannot be read after `Take`, `Skip` or `Distinct` when the projection runs in memory. The wrapped subquery exposes only plain columns.
+- A member that a projected object's constructor computes, such as `Doubled` set to `x * 2` inside the constructor body, reads back correctly in a `Select` but cannot be used in a `Where` and throws. The database never sees the value the constructor computes.
 - Calling `GetType` on a value that is `null` throws a different error than LINQ-to-Objects.
 
 ## Schema

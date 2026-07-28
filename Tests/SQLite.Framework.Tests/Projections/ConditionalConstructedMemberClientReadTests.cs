@@ -202,19 +202,12 @@ public class ConditionalConstructedMemberClientReadTests
             .Select(x => CmcClientFns.Tag(x.Wrap == null ? "none" : x.Wrap.Part!.Label ?? "null"))
             .ToList();
 
-        Func<List<string>> query = () => db.Table<CmcRow>()
+        List<string> actual = db.Table<CmcRow>()
             .OrderBy(r => r.Id)
             .Select(r => new { r.Id, Wrap = r.Id > 1 ? new CmcWrap { Part = new CmcPart { Label = r.Name } } : null })
             .Select(x => CmcClientFns.Tag(x.Wrap == null ? "none" : x.Wrap.Part!.Label ?? "null"))
             .ToList();
 
-        if (db.Options.ReflectionFallbackDisabled)
-        {
-            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => query());
-            Assert.StartsWith("Select projection fell back to runtime reflection but ReflectionFallbackDisabled is set.", ex.Message);
-            return;
-        }
-
-        Assert.Equal(expected, query());
+        Assert.Equal(expected, actual);
     }
 }

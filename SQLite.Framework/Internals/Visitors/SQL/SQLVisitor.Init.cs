@@ -102,7 +102,9 @@ internal partial class SQLVisitor
 
     protected override ElementInit VisitElementInit(ElementInit node)
     {
-        List<Expression> arguments = node.Arguments.Select(Visit).ToList()!;
+        List<Expression> arguments = node.Arguments
+            .Select(a => ExpressionHelpers.IsConstant(a) ? a : Visit(a)!)
+            .ToList();
         for (int i = 0; i < arguments.Count; i++)
         {
             if (arguments[i] is SQLiteExpression sqlArgument && sqlArgument.Type != node.Arguments[i].Type)

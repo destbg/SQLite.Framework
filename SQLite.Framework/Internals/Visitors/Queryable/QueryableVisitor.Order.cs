@@ -141,9 +141,10 @@ internal partial class QueryableVisitor
         ComparerArgumentGuard.ThrowIfComparer(node);
 
         IsDistinct = true;
-        if (Reverse)
+        if (Reverse && !ReverseBeforeDistinct)
         {
             ReverseBeforeDistinct = true;
+            Reverse = false;
         }
 
         return node;

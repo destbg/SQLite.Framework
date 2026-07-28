@@ -303,7 +303,22 @@ internal static class ModelValidator
 
         foreach (IndexSpec index in mapping.Indexes)
         {
-            IReadOnlyList<string> indexColumns = index.Columns.Where((_, i) => !index.Expressions[i]).ToList();
+            List<string> indexColumns = index.Columns.Where((_, i) => !index.Expressions[i]).ToList();
+            if (expected.TryGetValue(index.Name, out (IReadOnlyList<string>, bool) existing))
+            {
+                List<string> mergedColumns = [.. existing.Item1];
+                foreach (string column in indexColumns)
+                {
+                    if (!mergedColumns.Contains(column, StringComparer.OrdinalIgnoreCase))
+                    {
+                        mergedColumns.Add(column);
+                    }
+                }
+
+                expected[index.Name] = (mergedColumns, existing.Item2 || index.Unique);
+                continue;
+            }
+
             expected[index.Name] = (indexColumns, index.Unique);
         }
 

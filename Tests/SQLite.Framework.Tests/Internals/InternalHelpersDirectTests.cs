@@ -384,19 +384,103 @@ public class InternalHelpersDirectTests
 #endif
 
     [Fact]
-    public void QueryCompilerVisitor_VisitMemberBindingExpression_InvalidBindingType_Throws()
+    public void ConvertThroughOperator_NullToNullableTarget_ReturnsNull()
+    {
+        MethodInfo method = typeof(ExpressionHelpers).GetMethod("ConvertThroughOperator", BindingFlags.NonPublic | BindingFlags.Static)!;
+        UnaryExpression node = Expression.Convert(
+            Expression.Constant(null, typeof(ConvOperatorSource?)),
+            typeof(ConvOperatorTarget?),
+            typeof(ConvOperatorMethods).GetMethod(nameof(ConvOperatorMethods.ToTarget))!);
+
+        Assert.Null(method.Invoke(null, [node]));
+    }
+
+    [Fact]
+    public void ConvertThroughOperator_NullToReferenceTarget_ReturnsNull()
+    {
+        MethodInfo method = typeof(ExpressionHelpers).GetMethod("ConvertThroughOperator", BindingFlags.NonPublic | BindingFlags.Static)!;
+        UnaryExpression node = Expression.Convert(
+            Expression.Constant(null, typeof(ConvOperatorSource?)),
+            typeof(ConvOperatorBox),
+            typeof(ConvOperatorMethods).GetMethod(nameof(ConvOperatorMethods.ToBox))!);
+
+        Assert.Null(method.Invoke(null, [node]));
+    }
+
+    [Fact]
+    public void ConvertThroughOperator_NullToValueTarget_Throws()
+    {
+        MethodInfo method = typeof(ExpressionHelpers).GetMethod("ConvertThroughOperator", BindingFlags.NonPublic | BindingFlags.Static)!;
+        UnaryExpression node = Expression.Convert(
+            Expression.Constant(null, typeof(ConvOperatorSource?)),
+            typeof(ConvOperatorTarget),
+            typeof(ConvOperatorMethods).GetMethod(nameof(ConvOperatorMethods.ToTarget))!);
+
+        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [node]));
+        InvalidOperationException inner = Assert.IsType<InvalidOperationException>(ex.InnerException);
+        Assert.Equal("Nullable object must have a value.", inner.Message);
+    }
+
+    [Fact]
+    public void ConvertThroughOperator_ValueOperand_InvokesTheOperator()
+    {
+        MethodInfo method = typeof(ExpressionHelpers).GetMethod("ConvertThroughOperator", BindingFlags.NonPublic | BindingFlags.Static)!;
+        UnaryExpression node = Expression.Convert(
+            Expression.Constant(new ConvOperatorSource { V = 7 }, typeof(ConvOperatorSource?)),
+            typeof(ConvOperatorTarget),
+            typeof(ConvOperatorMethods).GetMethod(nameof(ConvOperatorMethods.ToTarget))!);
+
+        object? result = method.Invoke(null, [node]);
+
+        Assert.Equal(7, ((ConvOperatorTarget)result!).W);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_ApplyNestedAssignment_FieldStep_SetsTheNestedProperty()
+    {
+        MethodInfo method = typeof(QueryCompilerVisitor).GetMethod("ApplyNestedAssignment", BindingFlags.NonPublic | BindingFlags.Static)!;
+        MmbOuter instance = new();
+        MemberInfo innerField = typeof(MmbOuter).GetField(nameof(MmbOuter.InnerField))!;
+        MemberInfo xProp = typeof(MmbInner).GetProperty(nameof(MmbInner.X))!;
+
+        method.Invoke(null, [instance, new[] { innerField, xProp }, 5]);
+
+        Assert.Equal(5, instance.InnerField.X);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_ApplyNestedAssignment_FieldLast_SetsTheField()
+    {
+        MethodInfo method = typeof(QueryCompilerVisitor).GetMethod("ApplyNestedAssignment", BindingFlags.NonPublic | BindingFlags.Static)!;
+        CompilerVisitorHolderOwner instance = new();
+        MemberInfo holderProp = typeof(CompilerVisitorHolderOwner).GetProperty(nameof(CompilerVisitorHolderOwner.Holder))!;
+        MemberInfo fieldX = typeof(CompilerVisitorFieldHolder).GetField(nameof(CompilerVisitorFieldHolder.FieldX))!;
+
+        method.Invoke(null, [instance, new[] { holderProp, fieldX }, 9]);
+
+        Assert.Equal(9, instance.Holder.FieldX);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_FlattenMemberMemberBinding_ListBinding_Throws()
     {
         QueryCompilerVisitor visitor = new(CompilerOptions);
-        FieldInfo fld = typeof(CompilerVisitorFieldHolder).GetField(nameof(CompilerVisitorFieldHolder.FieldX))!;
-        InvalidMemberBinding binding = new(fld);
+        PropertyInfo holderProp = typeof(CompilerVisitorHolderOwner).GetProperty(nameof(CompilerVisitorHolderOwner.Holder))!;
+        FieldInfo listField = typeof(CompilerVisitorFieldHolder).GetField(nameof(CompilerVisitorFieldHolder.ListField))!;
+        MethodInfo add = typeof(List<int>).GetMethod(nameof(List<int>.Add))!;
+
+        MemberMemberBinding mmb = Expression.MemberBind(
+            holderProp,
+            Expression.ListBind(listField, Expression.ElementInit(add, Expression.Constant(1))));
 
         MethodInfo method = typeof(QueryCompilerVisitor).GetMethod(
-            "VisitMemberBindingExpression",
+            "FlattenMemberMemberBinding",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
         TargetInvocationException ex = Assert.Throws<TargetInvocationException>(
-            () => method.Invoke(visitor, new object?[] { binding }));
-        Assert.IsType<Exception>(ex.InnerException);
+            () => method.Invoke(visitor, new object?[] { mmb, new MemberInfo[] { holderProp } }));
+        NotSupportedException inner = Assert.IsType<NotSupportedException>(ex.InnerException);
+        Assert.Contains("List binding", inner.Message);
     }
 
 #if !SQLITE_FRAMEWORK_REFLECTION_AOT_INCOMPATIBLE
@@ -2063,12 +2147,32 @@ public sealed class FoldPathHolder
     public EsfPart? Part { get; set; }
 }
 
-#pragma warning disable CS0618
-public sealed class InvalidMemberBinding : MemberBinding
+public sealed class CompilerVisitorHolderOwner
 {
-    public InvalidMemberBinding(MemberInfo member)
-        : base((MemberBindingType)999, member)
+    public CompilerVisitorFieldHolder Holder { get; set; } = new();
+}
+
+public struct ConvOperatorSource
+{
+    public int V;
+}
+
+public struct ConvOperatorTarget
+{
+    public int W;
+}
+
+public sealed class ConvOperatorBox;
+
+public static class ConvOperatorMethods
+{
+    public static ConvOperatorTarget ToTarget(ConvOperatorSource source)
     {
+        return new ConvOperatorTarget { W = source.V };
+    }
+
+    public static ConvOperatorBox ToBox(ConvOperatorSource source)
+    {
+        return new ConvOperatorBox();
     }
 }
-#pragma warning restore CS0618

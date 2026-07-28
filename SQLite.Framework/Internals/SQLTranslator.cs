@@ -49,6 +49,10 @@ internal class SQLTranslator
 
     public bool HasSetOperations => queryableMethodVisitor.SetOperations.Count > 0;
 
+    public bool LastSelectIsClient => queryableMethodVisitor.LastSelectIsClient;
+
+    public bool ClientProjection => queryableMethodVisitor.ClientProjection;
+
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
     {
         init => Visitor.MethodArguments = value;
@@ -79,7 +83,19 @@ internal class SQLTranslator
         init => Visitor.OptionalRowColumns = value;
     }
 
+    public Dictionary<Dictionary<string, Expression>, HashSet<string>> OptionalRowPaths
+    {
+        init => Visitor.OptionalRowPaths = value;
+    }
+
+    public Dictionary<Dictionary<string, Expression>, Dictionary<string, Expression>> ConstructedProjectionNodes
+    {
+        init => Visitor.ConstructedProjectionNodes = value;
+    }
+
     public QueryType QueryType { get; init; }
+
+    public IReadOnlyDictionary<string, string>? SelectWrapFormats { get; init; }
 
     public bool EmitReturning { get; init; }
 
@@ -445,7 +461,7 @@ internal class SQLTranslator
         parameters.Add(parameter);
     }
 
-    private void WriteQuerySql(StringBuilder sb, Visitors.Queryable.QueryableVisitor q, string spacing, bool useExists, bool hasSetOperations)
+    private void WriteQuerySql(StringBuilder sb, QueryableVisitor q, string spacing, bool useExists, bool hasSetOperations)
     {
         bool first = true;
 
@@ -460,7 +476,10 @@ internal class SQLTranslator
         {
             sb.Append(spacing);
             sb.Append("SELECT");
-            if (q.IsDistinct) sb.Append(" DISTINCT");
+            bool clientDedup = q.ClientProjection
+                && (q.Take != null || q.Skip != null)
+                && !queryableMethodVisitor.SuppressSelectMaterializer;
+            if (q.IsDistinct && !clientDedup) sb.Append(" DISTINCT");
             sb.Append(' ');
             if (useExists && !hasSetOperations)
             {
@@ -476,7 +495,7 @@ internal class SQLTranslator
                         sb.Append(Environment.NewLine);
                         sb.Append("       ");
                     }
-                    q.Selects[i].WriteSqlTo(sb);
+                    WriteSelectSql(sb, q.Selects[i]);
                     sb.Append(" AS \"");
                     sb.Append(q.Selects[i].IdentifierText);
                     sb.Append('"');
@@ -721,6 +740,21 @@ internal class SQLTranslator
         }
     }
 
+    private void WriteSelectSql(StringBuilder sb, SQLiteExpression select)
+    {
+        if (SelectWrapFormats != null
+            && select.IdentifierText is { Length: > 0 } identifier
+            && SelectWrapFormats.TryGetValue(identifier, out string? wrapFormat))
+        {
+            StringBuilder inner = new();
+            select.WriteSqlTo(inner);
+            sb.Append(string.Format(CultureInfo.InvariantCulture, wrapFormat, inner.ToString()));
+            return;
+        }
+
+        select.WriteSqlTo(sb);
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "We are checking the Queryable class")]
     [UnconditionalSuppressMessage("AOT", "IL2065", Justification = "Entity types are preserved by user-rooted IQueryable<T>.")]
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "We are calling the Queryable.Select method on user-rooted IQueryable<T>.")]
@@ -774,24 +808,56 @@ internal class SQLTranslator
             }
         }
 
-        bool[] isWindowProjection = new bool[methodCalls.Count];
-        bool[] isTextDecimalOrder = new bool[methodCalls.Count];
-        for (int i = 0; i < methodCalls.Count; i++)
+        int wrapIdx;
+        SQLTranslator? clientCheckedTranslator = null;
+        SQLQuery? clientCheckedQuery = null;
+
+        while (true)
         {
-            isWindowProjection[i] = HasWindowProjection(methodCalls[i]);
-            isTextDecimalOrder[i] = IsTextDecimalOrder(methodCalls[i], database.Options);
+            bool[] isWindowProjection = new bool[methodCalls.Count];
+            bool[] isTextDecimalOrder = new bool[methodCalls.Count];
+            for (int i = 0; i < methodCalls.Count; i++)
+            {
+                isWindowProjection[i] = HasWindowProjection(methodCalls[i]);
+                isTextDecimalOrder[i] = IsTextDecimalOrder(methodCalls[i], database.Options);
+            }
+
+            SpreadTextDecimalOrderOverChain(methodCalls, isTextDecimalOrder);
+
+            wrapIdx = FindSubqueryBoundary(methodCalls, isWindowProjection, isTextDecimalOrder);
+            if (wrapIdx < 0)
+            {
+                break;
+            }
+
+            clientCheckedTranslator = Visitor.CloneDeeper(level + 1);
+            clientCheckedQuery = clientCheckedTranslator.Translate(methodCalls[wrapIdx].Arguments[0]);
+            if (!clientCheckedTranslator.ClientProjection)
+            {
+                break;
+            }
+
+            clientCheckedTranslator = null;
+            clientCheckedQuery = null;
+
+            if (OuterCallsRunOnClientValues(methodCalls, wrapIdx))
+            {
+                wrapIdx = -1;
+                break;
+            }
+
+            throw new NotSupportedException(
+                $"'{methodCalls[wrapIdx].Method.Name}' after a projection that runs in memory is not supported, " +
+                "because SQLite cannot compute the projected value inside the database.");
         }
 
-        SpreadTextDecimalOrderOverChain(methodCalls, isTextDecimalOrder);
-
-        int wrapIdx = FindSubqueryBoundary(methodCalls, isWindowProjection, isTextDecimalOrder);
         bool wrappedAsSubquery = false;
 
         if (wrapIdx >= 0)
         {
             Expression innerExpr = methodCalls[wrapIdx].Arguments[0];
-            SQLTranslator innerTranslator = Visitor.CloneDeeper(level + 1);
-            SQLQuery innerQuery = innerTranslator.Translate(innerExpr);
+            SQLTranslator innerTranslator = clientCheckedTranslator!;
+            SQLQuery innerQuery = clientCheckedQuery!;
 
             if (innerQuery.Reverse)
             {
@@ -1269,6 +1335,30 @@ internal class SQLTranslator
                 break;
             }
         }
+    }
+
+    private static bool OuterCallsRunOnClientValues(List<MethodCallExpression> methodCalls, int wrapIdx)
+    {
+        for (int i = 0; i <= wrapIdx; i++)
+        {
+            MethodCallExpression call = methodCalls[i];
+            bool hasLambda = call.Arguments.Count > 1
+                && ExpressionHelpers.StripQuotes(call.Arguments[^1]) is LambdaExpression;
+            bool safeName = call.Method.Name is nameof(Queryable.Distinct) or nameof(Queryable.Reverse)
+                or nameof(Queryable.Take) or nameof(Queryable.Skip)
+                or nameof(Queryable.ElementAt) or nameof(Queryable.ElementAtOrDefault)
+                or nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)
+                or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault)
+                or nameof(Queryable.Count) or nameof(Queryable.LongCount)
+                or nameof(Queryable.Any);
+
+            if (!safeName || hasLambda)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls, bool[] isWindowProjection, bool[] isTextDecimalOrder)

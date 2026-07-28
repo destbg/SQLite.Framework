@@ -44,7 +44,7 @@ public class SQLitePropertyCalls<T>
             return this;
         }
 
-        string propertyName = GetPropertyName(propertyGetter);
+        TableColumn targetColumn = GetTargetColumn(propertyGetter);
         MemberExpression member = (MemberExpression)propertyGetter.Body;
         string paramName = visitor.Counters.NextParamName();
         string sql = ConverterSql.WrapParameter(paramName, member.Type, visitor.Database.Options);
@@ -52,7 +52,7 @@ public class SQLitePropertyCalls<T>
         SQLiteExpression expression = SQLiteExpression.Leaf(member.Type, visitor.Counters.NextIdentifier(), sql,
             [new SQLiteParameter { Name = paramName, Value = value }]);
 
-        SetProperties.Add((propertyName, expression));
+        SetProperties.Add((targetColumn.Name, expression));
 
         return this;
     }
@@ -72,12 +72,18 @@ public class SQLitePropertyCalls<T>
             return this;
         }
 
-        string propertyName = GetPropertyName(propertyGetter);
+        TableColumn targetColumn = GetTargetColumn(propertyGetter);
         visitor.MethodArguments[setter.Parameters[0]] = visitor.TableColumns;
         Expression setterBody = CommonHelpers.Inline(setter.Body);
         bool ignoreAll = visitor.Counters.IgnoreQueryFilters || QueryFilterInjector.ShouldIgnoreAll(setterBody, visitor.Database);
         setterBody = QueryFilterInjector.Inject(setterBody, visitor.Database.Options, ignoreAll);
-        SQLiteExpression expr = (SQLiteExpression)visitor.Visit(setterBody);
+        if (visitor.Visit(setterBody) is not SQLiteExpression expr)
+        {
+            throw new NotSupportedException(
+                $"The value for '{targetColumn.PropertyInfo.Name}' cannot be translated to SQL. " +
+                "An ExecuteUpdate setter runs inside the database, so it cannot call methods that run in memory. " +
+                "Compute the value first and pass it as a constant.");
+        }
 
         if (ExpressionHelpers.IsConstant(setter.Body))
         {
@@ -90,27 +96,25 @@ public class SQLitePropertyCalls<T>
         }
         else
         {
-            SQLiteExpression? stored = TryReadStoredColumn(setterBody, propertyName);
+            SQLiteExpression? stored = TryReadStoredColumn(setterBody, targetColumn);
             if (stored != null)
             {
                 expr = stored;
             }
-            else if (WrapConverterValue(expr, propertyName) is { } wrappedValue)
+            else if (WrapConverterValue(expr, targetColumn) is { } wrappedValue)
             {
                 expr = wrappedValue;
             }
         }
 
-        SetProperties.Add((propertyName, expr));
+        SetProperties.Add((targetColumn.Name, expr));
 
         return this;
     }
 
-    private SQLiteExpression? WrapConverterValue(SQLiteExpression value, string targetProperty)
+    private SQLiteExpression? WrapConverterValue(SQLiteExpression value, TableColumn target)
     {
-        TableColumn? target = targetMapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == targetProperty);
-        if (target == null
-            || !visitor.Database.Options.TypeConverters.TryGetValue(target.PropertyType, out ISQLiteTypeConverter? converter)
+        if (!visitor.Database.Options.TypeConverters.TryGetValue(target.PropertyType, out ISQLiteTypeConverter? converter)
             || converter.ParameterSqlExpression is not { } writeWrap
             || converter.ColumnSqlExpression == null)
         {
@@ -121,7 +125,7 @@ public class SQLitePropertyCalls<T>
         return SQLiteExpression.Leaf(value.Type, visitor.Counters.NextIdentifier(), wrapped, value.Parameters);
     }
 
-    private SQLiteExpression? TryReadStoredColumn(Expression setterBody, string targetProperty)
+    private SQLiteExpression? TryReadStoredColumn(Expression setterBody, TableColumn target)
     {
         if (setterBody is not MemberExpression { Expression: ParameterExpression } member)
         {
@@ -129,8 +133,7 @@ public class SQLitePropertyCalls<T>
         }
 
         TableColumn? source = targetMapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name);
-        TableColumn? target = targetMapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == targetProperty);
-        if (source == null || target == null || source.PropertyType != target.PropertyType)
+        if (source == null || source.PropertyType != target.PropertyType)
         {
             return null;
         }
@@ -144,7 +147,7 @@ public class SQLitePropertyCalls<T>
         return SQLiteExpression.Leaf(source.PropertyType, visitor.Counters.NextIdentifier(), IdentifierGuard.Quote(source.Name));
     }
 
-    private string GetPropertyName<TValue>(Expression<Func<T, TValue>> propertyGetter)
+    private TableColumn GetTargetColumn<TValue>(Expression<Func<T, TValue>> propertyGetter)
     {
         if (propertyGetter.Body is not MemberExpression member)
         {
@@ -172,6 +175,6 @@ public class SQLitePropertyCalls<T>
                 nameof(propertyGetter));
         }
 
-        return targetMapping.Columns.First(f => f.PropertyInfo.Name == property.Name).Name;
+        return targetMapping.Columns.First(f => f.PropertyInfo.Name == property.Name);
     }
 }

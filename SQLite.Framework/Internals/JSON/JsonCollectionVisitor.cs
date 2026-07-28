@@ -15,6 +15,7 @@ internal partial class JsonCollectionVisitor
     private string keyColumn = "\"key\"";
     private string? groupKeySql;
     private string? groupElementSql;
+    private bool groupWindowMaterialized;
     private Type currentElementType = typeof(object);
     private string baseSource = "";
     private string baseAlias = "";
@@ -43,21 +44,10 @@ internal partial class JsonCollectionVisitor
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
         ParameterExpression param = lambda.Parameters[0];
 
+        EnsureGroupAggregatesAvailable(lambda, elementType);
         BindParameter(param, elementType, selectExpr);
 
         string sql = TranslateBody(lambda.Body, coalesceLiftedComparison);
-        visitor.MethodArguments.Remove(param);
-        return sql;
-    }
-
-    private string VisitLambdaAliased(Expression arg, Type elementType, string alias)
-    {
-        LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(arg);
-        ParameterExpression param = lambda.Parameters[0];
-
-        BindParameter(param, elementType, $"{alias}.\"value\"");
-
-        string sql = TranslateBody(lambda.Body);
         visitor.MethodArguments.Remove(param);
         return sql;
     }
@@ -84,6 +74,24 @@ internal partial class JsonCollectionVisitor
         return sqlExpr.ToString();
     }
 
+    private void EnsureGroupAggregatesAvailable(LambdaExpression lambda, Type elementType)
+    {
+        if (!groupWindowMaterialized
+            || !elementType.IsGenericType
+            || elementType.GetGenericTypeDefinition() != typeof(IGrouping<,>))
+        {
+            return;
+        }
+
+        JsonGroupAggregateFinder finder = new(lambda.Parameters[0]);
+        finder.Visit(lambda.Body);
+        if (finder.Found)
+        {
+            throw new NotSupportedException(
+                "A group aggregate after Take or Skip on a JSON grouping is not supported, because the paged groups no longer carry their elements.");
+        }
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Element type properties are part of the client assembly.")]
     private void BindParameter(ParameterExpression param, Type elementType, string valueSql)
     {
@@ -91,11 +99,16 @@ internal partial class JsonCollectionVisitor
         {
             Type keyType = elementType.GetGenericArguments()[0];
             Type groupElementType = elementType.GetGenericArguments()[1];
-            visitor.MethodArguments[param] = new Dictionary<string, Expression>
+            Dictionary<string, Expression> groupColumns = new()
             {
-                [nameof(IGrouping<,>.Key)] = SQLiteExpression.Leaf(keyType, -1, groupKeySql, null).WithJsonSource(),
-                [string.Empty] = SQLiteExpression.Leaf(groupElementType, -1, groupElementSql!, null).WithJsonSource()
+                [nameof(IGrouping<,>.Key)] = SQLiteExpression.Leaf(keyType, -1, groupKeySql, null).WithJsonSource()
             };
+            if (groupElementSql != null)
+            {
+                groupColumns[string.Empty] = SQLiteExpression.Leaf(groupElementType, -1, groupElementSql, null).WithJsonSource();
+            }
+
+            visitor.MethodArguments[param] = groupColumns;
             return;
         }
 

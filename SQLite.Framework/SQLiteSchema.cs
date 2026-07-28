@@ -247,10 +247,10 @@ public class SQLiteSchema
         ArgumentException.ThrowIfNullOrEmpty(tableName);
 
         string escaped = tableName.Replace("\"", "\"\"");
-        SQLiteCommand cmd = Database.CreateCommand($"PRAGMA main.table_info(\"{escaped}\")", []);
+        SQLiteCommand cmd = Database.CreateCommand($"PRAGMA main.table_xinfo(\"{escaped}\")", []);
         using SQLiteDataReader reader = cmd.ExecuteReader();
 
-        int nameIdx = -1, typeIdx = -1, notNullIdx = -1, defaultIdx = -1, pkIdx = -1;
+        int nameIdx = -1, typeIdx = -1, notNullIdx = -1, defaultIdx = -1, pkIdx = -1, hiddenIdx = -1;
         for (int i = 0; i < reader.FieldCount; i++)
         {
             switch (reader.GetName(i))
@@ -260,12 +260,19 @@ public class SQLiteSchema
                 case "notnull": notNullIdx = i; break;
                 case "dflt_value": defaultIdx = i; break;
                 case "pk": pkIdx = i; break;
+                case "hidden": hiddenIdx = i; break;
             }
         }
 
         List<SchemaColumnInfo> result = [];
         while (reader.Read())
         {
+            long hidden = (long)reader.GetValue(hiddenIdx, reader.GetColumnType(hiddenIdx), typeof(long))!;
+            if (hidden == 1)
+            {
+                continue;
+            }
+
             string name = (string)reader.GetValue(nameIdx, reader.GetColumnType(nameIdx), typeof(string))!;
             string type = (string)reader.GetValue(typeIdx, reader.GetColumnType(typeIdx), typeof(string))!;
             long notNull = (long)reader.GetValue(notNullIdx, reader.GetColumnType(notNullIdx), typeof(long))!;
@@ -498,11 +505,14 @@ public class SQLiteSchema
 
         TableMapping mapping = Database.TableMapping<T>();
         string viewName = mapping.TableName;
-        SQLTranslator translator = new(Database);
+        SQLTranslator translator = new(Database)
+        {
+            SelectWrapFormats = ConverterSql.WriteWrapFormats(mapping, Database.Options)
+        };
         translator.Visitor.Counters.IgnoreQueryFilters = true;
         SQLQuery sqlQuery = translator.Translate(query.Body);
 
-        if (translator.Visitor.ClientEvalUsed)
+        if (translator.Visitor.ClientEvalUsed || translator.LastSelectIsClient)
         {
             throw new NotSupportedException(
                 "The view body contains an expression that only runs in memory, which a view cannot do. Move that computation out of the view query.");

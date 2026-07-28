@@ -388,10 +388,15 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     protected override Expression VisitMemberInit(MemberInitExpression node)
     {
         CompiledExpression newExpression = (CompiledExpression)Visit(node.NewExpression);
-        List<(MemberBinding, CompiledExpression)> bindings = node.Bindings
-            .Where(b => b.BindingType != MemberBindingType.ListBinding)
-            .Select(f => (f, VisitMemberBindingExpression(f)))
+        List<(MemberAssignment, CompiledExpression)> bindings = node.Bindings
+            .OfType<MemberAssignment>()
+            .Select(f => (f, VisitMemberAssignmentExpression(f)))
             .ToList();
+        List<(MemberInfo[] Path, CompiledExpression Value)> nestedSetters = [];
+        foreach (MemberMemberBinding memberMember in node.Bindings.OfType<MemberMemberBinding>())
+        {
+            nestedSetters.AddRange(FlattenMemberMemberBinding(memberMember, [memberMember.Member]));
+        }
         List<(MemberInfo Member, List<(MethodInfo AddMethod, CompiledExpression[] Args)> Initializers)> listBindings = [];
         foreach (MemberListBinding lb in node.Bindings.OfType<MemberListBinding>())
         {
@@ -407,13 +412,9 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return new CompiledExpression(node.Type, ctx =>
         {
             object? instance = newExpression.Call(ctx);
-            foreach ((MemberBinding binding, CompiledExpression expression) in bindings)
+            foreach ((MemberAssignment binding, CompiledExpression expression) in bindings)
             {
-                if (binding is MemberMemberBinding)
-                {
-                    expression.Call(ctx);
-                }
-                else if (binding.Member is FieldInfo fieldInfo)
+                if (binding.Member is FieldInfo fieldInfo)
                 {
                     object? value = expression.Call(ctx);
                     fieldInfo.SetValue(instance, value);
@@ -424,6 +425,11 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                     object? value = expression.Call(ctx);
                     propertyInfo.SetValue(instance, value);
                 }
+            }
+
+            foreach ((MemberInfo[] path, CompiledExpression value) in nestedSetters)
+            {
+                ApplyNestedAssignment(instance!, path, value.Call(ctx));
             }
 
             foreach ((MemberInfo member, List<(MethodInfo AddMethod, CompiledExpression[] Args)> initializers) in listBindings)
@@ -552,45 +558,49 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         throw new NotSupportedException($"The member member binding '{node}' is not supported.");
     }
 
-    private CompiledExpression VisitMemberBindingExpression(MemberBinding node)
-    {
-        return node.BindingType switch
-        {
-            MemberBindingType.Assignment => VisitMemberAssignmentExpression((MemberAssignment)node),
-            MemberBindingType.MemberBinding => VisitMemberMemberBindingExpression((MemberMemberBinding)node),
-            MemberBindingType.ListBinding => VisitMemberListBindingExpression((MemberListBinding)node),
-            _ => throw new Exception("Invalid member binding type.")
-        };
-    }
-
     private CompiledExpression VisitMemberAssignmentExpression(MemberAssignment node)
     {
         CompiledExpression expression = (CompiledExpression)Visit(node.Expression);
         return new CompiledExpression(node.Expression.Type, ctx => expression.Call(ctx));
     }
 
-    private CompiledExpression VisitMemberMemberBindingExpression(MemberMemberBinding node)
+    private List<(MemberInfo[] Path, CompiledExpression Value)> FlattenMemberMemberBinding(MemberMemberBinding node, MemberInfo[] prefix)
     {
-        List<CompiledExpression> bindings = node.Bindings
-            .Select(VisitMemberBindingExpression)
-            .ToList();
-
-        Type type = node.Member is PropertyInfo property ? property.PropertyType : ((FieldInfo)node.Member).FieldType;
-
-        return new CompiledExpression(type, ctx =>
+        List<(MemberInfo[] Path, CompiledExpression Value)> result = [];
+        foreach (MemberBinding inner in node.Bindings)
         {
-            foreach (CompiledExpression binding in bindings)
+            switch (inner)
             {
-                binding.Call(ctx);
+                case MemberAssignment assignment:
+                    result.Add(([.. prefix, assignment.Member], (CompiledExpression)Visit(assignment.Expression)));
+                    break;
+                case MemberMemberBinding nested:
+                    result.AddRange(FlattenMemberMemberBinding(nested, [.. prefix, nested.Member]));
+                    break;
+                default:
+                    throw new NotSupportedException($"List binding '{inner.Member.Name}' is not supported inside a nested member binding.");
             }
+        }
 
-            return null;
-        });
+        return result;
     }
 
-    private CompiledExpression VisitMemberListBindingExpression(MemberListBinding node)
+    private static void ApplyNestedAssignment(object instance, MemberInfo[] path, object? value)
     {
-        throw new NotSupportedException($"List binding '{node.Member.Name}' is not supported inside a nested member binding.");
+        object? target = instance;
+        for (int i = 0; i < path.Length - 1; i++)
+        {
+            target = path[i] is PropertyInfo step ? step.GetValue(target) : ((FieldInfo)path[i]).GetValue(target);
+        }
+
+        if (path[^1] is PropertyInfo last)
+        {
+            last.SetValue(target, value);
+        }
+        else
+        {
+            ((FieldInfo)path[^1]).SetValue(target, value);
+        }
     }
 
     private static object? InvokeUnwrapped(MethodInfo method, object? instance, object?[] args)

@@ -408,8 +408,18 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .Select(c => c.Column.PropertyInfo.Name)
             .ToHashSet();
 
-        SQLTranslator translator = new(Database);
+        SQLTranslator translator = new(Database)
+        {
+            SelectWrapFormats = ConverterSql.WriteWrapFormats(Table, Database.Options)
+        };
         SQLQuery sourceQuery = translator.Translate(source.Expression, computedColumnProperties);
+
+        if (translator.LastSelectIsClient)
+        {
+            throw new NotSupportedException(
+                "InsertFromQuery over a projection that runs in memory is not supported, because " +
+                "INSERT INTO SELECT runs entirely inside the database.");
+        }
 
         IReadOnlyList<SQLiteExpression> selects = translator.Selects;
         List<string> targetColumnNames = selects

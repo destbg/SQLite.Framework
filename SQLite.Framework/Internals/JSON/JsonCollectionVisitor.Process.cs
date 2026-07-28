@@ -182,6 +182,8 @@ internal partial class JsonCollectionVisitor
         if (carriesGroupKey)
         {
             groupKeySql = $"{wrapAlias}.\"grpkey\"";
+            groupElementSql = null;
+            groupWindowMaterialized = true;
         }
 
         innerAliases.Clear();
@@ -286,7 +288,7 @@ internal partial class JsonCollectionVisitor
     private void HandleWhere(MethodCallExpression call, Type elementType)
     {
         string predicate = VisitLambda(call.Arguments[1], elementType);
-        if (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+        if (groupBys.Count > 0)
         {
             havings.Add(predicate);
         }
@@ -400,12 +402,13 @@ internal partial class JsonCollectionVisitor
             return;
         }
 
-        string selSql = VisitLambdaAliased(call.Arguments[1], elementType, baseAlias);
+        string outerValue = selectExpr;
+        string selSql = VisitLambda(call.Arguments[1], elementType);
         string joinAlias = $"j{visitor.Counters.NextTableIndex('j')}";
         crossJoin = $", json_each({selSql}) {joinAlias}";
         keyColumn = CompositePositionKey(keyColumn, joinAlias);
         innerAliases.Add(joinAlias);
-        ApplySelectManyProjection(resultSelector, $"{baseAlias}.\"value\"", elementType, $"{joinAlias}.\"value\"", innerElementType);
+        ApplySelectManyProjection(resultSelector, outerValue, elementType, $"{joinAlias}.\"value\"", innerElementType);
     }
 
     private void ApplySelectManyProjection(LambdaExpression? resultSelector, string outerValueSql, Type outerElementType, string innerValueSql, Type innerElementType)
@@ -450,7 +453,7 @@ internal partial class JsonCollectionVisitor
         if (call.Arguments.Count > 1)
         {
             string predicate = VisitLambda(call.Arguments[1], elementType);
-            if (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+            if (groupBys.Count > 0)
             {
                 havings.Add(predicate);
             }
@@ -523,7 +526,7 @@ internal partial class JsonCollectionVisitor
     private void HandleAll(MethodCallExpression call, Type elementType)
     {
         string predicate = $"(({VisitLambda(call.Arguments[1], elementType)}) IS NOT 1)";
-        if (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+        if (groupBys.Count > 0)
         {
             havings.Add(predicate);
         }
@@ -669,7 +672,8 @@ internal partial class JsonCollectionVisitor
             parameters.AddRange(matchParameters);
         }
 
-        wheres.Add($"{selectExpr} IS {matchSql}");
+        List<string> containsSink = groupBys.Count > 0 ? havings : wheres;
+        containsSink.Add($"{selectExpr} IS {matchSql}");
         existsWrapper = "EXISTS";
         selectExpr = "1";
         limit = "1";

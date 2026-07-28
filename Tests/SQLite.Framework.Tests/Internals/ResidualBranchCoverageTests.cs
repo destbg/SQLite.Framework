@@ -62,6 +62,14 @@ public sealed class ResidualNullToString
     }
 }
 
+public sealed class ResidualNullFormattable : IFormattable
+{
+    public string ToString(string? format, IFormatProvider? formatProvider)
+    {
+        return null!;
+    }
+}
+
 public sealed class ResidualOrphanMethod : MethodInfo
 {
     public override MethodAttributes Attributes => MethodAttributes.Static;
@@ -490,9 +498,33 @@ public class ResidualBranchCoverageTests
     }
 
     [Fact]
-    public void CanonicalSqlFallsBackForNullRenderingValues()
+    public void CanonicalSqlFallsBackToTheHashCodeForOpaqueValues()
     {
-        SQLiteParameter[] parameters = [new() { Name = "@b0", Value = new ResidualNullToString() }];
+        ResidualNullToString value = new();
+        SQLiteParameter[] parameters = [new() { Name = "@b0", Value = value }];
+        SQLiteExpression node = SQLiteExpression.Leaf(typeof(int), 1, "@b0", parameters);
+
+        string canonical = CteSqlCanonicalizer.Canonicalize(node);
+
+        Assert.Contains("#" + value.GetHashCode(), canonical);
+    }
+
+    [Fact]
+    public void CanonicalSqlFormatsFormattableOnlyValues()
+    {
+        Guid value = Guid.Parse("6c1b3c3a-9f4e-4b7a-8f21-0a55c3d4e5f6");
+        SQLiteParameter[] parameters = [new() { Name = "@b0", Value = value }];
+        SQLiteExpression node = SQLiteExpression.Leaf(typeof(int), 1, "@b0", parameters);
+
+        string canonical = CteSqlCanonicalizer.Canonicalize(node);
+
+        Assert.Contains("6c1b3c3a-9f4e-4b7a-8f21-0a55c3d4e5f6", canonical);
+    }
+
+    [Fact]
+    public void CanonicalSqlWritesNullForFormattableValuesRenderingNull()
+    {
+        SQLiteParameter[] parameters = [new() { Name = "@b0", Value = new ResidualNullFormattable() }];
         SQLiteExpression node = SQLiteExpression.Leaf(typeof(int), 1, "@b0", parameters);
 
         string canonical = CteSqlCanonicalizer.Canonicalize(node);

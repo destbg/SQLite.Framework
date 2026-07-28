@@ -127,6 +127,14 @@ internal partial class QueryableVisitor
 
     private MethodCallExpression VisitBoolean(MethodCallExpression node)
     {
+        if (IsDistinct && LastSelectIsClient
+            && node.Method.Name == nameof(System.Linq.Queryable.Any)
+            && node.Arguments.Count == 1)
+        {
+            ClientCount = true;
+            return node;
+        }
+
         IsAny = node.Method.Name == nameof(System.Linq.Queryable.Any);
         IsAll = node.Method.Name == nameof(System.Linq.Queryable.All);
         SuppressSelectMaterializer = true;

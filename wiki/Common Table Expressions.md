@@ -102,7 +102,7 @@ Generated SQL:
 ```sql
 WITH RECURSIVE cte0 AS (
     SELECT c1."X" AS "X"
-    FROM (SELECT @p1 AS "X") AS c1
+    FROM (SELECT column1 AS "X" FROM (VALUES (@p1))) AS c1
     UNION ALL
         SELECT (c2."X" + @p3) AS "X"
     FROM cte0 AS c2

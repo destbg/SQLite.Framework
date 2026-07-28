@@ -146,7 +146,27 @@ internal static class SchemaSqlBuilder
     public static List<(string Name, string Sql)> BuildIndexes(TableMapping mapping, string tableName, bool ifNotExists)
     {
         string existsClause = ifNotExists ? "IF NOT EXISTS " : string.Empty;
-        List<(string, string)> statements = [];
+        List<string> names = [];
+        Dictionary<string, (List<string> Fragments, bool Unique, string? Where)> merged = new(StringComparer.OrdinalIgnoreCase);
+
+        void Add(string name, IEnumerable<string> fragments, bool unique, string? where)
+        {
+            if (!merged.TryGetValue(name, out (List<string> Fragments, bool Unique, string? Where) entry))
+            {
+                entry = ([], false, null);
+                names.Add(name);
+            }
+
+            foreach (string fragment in fragments)
+            {
+                if (!entry.Fragments.Contains(fragment, StringComparer.Ordinal))
+                {
+                    entry.Fragments.Add(fragment);
+                }
+            }
+
+            merged[name] = (entry.Fragments, entry.Unique || unique, entry.Where ?? where);
+        }
 
         var indexGroups = mapping.Columns
             .SelectMany(col => col.Indices.Select(idx => (
@@ -161,18 +181,29 @@ internal static class SchemaSqlBuilder
         foreach (var group in indexGroups)
         {
             var ordered = group.OrderBy(x => x.Order).ToArray();
-            string uniqueClause = group.Any(x => x.IsUnique) ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", ordered.Select(x => IdentifierGuard.Quote(x.Column) + CommonHelpers.Clause(x.Collation) + CommonHelpers.Clause(x.Direction)));
-            statements.Add((group.Key, $"CREATE {uniqueClause}INDEX {existsClause}\"{group.Key.Replace("\"", "\"\"")}\" ON \"{tableName}\" ({columnList})"));
+            Add(group.Key,
+                ordered.Select(x => IdentifierGuard.Quote(x.Column) + CommonHelpers.Clause(x.Collation) + CommonHelpers.Clause(x.Direction)),
+                group.Any(x => x.IsUnique),
+                where: null);
         }
 
         foreach (IndexSpec index in mapping.Indexes)
         {
-            string uniqueClause = index.Unique ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", index.Columns.Select((c, i) =>
-                (index.Expressions[i] ? c : IdentifierGuard.Quote(c)) + CommonHelpers.Clause(index.Collations[i]) + CommonHelpers.Clause(index.Directions[i])));
-            string where = index.FilterSql == null ? string.Empty : $" WHERE {index.FilterSql}";
-            statements.Add((index.Name, $"CREATE {uniqueClause}INDEX {existsClause}\"{index.Name.Replace("\"", "\"\"")}\" ON \"{tableName}\" ({columnList}){where}"));
+            Add(index.Name,
+                index.Columns.Select((c, i) =>
+                    (index.Expressions[i] ? c : IdentifierGuard.Quote(c)) + CommonHelpers.Clause(index.Collations[i]) + CommonHelpers.Clause(index.Directions[i])),
+                index.Unique,
+                index.FilterSql);
+        }
+
+        List<(string, string)> statements = [];
+        foreach (string name in names)
+        {
+            (List<string> fragments, bool unique, string? filterSql) = merged[name];
+            string uniqueClause = unique ? "UNIQUE " : string.Empty;
+            string columnList = string.Join(", ", fragments);
+            string where = filterSql == null ? string.Empty : $" WHERE {filterSql}";
+            statements.Add((name, $"CREATE {uniqueClause}INDEX {existsClause}\"{name.Replace("\"", "\"\"")}\" ON \"{tableName}\" ({columnList}){where}"));
         }
 
         return statements;

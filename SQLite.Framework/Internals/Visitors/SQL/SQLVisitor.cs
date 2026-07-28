@@ -41,6 +41,8 @@ internal partial class SQLVisitor : ExpressionVisitor
     public Dictionary<Dictionary<string, Expression>, Dictionary<string, string?>> TableColumnPrefixes { get; set; } = [];
     public Dictionary<Dictionary<string, Expression>, HashSet<string>> ConstructedProjectionPaths { get; set; } = [];
     public HashSet<Dictionary<string, Expression>> OptionalRowColumns { get; set; } = [];
+    public Dictionary<Dictionary<string, Expression>, HashSet<string>> OptionalRowPaths { get; set; } = [];
+    public Dictionary<Dictionary<string, Expression>, Dictionary<string, Expression>> ConstructedProjectionNodes { get; set; } = [];
 
     public SQLiteExpression InternDecimalCast(SQLiteExpression source)
     {
@@ -109,7 +111,9 @@ internal partial class SQLVisitor : ExpressionVisitor
             CteParameters = CteParameters,
             TableColumnPrefixes = TableColumnPrefixes,
             ConstructedProjectionPaths = ConstructedProjectionPaths,
-            OptionalRowColumns = OptionalRowColumns
+            OptionalRowColumns = OptionalRowColumns,
+            OptionalRowPaths = OptionalRowPaths,
+            ConstructedProjectionNodes = ConstructedProjectionNodes
         };
     }
 
@@ -122,6 +126,8 @@ internal partial class SQLVisitor : ExpressionVisitor
             TableColumnPrefixes = TableColumnPrefixes,
             ConstructedProjectionPaths = ConstructedProjectionPaths,
             OptionalRowColumns = OptionalRowColumns,
+            OptionalRowPaths = OptionalRowPaths,
+            ConstructedProjectionNodes = ConstructedProjectionNodes,
             ClientEvalAllowed = ClientEvalAllowed,
             IsInSelectProjection = isInSelectProjection,
             CteRegistry = CteRegistry
@@ -238,6 +244,12 @@ internal partial class SQLVisitor : ExpressionVisitor
                 return baseExpression is ConditionalExpression or MemberInitExpression or NewExpression
                     ? VisitFoldedMemberPath(baseExpression, path[(splitIndex + 1)..])
                     : null;
+            }
+
+            if (ConstructedProjectionNodes.TryGetValue(expressions, out Dictionary<string, Expression>? nodes)
+                && nodes.TryGetValue(path[..splitIndex], out Expression? nodeExpression))
+            {
+                return VisitFoldedMemberPath(nodeExpression, path[(splitIndex + 1)..]);
             }
 
             splitIndex = path.LastIndexOf('.', splitIndex - 1);
@@ -432,7 +444,12 @@ internal partial class SQLVisitor : ExpressionVisitor
             return newExpression.Members.TakeWhile(m => m.Name != memberName).Count();
         }
 
-        return newExpression.Constructor!.GetParameters()
+        if (newExpression.Constructor == null)
+        {
+            return newExpression.Arguments.Count;
+        }
+
+        return newExpression.Constructor.GetParameters()
             .TakeWhile(p => !string.Equals(p.Name, memberName, StringComparison.OrdinalIgnoreCase))
             .Count();
     }

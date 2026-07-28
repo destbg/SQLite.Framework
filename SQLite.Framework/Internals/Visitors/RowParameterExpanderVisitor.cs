@@ -87,7 +87,7 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
     {
         if (expression is ParameterExpression pe && rowParameters.Contains(pe))
         {
-            return true;
+            return !IsSimpleValue(pe.Type);
         }
         else if (expression is MemberExpression { Expression: ParameterExpression innerPe } me
             && rowParameters.Contains(innerPe)
@@ -131,6 +131,21 @@ internal sealed class RowParameterExpanderVisitor : ExpressionVisitor
         }
 
         return type.GetConstructor(Type.EmptyTypes) != null;
+    }
+
+    private static bool IsSimpleValue(Type type)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+        return type.IsPrimitive
+            || type.IsEnum
+            || type == typeof(string)
+            || type == typeof(decimal)
+            || type == typeof(DateTime)
+            || type == typeof(DateTimeOffset)
+            || type == typeof(TimeSpan)
+            || type == typeof(Guid)
+            || type == typeof(DateOnly)
+            || type == typeof(TimeOnly);
     }
 
     private static bool IsGroupingType(Type type)

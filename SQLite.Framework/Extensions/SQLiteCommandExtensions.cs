@@ -85,19 +85,14 @@ public static class SQLiteCommandExtensions
     {
         if (query.ClientDistinct)
         {
-            if (query.Reverse && query.ReverseBeforeDistinct)
+            if (query.ReverseBeforeDistinct)
             {
                 enumerable = enumerable.Reverse();
             }
 
             enumerable = enumerable.Distinct();
-
-            if (query.Reverse && !query.ReverseBeforeDistinct)
-            {
-                enumerable = enumerable.Reverse();
-            }
         }
-        else if (query.Reverse)
+        else if (query.ReverseBeforeDistinct)
         {
             enumerable = enumerable.Reverse();
         }
@@ -110,6 +105,11 @@ public static class SQLiteCommandExtensions
         if (query.ClientTake is { } clientTake)
         {
             enumerable = enumerable.Take((int)clientTake);
+        }
+
+        if (query.Reverse)
+        {
+            enumerable = enumerable.Reverse();
         }
 
         return enumerable;

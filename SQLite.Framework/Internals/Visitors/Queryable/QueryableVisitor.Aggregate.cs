@@ -374,9 +374,16 @@ internal partial class QueryableVisitor
 
         if (groupByExpression is NewExpression keyNew && keyNew.Members != null)
         {
-            foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
+            if (isScalarElement)
             {
-                newTableColumns[Constants.GroupingElementPrefix + tableColumn.Key] = tableColumn.Value;
+                newTableColumns[string.Empty] = visitor.TableColumns.Single().Value;
+            }
+            else
+            {
+                foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
+                {
+                    newTableColumns[Constants.GroupingElementPrefix + tableColumn.Key] = tableColumn.Value;
+                }
             }
 
             HashSet<string> constructedKeyPaths = [];
@@ -393,8 +400,15 @@ internal partial class QueryableVisitor
         }
         else if (!isScalarElement)
         {
+            bool keyIsSimple = TypeHelpers.IsSimple(lambda.Body.Type, database.Options);
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
+                if (keyIsSimple)
+                {
+                    newTableColumns[Constants.GroupingElementPrefix + tableColumn.Key] = tableColumn.Value;
+                    continue;
+                }
+
                 string[] split = tableColumn.Key.Split('.');
                 string key = string.Join('.', [nameof(IGrouping<,>.Key), .. split]);
 

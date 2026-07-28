@@ -33,7 +33,7 @@ internal static class SQLiteJsonFunctionsMemberVisitor
             nameof(SQLiteJsonFunctions.Replace) => Fn(visitor, node.Type, "json_replace", arguments[0], arguments[1], arguments[2], parameters),
             nameof(SQLiteJsonFunctions.Remove) => Fn(visitor, node.Type, "json_remove", arguments[0], arguments[1], parameters),
             nameof(SQLiteJsonFunctions.Type) => Fn(visitor, node.Type, "json_type", arguments[0], arguments[1], parameters),
-            nameof(SQLiteJsonFunctions.Valid) => Fn(visitor, node.Type, "json_valid", arguments[0], parameters),
+            nameof(SQLiteJsonFunctions.Valid) => SQLiteFunctionsMemberVisitor.CollapseNullToFalse(visitor, Fn(visitor, node.Type, "json_valid", arguments[0], parameters), node.Arguments),
             nameof(SQLiteJsonFunctions.Patch) => Fn(visitor, node.Type, "json_patch", arguments[0], arguments[1], parameters),
             nameof(SQLiteJsonFunctions.ArrayLength) when arguments.Count == 1 => Fn(visitor, node.Type, "json_array_length", arguments[0], parameters),
             nameof(SQLiteJsonFunctions.ArrayLength) => Fn(visitor, node.Type, "json_array_length", arguments[0], arguments[1], parameters),

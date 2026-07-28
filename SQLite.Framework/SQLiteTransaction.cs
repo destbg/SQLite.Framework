@@ -6,6 +6,7 @@ namespace SQLite.Framework;
 public class SQLiteTransaction : IDisposable, IAsyncDisposable
 {
     private readonly bool ownsLock;
+    private readonly int rollbackGeneration;
     private bool completed;
     private bool disposed;
 
@@ -17,6 +18,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         Database = database;
         SavepointName = savepointName;
         this.ownsLock = ownsLock;
+        rollbackGeneration = database.RollbackGeneration;
     }
 
     /// <summary>
@@ -53,7 +55,12 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
-            // An enclosing rollback destroyed the savepoint
+            if (rollbackGeneration == Database.RollbackGeneration && !Database.InOpenTransaction)
+            {
+                throw new InvalidOperationException(
+                    "The transaction was already rolled back by SQLite. A conflict resolution of Rollback " +
+                    "or an OR ROLLBACK statement aborted the whole transaction, so there is nothing to commit.");
+            }
         }
         catch
         {
@@ -88,10 +95,10 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+            Database.NoteRollback();
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
-            // An enclosing rollback destroyed the savepoint
         }
         catch
         {
@@ -124,10 +131,10 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+            Database.NoteRollback();
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
-            // An enclosing rollback already destroyed the savepoint.
         }
         catch
         {

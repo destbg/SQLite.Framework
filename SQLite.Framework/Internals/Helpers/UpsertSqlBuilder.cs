@@ -10,9 +10,11 @@ internal static class UpsertSqlBuilder
     {
         TableColumn[] insertColumns = table.Columns.ToArray();
 
-        if (table.ComputedColumns.Count > 0)
+        HashSet<string>? computedNames = table.ComputedColumns.Count > 0
+            ? table.ComputedColumns.Select(c => c.Column.Name).ToHashSet()
+            : null;
+        if (computedNames != null)
         {
-            HashSet<string> computedNames = table.ComputedColumns.Select(c => c.Column.Name).ToHashSet();
             insertColumns = insertColumns.Where(c => !computedNames.Contains(c.Name)).ToArray();
         }
 
@@ -85,7 +87,7 @@ internal static class UpsertSqlBuilder
                 {
                     TableColumn column = table.Columns.FirstOrDefault(c => c.PropertyInfo.Name == propertyName)
                         ?? throw new InvalidOperationException($"Upsert.DoUpdate references property '{propertyName}' which is not a mapped column on '{table.TableName}'.");
-                    if (column.IsPrimaryKey)
+                    if (column.IsPrimaryKey || computedNames?.Contains(column.Name) == true)
                     {
                         continue;
                     }
@@ -141,27 +143,38 @@ internal static class UpsertSqlBuilder
 
     private static void AppendUpdateSet<T>(StringBuilder sb, SQLiteDatabase database, TableMapping table, SQLiteUpsertAction<T> action)
     {
-        sb.Append(" DO UPDATE SET ");
-        IReadOnlyList<(string Column, LambdaExpression Rhs)> setters = action.Setters!;
-        for (int i = 0; i < setters.Count; i++)
+        HashSet<string>? computedNames = table.ComputedColumns.Count > 0
+            ? table.ComputedColumns.Select(c => c.Column.Name).ToHashSet()
+            : null;
+
+        List<string> parts = [];
+        foreach ((string columnProperty, LambdaExpression rhs) in action.Setters!)
         {
-            if (i > 0)
-            {
-                sb.Append(", ");
-            }
-            (string columnProperty, LambdaExpression rhs) = setters[i];
             TableColumn column = table.Columns.FirstOrDefault(c => c.PropertyInfo.Name == columnProperty)
                 ?? throw new InvalidOperationException($"Upsert.DoUpdate references property '{columnProperty}' which is not a mapped column on '{table.TableName}'.");
-            sb.Append(IdentifierGuard.Quote(column.Name));
-            sb.Append(" = ");
-            string rhsSql = BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs, wrapConverterReads: false);
-            if (ExpressionHelpers.IsConstant(rhs.Body))
+            if (computedNames?.Contains(column.Name) == true)
+            {
+                continue;
+            }
+
+            bool wrapWholeValue = ConverterSql.HasReadAndWriteWrap(column.PropertyType, database.Options);
+            string rhsSql = BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs, wrapConverterReads: wrapWholeValue);
+            if (wrapWholeValue || ExpressionHelpers.IsConstant(rhs.Body))
             {
                 rhsSql = ConverterSql.WrapParameter(rhsSql, column.PropertyType, database.Options);
             }
 
-            sb.Append(rhsSql);
+            parts.Add(IdentifierGuard.Quote(column.Name) + " = " + rhsSql);
         }
+
+        if (parts.Count == 0)
+        {
+            sb.Append(" DO NOTHING");
+            return;
+        }
+
+        sb.Append(" DO UPDATE SET ");
+        sb.Append(string.Join(", ", parts));
 
         AppendUpdateWhere(sb, database, table, action);
     }

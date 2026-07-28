@@ -441,8 +441,16 @@ public sealed class SQLiteMigrationRunner
                         || ReadsOwnColumn(s.Set)
                         || ReadsOutsideModel(mapping, s.Set))
                     .ToList();
+                List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> earlyOutsideModel = deferredSchemaSets
+                    .Where(s => s.Version < rebuildVersion && !s.Set.RunInRebuild && ReadsOutsideModel(mapping, s.Set))
+                    .ToList();
+                foreach ((int Version, MigrationSetValue Set, MigrationSetValue ApplySet) early in earlyOutsideModel)
+                {
+                    deferredSchemaSets.Remove(early);
+                    deferredFills.Add(new DeferredFill { Version = early.Version, Mapping = mapping, Sets = [early.Set] });
+                }
                 deferredFills.AddRange(ComputeReconcileFills(mapping, groupOps, deferredSchemaSets));
-                count += AddMissingColumnsBeforeDeferredRebuild(mapping);
+                count += AddMissingColumnsBeforeDeferredRebuild(mapping, groupOps);
                 deferred.Add(new DeferredSchemaWork { Version = rebuildVersion, Order = 3, Apply = () => (ApplyReconcileSchema(mapping, groupOps, created, deferredSchemaSets), []) });
             }
             else
@@ -482,7 +490,9 @@ public sealed class SQLiteMigrationRunner
 
     private bool RequiresRebuildFill(TableMapping mapping, string column)
     {
-        return ModelDeclaresUnique(mapping, column) || LiveColumnHasNulls(mapping.TableName, column);
+        return ModelDeclaresUnique(mapping, column)
+            || mapping.Checks.Count > 0
+            || LiveColumnHasNulls(mapping.TableName, column);
     }
 
     private bool LiveColumnHasNulls(string tableName, string column)
@@ -491,7 +501,7 @@ public sealed class SQLiteMigrationRunner
             $"SELECT EXISTS(SELECT 1 FROM \"main\".{IdentifierGuard.Quote(tableName)} WHERE {IdentifierGuard.Quote(column)} IS NULL)") == 1;
     }
 
-    private int AddMissingColumnsBeforeDeferredRebuild(TableMapping mapping)
+    private int AddMissingColumnsBeforeDeferredRebuild(TableMapping mapping, List<MigrationOperation> group)
     {
         HashSet<string> liveColumns = Database.Pragmas.TableInfo(mapping.TableName)
             .Select(c => c.Name)
@@ -499,16 +509,51 @@ public sealed class SQLiteMigrationRunner
         HashSet<string> computed = mapping.ComputedColumns
             .Select(c => c.Column.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> setColumns = group
+            .SelectMany(o => o.Sets)
+            .Select(v => v.Column)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        int count = 0;
+        List<(string Name, SQLiteColumnType Type, bool IsNullable, string? DefaultSql)> missing = [];
         foreach (TableColumn column in mapping.Columns)
         {
-            if (liveColumns.Contains(column.Name) || computed.Contains(column.Name))
+            if (!liveColumns.Contains(column.Name) && !computed.Contains(column.Name))
             {
-                continue;
+                missing.Add((column.Name, column.ColumnType, column.IsNullable, column.DefaultSql));
+            }
+        }
+
+        foreach (ShadowColumnSpec shadow in mapping.ShadowColumns)
+        {
+            if (!liveColumns.Contains(shadow.Name))
+            {
+                missing.Add((shadow.Name, shadow.Type, shadow.IsNullable, shadow.DefaultSql));
+            }
+        }
+
+        if (missing.Count == 0)
+        {
+            return 0;
+        }
+
+        bool hasRows = Database.ExecuteScalar<long>($"SELECT COUNT(*) FROM \"main\".{IdentifierGuard.Quote(mapping.TableName)}") > 0;
+
+        int count = 0;
+        foreach ((string name, SQLiteColumnType type, bool isNullable, string? defaultSql) in missing)
+        {
+            if (!isNullable && defaultSql == null && hasRows && !setColumns.Contains(name))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot migrate table '{mapping.TableName}'. Column '{name}' is new and NOT NULL with no default, but the table has rows. " +
+                    "Give it a default in OnModelCreating, set a value with TableChanged(s => s.Set(...)) or make it nullable.");
             }
 
-            string sql = $"ALTER TABLE \"main\".{IdentifierGuard.Quote(mapping.TableName)} ADD COLUMN {IdentifierGuard.Quote(column.Name)} {column.ColumnType.ToString().ToUpperInvariant()}";
+            string sql = $"ALTER TABLE \"main\".{IdentifierGuard.Quote(mapping.TableName)} ADD COLUMN {IdentifierGuard.Quote(name)} {type.ToString().ToUpperInvariant()}";
+            if (defaultSql != null)
+            {
+                sql += !isNullable ? $" NOT NULL DEFAULT {defaultSql}" : $" DEFAULT {defaultSql}";
+            }
+
             count += Database.Execute(sql);
         }
 

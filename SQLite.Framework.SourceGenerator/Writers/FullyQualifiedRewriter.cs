@@ -299,6 +299,12 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return SyntaxFactory.IdentifierName(ctx.Leaves[invocationLeafIdx].VarName);
         }
 
+        if (ctx.Model.GetConstantValue(node).Value is { } constantResult
+            && SelectMaterializerEmitter.TryFormatConstantLiteral(constantResult, out string? constantLiteral))
+        {
+            return SyntaxFactory.ParseExpression(constantLiteral!);
+        }
+
         if (ctx.Model.GetSymbolInfo(node).Symbol is not IMethodSymbol method)
         {
             Failed = true;
@@ -646,7 +652,9 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             argExprs.Add(argText);
         }
 
-        string returnType = SelectMaterializerEmitter.FormatType(method.ReturnType, ctx.WriterCtx.TypeArgSubstitutions);
+        string returnType = SelectMaterializerEmitter.IsTypeAccessibleFromGenerator(method.ReturnType, ctx.GeneratorAssembly)
+            ? SelectMaterializerEmitter.FormatType(method.ReturnType, ctx.WriterCtx.TypeArgSubstitutions)
+            : "object";
         string instanceText = receiverExpr != null
             ? "(object?)(" + receiverExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString() + ")"
             : "ctx.ReflectedMethodInstances![" + slot + "]";

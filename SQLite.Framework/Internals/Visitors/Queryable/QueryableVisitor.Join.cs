@@ -78,6 +78,11 @@ internal partial class QueryableVisitor
 
             visitor.IsInSelectProjection = false;
             visitor.ClientEvalAllowed = false;
+            if (ContainsClientCall(decomposed))
+            {
+                LastSelectIsClient = true;
+                ClientProjection = true;
+            }
         }
 
         visitor.MethodArguments[innerKey.Parameters[0]] = newTableColumns;
@@ -99,8 +104,8 @@ internal partial class QueryableVisitor
                     outerArgument = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, outerArgument);
                 }
 
-                SQLiteExpression outerAlias = visitor.PrepareKeyOperand(innerArgument, (SQLiteExpression)visitor.Visit(innerArgument));
-                SQLiteExpression innerAlias = visitor.PrepareKeyOperand(outerArgument, (SQLiteExpression)visitor.Visit(outerArgument));
+                SQLiteExpression outerAlias = visitor.PrepareKeyOperand(innerArgument, RequireJoinKey(visitor.Visit(innerArgument), innerArgument));
+                SQLiteExpression innerAlias = visitor.PrepareKeyOperand(outerArgument, RequireJoinKey(visitor.Visit(outerArgument), outerArgument));
                 outerAlias = visitor.CoerceDayOfWeekOperand(innerArgument, outerAlias, innerAlias);
                 innerAlias = visitor.CoerceDayOfWeekOperand(outerArgument, innerAlias, outerAlias);
 
@@ -136,8 +141,8 @@ internal partial class QueryableVisitor
                 innerBody = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, innerBody);
             }
 
-            SQLiteExpression outerAlias = visitor.PrepareKeyOperand(outerBody, (SQLiteExpression)visitor.Visit(outerBody));
-            SQLiteExpression innerAlias = visitor.PrepareKeyOperand(innerBody, (SQLiteExpression)visitor.Visit(innerBody));
+            SQLiteExpression outerAlias = visitor.PrepareKeyOperand(outerBody, RequireJoinKey(visitor.Visit(outerBody), outerBody));
+            SQLiteExpression innerAlias = visitor.PrepareKeyOperand(innerBody, RequireJoinKey(visitor.Visit(innerBody), innerBody));
             outerAlias = visitor.CoerceDayOfWeekOperand(outerBody, outerAlias, innerAlias);
             innerAlias = visitor.CoerceDayOfWeekOperand(innerBody, innerAlias, outerAlias);
 
@@ -202,6 +207,18 @@ internal partial class QueryableVisitor
                 group.GroupDropped = true;
             }
         }
+    }
+
+    private static SQLiteExpression RequireJoinKey(Expression? translated, Expression original)
+    {
+        if (translated is SQLiteExpression sqlExpression)
+        {
+            return sqlExpression;
+        }
+
+        throw new NotSupportedException(
+            $"The join key '{original}' cannot be translated to SQL. " +
+            "A join key runs inside the database, so it cannot call methods that run in memory.");
     }
 
     private static string? FindMemberPath(Expression body, ParameterExpression parameter, string sourcePath, string prefix)

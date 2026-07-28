@@ -111,6 +111,11 @@ internal static class ExpressionHelpers
         return new NullabilityInfoContext().Create(property).ReadState != NullabilityState.NotNull;
     }
 
+    public static bool FieldMayBeNull(FieldInfo field)
+    {
+        return new NullabilityInfoContext().Create(field).ReadState != NullabilityState.NotNull;
+    }
+
     public static bool IsEvaluableUnary(UnaryExpression node)
     {
         return node.NodeType is ExpressionType.Convert
@@ -130,8 +135,8 @@ internal static class ExpressionHelpers
             MemberExpression me => me.Member is FieldInfo fi
                 ? (me.Expression != null ? fi.GetValue(GetConstantValue(me.Expression)) : fi.GetValue(null))
                 : ((PropertyInfo)me.Member).GetValue(me.Expression != null ? GetConstantValue(me.Expression) : null),
-            UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked, Method: { } conversionOperator } ue =>
-                InvokeConversionOperator(conversionOperator, GetConstantValue(ue.Operand)),
+            UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked, Method: not null } ue =>
+                ConvertThroughOperator(ue),
             UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type, ue.NodeType == ExpressionType.ConvertChecked),
             UnaryExpression { NodeType: ExpressionType.TypeAs } ue => TypeAsConstant(GetConstantValue(ue.Operand), ue.Type),
             UnaryExpression { NodeType: ExpressionType.ArrayLength } ue => ((Array)GetConstantValue(ue.Operand)!).Length,
@@ -290,6 +295,22 @@ internal static class ExpressionHelpers
             TimeSpan ts => -ts,
             _ => throw new NotSupportedException($"Cannot evaluate a constant {node.NodeType} expression on operand type {operand.GetType()}.")
         };
+    }
+
+    private static object? ConvertThroughOperator(UnaryExpression node)
+    {
+        object? operand = GetConstantValue(node.Operand);
+        if (operand == null && Nullable.GetUnderlyingType(node.Operand.Type) != null)
+        {
+            if (Nullable.GetUnderlyingType(node.Type) != null || !node.Type.IsValueType)
+            {
+                return null;
+            }
+
+            throw new InvalidOperationException("Nullable object must have a value.");
+        }
+
+        return InvokeConversionOperator(node.Method!, operand);
     }
 
     private static object? InvokeConversionOperator(MethodInfo conversionOperator, object? value)

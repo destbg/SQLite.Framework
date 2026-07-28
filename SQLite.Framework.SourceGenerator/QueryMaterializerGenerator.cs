@@ -598,7 +598,9 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             selectorExpr = paren.Expression;
         }
 
-        if (selectorExpr is not LambdaExpressionSyntax lambda)
+        LambdaExpressionSyntax? lambda = selectorExpr as LambdaExpressionSyntax
+            ?? ResolveStoredLambda(selectorExpr, ctx.SemanticModel);
+        if (lambda == null)
         {
             return null;
         }
@@ -1152,6 +1154,47 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         return new SelectInvocation(signature, bodyExpr, writerCtx, ctx.SemanticModel, projection);
     }
 
+    private static LambdaExpressionSyntax? ResolveStoredLambda(ExpressionSyntax selector, SemanticModel model)
+    {
+        if (selector is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+        {
+            return null;
+        }
+
+        ISymbol? symbol = model.GetSymbolInfo(selector).Symbol;
+        if (symbol is not (ILocalSymbol or IFieldSymbol or IPropertySymbol))
+        {
+            return null;
+        }
+
+        foreach (SyntaxReference reference in symbol.DeclaringSyntaxReferences)
+        {
+            if (reference.SyntaxTree != selector.SyntaxTree)
+            {
+                continue;
+            }
+
+            ExpressionSyntax? initializer = reference.GetSyntax() switch
+            {
+                VariableDeclaratorSyntax declarator => declarator.Initializer?.Value,
+                PropertyDeclarationSyntax property => property.Initializer?.Value ?? property.ExpressionBody?.Expression,
+                _ => null
+            };
+
+            while (initializer is ParenthesizedExpressionSyntax paren)
+            {
+                initializer = paren.Expression;
+            }
+
+            if (initializer is LambdaExpressionSyntax stored)
+            {
+                return stored;
+            }
+        }
+
+        return null;
+    }
+
     private static bool ContainsTypeParameter(ITypeSymbol type)
     {
         switch (type)
@@ -1544,7 +1587,9 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             selectorExpr = paren.Expression;
         }
 
-        if (selectorExpr is not LambdaExpressionSyntax lambda)
+        LambdaExpressionSyntax? lambda = selectorExpr as LambdaExpressionSyntax
+            ?? ResolveStoredLambda(selectorExpr, ctx.SemanticModel);
+        if (lambda == null)
         {
             return null;
         }

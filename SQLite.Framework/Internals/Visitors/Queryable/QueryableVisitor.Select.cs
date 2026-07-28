@@ -33,19 +33,16 @@ internal partial class QueryableVisitor
                 $"Include '{outerMa.Member.Name}' in the inner projection or restructure the query.");
         }
 
+        Expression? flattenedBody = PreviousSelectLambda != null
+            ? TryFlattenChainedSelectBody(lambda, PreviousSelectLambda)
+            : null;
+        bool flattenAdopted = false;
+
         if (database.Options.SelectMaterializers.Count > 0)
         {
             if (lambda.Body is not ParameterExpression || PreviousSelectLambda != null)
             {
-                Expression signatureBody = lambda.Body;
-                if (PreviousSelectLambda != null)
-                {
-                    Expression? flattened = TryFlattenChainedSelectBody(lambda, PreviousSelectLambda);
-                    if (flattened != null)
-                    {
-                        signatureBody = flattened;
-                    }
-                }
+                Expression signatureBody = flattenedBody ?? lambda.Body;
 
                 ConstructedConditionalFinderVisitor shape = new();
                 shape.Visit(signatureBody);
@@ -58,8 +55,27 @@ internal partial class QueryableVisitor
                 {
                     lambda = Expression.Lambda(signatureBody, PreviousSelectLambda!.Parameters);
                     visitor.TableColumns = PreviousSelectSourceColumns!;
+                    flattenAdopted = true;
                 }
             }
+        }
+
+        bool scalarClientSource = ClientProjection
+            && PreviousSelectLambda != null
+            && visitor.TableColumns.Count == 1
+            && visitor.TableColumns.ContainsKey(string.Empty);
+
+        if (!flattenAdopted && scalarClientSource)
+        {
+            if (flattenedBody == null)
+            {
+                throw new NotSupportedException(
+                    "A second Select after a projection that runs in memory is not supported for this shape, " +
+                    "because SQLite cannot compute the projected value inside the database.");
+            }
+
+            lambda = Expression.Lambda(flattenedBody, PreviousSelectLambda!.Parameters);
+            visitor.TableColumns = PreviousSelectSourceColumns!;
         }
 
         PreviousSelectLambda = lambda;
@@ -73,7 +89,7 @@ internal partial class QueryableVisitor
         if (visitor.TableColumns.All(f => f.Value is SQLiteExpression)
             && lambda.Body is not NewArrayExpression
             && !IsScalarBoxingToObject(lambda.Body)
-            && !HasRowReferencingListBinding(lambda))
+            && !ContainsListBinding(lambda.Body))
         {
             foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
             {
@@ -104,19 +120,10 @@ internal partial class QueryableVisitor
                 Selects.Add(newSqlExpression);
             }
 
-            if (lambda.Body is MemberInitExpression mieBody && mieBody.Bindings.OfType<MemberListBinding>().Any())
-            {
-                List<MemberBinding> allBindings = RebuildBindingsForListInit(mieBody, prefix: null);
-
-                visitor.IsInSelectProjection = false;
-                visitor.ClientEvalAllowed = false;
-                LastSelectIsClient = false;
-                return Expression.MemberInit(mieBody.NewExpression, allBindings);
-            }
-
             visitor.IsInSelectProjection = false;
             visitor.ClientEvalAllowed = false;
             LastSelectIsClient = false;
+            ClientProjection = false;
             return node;
         }
 
@@ -139,10 +146,12 @@ internal partial class QueryableVisitor
                     visitor.TableColumns.First(tc => tc.Key == prop.Name).Value));
 
             bool hasWritableProperties = properties.All(p => p.CanWrite);
+            bool clientArgs = constructorArgs.Any(arg => arg is not SQLiteExpression && ContainsClientCall(arg));
 
             visitor.IsInSelectProjection = false;
             visitor.ClientEvalAllowed = false;
-            LastSelectIsClient = false;
+            LastSelectIsClient = clientArgs;
+            ClientProjection = clientArgs;
 
             if (hasWritableProperties)
             {
@@ -200,6 +209,7 @@ internal partial class QueryableVisitor
         Expression expression = selectVisitor.Visit(selectExpression);
 
         LastSelectIsClient = expression is not SQLiteExpression;
+        ClientProjection = LastSelectIsClient && ContainsClientCall(expression);
         return expression;
     }
 
@@ -393,38 +403,6 @@ internal partial class QueryableVisitor
         return node;
     }
 
-    private List<MemberBinding> RebuildBindingsForListInit(MemberInitExpression mie, string? prefix)
-    {
-        List<MemberBinding> rebuilt = [];
-
-        foreach (MemberBinding binding in mie.Bindings)
-        {
-            if (binding is MemberAssignment ma)
-            {
-                string key = prefix is null ? ma.Member.Name : $"{prefix}.{ma.Member.Name}";
-
-                if (ma.Expression is MemberInitExpression nestedMie)
-                {
-                    List<MemberBinding> nested = RebuildBindingsForListInit(nestedMie, key);
-                    rebuilt.Add(Expression.Bind(ma.Member, Expression.MemberInit(nestedMie.NewExpression, nested)));
-                }
-                else if (visitor.TableColumns.TryGetValue(key, out Expression? colExpr) && colExpr is SQLiteExpression sqlExpr)
-                {
-                    Type memberType = ma.Member is PropertyInfo pi ? pi.PropertyType : ((FieldInfo)ma.Member).FieldType;
-                    SQLiteExpression compilerExpr = SQLiteExpression.Alias(memberType, 0, sqlExpr, null);
-                    compilerExpr.IdentifierText = key;
-                    rebuilt.Add(Expression.Bind(ma.Member, compilerExpr));
-                }
-            }
-            else if (binding is MemberListBinding lb)
-            {
-                rebuilt.Add(lb);
-            }
-        }
-
-        return rebuilt;
-    }
-
     private Expression CoerceArrayElement(Expression element, Type elementType)
     {
         if (element is SQLiteExpression sql && sql.Type != elementType)
@@ -457,23 +435,25 @@ internal partial class QueryableVisitor
         return memberInit.Update(memberInit.NewExpression, ordered);
     }
 
-    private static bool HasRowReferencingListBinding(LambdaExpression lambda)
+    private static bool ContainsListBinding(Expression body)
     {
-        if (lambda.Body is not MemberInitExpression memberInit)
+        if (body is not MemberInitExpression memberInit)
         {
             return false;
         }
 
-        foreach (MemberListBinding listBinding in memberInit.Bindings.OfType<MemberListBinding>())
+        foreach (MemberBinding binding in memberInit.Bindings)
         {
-            foreach (Expression element in listBinding.Initializers.SelectMany(initializer => initializer.Arguments))
+            bool found = binding switch
             {
-                ParameterUsageFinderVisitor finder = new(lambda.Parameters[0]);
-                finder.Visit(element);
-                if (finder.Found)
-                {
-                    return true;
-                }
+                MemberListBinding => true,
+                MemberAssignment assignment => ContainsListBinding(assignment.Expression),
+                _ => false
+            };
+
+            if (found)
+            {
+                return true;
             }
         }
 

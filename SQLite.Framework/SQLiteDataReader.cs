@@ -83,6 +83,7 @@ public class SQLiteDataReader : IDisposable
                 raw.sqlite3_finalize(Statement);
             }
 
+            Database.CompletePendingSavepointCleanup();
             connectionLock.Dispose();
         }
     }

@@ -362,7 +362,7 @@ public class ConditionBranchTests
     }
 
     [Fact]
-    public void QueryCompiler_VisitMemberMemberBinding_FieldMember_ReturnsFieldType()
+    public void QueryCompiler_FlattenMemberMemberBinding_FieldMember_ReturnsTheNestedPath()
     {
         System.Reflection.FieldInfo innerField = typeof(MmbOuter).GetField(nameof(MmbOuter.InnerField))!;
         System.Reflection.PropertyInfo xProp = typeof(MmbInner).GetProperty(nameof(MmbInner.X))!;
@@ -373,12 +373,39 @@ public class ConditionBranchTests
 
         SQLite.Framework.Internals.Visitors.QueryCompilerVisitor visitor = new(CompilerOptions);
         MethodInfo method = typeof(SQLite.Framework.Internals.Visitors.QueryCompilerVisitor)
-            .GetMethod("VisitMemberMemberBindingExpression", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            .GetMethod("FlattenMemberMemberBinding", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        SQLite.Framework.Internals.Models.CompiledExpression compiled =
-            (SQLite.Framework.Internals.Models.CompiledExpression)method.Invoke(visitor, new object?[] { mmb })!;
+        List<(MemberInfo[], SQLite.Framework.Internals.Models.CompiledExpression)> setters =
+            (List<(MemberInfo[], SQLite.Framework.Internals.Models.CompiledExpression)>)method.Invoke(
+                visitor, new object?[] { mmb, new MemberInfo[] { innerField } })!;
 
-        Assert.Equal(typeof(MmbInner), compiled.Type);
+        (MemberInfo[] path, _) = Assert.Single(setters);
+        Assert.Equal(new MemberInfo[] { innerField, xProp }, path);
+    }
+
+    [Fact]
+    public void QueryCompiler_FlattenMemberMemberBinding_NestedBinding_ReturnsTheDeepPath()
+    {
+        System.Reflection.PropertyInfo shellProp = typeof(MmbDeepOuter).GetProperty(nameof(MmbDeepOuter.Shell))!;
+        System.Reflection.PropertyInfo coreProp = typeof(MmbInnerShell).GetProperty(nameof(MmbInnerShell.Core))!;
+        System.Reflection.PropertyInfo xProp = typeof(MmbInner).GetProperty(nameof(MmbInner.X))!;
+
+        System.Linq.Expressions.MemberMemberBinding mmb = System.Linq.Expressions.Expression.MemberBind(
+            shellProp,
+            System.Linq.Expressions.Expression.MemberBind(
+                coreProp,
+                System.Linq.Expressions.Expression.Bind(xProp, System.Linq.Expressions.Expression.Constant(0))));
+
+        SQLite.Framework.Internals.Visitors.QueryCompilerVisitor visitor = new(CompilerOptions);
+        MethodInfo method = typeof(SQLite.Framework.Internals.Visitors.QueryCompilerVisitor)
+            .GetMethod("FlattenMemberMemberBinding", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        List<(MemberInfo[], SQLite.Framework.Internals.Models.CompiledExpression)> setters =
+            (List<(MemberInfo[], SQLite.Framework.Internals.Models.CompiledExpression)>)method.Invoke(
+                visitor, new object?[] { mmb, new MemberInfo[] { shellProp } })!;
+
+        (MemberInfo[] path, _) = Assert.Single(setters);
+        Assert.Equal(new MemberInfo[] { shellProp, coreProp, xProp }, path);
     }
 
     private static TestDatabase MakeJsonDb()
@@ -424,6 +451,16 @@ internal class MmbOuter
 internal class MmbInner
 {
     public int X { get; set; }
+}
+
+internal class MmbInnerShell
+{
+    public MmbInner Core { get; set; } = new();
+}
+
+internal class MmbDeepOuter
+{
+    public MmbInnerShell Shell { get; set; } = new();
 }
 
 internal class ArrayRowB

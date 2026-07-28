@@ -73,17 +73,11 @@ public class BlobQueryParityTests
     {
         using TestDatabase db = new();
         List<DbbEdgeRow> rows = Seed(db);
-        Func<byte> query = () => db.Table<DbbEdgeRow>().Where(x => x.Id == 3).Select(x => x.Data![0]).First();
-
-        if (db.Options.ReflectionFallbackDisabled)
-        {
-            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => query());
-            Assert.StartsWith("Select projection fell back to runtime reflection but ReflectionFallbackDisabled is set.", ex.Message);
-            return;
-        }
 
         byte expected = rows.Where(x => x.Id == 3).Select(x => x.Data![0]).First();
-        Assert.Equal(expected, query());
+        byte actual = db.Table<DbbEdgeRow>().Where(x => x.Id == 3).Select(x => x.Data![0]).First();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

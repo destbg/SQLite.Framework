@@ -149,7 +149,7 @@ public class CteTests
         Assert.Equal(
             N("""
             SELECT i0."column__1" AS "2"
-            FROM (SELECT @p1 AS "column__1") AS i0
+            FROM (SELECT column1 AS "column__1" FROM (VALUES (@p1))) AS i0
             """), N(command.CommandText));
     }
 
@@ -171,7 +171,7 @@ public class CteTests
             N("""
             SELECT f0."Col" AS "Col",
                    f0."Num" AS "Num"
-            FROM (SELECT @p1 AS "Col", @p2 AS "Num") AS f0
+            FROM (SELECT column1 AS "Col", column2 AS "Num" FROM (VALUES (@p1, @p2))) AS f0
             """), N(command.CommandText));
     }
 
@@ -184,7 +184,7 @@ public class CteTests
         Assert.Equal(
             N("""
             SELECT i0."column__1" AS "2"
-            FROM (SELECT @p1 AS "column__1" UNION ALL SELECT @p2 UNION ALL SELECT @p3) AS i0
+            FROM (SELECT column1 AS "column__1" FROM (VALUES (@p1), (@p2), (@p3))) AS i0
             """), N(command.CommandText));
 
         Assert.Equal([1, 2, 3], db.ValuesRange(new[] { 1, 2, 3 }).ToList());
@@ -256,7 +256,7 @@ public class CteTests
             N("""
             WITH cte0("Value") AS (
                 SELECT i1."column__1" AS "2"
-                FROM (SELECT @p1 AS "column__1") AS i1
+                FROM (SELECT column1 AS "column__1" FROM (VALUES (@p1))) AS i1
             )
             SELECT i0."Value" AS "4"
             FROM cte0 AS i0
@@ -290,7 +290,7 @@ public class CteTests
             N("""
             WITH RECURSIVE cte0 AS (
                 SELECT c1."X" AS "X"
-                FROM (SELECT @p1 AS "X") AS c1
+                FROM (SELECT column1 AS "X" FROM (VALUES (@p1))) AS c1
                 UNION ALL
                     SELECT (c2."X" + @p3) AS "X"
                 FROM cte0 AS c2
@@ -332,7 +332,7 @@ public class CteTests
             WITH RECURSIVE cte0 AS (
                 SELECT f1."A" AS "A",
                    f1."B" AS "B"
-                FROM (SELECT @p2 AS "A", @p3 AS "B") AS f1
+                FROM (SELECT column1 AS "A", column2 AS "B" FROM (VALUES (@p2, @p3))) AS f1
                 UNION ALL
                     SELECT f2."B" AS "A",
                    (f2."A" + f2."B") AS "B"
@@ -525,12 +525,12 @@ public class CteTests
             N("""
             WITH RECURSIVE cte0 AS (
                     SELECT s2."Sud" AS "Sud"
-                    FROM (SELECT @p1 AS "Sud") AS s2
+                    FROM (SELECT column1 AS "Sud" FROM (VALUES (@p1))) AS s2
             ),
             cte1 AS (
                     SELECT s5."Z" AS "Z",
                    s5."Lp" AS "Lp"
-                    FROM (SELECT @p6 AS "Z", @p7 AS "Lp") AS s5
+                    FROM (SELECT column1 AS "Z", column2 AS "Lp" FROM (VALUES (@p6, @p7))) AS s5
                     UNION ALL
                             SELECT CAST((s6."Lp" + @p9) AS TEXT) AS "Z",
                    (s6."Lp" + @p10) AS "Lp"

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace SQLite.Framework.Internals.Helpers;
 
 internal static class TypeHelpers
@@ -23,6 +25,20 @@ internal static class TypeHelpers
                || type == typeof(DateOnly)
                || type == typeof(TimeOnly)
                || type == typeof(object);
+    }
+
+    public static List<PropertyInfo> MappableProperties([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    {
+        return type.GetProperties()
+            .Where(p => p.GetMethod is { IsStatic: false })
+            .Where(p => p.GetIndexParameters().Length == 0)
+            .Where(p => p.SetMethod != null
+                || p.GetMethod!.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false)
+                || p.DeclaringType!.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false))
+            .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
+            .GroupBy(p => p.Name)
+            .Select(g => g.OrderByDescending(p => TypeDepth(p.DeclaringType)).First())
+            .ToList();
     }
 
     public static int TypeDepth(Type? type)

@@ -42,6 +42,7 @@ internal partial class QueryableVisitor
     public bool HasDefaultValue { get; private set; }
     public bool IsRowSelector { get; private set; }
     public bool LastSelectIsClient { get; private set; }
+    public bool ClientProjection { get; private set; }
     public bool ReverseBeforeDistinct { get; private set; }
     public long? ClientTake { get; private set; }
     public long? ClientSkip { get; private set; }
@@ -167,8 +168,7 @@ internal partial class QueryableVisitor
             string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
             TableMapping tableMapping = resultTable.Table;
-            newTableColumns = tableMapping.Columns
-                .ToDictionary(f => f.PropertyInfo.Name, Expression (f) => SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(f.Name)}"));
+            newTableColumns = BuildMappedTableColumns(tableMapping, alias);
             visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
             sql = SQLiteExpression.Leaf(body.Type, -1, $"{visitor.QualifiedTableName(resultTable)} AS {alias}");
         }
@@ -259,18 +259,7 @@ internal partial class QueryableVisitor
                 string alias = $"{aliasChar}{visitor.Counters.NextTableIndex(aliasChar)}";
 
                 TableMapping tableMapping = table.Table;
-                newTableColumns = tableMapping.Columns
-                    .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
-                    {
-                        string colSql = $"{alias}.{IdentifierGuard.Quote(f.Name)}";
-                        if (database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? converter)
-                            && converter.ColumnSqlExpression is { } columnSqlExpression)
-                        {
-                            colSql = string.Format(columnSqlExpression, colSql);
-                        }
-
-                        return SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), colSql);
-                    });
+                newTableColumns = BuildMappedTableColumns(tableMapping, alias);
                 visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
                 sql = SQLiteExpression.Leaf(body.Type, -1, $"{visitor.QualifiedTableName(table)} AS {alias}");
             }
@@ -354,6 +343,29 @@ internal partial class QueryableVisitor
         }
 
         return (newTableColumns, entityType, sql);
+    }
+
+    private Dictionary<string, Expression> BuildMappedTableColumns(TableMapping tableMapping, string alias)
+    {
+        return tableMapping.Columns
+            .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
+            {
+                string colSql = $"{alias}.{IdentifierGuard.Quote(f.Name)}";
+                if (database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? converter)
+                    && converter.ColumnSqlExpression is { } columnSqlExpression)
+                {
+                    colSql = string.Format(columnSqlExpression, colSql);
+                }
+
+                return SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), colSql);
+            });
+    }
+
+    private static bool ContainsClientCall(Expression node)
+    {
+        ClientCallFinder finder = new();
+        finder.Visit(node);
+        return finder.Found;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Reads the IQueryable<> interface only.")]

@@ -462,19 +462,12 @@ public class ClientEvalLeafVariantTests
             .Select(x => CmcClientFns.Tag(parts.First(c => c.Label!.Length > x.Id).Label!))
             .ToList();
 
-        Func<List<string>> query = () => db.Table<ClvRow>()
+        List<string> actual = db.Table<ClvRow>()
             .OrderBy(r => r.Id)
             .Select(x => CmcClientFns.Tag(parts.First(c => c.Label!.Length > x.Id).Label!))
             .ToList();
 
-        if (db.Options.ReflectionFallbackDisabled)
-        {
-            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => query());
-            Assert.StartsWith("Select projection fell back to runtime reflection but ReflectionFallbackDisabled is set.", ex.Message);
-            return;
-        }
-
-        Assert.Equal(expected, query());
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -487,20 +480,13 @@ public class ClientEvalLeafVariantTests
             .Select(y => CmcClientFns.Tag(y.Part.Label!))
             .ToList();
 
-        Func<List<string>> query = () => db.Table<ClvRow>()
+        List<string> actual = db.Table<ClvRow>()
             .OrderBy(r => r.Id)
             .Select(r => new { Part = new ClvPart { Num = r.Id, Label = CmcClientFns.Tag(r.Name ?? "x") } })
             .Select(y => CmcClientFns.Tag(y.Part.Label!))
             .ToList();
 
-        if (db.Options.ReflectionFallbackDisabled)
-        {
-            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => query());
-            Assert.StartsWith("Select projection fell back to runtime reflection but ReflectionFallbackDisabled is set.", ex.Message);
-            return;
-        }
-
-        Assert.Equal(expected, query());
+        Assert.Equal(expected, actual);
     }
 }
 

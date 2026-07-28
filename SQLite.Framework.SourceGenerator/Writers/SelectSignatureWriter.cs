@@ -471,10 +471,13 @@ public static class SelectSignatureWriter
             expression = paren.Expression;
         }
 
+        if (ctx.Model.GetConstantValue(expression).HasValue)
+        {
+            return true;
+        }
+
         switch (expression)
         {
-            case LiteralExpressionSyntax:
-                return true;
             case IdentifierNameSyntax ident:
                 if (TryGetRowBinding(ident, ctx, out _))
                 {
@@ -563,8 +566,8 @@ public static class SelectSignatureWriter
                 || conversion.IsNullable
                 || (conversion.IsExplicit && !conversion.IsReference);
 
-            bool literalAllowed = node is not LiteralExpressionSyntax || conversion.IsNullable || conversion.IsBoxing;
-            if (needsTreeConvert && literalAllowed)
+            bool constantAllowed = !ctx.Model.GetConstantValue(node).HasValue || conversion.IsNullable || conversion.IsBoxing;
+            if (needsTreeConvert && constantAllowed)
             {
                 return AppendConvertChain(sb, convertedType, declaredType, () => AppendWithType(sb, node, declaredType, ctx), ctx);
             }
@@ -586,6 +589,10 @@ public static class SelectSignatureWriter
 
         switch (node)
         {
+            case { } foldedConstant when ctx.Model.GetConstantValue(foldedConstant).HasValue:
+                AppendConstant(sb, foldedConstant, type, ctx);
+                return true;
+
             case BinaryExpressionSyntax asExpr when asExpr.Kind() == SyntaxKind.AsExpression:
                 return AppendAsExpression(sb, asExpr, type, ctx);
 
@@ -596,21 +603,20 @@ public static class SelectSignatureWriter
             case BinaryExpressionSyntax bin:
                 return AppendBinary(sb, bin, type, ctx);
 
-            case PrefixUnaryExpressionSyntax constUnary
-                when ctx.Model.GetConstantValue(constUnary).HasValue:
-                AppendConstant(sb, constUnary, type, ctx);
-                return true;
-
             case PrefixUnaryExpressionSyntax preUnary:
                 return AppendPrefixUnary(sb, preUnary, type, ctx);
+
+            case PostfixUnaryExpressionSyntax suppress when suppress.Kind() == SyntaxKind.SuppressNullableWarningExpression:
+                return AppendWithType(sb, suppress.Operand, type, ctx);
 
             case ConditionalExpressionSyntax cond:
                 return AppendConditional(sb, cond, type, ctx);
 
-            case MemberAccessExpressionSyntax constMember
-                when constMember.Kind() == SyntaxKind.SimpleMemberAccessExpression
-                    && ctx.Model.GetConstantValue(constMember).HasValue:
-                AppendConstant(sb, constMember, type, ctx);
+            case MemberAccessExpressionSyntax capturedMember
+                when capturedMember.Kind() == SyntaxKind.SimpleMemberAccessExpression
+                    && !IsArrayLengthAccess(capturedMember, ctx)
+                    && IsCapturedValue(capturedMember, ctx):
+                AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedMember).Type ?? type, ctx);
                 return true;
 
             case MemberAccessExpressionSyntax memberAccess
@@ -639,12 +645,6 @@ public static class SelectSignatureWriter
                 AppendRowReference(sb, type, binding, ctx);
                 return true;
 
-            case IdentifierNameSyntax constIdent
-                when ctx.Model.GetSymbolInfo(constIdent).Symbol is IFieldSymbol { IsConst: true }
-                    && ctx.Model.GetConstantValue(constIdent).HasValue:
-                AppendConstant(sb, constIdent, type, ctx);
-                return true;
-
             case IdentifierNameSyntax capturedIdent when IsCapturedValue(capturedIdent, ctx):
                 AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedIdent).Type ?? type, ctx);
                 return true;
@@ -661,11 +661,6 @@ public static class SelectSignatureWriter
 
             case ParenthesizedLambdaExpressionSyntax parenLambda when parenLambda.ExpressionBody != null:
                 return AppendLambda(sb, type, [.. parenLambda.ParameterList.Parameters], parenLambda.ExpressionBody, ctx);
-
-            case MemberAccessExpressionSyntax capturedMember when capturedMember.Kind() == SyntaxKind.SimpleMemberAccessExpression
-                && IsCapturedValue(capturedMember, ctx):
-                AppendCapturedValue(sb, ctx.Model.GetTypeInfo(capturedMember).Type ?? type, ctx);
-                return true;
 
             case LiteralExpressionSyntax literal:
                 AppendConstant(sb, literal, type, ctx);
@@ -695,9 +690,25 @@ public static class SelectSignatureWriter
         sb.Append("(CapturedValue ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(')');
     }
 
+    private static bool IsArrayLengthAccess(MemberAccessExpressionSyntax access, SelectSignatureCtx ctx)
+    {
+        return ctx.Model.GetTypeInfo(access.Expression).Type is IArrayTypeSymbol
+            && access.Name.Identifier.ValueText is "Length" or "LongLength";
+    }
+
     private static bool AppendLambda(StringBuilder sb, ITypeSymbol? type, IReadOnlyList<ParameterSyntax> parameters, ExpressionSyntax body, SelectSignatureCtx ctx)
     {
-        sb.Append("(Lambda ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
+        ITypeSymbol? lambdaType = type;
+        bool quoted = false;
+        if (type is INamedTypeSymbol { Name: "Expression", Arity: 1 } expressionType
+            && expressionType.ContainingNamespace.ToDisplayString() == "System.Linq.Expressions")
+        {
+            quoted = true;
+            lambdaType = expressionType.TypeArguments[0];
+            sb.Append("(Quote ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
+        }
+
+        sb.Append("(Lambda ").Append(FormatType(lambdaType, ctx.TypeArgSubstitutions)).Append(' ');
         foreach (ParameterSyntax parameter in parameters)
         {
             if (ctx.Model.GetDeclaredSymbol(parameter) is not IParameterSymbol parameterSymbol)
@@ -714,6 +725,11 @@ public static class SelectSignatureWriter
         }
 
         sb.Append(')');
+        if (quoted)
+        {
+            sb.Append(')');
+        }
+
         return true;
     }
 

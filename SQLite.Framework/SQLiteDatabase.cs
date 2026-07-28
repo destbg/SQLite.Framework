@@ -167,6 +167,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     internal bool MigrationInProgress { get; set; }
 
+    internal int RollbackGeneration { get; private set; }
+
     /// <summary>
     /// Builds migration classes for <see cref="SQLiteMigrationRunner.Add{T}" />. Set by the
     /// dependency injection package to resolve a migration's constructor arguments from the service
@@ -511,7 +513,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     public virtual void AttachDatabase(SQLiteDatabase database, string schemaName)
     {
         ArgumentNullException.ThrowIfNull(database);
-        if (string.IsNullOrEmpty(database.Options.DatabasePath) || database.Options.DatabasePath == ":memory:")
+        if (string.IsNullOrEmpty(database.Options.DatabasePath)
+            || database.Options.DatabasePath == ":memory:"
+            || (database.Options.OpenFlags & SQLiteOpenFlags.Memory) != 0)
         {
             throw new NotSupportedException(
                 "An in-memory database cannot be attached through its path, because every ATTACH of ':memory:' opens a new empty database. Use a file-backed database instead.");
@@ -1180,6 +1184,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             : null;
     }
 
+    internal void NoteRollback()
+    {
+        RollbackGeneration++;
+    }
+
     internal void CompletePendingSavepointCleanup()
     {
         string? pending = pendingForcedSavepoint;
@@ -1330,6 +1339,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
             if (query.ClientCountSemantic)
             {
+                if (typeof(TResult) == typeof(bool))
+                {
+                    return (TResult)(object)(values.Count > 0);
+                }
+
                 object count = typeof(TResult) == typeof(long) ? (long)values.Count : (object)values.Count;
                 return (TResult)count;
             }
@@ -1475,7 +1489,18 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         raw.sqlite3_finalize(fkStmt);
 
         IsConnected = true;
-        OnDatabaseConnected();
+        try
+        {
+            OnDatabaseConnected();
+        }
+        catch
+        {
+            IsConnected = false;
+            statementPool.Clear();
+            raw.sqlite3_close_v2(Handle);
+            Handle = null;
+            throw;
+        }
     }
 
     private int ReadScalar(string sql)

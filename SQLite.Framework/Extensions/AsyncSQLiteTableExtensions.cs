@@ -157,7 +157,8 @@ public static class AsyncSQLiteTableExtensions
         return AsyncRunner.Run(async () =>
         {
             using IDisposable _ = await source.Database.LockAsync(ct);
-            return sync(ObserveCancellation(collection, ct), runInTransaction);
+            IEnumerable<T> snapshot = CommonHelpers.SnapshotLiveSource(source.Database, collection);
+            return sync(ObserveCancellation(snapshot, ct), runInTransaction);
         }, ct);
     }
 

@@ -42,7 +42,9 @@ internal static class SchemaSqlNormalizer
                 }
 
                 string body = sql[(i + 1)..close];
-                tokens.Add(IsIdentifierPosition(tokens, parenDepth, indexListDepth)
+                bool identifier = IsIdentifierPosition(tokens, parenDepth, indexListDepth)
+                    || NextMeaningfulCharIsDot(sql, close + 1);
+                tokens.Add(identifier
                     ? body.Replace("''", "'", StringComparison.Ordinal).ToLowerInvariant()
                     : sql[i..(close + 1)]);
                 i = close + 1;
@@ -130,7 +132,22 @@ internal static class SchemaSqlNormalizer
         }
 
         return tokens[^1] is "from" or "on" or "references" or "collate" or "table"
-            or "index" or "view" or "trigger" or "into" or "join" or "using";
+            or "index" or "view" or "trigger" or "into" or "join" or "using" or "update" or "set";
+    }
+
+    private static bool NextMeaningfulCharIsDot(string sql, int start)
+    {
+        for (int i = start; i < sql.Length; i++)
+        {
+            if (char.IsWhiteSpace(sql[i]))
+            {
+                continue;
+            }
+
+            return sql[i] == '.';
+        }
+
+        return false;
     }
 
     private static bool IsColumnListPosition(List<string> tokens)

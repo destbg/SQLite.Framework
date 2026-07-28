@@ -42,6 +42,19 @@ internal static class SQLiteFunctionsMemberVisitor
         };
     }
 
+    public static SQLiteExpression CollapseNullToFalse(SQLVisitor visitor, SQLiteExpression predicate, IReadOnlyList<Expression> operands)
+    {
+        foreach (Expression operand in operands)
+        {
+            if (ExpressionHelpers.MayBeNull(operand))
+            {
+                return SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", predicate, " IS 1)", predicate.Parameters);
+            }
+        }
+
+        return predicate;
+    }
+
     private static SQLiteExpression HandleFunctionsRandomBlob(SQLVisitor visitor, MethodCallExpression node)
     {
         ResolvedModel arg = visitor.ResolveExpression(node.Arguments[0]);
@@ -77,19 +90,6 @@ internal static class SQLiteFunctionsMemberVisitor
 
         SQLiteExpression range = SQLiteExpression.Trinary(typeof(bool), visitor.Counters.NextIdentifier(), "(", valueExpr, " BETWEEN ", lowExpr, " AND ", highExpr, ")", ParameterHelpers.CombineParameters(valueExpr, lowExpr, highExpr));
         return CollapseNullToFalse(visitor, range, node.Arguments);
-    }
-
-    private static SQLiteExpression CollapseNullToFalse(SQLVisitor visitor, SQLiteExpression predicate, IReadOnlyList<Expression> operands)
-    {
-        foreach (Expression operand in operands)
-        {
-            if (ExpressionHelpers.MayBeNull(operand))
-            {
-                return SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", predicate, " IS 1)", predicate.Parameters);
-            }
-        }
-
-        return predicate;
     }
 
     private static SQLiteExpression HandleFunctionsIn(SQLVisitor visitor, MethodCallExpression node)

@@ -206,7 +206,8 @@ internal partial class SQLVisitor
         SQLiteExpression right = BracketBinaryOperand(rightNode, resolvedRight.SQLiteExpression);
 
         bool isDecimalComparison = node.NodeType is ExpressionType.GreaterThan or ExpressionType.LessThan
-            or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual;
+            or ExpressionType.GreaterThanOrEqual or ExpressionType.LessThanOrEqual
+            or ExpressionType.Equal or ExpressionType.NotEqual;
         if ((!IsInSelectProjection || isDecimalComparison) && Database.Options.DecimalStorage == DecimalStorageMode.Text)
         {
             left = CoerceDecimalConstantToReal(resolvedLeft, left);
@@ -730,6 +731,9 @@ internal partial class SQLVisitor
                 StringConcatExpressionMayBeNull(coalesce.Right),
             MemberExpression { Member: PropertyInfo property } =>
                 ExpressionHelpers.PropertyMayBeNull(property),
+            MemberExpression { Member: FieldInfo field } fieldMember =>
+                !ExpressionHelpers.IsConstant(fieldMember) && ExpressionHelpers.FieldMayBeNull(field),
+            ParameterExpression => true,
             _ => false
         };
     }
@@ -814,7 +818,13 @@ internal partial class SQLVisitor
             return Nullable.GetUnderlyingType(stripped.Type) != null;
         }
 
-        return stripped is MemberExpression { Member: PropertyInfo property }
-            && ExpressionHelpers.PropertyMayBeNull(property);
+        return stripped switch
+        {
+            MemberExpression { Member: PropertyInfo property } => ExpressionHelpers.PropertyMayBeNull(property),
+            MemberExpression { Member: FieldInfo field } fieldMember =>
+                !ExpressionHelpers.IsConstant(fieldMember) && ExpressionHelpers.FieldMayBeNull(field),
+            ParameterExpression => true,
+            _ => false
+        };
     }
 }
