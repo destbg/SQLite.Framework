@@ -134,6 +134,7 @@ jobs:
             --targetargs "exec $DLL" \
             --include "[SQLite.Framework]*" \
             --include "[SQLite.Framework.DependencyInjection]*" \
+            --exclude-by-file "**/obj/**" \
             --format cobertura \
             --output coverage.cobertura.xml
       - name: Upload coverage artifact

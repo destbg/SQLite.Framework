@@ -256,6 +256,8 @@ def run_coverage(
         "dotnet",
         "--targetargs",
         f"exec {dll}",
+        "--exclude-by-file",
+        "**/obj/**",
         "--format",
         "cobertura",
         "--output",
@@ -302,6 +304,8 @@ def parse_cobertura(path: Path) -> LineCov:
 
     for cls in root.findall(".//class"):
         filename = normalize(cls.get("filename", "") or "")
+        if "/obj/" in filename:
+            continue
         for line in cls.findall(".//line"):
             try:
                 num = int(line.get("number", "0") or 0)
