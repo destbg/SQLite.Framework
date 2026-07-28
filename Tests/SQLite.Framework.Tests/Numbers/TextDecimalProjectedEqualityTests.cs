@@ -114,6 +114,27 @@ public class TextDecimalProjectedEqualityTests
         Assert.Equal(filtered, projected);
     }
 
+    [Fact]
+    public void FilteredArithmeticComparisonMatchesLinq()
+    {
+        using TestDatabase db = Setup(nameof(FilteredArithmeticComparisonMatchesLinq));
+
+        List<int> expected = Rows()
+            .Where(r => r.Amount + r.Amount > 15m)
+            .Select(r => r.Id)
+            .OrderBy(id => id)
+            .ToList();
+
+        List<int> actual = db.Table<H23jScaledPriceRow>()
+            .Where(r => r.Amount + r.Amount > 15m)
+            .Select(r => r.Id)
+            .AsEnumerable()
+            .OrderBy(id => id)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
     private static List<H23jScaledPriceRow> Rows()
     {
         return

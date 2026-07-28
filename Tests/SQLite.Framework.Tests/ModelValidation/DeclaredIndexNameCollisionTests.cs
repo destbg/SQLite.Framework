@@ -66,4 +66,17 @@ public class DeclaredIndexNameCollisionTests
 
         Assert.Null(failure);
     }
+
+    [Fact]
+    public void ValidateModelReadsAModelWhereTheFirstSharedNameIndexHasAFilter()
+    {
+        using ModelTestDatabase db = new(model => model.Entity<H23eLedgerRow>()
+            .Index(r => r.Code, name: "IXH23eLedgerF", filter: r => r.Id > 0)
+            .Index(r => r.Kind, name: "IXH23eLedgerF"));
+        db.Schema.CreateTable<H23eLedgerRow>();
+
+        Exception? failure = Record.Exception(() => db.Schema.ValidateModel<H23eLedgerRow>());
+
+        Assert.Null(failure);
+    }
 }

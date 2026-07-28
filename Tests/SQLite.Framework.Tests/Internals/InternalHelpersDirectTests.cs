@@ -384,6 +384,53 @@ public class InternalHelpersDirectTests
 #endif
 
     [Fact]
+    public void QueryableVisitor_SecondDistinctAfterAReverse_KeepsTheFirstMove()
+    {
+        using TestDatabase db = new();
+        QueryableVisitor visitor = new(db, new SQLVisitor(db, new SQLiteCounters(), 0));
+        Expression<Func<IQueryable<int>, IQueryable<int>>> distinct = s => s.Distinct();
+        Expression<Func<IQueryable<int>, IQueryable<int>>> reverse = s => s.Reverse();
+
+        visitor.Visit((MethodCallExpression)distinct.Body);
+        Assert.False(visitor.ReverseBeforeDistinct);
+
+        visitor.Visit((MethodCallExpression)reverse.Body);
+        visitor.Visit((MethodCallExpression)distinct.Body);
+
+        Assert.False(visitor.Reverse);
+        Assert.True(visitor.ReverseBeforeDistinct);
+
+        visitor.Visit((MethodCallExpression)reverse.Body);
+        visitor.Visit((MethodCallExpression)distinct.Body);
+
+        Assert.True(visitor.Reverse);
+        Assert.True(visitor.ReverseBeforeDistinct);
+    }
+
+    [Fact]
+    public void ConverterSql_HasReadAndWriteWrap_UnwrapsNullableValueTypes()
+    {
+        using TestDatabase db = new(b => b.TypeConverters[typeof(WrapOffsetVal)] = new WrapOffsetConverter());
+
+        Assert.True(ConverterSql.HasReadAndWriteWrap(typeof(WrapOffsetVal?), db.Options));
+        Assert.True(ConverterSql.HasReadAndWriteWrap(typeof(WrapOffsetVal), db.Options));
+        Assert.False(ConverterSql.HasReadAndWriteWrap(typeof(int?), db.Options));
+        Assert.False(ConverterSql.HasReadAndWriteWrap(typeof(int), db.Options));
+    }
+
+    [Fact]
+    public void RowParameterExpanderVisitor_IsSimpleValue_UnwrapsNullableValueTypes()
+    {
+        MethodInfo method = typeof(RowParameterExpanderVisitor).GetMethod(
+            "IsSimpleValue", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.True((bool)method.Invoke(null, [typeof(int?)])!);
+        Assert.True((bool)method.Invoke(null, [typeof(Guid?)])!);
+        Assert.True((bool)method.Invoke(null, [typeof(int)])!);
+        Assert.False((bool)method.Invoke(null, [typeof(object)])!);
+    }
+
+    [Fact]
     public void ConvertThroughOperator_NullToNullableTarget_ReturnsNull()
     {
         MethodInfo method = typeof(ExpressionHelpers).GetMethod("ConvertThroughOperator", BindingFlags.NonPublic | BindingFlags.Static)!;

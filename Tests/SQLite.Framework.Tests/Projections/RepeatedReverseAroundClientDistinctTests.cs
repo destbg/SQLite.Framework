@@ -49,6 +49,30 @@ public class RepeatedReverseAroundClientDistinctTests
     }
 
     [Fact]
+    public void ReverseBetweenTwoDistinctsOverAPlainColumnProjectionKeepsTheOriginalOrder()
+    {
+        using TestDatabase db = Setup(nameof(ReverseBetweenTwoDistinctsOverAPlainColumnProjectionKeepsTheOriginalOrder));
+
+        List<string> expected = Rows()
+            .Select(r => r.Name)
+            .Reverse()
+            .Distinct()
+            .Reverse()
+            .Distinct()
+            .ToList();
+
+        List<string> actual = db.Table<H23cDoubleReverseRow>()
+            .Select(r => r.Name)
+            .Reverse()
+            .Distinct()
+            .Reverse()
+            .Distinct()
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void ReverseBeforeDistinctOverAPlainColumnProjectionReversesTheDistinctValues()
     {
         using TestDatabase db = Setup(nameof(ReverseBeforeDistinctOverAPlainColumnProjectionReversesTheDistinctValues));
