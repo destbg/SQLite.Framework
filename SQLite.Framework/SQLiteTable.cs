@@ -378,7 +378,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         ArgumentNullException.ThrowIfNull(build);
         SQLiteWriteColumnsBuilder<T> builder = new(Database, Table);
         build(builder);
-        return new SQLiteWriteColumnsTable<T>(Database, Table, builder.Columns, builder.ReferencesRow);
+        return new SQLiteWriteColumnsTable<T>(this, builder.Columns, builder.ReferencesRow);
     }
 
     /// <summary>
@@ -422,8 +422,20 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         IReadOnlyList<SQLiteExpression> selects = translator.Selects;
-        List<string> targetColumnNames = selects
-            .Select(s => Table.Columns.First(c => c.PropertyInfo.Name == s.IdentifierText).Name)
+        List<string> selectIdentifiers = selects.Select(s => s.IdentifierText).ToList();
+        ThrowIfSetOperandSelectsMisaligned(selectIdentifiers, translator.SetOperandSelects);
+
+        List<string> targetColumnNames = selectIdentifiers
+            .Select(identifier =>
+            {
+                TableColumn? column = Table.Columns.FirstOrDefault(c =>
+                    string.Equals(c.PropertyInfo.Name, identifier, StringComparison.OrdinalIgnoreCase))
+                    ?? throw new NotSupportedException(
+                        $"InsertFromQuery could not match the projected value '{identifier}' to a column on " +
+                        $"table '{Table.TableName}'. Project the target entity's own members.");
+
+                return column.Name;
+            })
             .ToList();
 
         string columnList = string.Join(", ", targetColumnNames.Select(IdentifierGuard.Quote));
@@ -876,6 +888,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected internal virtual (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<T>> configure)
     {
+        if (Table.IsFullTextSearch || Table.IsRTree)
+        {
+            throw new NotSupportedException(
+                $"Upsert is not supported on the virtual table '{Table.TableName}'. SQLite does not implement " +
+                "ON CONFLICT for virtual tables. Use AddOrUpdate, which runs INSERT OR REPLACE, instead.");
+        }
+
 #if SQLITE_FRAMEWORK_VERSION_AWARE
         Database.Options.EnsureMinimumVersion(SQLiteMinimumVersion.V3_24, "UPSERT (INSERT ... ON CONFLICT ... DO ...)");
 #endif
@@ -911,19 +930,22 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected internal virtual bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item, IDictionary<string, object?> columns)
     {
-        if (!hooks.TryGetValue(typeof(T), out IReadOnlyList<Delegate>? list))
+        foreach (KeyValuePair<Type, IReadOnlyList<Delegate>> entry in hooks)
         {
-            return true;
-        }
-
-        foreach (Delegate hook in list)
-        {
-            bool keep = hook is Func<SQLiteDatabase, T, IDictionary<string, object?>, bool> columnHook
-                ? columnHook(Database, item, columns)
-                : ((Func<SQLiteDatabase, T, bool>)hook)(Database, item);
-            if (!keep)
+            if (!entry.Key.IsAssignableFrom(typeof(T)))
             {
-                return false;
+                continue;
+            }
+
+            foreach (Delegate hook in entry.Value)
+            {
+                bool keep = hook is Func<SQLiteDatabase, T, IDictionary<string, object?>, bool> columnHook
+                    ? columnHook(Database, item, columns)
+                    : ((Func<SQLiteDatabase, T, bool>)hook)(Database, item);
+                if (!keep)
+                {
+                    return false;
+                }
             }
         }
 
@@ -1138,7 +1160,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// to wrap parameters with custom SQL functions (for example, <c>jsonb(@p0)</c> or
     /// <c>CAST(@p0 AS BLOB)</c>).
     /// </summary>
-    protected virtual string WrapParam(string placeholder, TableColumn column)
+    protected internal virtual string WrapParam(string placeholder, TableColumn column)
     {
         if (Database.Options.TypeConverters.TryGetValue(column.PropertyType, out ISQLiteTypeConverter? conv)
             && conv.ParameterSqlExpression is { } paramExpr)
@@ -1157,7 +1179,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// value for it is the type default (e.g. <c>0</c>), it is bound as <c>NULL</c> so SQLite
     /// generates a fresh key.
     /// </summary>
-    protected virtual int InsertItem(TableColumn[] columns, string sql, T item, bool detectInsertByRowIdChange = false)
+    protected internal virtual int InsertItem(TableColumn[] columns, string sql, T item, bool detectInsertByRowIdChange = false)
     {
         TableColumn? autoIncrement = GetAutoIncrementColumn();
 
@@ -1193,7 +1215,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <paramref name="sql" />. Used by <see cref="Remove" /> and <see cref="RemoveRange" />.
     /// Override to mutate the entity right before binding or to log every write.
     /// </summary>
-    protected virtual int AddOrRemoveItem(TableColumn[] columns, string sql, T item)
+    protected internal virtual int AddOrRemoveItem(TableColumn[] columns, string sql, T item)
     {
         List<SQLiteParameter> parameters = columns
             .Select((c, i) => new SQLiteParameter
@@ -1212,7 +1234,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// <paramref name="sql" />. Used by <see cref="Update" /> and <see cref="UpdateRange" />.
     /// Override to mutate the entity right before binding (for example, to stamp <c>UpdatedAt</c>).
     /// </summary>
-    protected virtual int UpdateItem(TableColumn[] columns, TableColumn[] primaryColumns, string sql, T item)
+    protected internal virtual int UpdateItem(TableColumn[] columns, TableColumn[] primaryColumns, string sql, T item)
     {
         IEnumerable<SQLiteParameter> primaryParameters = primaryColumns
             .Select((c, i) => new SQLiteParameter
@@ -1687,6 +1709,38 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 CommandHelpers.BindParameterByIndex(stmt, i + 1, value, options);
             }
         };
+    }
+
+    private static void ThrowIfSetOperandSelectsMisaligned(List<string> selectIdentifiers, IReadOnlyList<IReadOnlyList<string>> operandSelects)
+    {
+        if (operandSelects.Count == 0 || !AllNamedIdentifiers(selectIdentifiers))
+        {
+            return;
+        }
+
+        foreach (IReadOnlyList<string> operand in operandSelects)
+        {
+            if (!AllNamedIdentifiers(operand))
+            {
+                continue;
+            }
+
+            bool aligned = operand.Count == selectIdentifiers.Count
+                && !operand.Where((identifier, i) =>
+                    !string.Equals(identifier, selectIdentifiers[i], StringComparison.OrdinalIgnoreCase)).Any();
+            if (!aligned)
+            {
+                throw new NotSupportedException(
+                    "InsertFromQuery over a set operation whose branches project different members is not " +
+                    "supported, because INSERT INTO SELECT matches branch values to columns by position. " +
+                    "Project the same members in the same order in every branch.");
+            }
+        }
+    }
+
+    private static bool AllNamedIdentifiers(IReadOnlyList<string> identifiers)
+    {
+        return identifiers.All(identifier => !char.IsAsciiDigit(identifier[0]));
     }
 
     private static bool IsAutoIncrementUnset(object? value)

@@ -10,6 +10,6 @@ internal sealed class ComputedColumnSpec
     }
 
     public TableColumn Column { get; }
-    public string ExpressionSql { get; }
+    public string ExpressionSql { get; set; }
     public bool Stored { get; }
 }

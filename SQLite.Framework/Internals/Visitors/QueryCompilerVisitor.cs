@@ -316,8 +316,8 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             object? operandValue = operand.Call(ctx);
 
             if (operandValue == null
-                && node.NodeType is ExpressionType.Negate or ExpressionType.NegateChecked
-                or ExpressionType.Not)
+                && (node.NodeType is ExpressionType.Negate or ExpressionType.NegateChecked or ExpressionType.Not
+                    || (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked && node.Method != null)))
             {
                 return null;
             }
@@ -328,9 +328,14 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                     ? InvokeUnwrapped(node.Method, null, [operandValue])
                     : InvokeUnaryOperator(BinaryNegationOperator, operandValue!, options),
                 ExpressionType.Not => operandValue is bool b ? !b : ApplyOnesComplement(operandValue!),
-                ExpressionType.Convert => ConvertOperand(operandValue, node.Type, checkedConversion: false),
-                ExpressionType.ConvertChecked => ConvertOperand(operandValue, node.Type, checkedConversion: true),
+                ExpressionType.Convert => node.Method != null
+                    ? InvokeUnwrapped(node.Method, null, [operandValue])
+                    : ConvertOperand(operandValue, node.Type, checkedConversion: false),
+                ExpressionType.ConvertChecked => node.Method != null
+                    ? InvokeUnwrapped(node.Method, null, [operandValue])
+                    : ConvertOperand(operandValue, node.Type, checkedConversion: true),
                 ExpressionType.TypeAs => node.Type.IsInstanceOfType(operandValue) ? operandValue : null,
+                ExpressionType.ArrayLength => ((Array)operandValue!).Length,
                 _ => throw new NotSupportedException($"The unary operator '{node.NodeType}' is not supported.")
             };
         });
@@ -1056,17 +1061,18 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             return Enum.ToObject(underlying, numeric);
         }
 
-        if (value is double d && IsIntegerType(underlying))
+        bool integerTarget = IsIntegerType(underlying) || underlying == typeof(char);
+        if (value is double d && integerTarget)
         {
             value = Math.Truncate(d);
         }
-        else if (value is float f && IsIntegerType(underlying))
+        else if (value is float f && integerTarget)
         {
             value = (float)Math.Truncate(f);
         }
 
         if (!checkedConversion
-            && IsIntegerType(underlying)
+            && integerTarget
             && ExpressionHelpers.TryUncheckedIntegerConvert(value, underlying, out object? wrapped))
         {
             return wrapped;

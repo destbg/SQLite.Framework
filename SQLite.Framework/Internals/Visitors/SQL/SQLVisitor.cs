@@ -37,7 +37,9 @@ internal partial class SQLVisitor : ExpressionVisitor
     public Dictionary<ParameterExpression, CteSelfReference> CteParameters { get; set; } = [];
     public Dictionary<SQLiteExpression, SQLiteExpression>? DecimalCastIntern { get; set; }
     public Dictionary<(SQLiteExpression Source, string Member), SQLiteExpression>? JsonExtractIntern { get; set; }
-    public Dictionary<ParameterExpression, string?> RowColumnPrefixes { get; } = [];
+    public Dictionary<ParameterExpression, RowColumnBinding> RowColumnPrefixes { get; } = [];
+    public IReadOnlyDictionary<string, string>? SelectWrapFormats { get; set; }
+    public IReadOnlyCollection<string>? ExcludedSelectColumns { get; set; }
     public Dictionary<Dictionary<string, Expression>, Dictionary<string, string?>> TableColumnPrefixes { get; set; } = [];
     public Dictionary<Dictionary<string, Expression>, HashSet<string>> ConstructedProjectionPaths { get; set; } = [];
     public HashSet<Dictionary<string, Expression>> OptionalRowColumns { get; set; } = [];
@@ -55,6 +57,24 @@ internal partial class SQLVisitor : ExpressionVisitor
         SQLiteExpression cast = SQLiteExpression.Wrap(source.Type, Counters.NextIdentifier(), "CAST(", source, " AS REAL)", source.Parameters);
         DecimalCastIntern[source] = cast;
         return cast;
+    }
+
+    public SQLiteExpression UnwrapDecimalCast(SQLiteExpression expression)
+    {
+        if (DecimalCastIntern == null)
+        {
+            return expression;
+        }
+
+        foreach (KeyValuePair<SQLiteExpression, SQLiteExpression> entry in DecimalCastIntern)
+        {
+            if (ReferenceEquals(entry.Value, expression))
+            {
+                return entry.Key;
+            }
+        }
+
+        return expression;
     }
 
     public SQLiteExpression InternJsonExtract(SQLiteExpression source, string memberName, Type resultType)
@@ -142,7 +162,16 @@ internal partial class SQLVisitor : ExpressionVisitor
         {
             if (node is MemberExpression { Expression: not null } member)
             {
-                return member.Update(Visit(member.Expression));
+                Expression visited = Visit(member.Expression);
+                if (visited is SQLiteExpression memberSql
+                    && member.Member.Name == nameof(IGrouping<,>.Key)
+                    && member.Expression.Type is { IsGenericType: true } groupingType
+                    && groupingType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+                {
+                    return SQLiteExpression.Alias(member.Type, Counters.NextIdentifier(), memberSql, memberSql.Parameters).WithJsonSource();
+                }
+
+                return member.Update(visited);
             }
 
             return node;
@@ -202,12 +231,6 @@ internal partial class SQLVisitor : ExpressionVisitor
         if (isConstant)
         {
             constantValue = ExpressionHelpers.GetConstantValue(node);
-            if (node is UnaryExpression convertNode
-                && ExpressionHelpers.GetConstantValue(convertNode.Operand) is Enum enumValue)
-            {
-                constantValue = enumValue;
-            }
-
             sqlExpression = SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), constantValue);
             resolvedExpression = node;
         }
@@ -260,6 +283,13 @@ internal partial class SQLVisitor : ExpressionVisitor
             && rootExpression is ConditionalExpression or MemberInitExpression or NewExpression)
         {
             return VisitFoldedMemberPath(rootExpression, path);
+        }
+
+        if (path.Length > 0
+            && ConstructedProjectionNodes.TryGetValue(expressions, out Dictionary<string, Expression>? rootNodes)
+            && rootNodes.TryGetValue(string.Empty, out Expression? rootNode))
+        {
+            return VisitFoldedMemberPath(rootNode, path);
         }
 
         return null;
@@ -324,7 +354,7 @@ internal partial class SQLVisitor : ExpressionVisitor
         if (OmitTableAlias)
         {
             From = SQLiteExpression.Leaf(tableMapping.Type, -1, qualifiedName);
-            TableColumns = BuildTableColumns(tableMapping, prefix: null);
+            TableColumns = BuildTableColumns(tableMapping, qualifiedName);
             return;
         }
 
@@ -338,13 +368,12 @@ internal partial class SQLVisitor : ExpressionVisitor
         TableColumns = BuildTableColumns(tableMapping, alias);
     }
 
-    private Dictionary<string, Expression> BuildTableColumns(TableMapping tableMapping, string? prefix)
+    private Dictionary<string, Expression> BuildTableColumns(TableMapping tableMapping, string prefix)
     {
         Dictionary<string, Expression> columns = tableMapping.Columns
             .ToDictionary(f => f.PropertyInfo.Name, Expression (f) =>
             {
-                string quotedName = IdentifierGuard.Quote(f.Name);
-                string colSql = prefix != null ? $"{prefix}.{quotedName}" : quotedName;
+                string colSql = $"{prefix}.{IdentifierGuard.Quote(f.Name)}";
                 if (Database.Options.TypeConverters.TryGetValue(f.PropertyType, out ISQLiteTypeConverter? conv)
                     && conv.ColumnSqlExpression is { } colExpr)
                 {
@@ -437,6 +466,7 @@ internal partial class SQLVisitor : ExpressionVisitor
         return Expression.Constant(value, memberType);
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Constructed projection types are rooted by the user query.")]
     private static int ConstructorArgumentIndex(NewExpression newExpression, string memberName)
     {
         if (newExpression.Members != null)
@@ -445,6 +475,12 @@ internal partial class SQLVisitor : ExpressionVisitor
         }
 
         if (newExpression.Constructor == null)
+        {
+            return newExpression.Arguments.Count;
+        }
+
+        if (!TypeHelpers.HasPositionalIdentityMembers(newExpression.Type)
+            && newExpression.Type.GetProperty(memberName) is not { CanWrite: false })
         {
             return newExpression.Arguments.Count;
         }

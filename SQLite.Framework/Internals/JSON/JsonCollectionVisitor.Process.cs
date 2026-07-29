@@ -124,7 +124,7 @@ internal partial class JsonCollectionVisitor
 
         List<(string Expr, string Direction)> pendingOrder = SplitOrderBys();
         List<string> selectColumns = [$"{selectExpr} AS \"value\"", $"{keyColumn} AS \"key\""];
-        bool carriesGroupKey = groupKeySql != null && groupBys.Count > 0;
+        bool carriesGroupKey = groupKeySql != null;
         if (carriesGroupKey)
         {
             selectColumns.Add($"{groupKeySql} AS \"grpkey\"");
@@ -204,6 +204,12 @@ internal partial class JsonCollectionVisitor
 
         List<(string Expr, string Direction)> pendingOrder = SplitOrderBys().Where(p => p.Expr != keyColumn).ToList();
         List<string> selectColumns = [$"{selectExpr} AS \"value\"", $"{keyAggregate}({keyColumn}) AS \"key\""];
+        bool carriesGroupKey = groupKeySql != null;
+        if (carriesGroupKey)
+        {
+            selectColumns.Add($"{keyAggregate}({groupKeySql}) AS \"grpkey\"");
+        }
+
         List<string> groupOrder = [];
         for (int i = 0; i < pendingOrder.Count; i++)
         {
@@ -248,6 +254,11 @@ internal partial class JsonCollectionVisitor
         reverseApplied = false;
         selectExpr = $"{wrapAlias}.\"value\"";
         keyColumn = $"{wrapAlias}.\"key\"";
+        if (carriesGroupKey)
+        {
+            groupKeySql = $"{wrapAlias}.\"grpkey\"";
+        }
+
         innerAliases.Clear();
         innerAliases.Add(wrapAlias);
     }
@@ -332,6 +343,14 @@ internal partial class JsonCollectionVisitor
         if (distinct)
         {
             MaterializeDistinct();
+        }
+
+        if (groupBys.Count > 0 || groupWindowMaterialized)
+        {
+            MaterializeWindow();
+            groupWindowMaterialized = false;
+            groupKeySql = null;
+            groupElementSql = null;
         }
 
         string keySql = VisitLambda(call.Arguments[1], elementType, coalesceLiftedComparison: true);
@@ -467,8 +486,19 @@ internal partial class JsonCollectionVisitor
     private void HandleFirst(MethodCallExpression call, Type elementType)
     {
         AddOptionalPredicate(call, elementType);
+        SelectGroupKeyForGroupingResult();
         limit = "1";
         wrapInArray = false;
+    }
+
+    private void SelectGroupKeyForGroupingResult()
+    {
+        if (groupBys.Count > 0 && groupKeySql != null
+            && currentElementType is { IsGenericType: true }
+            && currentElementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
+        {
+            selectExpr = groupKeySql;
+        }
     }
 
     private void HandleLast(MethodCallExpression call, Type elementType)

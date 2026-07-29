@@ -298,6 +298,8 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
             ReflectedTypes = plan.Template.ReflectedTypes,
             ReflectedMembers = plan.Template.ReflectedMembers,
             ReflectedConstructors = plan.Template.ReflectedConstructors,
+            ConstructedPaths = plan.Template.ConstructedPaths,
+            SelectValueTypes = plan.Template.SelectValueTypes,
         };
 
         using IDisposable _ = Database.Lock();
@@ -323,7 +325,10 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
 
     private ProjectionPlan BuildProjectionPlan()
     {
-        SQLiteCounters counters = new("@rp");
+        SQLiteCounters counters = new("@rp")
+        {
+            IgnoreQueryFilters = true
+        };
         SQLTranslator translator = new(Database, counters, 0, false)
         {
             QueryType = QueryType.Select,

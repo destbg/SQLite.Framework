@@ -51,7 +51,7 @@ public static class SelectMaterializerEmitter
         }
         else
         {
-            if (!CollectLeaves(body, emitCtx))
+            if (!CollectRootLeaves(body, emitCtx))
             {
                 return false;
             }
@@ -978,6 +978,66 @@ public static class SelectMaterializerEmitter
         return true;
     }
 
+    private static bool CollectRootLeaves(SyntaxNode body, EmitContext ctx)
+    {
+        if (body is not BaseObjectCreationExpressionSyntax root
+            || root.Initializer == null
+            || !root.Initializer.IsKind(SyntaxKind.ObjectInitializerExpression)
+            || ctx.Model.GetTypeInfo(root).Type is not INamedTypeSymbol rootType)
+        {
+            return CollectLeaves(body, ctx);
+        }
+
+        if (root.ArgumentList != null)
+        {
+            foreach (ArgumentSyntax argument in root.ArgumentList.Arguments)
+            {
+                if (!CollectLeaves(argument.Expression, ctx))
+                {
+                    return false;
+                }
+            }
+        }
+
+        foreach (ExpressionSyntax expression in OrderInitializerByDeclaration(root.Initializer, rootType))
+        {
+            if (!CollectLeaves(expression, ctx))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static List<ExpressionSyntax> OrderInitializerByDeclaration(InitializerExpressionSyntax initializer, INamedTypeSymbol type)
+    {
+        List<string> declared = new();
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            foreach (ISymbol member in current.GetMembers())
+            {
+                if (member is IPropertySymbol { IsIndexer: false } property)
+                {
+                    declared.Add(property.Name);
+                }
+            }
+        }
+
+        List<(int Declared, int Written, ExpressionSyntax Expression)> entries = new();
+        for (int i = 0; i < initializer.Expressions.Count; i++)
+        {
+            ExpressionSyntax expression = initializer.Expressions[i];
+            string? name = expression is AssignmentExpressionSyntax { Left: IdentifierNameSyntax identifier }
+                ? identifier.Identifier.ValueText
+                : null;
+            entries.Add((name == null ? -1 : declared.IndexOf(name), i, expression));
+        }
+
+        entries.Sort((a, b) => a.Declared != b.Declared ? a.Declared.CompareTo(b.Declared) : a.Written.CompareTo(b.Written));
+        return entries.ConvertAll(e => e.Expression);
+    }
+
     private static bool CollectLeaves(SyntaxNode node, EmitContext ctx)
     {
         if (node is IdentifierNameSyntax substIdent
@@ -1139,7 +1199,8 @@ public static class SelectMaterializerEmitter
                     return TryRegisterRowMemberLeaf(access, rowIdent, ctx, allowReflected: true);
                 }
 
-                if (SelectSignatureWriter.IsCapturedValue(access, ctx.WriterCtx))
+                if (!SelectSignatureWriter.IsArrayLengthAccess(access, ctx.WriterCtx)
+                    && SelectSignatureWriter.IsCapturedValue(access, ctx.WriterCtx))
                 {
                     return true;
                 }

@@ -14,11 +14,16 @@ internal static partial class CteSqlCanonicalizer
 
     public static string Canonicalize(SQLiteExpression node)
     {
+        return Canonicalize(node, null);
+    }
+
+    public static string Canonicalize(SQLiteExpression node, Dictionary<string, string>? identifierMap)
+    {
         string sql = node.ToString();
         SQLiteParameter[]? parameters = node.Parameters;
         if (parameters == null || parameters.Length == 0)
         {
-            return NormalizeGeneratedIdentifiers(sql);
+            return NormalizeGeneratedIdentifiers(sql, identifierMap);
         }
 
         int[] byLongestName = Enumerable.Range(0, parameters.Length)
@@ -29,7 +34,7 @@ internal static partial class CteSqlCanonicalizer
             sql = sql.Replace(parameters[i].Name, $"?{i}", StringComparison.Ordinal);
         }
 
-        sql = NormalizeGeneratedIdentifiers(sql);
+        sql = NormalizeGeneratedIdentifiers(sql, identifierMap);
 
         StringBuilder builder = StringBuilderPool.Rent();
         builder.Append(sql);
@@ -47,10 +52,10 @@ internal static partial class CteSqlCanonicalizer
         return StringBuilderPool.ToStringAndReturn(builder);
     }
 
-    private static string NormalizeGeneratedIdentifiers(string sql)
+    private static string NormalizeGeneratedIdentifiers(string sql, Dictionary<string, string>? identifierMap)
     {
         sql = WhitespacePattern.Replace(sql, " ");
-        Dictionary<string, string>? seen = null;
+        Dictionary<string, string>? seen = identifierMap;
         return GeneratedIdentifierPattern.Replace(sql, match =>
         {
             seen ??= new Dictionary<string, string>(StringComparer.Ordinal);
@@ -82,7 +87,7 @@ internal static partial class CteSqlCanonicalizer
         };
     }
 
-    [GeneratedRegex("(?<![\\w@\"])[a-z]+[0-9]+\\b|\"[0-9]+\"")]
+    [GeneratedRegex("(?<![\\w@\"$])[a-z]+[0-9]+\\b|\"[0-9]+\"")]
     private static partial Regex GeneratedIdentifierRegex();
 
     [GeneratedRegex("\\s+")]

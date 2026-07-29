@@ -52,6 +52,12 @@ internal partial class QueryableVisitor
         bool isScalarSelector = node.Method.Name != nameof(System.Linq.Queryable.GroupJoin)
             && resultSelector.Body is not (NewExpression or MemberInitExpression or ParameterExpression or MemberExpression);
 
+        if (isProjection || isScalarSelector)
+        {
+            JoinSelectExpression = null;
+            Selects.Clear();
+        }
+
         if ((isProjection || isScalarSelector) && database.Options.SelectMaterializers.Count > 0)
         {
             RawSelectSignature = SelectSignature.Compute(resultSelector.Body);

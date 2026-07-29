@@ -50,7 +50,13 @@ internal partial class SQLVisitor
 
         if (node.Expression is not MemberExpression and not ParameterExpression)
         {
-            node = (MemberExpression)ResolveMember(node);
+            Expression resolved = ResolveMember(node);
+            if (resolved is SQLiteExpression resolvedSql)
+            {
+                return resolvedSql;
+            }
+
+            node = (MemberExpression)resolved;
         }
 
         if (node.Expression is MemberExpression or ParameterExpression or SQLiteExpression)
@@ -69,7 +75,7 @@ internal partial class SQLVisitor
 
             if (MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? expressions))
             {
-                if (TryGetColumnPath(expressions, path, out Expression? expression))
+                if (TryGetColumnPath(expressions, path, node.Member.DeclaringType, out Expression? expression))
                 {
                     if (expression is SQLiteExpression colExpr && !IsInSelectProjection)
                     {
@@ -98,7 +104,7 @@ internal partial class SQLVisitor
 
             if (MethodArguments.TryGetValue(pe, out expressions))
             {
-                if (TryGetColumnPath(expressions, path, out Expression? expression) &&
+                if (TryGetColumnPath(expressions, path, (node.Expression as MemberExpression)?.Member.DeclaringType, out Expression? expression) &&
                     expression is SQLiteExpression sqlExpression)
                 {
                     return ConvertMemberExpression(node, sqlExpression);
@@ -284,11 +290,36 @@ internal partial class SQLVisitor
         return false;
     }
 
-    private static bool TryGetColumnPath(Dictionary<string, Expression> expressions, string path, [NotNullWhen(true)] out Expression? expression)
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Projection types are rooted by the user query.")]
+    private static bool AllowsParameterNameMatch(Type? declaringType, string path)
+    {
+        if (declaringType == null)
+        {
+            return false;
+        }
+
+        if (TypeHelpers.HasPositionalIdentityMembers(declaringType))
+        {
+            return true;
+        }
+
+        int separator = path.LastIndexOf('.');
+        string memberName = separator < 0 ? path : path[(separator + 1)..];
+        PropertyInfo? property = declaringType.GetProperty(memberName);
+        return property is { CanWrite: false };
+    }
+
+    private static bool TryGetColumnPath(Dictionary<string, Expression> expressions, string path, Type? declaringType, [NotNullWhen(true)] out Expression? expression)
     {
         if (expressions.TryGetValue(path, out expression))
         {
             return true;
+        }
+
+        if (!AllowsParameterNameMatch(declaringType, path))
+        {
+            expression = null;
+            return false;
         }
 
         foreach (KeyValuePair<string, Expression> entry in expressions)

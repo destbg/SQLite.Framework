@@ -518,6 +518,12 @@ public class SQLiteSchema
                 "The view body contains an expression that only runs in memory, which a view cannot do. Move that computation out of the view query.");
         }
 
+        if (sqlQuery.Reverse || sqlQuery.ReverseBeforeDistinct)
+        {
+            throw new NotSupportedException(
+                "The view body ends with Reverse(), which only runs in memory after the query returns, so a view cannot keep that order. Use OrderByDescending instead.");
+        }
+
         string columnList = BuildViewColumnList(mapping, translator.Selects);
         string body = SqlLiteralHelper.InlineParameters(sqlQuery.Sql, sqlQuery.Parameters, Database.Options);
         string sql = $"CREATE VIEW IF NOT EXISTS \"{viewName.Replace("\"", "\"\"")}\"{columnList} AS{Environment.NewLine}{body}";

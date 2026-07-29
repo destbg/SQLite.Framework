@@ -51,6 +51,11 @@ internal partial class SQLVisitor
             right = CoerceJsonOperand(argument, right, obj.SQLiteExpression!);
             left = CoerceDayOfWeekOperand(leftOperand, left, right);
             right = CoerceDayOfWeekOperand(rightOperand, right, left);
+            if (Database.Options.DecimalStorage == DecimalStorageMode.Text)
+            {
+                left = CastTextDecimalForOrdering(CoerceDecimalConstantToReal(obj, left));
+                right = CastTextDecimalForOrdering(CoerceDecimalConstantToReal(argument, right));
+            }
             SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(left, right);
             SQLiteExpression equalsResult = SQLiteExpression.Binary(typeof(bool), Counters.NextIdentifier(), "", left, " IS ", right, "", parameters);
             equalsResult.RequiresBrackets = true;
@@ -293,9 +298,15 @@ internal partial class SQLVisitor
         string name = (string)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
         Expression receiver = node.Arguments[0];
 
-        if (receiver is ParameterExpression bareParameter && RowColumnPrefixes.TryGetValue(bareParameter, out string? barePrefix))
+        if (receiver is ParameterExpression bareParameter && RowColumnPrefixes.TryGetValue(bareParameter, out RowColumnBinding binding))
         {
-            return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), barePrefix + IdentifierGuard.Quote(name));
+            string bareSql = binding.Prefix + IdentifierGuard.Quote(name);
+            if (binding.WrapConverterReads)
+            {
+                bareSql = ApplyConverterRead(node.Type, bareSql);
+            }
+
+            return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), bareSql);
         }
 
         (string path, ParameterExpression? parameter) = ExpressionHelpers.ResolveNullableParameterPath(receiver);
@@ -303,7 +314,7 @@ internal partial class SQLVisitor
             && TableColumnPrefixes.TryGetValue(MethodArguments[parameter], out Dictionary<string, string?>? prefixes)
             && prefixes.TryGetValue(path, out string? aliasPrefix))
         {
-            return BuildShadowColumnLeaf(node.Type, aliasPrefix, name);
+            return BuildShadowColumnLeaf(node.Type, aliasPrefix!, name);
         }
 
         throw new NotSupportedException(
@@ -313,19 +324,23 @@ internal partial class SQLVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Value type is the caller SQLiteColumn.Of argument.")]
-    private SQLiteExpression BuildShadowColumnLeaf(Type type, string? aliasPrefix, string name)
+    private SQLiteExpression BuildShadowColumnLeaf(Type type, string aliasPrefix, string name)
     {
-        string colSql = aliasPrefix != null
-            ? $"{aliasPrefix}.{IdentifierGuard.Quote(name)}"
-            : IdentifierGuard.Quote(name);
+        string colSql = $"{aliasPrefix}.{IdentifierGuard.Quote(name)}";
 
-        if (Database.Options.TypeConverters.TryGetValue(type, out ISQLiteTypeConverter? converter)
+        return SQLiteExpression.Leaf(type, Counters.NextIdentifier(), ApplyConverterRead(type, colSql));
+    }
+
+    private string ApplyConverterRead(Type type, string columnSql)
+    {
+        Type lookupType = Nullable.GetUnderlyingType(type) ?? type;
+        if (Database.Options.TypeConverters.TryGetValue(lookupType, out ISQLiteTypeConverter? converter)
             && converter.ColumnSqlExpression is { } columnExpr)
         {
-            colSql = string.Format(columnExpr, colSql);
+            return string.Format(CultureInfo.InvariantCulture, columnExpr, columnSql);
         }
 
-        return SQLiteExpression.Leaf(type, Counters.NextIdentifier(), colSql);
+        return columnSql;
     }
 
     private static UnaryExpression BoxIfNeeded(Expression expr)

@@ -25,6 +25,7 @@ internal partial class QueryableVisitor
     public List<SQLiteExpression> GroupBys { get; } = [];
     public List<SQLiteExpression> Havings { get; } = [];
     public List<(SQLiteExpression Sql, string Type)> SetOperations { get; } = [];
+    public List<IReadOnlyList<string>> SetOperandSelects { get; } = [];
     public List<SQLiteExpression> Selects { get; }
     public Dictionary<string, Type> SelectValueTypes { get; } = [];
 
@@ -215,10 +216,15 @@ internal partial class QueryableVisitor
                             key: cte,
                             columnNames: recursive.ColumnNames,
                             dayOfWeekColumns: recursive.DayOfWeekColumns,
+                            jsonSourceColumns: recursive.JsonSourceColumns,
                             constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
                             bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
                             bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null,
-                            emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects));
+                            emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects),
+                            optionalRow: recursive.Translator.Visitor.OptionalRowColumns.Contains(recursive.Translator.Visitor.TableColumns),
+                            optionalRowPaths: recursive.Translator.Visitor.OptionalRowPaths.TryGetValue(recursive.Translator.Visitor.TableColumns, out HashSet<string>? recursiveOptionalPaths)
+                                ? recursiveOptionalPaths
+                                : null);
 
                         visitor.CteParameters.Remove(selfParam);
                         visitor.MethodArguments.Remove(selfParam);
@@ -238,10 +244,15 @@ internal partial class QueryableVisitor
                             key: cte,
                             columnNames: bodyColumnNames,
                             dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(cteElementType, database.Options)),
+                            jsonSourceColumns: CteColumnMapper.JsonSourceColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(cteElementType, database.Options)),
                             constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
                             bodyColumns: hasClientMember ? bodyTranslator.Visitor.TableColumns : null,
                             bodySelects: hasClientMember ? bodyTranslator.Selects : null,
-                            emittedColumns: CteColumnMapper.EmittedColumnNames(bodyColumnNames, bodyTranslator.Selects));
+                            emittedColumns: CteColumnMapper.EmittedColumnNames(bodyColumnNames, bodyTranslator.Selects),
+                            optionalRow: bodyTranslator.Visitor.OptionalRowColumns.Contains(bodyTranslator.Visitor.TableColumns),
+                            optionalRowPaths: bodyTranslator.Visitor.OptionalRowPaths.TryGetValue(bodyTranslator.Visitor.TableColumns, out HashSet<string>? bodyOptionalPaths)
+                                ? bodyOptionalPaths
+                                : null);
                     }
                 }
 

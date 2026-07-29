@@ -32,7 +32,8 @@ internal sealed class ConstructedConditionalFinderVisitor : ExpressionVisitor
 
         if (node.Expression is MemberExpression inner
             && FindConstructedMemberValue(inner) is NewExpression { Members: null, Arguments.Count: > 0 } constructed
-            && !IsConstructorParameter(constructed, node.Member.Name))
+            && (!IsConstructorParameter(constructed, node.Member.Name)
+                || IsPlainSettableProperty(node.Member)))
         {
             Found = true;
             return node;
@@ -59,6 +60,14 @@ internal sealed class ConstructedConditionalFinderVisitor : ExpressionVisitor
         return node is ConstantExpression { Value: null };
     }
 
+    private static bool IsPlainSettableProperty(MemberInfo member)
+    {
+        return member is PropertyInfo { CanWrite: true } property
+            && property.SetMethod is { } setter
+            && setter.ReturnParameter.GetRequiredCustomModifiers()
+                .All(modifier => modifier != typeof(IsExternalInit));
+    }
+
     private static bool IsConstructorParameter(NewExpression constructed, string memberName)
     {
         return constructed.Constructor!.GetParameters()
@@ -67,13 +76,19 @@ internal sealed class ConstructedConditionalFinderVisitor : ExpressionVisitor
 
     private static Expression? FindConstructedMemberValue(MemberExpression node)
     {
-        if (node.Expression is MemberInitExpression init)
+        Expression? source = node.Expression;
+        if (source is MemberExpression innerMember)
+        {
+            source = FindConstructedMemberValue(innerMember);
+        }
+
+        if (source is MemberInitExpression init)
         {
             return init.Bindings.OfType<MemberAssignment>()
                 .FirstOrDefault(b => b.Member.Name == node.Member.Name)?.Expression;
         }
 
-        if (node.Expression is NewExpression { Members: not null } anonymous)
+        if (source is NewExpression { Members: not null } anonymous)
         {
             int index = anonymous.Members.ToList().FindIndex(m => m.Name == node.Member.Name);
             return index >= 0 ? anonymous.Arguments[index] : null;

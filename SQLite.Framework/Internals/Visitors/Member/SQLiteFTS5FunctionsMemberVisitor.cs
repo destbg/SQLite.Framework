@@ -164,6 +164,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
     private static SQLiteExpression HandleFTS5Rank(SQLVisitor visitor, MethodCallExpression node)
     {
         Type entityType = node.Arguments[0].Type;
+        ResolveFTS5TableName(visitor, entityType);
         TableMapping mapping = visitor.Database.TableMapping(entityType);
 
         if (mapping.FullTextSearch != null && mapping.FullTextSearch.IndexedColumns.Any(c => c.Weight != 1.0))

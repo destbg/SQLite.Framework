@@ -297,13 +297,15 @@ internal static class ModelValidator
 
         foreach (IGrouping<string, (string Name, string Column, int Order, bool Unique)> group in groups)
         {
-            IReadOnlyList<string> columns = group.OrderBy(x => x.Order).Select(x => x.Column).ToList();
+            IReadOnlyList<string> columns = group.OrderBy(x => x.Order).Select(x => x.Column)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             expected[group.Key] = (columns, group.Any(x => x.Unique));
         }
 
         foreach (IndexSpec index in mapping.Indexes)
         {
-            List<string> indexColumns = index.Columns.Where((_, i) => !index.Expressions[i]).ToList();
+            List<string> indexColumns = index.Columns.Where((_, i) => !index.Expressions[i])
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             if (expected.TryGetValue(index.Name, out (IReadOnlyList<string>, bool) existing))
             {
                 List<string> mergedColumns = [.. existing.Item1];

@@ -195,6 +195,42 @@ public class TableMapping
         }
     }
 
+    internal void RenameDeclaredColumnSql(string previousName, string newName)
+    {
+        string previousQuoted = IdentifierGuard.Quote(previousName);
+        string newQuoted = IdentifierGuard.Quote(newName);
+
+        foreach (IndexSpec index in indexes)
+        {
+            for (int i = 0; i < index.Columns.Length; i++)
+            {
+                if (index.Expressions[i])
+                {
+                    index.Columns[i] = index.Columns[i].Replace(previousQuoted, newQuoted, StringComparison.Ordinal);
+                }
+                else if (string.Equals(index.Columns[i], previousName, StringComparison.OrdinalIgnoreCase))
+                {
+                    index.Columns[i] = newName;
+                }
+            }
+
+            if (index.FilterSql != null)
+            {
+                index.FilterSql = index.FilterSql.Replace(previousQuoted, newQuoted, StringComparison.Ordinal);
+            }
+        }
+
+        foreach (CheckConstraintSpec check in checks)
+        {
+            check.Sql = check.Sql.Replace(previousQuoted, newQuoted, StringComparison.Ordinal);
+        }
+
+        foreach (ComputedColumnSpec computed in computedColumns)
+        {
+            computed.ExpressionSql = computed.ExpressionSql.Replace(previousQuoted, newQuoted, StringComparison.Ordinal);
+        }
+    }
+
     internal void RemoveColumn(TableColumn column)
     {
         columns.Remove(column);

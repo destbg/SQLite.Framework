@@ -73,6 +73,10 @@ internal static class CommandHelpers
         {
             return value;
         }
+        else if (value is double fractionalValue && TryTruncateToInteger(fractionalValue, type, out object? truncated))
+        {
+            return truncated;
+        }
         else if (type == typeof(uint))
         {
             if (value is long uintValue)
@@ -334,5 +338,48 @@ internal static class CommandHelpers
         return underlying == typeof(ulong)
             ? unchecked((long)Convert.ToUInt64(value, CultureInfo.InvariantCulture))
             : Convert.ToInt64(value, CultureInfo.InvariantCulture);
+    }
+
+    private static bool TryTruncateToInteger(double value, Type type, out object? truncated)
+    {
+        if (type == typeof(int))
+        {
+            truncated = checked((int)value);
+        }
+        else if (type == typeof(long))
+        {
+            truncated = checked((long)value);
+        }
+        else if (type == typeof(short))
+        {
+            truncated = checked((short)value);
+        }
+        else if (type == typeof(ushort))
+        {
+            truncated = checked((ushort)value);
+        }
+        else if (type == typeof(byte))
+        {
+            truncated = checked((byte)value);
+        }
+        else if (type == typeof(sbyte))
+        {
+            truncated = checked((sbyte)value);
+        }
+        else if (type == typeof(uint))
+        {
+            truncated = checked((uint)value);
+        }
+        else if (type == typeof(ulong))
+        {
+            truncated = checked((ulong)value);
+        }
+        else
+        {
+            truncated = null;
+            return false;
+        }
+
+        return true;
     }
 }

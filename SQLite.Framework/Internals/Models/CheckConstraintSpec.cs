@@ -8,6 +8,6 @@ internal sealed class CheckConstraintSpec
         Name = name;
     }
 
-    public string Sql { get; }
+    public string Sql { get; set; }
     public string? Name { get; }
 }

@@ -158,6 +158,7 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         }
 
         if (node.Kind() == SyntaxKind.SimpleMemberAccessExpression
+            && !SelectSignatureWriter.IsArrayLengthAccess(node, ctx.WriterCtx)
             && SelectSignatureWriter.IsCapturedValue(node, ctx.WriterCtx))
         {
             return BuildCapturedValueExpression(ctx.Model.GetTypeInfo(node).Type);

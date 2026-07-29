@@ -67,8 +67,16 @@ internal static class CommonHelpers
     /// </summary>
     public static bool HasColumnHooks<T>(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks)
     {
-        return hooks.TryGetValue(typeof(T), out IReadOnlyList<Delegate>? list)
-            && list.Any(h => h is Func<SQLiteDatabase, T, IDictionary<string, object?>, bool>);
+        foreach (KeyValuePair<Type, IReadOnlyList<Delegate>> entry in hooks)
+        {
+            if (entry.Key.IsAssignableFrom(typeof(T))
+                && entry.Value.Any(h => h is Func<SQLiteDatabase, T, IDictionary<string, object?>, bool>))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

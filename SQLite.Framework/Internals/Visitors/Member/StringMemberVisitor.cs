@@ -329,7 +329,7 @@ internal static class StringMemberVisitor
                         return RebuildClientCall(node, arguments);
                     }
 
-                    concatArgs = resolvedConcatArgs;
+                    concatArgs = [.. resolvedConcatArgs.Select(a => BracketConcatOperand(visitor, a))];
                 }
                 else if (node.Arguments.Count == 1 && typeof(IQueryable).IsAssignableFrom(node.Arguments[0].Type))
                 {
@@ -353,7 +353,8 @@ internal static class StringMemberVisitor
                     concatArgs = new SQLiteExpression[arguments.Count];
                     for (int i = 0; i < arguments.Count; i++)
                     {
-                        concatArgs[i] = visitor.CoalesceNullableStringOperand(node.Arguments[i], arguments[i], arguments[i].SQLiteExpression!);
+                        concatArgs[i] = BracketConcatOperand(visitor,
+                            visitor.CoalesceNullableStringOperand(node.Arguments[i], arguments[i], arguments[i].SQLiteExpression!));
                     }
                 }
 
@@ -384,7 +385,9 @@ internal static class StringMemberVisitor
                         return RebuildClientCall(node, arguments);
                     }
 
-                    SQLiteExpression sep = visitor.CoalesceNullableStringOperand(node.Arguments[0], arguments[0], arguments[0].SQLiteExpression!);
+                    SQLiteExpression sep = BracketConcatOperand(visitor,
+                        visitor.CoalesceNullableStringOperand(node.Arguments[0], arguments[0], arguments[0].SQLiteExpression!));
+                    joinArgs = [.. joinArgs.Select(a => BracketConcatOperand(visitor, a))];
                     if (joinArgs.Length == 0)
                     {
                         return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "''");
@@ -900,6 +903,13 @@ internal static class StringMemberVisitor
         }
 
         return false;
+    }
+
+    private static SQLiteExpression BracketConcatOperand(SQLVisitor visitor, SQLiteExpression expr)
+    {
+        return expr.RequiresBrackets
+            ? SQLiteExpression.Wrap(expr.Type, visitor.Counters.NextIdentifier(), "(", expr, ")", expr.Parameters)
+            : expr;
     }
 
     private static bool HasCaseChangingReplaceArgument(MethodCallExpression node, List<ResolvedModel> arguments)

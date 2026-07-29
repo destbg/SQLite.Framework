@@ -42,6 +42,8 @@ internal class SQLTranslator
 
     public IReadOnlyList<SQLiteExpression> Selects => queryableMethodVisitor.Selects;
 
+    public IReadOnlyList<IReadOnlyList<string>> SetOperandSelects => queryableMethodVisitor.SetOperandSelects;
+
     public bool HasTopLevelOrderingOrPaging =>
         queryableMethodVisitor.OrderBys.Count > 0
         || queryableMethodVisitor.Take != null
@@ -95,7 +97,11 @@ internal class SQLTranslator
 
     public QueryType QueryType { get; init; }
 
-    public IReadOnlyDictionary<string, string>? SelectWrapFormats { get; init; }
+    public IReadOnlyDictionary<string, string>? SelectWrapFormats
+    {
+        get => Visitor.SelectWrapFormats;
+        set => Visitor.SelectWrapFormats = value;
+    }
 
     public bool EmitReturning { get; init; }
 
@@ -129,14 +135,19 @@ internal class SQLTranslator
 
     public SQLQuery Translate(Expression? node, IReadOnlyCollection<string>? excludeSelectColumns = null)
     {
+        if (excludeSelectColumns is { Count: > 0 })
+        {
+            Visitor.ExcludedSelectColumns = excludeSelectColumns;
+        }
+
         if (node != null)
         {
             Visit(node);
         }
 
-        if (excludeSelectColumns is { Count: > 0 })
+        if (Visitor.ExcludedSelectColumns is { Count: > 0 } excluded)
         {
-            queryableMethodVisitor.Selects.RemoveAll(s => excludeSelectColumns.Contains(s.IdentifierText));
+            queryableMethodVisitor.Selects.RemoveAll(s => excluded.Contains(s.IdentifierText));
         }
 
         if (Visitor.From == null)
@@ -536,10 +547,10 @@ internal class SQLTranslator
         {
             foreach (JoinInfo join in q.Joins)
             {
-                if (join.JoinType == "LEFT JOIN")
+                if (join.JoinType is "LEFT JOIN" or "RIGHT JOIN" or "FULL OUTER JOIN")
                 {
                     throw new NotSupportedException(
-                        "ExecuteUpdate does not support a left join. Only inner joins translate to UPDATE ... FROM.");
+                        "ExecuteUpdate does not support an outer join. Only inner joins translate to UPDATE ... FROM.");
                 }
             }
         }
@@ -815,16 +826,16 @@ internal class SQLTranslator
         while (true)
         {
             bool[] isWindowProjection = new bool[methodCalls.Count];
-            bool[] isTextDecimalOrder = new bool[methodCalls.Count];
+            bool[] isSubqueryOrder = new bool[methodCalls.Count];
             for (int i = 0; i < methodCalls.Count; i++)
             {
                 isWindowProjection[i] = HasWindowProjection(methodCalls[i]);
-                isTextDecimalOrder[i] = IsTextDecimalOrder(methodCalls[i], database.Options);
+                isSubqueryOrder[i] = IsSubqueryOrder(methodCalls[i], database.Options);
             }
 
-            SpreadTextDecimalOrderOverChain(methodCalls, isTextDecimalOrder);
+            SpreadSubqueryOrderOverChain(methodCalls, isSubqueryOrder);
 
-            wrapIdx = FindSubqueryBoundary(methodCalls, isWindowProjection, isTextDecimalOrder);
+            wrapIdx = FindSubqueryBoundary(methodCalls, isWindowProjection, isSubqueryOrder);
             if (wrapIdx < 0)
             {
                 break;
@@ -941,6 +952,11 @@ internal class SQLTranslator
                 if (Visitor.OptionalRowColumns.Contains(innerTranslator.Visitor.TableColumns))
                 {
                     Visitor.OptionalRowColumns.Add(outerColumns);
+                }
+
+                if (Visitor.OptionalRowPaths.TryGetValue(innerTranslator.Visitor.TableColumns, out HashSet<string>? innerOptionalPaths))
+                {
+                    Visitor.OptionalRowPaths[outerColumns] = [.. innerOptionalPaths];
                 }
 
                 Visitor.TableColumns = outerColumns;
@@ -1106,6 +1122,15 @@ internal class SQLTranslator
             {
                 selectExpression = expression;
             }
+        }
+
+        if (selectExpression == null && queryableMethodVisitor.ClientCount && methodCalls.Count > 0)
+        {
+            Type clientElementType = methodCalls[0].Arguments[0].Type.GetGenericArguments()[0];
+            MethodCallExpression identitySelect = CreateIdentitySelectExpression(clientElementType);
+            LambdaExpression identityLambda = (LambdaExpression)ExpressionHelpers.StripQuotes(identitySelect.Arguments[1]);
+            Visitor.MethodArguments[identityLambda.Parameters[0]] = Visitor.TableColumns;
+            selectExpression = queryableMethodVisitor.Visit(identitySelect);
         }
 
         return selectExpression;
@@ -1299,24 +1324,34 @@ internal class SQLTranslator
         return WindowCallDetector.Contains(selector.Body);
     }
 
-    private static bool IsTextDecimalOrder(MethodCallExpression candidate, SQLiteOptions options)
+    private static bool IsSubqueryOrder(MethodCallExpression candidate, SQLiteOptions options)
     {
-        if (options.DecimalStorage != DecimalStorageMode.Text
-            || candidate.Method.Name is not (nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
-                or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending)))
+        if (candidate.Method.Name is not (nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
+            or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending)))
         {
             return false;
         }
 
         LambdaExpression key = (LambdaExpression)ExpressionHelpers.StripQuotes(candidate.Arguments[1]);
-        return (Nullable.GetUnderlyingType(key.ReturnType) ?? key.ReturnType) == typeof(decimal);
+        Type keyType = Nullable.GetUnderlyingType(key.ReturnType) ?? key.ReturnType;
+        if (keyType.IsEnum)
+        {
+            keyType = Enum.GetUnderlyingType(keyType);
+        }
+
+        if (keyType == typeof(ulong))
+        {
+            return true;
+        }
+
+        return options.DecimalStorage == DecimalStorageMode.Text && keyType == typeof(decimal);
     }
 
-    private static void SpreadTextDecimalOrderOverChain(List<MethodCallExpression> methodCalls, bool[] isTextDecimalOrder)
+    private static void SpreadSubqueryOrderOverChain(List<MethodCallExpression> methodCalls, bool[] isSubqueryOrder)
     {
         for (int i = 0; i < methodCalls.Count; i++)
         {
-            if (!isTextDecimalOrder[i]
+            if (!isSubqueryOrder[i]
                 || methodCalls[i].Method.Name is not (nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending)))
             {
                 continue;
@@ -1327,11 +1362,11 @@ internal class SQLTranslator
                 string chained = methodCalls[j].Method.Name;
                 if (chained is nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending))
                 {
-                    isTextDecimalOrder[j] = true;
+                    isSubqueryOrder[j] = true;
                     continue;
                 }
 
-                isTextDecimalOrder[j] = true;
+                isSubqueryOrder[j] = true;
                 break;
             }
         }
@@ -1361,7 +1396,7 @@ internal class SQLTranslator
         return true;
     }
 
-    private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls, bool[] isWindowProjection, bool[] isTextDecimalOrder)
+    private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls, bool[] isWindowProjection, bool[] isSubqueryOrder)
     {
         QueryLevelParts level = QueryLevelParts.None;
         int boundary = -1;
@@ -1372,7 +1407,7 @@ internal class SQLTranslator
             bool windowProjection = isWindowProjection[i];
             bool hasPredicate = methodCalls[i].Arguments.Count > 1;
 
-            if (ConflictsWithLevel(name, level, windowProjection, hasPredicate, isTextDecimalOrder[i]))
+            if (ConflictsWithLevel(name, level, windowProjection, hasPredicate, isSubqueryOrder[i]))
             {
                 boundary = i;
                 level = QueryLevelParts.None;
@@ -1384,7 +1419,7 @@ internal class SQLTranslator
         return boundary;
     }
 
-    private static bool ConflictsWithLevel(string name, QueryLevelParts level, bool windowProjection, bool hasPredicate, bool textDecimalOrder)
+    private static bool ConflictsWithLevel(string name, QueryLevelParts level, bool windowProjection, bool hasPredicate, bool subqueryOrder)
     {
         QueryLevelParts blockedBy = name switch
         {
@@ -1397,7 +1432,7 @@ internal class SQLTranslator
                 or nameof(Queryable.Max) or nameof(Queryable.Min) or nameof(Queryable.Average) => QueryLevelParts.Window | QueryLevelParts.Limit,
             nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
                 or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) =>
-                textDecimalOrder ? QueryLevelParts.Limit | QueryLevelParts.SetOperation : QueryLevelParts.Limit,
+                subqueryOrder ? QueryLevelParts.Limit | QueryLevelParts.SetOperation : QueryLevelParts.Limit,
             nameof(Queryable.Distinct) => QueryLevelParts.Limit,
             nameof(Queryable.Select) when windowProjection => QueryLevelParts.Distinct | QueryLevelParts.Limit | QueryLevelParts.Window,
             nameof(Queryable.Select) => QueryLevelParts.Distinct,

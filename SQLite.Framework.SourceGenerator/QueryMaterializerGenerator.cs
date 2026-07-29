@@ -749,9 +749,43 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         return null;
     }
 
+    private static SelectSignatureCtx? BuildFlattenedCtx(ISymbol row, ExpressionSyntax? receiver, SemanticModel model)
+    {
+        ISymbol currentRow = row;
+        ExpressionSyntax? currentReceiver = receiver;
+        List<(ISymbol Row, ExpressionSyntax Body)> levels = new();
+        while (currentRow is IParameterSymbol currentParam
+            && currentReceiver != null
+            && FindUpstreamInnerSelector(currentReceiver, model) is { } deeper)
+        {
+            ITypeSymbol? deeperBodyType = model.GetTypeInfo(deeper.Body).Type;
+            if (deeperBodyType == null || !SymbolEqualityComparer.Default.Equals(currentParam.Type, deeperBodyType))
+            {
+                break;
+            }
+
+            levels.Add((currentRow, deeper.Body));
+            currentRow = deeper.Row;
+            currentReceiver = deeper.Receiver;
+        }
+
+        SelectSignatureCtx ctx = BuildCtxForRowSymbol(currentRow, model);
+        if (ctx.OuterRowType == null)
+        {
+            return null;
+        }
+
+        foreach ((ISymbol levelRow, ExpressionSyntax levelBody) in levels)
+        {
+            ctx.ParameterSubstitutions[levelRow] = levelBody;
+        }
+
+        return ctx;
+    }
+
     private static SelectInvocation? TryFlattenChainedSelect(ExpressionSyntax outerBody, IParameterSymbol outerRow, ExpressionSyntax receiver, ITypeSymbol projection, SemanticModel model)
     {
-        (ExpressionSyntax Body, ISymbol Row)? inner = FindUpstreamInnerSelector(receiver, model);
+        (ExpressionSyntax Body, ISymbol Row, ExpressionSyntax? Receiver)? inner = FindUpstreamInnerSelector(receiver, model);
         if (inner is not { } innerInfo)
         {
             return null;
@@ -761,6 +795,23 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         if (innerBodyType == null || !SymbolEqualityComparer.Default.Equals(outerRow.Type, innerBodyType))
         {
             return null;
+        }
+
+        if (outerBody is IdentifierNameSyntax identityIdent
+            && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identityIdent).Symbol, outerRow))
+        {
+            if (BuildFlattenedCtx(innerInfo.Row, innerInfo.Receiver, model) is not { } identityCtx)
+            {
+                return null;
+            }
+
+            string? identitySig = SelectSignatureWriter.TryCompute(innerInfo.Body, identityCtx);
+            if (identitySig == null)
+            {
+                return null;
+            }
+
+            return new SelectInvocation(identitySig, innerInfo.Body, identityCtx, model, projection);
         }
 
         if (outerBody is MemberAccessExpressionSyntax outerMa
@@ -793,8 +844,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                             substitutedBody = p.Expression;
                         }
 
-                        SelectSignatureCtx ctxSimple = BuildCtxForRowSymbol(innerInfo.Row, model);
-                        if (ctxSimple.OuterRowType == null)
+                        if (BuildFlattenedCtx(innerInfo.Row, innerInfo.Receiver, model) is not { } ctxSimple)
                         {
                             return null;
                         }
@@ -811,8 +861,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             }
         }
 
-        SelectSignatureCtx ctx = BuildCtxForRowSymbol(innerInfo.Row, model);
-        if (ctx.OuterRowType == null)
+        if (BuildFlattenedCtx(innerInfo.Row, innerInfo.Receiver, model) is not { } ctx)
         {
             return null;
         }
@@ -827,7 +876,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         return new SelectInvocation(signature, outerBody, ctx, model, projection);
     }
 
-    private static (ExpressionSyntax Body, ISymbol Row)? FindUpstreamInnerSelector(ExpressionSyntax receiver, SemanticModel model)
+    private static (ExpressionSyntax Body, ISymbol Row, ExpressionSyntax? Receiver)? FindUpstreamInnerSelector(ExpressionSyntax receiver, SemanticModel model)
     {
         SyntaxNode? current = receiver;
         while (current != null)
@@ -878,7 +927,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                             return null;
                         }
 
-                        return (innerBody, innerRow);
+                        return (innerBody, innerRow, (inv.Expression as MemberAccessExpressionSyntax)?.Expression);
                     }
                     current = (inv.Expression as MemberAccessExpressionSyntax)?.Expression;
                     continue;
@@ -893,7 +942,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                     {
                         return null;
                     }
-                    return (sel.Expression, range);
+                    return (sel.Expression, range, null);
                 default:
                     return null;
             }

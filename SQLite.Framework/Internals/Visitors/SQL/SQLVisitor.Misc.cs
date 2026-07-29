@@ -26,8 +26,9 @@ internal partial class SQLVisitor
                 : CteColumnMapper.ScalarColumnNames(elementType, Database.Options)
                     ?? CteColumnMapper.BodyColumnNames(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
             HashSet<string>? dayOfWeekColumns = CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, scalarElement);
+            HashSet<string>? jsonSourceColumns = CteColumnMapper.JsonSourceColumns(bodyTranslator.Visitor.TableColumns, scalarElement);
 
-            if (pass > 0 || (dayOfWeekColumns == null && !hasClientMember))
+            if (pass > 0 || (dayOfWeekColumns == null && jsonSourceColumns == null && !hasClientMember))
             {
                 return new RecursiveCteBody
                 {
@@ -35,6 +36,7 @@ internal partial class SQLVisitor
                     Query = bodyQuery,
                     ColumnNames = columnNames,
                     DayOfWeekColumns = dayOfWeekColumns,
+                    JsonSourceColumns = jsonSourceColumns,
                     HasClientMember = hasClientMember
                 };
             }
@@ -47,11 +49,13 @@ internal partial class SQLVisitor
                 Columns = CteColumnMapper.BuildColumns(elementType, placeholder, Database.Options, Counters),
                 ColumnNames = columnNames,
                 DayOfWeekColumns = dayOfWeekColumns,
+                JsonSourceColumns = jsonSourceColumns,
                 ConstructedPaths = CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
                 BodyColumns = bodyColumns,
                 BodySelects = bodyColumns != null ? bodyTranslator.Selects : null
             };
             CteColumnMapper.ApplyDayOfWeekColumns(reference.Columns, dayOfWeekColumns);
+            CteColumnMapper.ApplyJsonSourceColumns(reference.Columns, jsonSourceColumns);
         }
     }
 
@@ -158,6 +162,12 @@ internal partial class SQLVisitor
 
     protected override Expression VisitUnary(UnaryExpression node)
     {
+        if (node.NodeType == ExpressionType.Convert
+            && node.Operand is ConstantExpression { Value: BaseSQLiteTable })
+        {
+            return Visit(node.Operand);
+        }
+
         if (node.NodeType == ExpressionType.Not
             && node.Operand is BinaryExpression { NodeType: ExpressionType.Equal or ExpressionType.NotEqual } comparison)
         {
@@ -412,10 +422,15 @@ internal partial class SQLVisitor
                 key: cte,
                 columnNames: recursive.ColumnNames,
                 dayOfWeekColumns: recursive.DayOfWeekColumns,
+                jsonSourceColumns: recursive.JsonSourceColumns,
                 constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
                 bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
                 bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null,
-                emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects));
+                emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects),
+                optionalRow: recursive.Translator.Visitor.OptionalRowColumns.Contains(recursive.Translator.Visitor.TableColumns),
+                optionalRowPaths: recursive.Translator.Visitor.OptionalRowPaths.TryGetValue(recursive.Translator.Visitor.TableColumns, out HashSet<string>? recursiveOptionalPaths)
+                    ? recursiveOptionalPaths
+                    : null);
 
             CteParameters.Remove(selfParam);
             MethodArguments.Remove(selfParam);
@@ -435,10 +450,15 @@ internal partial class SQLVisitor
                 key: cte,
                 columnNames: bodyColumnNames,
                 dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(elementType, Database.Options)),
+                jsonSourceColumns: CteColumnMapper.JsonSourceColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(elementType, Database.Options)),
                 constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
                 bodyColumns: hasClientMember ? bodyTranslator.Visitor.TableColumns : null,
                 bodySelects: hasClientMember ? bodyTranslator.Selects : null,
-                emittedColumns: CteColumnMapper.EmittedColumnNames(bodyColumnNames, bodyTranslator.Selects));
+                emittedColumns: CteColumnMapper.EmittedColumnNames(bodyColumnNames, bodyTranslator.Selects),
+                optionalRow: bodyTranslator.Visitor.OptionalRowColumns.Contains(bodyTranslator.Visitor.TableColumns),
+                optionalRowPaths: bodyTranslator.Visitor.OptionalRowPaths.TryGetValue(bodyTranslator.Visitor.TableColumns, out HashSet<string>? bodyOptionalPaths)
+                    ? bodyOptionalPaths
+                    : null);
         }
 
         From = SQLiteExpression.Leaf(elementType, -1, $"{cteName} AS {alias}");

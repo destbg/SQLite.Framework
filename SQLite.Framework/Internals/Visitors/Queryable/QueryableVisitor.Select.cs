@@ -78,8 +78,16 @@ internal partial class QueryableVisitor
             visitor.TableColumns = PreviousSelectSourceColumns!;
         }
 
-        PreviousSelectLambda = lambda;
-        PreviousSelectSourceColumns = visitor.TableColumns;
+        if (database.Options.SelectMaterializers.Count > 0 && flattenedBody != null && !flattenAdopted)
+        {
+            PreviousSelectLambda = Expression.Lambda(flattenedBody, PreviousSelectLambda!.Parameters);
+        }
+        else
+        {
+            PreviousSelectLambda = lambda;
+            PreviousSelectSourceColumns = visitor.TableColumns;
+        }
+
         visitor.IsInSelectProjection = true;
         visitor.ClientEvalAllowed = !IsInnerQuery;
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(lambda);
@@ -136,7 +144,8 @@ internal partial class QueryableVisitor
             }
 
             List<PropertyInfo> properties = visitor.TableColumns
-                .Select(tableColumn => lambda.Body.Type.GetProperty(tableColumn.Key)!)
+                .Select(tableColumn => lambda.Body.Type.GetProperty(tableColumn.Key))
+                .OfType<PropertyInfo>()
                 .ToList();
 
             ConstructorInfo constructor = lambda.Body.Type.GetConstructors()[0];
@@ -374,6 +383,12 @@ internal partial class QueryableVisitor
         bool isProjection = resultSelector.Body is NewExpression or MemberInitExpression;
         bool isScalarSelector = resultSelector.Body is not (NewExpression or MemberInitExpression or ParameterExpression or MemberExpression);
 
+        if (isProjection || isScalarSelector)
+        {
+            JoinSelectExpression = null;
+            Selects.Clear();
+        }
+
         if ((isProjection || isScalarSelector) && database.Options.SelectMaterializers.Count > 0)
         {
             RawSelectSignature = SelectSignature.Compute(resultSelector.Body);
@@ -398,6 +413,11 @@ internal partial class QueryableVisitor
 
             visitor.IsInSelectProjection = false;
             visitor.ClientEvalAllowed = false;
+            if (ContainsClientCall(decomposed))
+            {
+                LastSelectIsClient = true;
+                ClientProjection = true;
+            }
         }
 
         return node;

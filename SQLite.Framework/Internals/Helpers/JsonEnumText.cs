@@ -7,16 +7,6 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class JsonEnumText
 {
-    public static object? NormalizeInValue(SQLiteOptions options, bool isJsonSource, object? value)
-    {
-        if (isJsonSource && TryFormat(options, value, out string? text))
-        {
-            return text;
-        }
-
-        return value;
-    }
-
     public static bool IsStringStored(SQLiteOptions options, Type enumType)
     {
         enumType = Nullable.GetUnderlyingType(enumType) ?? enumType;

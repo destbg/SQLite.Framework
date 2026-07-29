@@ -11,13 +11,13 @@ public class AuditingTable : SQLiteTable<SubclassedTableEntity>
 
     public int AddCallCount { get; private set; }
 
-    protected override int InsertItem(TableColumn[] columns, string sql, SubclassedTableEntity item, bool detectInsertByRowIdChange = false)
+    protected internal override int InsertItem(TableColumn[] columns, string sql, SubclassedTableEntity item, bool detectInsertByRowIdChange = false)
     {
         AddCallCount++;
         return base.InsertItem(columns, sql, item, detectInsertByRowIdChange);
     }
 
-    protected override int AddOrRemoveItem(TableColumn[] columns, string sql, SubclassedTableEntity item)
+    protected internal override int AddOrRemoveItem(TableColumn[] columns, string sql, SubclassedTableEntity item)
     {
         AddCallCount++;
         return base.AddOrRemoveItem(columns, sql, item);

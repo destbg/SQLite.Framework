@@ -27,6 +27,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private TaskCompletionSource? readGateTcs;
     private long commandIds;
     private string? pendingForcedSavepoint;
+    private bool pendingForcedRollback;
 
 #if SQLITE_FRAMEWORK_TESTING
     private long entityMaterializerHits;
@@ -167,7 +168,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     /// </summary>
     internal bool MigrationInProgress { get; set; }
 
-    internal int RollbackGeneration { get; private set; }
+    internal long NativeRollbackCount { get; private set; }
 
     /// <summary>
     /// Builds migration classes for <see cref="SQLiteMigrationRunner.Add{T}" />. Set by the
@@ -1182,23 +1183,27 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         pendingForcedSavepoint = rollbackResult != raw.SQLITE_OK || releaseResult != raw.SQLITE_OK
             ? savepointName
             : null;
-    }
-
-    internal void NoteRollback()
-    {
-        RollbackGeneration++;
+        pendingForcedRollback = rollbackResult != raw.SQLITE_OK;
     }
 
     internal void CompletePendingSavepointCleanup()
     {
         string? pending = pendingForcedSavepoint;
+        bool needsRollback = pendingForcedRollback;
         pendingForcedSavepoint = null;
+        pendingForcedRollback = false;
         if (pending == null || Handle == null || raw.sqlite3_get_autocommit(Handle) == 1)
         {
             return;
         }
 
-        ForceSavepointRollback(pending);
+        if (needsRollback)
+        {
+            ForceSavepointRollback(pending);
+            return;
+        }
+
+        raw.sqlite3_exec(GetActiveHandle(), $"RELEASE {pending}");
     }
 
     internal Task WaitForActiveTransactionsAsync(CancellationToken cancellationToken = default)
@@ -1331,7 +1336,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         Type elementType = expression.Type;
         SQLiteCommand cmd = CreateCommand(query.Sql, query.Parameters);
 
-        if (query.ClientDistinct)
+        if (query.ClientDistinct || query.ClientCountSemantic)
         {
             MethodCallExpression terminalCall = (MethodCallExpression)expression;
             Type sequenceElementType = TypeHelpers.GetEnumerableElementType(terminalCall.Arguments[0].Type)!;
@@ -1487,6 +1492,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         raw.sqlite3_prepare_v2(Handle, fkPragma, out sqlite3_stmt fkStmt);
         raw.sqlite3_step(fkStmt);
         raw.sqlite3_finalize(fkStmt);
+
+        raw.sqlite3_rollback_hook(Handle, static state => ((SQLiteDatabase)state!).NativeRollbackCount++, this);
 
         IsConnected = true;
         try

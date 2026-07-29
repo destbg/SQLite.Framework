@@ -132,7 +132,7 @@ internal static class ReflectionMaterializerCache
     private static Action<sqlite3_stmt, int, object> MakeIntAssigner<TInstance>(MethodInfo setMethod) where TInstance : class
     {
         Action<TInstance, int> setter = setMethod.CreateDelegate<Action<TInstance, int>>();
-        return (stmt, idx, instance) => setter((TInstance)instance, raw.sqlite3_column_int(stmt, idx));
+        return (stmt, idx, instance) => setter((TInstance)instance, checked((int)raw.sqlite3_column_int64(stmt, idx)));
     }
 
     private static Action<sqlite3_stmt, int, object> MakeLongAssigner<TInstance>(MethodInfo setMethod) where TInstance : class
@@ -150,7 +150,10 @@ internal static class ReflectionMaterializerCache
     private static Action<sqlite3_stmt, int, object> MakeBoolAssigner<TInstance>(MethodInfo setMethod) where TInstance : class
     {
         Action<TInstance, bool> setter = setMethod.CreateDelegate<Action<TInstance, bool>>();
-        return (stmt, idx, instance) => setter((TInstance)instance, raw.sqlite3_column_int(stmt, idx) != 0);
+        return (stmt, idx, instance) => setter((TInstance)instance,
+            raw.sqlite3_column_type(stmt, idx) == raw.SQLITE_FLOAT
+                ? raw.sqlite3_column_double(stmt, idx) != 0
+                : raw.sqlite3_column_int64(stmt, idx) != 0);
     }
 
     private static Action<sqlite3_stmt, int, object> MakeStringAssigner<TInstance>(MethodInfo setMethod) where TInstance : class

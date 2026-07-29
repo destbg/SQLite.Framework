@@ -20,7 +20,9 @@ public readonly struct SQLiteLockAwaiter : ICriticalNotifyCompletion
         if (database.HoldsConnectionLock)
         {
             isReentrant = true;
-            acquireTask = Task.CompletedTask;
+            acquireTask = cancellationToken.IsCancellationRequested
+                ? Task.FromCanceled(cancellationToken)
+                : Task.CompletedTask;
             return;
         }
 

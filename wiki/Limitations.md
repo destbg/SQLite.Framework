@@ -188,7 +188,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Chaining a second `Select` that reads a member set through the constructor of an object built with both constructor arguments and an object initializer, such as `Select(r => new Dto(a) { Note = b }).Select(d => d.A)`, is not supported and throws.
 - An `object`-typed member read back through a conditional projection can carry the storage type, so a boxed `int` can read back as a boxed `long`.
 - A member of a nested object built by a projection cannot be read after `Take`, `Skip` or `Distinct` when the projection runs in memory. The wrapped subquery exposes only plain columns.
-- A member that a projected object's constructor computes, such as `Doubled` set to `x * 2` inside the constructor body, reads back correctly in a `Select` but cannot be used in a `Where` and throws. The database never sees the value the constructor computes.
+- A member that a projected object's constructor computes, such as `Doubled` set to `x * 2` inside the constructor body, reads back correctly in a `Select` but cannot be used in a `Where` and throws. The database never sees the value the constructor computes. The same holds for any other member of an object built by a constructor that takes arguments, including a member left at its property initializer value.
 - Calling `GetType` on a value that is `null` throws a different error than LINQ-to-Objects.
 
 ## Schema
@@ -199,6 +199,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Auto-increment is only allowed on a single-column `INTEGER PRIMARY KEY`. Marking a key of another type, such as a `string` key, as auto-increment throws when the table is created.
 - Migrating a column from nullable to NOT NULL fails when existing rows hold `NULL` and the column has no default. When the column has a default, the existing `NULL` rows are filled with that default.
 - Adding a column with a default value through `AddColumn` does not apply a custom converter's `ParameterSqlExpression` write wrap to that default, because SQLite's `ALTER TABLE ADD COLUMN` only accepts a constant default, not an expression. For a converter whose `ParameterSqlExpression` transforms the value (rather than the built-in `jsonb`, which reads back through `json()` either way), the backfilled default is stored unwrapped and reads back wrong.
+- Changing a storage mode option, such as `DecimalStorage`, `CharStorage` or a date or time storage mode, does not re-encode existing rows. A migration rebuild copies each stored value as it is, so a filter that binds the new form does not match the old rows until a data step rewrites them. An enum column moved between `Integer` and `Text` storage is re-encoded during the rebuild, except a `[Flags]` enum, which keeps its stored numbers.
 - A table rebuild fails when a referencing table holds rows that violate its foreign key. The rebuild moves the referencing rows out and back in while foreign keys stay enforced. SQLite rejects the violating rows on the way back.
 
 ## Writes
@@ -206,6 +207,11 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - An `Upsert` that inserts a row writes the new auto-increment key back to the object only when the new row id differs from the last inserted row id on the connection. An earlier insert, even into another table, that already left the same id stops the write-back.
 - An `Upsert` with a `DoUpdate` action always writes the object's value for every column, even one left at its CLR default that has a database `DEFAULT`. This is needed so a conflict updates the row to the incoming value through `excluded`. So a fresh insert through `DoUpdate` stores the CLR default rather than the database default, unlike `Add`, `AddOrUpdate` or an `Upsert` with `DoNothing`.
 - `AddOrUpdate` and `AddOrUpdateRange` run `INSERT OR REPLACE` by default. On a key conflict SQLite deletes the old row and inserts a new one, so with foreign keys on, an `ON DELETE CASCADE` action removes the rows that reference the replaced row and `ON DELETE SET NULL` clears their references. `Update` and an `Upsert` with `DoUpdate` change the row in place and keep the referencing rows.
+- `InsertFromQuery` over a set operation such as `Concat` or `Union` needs every branch to project the same members in the same order. SQLite matches the branch values by position, so branches that set different members would silently write a value into the wrong column. The framework throws `NotSupportedException` instead.
+
+## Dependency injection
+
+- Registering a database subclass with `AddSQLiteDatabase` also registers the base `SQLiteDatabase` service for the same instance. The container tracks each service registration on its own, so when both services were resolved it calls `Dispose` on the one instance twice when the scope or provider is disposed. A `Dispose` override must stay safe to call twice.
 
 ## Raw SQL
 

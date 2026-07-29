@@ -33,6 +33,19 @@ internal static class CharMemberVisitor
             SQLiteExpression a0t = integerChar
                 ? SQLiteExpression.Wrap(typeof(char), visitor.Counters.NextIdentifier(), "CHAR(", a0, ")", null)
                 : a0;
+            if (node.Method.Name == nameof(char.IsWhiteSpace)
+                && node.Arguments.Count == 2
+                && node.Arguments[0].Type == typeof(string)
+                && arguments[1].SQLiteExpression is { } indexExpr)
+            {
+                SQLiteParameter[]? charAtParameters = ParameterHelpers.CombineParameters(a0, indexExpr);
+                SQLiteExpression charAt = SQLiteExpression.Binary(typeof(string), visitor.Counters.NextIdentifier(),
+                    "SUBSTR(", a0, ", ", indexExpr, " + 1, 1)", charAtParameters);
+                return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(),
+                    ["(TRIM(", $", {Constants.WhitespaceChars}) = '' AND ", " != '')"],
+                    [charAt, charAt], charAtParameters);
+            }
+
             switch (node.Method.Name)
             {
                 case nameof(char.ToLower) when node.Arguments.Count == 1:

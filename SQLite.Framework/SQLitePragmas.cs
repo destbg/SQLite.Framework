@@ -73,7 +73,15 @@ public class SQLitePragmas
     public virtual SQLiteSynchronousMode SynchronousMode
     {
         get => (SQLiteSynchronousMode)Database.ExecuteScalar<int>("PRAGMA synchronous");
-        set => Database.Execute($"PRAGMA synchronous = {(int)value}");
+        set
+        {
+            if (value is not (SQLiteSynchronousMode.Off or SQLiteSynchronousMode.Normal or SQLiteSynchronousMode.Full or SQLiteSynchronousMode.Extra))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown synchronous mode.");
+            }
+
+            Database.Execute($"PRAGMA synchronous = {(int)value}");
+        }
     }
 
     /// <summary>
@@ -153,7 +161,15 @@ public class SQLitePragmas
     public virtual SQLiteAutoVacuumMode AutoVacuum
     {
         get => (SQLiteAutoVacuumMode)Database.ExecuteScalar<int>("PRAGMA auto_vacuum");
-        set => Database.Execute($"PRAGMA auto_vacuum = {(int)value}");
+        set
+        {
+            if (value is not (SQLiteAutoVacuumMode.None or SQLiteAutoVacuumMode.Full or SQLiteAutoVacuumMode.Incremental))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown auto vacuum mode.");
+            }
+
+            Database.Execute($"PRAGMA auto_vacuum = {(int)value}");
+        }
     }
 
     /// <summary>

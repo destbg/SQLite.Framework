@@ -132,9 +132,7 @@ internal static class ExpressionHelpers
         return node switch
         {
             ConstantExpression ce => ce.Value,
-            MemberExpression me => me.Member is FieldInfo fi
-                ? (me.Expression != null ? fi.GetValue(GetConstantValue(me.Expression)) : fi.GetValue(null))
-                : ((PropertyInfo)me.Member).GetValue(me.Expression != null ? GetConstantValue(me.Expression) : null),
+            MemberExpression me => ReadMemberValue(me),
             UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked, Method: not null } ue =>
                 ConvertThroughOperator(ue),
             UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } ue => ConvertConstant(GetConstantValue(ue.Operand), ue.Type, ue.NodeType == ExpressionType.ConvertChecked),
@@ -269,7 +267,32 @@ internal static class ExpressionHelpers
     {
         object? target = GetConstantValue(node.Object!);
         object?[] arguments = [.. node.Arguments.Select(GetConstantValue)];
-        return node.Method.Invoke(target, arguments);
+        try
+        {
+            return node.Method.Invoke(target, arguments);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            throw ex.InnerException;
+        }
+    }
+
+    private static object? ReadMemberValue(MemberExpression me)
+    {
+        object? target = me.Expression != null ? GetConstantValue(me.Expression) : null;
+        if (me.Member is FieldInfo fi)
+        {
+            return fi.GetValue(target);
+        }
+
+        try
+        {
+            return ((PropertyInfo)me.Member).GetValue(target);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            throw ex.InnerException;
+        }
     }
 
     private static object? EvaluateUnary(UnaryExpression node)
@@ -334,6 +357,11 @@ internal static class ExpressionHelpers
     {
         if (value is null)
         {
+            if (targetType.IsValueType && Nullable.GetUnderlyingType(targetType) == null)
+            {
+                throw new InvalidOperationException("Nullable object must have a value.");
+            }
+
             return null;
         }
 
@@ -433,7 +461,14 @@ internal static class ExpressionHelpers
         }
 
         object?[] args = newExpression.Arguments.Select(GetConstantValue).ToArray();
-        return newExpression.Constructor.Invoke(args);
+        try
+        {
+            return newExpression.Constructor.Invoke(args);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            throw ex.InnerException;
+        }
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "The element type comes from a user array literal and is already rooted.")]
@@ -463,7 +498,14 @@ internal static class ExpressionHelpers
         foreach (ElementInit init in listInit.Initializers)
         {
             object?[] args = init.Arguments.Select(GetConstantValue).ToArray();
-            init.AddMethod.Invoke(instance, args);
+            try
+            {
+                init.AddMethod.Invoke(instance, args);
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException != null)
+            {
+                throw ex.InnerException;
+            }
         }
 
         return instance;

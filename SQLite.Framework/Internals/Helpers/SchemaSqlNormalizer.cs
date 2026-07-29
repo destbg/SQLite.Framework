@@ -111,6 +111,8 @@ internal static class SchemaSqlNormalizer
         }
 
         RemoveExistsClause(tokens);
+        RemoveForEachRowClause(tokens);
+        RemoveMainSchemaQualifiers(tokens);
         return tokens;
     }
 
@@ -170,6 +172,35 @@ internal static class SchemaSqlNormalizer
                 return;
             }
         }
+    }
+
+    private static void RemoveForEachRowClause(List<string> tokens)
+    {
+        for (int i = 0; i + 2 < tokens.Count; i++)
+        {
+            if (tokens[i] == "for" && tokens[i + 1] == "each" && tokens[i + 2] == "row")
+            {
+                tokens.RemoveRange(i, 3);
+                return;
+            }
+        }
+    }
+
+    private static void RemoveMainSchemaQualifiers(List<string> tokens)
+    {
+        for (int i = tokens.Count - 2; i >= 2; i--)
+        {
+            if (tokens[i] == "." && tokens[i - 1] == "main" && IsSchemaKeyword(tokens[i - 2]))
+            {
+                tokens.RemoveRange(i - 1, 2);
+            }
+        }
+    }
+
+    private static bool IsSchemaKeyword(string token)
+    {
+        return token is "from" or "into" or "on" or "update" or "join" or "table"
+            or "index" or "trigger" or "view" or "references";
     }
 
     private static int FindClosingQuote(string sql, int start)

@@ -84,7 +84,8 @@ internal static class NumericMemberVisitor
 
                 if (node.Object!.Type == typeof(decimal) && visitor.Database.Options.DecimalStorage == DecimalStorageMode.Text)
                 {
-                    return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", obj.SQLiteExpression!, " AS TEXT)", obj.Parameters);
+                    SQLiteExpression textSource = visitor.UnwrapDecimalCast(obj.SQLiteExpression!);
+                    return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "CAST(", textSource, " AS TEXT)", textSource.Parameters);
                 }
 
                 return BuildRealToString(visitor, node.Method.ReturnType, obj.SQLiteExpression!);

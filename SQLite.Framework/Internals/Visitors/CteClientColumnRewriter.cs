@@ -8,8 +8,10 @@ namespace SQLite.Framework.Internals.Visitors;
 internal sealed class CteClientColumnRewriter : SelectVisitor
 {
     private readonly Dictionary<string, string> outerNameBySelectSql;
+    private readonly Dictionary<string, string> bodyIdentifierMap;
     private readonly string alias;
     private readonly SQLiteCounters counters;
+    private bool seeding;
 
     public CteClientColumnRewriter(IReadOnlyList<SQLiteExpression> selects, string[]? columnNames, string alias, SQLiteCounters counters)
         : base([])
@@ -17,12 +19,21 @@ internal sealed class CteClientColumnRewriter : SelectVisitor
         this.alias = alias;
         this.counters = counters;
         outerNameBySelectSql = new Dictionary<string, string>(StringComparer.Ordinal);
+        bodyIdentifierMap = new Dictionary<string, string>(StringComparer.Ordinal);
+        Dictionary<string, string> selectIdentifierMap = new(StringComparer.Ordinal);
         for (int i = 0; i < selects.Count; i++)
         {
             SQLiteExpression select = selects[i];
             SQLiteExpression inner = select is AliasSqlExpression aliasSelect ? aliasSelect.Inner : select;
-            outerNameBySelectSql.TryAdd(CteSqlCanonicalizer.Canonicalize(inner), columnNames != null ? columnNames[i] : select.IdentifierText);
+            outerNameBySelectSql.TryAdd(CteSqlCanonicalizer.Canonicalize(inner, selectIdentifierMap), columnNames != null ? columnNames[i] : select.IdentifierText);
         }
+    }
+
+    public void Seed(Expression expression)
+    {
+        seeding = true;
+        Visit(expression);
+        seeding = false;
     }
 
     public Expression Rewrite(Expression expression)
@@ -32,7 +43,13 @@ internal sealed class CteClientColumnRewriter : SelectVisitor
 
     public override Expression VisitSQLExpression(SQLiteExpression node)
     {
-        if (outerNameBySelectSql.TryGetValue(CteSqlCanonicalizer.Canonicalize(node), out string? outerName))
+        if (seeding)
+        {
+            CteSqlCanonicalizer.Canonicalize(node, bodyIdentifierMap);
+            return node;
+        }
+
+        if (outerNameBySelectSql.TryGetValue(CteSqlCanonicalizer.Canonicalize(node, bodyIdentifierMap), out string? outerName))
         {
             SQLiteExpression leaf = SQLiteExpression.Leaf(node.Type, counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(outerName)}");
             if (node.IsDayOfWeekInteger)

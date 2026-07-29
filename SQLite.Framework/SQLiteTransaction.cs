@@ -6,7 +6,7 @@ namespace SQLite.Framework;
 public class SQLiteTransaction : IDisposable, IAsyncDisposable
 {
     private readonly bool ownsLock;
-    private readonly int rollbackGeneration;
+    private readonly long nativeRollbackCount;
     private bool completed;
     private bool disposed;
 
@@ -18,7 +18,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         Database = database;
         SavepointName = savepointName;
         this.ownsLock = ownsLock;
-        rollbackGeneration = database.RollbackGeneration;
+        nativeRollbackCount = database.NativeRollbackCount;
     }
 
     /// <summary>
@@ -55,7 +55,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
-            if (rollbackGeneration == Database.RollbackGeneration && !Database.InOpenTransaction)
+            if (nativeRollbackCount != Database.NativeRollbackCount)
             {
                 throw new InvalidOperationException(
                     "The transaction was already rolled back by SQLite. A conflict resolution of Rollback " +
@@ -95,7 +95,6 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
-            Database.NoteRollback();
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
@@ -131,7 +130,6 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
-            Database.NoteRollback();
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {

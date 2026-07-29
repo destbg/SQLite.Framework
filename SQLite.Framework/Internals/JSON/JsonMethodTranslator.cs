@@ -277,9 +277,16 @@ internal static class JsonMethodTranslator
                 return SQLiteExpression.Alias(node.Type, visitor.Counters.NextIdentifier(), nameText, nameText.Parameters).WithJsonSource();
             }
 
+            Type? sourceElement = TypeHelpers.GetEnumerableElementType(source.SQLiteExpression.Type);
+            bool dictionaryEntries = sourceElement is { IsGenericType: true }
+                && sourceElement.GetGenericTypeDefinition() == typeof(KeyValuePair<,>);
+
             string arrayElem = BoolArrayElement(source.SQLiteExpression.Type, visitor.Database.Options);
             string? sql = node.Method.Name switch
             {
+                nameof(Enumerable.Any) when dictionaryEntries => $"EXISTS(SELECT 1 FROM json_each({src}))",
+                nameof(Enumerable.Count) or nameof(Enumerable.LongCount) when dictionaryEntries =>
+                    $"(SELECT COUNT(*) FROM json_each({src}))",
                 nameof(Enumerable.Any) => $"json_array_length({src}) > 0",
                 nameof(Enumerable.Count) or nameof(Enumerable.LongCount) => $"json_array_length({src})",
                 nameof(Enumerable.First) or nameof(Enumerable.FirstOrDefault) => $"json_extract({src}, '$[0]')",

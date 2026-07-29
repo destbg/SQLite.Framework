@@ -52,7 +52,7 @@ internal static class BareSqlTranslator
 
     private static Dictionary<string, Expression> RowColumns(SQLVisitor visitor, ParameterExpression parameter, TableMapping mapping, string? prefix, bool wrapConverterReads)
     {
-        visitor.RowColumnPrefixes[parameter] = prefix;
+        visitor.RowColumnPrefixes[parameter] = new RowColumnBinding(prefix, wrapConverterReads);
         return mapping.Columns.ToDictionary(
             c => c.PropertyInfo.Name,
             Expression (c) => SQLiteExpression.Leaf(c.PropertyType, visitor.Counters.NextIdentifier(), ColumnSql(visitor, c, prefix, wrapConverterReads)));

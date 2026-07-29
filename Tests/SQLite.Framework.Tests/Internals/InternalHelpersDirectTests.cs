@@ -384,15 +384,12 @@ public class InternalHelpersDirectTests
 #endif
 
     [Fact]
-    public void QueryableVisitor_SecondDistinctAfterAReverse_KeepsTheFirstMove()
+    public void QueryableVisitor_ReverseBeforeTheFirstDistinct_MovesBeforeDistinct()
     {
         using TestDatabase db = new();
         QueryableVisitor visitor = new(db, new SQLVisitor(db, new SQLiteCounters(), 0));
         Expression<Func<IQueryable<int>, IQueryable<int>>> distinct = s => s.Distinct();
         Expression<Func<IQueryable<int>, IQueryable<int>>> reverse = s => s.Reverse();
-
-        visitor.Visit((MethodCallExpression)distinct.Body);
-        Assert.False(visitor.ReverseBeforeDistinct);
 
         visitor.Visit((MethodCallExpression)reverse.Body);
         visitor.Visit((MethodCallExpression)distinct.Body);
@@ -405,6 +402,24 @@ public class InternalHelpersDirectTests
 
         Assert.True(visitor.Reverse);
         Assert.True(visitor.ReverseBeforeDistinct);
+    }
+
+    [Fact]
+    public void QueryableVisitor_ReverseBeforeASecondDistinct_StaysATrailingReverse()
+    {
+        using TestDatabase db = new();
+        QueryableVisitor visitor = new(db, new SQLVisitor(db, new SQLiteCounters(), 0));
+        Expression<Func<IQueryable<int>, IQueryable<int>>> distinct = s => s.Distinct();
+        Expression<Func<IQueryable<int>, IQueryable<int>>> reverse = s => s.Reverse();
+
+        visitor.Visit((MethodCallExpression)distinct.Body);
+        Assert.False(visitor.ReverseBeforeDistinct);
+
+        visitor.Visit((MethodCallExpression)reverse.Body);
+        visitor.Visit((MethodCallExpression)distinct.Body);
+
+        Assert.True(visitor.Reverse);
+        Assert.False(visitor.ReverseBeforeDistinct);
     }
 
     [Fact]
@@ -563,12 +578,23 @@ public class InternalHelpersDirectTests
     [Fact]
     public void QueryCompilerVisitor_VisitUnary_DefaultArm_Throws()
     {
-        UnaryExpression node = Expression.ArrayLength(Expression.Constant(new[] { 1, 2, 3 }));
+        UnaryExpression node = Expression.UnaryPlus(Expression.Constant(3));
         QueryCompilerVisitor visitor = new(CompilerOptions);
         CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
 
         SQLiteQueryContext ctx = new();
         Assert.Throws<NotSupportedException>(() => compiled.Call(ctx));
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitUnary_ArrayLength_ReturnsLength()
+    {
+        UnaryExpression node = Expression.ArrayLength(Expression.Constant(new[] { 1, 2, 3 }));
+        QueryCompilerVisitor visitor = new(CompilerOptions);
+        CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
+
+        SQLiteQueryContext ctx = new();
+        Assert.Equal(3, compiled.Call(ctx));
     }
 
     [Fact]
@@ -1349,7 +1375,7 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
-    public void SQLVisitor_ResolveExpression_ConvertWrappingEnumConstant_KeepsEnum()
+    public void SQLVisitor_ResolveExpression_ConvertWrappingEnumConstant_FoldsToNumber()
     {
         using TestDatabase db = new();
         SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
@@ -1358,7 +1384,7 @@ public class InternalHelpersDirectTests
 
         ResolvedModel resolved = sqlVisitor.ResolveExpression(convert);
         Assert.True(resolved.IsConstant);
-        Assert.Equal(DayOfWeek.Monday, resolved.Constant);
+        Assert.Equal(1, resolved.Constant);
     }
 
     [Fact]
@@ -1790,38 +1816,344 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
-    public void JsonEnumText_NormalizeInValue_NonJsonSource_ReturnsValueUnchanged()
+    public void JsonValueText_NormalizeInValue_NonJsonSource_ReturnsValueUnchanged()
     {
         SQLiteOptions options = new SQLiteOptionsBuilder($"json-enum-norm-plain-{Guid.NewGuid():N}.db3")
             .AddJsonContext(JselContext.Default)
             .Build();
 
-        object? result = JsonEnumText.NormalizeInValue(options, isJsonSource: false, JselState.Active);
+        object? result = JsonValueText.NormalizeInValue(options, isJsonSource: false, JselState.Active);
 
         Assert.Equal(JselState.Active, result);
     }
 
     [Fact]
-    public void JsonEnumText_NormalizeInValue_JsonSourceStringEnum_ReturnsMemberName()
+    public void JsonValueText_NormalizeInValue_JsonSourceStringEnum_ReturnsMemberName()
     {
         SQLiteOptions options = new SQLiteOptionsBuilder($"json-enum-norm-name-{Guid.NewGuid():N}.db3")
             .AddJsonContext(JselContext.Default)
             .Build();
 
-        object? result = JsonEnumText.NormalizeInValue(options, isJsonSource: true, JselState.Active);
+        object? result = JsonValueText.NormalizeInValue(options, isJsonSource: true, JselState.Active);
 
         Assert.Equal("Active", result);
     }
 
     [Fact]
-    public void JsonEnumText_NormalizeInValue_JsonSourceWithoutTypeInfo_ReturnsValueUnchanged()
+    public void JsonValueText_NormalizeInValue_JsonSourceWithoutTypeInfo_ReturnsValueUnchanged()
     {
         SQLiteOptions options = new SQLiteOptionsBuilder($"json-enum-norm-num-{Guid.NewGuid():N}.db3").Build();
 
-        object? result = JsonEnumText.NormalizeInValue(options, isJsonSource: true, DayOfWeek.Monday);
+        object? result = JsonValueText.NormalizeInValue(options, isJsonSource: true, DayOfWeek.Monday);
 
         Assert.Equal(DayOfWeek.Monday, result);
     }
+
+    [Fact]
+    public void JsonValueText_NormalizeInValue_JsonSourceTemporal_ReturnsJsonText()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder($"json-temporal-norm-{Guid.NewGuid():N}.db3").Build();
+
+        object? result = JsonValueText.NormalizeInValue(options, isJsonSource: true, new DateOnly(2024, 5, 6));
+
+        Assert.Equal("2024-05-06", result);
+    }
+
+    [Theory]
+    [InlineData("from")]
+    [InlineData("into")]
+    [InlineData("on")]
+    [InlineData("update")]
+    [InlineData("join")]
+    [InlineData("table")]
+    [InlineData("index")]
+    [InlineData("trigger")]
+    [InlineData("view")]
+    [InlineData("references")]
+    public void SchemaSqlNormalizer_MainQualifierAfterSchemaKeyword_IsNeutral(string keyword)
+    {
+        Assert.True(SchemaSqlNormalizer.AreEquivalent($"x {keyword} \"a\"", $"x {keyword} \"main\".\"a\""));
+    }
+
+    [Fact]
+    public void SchemaSqlNormalizer_MainQualifierAfterOtherWord_StaysDifferent()
+    {
+        Assert.False(SchemaSqlNormalizer.AreEquivalent("select \"a\"", "select \"main\".\"a\""));
+    }
+
+    [Fact]
+    public void CteSqlCanonicalizer_SharedIdentifierMap_ReusesExistingEntries()
+    {
+        Dictionary<string, string> map = new(StringComparer.Ordinal);
+        SQLiteExpression first = SQLiteExpression.Leaf(typeof(int), 0, "SELECT h0.\"A\" FROM \"T\" AS h0");
+        SQLiteExpression second = SQLiteExpression.Leaf(typeof(int), 1, "SELECT h0.\"A\" FROM \"T\" AS h0");
+
+        string canonicalFirst = CteSqlCanonicalizer.Canonicalize(first, map);
+        string canonicalSecond = CteSqlCanonicalizer.Canonicalize(second, map);
+
+        Assert.Equal(canonicalFirst, canonicalSecond);
+        Assert.NotEmpty(map);
+    }
+
+    [Fact]
+    public void SQLVisitor_IsSingleLeafColumn_CaseInsensitiveMatchAfterOtherEntries_ReturnsTrue()
+    {
+        MethodInfo method = typeof(SQLVisitor).GetMethod("IsSingleLeafColumn", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Dictionary<string, Expression> columns = new()
+        {
+            ["Other"] = SQLiteExpression.Leaf(typeof(int), 0, "o"),
+            ["TOTAL"] = SQLiteExpression.Leaf(typeof(int), 1, "t"),
+        };
+
+        bool result = (bool)method.Invoke(null, [columns, "Total", typeof(DirectGetOnlyHolder)])!;
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void SQLVisitor_IsSingleLeafColumn_CaseInsensitiveMatchOnClientValue_ReturnsFalse()
+    {
+        MethodInfo method = typeof(SQLVisitor).GetMethod("IsSingleLeafColumn", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Dictionary<string, Expression> columns = new()
+        {
+            ["TOTAL"] = Expression.Constant(1),
+        };
+
+        bool result = (bool)method.Invoke(null, [columns, "Total", typeof(DirectGetOnlyHolder)])!;
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void SQLVisitor_HasConstructedBase_FindsConditionalBase()
+    {
+        MethodInfo method = typeof(SQLVisitor).GetMethod("HasConstructedBase", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Dictionary<string, Expression> columns = new()
+        {
+            ["A"] = Expression.Condition(Expression.Constant(true), Expression.Constant(1), Expression.Constant(2)),
+        };
+
+        Assert.True((bool)method.Invoke(null, [columns, "A.B.C"])!);
+    }
+
+    [Fact]
+    public void SQLVisitor_HasConstructedBase_NonConditionalBase_ReturnsFalse()
+    {
+        MethodInfo method = typeof(SQLVisitor).GetMethod("HasConstructedBase", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Dictionary<string, Expression> columns = new()
+        {
+            ["A.B"] = Expression.Constant(1),
+        };
+
+        Assert.False((bool)method.Invoke(null, [columns, "A.B.C"])!);
+    }
+
+    [Fact]
+    public void CteColumnMapper_BuildDeclaredBodyLeaf_JsonSourceCarriesTheFlag()
+    {
+        SQLiteExpression source = SQLiteExpression.Leaf(typeof(DateTime), 0, "j").WithJsonSource();
+
+        SQLiteExpression leaf = CteColumnMapper.BuildDeclaredBodyLeaf(source, "First", "c0", new SQLiteCounters());
+
+        Assert.True(leaf.IsJsonSource);
+    }
+
+    [Fact]
+    public void CteColumnMapper_BuildDeclaredBodyLeaf_PlainColumnStaysUnflagged()
+    {
+        SQLiteExpression source = SQLiteExpression.Leaf(typeof(int), 0, "c");
+
+        SQLiteExpression leaf = CteColumnMapper.BuildDeclaredBodyLeaf(source, "Id", "c0", new SQLiteCounters());
+
+        Assert.False(leaf.IsJsonSource);
+    }
+
+    [Fact]
+    public void CteColumnMapper_BuildDeclaredBodyLeaf_ClientValueStaysUnflagged()
+    {
+        SQLiteExpression leaf = CteColumnMapper.BuildDeclaredBodyLeaf(Expression.Constant(5), "C", "c0", new SQLiteCounters());
+
+        Assert.False(leaf.IsJsonSource);
+    }
+
+    [Fact]
+    public void CteSqlCanonicalizer_WithoutSharedMap_RenumbersIdentifiers()
+    {
+        SQLiteExpression node = SQLiteExpression.Leaf(typeof(int), 0, "SELECT h0.\"A\" FROM \"T\" AS h0");
+
+        string canonical = CteSqlCanonicalizer.Canonicalize(node);
+
+        Assert.Contains("?i0", canonical);
+    }
+
+    [Fact]
+    public void SQLVisitor_HasConstructedBase_NoBaseEntry_ReturnsFalse()
+    {
+        MethodInfo method = typeof(SQLVisitor).GetMethod("HasConstructedBase", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Dictionary<string, Expression> columns = new()
+        {
+            ["X"] = Expression.Constant(1),
+        };
+
+        Assert.False((bool)method.Invoke(null, [columns, "A.B"])!);
+    }
+
+    [Fact]
+    public void SQLVisitor_UnwrapDecimalCast_SkipsNonMatchingEntriesAndFindsTheSource()
+    {
+        using TestDatabase db = new(nameof(SQLVisitor_UnwrapDecimalCast_SkipsNonMatchingEntriesAndFindsTheSource));
+        SQLVisitor visitor = new(db, new SQLiteCounters(), 0);
+        SQLiteExpression other = SQLiteExpression.Leaf(typeof(decimal), 0, "o");
+        SQLiteExpression amount = SQLiteExpression.Leaf(typeof(decimal), 1, "a");
+        visitor.InternDecimalCast(other);
+        SQLiteExpression amountCast = visitor.InternDecimalCast(amount);
+
+        Assert.Same(amount, visitor.UnwrapDecimalCast(amountCast));
+        Assert.Same(other, visitor.UnwrapDecimalCast(other));
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_TypeAsOverNull_ReturnsNull()
+    {
+        UnaryExpression node = Expression.TypeAs(Expression.Constant(null, typeof(object)), typeof(string));
+        QueryCompilerVisitor visitor = new(CompilerOptions);
+        CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
+
+        Assert.Null(compiled.Call(new SQLiteQueryContext()));
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_PlainConvertOverNull_ReturnsNull()
+    {
+        UnaryExpression node = Expression.Convert(Expression.Constant(null, typeof(int?)), typeof(long?));
+        QueryCompilerVisitor visitor = new(CompilerOptions);
+        CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
+
+        Assert.Null(compiled.Call(new SQLiteQueryContext()));
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_ConvertChecked_WithConversionOperator_InvokesIt()
+    {
+        MethodInfo conversion = typeof(H24lMoney).GetMethod("op_Explicit")!;
+        UnaryExpression node = Expression.ConvertChecked(Expression.Constant(new H24lMoney(250)), typeof(int), conversion);
+        QueryCompilerVisitor visitor = new(CompilerOptions);
+        CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
+
+        Assert.Equal(2, compiled.Call(new SQLiteQueryContext()));
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_ConvertChecked_WithConversionOperatorOverNull_ReturnsNull()
+    {
+        MethodInfo conversion = typeof(H24lMoney).GetMethod("op_Explicit")!;
+        UnaryExpression node = Expression.ConvertChecked(
+            Expression.Constant(null, typeof(H24lMoney?)), typeof(int?), conversion);
+        QueryCompilerVisitor visitor = new(CompilerOptions);
+        CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
+
+        Assert.Null(compiled.Call(new SQLiteQueryContext()));
+    }
+
+    [Fact]
+    public void QueryableVisitor_ContainsListBinding_NestedAssignment_ReturnsTrue()
+    {
+        MethodInfo method = typeof(SQLite.Framework.Internals.Visitors.Queryable.QueryableVisitor)
+            .GetMethod("ContainsListBinding", BindingFlags.NonPublic | BindingFlags.Static)!;
+        PropertyInfo holderProperty = typeof(DirectListHolder).GetProperty(nameof(DirectListHolder.Inner))!;
+        PropertyInfo listProperty = typeof(DirectListInner).GetProperty(nameof(DirectListInner.Items))!;
+        MethodInfo add = typeof(List<int>).GetMethod(nameof(List<int>.Add))!;
+        MemberInitExpression inner = Expression.MemberInit(
+            Expression.New(typeof(DirectListInner)),
+            Expression.ListBind(listProperty, Expression.ElementInit(add, Expression.Constant(1))));
+        MemberInitExpression body = Expression.MemberInit(
+            Expression.New(typeof(DirectListHolder)),
+            Expression.Bind(holderProperty, inner));
+
+        Assert.True((bool)method.Invoke(null, [body])!);
+    }
+
+    [Fact]
+    public void SQLiteTable_ThrowIfSetOperandSelectsMisaligned_NumericOperand_IsSkipped()
+    {
+        MethodInfo method = typeof(SQLiteTable<H24nSetOpTargetRow>)
+            .GetMethod("ThrowIfSetOperandSelectsMisaligned", BindingFlags.NonPublic | BindingFlags.Static)!;
+        List<string> main = ["Id", "Name"];
+        List<IReadOnlyList<string>> operands = [new List<string> { "7" }];
+
+        Exception? ex = Record.Exception(() => method.Invoke(null, [main, operands]));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void QueryableVisitor_ResolveGroupKeyMemberNames_StructWithoutConstructor_ReturnsNull()
+    {
+        MethodInfo method = typeof(SQLite.Framework.Internals.Visitors.Queryable.QueryableVisitor)
+            .GetMethod("ResolveGroupKeyMemberNames", BindingFlags.NonPublic | BindingFlags.Static)!;
+        NewExpression keyNew = Expression.New(typeof(DirectEmptyStructKey));
+
+        Assert.Null(method.Invoke(null, [keyNew]));
+    }
+
+    [Fact]
+    public void QueryableVisitor_ResolveGroupKeyMemberNames_ParameterlessConstructor_ReturnsNull()
+    {
+        MethodInfo method = typeof(SQLite.Framework.Internals.Visitors.Queryable.QueryableVisitor)
+            .GetMethod("ResolveGroupKeyMemberNames", BindingFlags.NonPublic | BindingFlags.Static)!;
+        NewExpression keyNew = Expression.New(typeof(DirectBindingInner));
+
+        Assert.Null(method.Invoke(null, [keyNew]));
+    }
+
+    [Fact]
+    public void QueryableVisitor_ContainsListBinding_MemberMemberBinding_ReturnsFalse()
+    {
+        MethodInfo method = typeof(SQLite.Framework.Internals.Visitors.Queryable.QueryableVisitor)
+            .GetMethod("ContainsListBinding", BindingFlags.NonPublic | BindingFlags.Static)!;
+        PropertyInfo holderProperty = typeof(DirectBindingHolder).GetProperty(nameof(DirectBindingHolder.Inner))!;
+        PropertyInfo valueProperty = typeof(DirectBindingInner).GetProperty(nameof(DirectBindingInner.Value))!;
+        MemberInitExpression body = Expression.MemberInit(
+            Expression.New(typeof(DirectBindingHolder)),
+            Expression.MemberBind(holderProperty, Expression.Bind(valueProperty, Expression.Constant(1))));
+
+        Assert.False((bool)method.Invoke(null, [body])!);
+    }
+}
+
+public class DirectListInner
+{
+    public List<int> Items { get; set; } = [];
+}
+
+public class DirectListHolder
+{
+    public DirectListInner Inner { get; set; } = new();
+}
+
+public struct DirectEmptyStructKey
+{
+    public int Value { get; set; }
+}
+
+public class DirectBindingInner
+{
+    public int Value { get; set; }
+}
+
+public class DirectBindingHolder
+{
+    public DirectBindingInner Inner { get; set; } = new();
+}
+
+public class DirectGetOnlyHolder
+{
+    public DirectGetOnlyHolder(int total)
+    {
+        Total = total;
+    }
+
+    public int Total { get; }
 }
 
 public class InternalHelpersOneArg

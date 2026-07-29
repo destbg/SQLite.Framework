@@ -16,7 +16,7 @@ internal partial class QueryableVisitor
                     "Materialize the values with ToList and aggregate in memory.");
             }
 
-            if (IsDistinct)
+            if (IsDistinct || Take != null || Skip != null || ClientTake != null || ClientSkip != null)
             {
                 ClientCount = true;
                 return node;
@@ -316,19 +316,20 @@ internal partial class QueryableVisitor
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
 
         SelectVisitor groupByVisitor = new(GroupBys);
-        Expression groupByExpression = visitor.Visit(lambda.Body);
+        Expression keyBody = RewriteTupleCreateKey(lambda.Body);
+        Expression groupByExpression = visitor.Visit(keyBody);
 
         if (groupByExpression is SQLiteExpression keyExpression)
         {
-            groupByExpression = visitor.CoalesceLiftedOrderComparison(lambda.Body, keyExpression);
+            groupByExpression = visitor.CoalesceLiftedOrderComparison(keyBody, keyExpression);
         }
         else if (groupByExpression is NewExpression translatedKey)
         {
-            NewExpression originalKey = (NewExpression)lambda.Body;
             Expression[] coalesced = new Expression[translatedKey.Arguments.Count];
             for (int i = 0; i < translatedKey.Arguments.Count; i++)
             {
-                coalesced[i] = CoalesceNestedGroupKey(originalKey.Arguments[i], translatedKey.Arguments[i]);
+                Expression original = keyBody is NewExpression originalKey ? originalKey.Arguments[i] : translatedKey.Arguments[i];
+                coalesced[i] = CoalesceNestedGroupKey(original, translatedKey.Arguments[i]);
             }
 
             groupByExpression = translatedKey.Update(coalesced);
@@ -372,7 +373,7 @@ internal partial class QueryableVisitor
 
         Dictionary<string, Expression> newTableColumns = [];
 
-        if (groupByExpression is NewExpression keyNew && keyNew.Members != null)
+        if (groupByExpression is NewExpression keyNew && ResolveGroupKeyMemberNames(keyNew) is { } keyMemberNames)
         {
             if (isScalarElement)
             {
@@ -387,9 +388,9 @@ internal partial class QueryableVisitor
             }
 
             HashSet<string> constructedKeyPaths = [];
-            for (int i = 0; i < keyNew.Members.Count; i++)
+            for (int i = 0; i < keyMemberNames.Count; i++)
             {
-                string keyName = nameof(IGrouping<,>.Key) + "." + keyNew.Members[i].Name;
+                string keyName = nameof(IGrouping<,>.Key) + "." + keyMemberNames[i];
                 AddGroupKeyColumns(newTableColumns, constructedKeyPaths, keyName, keyNew.Arguments[i]);
             }
 
@@ -420,6 +421,17 @@ internal partial class QueryableVisitor
         {
             newTableColumns[string.Empty] = visitor.TableColumns.Single().Value;
             newTableColumns[nameof(IGrouping<,>.Key)] = GroupBys[0];
+        }
+
+        if (visitor.OptionalRowPaths.TryGetValue(visitor.TableColumns, out HashSet<string>? optionalPaths))
+        {
+            HashSet<string> groupedOptionalPaths = new(StringComparer.Ordinal);
+            foreach (string optionalPath in optionalPaths)
+            {
+                groupedOptionalPaths.Add(Constants.GroupingElementPrefix + optionalPath);
+            }
+
+            visitor.OptionalRowPaths[newTableColumns] = groupedOptionalPaths;
         }
 
         visitor.TableColumns = newTableColumns;
@@ -466,6 +478,61 @@ internal partial class QueryableVisitor
         }
 
         return translated;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Builds an expression tree for the translator.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Tuple constructors are preserved with the tuple type.")]
+    private static Expression RewriteTupleCreateKey(Expression body)
+    {
+        if (body is MethodCallExpression { Method.Name: "Create", Object: null } createCall
+            && (createCall.Method.DeclaringType == typeof(ValueTuple) || createCall.Method.DeclaringType == typeof(Tuple))
+            && createCall.Type.GetConstructor(createCall.Arguments.Select(a => a.Type).ToArray()) is { } tupleConstructor)
+        {
+            return Expression.New(tupleConstructor, createCall.Arguments);
+        }
+
+        return body;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "Group key types are rooted by the user query.")]
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Group key types are rooted by the user query.")]
+    private static List<string>? ResolveGroupKeyMemberNames(NewExpression keyNew)
+    {
+        if (keyNew.Members != null)
+        {
+            return keyNew.Members.Select(m => m.Name).ToList();
+        }
+
+        if (keyNew.Constructor == null || keyNew.Arguments.Count == 0)
+        {
+            return null;
+        }
+
+        bool identityType = TypeHelpers.HasPositionalIdentityMembers(keyNew.Type);
+        ParameterInfo[] parameters = keyNew.Constructor.GetParameters();
+        List<string> names = new(parameters.Length);
+        foreach (ParameterInfo parameter in parameters)
+        {
+            PropertyInfo? property = keyNew.Type.GetProperty(parameter.Name!, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            if (property != null && (identityType || !property.CanWrite))
+            {
+                names.Add(property.Name);
+                continue;
+            }
+
+            FieldInfo? field = identityType
+                ? keyNew.Type.GetField(parameter.Name!, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)
+                : null;
+            if (field != null)
+            {
+                names.Add(field.Name);
+                continue;
+            }
+
+            return null;
+        }
+
+        return names;
     }
 
     private static void AddGroupKeyColumns(Dictionary<string, Expression> columns, HashSet<string> constructedPaths, string path, Expression value)

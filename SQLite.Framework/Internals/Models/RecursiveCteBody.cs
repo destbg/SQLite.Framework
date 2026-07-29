@@ -10,5 +10,6 @@ internal class RecursiveCteBody
     public required SQLQuery Query { get; init; }
     public string[]? ColumnNames { get; init; }
     public HashSet<string>? DayOfWeekColumns { get; init; }
+    public HashSet<string>? JsonSourceColumns { get; init; }
     public bool HasClientMember { get; init; }
 }

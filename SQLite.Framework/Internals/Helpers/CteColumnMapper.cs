@@ -57,6 +57,7 @@ internal static class CteColumnMapper
             : BuildColumns(reference.ElementType, alias, options, counters);
 
         ApplyDayOfWeekColumns(columns, reference.DayOfWeekColumns);
+        ApplyJsonSourceColumns(columns, reference.JsonSourceColumns);
         if (reference.ConstructedPaths != null)
         {
             visitor.ConstructedProjectionPaths[columns] = [.. reference.ConstructedPaths];
@@ -124,6 +125,21 @@ internal static class CteColumnMapper
         return flagged;
     }
 
+    public static HashSet<string>? JsonSourceColumns(Dictionary<string, Expression> bodyColumns, bool scalarElement)
+    {
+        HashSet<string>? flagged = null;
+        foreach (KeyValuePair<string, Expression> column in bodyColumns)
+        {
+            if (column.Value is SQLiteExpression { IsJsonSource: true })
+            {
+                flagged ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                flagged.Add(scalarElement ? string.Empty : column.Key);
+            }
+        }
+
+        return flagged;
+    }
+
     public static HashSet<string>? BodyConstructedPaths(SQLVisitor bodyVisitor)
     {
         return bodyVisitor.ConstructedProjectionPaths.TryGetValue(bodyVisitor.TableColumns, out HashSet<string>? constructed)
@@ -134,10 +150,21 @@ internal static class CteColumnMapper
     public static void ApplyBodyTraits(Dictionary<string, Expression> columns, CteInfo info, SQLVisitor visitor)
     {
         ApplyDayOfWeekColumns(columns, info.DayOfWeekColumns);
+        ApplyJsonSourceColumns(columns, info.JsonSourceColumns);
 
         if (info.ConstructedPaths != null)
         {
             visitor.ConstructedProjectionPaths[columns] = [.. info.ConstructedPaths];
+        }
+
+        if (info.OptionalRow)
+        {
+            visitor.OptionalRowColumns.Add(columns);
+        }
+
+        if (info.OptionalRowPaths != null)
+        {
+            visitor.OptionalRowPaths[columns] = [.. info.OptionalRowPaths];
         }
     }
 
@@ -153,6 +180,22 @@ internal static class CteColumnMapper
             if (dayOfWeekColumns.Contains(column.Key) && column.Value is SQLiteExpression sql)
             {
                 sql.WithDayOfWeekInteger();
+            }
+        }
+    }
+
+    public static void ApplyJsonSourceColumns(Dictionary<string, Expression> columns, HashSet<string>? jsonSourceColumns)
+    {
+        if (jsonSourceColumns == null)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<string, Expression> column in columns)
+        {
+            if (jsonSourceColumns.Contains(column.Key) && column.Value is SQLiteExpression sql)
+            {
+                sql.WithJsonSource();
             }
         }
     }
@@ -203,12 +246,17 @@ internal static class CteColumnMapper
         }
 
         CteClientColumnRewriter rewriter = new(selects, columnNames, alias, counters);
+        foreach (KeyValuePair<string, Expression> member in bodyColumns)
+        {
+            rewriter.Seed(member.Value);
+        }
+
         Dictionary<string, Expression> columns = [];
         foreach (KeyValuePair<string, Expression> member in bodyColumns)
         {
             if (declared.Contains(member.Key))
             {
-                columns[member.Key] = SQLiteExpression.Leaf(member.Value.Type, counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(member.Key)}");
+                columns[member.Key] = BuildDeclaredBodyLeaf(member.Value, member.Key, alias, counters);
                 continue;
             }
 
@@ -242,6 +290,17 @@ internal static class CteColumnMapper
         }
 
         return columns;
+    }
+
+    public static SQLiteExpression BuildDeclaredBodyLeaf(Expression value, string key, string alias, SQLiteCounters counters)
+    {
+        SQLiteExpression leaf = SQLiteExpression.Leaf(value.Type, counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(key)}");
+        if (value is SQLiteExpression { IsJsonSource: true })
+        {
+            leaf.WithJsonSource();
+        }
+
+        return leaf;
     }
 
     public static bool HasClientBodyMember(Dictionary<string, Expression> bodyColumns)

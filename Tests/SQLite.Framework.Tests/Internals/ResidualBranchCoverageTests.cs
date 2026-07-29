@@ -582,6 +582,43 @@ public class ResidualBranchCoverageTests
     }
 
     [Fact]
+    public void CompletePendingSavepointCleanupRetriesTheRollbackWhenItWasStillPending()
+    {
+        using TestDatabase db = new(null, nameof(CompletePendingSavepointCleanupRetriesTheRollbackWhenItWasStillPending));
+        db.Table<ResidualProbeRow>().Schema.CreateTable();
+        FieldInfo savepointField = typeof(SQLiteDatabase).GetField(
+            "pendingForcedSavepoint", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        FieldInfo rollbackField = typeof(SQLiteDatabase).GetField(
+            "pendingForcedRollback", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        db.Execute("BEGIN");
+        db.Execute("SAVEPOINT sp_residual_retry");
+        savepointField.SetValue(db, "sp_residual_retry");
+        rollbackField.SetValue(db, true);
+
+        db.CompletePendingSavepointCleanup();
+
+        Assert.Null(savepointField.GetValue(db));
+        db.Execute("ROLLBACK");
+    }
+
+    [Fact]
+    public void CompletePendingSavepointCleanupReleasesWhenTheRollbackAlreadyRan()
+    {
+        using TestDatabase db = new(null, nameof(CompletePendingSavepointCleanupReleasesWhenTheRollbackAlreadyRan));
+        db.Table<ResidualProbeRow>().Schema.CreateTable();
+        FieldInfo savepointField = typeof(SQLiteDatabase).GetField(
+            "pendingForcedSavepoint", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        db.Execute("BEGIN");
+        db.Execute("SAVEPOINT sp_residual_release");
+        savepointField.SetValue(db, "sp_residual_release");
+
+        db.CompletePendingSavepointCleanup();
+
+        Assert.Null(savepointField.GetValue(db));
+        db.Execute("ROLLBACK");
+    }
+
+    [Fact]
     public void CompletePendingSavepointCleanupSkipsWhenHandleIsGone()
     {
         TestDatabase db = new(null, nameof(CompletePendingSavepointCleanupSkipsWhenHandleIsGone));

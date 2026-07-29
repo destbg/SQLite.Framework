@@ -30,7 +30,16 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
             return node;
         }
 
-        return InjectFilters(node, table.ElementType, table.Database.Options);
+        SQLiteOptions filterOptions = table.Database.Options;
+        if (!HasApplicableFilters(filterOptions, table.ElementType))
+        {
+            return node;
+        }
+
+        Expression source = typeof(IQueryable<>).MakeGenericType(table.ElementType).IsAssignableFrom(node.Type)
+            ? node
+            : Expression.Convert(node, typeof(IQueryable<>).MakeGenericType(table.ElementType));
+        return InjectFilters(source, table.ElementType, filterOptions);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Element type is preserved by SQLiteTable<T>.")]
@@ -69,9 +78,8 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
 
         if (!ignoreFilters
             && typeof(BaseSQLiteTable).IsAssignableFrom(node.Type)
-            && node.Type.IsGenericType)
+            && TypeHelpers.GetEnumerableElementType(node.Type) is { } entityType)
         {
-            Type entityType = node.Type.GetGenericArguments()[0];
             return InjectFilters(node, entityType, ResolveOwnerOptions(node));
         }
 
@@ -113,7 +121,7 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
                 foreach (LambdaExpression filter in kvp.Value)
                 {
                     LambdaExpression rebound = CommonHelpers.Rebind(filter, entityType);
-                    Expression injectedBody = Visit(rebound.Body);
+                    Expression injectedBody = Visit(CommonHelpers.Inline(rebound.Body));
                     LambdaExpression injected = Expression.Lambda(injectedBody, rebound.Parameters);
                     result = Expression.Call(
                         typeof(System.Linq.Queryable),
@@ -130,5 +138,18 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
         {
             injecting.Remove((entityType, filterOptions));
         }
+    }
+
+    private static bool HasApplicableFilters(SQLiteOptions filterOptions, Type entityType)
+    {
+        foreach (KeyValuePair<Type, IReadOnlyList<LambdaExpression>> kvp in filterOptions.QueryFilters)
+        {
+            if (kvp.Key.IsAssignableFrom(entityType))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -29,9 +29,9 @@ internal partial class SQLVisitor
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node);
         if (pe != null
             && MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns)
-            && IsSingleLeafColumn(columns, path))
+            && IsSingleLeafColumn(columns, path, (node as MemberExpression)?.Member.DeclaringType))
         {
-            return (SQLiteExpression)Visit(node);
+            return Visit(node) as SQLiteExpression;
         }
 
         return null;
@@ -130,9 +130,11 @@ internal partial class SQLVisitor
         }
 
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(operand);
+        bool mappedWithKey = Database.TryGetCachedTableMapping(operand.Type, out TableMapping? operandMapping)
+            && operandMapping.Columns.Any(c => c.IsPrimaryKey);
         if (pe != null
             && MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? rowColumns)
-            && Database.TryGetCachedTableMapping(operand.Type, out _) == false)
+            && !mappedWithKey)
         {
             if (path.Length == 0)
             {
@@ -224,12 +226,25 @@ internal partial class SQLVisitor
         }
 
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(operand);
-        if (pe != null
-            && MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns)
-            && columns.TryGetValue(path, out Expression? value)
+        if (pe == null || !MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns))
+        {
+            return null;
+        }
+
+        if (columns.TryGetValue(path, out Expression? value)
             && value is ConditionalExpression or MemberInitExpression or NewExpression)
         {
             return value;
+        }
+
+        bool optionalPath = path.Length == 0
+            ? OptionalRowColumns.Contains(columns)
+            : OptionalRowPaths.TryGetValue(columns, out HashSet<string>? optionalPaths) && optionalPaths.Contains(path);
+        if (!optionalPath
+            && ConstructedProjectionNodes.TryGetValue(columns, out Dictionary<string, Expression>? nodes)
+            && nodes.TryGetValue(path, out Expression? node))
+        {
+            return node;
         }
 
         return null;
@@ -344,18 +359,21 @@ internal partial class SQLVisitor
         return subset;
     }
 
-    private static bool IsSingleLeafColumn(Dictionary<string, Expression> columns, string path)
+    private static bool IsSingleLeafColumn(Dictionary<string, Expression> columns, string path, Type? declaringType)
     {
         if (columns.TryGetValue(path, out Expression? column))
         {
             return column is SQLiteExpression;
         }
 
-        foreach (KeyValuePair<string, Expression> entry in columns)
+        if (AllowsParameterNameMatch(declaringType, path))
         {
-            if (string.Equals(entry.Key, path, StringComparison.OrdinalIgnoreCase))
+            foreach (KeyValuePair<string, Expression> entry in columns)
             {
-                return entry.Value is SQLiteExpression;
+                if (string.Equals(entry.Key, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry.Value is SQLiteExpression;
+                }
             }
         }
 

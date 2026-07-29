@@ -154,6 +154,7 @@ public static class SelectSignatureWriter
 
         return memberSym is IPropertySymbol { IsStatic: false, IsIndexer: false, SetMethod: null } prop
             && prop.ContainingType.TypeKind != TypeKind.Interface
+            && !prop.ContainingType.IsAnonymousType
             && !prop.ContainingType.GetMembers()
                 .OfType<IFieldSymbol>()
                 .Any(f => SymbolEqualityComparer.Default.Equals(f.AssociatedSymbol, prop));
@@ -612,6 +613,19 @@ public static class SelectSignatureWriter
             case ConditionalExpressionSyntax cond:
                 return AppendConditional(sb, cond, type, ctx);
 
+            case MemberAccessExpressionSyntax arrayLength
+                when arrayLength.Kind() == SyntaxKind.SimpleMemberAccessExpression
+                    && arrayLength.Name.Identifier.ValueText == "Length"
+                    && ctx.Model.GetTypeInfo(arrayLength.Expression).Type is IArrayTypeSymbol:
+                sb.Append("(ArrayLength ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
+                if (!TryAppend(sb, arrayLength.Expression, ctx))
+                {
+                    return false;
+                }
+
+                sb.Append(')');
+                return true;
+
             case MemberAccessExpressionSyntax capturedMember
                 when capturedMember.Kind() == SyntaxKind.SimpleMemberAccessExpression
                     && !IsArrayLengthAccess(capturedMember, ctx)
@@ -690,7 +704,10 @@ public static class SelectSignatureWriter
         sb.Append("(CapturedValue ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(')');
     }
 
-    private static bool IsArrayLengthAccess(MemberAccessExpressionSyntax access, SelectSignatureCtx ctx)
+    /// <summary>
+    /// Tells if the member access is an array length access.
+    /// </summary>
+    public static bool IsArrayLengthAccess(MemberAccessExpressionSyntax access, SelectSignatureCtx ctx)
     {
         return ctx.Model.GetTypeInfo(access.Expression).Type is IArrayTypeSymbol
             && access.Name.Identifier.ValueText is "Length" or "LongLength";
@@ -1087,6 +1104,16 @@ public static class SelectSignatureWriter
         bool expandedParams = IsExpandedParamsForm(invocation, method, ctx);
         int paramsIndex = method.Parameters.Length - 1;
 
+        if (!expandedParams && args.Count != method.Parameters.Length)
+        {
+            return AppendArgumentsByParameter(sb, args, method, expandRowArgs, stringConcatMethod, ctx);
+        }
+
+        if (!expandedParams && args.Any(a => a.NameColon != null))
+        {
+            return AppendArgumentsByParameter(sb, args, method, expandRowArgs, stringConcatMethod, ctx);
+        }
+
         for (int i = 0; i < args.Count; i++)
         {
             sb.Append(' ');
@@ -1119,6 +1146,68 @@ public static class SelectSignatureWriter
         }
 
         sb.Append(')');
+        return true;
+    }
+
+    private static bool AppendArgumentsByParameter(StringBuilder sb, SeparatedSyntaxList<ArgumentSyntax> args, IMethodSymbol method, bool expandRowArgs, bool stringConcatMethod, SelectSignatureCtx ctx)
+    {
+        ExpressionSyntax?[] byParameter = new ExpressionSyntax?[method.Parameters.Length];
+        for (int i = 0; i < args.Count; i++)
+        {
+            ArgumentSyntax argument = args[i];
+            int index = i;
+            if (argument.NameColon != null)
+            {
+                index = -1;
+                for (int p = 0; p < method.Parameters.Length; p++)
+                {
+                    if (method.Parameters[p].Name == argument.NameColon.Name.Identifier.ValueText)
+                    {
+                        index = p;
+                        break;
+                    }
+                }
+            }
+
+            if (index < 0 || index >= byParameter.Length)
+            {
+                return false;
+            }
+
+            byParameter[index] = argument.Expression;
+        }
+
+        for (int i = 0; i < byParameter.Length; i++)
+        {
+            sb.Append(' ');
+            if (byParameter[i] is { } written)
+            {
+                if (!AppendInvocationArgument(sb, written, expandRowArgs, stringConcatMethod, ctx))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (!AppendOmittedArgument(sb, method.Parameters[i], ctx))
+            {
+                return false;
+            }
+        }
+
+        sb.Append(')');
+        return true;
+    }
+
+    private static bool AppendOmittedArgument(StringBuilder sb, IParameterSymbol parameter, SelectSignatureCtx ctx)
+    {
+        if (!parameter.HasExplicitDefaultValue)
+        {
+            return false;
+        }
+
+        AppendConstantValue(sb, parameter.Type, parameter.ExplicitDefaultValue, ctx);
         return true;
     }
 
@@ -1590,13 +1679,21 @@ public static class SelectSignatureWriter
             ? nullable.TypeArguments[0]
             : type;
 
-        object? value = GetConstantValue(node, underlying, ctx);
+        AppendConstantValue(sb, type, GetConstantValue(node, underlying, ctx), ctx);
+    }
 
+    private static void AppendConstantValue(StringBuilder sb, ITypeSymbol? type, object? value, SelectSignatureCtx ctx)
+    {
         if (value == null)
         {
             sb.Append("(Constant null null)");
             return;
         }
+
+        ITypeSymbol? underlying = type is INamedTypeSymbol nullable && nullable.IsGenericType
+            && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
+            ? nullable.TypeArguments[0]
+            : type;
 
         sb.Append("(Constant ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
         if (underlying is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
@@ -1704,7 +1801,49 @@ public static class SelectSignatureWriter
             }
         }
 
-        return null;
+        return FormatFlagsEnumConstant(enumType, value);
+    }
+
+    private static string? FormatFlagsEnumConstant(INamedTypeSymbol enumType, object value)
+    {
+        if (!enumType.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == "System.FlagsAttribute"))
+        {
+            return null;
+        }
+
+        if (NormalizeEnumNumeric(value) is not long remaining || remaining == 0)
+        {
+            return null;
+        }
+
+        List<(long Value, string Name)> members = new();
+        foreach (IFieldSymbol field in enumType.GetMembers().OfType<IFieldSymbol>())
+        {
+            if (field.HasConstantValue && NormalizeEnumNumeric(field.ConstantValue) is long memberValue && memberValue != 0)
+            {
+                members.Add((memberValue, field.Name));
+            }
+        }
+
+        members.Sort((a, b) => a.Value.CompareTo(b.Value));
+
+        List<string> names = new();
+        for (int i = members.Count - 1; i >= 0; i--)
+        {
+            if ((remaining & members[i].Value) == members[i].Value)
+            {
+                remaining &= ~members[i].Value;
+                names.Add(members[i].Name);
+            }
+        }
+
+        if (remaining != 0 || names.Count == 0)
+        {
+            return null;
+        }
+
+        names.Reverse();
+        return string.Join(", ", names);
     }
 
     private static object? NormalizeEnumNumeric(object? value)
@@ -1789,14 +1928,16 @@ public static class SelectSignatureWriter
         ITypeSymbol? resolvedTarget = Substitute(targetType, ctx.TypeArgSubstitutions);
         ITypeSymbol? resolvedOperand = Substitute(operandType, ctx.TypeArgSubstitutions);
         ITypeSymbol? underlying = GetNullableUnderlying(resolvedTarget);
+        string outerKind = ConvertKind(resolvedTarget, ctx);
 
         if (underlying != null
             && resolvedOperand != null
             && GetNullableUnderlying(resolvedOperand) == null
             && !SymbolEqualityComparer.Default.Equals(resolvedOperand, underlying))
         {
-            sb.Append("(Convert ").Append(FormatType(resolvedTarget, ctx.TypeArgSubstitutions))
-                .Append(" (Convert ").Append(FormatType(underlying, ctx.TypeArgSubstitutions)).Append(' ');
+            sb.Append('(').Append(outerKind).Append(' ').Append(FormatType(resolvedTarget, ctx.TypeArgSubstitutions))
+                .Append(" (").Append(ConvertKind(underlying, ctx)).Append(' ')
+                .Append(FormatType(underlying, ctx.TypeArgSubstitutions)).Append(' ');
             if (!appendOperand())
             {
                 return false;
@@ -1805,13 +1946,18 @@ public static class SelectSignatureWriter
             return true;
         }
 
-        sb.Append("(Convert ").Append(FormatType(resolvedTarget, ctx.TypeArgSubstitutions)).Append(' ');
+        sb.Append('(').Append(outerKind).Append(' ').Append(FormatType(resolvedTarget, ctx.TypeArgSubstitutions)).Append(' ');
         if (!appendOperand())
         {
             return false;
         }
         sb.Append(')');
         return true;
+    }
+
+    private static string ConvertKind(ITypeSymbol? targetType, SelectSignatureCtx ctx)
+    {
+        return ctx.IsInChecked && IsCheckedRelevantType(targetType) ? "ConvertChecked" : "Convert";
     }
 
     private static bool IsCheckedRelevantType(ITypeSymbol? type)

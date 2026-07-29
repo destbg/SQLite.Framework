@@ -10,7 +10,10 @@ internal class CteInfo
     public string[]? ColumnNames { get; init; }
     public string[]? EmittedColumns { get; init; }
     public HashSet<string>? DayOfWeekColumns { get; init; }
+    public HashSet<string>? JsonSourceColumns { get; init; }
     public HashSet<string>? ConstructedPaths { get; init; }
+    public bool OptionalRow { get; init; }
+    public HashSet<string>? OptionalRowPaths { get; init; }
     public Dictionary<string, Expression>? BodyColumns { get; init; }
     public IReadOnlyList<SQLiteExpression>? BodySelects { get; init; }
 }

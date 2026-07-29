@@ -254,8 +254,7 @@ public class ClientEvalLeafVariantTests
             .Select(x => x.Part == null ? "none" : x.Part.Label ?? "null")
             .ToList();
 
-        List<string> expected = db.Options.ReflectionFallbackDisabled ? ["null", "n2"] : ["none", "n2"];
-        Assert.Equal(expected, actual);
+        Assert.Equal(["null", "n2"], actual);
     }
 
     [Fact]

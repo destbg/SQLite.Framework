@@ -19,5 +19,5 @@ internal sealed class IndexSpec
     public SQLiteIndexDirection[] Directions { get; }
     public string Name { get; }
     public bool Unique { get; }
-    public string? FilterSql { get; }
+    public string? FilterSql { get; set; }
 }

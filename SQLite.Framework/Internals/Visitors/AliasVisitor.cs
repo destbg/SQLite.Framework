@@ -29,6 +29,12 @@ internal class AliasVisitor
     public Dictionary<string, Expression> ResolveResultAlias(LambdaExpression resultSelector)
     {
         ResolveResultAlias(resultSelector, resultSelector.Body, string.Empty);
+        if (resultSelector.Body is MemberInitExpression or NewExpression { Members: null, Arguments.Count: > 0 }
+            && !database.TryGetCachedTableMapping(resultSelector.Body.Type, out _))
+        {
+            constructedNodes[string.Empty] = resultSelector.Body;
+        }
+
         Dictionary<string, Expression> newResult = result;
         if (resultPrefixes.Count > 0)
         {
@@ -75,29 +81,48 @@ internal class AliasVisitor
 
     private void CarryConstructedPaths(string prefix, Dictionary<string, Expression> sourceColumns)
     {
-        if (!visitor.ConstructedProjectionPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceConstructed))
+        if (visitor.ConstructedProjectionPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceConstructed))
         {
-            return;
+            foreach (string path in sourceConstructed)
+            {
+                constructedPaths.Add(CheckPrefix(prefix, path));
+            }
         }
 
-        foreach (string path in sourceConstructed)
+        if (visitor.ConstructedProjectionNodes.TryGetValue(sourceColumns, out Dictionary<string, Expression>? sourceNodes))
         {
-            constructedPaths.Add(CheckPrefix(prefix, path));
+            foreach (KeyValuePair<string, Expression> node in sourceNodes)
+            {
+                constructedNodes[CheckPrefix(prefix, node.Key)] = node.Value;
+            }
         }
     }
 
     private void CarryConstructedSubPaths(string alias, Dictionary<string, Expression> sourceColumns, string prefixToMatch)
     {
-        if (!visitor.ConstructedProjectionPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceConstructed))
+        if (visitor.ConstructedProjectionPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceConstructed))
         {
-            return;
+            foreach (string path in sourceConstructed)
+            {
+                if (path.StartsWith(prefixToMatch, StringComparison.Ordinal))
+                {
+                    constructedPaths.Add(CheckPrefix(alias, path[prefixToMatch.Length..]));
+                }
+            }
         }
 
-        foreach (string path in sourceConstructed)
+        if (visitor.ConstructedProjectionNodes.TryGetValue(sourceColumns, out Dictionary<string, Expression>? sourceNodes))
         {
-            if (path.StartsWith(prefixToMatch, StringComparison.Ordinal))
+            foreach (KeyValuePair<string, Expression> node in sourceNodes)
             {
-                constructedPaths.Add(CheckPrefix(alias, path[prefixToMatch.Length..]));
+                if (node.Key.StartsWith(prefixToMatch, StringComparison.Ordinal))
+                {
+                    constructedNodes[CheckPrefix(alias, node.Key[prefixToMatch.Length..])] = node.Value;
+                }
+                else if (node.Key == prefixToMatch[..^1])
+                {
+                    constructedNodes[alias] = node.Value;
+                }
             }
         }
     }
@@ -236,10 +261,23 @@ internal class AliasVisitor
             .OfType<MemberAssignment>()
             .Cast<MemberBinding>()
             .Concat(memberInitExpression.Bindings.OfType<MemberMemberBinding>())
+            .Concat(memberInitExpression.Bindings.OfType<MemberListBinding>())
             .OrderBy(binding => Array.FindIndex(declaredProperties, p => p.Name == binding.Member.Name));
 
         foreach (MemberBinding binding in orderedBindings)
         {
+            if (binding is MemberListBinding memberListBinding)
+            {
+                Type listType = memberListBinding.Member is PropertyInfo listProperty
+                    ? listProperty.PropertyType
+                    : ((FieldInfo)memberListBinding.Member).FieldType;
+                string listAlias = CheckPrefix(prefix, memberListBinding.Member.Name);
+                SQLVisitor listVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
+                Expression listNode = listVisitor.Visit(Expression.ListInit(Expression.New(listType), memberListBinding.Initializers));
+                result.Add(listAlias, listNode);
+                continue;
+            }
+
             if (binding is MemberMemberBinding memberMemberBinding)
             {
                 Type memberType = memberMemberBinding.Member is PropertyInfo memberProperty

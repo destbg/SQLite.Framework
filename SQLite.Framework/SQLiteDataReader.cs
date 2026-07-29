@@ -171,12 +171,13 @@ public class SQLiteDataReader : IDisposable
     }
 
     /// <summary>
-    /// Reads a 32-bit signed integer column directly. NULL columns return 0.
+    /// Reads a 32-bit signed integer column directly. NULL columns return 0. A stored value
+    /// outside the <see cref="int" /> range throws an <see cref="OverflowException" />.
     /// </summary>
     public int GetInt32(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return Statement is null ? 0 : raw.sqlite3_column_int(Statement, index);
+        return Statement is null ? 0 : checked((int)raw.sqlite3_column_int64(Statement, index));
     }
 
     /// <summary>
@@ -268,12 +269,20 @@ public class SQLiteDataReader : IDisposable
     }
 
     /// <summary>
-    /// Reads a boolean column stored as INTEGER. Any non-zero value reads as <see langword="true" />.
+    /// Reads a boolean column. Any non-zero stored value reads as <see langword="true" />,
+    /// including a fractional REAL value.
     /// </summary>
     public bool GetBoolean(int index)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return Statement is not null && raw.sqlite3_column_int(Statement, index) != 0;
+        if (Statement is null)
+        {
+            return false;
+        }
+
+        return raw.sqlite3_column_type(Statement, index) == raw.SQLITE_FLOAT
+            ? raw.sqlite3_column_double(Statement, index) != 0
+            : raw.sqlite3_column_int64(Statement, index) != 0;
     }
 
     /// <summary>

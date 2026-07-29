@@ -147,21 +147,27 @@ internal static class SchemaSqlBuilder
     {
         string existsClause = ifNotExists ? "IF NOT EXISTS " : string.Empty;
         List<string> names = [];
-        Dictionary<string, (List<string> Fragments, bool Unique, string? Where)> merged = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, (List<(string Key, string Sql)> Fragments, bool Unique, string? Where)> merged =
+            new(StringComparer.OrdinalIgnoreCase);
 
-        void Add(string name, IEnumerable<string> fragments, bool unique, string? where)
+        void Add(string name, IEnumerable<(string Key, string Sql)> fragments, bool unique, string? where)
         {
-            if (!merged.TryGetValue(name, out (List<string> Fragments, bool Unique, string? Where) entry))
+            if (!merged.TryGetValue(name, out (List<(string Key, string Sql)> Fragments, bool Unique, string? Where) entry))
             {
                 entry = ([], false, null);
                 names.Add(name);
             }
 
-            foreach (string fragment in fragments)
+            foreach ((string key, string sql) in fragments)
             {
-                if (!entry.Fragments.Contains(fragment, StringComparer.Ordinal))
+                int existing = entry.Fragments.FindIndex(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase));
+                if (existing < 0)
                 {
-                    entry.Fragments.Add(fragment);
+                    entry.Fragments.Add((key, sql));
+                }
+                else if (sql.Length > entry.Fragments[existing].Sql.Length)
+                {
+                    entry.Fragments[existing] = (key, sql);
                 }
             }
 
@@ -182,7 +188,8 @@ internal static class SchemaSqlBuilder
         {
             var ordered = group.OrderBy(x => x.Order).ToArray();
             Add(group.Key,
-                ordered.Select(x => IdentifierGuard.Quote(x.Column) + CommonHelpers.Clause(x.Collation) + CommonHelpers.Clause(x.Direction)),
+                ordered.Select(x => (x.Column,
+                    IdentifierGuard.Quote(x.Column) + CommonHelpers.Clause(x.Collation) + CommonHelpers.Clause(x.Direction))),
                 group.Any(x => x.IsUnique),
                 where: null);
         }
@@ -190,8 +197,8 @@ internal static class SchemaSqlBuilder
         foreach (IndexSpec index in mapping.Indexes)
         {
             Add(index.Name,
-                index.Columns.Select((c, i) =>
-                    (index.Expressions[i] ? c : IdentifierGuard.Quote(c)) + CommonHelpers.Clause(index.Collations[i]) + CommonHelpers.Clause(index.Directions[i])),
+                index.Columns.Select((c, i) => (c,
+                    (index.Expressions[i] ? c : IdentifierGuard.Quote(c)) + CommonHelpers.Clause(index.Collations[i]) + CommonHelpers.Clause(index.Directions[i]))),
                 index.Unique,
                 index.FilterSql);
         }
@@ -199,9 +206,9 @@ internal static class SchemaSqlBuilder
         List<(string, string)> statements = [];
         foreach (string name in names)
         {
-            (List<string> fragments, bool unique, string? filterSql) = merged[name];
+            (List<(string Key, string Sql)> fragments, bool unique, string? filterSql) = merged[name];
             string uniqueClause = unique ? "UNIQUE " : string.Empty;
-            string columnList = string.Join(", ", fragments);
+            string columnList = string.Join(", ", fragments.Select(f => f.Sql));
             string where = filterSql == null ? string.Empty : $" WHERE {filterSql}";
             statements.Add((name, $"CREATE {uniqueClause}INDEX {existsClause}\"{name.Replace("\"", "\"\"")}\" ON \"{tableName}\" ({columnList}){where}"));
         }

@@ -25,7 +25,7 @@ public class TableColumn
         IdentifierGuard.EnsureNoQuote(Name, "Column");
         PropertyType = type;
         Indices = property.GetCustomAttributes<IndexedAttribute>().ToArray();
-        IsPrimaryKey = keyProperty != null;
+        IsPrimaryKey = keyProperty != null || isFtsRowId;
         IsAutoIncrement = property.GetCustomAttribute<AutoIncrementAttribute>() != null;
         IsFtsRowId = isFtsRowId;
         IsNullable = !IsPrimaryKey && !isFtsRowId && (

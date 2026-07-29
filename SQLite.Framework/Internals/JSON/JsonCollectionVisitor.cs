@@ -112,6 +112,18 @@ internal partial class JsonCollectionVisitor
             return;
         }
 
+        if (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+        {
+            Type entryKeyType = elementType.GetGenericArguments()[0];
+            Type entryValueType = elementType.GetGenericArguments()[1];
+            visitor.MethodArguments[param] = new Dictionary<string, Expression>
+            {
+                [nameof(KeyValuePair<,>.Key)] = SQLiteExpression.Leaf(entryKeyType, -1, $"{baseAlias}.\"key\"", null).WithJsonSource(),
+                [nameof(KeyValuePair<,>.Value)] = SQLiteExpression.Leaf(entryValueType, -1, $"{baseAlias}.\"value\"", null).WithJsonSource()
+            };
+            return;
+        }
+
         if (TypeHelpers.IsSimple(elementType, options))
         {
             SQLiteExpression valueExpr = SQLiteExpression.Leaf(elementType, -1, valueSql, null).WithJsonSource();

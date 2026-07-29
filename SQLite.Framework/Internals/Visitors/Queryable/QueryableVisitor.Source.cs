@@ -14,7 +14,7 @@ internal partial class QueryableVisitor
                 "because SQLite cannot combine values the database never computes.");
         }
 
-        if (OrderBys.Count > 0 || Take != null || Skip != null)
+        if (OrderBys.Count > 0 || Take != null || Skip != null || ClientTake != null || ClientSkip != null)
         {
             throw new NotSupportedException(
                 $"{node.Method.Name} after OrderBy, Take or Skip is not supported because it would require wrapping the operand in a subquery. " +
@@ -22,7 +22,8 @@ internal partial class QueryableVisitor
         }
 
         SQLTranslator sqlTranslator = visitor.CloneDeeper(visitor.Level);
-        SQLQuery query = sqlTranslator.Translate(node.Arguments[1]);
+        sqlTranslator.SelectWrapFormats = visitor.SelectWrapFormats;
+        SQLQuery query = sqlTranslator.Translate(node.Arguments[1], visitor.ExcludedSelectColumns);
 
         if (sqlTranslator.HasTopLevelOrderingOrPaging)
         {
@@ -42,6 +43,11 @@ internal partial class QueryableVisitor
         ReconcileDayOfWeekSelects(sqlTranslator);
         ReconcileConstructedPaths(sqlTranslator);
 
+        if (sqlTranslator.Visitor.OptionalRowColumns.Contains(sqlTranslator.Visitor.TableColumns))
+        {
+            visitor.OptionalRowColumns.Add(visitor.TableColumns);
+        }
+
         string operandSql = sqlTranslator.HasSetOperations
             ? $"SELECT * FROM ({query.Sql})"
             : query.Sql;
@@ -54,6 +60,7 @@ internal partial class QueryableVisitor
         );
 
         SetOperations.Add((sqlExpression, setType));
+        SetOperandSelects.Add(sqlTranslator.Selects.Select(s => s.IdentifierText).ToList());
 
         return sqlExpression;
     }
@@ -89,6 +96,7 @@ internal partial class QueryableVisitor
 
         IReadOnlyList<SQLiteExpression> operandSelects = operand.Selects;
         int pairCount = Math.Min(Selects.Count, operandSelects.Count);
+        Dictionary<string, string> identifierMap = new(StringComparer.Ordinal);
         for (int i = 0; i < pairCount; i++)
         {
             SQLiteExpression main = Selects[i];
@@ -97,7 +105,7 @@ internal partial class QueryableVisitor
                 continue;
             }
 
-            string mainCanonical = CteSqlCanonicalizer.Canonicalize(main);
+            string mainCanonical = CteSqlCanonicalizer.Canonicalize(main, identifierMap);
             SQLiteExpression replacement = main.IsDayOfWeekInteger
                 ? EnumMemberVisitor.BuildEnumToNameText(visitor, typeof(DayOfWeek), main)
                 : EnumMemberVisitor.BuildTextStorageEnumToNumber(visitor, typeof(int), typeof(DayOfWeek), main).WithDayOfWeekInteger();
@@ -115,7 +123,7 @@ internal partial class QueryableVisitor
             foreach (KeyValuePair<string, Expression> entry in visitor.TableColumns)
             {
                 if (entry.Value is SQLiteExpression entrySql
-                    && CteSqlCanonicalizer.Canonicalize(entrySql) == mainCanonical)
+                    && CteSqlCanonicalizer.Canonicalize(entrySql, identifierMap) == mainCanonical)
                 {
                     visitor.TableColumns[entry.Key] = replacement;
                     break;

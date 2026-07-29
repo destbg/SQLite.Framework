@@ -41,6 +41,28 @@ internal static class TypeHelpers
             .ToList();
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Projection types are rooted by the user query.")]
+    public static bool HasPositionalIdentityMembers(Type type)
+    {
+        if (type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if ((type.Name.StartsWith("ValueTuple`", StringComparison.Ordinal) || type.Name.StartsWith("Tuple`", StringComparison.Ordinal))
+            && type.Namespace == "System")
+        {
+            return true;
+        }
+
+        if (type.GetMethod("<Clone>$", BindingFlags.Public | BindingFlags.Instance) != null)
+        {
+            return true;
+        }
+
+        return type.IsValueType && type.GetMethod("PrintMembers", BindingFlags.NonPublic | BindingFlags.Instance) != null;
+    }
+
     public static int TypeDepth(Type? type)
     {
         int depth = 0;

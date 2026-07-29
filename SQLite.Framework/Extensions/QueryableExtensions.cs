@@ -191,6 +191,11 @@ public static class QueryableExtensions
         SQLitePropertyCalls<T> propertyCalls = new(translator.Visitor, targetMapping);
         translator.SetProperties = setters(propertyCalls).SetProperties;
 
+        if (translator.SetProperties.Count == 0)
+        {
+            return 0;
+        }
+
         SQLQuery query = translator.Translate(null);
 
         return table.Database.CreateCommand(query.Sql, query.Parameters).ExecuteNonQuery();

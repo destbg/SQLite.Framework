@@ -140,8 +140,9 @@ internal partial class QueryableVisitor
         ThrowIfSetOperations(node.Method.Name);
         ComparerArgumentGuard.ThrowIfComparer(node);
 
+        bool alreadyDistinct = IsDistinct;
         IsDistinct = true;
-        if (Reverse && !ReverseBeforeDistinct)
+        if (Reverse && !ReverseBeforeDistinct && !alreadyDistinct)
         {
             ReverseBeforeDistinct = true;
             Reverse = false;
@@ -206,7 +207,7 @@ internal partial class QueryableVisitor
 
     private void ThrowIfReverse(string methodName)
     {
-        if (Reverse)
+        if (Reverse || (ReverseBeforeDistinct && !(IsDistinct && LastSelectIsClient)))
         {
             throw new NotSupportedException(
                 $"{methodName} after Reverse is not supported because Reverse is applied in memory after the SQL query runs, " +

@@ -45,6 +45,11 @@ public class SQLitePropertyCalls<T>
         }
 
         TableColumn targetColumn = GetTargetColumn(propertyGetter);
+        if (IsComputedColumn(targetColumn))
+        {
+            return this;
+        }
+
         MemberExpression member = (MemberExpression)propertyGetter.Body;
         string paramName = visitor.Counters.NextParamName();
         string sql = ConverterSql.WrapParameter(paramName, member.Type, visitor.Database.Options);
@@ -73,6 +78,11 @@ public class SQLitePropertyCalls<T>
         }
 
         TableColumn targetColumn = GetTargetColumn(propertyGetter);
+        if (IsComputedColumn(targetColumn))
+        {
+            return this;
+        }
+
         visitor.MethodArguments[setter.Parameters[0]] = visitor.TableColumns;
         Expression setterBody = CommonHelpers.Inline(setter.Body);
         bool ignoreAll = visitor.Counters.IgnoreQueryFilters || QueryFilterInjector.ShouldIgnoreAll(setterBody, visitor.Database);
@@ -145,6 +155,11 @@ public class SQLitePropertyCalls<T>
         }
 
         return SQLiteExpression.Leaf(source.PropertyType, visitor.Counters.NextIdentifier(), IdentifierGuard.Quote(source.Name));
+    }
+
+    private bool IsComputedColumn(TableColumn column)
+    {
+        return targetMapping.ComputedColumns.Any(c => string.Equals(c.Column.Name, column.Name, StringComparison.OrdinalIgnoreCase));
     }
 
     private TableColumn GetTargetColumn<TValue>(Expression<Func<T, TValue>> propertyGetter)

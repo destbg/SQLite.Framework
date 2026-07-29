@@ -162,8 +162,21 @@ internal static class QueryableMemberVisitor
         return Expression.Call(node.Object, node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Builds an expression tree for the translator.")]
     public static Expression HandleGroupingMethod(SQLVisitor visitor, MethodCallExpression node)
     {
+        if (node.Method.Name == nameof(Enumerable.Contains) && node.Arguments.Count == 2)
+        {
+            Type containsElementType = node.Method.GetGenericArguments()[0];
+            ParameterExpression element = Expression.Parameter(containsElementType, "e");
+            LambdaExpression predicate = Expression.Lambda(Expression.Equal(element, node.Arguments[1]), element);
+            node = Expression.Call(typeof(Enumerable), nameof(Enumerable.Any), [containsElementType], node.Arguments[0], predicate);
+        }
+        else if (node.Arguments.Count >= 2 && ExpressionHelpers.StripQuotes(node.Arguments[1]) is not LambdaExpression)
+        {
+            throw new NotSupportedException($"Grouping aggregate {node.Method.Name} is not translatable to SQL.");
+        }
+
         Expression receiver = node.Arguments[0];
         LambdaExpression? whereFilter = TryPeelWhereFilter(ref receiver);
 
@@ -438,8 +451,20 @@ internal static class QueryableMemberVisitor
         (string path, ParameterExpression pe) = ExpressionHelpers.ResolveParameterPath(receiver);
 
         Dictionary<string, Expression> newTableColumns = [];
+        Dictionary<string, Expression> sourceColumns = visitor.MethodArguments[pe];
 
-        foreach (KeyValuePair<string, Expression> kvp in visitor.MethodArguments[pe])
+        if (visitor.OptionalRowPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceOptionalPaths))
+        {
+            HashSet<string> strippedOptionalPaths = new(StringComparer.Ordinal);
+            foreach (string optionalPath in sourceOptionalPaths)
+            {
+                strippedOptionalPaths.Add(optionalPath[Constants.GroupingElementPrefix.Length..]);
+            }
+
+            visitor.OptionalRowPaths[newTableColumns] = strippedOptionalPaths;
+        }
+
+        foreach (KeyValuePair<string, Expression> kvp in sourceColumns)
         {
             if (kvp.Key.StartsWith(Constants.GroupingElementPrefix, StringComparison.Ordinal))
             {
@@ -795,8 +820,20 @@ internal static class QueryableMemberVisitor
             && converter.ToDatabase(value) is null;
     }
 
+    private static object? NormalizeInListValue(SQLVisitor visitor, bool isJsonSource, object? value)
+    {
+        value = JsonValueText.NormalizeInValue(visitor.Database.Options, isJsonSource, value);
+        if (visitor.Database.Options.DecimalStorage == DecimalStorageMode.Text && value is decimal decimalValue)
+        {
+            return (double)decimalValue;
+        }
+
+        return value;
+    }
+
     private static SQLiteExpression BuildScalarInExpression(SQLVisitor visitor, Type returnType, SQLiteExpression itemExpr, Type itemType, IReadOnlyList<object?> values)
     {
+        itemExpr = visitor.CastTextDecimalForOrdering(itemExpr);
         bool hasNull = false;
         List<SQLiteParameter> valueParameters = new(values.Count);
         for (int i = 0; i < values.Count; i++)
@@ -808,7 +845,7 @@ internal static class QueryableMemberVisitor
                 continue;
             }
 
-            value = JsonEnumText.NormalizeInValue(visitor.Database.Options, itemExpr.IsJsonSource, value);
+            value = NormalizeInListValue(visitor, itemExpr.IsJsonSource, value);
 
             valueParameters.Add(new SQLiteParameter
             {
@@ -860,6 +897,19 @@ internal static class QueryableMemberVisitor
     private static SQLiteExpression BuildRowValueInExpression(SQLVisitor visitor, Type returnType, List<SQLiteExpression> keyColumns, List<object?[]> rows)
     {
         int columnCount = keyColumns.Count;
+
+        for (int c = 0; c < columnCount; c++)
+        {
+            keyColumns[c] = visitor.CastTextDecimalForOrdering(keyColumns[c]);
+        }
+
+        foreach (object?[] row in rows)
+        {
+            for (int c = 0; c < columnCount; c++)
+            {
+                row[c] = NormalizeInListValue(visitor, keyColumns[c].IsJsonSource, row[c]);
+            }
+        }
 
         List<object?[]> pureRows = [];
         List<object?[]> nullRows = [];

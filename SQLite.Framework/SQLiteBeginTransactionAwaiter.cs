@@ -19,6 +19,12 @@ public readonly struct SQLiteBeginTransactionAwaiter : ICriticalNotifyCompletion
         this.database = database;
         ownsLock = !database.HoldsConnectionLock;
 
+        if (!ownsLock && cancellationToken.IsCancellationRequested)
+        {
+            savepointTask = Task.FromCanceled<(string, LockToken)>(cancellationToken);
+            return;
+        }
+
         savepointTask = ownsLock
             ? database.AcquireConnectionAndCreateSavepoint(cancellationToken)
             : Task.FromResult((database.CreateSavepoint(), (LockToken)null!));
