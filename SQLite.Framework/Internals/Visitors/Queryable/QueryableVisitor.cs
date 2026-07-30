@@ -236,7 +236,9 @@ internal partial class QueryableVisitor
 
                         string[]? bodyColumnNames = CteColumnMapper.DeclaredColumnNames(
                             cteElementType, bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects, database.Options);
-                        bool hasClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns);
+                        bool hasClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns)
+                            || CteColumnMapper.BodyColumnOrderIsAmbiguous(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
+                        Dictionary<string, Expression>? bodyNodes = CteColumnMapper.BodyConstructedNodes(bodyTranslator.Visitor);
                         cteName = visitor.CteRegistry.Register(
                             bodyQuery.Sql,
                             bodyQuery.Parameters.ToArray(),
@@ -246,8 +248,9 @@ internal partial class QueryableVisitor
                             dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(cteElementType, database.Options)),
                             jsonSourceColumns: CteColumnMapper.JsonSourceColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(cteElementType, database.Options)),
                             constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
+                            constructedNodes: bodyNodes,
                             bodyColumns: hasClientMember ? bodyTranslator.Visitor.TableColumns : null,
-                            bodySelects: hasClientMember ? bodyTranslator.Selects : null,
+                            bodySelects: hasClientMember || bodyNodes != null ? bodyTranslator.Selects : null,
                             emittedColumns: CteColumnMapper.EmittedColumnNames(bodyColumnNames, bodyTranslator.Selects),
                             optionalRow: bodyTranslator.Visitor.OptionalRowColumns.Contains(bodyTranslator.Visitor.TableColumns),
                             optionalRowPaths: bodyTranslator.Visitor.OptionalRowPaths.TryGetValue(bodyTranslator.Visitor.TableColumns, out HashSet<string>? bodyOptionalPaths)
@@ -259,7 +262,7 @@ internal partial class QueryableVisitor
                 entityType = cteElementType;
                 CteInfo cteInfo = visitor.CteRegistry.Info(cte);
                 newTableColumns = CteColumnMapper.BuildOuterColumns(cteInfo, cteElementType, cteAlias, database.Options, visitor.Counters);
-                CteColumnMapper.ApplyBodyTraits(newTableColumns, cteInfo, visitor);
+                CteColumnMapper.ApplyBodyTraits(newTableColumns, cteInfo, visitor, cteAlias);
                 visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = cteAlias };
                 sql = SQLiteExpression.Leaf(body.Type, -1, $"{cteName} AS {cteAlias}");
             }
@@ -293,6 +296,13 @@ internal partial class QueryableVisitor
         {
             SQLTranslator innerVisitor = visitor.CloneDeeper(visitor.Level + 1);
             SQLQuery query = innerVisitor.Translate(body);
+
+            if (innerVisitor.ClientProjection || innerVisitor.LastSelectIsClient)
+            {
+                throw new NotSupportedException(
+                    "A join or SelectMany source that ends in a Select that runs in memory is not supported, " +
+                    "because SQLite cannot read values the database never computes. Apply the projection after combining the sources.");
+            }
 
             entityType = queryableElementType;
             char aliasChar = char.ToLowerInvariant(entityType.Name.FirstOrDefault(char.IsLetter, 't'));

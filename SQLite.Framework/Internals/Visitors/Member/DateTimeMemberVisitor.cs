@@ -505,7 +505,7 @@ internal static class DateTimeMemberVisitor
             return SQLiteExpression.Wrap(
                 method.ReturnType,
                 visitor.Counters.NextIdentifier(),
-                $"CAST({multiplyBy} * ", arguments[0].SQLiteExpression!, " AS INTEGER)",
+                $"CAST({multiplyBy} * ", ExpressionHelpers.BracketIfNeeded(arguments[0].SQLiteExpression!), " AS INTEGER)",
                 arguments[0].Parameters
             );
         }

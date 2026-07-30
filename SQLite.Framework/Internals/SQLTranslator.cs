@@ -42,12 +42,12 @@ internal class SQLTranslator
 
     public IReadOnlyList<SQLiteExpression> Selects => queryableMethodVisitor.Selects;
 
-    public IReadOnlyList<IReadOnlyList<string>> SetOperandSelects => queryableMethodVisitor.SetOperandSelects;
-
     public bool HasTopLevelOrderingOrPaging =>
         queryableMethodVisitor.OrderBys.Count > 0
         || queryableMethodVisitor.Take != null
-        || queryableMethodVisitor.Skip != null;
+        || queryableMethodVisitor.Skip != null
+        || queryableMethodVisitor.ClientTake != null
+        || queryableMethodVisitor.ClientSkip != null;
 
     public bool HasSetOperations => queryableMethodVisitor.SetOperations.Count > 0;
 
@@ -169,6 +169,12 @@ internal class SQLTranslator
 
         bool useExists = queryableMethodVisitor.IsAny || queryableMethodVisitor.IsAll;
         bool hasSetOperations = queryableMethodVisitor.SetOperations.Count > 0;
+
+        if (hasSetOperations)
+        {
+            List<string> mainSelectIdentifiers = queryableMethodVisitor.Selects.Select(s => s.IdentifierText).ToList();
+            SetOperationAlignment.ThrowIfBranchMembersMisaligned(isInnerQuery, mainSelectIdentifiers, queryableMethodVisitor.SetOperandSelects);
+        }
 
         if ((QueryType == QueryType.Select && (!useExists || hasSetOperations)) || EmitReturning)
         {
@@ -959,6 +965,11 @@ internal class SQLTranslator
                     Visitor.OptionalRowPaths[outerColumns] = [.. innerOptionalPaths];
                 }
 
+                if (Visitor.ConstructedProjectionPaths.TryGetValue(innerTranslator.Visitor.TableColumns, out HashSet<string>? innerConstructedPaths))
+                {
+                    Visitor.ConstructedProjectionPaths[outerColumns] = [.. innerConstructedPaths];
+                }
+
                 Visitor.TableColumns = outerColumns;
             }
 
@@ -1031,6 +1042,14 @@ internal class SQLTranslator
 
             SQLTranslator innerTranslator = Visitor.CloneDeeper(level + 1);
             SQLQuery innerQuery = innerTranslator.Translate(projectedInner);
+
+            if (innerTranslator.ClientProjection || innerTranslator.LastSelectIsClient)
+            {
+                throw new NotSupportedException(
+                    $"{aggregateName} after a projection that runs in memory is not supported, because SQLite " +
+                    "cannot aggregate a value the database never computes. " +
+                    "Materialize the values with ToList and aggregate in memory.");
+            }
 
             char aliasChar = 'g';
             string alias = $"{aliasChar}{Visitor.Counters.NextTableIndex(aliasChar)}";
@@ -1552,6 +1571,6 @@ internal class SQLTranslator
             current = inner.Expression;
         }
 
-        return current is not (NewExpression or MemberInitExpression or MethodCallExpression);
+        return current is not (NewExpression or MemberInitExpression or MethodCallExpression or ListInitExpression or NewArrayExpression);
     }
 }

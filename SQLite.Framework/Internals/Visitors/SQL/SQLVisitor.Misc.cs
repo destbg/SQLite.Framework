@@ -192,7 +192,14 @@ internal partial class SQLVisitor
             }
         }
 
+        bool previousFtsMatchAsSubquery = FtsMatchAsSubquery;
+        if (node.NodeType == ExpressionType.Not)
+        {
+            FtsMatchAsSubquery = true;
+        }
+
         ResolvedModel resolved = ResolveExpression(node.Operand);
+        FtsMatchAsSubquery = previousFtsMatchAsSubquery;
 
         if (resolved.SQLiteExpression == null)
         {
@@ -442,7 +449,9 @@ internal partial class SQLVisitor
 
             string[]? bodyColumnNames = CteColumnMapper.DeclaredColumnNames(
                 elementType, bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects, Database.Options);
-            bool hasClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns);
+            bool hasClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns)
+                || CteColumnMapper.BodyColumnOrderIsAmbiguous(bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects);
+            Dictionary<string, Expression>? bodyNodes = CteColumnMapper.BodyConstructedNodes(bodyTranslator.Visitor);
             cteName = CteRegistry.Register(
                 bodyQuery.Sql,
                 bodyQuery.Parameters.Count == 0 ? null : [.. bodyQuery.Parameters],
@@ -452,8 +461,9 @@ internal partial class SQLVisitor
                 dayOfWeekColumns: CteColumnMapper.DayOfWeekColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(elementType, Database.Options)),
                 jsonSourceColumns: CteColumnMapper.JsonSourceColumns(bodyTranslator.Visitor.TableColumns, TypeHelpers.IsSimple(elementType, Database.Options)),
                 constructedPaths: CteColumnMapper.BodyConstructedPaths(bodyTranslator.Visitor),
+                constructedNodes: bodyNodes,
                 bodyColumns: hasClientMember ? bodyTranslator.Visitor.TableColumns : null,
-                bodySelects: hasClientMember ? bodyTranslator.Selects : null,
+                bodySelects: hasClientMember || bodyNodes != null ? bodyTranslator.Selects : null,
                 emittedColumns: CteColumnMapper.EmittedColumnNames(bodyColumnNames, bodyTranslator.Selects),
                 optionalRow: bodyTranslator.Visitor.OptionalRowColumns.Contains(bodyTranslator.Visitor.TableColumns),
                 optionalRowPaths: bodyTranslator.Visitor.OptionalRowPaths.TryGetValue(bodyTranslator.Visitor.TableColumns, out HashSet<string>? bodyOptionalPaths)
@@ -470,7 +480,7 @@ internal partial class SQLVisitor
     {
         CteInfo info = CteRegistry!.Info(cte);
         TableColumns = CteColumnMapper.BuildOuterColumns(info, elementType, alias, Database.Options, Counters);
-        CteColumnMapper.ApplyBodyTraits(TableColumns, info, this);
+        CteColumnMapper.ApplyBodyTraits(TableColumns, info, this, alias);
     }
 
     private bool IsTextStoredEnum(SQLiteExpression expression)

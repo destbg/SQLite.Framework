@@ -264,7 +264,8 @@ internal partial class QueryableVisitor
 
     private SQLiteExpression BuildScalarAggregate(string function, Type resultType, SQLiteExpression innerExpr, string distinctPrefix)
     {
-        if (function is "MAX" or "MIN" && TypeHelpers.UnsignedIntegerKey(innerExpr.Type) == typeof(ulong))
+        if (function is "MAX" or "MIN"
+            && (TypeHelpers.UnsignedIntegerKey(innerExpr.Type) == typeof(ulong) || TypeHelpers.UnsignedIntegerKey(resultType) == typeof(ulong)))
         {
             string nonMatchSide = function == "MAX" ? "< 0" : ">= 0";
             return SQLiteExpression.Multi(resultType, visitor.Counters.NextIdentifier(),
@@ -273,9 +274,15 @@ internal partial class QueryableVisitor
                 innerExpr.Parameters);
         }
 
-        return function == "SUM"
+        SQLiteExpression aggregate = function == "SUM"
             ? SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"COALESCE({function}({distinctPrefix}", innerExpr, "), 0)", innerExpr.Parameters)
             : SQLiteExpression.Wrap(resultType, visitor.Counters.NextIdentifier(), $"{function}({distinctPrefix}", innerExpr, ")", innerExpr.Parameters);
+        if (function is "MAX" or "MIN" && innerExpr.IsDayOfWeekInteger)
+        {
+            aggregate.WithDayOfWeekInteger();
+        }
+
+        return aggregate;
     }
 
     private SQLiteExpression NullAwareDistinctCount(Type type, SQLiteExpression column)
@@ -317,6 +324,31 @@ internal partial class QueryableVisitor
 
         SelectVisitor groupByVisitor = new(GroupBys);
         Expression keyBody = RewriteTupleCreateKey(lambda.Body);
+
+        if (WindowCallDetector.Contains(keyBody))
+        {
+            throw new NotSupportedException(
+                "A window function cannot be used in a GroupBy key, because SQL groups rows before window functions run.");
+        }
+
+        if (keyBody is ParameterExpression identityKeyParam
+            && !TypeHelpers.IsSimple(identityKeyParam.Type, database.Options)
+            && visitor.MethodArguments.TryGetValue(identityKeyParam, out Dictionary<string, Expression>? identityKeyColumns))
+        {
+            foreach (Expression identityColumn in identityKeyColumns.Values)
+            {
+                if (identityColumn is not SQLiteExpression identityKeyColumn)
+                {
+                    throw new NotSupportedException(
+                        "GroupBy over the whole row is not supported when the row holds a value computed in memory.");
+                }
+
+                GroupBys.Add(identityKeyColumn);
+            }
+
+            return FinishGroupBy(node, lambda, GroupBys[0]);
+        }
+
         Expression groupByExpression = visitor.Visit(keyBody);
 
         if (groupByExpression is SQLiteExpression keyExpression)
@@ -353,6 +385,11 @@ internal partial class QueryableVisitor
                 "or `.GroupBy(x => new {{ x.A, x.B }})`).");
         }
 
+        return FinishGroupBy(node, lambda, groupByExpression);
+    }
+
+    private MethodCallExpression FinishGroupBy(MethodCallExpression node, LambdaExpression lambda, Expression groupByExpression)
+    {
         bool isScalarElement = false;
 
         if (node.Arguments.Count == 3)
@@ -373,7 +410,7 @@ internal partial class QueryableVisitor
 
         Dictionary<string, Expression> newTableColumns = [];
 
-        if (groupByExpression is NewExpression keyNew && ResolveGroupKeyMemberNames(keyNew) is { } keyMemberNames)
+        if (groupByExpression is NewExpression keyNew)
         {
             if (isScalarElement)
             {
@@ -388,10 +425,18 @@ internal partial class QueryableVisitor
             }
 
             HashSet<string> constructedKeyPaths = [];
-            for (int i = 0; i < keyMemberNames.Count; i++)
+            if (ResolveGroupKeyMemberNames(keyNew) is { } keyMemberNames)
             {
-                string keyName = nameof(IGrouping<,>.Key) + "." + keyMemberNames[i];
-                AddGroupKeyColumns(newTableColumns, constructedKeyPaths, keyName, keyNew.Arguments[i]);
+                for (int i = 0; i < keyMemberNames.Count; i++)
+                {
+                    string keyName = nameof(IGrouping<,>.Key) + "." + keyMemberNames[i];
+                    AddGroupKeyColumns(newTableColumns, constructedKeyPaths, keyName, keyNew.Arguments[i]);
+                }
+            }
+            else
+            {
+                constructedKeyPaths.Add(nameof(IGrouping<,>.Key));
+                newTableColumns[nameof(IGrouping<,>.Key)] = keyNew;
             }
 
             if (constructedKeyPaths.Count > 0)

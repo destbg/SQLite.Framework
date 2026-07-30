@@ -836,18 +836,19 @@ public static class SelectSignatureWriter
         }
 
         bool lowerEnums = IsComparisonKind(bin.Kind());
+        INamedTypeSymbol? liftedEnum = lowerEnums ? TryGetLiftedEnumOperandType(bin, ctx) : null;
 
         if (IsBitwiseKind(bin.Kind()) && type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } bitwiseUnderlying })
         {
             sb.Append("(Convert ").Append(FormatType(type, ctx.TypeArgSubstitutions));
             sb.Append(" (").Append(nodeType).Append(' ').Append(FormatType(bitwiseUnderlying, ctx.TypeArgSubstitutions));
             sb.Append(' ');
-            if (!AppendBinaryOperand(sb, bin.Left, true, ctx))
+            if (!AppendBinaryOperand(sb, bin.Left, true, null, ctx))
             {
                 return false;
             }
             sb.Append(' ');
-            if (!AppendBinaryOperand(sb, bin.Right, true, ctx))
+            if (!AppendBinaryOperand(sb, bin.Right, true, null, ctx))
             {
                 return false;
             }
@@ -857,12 +858,12 @@ public static class SelectSignatureWriter
 
         sb.Append('(').Append(nodeType).Append(' ').Append(FormatType(type, ctx.TypeArgSubstitutions));
         sb.Append(' ');
-        if (!AppendBinaryOperand(sb, bin.Left, lowerEnums, ctx))
+        if (!AppendBinaryOperand(sb, bin.Left, lowerEnums, liftedEnum, ctx))
         {
             return false;
         }
         sb.Append(' ');
-        if (!AppendBinaryOperand(sb, bin.Right, lowerEnums, ctx))
+        if (!AppendBinaryOperand(sb, bin.Right, lowerEnums, liftedEnum, ctx))
         {
             return false;
         }
@@ -887,7 +888,7 @@ public static class SelectSignatureWriter
             or SyntaxKind.ExclusiveOrExpression;
     }
 
-    private static bool AppendBinaryOperand(StringBuilder sb, ExpressionSyntax operand, bool lowerEnums, SelectSignatureCtx ctx)
+    private static bool AppendBinaryOperand(StringBuilder sb, ExpressionSyntax operand, bool lowerEnums, INamedTypeSymbol? liftedEnum, SelectSignatureCtx ctx)
     {
         if (!lowerEnums)
         {
@@ -900,17 +901,37 @@ public static class SelectSignatureWriter
             stripped = paren.Expression;
         }
 
+        IFieldSymbol? enumConstant = ctx.Model.GetSymbolInfo(stripped).Symbol is IFieldSymbol { HasConstantValue: true } field
+            && field.ContainingType.TypeKind == TypeKind.Enum
+            ? field
+            : null;
+
+        if (liftedEnum is { EnumUnderlyingType: { } liftedUnderlying })
+        {
+            sb.Append("(Convert System.Nullable<").Append(FormatType(liftedUnderlying, ctx.TypeArgSubstitutions)).Append("> ");
+            if (enumConstant != null)
+            {
+                AppendConstantValue(sb, enumConstant.ContainingType, enumConstant.ConstantValue, ctx);
+            }
+            else if (!TryAppend(sb, stripped, ctx))
+            {
+                return false;
+            }
+
+            sb.Append(')');
+            return true;
+        }
+
         ITypeSymbol? operandType = Substitute(ctx.Model.GetTypeInfo(stripped).Type, ctx.TypeArgSubstitutions);
         if (operandType is not INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlying })
         {
             return TryAppend(sb, operand, ctx);
         }
 
-        if (ctx.Model.GetSymbolInfo(stripped).Symbol is IFieldSymbol { HasConstantValue: true } enumField
-            && enumField.ContainingType.TypeKind == TypeKind.Enum)
+        if (enumConstant != null)
         {
             sb.Append("(Constant ").Append(FormatType(underlying, ctx.TypeArgSubstitutions)).Append(' ')
-                .Append(FormatConstant(enumField.ConstantValue)).Append(')');
+                .Append(FormatConstant(enumConstant.ConstantValue)).Append(')');
             return true;
         }
 
@@ -921,6 +942,26 @@ public static class SelectSignatureWriter
         }
         sb.Append(')');
         return true;
+    }
+
+    private static INamedTypeSymbol? TryGetLiftedEnumOperandType(BinaryExpressionSyntax bin, SelectSignatureCtx ctx)
+    {
+        return TryGetNullableEnumType(bin.Left, ctx) ?? TryGetNullableEnumType(bin.Right, ctx);
+    }
+
+    private static INamedTypeSymbol? TryGetNullableEnumType(ExpressionSyntax operand, SelectSignatureCtx ctx)
+    {
+        ExpressionSyntax stripped = operand;
+        while (stripped is ParenthesizedExpressionSyntax paren)
+        {
+            stripped = paren.Expression;
+        }
+
+        return Substitute(ctx.Model.GetTypeInfo(stripped).Type, ctx.TypeArgSubstitutions) is INamedTypeSymbol { IsGenericType: true } nullable
+            && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T
+            && nullable.TypeArguments[0] is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+            ? enumType
+            : null;
     }
 
     private static bool AppendPrefixUnary(StringBuilder sb, PrefixUnaryExpressionSyntax unary, ITypeSymbol? type, SelectSignatureCtx ctx)
@@ -1207,8 +1248,41 @@ public static class SelectSignatureWriter
             return false;
         }
 
-        AppendConstantValue(sb, parameter.Type, parameter.ExplicitDefaultValue, ctx);
+        object? value = parameter.ExplicitDefaultValue;
+        if (value == null && parameter.Type.IsValueType && !IsNullableValueType(parameter.Type))
+        {
+            string? zero = FormatDefaultStructValue(parameter.Type);
+            if (zero == null)
+            {
+                return false;
+            }
+
+            sb.Append("(Constant ").Append(FormatType(parameter.Type, ctx.TypeArgSubstitutions)).Append(' ').Append(zero).Append(')');
+            return true;
+        }
+
+        AppendConstantValue(sb, parameter.Type, value, ctx);
         return true;
+    }
+
+    private static bool IsNullableValueType(ITypeSymbol type)
+    {
+        return type is INamedTypeSymbol { IsGenericType: true } named
+            && named.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T;
+    }
+
+    private static string? FormatDefaultStructValue(ITypeSymbol type)
+    {
+        return type.ToDisplayString() switch
+        {
+            "System.DateTime" => "01/01/0001 00:00:00",
+            "System.DateTimeOffset" => "01/01/0001 00:00:00 +00:00",
+            "System.TimeSpan" => "00:00:00",
+            "System.DateOnly" => "01/01/0001",
+            "System.TimeOnly" => "00:00",
+            "System.Guid" => "00000000-0000-0000-0000-000000000000",
+            _ => null
+        };
     }
 
     private static bool AppendInvocationArgument(StringBuilder sb, ExpressionSyntax argument, bool expandRowArgs, bool stringConcatMethod, SelectSignatureCtx ctx)

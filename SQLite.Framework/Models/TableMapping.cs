@@ -229,6 +229,50 @@ public class TableMapping
         {
             computed.ExpressionSql = computed.ExpressionSql.Replace(previousQuoted, newQuoted, StringComparison.Ordinal);
         }
+
+        foreach (TriggerSpec trigger in triggers)
+        {
+            trigger.BodySql = ReplaceTriggerRowColumn(trigger.BodySql, previousQuoted, newQuoted);
+            trigger.WhenSql = trigger.WhenSql == null ? null : ReplaceTriggerRowColumn(trigger.WhenSql, previousQuoted, newQuoted);
+        }
+    }
+
+    internal void RenameVirtualTableColumn(PropertyInfo property, string newName)
+    {
+        if (FullTextSearch != null)
+        {
+            foreach (FtsIndexedColumn column in FullTextSearch.IndexedColumns)
+            {
+                if (column.Property == property)
+                {
+                    column.Name = newName;
+                }
+            }
+        }
+
+        if (RTree != null)
+        {
+            if (RTree.RowIdProperty == property)
+            {
+                RTree.RowIdColumnName = newName;
+            }
+
+            foreach (RTreeBoundsColumn bound in RTree.Bounds)
+            {
+                if (bound.Property == property)
+                {
+                    bound.ColumnName = newName;
+                }
+            }
+
+            foreach (RTreeAuxiliaryColumn auxiliary in RTree.Auxiliaries)
+            {
+                if (auxiliary.Property == property)
+                {
+                    auxiliary.ColumnName = newName;
+                }
+            }
+        }
     }
 
     internal void RemoveColumn(TableColumn column)
@@ -336,6 +380,13 @@ public class TableMapping
             onDelete: SQLiteForeignKeyAction.NoAction,
             onUpdate: SQLiteForeignKeyAction.NoAction,
             deferred: false);
+    }
+
+    private static string ReplaceTriggerRowColumn(string sql, string previousQuoted, string newQuoted)
+    {
+        return sql
+            .Replace("OLD." + previousQuoted, "OLD." + newQuoted, StringComparison.Ordinal)
+            .Replace("NEW." + previousQuoted, "NEW." + newQuoted, StringComparison.Ordinal);
     }
 
     private static ForeignKeyInfo RebuildWithRenamedSource(ForeignKeyInfo foreignKey, string previousName, string newName)

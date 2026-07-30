@@ -110,6 +110,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
         target.Name = name;
         mapping.RenameForeignKeyColumnSource(previousName, name);
         mapping.RenameDeclaredColumnSql(previousName, name);
+        mapping.RenameVirtualTableColumn(target.PropertyInfo, name);
         return this;
     }
 

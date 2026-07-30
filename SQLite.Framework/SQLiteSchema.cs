@@ -769,6 +769,14 @@ public class SQLiteSchema
 
         int count = Database.CreateCommand(sb.ToString(), []).ExecuteNonQuery();
 
+        if (fts.IndexedColumns.Any(c => c.Weight != 1.0))
+        {
+            string weights = string.Join(", ", fts.IndexedColumns
+                .Select(c => c.Weight.ToString("0.0###############", CultureInfo.InvariantCulture)));
+            Database.CreateCommand(
+                $"INSERT INTO \"{mapping.TableName}\"(\"{mapping.TableName}\", \"rank\") VALUES('rank', 'bm25({weights})')", []).ExecuteNonQuery();
+        }
+
         if (fts.ContentMode == FtsContentMode.External && fts.AutoSync == FtsAutoSync.Triggers)
         {
             foreach (string triggerSql in BuildTriggerSql(fts, mapping))

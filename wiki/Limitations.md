@@ -180,6 +180,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Full text search
 
 - On an external-content FTS5 table, reading an indexed column value works only when the content table's column has the same name as the indexed property. A column renamed with `[Column]` can still be matched, but its value cannot be read back.
+- `AddOrUpdate` and `AddOrUpdateRange` are not supported on a contentless FTS5 table and throw. SQLite cannot delete the replaced row from a contentless index, so the old text would keep matching forever. `Update`, `Remove` and `Clear` are rejected by SQLite itself on such a table.
 
 ## Projections
 
@@ -189,6 +190,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - An `object`-typed member read back through a conditional projection can carry the storage type, so a boxed `int` can read back as a boxed `long`.
 - A member of a nested object built by a projection cannot be read after `Take`, `Skip` or `Distinct` when the projection runs in memory. The wrapped subquery exposes only plain columns.
 - A member that a projected object's constructor computes, such as `Doubled` set to `x * 2` inside the constructor body, reads back correctly in a `Select` but cannot be used in a `Where` and throws. The database never sees the value the constructor computes. The same holds for any other member of an object built by a constructor that takes arguments, including a member left at its property initializer value.
+- A property without a setter on an object built by a constructor that takes arguments reads back the argument whose parameter name matches the property name. The constructor body is not seen by the database, so a constructor that computes or swaps the value stored in such a property reads back the plain argument value. This covers reading the member in a later query step and using it in a filter. Materializing the whole object runs the real constructor and keeps the computed value.
 - Calling `GetType` on a value that is `null` throws a different error than LINQ-to-Objects.
 
 ## Schema

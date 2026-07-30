@@ -263,6 +263,7 @@ public static class QueryableExtensions
         IQueryable<TResult> projected = returning.Source.Select(returning.Projection);
         SQLQuery query = translator.Translate(projected.Expression);
 
+        using IDisposable _ = returning.Database.Lock();
         return returning.Database.CreateCommand(query.Sql, query.Parameters)
             .ExecuteQueryInternal<TResult>(query)
             .ToList();
@@ -295,11 +296,18 @@ public static class QueryableExtensions
         translator.Visit(projected.Expression);
 
         TableMapping targetMapping = returning.Database.TableMapping(translator.Visitor.From!.Type);
+        translator.Visitor.RebindTableColumns(targetMapping);
         SQLitePropertyCalls<T> propertyCalls = new(translator.Visitor, targetMapping);
         translator.SetProperties = setters(propertyCalls).SetProperties;
 
+        if (translator.SetProperties.Count == 0)
+        {
+            return [];
+        }
+
         SQLQuery query = translator.Translate(null);
 
+        using IDisposable _ = returning.Database.Lock();
         return returning.Database.CreateCommand(query.Sql, query.Parameters)
             .ExecuteQueryInternal<TResult>(query)
             .ToList();

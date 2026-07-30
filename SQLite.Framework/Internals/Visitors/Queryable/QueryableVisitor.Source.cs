@@ -7,7 +7,7 @@ internal partial class QueryableVisitor
         ThrowIfReverse(node.Method.Name);
         ComparerArgumentGuard.ThrowIfComparer(node);
 
-        if (ClientProjection && !IsInnerQuery)
+        if ((ClientProjection || (IsDistinct && LastSelectIsClient)) && !IsInnerQuery)
         {
             throw new NotSupportedException(
                 $"{node.Method.Name} after a projection that runs in memory is not supported, " +
@@ -33,7 +33,7 @@ internal partial class QueryableVisitor
                 "Materialize the ordered or paged operand into a list before combining.");
         }
 
-        if (sqlTranslator.ClientProjection && !IsInnerQuery)
+        if ((sqlTranslator.ClientProjection || sqlTranslator.LastSelectIsClient) && !IsInnerQuery)
         {
             throw new NotSupportedException(
                 $"{node.Method.Name} with an operand whose projection runs in memory is not supported, " +

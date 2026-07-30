@@ -48,6 +48,18 @@ internal partial class SQLVisitor
             return Visit(FoldConstructedMemberAccess(conditionalObject, node.Member.Name));
         }
 
+        if (node.Expression is MethodCallExpression { Method.DeclaringType: not null } scalarSubquery
+            && scalarSubquery.Method.DeclaringType == typeof(System.Linq.Queryable)
+            && !TypeHelpers.IsSimple(node.Expression.Type, Database.Options)
+            && Database.TableMappings.Any(m => m.Type == node.Expression.Type))
+        {
+            throw new NotSupportedException(
+                $"Cannot read '{node.Member.Name}' from an entity-typed scalar subquery. " +
+                $"Project the column inside the subquery first, e.g. " +
+                $"'.Where(x => ...).Select(x => x.{node.Member.Name}).First()' " +
+                $"instead of '.First(x => ...).{node.Member.Name}'.");
+        }
+
         if (node.Expression is not MemberExpression and not ParameterExpression)
         {
             Expression resolved = ResolveMember(node);
@@ -250,16 +262,6 @@ internal partial class SQLVisitor
         if (Database.Options.HasTextOrBlobConverter(node.Expression.Type))
         {
             return node.Update(sqlExpression);
-        }
-
-        if (!TypeHelpers.IsSimple(node.Expression.Type, Database.Options)
-            && Database.TableMappings.Any(m => m.Type == node.Expression.Type))
-        {
-            throw new NotSupportedException(
-                $"Cannot read '{node.Member.Name}' from an entity-typed scalar subquery. " +
-                $"Project the column inside the subquery first, e.g. " +
-                $"'.Where(x => ...).Select(x => x.{node.Member.Name}).First()' " +
-                $"instead of '.First(x => ...).{node.Member.Name}'.");
         }
 
         return sqlExpression;

@@ -18,6 +18,6 @@ internal sealed class TriggerSpec
     public string Name { get; }
     public SQLiteTriggerTiming Timing { get; }
     public SQLiteTriggerEvent Event { get; }
-    public string? WhenSql { get; }
-    public string BodySql { get; }
+    public string? WhenSql { get; set; }
+    public string BodySql { get; set; }
 }

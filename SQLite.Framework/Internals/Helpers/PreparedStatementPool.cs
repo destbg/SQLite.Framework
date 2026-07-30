@@ -81,10 +81,29 @@ internal sealed class PreparedStatementPool
     /// </summary>
     public void Clear()
     {
+        Drain(close: true);
+    }
+
+    /// <summary>
+    /// Finalizes every pooled statement but keeps the pool usable. Call this when a connection open
+    /// fails partway, so a retried open starts with an empty pool instead of statements prepared
+    /// against the abandoned connection.
+    /// </summary>
+    public void Reset()
+    {
+        Drain(close: false);
+    }
+
+    private void Drain(bool close)
+    {
         List<sqlite3_stmt> toFinalize = [];
         lock (gate)
         {
-            disposed = true;
+            if (close)
+            {
+                disposed = true;
+            }
+
             foreach ((sqlite3_stmt statement, LinkedListNode<string> _) in free.Values)
             {
                 toFinalize.Add(statement);

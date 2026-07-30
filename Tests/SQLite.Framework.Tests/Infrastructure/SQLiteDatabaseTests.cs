@@ -192,10 +192,10 @@ public class SQLiteDatabaseTests
         Assert.True(db.Options.GroupingQueryMaterializers.ContainsKey(typeof(IGrouping<int, Book>)));
         Assert.True(db.Options.EntityWriters.ContainsKey(typeof(Book)));
         Assert.True(db.Options.QueryFilters.ContainsKey(typeof(Book)));
-        Assert.True(db.Options.AddHooks.ContainsKey(typeof(Book)));
-        Assert.True(db.Options.UpdateHooks.ContainsKey(typeof(Book)));
-        Assert.True(db.Options.RemoveHooks.ContainsKey(typeof(Book)));
-        Assert.True(db.Options.AddOrUpdateHooks.ContainsKey(typeof(Book)));
+        Assert.Contains(db.Options.AddHooks, h => h.EntityType == typeof(Book));
+        Assert.Contains(db.Options.UpdateHooks, h => h.EntityType == typeof(Book));
+        Assert.Contains(db.Options.RemoveHooks, h => h.EntityType == typeof(Book));
+        Assert.Contains(db.Options.AddOrUpdateHooks, h => h.EntityType == typeof(Book));
         Assert.Single(db.Options.OnActionHooks);
         Assert.NotEmpty(db.Options.CommandInterceptors);
     }

@@ -91,10 +91,10 @@ public sealed class SQLiteOptionsBuilder
             EntityWriters[entry.Key] = entry.Value;
         }
 
-        CopyHooks(options.AddHooks, AddHooks);
-        CopyHooks(options.UpdateHooks, UpdateHooks);
-        CopyHooks(options.RemoveHooks, RemoveHooks);
-        CopyHooks(options.AddOrUpdateHooks, AddOrUpdateHooks);
+        AddHooks.AddRange(options.AddHooks);
+        UpdateHooks.AddRange(options.UpdateHooks);
+        RemoveHooks.AddRange(options.RemoveHooks);
+        AddOrUpdateHooks.AddRange(options.AddOrUpdateHooks);
         OnActionHooks.AddRange(options.OnActionHooks);
         CommandInterceptors.AddRange(options.CommandInterceptors);
 
@@ -310,24 +310,24 @@ public sealed class SQLiteOptionsBuilder
     /// Per-entity hooks that fire before <c>Add</c>. Mutate the entity here for things like an
     /// audit timestamp.
     /// </summary>
-    public Dictionary<Type, List<Delegate>> AddHooks { get; } = [];
+    public List<SQLiteEntityHook> AddHooks { get; } = [];
 
     /// <summary>
     /// Per-entity hooks that fire before <c>Update</c>.
     /// </summary>
-    public Dictionary<Type, List<Delegate>> UpdateHooks { get; } = [];
+    public List<SQLiteEntityHook> UpdateHooks { get; } = [];
 
     /// <summary>
     /// Per-entity hooks that fire before <c>Remove</c>. Useful for soft delete: flip a flag and
     /// call <c>Update</c> from inside the hook, then return <see langword="false" /> to skip the
     /// default DELETE.
     /// </summary>
-    public Dictionary<Type, List<Delegate>> RemoveHooks { get; } = [];
+    public List<SQLiteEntityHook> RemoveHooks { get; } = [];
 
     /// <summary>
     /// Per-entity hooks that fire before <c>AddOrUpdate</c> and <c>Upsert</c>.
     /// </summary>
-    public Dictionary<Type, List<Delegate>> AddOrUpdateHooks { get; } = [];
+    public List<SQLiteEntityHook> AddOrUpdateHooks { get; } = [];
 
     /// <summary>
     /// Cross-cutting action hooks that run before every CRUD action across every entity.
@@ -677,7 +677,7 @@ public sealed class SQLiteOptionsBuilder
     /// </summary>
     public SQLiteOptionsBuilder OnAdd<T>(Func<SQLiteDatabase, T, bool> hook)
     {
-        AppendHook(AddHooks, typeof(T), hook);
+        AddHooks.Add(new SQLiteEntityHook(typeof(T), hook));
         return this;
     }
 
@@ -689,7 +689,7 @@ public sealed class SQLiteOptionsBuilder
     /// </summary>
     public SQLiteOptionsBuilder OnAdd<T>(Func<SQLiteDatabase, T, IDictionary<string, object?>, bool> hook)
     {
-        AppendHook(AddHooks, typeof(T), hook);
+        AddHooks.Add(new SQLiteEntityHook(typeof(T), hook));
         return this;
     }
 
@@ -711,7 +711,7 @@ public sealed class SQLiteOptionsBuilder
     /// </summary>
     public SQLiteOptionsBuilder OnUpdate<T>(Func<SQLiteDatabase, T, bool> hook)
     {
-        AppendHook(UpdateHooks, typeof(T), hook);
+        UpdateHooks.Add(new SQLiteEntityHook(typeof(T), hook));
         return this;
     }
 
@@ -723,7 +723,7 @@ public sealed class SQLiteOptionsBuilder
     /// </summary>
     public SQLiteOptionsBuilder OnUpdate<T>(Func<SQLiteDatabase, T, IDictionary<string, object?>, bool> hook)
     {
-        AppendHook(UpdateHooks, typeof(T), hook);
+        UpdateHooks.Add(new SQLiteEntityHook(typeof(T), hook));
         return this;
     }
 
@@ -746,7 +746,7 @@ public sealed class SQLiteOptionsBuilder
     /// </summary>
     public SQLiteOptionsBuilder OnRemove<T>(Func<SQLiteDatabase, T, bool> hook)
     {
-        AppendHook(RemoveHooks, typeof(T), hook);
+        RemoveHooks.Add(new SQLiteEntityHook(typeof(T), hook));
         return this;
     }
 
@@ -769,7 +769,7 @@ public sealed class SQLiteOptionsBuilder
     /// </summary>
     public SQLiteOptionsBuilder OnAddOrUpdate<T>(Func<SQLiteDatabase, T, bool> hook)
     {
-        AppendHook(AddOrUpdateHooks, typeof(T), hook);
+        AddOrUpdateHooks.Add(new SQLiteEntityHook(typeof(T), hook));
         return this;
     }
 
@@ -914,10 +914,10 @@ public sealed class SQLiteOptionsBuilder
             ReflectionFallbackDisabled = ReflectionFallbackDisabled,
             ExplicitAutoIncrementKeysPreserved = ExplicitAutoIncrementKeysPreserved,
             BlockReadsDuringTransaction = BlockReadsDuringTransaction,
-            AddHooks = SnapshotHooks(AddHooks),
-            UpdateHooks = SnapshotHooks(UpdateHooks),
-            RemoveHooks = SnapshotHooks(RemoveHooks),
-            AddOrUpdateHooks = SnapshotHooks(AddOrUpdateHooks),
+            AddHooks = [.. AddHooks],
+            UpdateHooks = [.. UpdateHooks],
+            RemoveHooks = [.. RemoveHooks],
+            AddOrUpdateHooks = [.. AddOrUpdateHooks],
             OnActionHooks = [.. OnActionHooks],
             QueryFilters = SnapshotQueryFilters(QueryFilters),
             PragmasFactory = PragmasFactory,
@@ -1025,35 +1025,5 @@ public sealed class SQLiteOptionsBuilder
         }
 
         return snapshot;
-    }
-
-    private static void AppendHook(Dictionary<Type, List<Delegate>> store, Type entityType, Delegate hook)
-    {
-        if (!store.TryGetValue(entityType, out List<Delegate>? list))
-        {
-            list = [];
-            store[entityType] = list;
-        }
-
-        list.Add(hook);
-    }
-
-    private static Dictionary<Type, IReadOnlyList<Delegate>> SnapshotHooks(Dictionary<Type, List<Delegate>> source)
-    {
-        Dictionary<Type, IReadOnlyList<Delegate>> snapshot = new(source.Count);
-        foreach (KeyValuePair<Type, List<Delegate>> kvp in source)
-        {
-            snapshot[kvp.Key] = [.. kvp.Value];
-        }
-
-        return snapshot;
-    }
-
-    private static void CopyHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> source, Dictionary<Type, List<Delegate>> target)
-    {
-        foreach (KeyValuePair<Type, IReadOnlyList<Delegate>> kvp in source)
-        {
-            target[kvp.Key] = [.. kvp.Value];
-        }
     }
 }

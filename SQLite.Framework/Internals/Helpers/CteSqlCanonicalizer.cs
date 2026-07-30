@@ -52,6 +52,14 @@ internal static partial class CteSqlCanonicalizer
         return StringBuilderPool.ToStringAndReturn(builder);
     }
 
+    public static void CollectGeneratedIdentifiers(string sql, HashSet<string> sink)
+    {
+        foreach (Match match in GeneratedIdentifierPattern.Matches(WhitespacePattern.Replace(sql, " ")))
+        {
+            sink.Add(match.Value);
+        }
+    }
+
     private static string NormalizeGeneratedIdentifiers(string sql, Dictionary<string, string>? identifierMap)
     {
         sql = WhitespacePattern.Replace(sql, " ");

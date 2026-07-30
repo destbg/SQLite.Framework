@@ -85,12 +85,31 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
 
             string pName = visitor.Counters.NextParamName();
             SQLiteParameter parameter = new() { Name = pName, Value = queryString };
-            return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(), $"\"{tableName}\" MATCH {pName}", [parameter]);
+            SQLiteExpression match = SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(), $"\"{tableName}\" MATCH {pName}", [parameter]);
+            return WrapMatchForContext(visitor, node, tableName, match);
         }
 
         Expression body = UnwrapPredicateBody(second);
         List<FtsQueryPart> parts = FtsHelpers.RenderFTSMatch(body, visitor);
-        return BuildFTS5MatchSql(visitor, tableName, columnName, parts);
+        return WrapMatchForContext(visitor, node, tableName, BuildFTS5MatchSql(visitor, tableName, columnName, parts));
+    }
+
+    private static SQLiteExpression WrapMatchForContext(SQLVisitor visitor, MethodCallExpression node, string tableName, SQLiteExpression match)
+    {
+        if (!visitor.FtsMatchAsSubquery)
+        {
+            return match;
+        }
+
+        Expression entity = node.Arguments[0];
+        if (entity is MemberExpression { Expression: not null } columnAccess)
+        {
+            entity = columnAccess.Expression;
+        }
+
+        string alias = ResolveEntityAlias(visitor, entity);
+        return SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(),
+            $"{alias}.\"rowid\" IN (SELECT \"rowid\" FROM \"{tableName}\" WHERE ", match, ")", match.Parameters);
     }
 
     private static SQLiteExpression BuildFTS5MatchSql(SQLVisitor visitor, string tableName, string? columnName, List<FtsQueryPart> parts)
@@ -165,14 +184,6 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
     {
         Type entityType = node.Arguments[0].Type;
         ResolveFTS5TableName(visitor, entityType);
-        TableMapping mapping = visitor.Database.TableMapping(entityType);
-
-        if (mapping.FullTextSearch != null && mapping.FullTextSearch.IndexedColumns.Any(c => c.Weight != 1.0))
-        {
-            string weights = string.Join(", ", mapping.FullTextSearch.IndexedColumns
-                .Select(c => c.Weight.ToString(CultureInfo.InvariantCulture)));
-            return SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), $"bm25(\"{mapping.TableName}\", {weights})");
-        }
 
         string alias = ResolveEntityAlias(visitor, node.Arguments[0]);
         return SQLiteExpression.Leaf(typeof(double), visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote("rank")}");

@@ -65,12 +65,12 @@ internal static class CommonHelpers
     /// Reports whether the hooks for <typeparamref name="T" /> include a column-collecting hook,
     /// which writes extra columns into a dictionary during a write.
     /// </summary>
-    public static bool HasColumnHooks<T>(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks)
+    public static bool HasColumnHooks<T>(IReadOnlyList<SQLiteEntityHook> hooks)
     {
-        foreach (KeyValuePair<Type, IReadOnlyList<Delegate>> entry in hooks)
+        foreach (SQLiteEntityHook entry in hooks)
         {
-            if (entry.Key.IsAssignableFrom(typeof(T))
-                && entry.Value.Any(h => h is Func<SQLiteDatabase, T, IDictionary<string, object?>, bool>))
+            if (entry.EntityType.IsAssignableFrom(typeof(T))
+                && entry.Hook is Func<SQLiteDatabase, T, IDictionary<string, object?>, bool>)
             {
                 return true;
             }

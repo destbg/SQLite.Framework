@@ -6,12 +6,15 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal abstract class TableWriteCache
 {
-    protected TableWriteCache(SQLiteOptions options)
+    protected TableWriteCache(SQLiteOptions options, long attachGeneration)
     {
         Options = options;
+        AttachGeneration = attachGeneration;
     }
 
     public SQLiteOptions Options { get; }
+
+    public long AttachGeneration { get; }
 }
 
 /// <summary>
@@ -20,8 +23,8 @@ internal abstract class TableWriteCache
 /// </summary>
 internal sealed class TableWriteCache<T> : TableWriteCache
 {
-    public TableWriteCache(SQLiteOptions options)
-        : base(options)
+    public TableWriteCache(SQLiteOptions options, long attachGeneration)
+        : base(options, attachGeneration)
     {
         AddOrUpdate = new TableWriteCacheEntry<T>?[5];
     }

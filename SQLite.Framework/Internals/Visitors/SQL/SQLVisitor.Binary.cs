@@ -180,8 +180,15 @@ internal partial class SQLVisitor
             }
         }
 
+        bool previousFtsMatchAsSubquery = FtsMatchAsSubquery;
+        if (node.NodeType is ExpressionType.OrElse or ExpressionType.Or && node.Type == typeof(bool))
+        {
+            FtsMatchAsSubquery = true;
+        }
+
         ResolvedModel resolvedLeft = ResolveExpression(leftNode);
         ResolvedModel resolvedRight = ResolveExpression(rightNode);
+        FtsMatchAsSubquery = previousFtsMatchAsSubquery;
 
         bool isArithmeticOp = node.NodeType is ExpressionType.Add or ExpressionType.AddChecked
             or ExpressionType.Subtract or ExpressionType.SubtractChecked

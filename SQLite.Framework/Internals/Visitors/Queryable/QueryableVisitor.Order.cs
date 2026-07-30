@@ -6,7 +6,7 @@ internal partial class QueryableVisitor
     {
         ThrowIfReverse(node.Method.Name);
 
-        bool clientSide = IsDistinct && LastSelectIsClient;
+        bool clientSide = IsDistinct && LastSelectIsClient && !IsInnerQuery;
         long? take = clientSide ? ClientTake : Take;
         long? skip = clientSide ? ClientSkip : Skip;
 
@@ -54,7 +54,7 @@ internal partial class QueryableVisitor
         ThrowIfReverse(node.Method.Name);
 
         int n = Math.Max(0, (int)ExpressionHelpers.GetConstantValue(node.Arguments[1])!);
-        if (IsDistinct && LastSelectIsClient)
+        if (IsDistinct && LastSelectIsClient && !IsInnerQuery)
         {
             ClientSkip = (ClientSkip ?? 0) + n;
             if (ClientTake.HasValue)
@@ -91,6 +91,7 @@ internal partial class QueryableVisitor
         {
             OrderBys.Clear();
             Reverse = false;
+            ReverseBeforeDistinct = false;
         }
 
         string baseDirection = node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.ThenBy)

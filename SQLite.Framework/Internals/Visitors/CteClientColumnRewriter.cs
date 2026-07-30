@@ -7,26 +7,26 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </summary>
 internal sealed class CteClientColumnRewriter : SelectVisitor
 {
+    private readonly IReadOnlyList<SQLiteExpression> selects;
+    private readonly string[]? columnNames;
     private readonly Dictionary<string, string> outerNameBySelectSql;
     private readonly Dictionary<string, string> bodyIdentifierMap;
+    private readonly HashSet<string> bodyTokens;
     private readonly string alias;
     private readonly SQLiteCounters counters;
     private bool seeding;
+    private bool prepared;
 
     public CteClientColumnRewriter(IReadOnlyList<SQLiteExpression> selects, string[]? columnNames, string alias, SQLiteCounters counters)
         : base([])
     {
+        this.selects = selects;
+        this.columnNames = columnNames;
         this.alias = alias;
         this.counters = counters;
         outerNameBySelectSql = new Dictionary<string, string>(StringComparer.Ordinal);
         bodyIdentifierMap = new Dictionary<string, string>(StringComparer.Ordinal);
-        Dictionary<string, string> selectIdentifierMap = new(StringComparer.Ordinal);
-        for (int i = 0; i < selects.Count; i++)
-        {
-            SQLiteExpression select = selects[i];
-            SQLiteExpression inner = select is AliasSqlExpression aliasSelect ? aliasSelect.Inner : select;
-            outerNameBySelectSql.TryAdd(CteSqlCanonicalizer.Canonicalize(inner, selectIdentifierMap), columnNames != null ? columnNames[i] : select.IdentifierText);
-        }
+        bodyTokens = new HashSet<string>(StringComparer.Ordinal);
     }
 
     public void Seed(Expression expression)
@@ -38,6 +38,7 @@ internal sealed class CteClientColumnRewriter : SelectVisitor
 
     public Expression Rewrite(Expression expression)
     {
+        EnsurePrepared();
         return Visit(expression);
     }
 
@@ -45,7 +46,7 @@ internal sealed class CteClientColumnRewriter : SelectVisitor
     {
         if (seeding)
         {
-            CteSqlCanonicalizer.Canonicalize(node, bodyIdentifierMap);
+            CteSqlCanonicalizer.CollectGeneratedIdentifiers(node.ToString(), bodyTokens);
             return node;
         }
 
@@ -64,5 +65,38 @@ internal sealed class CteClientColumnRewriter : SelectVisitor
         }
 
         return node;
+    }
+
+    private void EnsurePrepared()
+    {
+        if (prepared)
+        {
+            return;
+        }
+
+        prepared = true;
+        HashSet<string> selectTokens = new(StringComparer.Ordinal);
+        foreach (SQLiteExpression select in selects)
+        {
+            SQLiteExpression inner = select is AliasSqlExpression aliasSelect ? aliasSelect.Inner : select;
+            CteSqlCanonicalizer.CollectGeneratedIdentifiers(inner.ToString(), selectTokens);
+        }
+
+        Dictionary<string, string> selectIdentifierMap = new(StringComparer.Ordinal);
+        foreach (string token in selectTokens)
+        {
+            if (bodyTokens.Contains(token))
+            {
+                selectIdentifierMap[token] = token;
+                bodyIdentifierMap[token] = token;
+            }
+        }
+
+        for (int i = 0; i < selects.Count; i++)
+        {
+            SQLiteExpression select = selects[i];
+            SQLiteExpression inner = select is AliasSqlExpression aliasSelect ? aliasSelect.Inner : select;
+            outerNameBySelectSql.TryAdd(CteSqlCanonicalizer.Canonicalize(inner, selectIdentifierMap), columnNames != null ? columnNames[i] : select.IdentifierText);
+        }
     }
 }

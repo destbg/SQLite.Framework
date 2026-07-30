@@ -7,6 +7,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
 {
     private readonly bool ownsLock;
     private readonly long nativeRollbackCount;
+    private readonly long commitGeneration;
     private bool completed;
     private bool disposed;
 
@@ -19,6 +20,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         SavepointName = savepointName;
         this.ownsLock = ownsLock;
         nativeRollbackCount = database.NativeRollbackCount;
+        commitGeneration = database.CommitGeneration;
     }
 
     /// <summary>
@@ -52,6 +54,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         try
         {
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+            Database.NoteSavepointCommit();
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
@@ -98,6 +101,12 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
+            if (commitGeneration != Database.CommitGeneration)
+            {
+                throw new InvalidOperationException(
+                    "The savepoint was already committed by an outer transaction, so the rollback did not happen. " +
+                    "Complete inner transactions before committing the outer one.");
+            }
         }
         catch
         {

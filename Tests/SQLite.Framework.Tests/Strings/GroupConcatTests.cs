@@ -83,6 +83,17 @@ public class GroupConcatTests
     }
 
     [Fact]
+    public void StringJoin_SubqueryWithMultiColumnProjection_Throws()
+    {
+        using TestDatabase db = new();
+
+        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+            db.Table<Book>().StringJoin(","));
+
+        Assert.Contains("single-column projection", ex.Message);
+    }
+
+    [Fact]
     public void StringJoin_SubqueryWithDistinct_Throws()
     {
         using TestDatabase db = new();

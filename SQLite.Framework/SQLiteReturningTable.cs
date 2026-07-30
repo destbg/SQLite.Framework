@@ -360,7 +360,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         };
     }
 
-    private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, SQLiteAction startingAction, bool runInTransaction, Func<T, List<TResult>> writeUnchanged, bool? columnInsert = null)
+    private List<TResult> RunRangeWithReturning(IEnumerable<T> collection, IReadOnlyList<SQLiteEntityHook> hooks, SQLiteAction startingAction, bool runInTransaction, Func<T, List<TResult>> writeUnchanged, bool? columnInsert = null)
     {
         collection = CommonHelpers.SnapshotLiveSource(Database, collection);
         List<TResult> results = [];
@@ -417,7 +417,7 @@ public class SQLiteReturningTable<[DynamicallyAccessedMembers(DynamicallyAccesse
         }
     }
 
-    private List<TResult> RunWithColumnHooks(T item, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, SQLiteAction startingAction, bool insert)
+    private List<TResult> RunWithColumnHooks(T item, IReadOnlyList<SQLiteEntityHook> hooks, SQLiteAction startingAction, bool insert)
     {
         Dictionary<string, object?> columns = [];
         if (!Source.RunHooks(hooks, item, columns))

@@ -321,6 +321,15 @@ internal static class JsonMethodTranslator
                 source.SQLiteExpression,
                 arg.SQLiteExpression!);
 
+            if (node.Method.Name is nameof(Enumerable.Append) or nameof(Enumerable.Prepend))
+            {
+                (string elementSql, SQLiteParameter[]? elementParameters) = ResolveElementMatchArgument(visitor, arg);
+                argSql = elementSql;
+                combined = ParameterHelpers.CombineParameters(
+                    source.SQLiteExpression,
+                    SQLiteExpression.Leaf(arg.SQLiteExpression!.Type, visitor.Counters.NextIdentifier(), elementSql, elementParameters));
+            }
+
             string arrayElem = BoolArrayElement(source.SQLiteExpression.Type, visitor.Database.Options);
 
             string? sql = node.Method.Name switch

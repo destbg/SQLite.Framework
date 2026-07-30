@@ -542,6 +542,11 @@ public sealed class SQLiteMigrationRunner
                     "Give it a default in OnModelCreating, set a value with TableChanged(s => s.Set(...)) or make it nullable.");
             }
 
+            if (defaultSql != null && defaultSql.TrimStart().StartsWith('('))
+            {
+                continue;
+            }
+
             string sql = $"ALTER TABLE \"main\".{IdentifierGuard.Quote(mapping.TableName)} ADD COLUMN {IdentifierGuard.Quote(name)} {type.ToString().ToUpperInvariant()}";
             if (defaultSql != null)
             {
@@ -623,8 +628,7 @@ public sealed class SQLiteMigrationRunner
         foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
         {
             bool afterEarlierData = HasEarlierDataOperation(operations, mapping.TableName, versionGroup.Key);
-            IEnumerable<MigrationSetValue> qualifying = versionGroup
-                .SelectMany(o => o.Sets)
+            IEnumerable<MigrationSetValue> qualifying = UnionSets(versionGroup.SelectMany(o => o.Sets))
                 .Where(s => s.RunInRebuild
                     || ReadsOutsideModel(mapping, s)
                     || !liveColumns.Contains(s.Column)
@@ -637,7 +641,7 @@ public sealed class SQLiteMigrationRunner
                     || !liveColumns.Contains(s.Column)
                     || !ReadsOwnColumn(s)
                     || RequiresRebuildFill(mapping, s.Column));
-            foreach (MigrationSetValue set in UnionSets(qualifying))
+            foreach (MigrationSetValue set in qualifying)
             {
                 perVersionWinners.Add((versionGroup.Key, set));
             }

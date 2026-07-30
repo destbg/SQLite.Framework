@@ -622,15 +622,24 @@ public static class EntityMaterializerEmitter
             return false;
         }
 
-        bool anyWritable = false;
+        IMethodSymbol? positionalCtor = type.IsAnonymousType || (HasPublicParameterlessConstructor(type) && !HasReadOnlyDataProperty(type))
+            ? null
+            : TryFindPositionalConstructor(type);
+
+        bool anyMaterializable = false;
         foreach (IPropertySymbol prop in EnumerateInstanceProperties(type))
         {
-            if (prop.DeclaredAccessibility != Accessibility.Public || prop.SetMethod == null)
+            if (prop.DeclaredAccessibility != Accessibility.Public)
             {
                 continue;
             }
 
-            anyWritable = true;
+            if (!type.IsAnonymousType && prop.SetMethod == null && !IsConstructorParameterName(positionalCtor, prop.Name))
+            {
+                continue;
+            }
+
+            anyMaterializable = true;
             ITypeSymbol propType = StripNullableSymbol(prop.Type);
 
             if (IsSupportedPropertyType(propType)
@@ -653,7 +662,7 @@ public static class EntityMaterializerEmitter
         }
 
         visited.Remove(type);
-        return anyWritable;
+        return anyMaterializable;
     }
 
     private static bool ShouldRecurseInto(ITypeSymbol propType)

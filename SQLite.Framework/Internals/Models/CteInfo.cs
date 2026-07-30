@@ -12,6 +12,7 @@ internal class CteInfo
     public HashSet<string>? DayOfWeekColumns { get; init; }
     public HashSet<string>? JsonSourceColumns { get; init; }
     public HashSet<string>? ConstructedPaths { get; init; }
+    public Dictionary<string, Expression>? ConstructedNodes { get; init; }
     public bool OptionalRow { get; init; }
     public HashSet<string>? OptionalRowPaths { get; init; }
     public Dictionary<string, Expression>? BodyColumns { get; init; }

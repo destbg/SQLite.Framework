@@ -38,9 +38,9 @@ internal static class UpsertSqlBuilder
         string parameters = string.Join(", ", values);
 
         StringBuilder sb = new();
-        sb.Append("INSERT INTO \"");
-        sb.Append(table.TableName);
-        sb.Append("\" (");
+        sb.Append("INSERT INTO ");
+        sb.Append(database.HasAttachedDatabases ? $"\"main\".\"{table.TableName}\"" : $"\"{table.TableName}\"");
+        sb.Append(" (");
         sb.Append(columnsList);
         sb.Append(") VALUES (");
         sb.Append(parameters);
@@ -158,7 +158,7 @@ internal static class UpsertSqlBuilder
             }
 
             bool wrapWholeValue = ConverterSql.HasReadAndWriteWrap(column.PropertyType, database.Options);
-            string rhsSql = BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs, wrapConverterReads: wrapWholeValue);
+            string rhsSql = BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs, wrapConverterReads: true);
             if (wrapWholeValue || ExpressionHelpers.IsConstant(rhs.Body))
             {
                 rhsSql = ConverterSql.WrapParameter(rhsSql, column.PropertyType, database.Options);

@@ -211,7 +211,7 @@ internal partial class QueryableVisitor
             }
         }
         Expression selectExpression = visitor.ClientEvalUsed
-            ? visitor.ToClientExpression(lambda.Body)
+            ? visitor.ToClientExpression(selectBody)
             : normalSelect;
         visitor.IsInSelectProjection = false;
         visitor.ClientEvalAllowed = false;

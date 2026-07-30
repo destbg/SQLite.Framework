@@ -145,7 +145,7 @@ public sealed class SQLiteTriggerBuilder<T>
         rows.Add((newRow, triggerMapping, "NEW."));
 
         bool wrapWholeValue = wrapColumn != null && ConverterSql.HasReadAndWriteWrap(wrapColumn.PropertyType, database.Options);
-        string sql = BareSqlTranslator.TranslateTrigger(database, body, rows.ToArray(), wrapConverterReads: wrapColumn == null || wrapWholeValue);
+        string sql = BareSqlTranslator.TranslateTrigger(database, body, rows.ToArray(), wrapConverterReads: true);
 
         if (wrapColumn != null && (wrapWholeValue || ExpressionHelpers.IsConstant(body)))
         {

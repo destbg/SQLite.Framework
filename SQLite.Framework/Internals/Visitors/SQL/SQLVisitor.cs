@@ -28,6 +28,7 @@ internal partial class SQLVisitor : ExpressionVisitor
     public bool ClientEvalAllowed { get; set; }
     public bool ClientEvalUsed { get; set; }
     public bool SuppressUlongWindowOrderSplit { get; set; }
+    public bool FtsMatchAsSubquery { get; set; }
     public bool OmitTableAlias { get; set; }
     public bool SubqueryFreeSql { get; set; }
     public SQLiteExpression? From { get; internal set; }
@@ -152,6 +153,11 @@ internal partial class SQLVisitor : ExpressionVisitor
             IsInSelectProjection = isInSelectProjection,
             CteRegistry = CteRegistry
         };
+    }
+
+    public void RebindTableColumns(TableMapping tableMapping)
+    {
+        TableColumns = BuildTableColumns(tableMapping, From!.ToString());
     }
 
     public Expression ResolveMember(Expression node)
@@ -346,7 +352,7 @@ internal partial class SQLVisitor : ExpressionVisitor
                 $"The query reads the table \"{table.Table.TableName}\" from another database that is not attached to this one. Attach it with AttachDatabase first.");
         }
 
-        return null;
+        return Database.HasAttachedDatabases ? "main" : null;
     }
 
     private void AssignTableCore(TableMapping tableMapping, string qualifiedName, SQLiteExpression? sql)

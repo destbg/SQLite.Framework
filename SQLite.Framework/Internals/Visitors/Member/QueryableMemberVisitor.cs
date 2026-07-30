@@ -27,7 +27,21 @@ internal static class QueryableMemberVisitor
 
         if (node.Arguments.Count == 1 || node.Method.Name != nameof(System.Linq.Queryable.Contains))
         {
-            return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"({Environment.NewLine}{querySql}{Environment.NewLine})", queryParams);
+            if (translator.Selects.Count > 1)
+            {
+                throw new NotSupportedException(
+                    $"{node.Method.Name} returns an entity-typed scalar subquery, which is not supported " +
+                    "because a scalar subquery can return only one column. " +
+                    "Project the column inside the subquery first, for example '.Select(x => x.Column).FirstOrDefault()'.");
+            }
+
+            SQLiteExpression scalarSubquery = SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"({Environment.NewLine}{querySql}{Environment.NewLine})", queryParams);
+            if (translator.Selects.Count == 1 && translator.Selects[0].IsDayOfWeekInteger)
+            {
+                scalarSubquery.WithDayOfWeekInteger();
+            }
+
+            return scalarSubquery;
         }
 
         List<ResolvedModel> arguments = node.Arguments
@@ -752,9 +766,15 @@ internal static class QueryableMemberVisitor
 
         if (filterExpression == null)
         {
-            return coalesce
+            SQLiteExpression aggregate = coalesce
                 ? SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"COALESCE({aggregateFunction}(", target, "), 0)", target.Parameters)
                 : SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"{aggregateFunction}(", target, ")", target.Parameters);
+            if (aggregateFunction is "MAX" or "MIN" && target.IsDayOfWeekInteger)
+            {
+                aggregate.WithDayOfWeekInteger();
+            }
+
+            return aggregate;
         }
 
         return SQLiteExpression.Binary(

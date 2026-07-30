@@ -78,7 +78,7 @@ public class FullTextSearchTests
     }
 
     [Fact]
-    public void OrderByRank_WithCustomWeights_EmitsBm25Function()
+    public void OrderByRank_WithCustomWeights_UsesConfiguredRankColumn()
     {
         using TestDatabase db = new();
         db.Table<Article>().Schema.CreateTable();
@@ -89,7 +89,11 @@ public class FullTextSearchTests
             .OrderBy(a => SQLiteFTS5Functions.Rank(a))
             .ToSqlCommand();
 
+        string? configuredRank = db.ExecuteScalar<string>(
+            "SELECT \"v\" FROM \"ArticleSearch_config\" WHERE \"k\" = 'rank'");
+
         Assert.Single(command.Parameters);
+        Assert.Equal("bm25(10.0, 1.0)", configuredRank);
         Assert.Equal(
             N("""
             SELECT a0."rowid" AS "Id",
@@ -97,7 +101,7 @@ public class FullTextSearchTests
                    a0."Body" AS "Body"
             FROM "ArticleSearch" AS a0
             WHERE "ArticleSearch" MATCH @p0
-            ORDER BY bm25("ArticleSearch", 10, 1) ASC
+            ORDER BY a0."rank" ASC
             """), N(command.CommandText));
     }
 

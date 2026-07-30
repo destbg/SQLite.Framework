@@ -17,11 +17,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly object readGateLock = new();
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
     private readonly AsyncLocal<LockToken?> holdsConnectionLock = new();
-    private bool disposed;
     private readonly ConcurrentDictionary<Type, TableMapping> tableMappings = [];
     private readonly ConcurrentDictionary<SQLiteDatabase, string> attachedDatabases = new();
     private readonly PreparedStatementPool statementPool = new();
     private volatile bool modelFrozen;
+    private bool disposed;
+    private int attachedSchemaCount;
     private bool modelCreated;
     private int activeTransactionCount;
     private TaskCompletionSource? readGateTcs;
@@ -169,6 +170,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     internal bool MigrationInProgress { get; set; }
 
     internal long NativeRollbackCount { get; private set; }
+
+    internal long CommitGeneration { get; private set; }
+
+    internal bool HasAttachedDatabases => attachedSchemaCount > 0;
+
+    internal long AttachGeneration { get; private set; }
 
     /// <summary>
     /// Builds migration classes for <see cref="SQLiteMigrationRunner.Add{T}" />. Set by the
@@ -496,6 +503,8 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 #endif
         Execute(sql);
+        attachedSchemaCount++;
+        AttachGeneration++;
     }
 
     /// <summary>
@@ -539,10 +548,12 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         ValidateSchemaName(schemaName);
 
         Execute($"DETACH DATABASE \"{schemaName}\"");
+        attachedSchemaCount = Math.Max(0, attachedSchemaCount - 1);
+        AttachGeneration++;
 
         foreach (KeyValuePair<SQLiteDatabase, string> entry in attachedDatabases)
         {
-            if (entry.Value == schemaName)
+            if (string.Equals(entry.Value, schemaName, StringComparison.OrdinalIgnoreCase))
             {
                 attachedDatabases.TryRemove(entry.Key, out _);
             }
@@ -866,6 +877,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         where TKey : notnull
     {
         return ExecuteGroupingQuery<TKey, TElement>(expression);
+    }
+
+    internal void NoteSavepointCommit()
+    {
+        CommitGeneration++;
     }
 
     internal SQLiteBlobStream OpenBlobStreamWithLock(string tableName, string columnName, long rowid, bool writable, string schema, IDisposable connectionLock)
@@ -1441,17 +1457,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
         Handle = handle;
 
-        try
-        {
-            OnDatabaseConnecting();
-        }
-        catch
-        {
-            raw.sqlite3_close(handle);
-            Handle = null;
-            throw;
-        }
-
 #if SQLITECIPHER
         if (!string.IsNullOrEmpty(Options.EncryptionKey))
         {
@@ -1461,13 +1466,26 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 #endif
 
+        try
+        {
+            OnDatabaseConnecting();
+        }
+        catch
+        {
+            statementPool.Reset();
+            raw.sqlite3_close_v2(handle);
+            Handle = null;
+            throw;
+        }
+
 #if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
         if (Options.MinimumSqliteVersion != SQLiteMinimumVersion.Unspecified)
         {
             int loadedVersion = raw.sqlite3_libversion_number();
             if (loadedVersion < (int)Options.MinimumSqliteVersion)
             {
-                raw.sqlite3_close(Handle);
+                statementPool.Reset();
+                raw.sqlite3_close_v2(Handle);
                 Handle = null;
                 throw new NotSupportedException(
                     $"The loaded SQLite version {CommonHelpers.Format(loadedVersion)} " +
@@ -1503,7 +1521,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         catch
         {
             IsConnected = false;
-            statementPool.Clear();
+            statementPool.Reset();
             raw.sqlite3_close_v2(Handle);
             Handle = null;
             throw;

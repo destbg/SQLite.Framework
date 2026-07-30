@@ -8,6 +8,13 @@ internal partial class QueryableVisitor
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
         ThrowIfGroupJoinGroupPredicate(lambda.Body);
+
+        if (WindowCallDetector.Contains(lambda.Body))
+        {
+            throw new NotSupportedException(
+                "A window function cannot be used in a Where predicate, because SQL filters rows before window functions run.");
+        }
+
         Expression result = visitor.Visit(lambda.Body);
 
         if (result is not SQLiteExpression sqlExpression)

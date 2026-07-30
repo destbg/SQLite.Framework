@@ -11,7 +11,9 @@ public static class SQLiteDatabaseServiceCollectionExtensions
     /// <summary>
     /// Registers <see cref="SQLiteDatabase" /> as a service. The <paramref name="configure" /> callback
     /// builds the options when the database is first resolved. <see cref="SQLiteOptions" /> is
-    /// registered with the same lifetime so consumers can inject either type.
+    /// registered with the same lifetime so consumers can inject either type. The injected options
+    /// are the same instance the resolved database uses, including changes made in
+    /// <see cref="SQLiteDatabase.OnConfiguring" />.
     /// </summary>
     /// <param name="services">The target service collection.</param>
     /// <param name="configure">Builder callback. Must set <see cref="SQLiteOptionsBuilder.DatabasePath" />.</param>
@@ -67,7 +69,7 @@ public static class SQLiteDatabaseServiceCollectionExtensions
 
         services.Add(new ServiceDescriptor(typeof(SQLiteOptions), typeof(TDatabase), (sp, _) => BuildOptions(sp, configure), lifetime));
         services.Add(new ServiceDescriptor(typeof(TDatabase), sp => CreateDatabase<TDatabase>(sp, migrations), lifetime));
-        services.Add(new ServiceDescriptor(typeof(SQLiteOptions), sp => sp.GetRequiredKeyedService<SQLiteOptions>(typeof(TDatabase)), lifetime));
+        services.Add(new ServiceDescriptor(typeof(SQLiteOptions), sp => sp.GetRequiredService<TDatabase>().Options, lifetime));
         if (typeof(TDatabase) != typeof(SQLiteDatabase))
         {
             services.Add(new ServiceDescriptor(typeof(SQLiteDatabase), sp => sp.GetRequiredService<TDatabase>(), lifetime));

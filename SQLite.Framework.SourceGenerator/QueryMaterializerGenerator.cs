@@ -635,6 +635,11 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         SelectSignatureCtx writerCtx = BuildFluentCtx(rowSymbol, ctx.SemanticModel);
+        if (!TryRegisterConstructedMemberReplacements(bodyExpr, rowSymbol, invocation, writerCtx, ctx.SemanticModel))
+        {
+            return null;
+        }
+
         string? signature = SelectSignatureWriter.TryCompute(bodyExpr, writerCtx);
         if (signature == null)
         {
@@ -1242,6 +1247,214 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
         }
 
         return null;
+    }
+
+    private static bool TryRegisterConstructedMemberReplacements(ExpressionSyntax body, IParameterSymbol rowSymbol, InvocationExpressionSyntax invocation, SelectSignatureCtx writerCtx, SemanticModel model)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax chainHead)
+        {
+            return true;
+        }
+
+        if (rowSymbol.Type is INamedTypeSymbol { IsGenericType: true } groupingType
+            && groupingType.ConstructedFrom.ToDisplayString() == "System.Linq.IGrouping<TKey, TElement>"
+            && groupingType.TypeArguments[0] is INamedTypeSymbol { IsAnonymousType: false } keyType
+            && FindUpstreamGroupKeySelector(chainHead.Expression, model) is { } keyLambda
+            && keyLambda.Body is ExpressionSyntax keyBodyRaw
+            && StripParentheses(keyBodyRaw) is BaseObjectCreationExpressionSyntax { Initializer: null } keyCreation
+            && keyCreation.ArgumentList is { Arguments.Count: > 0 }
+            && SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(keyCreation).Type, keyType))
+        {
+            List<SyntaxNode> keyReads = new();
+            foreach (MemberAccessExpressionSyntax access in body.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>())
+            {
+                if (access.Kind() == SyntaxKind.SimpleMemberAccessExpression
+                    && access.Name.Identifier.ValueText == "Key"
+                    && access.Expression is IdentifierNameSyntax groupIdent
+                    && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(groupIdent).Symbol, rowSymbol))
+                {
+                    keyReads.Add(access);
+                }
+            }
+
+            if (keyReads.Count > 0)
+            {
+                if (ResolveLambdaParameter(keyLambda, model) is not { } keyRow
+                    || !HasOnlySimpleRowMemberArguments(keyCreation, keyRow, model))
+                {
+                    return false;
+                }
+
+                writerCtx.RowBindings[keyRow] = new RowBinding((string?)null, keyRow.Type);
+                foreach (SyntaxNode keyRead in keyReads)
+                {
+                    writerCtx.ConstructedMemberReplacements[keyRead] = keyCreation;
+                }
+            }
+        }
+
+        if (FindUpstreamCteSelector(chainHead.Expression, model) is { } cteSelector)
+        {
+            Dictionary<string, BaseObjectCreationExpressionSyntax> builtMembers = CollectConstructorBuiltMembers(cteSelector.Body);
+            if (builtMembers.Count > 0)
+            {
+                foreach (MemberAccessExpressionSyntax access in body.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>())
+                {
+                    if (access.Kind() != SyntaxKind.SimpleMemberAccessExpression
+                        || !builtMembers.TryGetValue(access.Name.Identifier.ValueText, out BaseObjectCreationExpressionSyntax? creation)
+                        || access.Expression is not IdentifierNameSyntax rowIdent
+                        || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(rowIdent).Symbol, rowSymbol))
+                    {
+                        continue;
+                    }
+
+                    if (cteSelector.Row is not IParameterSymbol cteRow
+                        || !HasOnlySimpleRowMemberArguments(creation, cteRow, model))
+                    {
+                        return false;
+                    }
+
+                    writerCtx.RowBindings[cteRow] = new RowBinding((string?)null, cteRow.Type);
+                    writerCtx.ConstructedMemberReplacements[access] = creation;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static IParameterSymbol? ResolveLambdaParameter(LambdaExpressionSyntax lambda, SemanticModel model)
+    {
+        ParameterSyntax? parameter = lambda switch
+        {
+            SimpleLambdaExpressionSyntax simple => simple.Parameter,
+            ParenthesizedLambdaExpressionSyntax paren when paren.ParameterList.Parameters.Count == 1
+                => paren.ParameterList.Parameters[0],
+            _ => null
+        };
+
+        return parameter == null ? null : model.GetDeclaredSymbol(parameter);
+    }
+
+    private static bool HasOnlySimpleRowMemberArguments(BaseObjectCreationExpressionSyntax creation, ISymbol row, SemanticModel model)
+    {
+        foreach (ArgumentSyntax argument in creation.ArgumentList!.Arguments)
+        {
+            if (StripParentheses(argument.Expression) is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax rowIdent } member
+                || member.Kind() != SyntaxKind.SimpleMemberAccessExpression
+                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(rowIdent).Symbol, row))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static ExpressionSyntax StripParentheses(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax paren)
+        {
+            expression = paren.Expression;
+        }
+
+        return expression;
+    }
+
+    private static LambdaExpressionSyntax? FindUpstreamGroupKeySelector(ExpressionSyntax receiver, SemanticModel model)
+    {
+        SyntaxNode? current = receiver;
+        while (current != null)
+        {
+            switch (current)
+            {
+                case ParenthesizedExpressionSyntax paren:
+                    current = paren.Expression;
+                    continue;
+                case InvocationExpressionSyntax inv:
+                    if (model.GetSymbolInfo(inv).Symbol is IMethodSymbol m
+                        && m.Name == "GroupBy"
+                        && m.ContainingType.ToDisplayString() is "System.Linq.Queryable" or "System.Linq.Enumerable"
+                        && inv.ArgumentList.Arguments.Count > 0)
+                    {
+                        ExpressionSyntax selector = StripParentheses(inv.ArgumentList.Arguments[0].Expression);
+                        return selector as LambdaExpressionSyntax ?? ResolveStoredLambda(selector, model);
+                    }
+
+                    current = (inv.Expression as MemberAccessExpressionSyntax)?.Expression;
+                    continue;
+                case MemberAccessExpressionSyntax ma:
+                    current = ma.Expression;
+                    continue;
+                default:
+                    return null;
+            }
+        }
+
+        return null;
+    }
+
+    private static (ExpressionSyntax Body, ISymbol Row)? FindUpstreamCteSelector(ExpressionSyntax receiver, SemanticModel model)
+    {
+        SyntaxNode? current = receiver;
+        while (current != null)
+        {
+            switch (current)
+            {
+                case ParenthesizedExpressionSyntax paren:
+                    current = paren.Expression;
+                    continue;
+                case InvocationExpressionSyntax inv:
+                    if (model.GetSymbolInfo(inv).Symbol is IMethodSymbol m
+                        && m.Name is "With" or "WithRecursive"
+                        && m.ReturnType is INamedTypeSymbol { Name: "SQLiteCte" }
+                        && inv.ArgumentList.Arguments.Count > 0)
+                    {
+                        if (StripParentheses(inv.ArgumentList.Arguments[0].Expression) is not LambdaExpressionSyntax { Body: ExpressionSyntax cteQuery })
+                        {
+                            return null;
+                        }
+
+                        (ExpressionSyntax Body, ISymbol Row, ExpressionSyntax? Receiver)? inner = FindUpstreamInnerSelector(cteQuery, model);
+                        return inner == null ? null : (inner.Value.Body, inner.Value.Row);
+                    }
+
+                    current = (inv.Expression as MemberAccessExpressionSyntax)?.Expression;
+                    continue;
+                case MemberAccessExpressionSyntax ma:
+                    current = ma.Expression;
+                    continue;
+                default:
+                    return null;
+            }
+        }
+
+        return null;
+    }
+
+    private static Dictionary<string, BaseObjectCreationExpressionSyntax> CollectConstructorBuiltMembers(ExpressionSyntax projectionBody)
+    {
+        Dictionary<string, BaseObjectCreationExpressionSyntax> members = new();
+        if (StripParentheses(projectionBody) is not BaseObjectCreationExpressionSyntax creation
+            || creation.Initializer?.Kind() != SyntaxKind.ObjectInitializerExpression)
+        {
+            return members;
+        }
+
+        foreach (ExpressionSyntax expression in creation.Initializer.Expressions)
+        {
+            if (expression is not AssignmentExpressionSyntax { Left: IdentifierNameSyntax left } assignment)
+            {
+                continue;
+            }
+
+            if (StripParentheses(assignment.Right) is BaseObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: > 0, Initializer: null } value)
+            {
+                members[left.Identifier.ValueText] = value;
+            }
+        }
+
+        return members;
     }
 
     private static bool ContainsTypeParameter(ITypeSymbol type)

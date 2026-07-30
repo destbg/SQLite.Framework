@@ -2074,16 +2074,191 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
-    public void SQLiteTable_ThrowIfSetOperandSelectsMisaligned_NumericOperand_IsSkipped()
+    public void SetOperationAlignment_NumericOperand_IsSkipped()
     {
-        MethodInfo method = typeof(SQLiteTable<H24nSetOpTargetRow>)
-            .GetMethod("ThrowIfSetOperandSelectsMisaligned", BindingFlags.NonPublic | BindingFlags.Static)!;
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Helpers.SetOperationAlignment, SQLite.Framework")!
+            .GetMethod("ThrowIfBranchMembersMisaligned", BindingFlags.Public | BindingFlags.Static)!;
         List<string> main = ["Id", "Name"];
-        List<IReadOnlyList<string>> operands = [new List<string> { "7" }];
+        List<IReadOnlyList<string>> operands = [new List<string> { "7", "8" }];
 
-        Exception? ex = Record.Exception(() => method.Invoke(null, [main, operands]));
+        Exception? ex = Record.Exception(() => method.Invoke(null, [false, main, operands]));
 
         Assert.Null(ex);
+    }
+
+    [Fact]
+    public void SetOperationAlignment_NoOperands_IsSkipped()
+    {
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Helpers.SetOperationAlignment, SQLite.Framework")!
+            .GetMethod("ThrowIfBranchMembersMisaligned", BindingFlags.Public | BindingFlags.Static)!;
+        List<string> main = ["Id", "Name"];
+        List<IReadOnlyList<string>> operands = [];
+
+        Exception? ex = Record.Exception(() => method.Invoke(null, [false, main, operands]));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void SetOperationAlignment_EmptyMainIdentifiers_IsSkipped()
+    {
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Helpers.SetOperationAlignment, SQLite.Framework")!
+            .GetMethod("ThrowIfBranchMembersMisaligned", BindingFlags.Public | BindingFlags.Static)!;
+        List<string> main = [];
+        List<IReadOnlyList<string>> operands = [new List<string> { "Id", "Name" }];
+
+        Exception? ex = Record.Exception(() => method.Invoke(null, [false, main, operands]));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void CommandHelpers_DoubleToInt64_NaN_IsZero()
+    {
+        MethodInfo method = typeof(CommandHelpers).GetMethod("DoubleToInt64", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.Equal(0L, method.Invoke(null, [double.NaN]));
+    }
+
+    [Fact]
+    public void CommandHelpers_TextToStoredDouble_ParsesSignAndExponentPrefixes()
+    {
+        MethodInfo method = typeof(CommandHelpers).GetMethod("TextToStoredDouble", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.Equal(7d, method.Invoke(null, ["+7"]));
+        Assert.Equal(-2.5d, method.Invoke(null, ["-2.5"]));
+        Assert.Equal(300d, method.Invoke(null, ["3e2"]));
+        Assert.Equal(40d, method.Invoke(null, ["4E+1"]));
+        Assert.Equal(0.5d, method.Invoke(null, ["5e-1"]));
+        Assert.Equal(6d, method.Invoke(null, ["6e"]));
+        Assert.Equal(7d, method.Invoke(null, ["7e+"]));
+        Assert.Equal(8d, method.Invoke(null, ["8eX"]));
+        Assert.Equal(0d, method.Invoke(null, ["abc"]));
+    }
+
+    [Fact]
+    public void SetOperationAlignment_InnerQuery_IsSkipped()
+    {
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Helpers.SetOperationAlignment, SQLite.Framework")!
+            .GetMethod("ThrowIfBranchMembersMisaligned", BindingFlags.Public | BindingFlags.Static)!;
+        List<string> main = ["Id", "Name"];
+        List<IReadOnlyList<string>> operands = [new List<string> { "Name", "Id" }];
+
+        Exception? ex = Record.Exception(() => method.Invoke(null, [true, main, operands]));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
+    public void SQLVisitor_VisitMember_UnsetConstructedMember_ReadsTheDefaultValue()
+    {
+        using TestDatabase db = new();
+        SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0);
+        ParameterExpression holder = Expression.Parameter(typeof(DirectUnsetHolder), "x");
+        Dictionary<string, Expression> expressions = new()
+        {
+            ["P.Value"] = SQLiteExpression.Leaf(typeof(int), 0, "b0.A")
+        };
+        sqlVisitor.MethodArguments[holder] = expressions;
+        sqlVisitor.ConstructedProjectionPaths[expressions] = new HashSet<string>(StringComparer.Ordinal) { "P" };
+        MemberExpression node = Expression.Property(Expression.Property(holder, nameof(DirectUnsetHolder.P)), nameof(DirectUnsetPart.Untouched));
+
+        Expression resolved = sqlVisitor.Visit(node);
+
+        SQLiteExpression sql = Assert.IsAssignableFrom<SQLiteExpression>(resolved);
+        Assert.Equal(0, Assert.Single(sql.Parameters!).Value);
+    }
+
+    [Fact]
+    public void SQLTranslator_InnerQueryWithSetOperations_SkipsTheAlignmentGuard()
+    {
+        using TestDatabase db = new();
+        SQLTranslator translator = new(db, new SQLiteCounters(), 1, true);
+        IQueryable<int> query = db.Table<Book>().Select(b => b.Id)
+            .Concat(db.Table<Book>().Select(b => b.AuthorId));
+
+        SQLQuery translated = translator.Translate(query.Expression);
+
+        Assert.Contains("UNION ALL", translated.Sql);
+    }
+
+    [Fact]
+    public void CteColumnMapper_BodyColumnOrderIsAmbiguous_LeafCountMismatch_IsFalse()
+    {
+        Dictionary<string, Expression> bodyColumns = new()
+        {
+            ["A"] = Expression.Constant(1)
+        };
+        List<SQLiteExpression> selects = [SQLiteExpression.Leaf(typeof(int), 0, "c0.\"A\"")];
+
+        Assert.False(CteColumnMapper.BodyColumnOrderIsAmbiguous(bodyColumns, selects));
+    }
+
+    [Fact]
+    public void QueryFilterInjector_TryResolveOwnedTable_NonConstantReceiver_ReturnsNull()
+    {
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!
+            .GetMethod("TryResolveOwnedTable", BindingFlags.NonPublic | BindingFlags.Static)!;
+        ParameterExpression repo = Expression.Parameter(typeof(DirectFilterRepository), "repo");
+        MethodCallExpression node = Expression.Call(repo, typeof(DirectFilterRepository).GetMethod(nameof(DirectFilterRepository.Books))!);
+
+        Assert.Null(method.Invoke(null, [node]));
+    }
+
+    [Fact]
+    public void QueryFilterInjector_TryResolveOwnedTable_NullReceiver_ReturnsNull()
+    {
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!
+            .GetMethod("TryResolveOwnedTable", BindingFlags.NonPublic | BindingFlags.Static)!;
+        MethodCallExpression node = Expression.Call(
+            Expression.Constant(null, typeof(DirectFilterRepository)),
+            typeof(DirectFilterRepository).GetMethod(nameof(DirectFilterRepository.Books))!);
+
+        Assert.Null(method.Invoke(null, [node]));
+    }
+
+    [Fact]
+    public void QueryFilterInjector_TryResolveOwnedTable_NonConstantArgument_ReturnsNull()
+    {
+        using TestDatabase db = new();
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!
+            .GetMethod("TryResolveOwnedTable", BindingFlags.NonPublic | BindingFlags.Static)!;
+        ParameterExpression flag = Expression.Parameter(typeof(bool), "flag");
+        MethodCallExpression node = Expression.Call(
+            Expression.Constant(new DirectFilterRepository(db)),
+            typeof(DirectFilterRepository).GetMethod(nameof(DirectFilterRepository.BooksIf))!,
+            flag);
+
+        Assert.Null(method.Invoke(null, [node]));
+    }
+
+    [Fact]
+    public void QueryFilterInjector_TryResolveOwnedTable_ConstantArgument_ReturnsTheTable()
+    {
+        using TestDatabase db = new();
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!
+            .GetMethod("TryResolveOwnedTable", BindingFlags.NonPublic | BindingFlags.Static)!;
+        MethodCallExpression node = Expression.Call(
+            Expression.Constant(new DirectFilterRepository(db)),
+            typeof(DirectFilterRepository).GetMethod(nameof(DirectFilterRepository.BooksIf))!,
+            Expression.Constant(true));
+
+        object? resolved = method.Invoke(null, [node]);
+
+        Assert.IsType<SQLiteTable<Book>>(resolved);
+    }
+
+    [Fact]
+    public void QueryFilterInjector_ResolveOwnerOptions_UnresolvableCall_FallsBackToTheQueryOptions()
+    {
+        using TestDatabase db = new();
+        Type visitorType = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!;
+        object visitor = Activator.CreateInstance(visitorType, db.Options, false)!;
+        MethodInfo method = visitorType.GetMethod("ResolveOwnerOptions", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        ParameterExpression repo = Expression.Parameter(typeof(DirectFilterRepository), "repo");
+        MethodCallExpression node = Expression.Call(repo, typeof(DirectFilterRepository).GetMethod(nameof(DirectFilterRepository.Books))!);
+
+        Assert.Same(db.Options, method.Invoke(visitor, [node]));
     }
 
     [Fact]
@@ -2554,4 +2729,41 @@ public static class ConvOperatorMethods
     {
         return new ConvOperatorBox();
     }
+}
+
+public class DirectFilterRepository
+{
+    private readonly SQLiteDatabase database;
+
+    public DirectFilterRepository(SQLiteDatabase database)
+    {
+        this.database = database;
+    }
+
+    public SQLiteTable<Book> Books()
+    {
+        return database.Table<Book>();
+    }
+
+    public SQLiteTable<Book> BooksIf(bool include)
+    {
+        return database.Table<Book>();
+    }
+}
+
+public class DirectUnsetPart
+{
+    public DirectUnsetPart(int value)
+    {
+        Value = value;
+    }
+
+    public int Value { get; set; }
+
+    public int Untouched { get; set; }
+}
+
+public class DirectUnsetHolder
+{
+    public DirectUnsetPart? P { get; set; }
 }

@@ -71,6 +71,17 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         return new CompiledExpression(node.Type, ctx =>
         {
             object? leftValue = left.Call(ctx);
+
+            switch (node.NodeType)
+            {
+                case ExpressionType.Coalesce:
+                    return leftValue ?? right.Call(ctx);
+                case ExpressionType.AndAlso:
+                    return (bool)leftValue! && (bool)right.Call(ctx)!;
+                case ExpressionType.OrElse:
+                    return (bool)leftValue! || (bool)right.Call(ctx)!;
+            }
+
             object? rightValue = right.Call(ctx);
 
             if (node.NodeType == ExpressionType.ArrayIndex)
@@ -89,12 +100,6 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                     return !IsNaN(leftValue) && !IsNaN(rightValue) && Equals(leftValue, rightValue);
                 case ExpressionType.NotEqual:
                     return IsNaN(leftValue) || IsNaN(rightValue) || !Equals(leftValue, rightValue);
-                case ExpressionType.Coalesce:
-                    return leftValue ?? rightValue;
-                case ExpressionType.AndAlso:
-                    return (bool)leftValue! && (bool)rightValue!;
-                case ExpressionType.OrElse:
-                    return (bool)leftValue! || (bool)rightValue!;
                 case ExpressionType.And:
                     return ApplyLiftedBitwise(BinaryBitwiseAndOperator, leftValue, rightValue, options);
                 case ExpressionType.Or:
@@ -218,7 +223,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             object? instance = innerExpression.Call(context);
             return node.Member is FieldInfo field
                 ? field.GetValue(instance)
-                : ((PropertyInfo)node.Member).GetValue(instance);
+                : InvokeUnwrapped(((PropertyInfo)node.Member).GetMethod!, instance, []);
         });
     }
 
@@ -280,7 +285,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             return new CompiledExpression(node.Type, ctx =>
             {
                 object?[] arguments = compiledArgs.Select(f => f.Call(ctx)).ToArray();
-                return node.Constructor.Invoke(arguments);
+                return InvokeCtorUnwrapped(node.Constructor, arguments);
             });
         }
 
@@ -376,7 +381,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             object? instance = newExpression.Call(ctx);
             foreach ((MethodInfo addMethod, CompiledExpression[] arguments) in initializers)
             {
-                addMethod.Invoke(instance, arguments.Select(arg => arg.Call(ctx)).ToArray());
+                InvokeUnwrapped(addMethod, instance, arguments.Select(arg => arg.Call(ctx)).ToArray());
             }
 
             return instance;
@@ -428,7 +433,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
                 {
                     PropertyInfo propertyInfo = (PropertyInfo)binding.Member;
                     object? value = expression.Call(ctx);
-                    propertyInfo.SetValue(instance, value);
+                    InvokeUnwrapped(propertyInfo.SetMethod!, instance, [value]);
                 }
             }
 
@@ -439,10 +444,10 @@ internal class QueryCompilerVisitor : ExpressionVisitor
 
             foreach ((MemberInfo member, List<(MethodInfo AddMethod, CompiledExpression[] Args)> initializers) in listBindings)
             {
-                object? collection = member is PropertyInfo mp ? mp.GetValue(instance) : ((FieldInfo)member).GetValue(instance);
+                object? collection = member is PropertyInfo mp ? InvokeUnwrapped(mp.GetMethod!, instance, []) : ((FieldInfo)member).GetValue(instance);
                 foreach ((MethodInfo addMethod, CompiledExpression[] args) in initializers)
                 {
-                    addMethod.Invoke(collection, args.Select(a => a.Call(ctx)).ToArray());
+                    InvokeUnwrapped(addMethod, collection, args.Select(a => a.Call(ctx)).ToArray());
                 }
             }
 
@@ -595,12 +600,12 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         object? target = instance;
         for (int i = 0; i < path.Length - 1; i++)
         {
-            target = path[i] is PropertyInfo step ? step.GetValue(target) : ((FieldInfo)path[i]).GetValue(target);
+            target = path[i] is PropertyInfo step ? InvokeUnwrapped(step.GetMethod!, target, []) : ((FieldInfo)path[i]).GetValue(target);
         }
 
         if (path[^1] is PropertyInfo last)
         {
-            last.SetValue(target, value);
+            InvokeUnwrapped(last.SetMethod!, target, [value]);
         }
         else
         {
@@ -613,6 +618,18 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         try
         {
             return method.Invoke(instance, args);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            throw ex.InnerException;
+        }
+    }
+
+    private static object InvokeCtorUnwrapped(ConstructorInfo constructor, object?[] args)
+    {
+        try
+        {
+            return constructor.Invoke(args);
         }
         catch (TargetInvocationException ex) when (ex.InnerException != null)
         {
@@ -895,7 +912,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             }
         }
 
-        return concrete.Invoke(null, [left, right]);
+        return InvokeUnwrapped(concrete, null, [left, right]);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2060", Justification = "Fallback for non-primitive user operator types under AOT.")]
@@ -914,7 +931,7 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             }
         }
 
-        return concrete.Invoke(null, [operand]);
+        return InvokeUnwrapped(concrete, null, [operand]);
     }
 
     private static void ThrowIfDynamicCodeUnsupported(MethodInfo openMethod, Type type, SQLiteOptions options)

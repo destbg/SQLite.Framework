@@ -31,7 +31,7 @@ public sealed class RTreeTableInfo
     /// <summary>
     /// SQL column name for the rowid.
     /// </summary>
-    public string RowIdColumnName { get; }
+    public string RowIdColumnName { get; internal set; }
 
     /// <summary>
     /// Bounding-box slots in emission order (min, max, min, max, ...).

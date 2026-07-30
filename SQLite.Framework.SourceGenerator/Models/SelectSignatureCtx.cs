@@ -27,9 +27,10 @@ public readonly struct SelectSignatureCtx
         ParameterSubstitutions = new Dictionary<ISymbol, ExpressionSyntax>(SymbolEqualityComparer.Default);
         NullableRangeVars = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         TypeArgSubstitutions = typeArgSubstitutions ?? new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        ConstructedMemberReplacements = new Dictionary<SyntaxNode, ExpressionSyntax>();
     }
 
-    private SelectSignatureCtx(ITypeSymbol outerRowType, Dictionary<ISymbol, RowBinding> rowBindings, SemanticModel model, Dictionary<ITypeParameterSymbol, ITypeSymbol> typeArgSubstitutions, Dictionary<ISymbol, ExpressionSyntax> parameterSubstitutions, HashSet<ISymbol> nullableRangeVars, bool isInChecked)
+    private SelectSignatureCtx(ITypeSymbol outerRowType, Dictionary<ISymbol, RowBinding> rowBindings, SemanticModel model, Dictionary<ITypeParameterSymbol, ITypeSymbol> typeArgSubstitutions, Dictionary<ISymbol, ExpressionSyntax> parameterSubstitutions, HashSet<ISymbol> nullableRangeVars, Dictionary<SyntaxNode, ExpressionSyntax> constructedMemberReplacements, bool isInChecked)
     {
         OuterRowType = outerRowType;
         RowBindings = rowBindings;
@@ -37,6 +38,7 @@ public readonly struct SelectSignatureCtx
         ParameterSubstitutions = parameterSubstitutions;
         NullableRangeVars = nullableRangeVars;
         TypeArgSubstitutions = typeArgSubstitutions;
+        ConstructedMemberReplacements = constructedMemberReplacements;
         IsInChecked = isInChecked;
     }
 
@@ -71,6 +73,13 @@ public readonly struct SelectSignatureCtx
     public Dictionary<ITypeParameterSymbol, ITypeSymbol> TypeArgSubstitutions { get; }
 
     /// <summary>
+    /// Maps a member read in the select body to the constructor call that builds that member in an
+    /// upstream projection, for example a constructed group key or a CTE member. The emitter reads
+    /// the constructor arguments as leaves and rebuilds the object in the materializer.
+    /// </summary>
+    public Dictionary<SyntaxNode, ExpressionSyntax> ConstructedMemberReplacements { get; }
+
+    /// <summary>
     /// Whether the current expression is inside a checked context.
     /// </summary>
     public bool IsInChecked { get; }
@@ -80,7 +89,7 @@ public readonly struct SelectSignatureCtx
     /// </summary>
     public SelectSignatureCtx WithChecked()
     {
-        return new SelectSignatureCtx(OuterRowType, RowBindings, Model, TypeArgSubstitutions, ParameterSubstitutions, NullableRangeVars, isInChecked: true);
+        return new SelectSignatureCtx(OuterRowType, RowBindings, Model, TypeArgSubstitutions, ParameterSubstitutions, NullableRangeVars, ConstructedMemberReplacements, isInChecked: true);
     }
 
     /// <summary>
@@ -88,6 +97,6 @@ public readonly struct SelectSignatureCtx
     /// </summary>
     public SelectSignatureCtx WithUnchecked()
     {
-        return new SelectSignatureCtx(OuterRowType, RowBindings, Model, TypeArgSubstitutions, ParameterSubstitutions, NullableRangeVars, isInChecked: false);
+        return new SelectSignatureCtx(OuterRowType, RowBindings, Model, TypeArgSubstitutions, ParameterSubstitutions, NullableRangeVars, ConstructedMemberReplacements, isInChecked: false);
     }
 }

@@ -1180,6 +1180,11 @@ public static class SelectMaterializerEmitter
         switch (node)
         {
             case MemberAccessExpressionSyntax access when access.Kind() == SyntaxKind.SimpleMemberAccessExpression:
+                if (ctx.WriterCtx.ConstructedMemberReplacements.TryGetValue(access, out ExpressionSyntax? builtReplacement))
+                {
+                    return CollectLeaves(builtReplacement, ctx);
+                }
+
                 if (access.Expression is CastExpressionSyntax castReceiver
                     && castReceiver.Expression is IdentifierNameSyntax castIdent
                     && IsRowReference(castIdent, ctx)

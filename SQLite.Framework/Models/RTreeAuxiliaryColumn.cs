@@ -24,5 +24,5 @@ public sealed class RTreeAuxiliaryColumn
     /// <summary>
     /// SQL column name. Honors <c>[Column("...")]</c>.
     /// </summary>
-    public string ColumnName { get; }
+    public string ColumnName { get; internal set; }
 }

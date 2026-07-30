@@ -26,7 +26,7 @@ public sealed class RTreeBoundsColumn
     /// <summary>
     /// SQL column name. Honors <c>[Column("...")]</c>.
     /// </summary>
-    public string ColumnName { get; }
+    public string ColumnName { get; internal set; }
 
     /// <summary>
     /// Name of the R-Tree dimension this slot belongs to. Matches the name given to the

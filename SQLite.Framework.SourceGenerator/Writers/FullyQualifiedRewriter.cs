@@ -147,6 +147,11 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
     /// </summary>
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
+        if (ctx.WriterCtx.ConstructedMemberReplacements.TryGetValue(node, out ExpressionSyntax? builtReplacement))
+        {
+            return BuildConstructedMemberExpression((BaseObjectCreationExpressionSyntax)builtReplacement);
+        }
+
         if (ctx.LeafIndexBySyntax.TryGetValue(node, out int leafIndex))
         {
             LeafInfo leaf = ctx.Leaves[leafIndex];
@@ -554,6 +559,36 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         localHb.AppendLine();
 
         ctx.HelperMethods.Append(localHb);
+    }
+
+    private ExpressionSyntax? BuildConstructedMemberExpression(BaseObjectCreationExpressionSyntax creation)
+    {
+        if (ctx.Model.GetTypeInfo(creation).Type is not { } createdType)
+        {
+            Failed = true;
+            return null;
+        }
+
+        StringBuilder sb = new();
+        sb.Append("new ").Append(SelectMaterializerEmitter.FormatType(createdType, ctx.WriterCtx.TypeArgSubstitutions)).Append('(');
+        for (int i = 0; i < creation.ArgumentList!.Arguments.Count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            if (Visit(creation.ArgumentList.Arguments[i].Expression) is not ExpressionSyntax argExpr)
+            {
+                Failed = true;
+                return null;
+            }
+
+            sb.Append(argExpr.NormalizeWhitespace(indentation: "", eol: " ").ToFullString());
+        }
+
+        sb.Append(')');
+        return SyntaxFactory.ParseExpression("(" + sb + ")");
     }
 
     private bool IsCollectionInitConstant(BaseObjectCreationExpressionSyntax node)

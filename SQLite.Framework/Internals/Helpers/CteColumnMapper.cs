@@ -147,7 +147,26 @@ internal static class CteColumnMapper
             : null;
     }
 
-    public static void ApplyBodyTraits(Dictionary<string, Expression> columns, CteInfo info, SQLVisitor visitor)
+    public static Dictionary<string, Expression>? BodyConstructedNodes(SQLVisitor bodyVisitor)
+    {
+        if (!bodyVisitor.ConstructedProjectionNodes.TryGetValue(bodyVisitor.TableColumns, out Dictionary<string, Expression>? nodes))
+        {
+            return null;
+        }
+
+        Dictionary<string, Expression> carried = [];
+        foreach (KeyValuePair<string, Expression> node in nodes)
+        {
+            if (node.Key.Length > 0)
+            {
+                carried[node.Key] = node.Value;
+            }
+        }
+
+        return carried.Count > 0 ? carried : null;
+    }
+
+    public static void ApplyBodyTraits(Dictionary<string, Expression> columns, CteInfo info, SQLVisitor visitor, string alias)
     {
         ApplyDayOfWeekColumns(columns, info.DayOfWeekColumns);
         ApplyJsonSourceColumns(columns, info.JsonSourceColumns);
@@ -155,6 +174,23 @@ internal static class CteColumnMapper
         if (info.ConstructedPaths != null)
         {
             visitor.ConstructedProjectionPaths[columns] = [.. info.ConstructedPaths];
+        }
+
+        if (info.ConstructedNodes != null && info.BodySelects != null)
+        {
+            CteClientColumnRewriter rewriter = new(info.BodySelects, info.ColumnNames, alias, visitor.Counters);
+            foreach (KeyValuePair<string, Expression> node in info.ConstructedNodes)
+            {
+                rewriter.Seed(node.Value);
+            }
+
+            Dictionary<string, Expression> rewrittenNodes = [];
+            foreach (KeyValuePair<string, Expression> node in info.ConstructedNodes)
+            {
+                rewrittenNodes[node.Key] = rewriter.Rewrite(node.Value);
+            }
+
+            visitor.ConstructedProjectionNodes[columns] = rewrittenNodes;
         }
 
         if (info.OptionalRow)
@@ -202,31 +238,31 @@ internal static class CteColumnMapper
 
     public static string[]? BodyColumnNames(Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects)
     {
-        List<string> leafKeys = [];
-        foreach (KeyValuePair<string, Expression> column in bodyColumns)
-        {
-            if (column.Value is SQLiteExpression)
-            {
-                leafKeys.Add(column.Key);
-            }
-        }
-
-        if (leafKeys.Count != selects.Count)
+        if (CountLeafColumns(bodyColumns) != selects.Count)
         {
             return null;
         }
 
-        OrderKeysBySelects(leafKeys, bodyColumns, selects);
+        if (!TryOrderKeysBySelects(bodyColumns, selects, out string[] ordered))
+        {
+            return BodyColumnNamesWithPlaceholders(bodyColumns, selects);
+        }
 
         for (int i = 0; i < selects.Count; i++)
         {
-            if (selects[i].IdentifierText != leafKeys[i])
+            if (selects[i].IdentifierText != ordered[i])
             {
-                return leafKeys.ToArray();
+                return ordered;
             }
         }
 
         return null;
+    }
+
+    public static bool BodyColumnOrderIsAmbiguous(Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects)
+    {
+        return CountLeafColumns(bodyColumns) == selects.Count
+            && !TryOrderKeysBySelects(bodyColumns, selects, out _);
     }
 
     public static string[]? DeclaredColumnNames(Type elementType, Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects, SQLiteOptions options)
@@ -349,32 +385,36 @@ internal static class CteColumnMapper
         return expression is AliasSqlExpression alias ? alias.Inner : expression;
     }
 
-    private static void OrderKeysBySelects(List<string> leafKeys, Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects)
+    private static int CountLeafColumns(Dictionary<string, Expression> bodyColumns)
     {
-        string[] ordered = new string[selects.Count];
-        HashSet<string> used = [];
+        int count = 0;
+        foreach (KeyValuePair<string, Expression> column in bodyColumns)
+        {
+            if (column.Value is SQLiteExpression)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static bool TryOrderKeysBySelects(Dictionary<string, Expression> bodyColumns, IReadOnlyList<SQLiteExpression> selects, out string[] ordered)
+    {
+        ordered = new string[selects.Count];
+        HashSet<string> used = new(StringComparer.Ordinal);
         for (int i = 0; i < selects.Count; i++)
         {
-            string? match = null;
-            foreach (KeyValuePair<string, Expression> column in bodyColumns)
-            {
-                if (ReferenceEquals(column.Value, selects[i]) && used.Add(column.Key))
-                {
-                    match = column.Key;
-                    break;
-                }
-            }
-
+            string? match = MatchBodyColumnKey(bodyColumns, selects[i], used);
             if (match == null)
             {
-                return;
+                return false;
             }
 
             ordered[i] = match;
         }
 
-        leafKeys.Clear();
-        leafKeys.AddRange(ordered);
+        return true;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Entity element types have public properties.")]

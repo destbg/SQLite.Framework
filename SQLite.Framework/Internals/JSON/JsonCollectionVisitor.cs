@@ -118,8 +118,8 @@ internal partial class JsonCollectionVisitor
             Type entryValueType = elementType.GetGenericArguments()[1];
             visitor.MethodArguments[param] = new Dictionary<string, Expression>
             {
-                [nameof(KeyValuePair<,>.Key)] = SQLiteExpression.Leaf(entryKeyType, -1, $"{baseAlias}.\"key\"", null).WithJsonSource(),
-                [nameof(KeyValuePair<,>.Value)] = SQLiteExpression.Leaf(entryValueType, -1, $"{baseAlias}.\"value\"", null).WithJsonSource()
+                [nameof(KeyValuePair<,>.Key)] = SQLiteExpression.Leaf(entryKeyType, -1, keyColumn, null).WithJsonSource(),
+                [nameof(KeyValuePair<,>.Value)] = SQLiteExpression.Leaf(entryValueType, -1, valueSql, null).WithJsonSource()
             };
             return;
         }

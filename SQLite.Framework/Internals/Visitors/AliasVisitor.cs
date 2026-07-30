@@ -108,6 +108,10 @@ internal class AliasVisitor
                 {
                     constructedPaths.Add(CheckPrefix(alias, path[prefixToMatch.Length..]));
                 }
+                else if (path == prefixToMatch[..^1])
+                {
+                    constructedPaths.Add(alias);
+                }
             }
         }
 
@@ -227,7 +231,9 @@ internal class AliasVisitor
                     SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
                     Expression expression = innerVisitor.Visit(argument);
 
-                    result.Add(alias, CoalesceIfLiftedComparison(argument, expression));
+                    Expression node = CoalesceIfLiftedComparison(argument, expression);
+                    result.Add(alias, node);
+                    constructedNodes[alias] = node;
                 }
                 else
                 {
@@ -274,7 +280,7 @@ internal class AliasVisitor
                 string listAlias = CheckPrefix(prefix, memberListBinding.Member.Name);
                 SQLVisitor listVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
                 Expression listNode = listVisitor.Visit(Expression.ListInit(Expression.New(listType), memberListBinding.Initializers));
-                result.Add(listAlias, listNode);
+                result[listAlias] = listNode;
                 continue;
             }
 
@@ -289,7 +295,7 @@ internal class AliasVisitor
                 nestedVisitor.ResolveResultAlias(resultSelector, nested, nestedAlias);
                 foreach (KeyValuePair<string, Expression> tableColumn in nestedVisitor.result)
                 {
-                    result.Add(tableColumn.Key, tableColumn.Value);
+                    result[tableColumn.Key] = tableColumn.Value;
                 }
 
                 constructedPaths.Add(nestedAlias);
@@ -309,7 +315,7 @@ internal class AliasVisitor
 
                 foreach (KeyValuePair<string, Expression> tableColumn in innerResult)
                 {
-                    result.Add(tableColumn.Key, tableColumn.Value);
+                    result[tableColumn.Key] = tableColumn.Value;
                 }
 
                 constructedPaths.Add(alias);
@@ -327,13 +333,13 @@ internal class AliasVisitor
 
                 if (TypeHelpers.IsSimple(parameterExpression.Type, database.Options))
                 {
-                    result.Add(alias, parameterTableColumns.Values.First());
+                    result[alias] = parameterTableColumns.Values.First();
                 }
                 else
                 {
                     foreach (KeyValuePair<string, Expression> tableColumn in parameterTableColumns)
                     {
-                        result.Add($"{alias}.{tableColumn.Key}", tableColumn.Value);
+                        result[$"{alias}.{tableColumn.Key}"] = tableColumn.Value;
                     }
 
                     CarrySubPaths(alias, parameterTableColumns);
@@ -348,7 +354,7 @@ internal class AliasVisitor
 
                 if (pe == null)
                 {
-                    result.Add(alias, memberAssignment.Expression);
+                    result[alias] = memberAssignment.Expression;
                     continue;
                 }
 
@@ -358,13 +364,13 @@ internal class AliasVisitor
                 {
                     if (parameterTableColumns.TryGetValue(path, out Expression? columnExpression))
                     {
-                        result.Add(alias, columnExpression);
+                        result[alias] = columnExpression;
                     }
                     else
                     {
                         SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
                         Expression expression = innerVisitor.Visit(memberAssignment.Expression);
-                        result.Add(alias, CoalesceIfLiftedComparison(memberAssignment.Expression, expression));
+                        result[alias] = CoalesceIfLiftedComparison(memberAssignment.Expression, expression);
                     }
                 }
                 else
@@ -373,7 +379,7 @@ internal class AliasVisitor
                     {
                         if (tableColumn.Key.StartsWith(path + "."))
                         {
-                            result.Add($"{alias}.{tableColumn.Key[(path.Length + 1)..]}", tableColumn.Value);
+                            result[$"{alias}.{tableColumn.Key[(path.Length + 1)..]}"] = tableColumn.Value;
                         }
                     }
 
@@ -387,7 +393,7 @@ internal class AliasVisitor
                 Expression valueExpression = ExpressionHelpers.StripUpcast(memberAssignment.Expression);
                 SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
                 Expression expression = innerVisitor.Visit(valueExpression);
-                result.Add(alias, CoalesceIfLiftedComparison(valueExpression, expression));
+                result[alias] = CoalesceIfLiftedComparison(valueExpression, expression);
             }
         }
     }

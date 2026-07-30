@@ -95,6 +95,11 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
             return owner.Options;
         }
 
+        if (TryResolveOwnedTable(node) is { } table)
+        {
+            return table.Database.Options;
+        }
+
         return options;
     }
 
@@ -138,6 +143,37 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
         {
             injecting.Remove((entityType, filterOptions));
         }
+    }
+
+    private static BaseSQLiteTable? TryResolveOwnedTable(MethodCallExpression node)
+    {
+        object? receiver = null;
+        if (node.Object != null)
+        {
+            if (!ExpressionHelpers.IsConstant(node.Object))
+            {
+                return null;
+            }
+
+            receiver = ExpressionHelpers.GetConstantValue(node.Object);
+            if (receiver == null)
+            {
+                return null;
+            }
+        }
+
+        object?[] arguments = new object?[node.Arguments.Count];
+        for (int i = 0; i < node.Arguments.Count; i++)
+        {
+            if (!ExpressionHelpers.IsConstant(node.Arguments[i]))
+            {
+                return null;
+            }
+
+            arguments[i] = ExpressionHelpers.GetConstantValue(node.Arguments[i]);
+        }
+
+        return node.Method.Invoke(receiver, arguments) as BaseSQLiteTable;
     }
 
     private static bool HasApplicableFilters(SQLiteOptions filterOptions, Type entityType)

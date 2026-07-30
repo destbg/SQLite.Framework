@@ -22,6 +22,10 @@ public class SQLiteTable : BaseSQLiteTable
     /// <inheritdoc />
     public override IQueryProvider Provider => Database;
 
+    internal string QualifiedTableSql => Database.HasAttachedDatabases
+        ? $"\"main\".\"{Table.TableName}\""
+        : $"\"{Table.TableName}\"";
+
     /// <inheritdoc />
     public override IEnumerator GetEnumerator()
     {
@@ -36,7 +40,7 @@ public class SQLiteTable : BaseSQLiteTable
     /// </remarks>
     public virtual int Clear()
     {
-        string sql = $"DELETE FROM \"{Table.TableName}\"";
+        string sql = $"DELETE FROM {QualifiedTableSql}";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
     }
 }
@@ -423,7 +427,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
         IReadOnlyList<SQLiteExpression> selects = translator.Selects;
         List<string> selectIdentifiers = selects.Select(s => s.IdentifierText).ToList();
-        ThrowIfSetOperandSelectsMisaligned(selectIdentifiers, translator.SetOperandSelects);
 
         List<string> targetColumnNames = selectIdentifiers
             .Select(identifier =>
@@ -439,6 +442,41 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .ToList();
 
         string columnList = string.Join(", ", targetColumnNames.Select(IdentifierGuard.Quote));
+        string sourceSql = sourceQuery.Sql;
+        List<SQLiteParameter> sourceParameters = [.. sourceQuery.Parameters];
+
+        if (Database.Options.EnumStorage == EnumStorageMode.Text)
+        {
+            List<string> rewrittenSelects = [];
+            bool needsDayOfWeekText = false;
+            for (int i = 0; i < selects.Count; i++)
+            {
+                string quoted = IdentifierGuard.Quote(selectIdentifiers[i]);
+                TableColumn target = Table.Columns.First(c =>
+                    string.Equals(c.PropertyInfo.Name, selectIdentifiers[i], StringComparison.OrdinalIgnoreCase));
+                if (selects[i].IsDayOfWeekInteger && target.PropertyType.IsEnum)
+                {
+                    SQLiteExpression numberLeaf = SQLiteExpression.Leaf(target.PropertyType, translator.Visitor.Counters.NextIdentifier(), quoted);
+                    SQLiteExpression nameText = EnumMemberVisitor.BuildEnumToNameText(translator.Visitor, target.PropertyType, numberLeaf);
+                    rewrittenSelects.Add($"{nameText} AS {quoted}");
+                    if (nameText.Parameters != null)
+                    {
+                        sourceParameters.AddRange(nameText.Parameters);
+                    }
+
+                    needsDayOfWeekText = true;
+                }
+                else
+                {
+                    rewrittenSelects.Add(quoted);
+                }
+            }
+
+            if (needsDayOfWeekText)
+            {
+                sourceSql = $"SELECT {string.Join(", ", rewrittenSelects)} FROM ({Environment.NewLine}{sourceQuery.Sql}{Environment.NewLine})";
+            }
+        }
 
         List<(string Column, string ValueSql)> extraColumns = ExtraWriteColumns
             .Where(c => !targetColumnNames.Contains(c.Column))
@@ -449,19 +487,37 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             string extraNames = string.Join(", ", extraColumns.Select(c => IdentifierGuard.Quote(c.Column)));
             string extraValues = string.Join(", ", extraColumns.Select(c => c.ValueSql));
             string insertColumns = $"{columnList}, {extraNames}";
-            string wrappedSql = $"INSERT INTO \"{Table.TableName}\" ({insertColumns}){Environment.NewLine}SELECT *, {extraValues} FROM ({Environment.NewLine}{sourceQuery.Sql}{Environment.NewLine})";
-            return Database.CreateCommand(wrappedSql, sourceQuery.Parameters).ExecuteNonQuery();
+            string wrappedSql = $"INSERT INTO {QualifiedTableSql} ({insertColumns}){Environment.NewLine}SELECT *, {extraValues} FROM ({Environment.NewLine}{sourceSql}{Environment.NewLine})";
+            return Database.CreateCommand(wrappedSql, sourceParameters).ExecuteNonQuery();
         }
 
-        string sql = $"INSERT INTO \"{Table.TableName}\" ({columnList}){Environment.NewLine}{sourceQuery.Sql}";
+        string sql = $"INSERT INTO {QualifiedTableSql} ({columnList}){Environment.NewLine}{sourceSql}";
 
-        return Database.CreateCommand(sql, sourceQuery.Parameters).ExecuteNonQuery();
+        return Database.CreateCommand(sql, sourceParameters).ExecuteNonQuery();
     }
 
     /// <inheritdoc />
     public override IEnumerator GetEnumerator()
     {
         return ((IEnumerable<T>)this).GetEnumerator();
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Reflects the subclass only to detect a protected override.")]
+    internal virtual bool IsItemMethodOverridden(string methodName)
+    {
+        Type runtime = GetType();
+        if (runtime == typeof(SQLiteTable<T>))
+        {
+            return false;
+        }
+
+        MethodInfo method = runtime.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!;
+        return method.DeclaringType != typeof(SQLiteTable<T>);
+    }
+
+    internal (TableColumn[] Columns, string Sql) GetAddInfoCore()
+    {
+        return GetAddInfo();
     }
 
     internal (TableColumn[] Columns, string Sql) GetAddInfoForItemInternal(T item)
@@ -580,8 +636,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
 
         string sql = names.Count == 0
-            ? $"{insertVerb} INTO \"{Table.TableName}\" DEFAULT VALUES"
-            : $"{insertVerb} INTO \"{Table.TableName}\" ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
+            ? $"{insertVerb} INTO {QualifiedTableSql} DEFAULT VALUES"
+            : $"{insertVerb} INTO {QualifiedTableSql} ({string.Join(", ", names)}) VALUES ({string.Join(", ", placeholders)})";
 
         return (sql, parameters);
     }
@@ -641,7 +697,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             primaryKeyClauses.Add($"{IdentifierGuard.Quote(primaryColumns[i].Name)} = {WrapParam(placeholder, primaryColumns[i])}");
         }
 
-        string sql = $"UPDATE \"{Table.TableName}\" SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", primaryKeyClauses)}";
+        string sql = $"UPDATE {QualifiedTableSql} SET {string.Join(", ", setClauses)} WHERE {string.Join(" AND ", primaryKeyClauses)}";
         return (sql, parameters);
     }
 
@@ -652,7 +708,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// is supplied, <c>last_insert_rowid</c> is read after every row that affected at least one row
     /// and written back to the entity.
     /// </summary>
-    protected virtual int RunPreparedRange(string sql, IEnumerable<T> items, IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, bool runInTransaction, Action<sqlite3_stmt, T> bindRow, TableColumn? autoIncrement = null, bool detectInsertByRowIdChange = false)
+    protected virtual int RunPreparedRange(string sql, IEnumerable<T> items, IReadOnlyList<SQLiteEntityHook> hooks, bool runInTransaction, Action<sqlite3_stmt, T> bindRow, TableColumn? autoIncrement = null, bool detectInsertByRowIdChange = false)
     {
         items = CommonHelpers.SnapshotLiveSource(Database, items);
         int count = 0;
@@ -835,7 +891,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         string primaryKeyClause = string.Join(" AND ",
             primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = {WrapParam($"@p{i + columns.Length}", c)}")
         );
-        string sql = $"UPDATE \"{Table.TableName}\" SET {setClause} WHERE {primaryKeyClause}";
+        string sql = $"UPDATE {QualifiedTableSql} SET {setClause} WHERE {primaryKeyClause}";
 
         return (columns, primaryKeyColumns, sql);
     }
@@ -860,7 +916,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         string primaryKeyClause = string.Join(" AND ",
             primaryKeyColumns.Select((c, i) => $"{IdentifierGuard.Quote(c.Name)} = {WrapParam($"@p{i}", c)}")
         );
-        string sql = $"DELETE FROM \"{Table.TableName}\" WHERE {primaryKeyClause}";
+        string sql = $"DELETE FROM {QualifiedTableSql} WHERE {primaryKeyClause}";
 
         return (primaryKeyColumns, sql);
     }
@@ -875,6 +931,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// </summary>
     protected internal virtual (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
     {
+        if (Table.FullTextSearch?.ContentMode == FtsContentMode.Contentless)
+        {
+            throw new NotSupportedException(
+                $"AddOrUpdate is not supported on the contentless full text table '{Table.TableName}'. " +
+                "SQLite cannot delete the replaced row from a contentless index, so the old text would keep matching. " +
+                "Use Add for new rows, or an external content table when rows change.");
+        }
+
         TableColumn[] columns = ExcludeOverriddenColumns(ExcludeComputedColumns(Table.Columns.ToArray()));
         string sql = BuildAddOrUpdateSql(columns, conflict);
 
@@ -913,7 +977,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// Each hook can mutate <paramref name="item" />. Returns <see langword="false" /> when any
     /// hook returns <see langword="false" />, signalling that the default operation should be skipped.
     /// </summary>
-    protected internal virtual bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item)
+    protected internal virtual bool RunHooks(IReadOnlyList<SQLiteEntityHook> hooks, T item)
     {
         if (hooks.Count == 0)
         {
@@ -928,17 +992,17 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// to the hooks that accept a column collector so they can set values for columns that have no
     /// CLR property. Returns <see langword="false" /> when a hook cancels the operation.
     /// </summary>
-    protected internal virtual bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item, IDictionary<string, object?> columns)
+    protected internal virtual bool RunHooks(IReadOnlyList<SQLiteEntityHook> hooks, T item, IDictionary<string, object?> columns)
     {
-        foreach (KeyValuePair<Type, IReadOnlyList<Delegate>> entry in hooks)
+        foreach (SQLiteEntityHook entry in hooks)
         {
-            if (!entry.Key.IsAssignableFrom(typeof(T)))
+            if (!entry.EntityType.IsAssignableFrom(typeof(T)))
             {
                 continue;
             }
 
-            foreach (Delegate hook in entry.Value)
             {
+                Delegate hook = entry.Hook;
                 bool keep = hook is Func<SQLiteDatabase, T, IDictionary<string, object?>, bool> columnHook
                     ? columnHook(Database, item, columns)
                     : ((Func<SQLiteDatabase, T, bool>)hook)(Database, item);
@@ -957,7 +1021,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     /// invokes <paramref name="execute" /> for every item that the hooks did not cancel. Wraps the
     /// loop in a transaction when <paramref name="runInTransaction" /> is set.
     /// </summary>
-    protected virtual int RunRange(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, IEnumerable<T> collection, bool runInTransaction, Func<T, int> execute)
+    protected virtual int RunRange(IReadOnlyList<SQLiteEntityHook> hooks, IEnumerable<T> collection, bool runInTransaction, Func<T, int> execute)
     {
         collection = CommonHelpers.SnapshotLiveSource(Database, collection);
         int count = 0;
@@ -1301,19 +1365,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         }
     }
 
-    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Reflects the subclass only to detect a protected override.")]
-    private bool IsItemMethodOverridden(string methodName)
-    {
-        Type runtime = GetType();
-        if (runtime == typeof(SQLiteTable<T>))
-        {
-            return false;
-        }
-
-        MethodInfo method = runtime.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)!;
-        return method.DeclaringType != typeof(SQLiteTable<T>);
-    }
-
     private TableWriteCache<T>? ResolveWriteCache()
     {
         if (GetType() != typeof(SQLiteTable<T>)
@@ -1323,12 +1374,14 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             return null;
         }
 
-        if (Table.SingleWriteCache is TableWriteCache<T> cache && ReferenceEquals(cache.Options, Database.Options))
+        if (Table.SingleWriteCache is TableWriteCache<T> cache
+            && ReferenceEquals(cache.Options, Database.Options)
+            && cache.AttachGeneration == Database.AttachGeneration)
         {
             return cache;
         }
 
-        TableWriteCache<T> created = new(Database.Options);
+        TableWriteCache<T> created = new(Database.Options, Database.AttachGeneration);
         Table.SingleWriteCache = created;
         return created;
     }
@@ -1501,10 +1554,10 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         (string columnList, string paramList) = BuildWriteLists(columns);
         if (columnList.Length == 0)
         {
-            return $"INSERT INTO \"{Table.TableName}\" DEFAULT VALUES";
+            return $"INSERT INTO {QualifiedTableSql} DEFAULT VALUES";
         }
 
-        return $"INSERT INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
+        return $"INSERT INTO {QualifiedTableSql} ({columnList}) VALUES ({paramList})";
     }
 
     private string BuildAddOrUpdateSql(TableColumn[] columns, SQLiteConflict conflict)
@@ -1521,13 +1574,13 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         (string columnList, string paramList) = BuildWriteLists(columns);
         if (columnList.Length == 0)
         {
-            return $"INSERT {action}INTO \"{Table.TableName}\" DEFAULT VALUES";
+            return $"INSERT {action}INTO {QualifiedTableSql} DEFAULT VALUES";
         }
 
-        return $"INSERT {action}INTO \"{Table.TableName}\" ({columnList}) VALUES ({paramList})";
+        return $"INSERT {action}INTO {QualifiedTableSql} ({columnList}) VALUES ({paramList})";
     }
 
-    private int RunRangeWithColumns(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, IEnumerable<T> collection, bool runInTransaction, SQLiteAction defaultAction)
+    private int RunRangeWithColumns(IReadOnlyList<SQLiteEntityHook> hooks, IEnumerable<T> collection, bool runInTransaction, SQLiteAction defaultAction)
     {
         collection = CommonHelpers.SnapshotLiveSource(Database, collection);
         int count = 0;
@@ -1711,37 +1764,6 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         };
     }
 
-    private static void ThrowIfSetOperandSelectsMisaligned(List<string> selectIdentifiers, IReadOnlyList<IReadOnlyList<string>> operandSelects)
-    {
-        if (operandSelects.Count == 0 || !AllNamedIdentifiers(selectIdentifiers))
-        {
-            return;
-        }
-
-        foreach (IReadOnlyList<string> operand in operandSelects)
-        {
-            if (!AllNamedIdentifiers(operand))
-            {
-                continue;
-            }
-
-            bool aligned = operand.Count == selectIdentifiers.Count
-                && !operand.Where((identifier, i) =>
-                    !string.Equals(identifier, selectIdentifiers[i], StringComparison.OrdinalIgnoreCase)).Any();
-            if (!aligned)
-            {
-                throw new NotSupportedException(
-                    "InsertFromQuery over a set operation whose branches project different members is not " +
-                    "supported, because INSERT INTO SELECT matches branch values to columns by position. " +
-                    "Project the same members in the same order in every branch.");
-            }
-        }
-    }
-
-    private static bool AllNamedIdentifiers(IReadOnlyList<string> identifiers)
-    {
-        return identifiers.All(identifier => !char.IsAsciiDigit(identifier[0]));
-    }
 
     private static bool IsAutoIncrementUnset(object? value)
     {

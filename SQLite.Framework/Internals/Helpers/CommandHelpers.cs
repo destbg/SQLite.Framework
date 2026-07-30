@@ -73,7 +73,14 @@ internal static class CommandHelpers
         {
             return value;
         }
-        else if (value is double fractionalValue && TryTruncateToInteger(fractionalValue, type, out object? truncated))
+
+        if (value is string storedText && IsNativeNumericTarget(type))
+        {
+            double prefix = TextToStoredDouble(storedText);
+            value = type == typeof(double) || type == typeof(float) ? prefix : DoubleToInt64(prefix);
+        }
+
+        if (value is double fractionalValue && TryTruncateToInteger(fractionalValue, type, out object? truncated))
         {
             return truncated;
         }
@@ -348,7 +355,7 @@ internal static class CommandHelpers
         }
         else if (type == typeof(long))
         {
-            truncated = checked((long)value);
+            truncated = DoubleToInt64(value);
         }
         else if (type == typeof(short))
         {
@@ -372,7 +379,7 @@ internal static class CommandHelpers
         }
         else if (type == typeof(ulong))
         {
-            truncated = checked((ulong)value);
+            truncated = value < 0 ? unchecked((ulong)DoubleToInt64(value)) : checked((ulong)value);
         }
         else
         {
@@ -381,5 +388,78 @@ internal static class CommandHelpers
         }
 
         return true;
+    }
+
+    private static bool IsNativeNumericTarget(Type type)
+    {
+        return type == typeof(bool)
+            || type == typeof(byte) || type == typeof(sbyte)
+            || type == typeof(short) || type == typeof(ushort)
+            || type == typeof(int) || type == typeof(uint)
+            || type == typeof(long) || type == typeof(ulong)
+            || type == typeof(double) || type == typeof(float);
+    }
+
+    private static long DoubleToInt64(double value)
+    {
+        if (double.IsNaN(value))
+        {
+            return 0;
+        }
+
+        if (value >= 9223372036854775807.0)
+        {
+            return long.MaxValue;
+        }
+
+        if (value <= -9223372036854775808.0)
+        {
+            return long.MinValue;
+        }
+
+        return (long)value;
+    }
+
+    private static double TextToStoredDouble(string text)
+    {
+        int end = 0;
+        if (end < text.Length && (text[end] == '+' || text[end] == '-'))
+        {
+            end++;
+        }
+
+        while (end < text.Length && char.IsAsciiDigit(text[end]))
+        {
+            end++;
+        }
+
+        if (end < text.Length && text[end] == '.')
+        {
+            end++;
+            while (end < text.Length && char.IsAsciiDigit(text[end]))
+            {
+                end++;
+            }
+        }
+
+        if (end < text.Length && (text[end] == 'e' || text[end] == 'E'))
+        {
+            int exponent = end + 1;
+            if (exponent < text.Length && (text[exponent] == '+' || text[exponent] == '-'))
+            {
+                exponent++;
+            }
+
+            if (exponent < text.Length && char.IsAsciiDigit(text[exponent]))
+            {
+                end = exponent;
+                while (end < text.Length && char.IsAsciiDigit(text[end]))
+                {
+                    end++;
+                }
+            }
+        }
+
+        return double.TryParse(text[..end], NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ? parsed : 0d;
     }
 }

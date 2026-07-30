@@ -231,26 +231,26 @@ public sealed class SQLiteOptions
     /// default INSERT and any later hooks. Populated through
     /// <see cref="SQLiteOptionsBuilder.OnAdd{T}(Action{T})" /> and its overloads.
     /// </summary>
-    public required IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> AddHooks { get; init; }
+    public required IReadOnlyList<SQLiteEntityHook> AddHooks { get; init; }
 
     /// <summary>
     /// Per-entity hooks that fire before <c>Update</c>. Returning <see langword="false" /> skips
     /// the default UPDATE.
     /// </summary>
-    public required IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> UpdateHooks { get; init; }
+    public required IReadOnlyList<SQLiteEntityHook> UpdateHooks { get; init; }
 
     /// <summary>
     /// Per-entity hooks that fire before <c>Remove</c>. Returning <see langword="false" /> skips
     /// the default DELETE. Useful for soft delete: flip a flag and call <c>Update</c> from inside
     /// the hook, then return <see langword="false" />.
     /// </summary>
-    public required IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> RemoveHooks { get; init; }
+    public required IReadOnlyList<SQLiteEntityHook> RemoveHooks { get; init; }
 
     /// <summary>
     /// Per-entity hooks that fire before <c>AddOrUpdate</c> and <c>Upsert</c>. Returning
     /// <see langword="false" /> skips the default operation.
     /// </summary>
-    public required IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> AddOrUpdateHooks { get; init; }
+    public required IReadOnlyList<SQLiteEntityHook> AddOrUpdateHooks { get; init; }
 
     /// <summary>
     /// Cross-cutting action hooks that run before every CRUD action, in registration order.

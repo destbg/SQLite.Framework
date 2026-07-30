@@ -24,7 +24,7 @@ public sealed class FtsIndexedColumn
     /// <summary>
     /// The column name as declared in the virtual table.
     /// </summary>
-    public string Name { get; }
+    public string Name { get; internal set; }
 
     /// <summary>
     /// The BM25 weight applied to matches in this column.

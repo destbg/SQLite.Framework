@@ -349,8 +349,11 @@ internal partial class JsonCollectionVisitor
         {
             MaterializeWindow();
             groupWindowMaterialized = false;
-            groupKeySql = null;
-            groupElementSql = null;
+            if (!(elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(IGrouping<,>)))
+            {
+                groupKeySql = null;
+                groupElementSql = null;
+            }
         }
 
         string keySql = VisitLambda(call.Arguments[1], elementType, coalesceLiftedComparison: true);
@@ -487,6 +490,7 @@ internal partial class JsonCollectionVisitor
     {
         AddOptionalPredicate(call, elementType);
         SelectGroupKeyForGroupingResult();
+        SelectEntryObjectForDictionaryResult();
         limit = "1";
         wrapInArray = false;
     }
@@ -501,6 +505,15 @@ internal partial class JsonCollectionVisitor
         }
     }
 
+    private void SelectEntryObjectForDictionaryResult()
+    {
+        if (currentElementType is { IsGenericType: true }
+            && currentElementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+        {
+            selectExpr = $"json_object('Key', {keyColumn}, 'Value', {selectExpr})";
+        }
+    }
+
     private void HandleLast(MethodCallExpression call, Type elementType)
     {
         if (limit != null || offset != null)
@@ -509,6 +522,8 @@ internal partial class JsonCollectionVisitor
         }
 
         AddOptionalPredicate(call, elementType);
+        SelectGroupKeyForGroupingResult();
+        SelectEntryObjectForDictionaryResult();
         ReverseOrderWithPosition();
 
         limit = "1";
@@ -518,6 +533,8 @@ internal partial class JsonCollectionVisitor
     private void HandleSingle(MethodCallExpression call, Type elementType)
     {
         AddOptionalPredicate(call, elementType);
+        SelectGroupKeyForGroupingResult();
+        SelectEntryObjectForDictionaryResult();
         singleSemantic = true;
         wrapInArray = false;
     }
@@ -687,6 +704,8 @@ internal partial class JsonCollectionVisitor
             MaterializeDistinct();
         }
 
+        SelectGroupKeyForGroupingResult();
+        SelectEntryObjectForDictionaryResult();
         offset = arg.SQLiteExpression!.ToString();
         AddParameters(arg);
         limit = "1";

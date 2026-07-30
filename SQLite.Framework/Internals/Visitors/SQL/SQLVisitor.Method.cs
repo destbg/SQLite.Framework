@@ -77,12 +77,12 @@ internal partial class SQLVisitor
             || declaringType == typeof(SQLiteWindowFunctions)
             || declaringType == typeof(SQLiteFrameBoundary))
         {
-            return Database.Options.MemberTranslators[declaringType](ctx);
+            return ResolveHelperTypeCall(declaringType, ctx, node);
         }
 
         if (declaringType is { IsGenericType: true } && declaringType.GetGenericTypeDefinition() == typeof(SQLiteWindow<>))
         {
-            return Database.Options.MemberTranslators[typeof(SQLiteWindowFunctions)](ctx);
+            return ResolveHelperTypeCall(typeof(SQLiteWindowFunctions), ctx, node);
         }
 
         if (node.Arguments.Count > 0
@@ -167,8 +167,11 @@ internal partial class SQLVisitor
                             r.Parameters);
                     }
 
+                    SQLiteExpression textSource = nullableUnderlying == typeof(decimal)
+                        ? UnwrapDecimalCast(nullableObj.SQLiteExpression)
+                        : nullableObj.SQLiteExpression;
                     return SQLiteExpression.Wrap(typeof(string), Counters.NextIdentifier(),
-                        "COALESCE(CAST(", nullableObj.SQLiteExpression, " AS TEXT), '')", nullableObj.SQLiteExpression.Parameters);
+                        "COALESCE(CAST(", textSource, " AS TEXT), '')", textSource.Parameters);
                 }
             }
 
@@ -291,6 +294,28 @@ internal partial class SQLVisitor
         }
 
         return result;
+    }
+
+    private Expression ResolveHelperTypeCall(Type helperType, SQLiteCallerContext ctx, MethodCallExpression node)
+    {
+        if (Database.Options.TryGetMethodTranslator(node.Method, out SQLiteMemberTranslator? methodTranslator))
+        {
+            bool previousInCustomMethodTranslator = InCustomMethodTranslator;
+            InCustomMethodTranslator = true;
+            Expression translated = methodTranslator(ctx);
+            InCustomMethodTranslator = previousInCustomMethodTranslator;
+            return translated;
+        }
+
+        if (Database.Options.MemberTranslators.TryGetValue(helperType, out SQLiteMemberTranslator? typeTranslator))
+        {
+            return typeTranslator(ctx);
+        }
+
+        throw new NotSupportedException(
+            $"No translator is registered for {helperType.Name}.{node.Method.Name}. " +
+            $"The default entry for {helperType.Name} was removed from MemberTranslators, " +
+            "so its methods can no longer be translated to SQL.");
     }
 
     private SQLiteExpression ResolveColumnReference(MethodCallExpression node)

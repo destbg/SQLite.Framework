@@ -52,7 +52,7 @@ public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(Dynami
         }
 
         bool wrapWholeValue = ConverterSql.HasReadAndWriteWrap(typeof(TValue), database.Options);
-        string valueSql = BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: wrapWholeValue);
+        string valueSql = BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: true);
         if (wrapWholeValue || ExpressionHelpers.IsConstant(value.Body))
         {
             valueSql = ConverterSql.WrapParameter(valueSql, typeof(TValue), database.Options);

@@ -24,9 +24,39 @@ internal sealed class SQLiteWriteColumnsTable<[DynamicallyAccessedMembers(Dynami
 
     internal override bool ExtraWriteColumnsReferenceRow => referencesRow;
 
+    internal override bool IsItemMethodOverridden(string methodName)
+    {
+        return source.IsItemMethodOverridden(methodName);
+    }
+
     protected internal override string WrapParam(string placeholder, TableColumn column)
     {
         return source.WrapParam(placeholder, column);
+    }
+
+    protected override (TableColumn[] Columns, string Sql) GetAddInfo()
+    {
+        return source.IsItemMethodOverridden(nameof(GetAddInfo)) ? source.GetAddInfoCore() : base.GetAddInfo();
+    }
+
+    protected internal override (TableColumn[] Columns, TableColumn[] PrimaryColumns, string Sql) GetUpdateInfo()
+    {
+        return source.IsItemMethodOverridden(nameof(GetUpdateInfo)) ? source.GetUpdateInfo() : base.GetUpdateInfo();
+    }
+
+    protected internal override (TableColumn[] PrimaryColumns, string Sql) GetRemoveInfo()
+    {
+        return source.IsItemMethodOverridden(nameof(GetRemoveInfo)) ? source.GetRemoveInfo() : base.GetRemoveInfo();
+    }
+
+    protected internal override (TableColumn[] Columns, string Sql) GetAddOrUpdateInfo(SQLiteConflict conflict)
+    {
+        return source.IsItemMethodOverridden(nameof(GetAddOrUpdateInfo)) ? source.GetAddOrUpdateInfo(conflict) : base.GetAddOrUpdateInfo(conflict);
+    }
+
+    protected internal override (TableColumn[] Columns, string Sql) GetUpsertInfo(Action<SQLiteUpsertBuilder<T>> configure)
+    {
+        return source.IsItemMethodOverridden(nameof(GetUpsertInfo)) ? source.GetUpsertInfo(configure) : base.GetUpsertInfo(configure);
     }
 
     protected internal override int InsertItem(TableColumn[] columns, string sql, T item, bool detectInsertByRowIdChange = false)
@@ -44,12 +74,12 @@ internal sealed class SQLiteWriteColumnsTable<[DynamicallyAccessedMembers(Dynami
         return source.UpdateItem(columns, primaryColumns, sql, item);
     }
 
-    protected internal override bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item)
+    protected internal override bool RunHooks(IReadOnlyList<SQLiteEntityHook> hooks, T item)
     {
         return source.RunHooks(hooks, item);
     }
 
-    protected internal override bool RunHooks(IReadOnlyDictionary<Type, IReadOnlyList<Delegate>> hooks, T item, IDictionary<string, object?> columns)
+    protected internal override bool RunHooks(IReadOnlyList<SQLiteEntityHook> hooks, T item, IDictionary<string, object?> columns)
     {
         return source.RunHooks(hooks, item, columns);
     }

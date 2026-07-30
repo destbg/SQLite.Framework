@@ -33,7 +33,8 @@ internal sealed class SetReadColumnCollector : ExpressionVisitor
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         if (node.Method.DeclaringType == typeof(SQLiteColumn)
-            && node.Arguments[1] is ConstantExpression { Value: string name })
+            && ExpressionHelpers.IsConstant(node.Arguments[1])
+            && ExpressionHelpers.GetConstantValue(node.Arguments[1]) is string name)
         {
             columns.Add(name);
         }
