@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -2134,7 +2136,33 @@ public class InternalHelpersDirectTests
         Assert.Equal(7d, method.Invoke(null, ["7e+"]));
         Assert.Equal(8d, method.Invoke(null, ["8eX"]));
         Assert.Equal(0d, method.Invoke(null, ["abc"]));
+        Assert.Equal(0d, method.Invoke(null, [""]));
     }
+
+#if !SQLITECIPHER
+    [Fact]
+    public void BareSqlTranslator_ConverterReadsDisabled_EmitsTheRawColumnForSQLiteColumnOf()
+    {
+        using TestDatabase db = new(b =>
+            b.TypeConverters[typeof(Address)] = new SQLiteJsonbConverter<Address>(TestJsonContext.Default.Address));
+        TableMapping mapping = db.Table<DirectJsonbColumnRow>().Table;
+
+        ParameterExpression row = Expression.Parameter(typeof(object), "row");
+        MethodCallExpression body = Expression.Call(
+            typeof(SQLiteColumn),
+            nameof(SQLiteColumn.Of),
+            [typeof(Address)],
+            row,
+            Expression.Constant("Data"));
+        LambdaExpression lambda = Expression.Lambda(body, row);
+
+        string wrapped = BareSqlTranslator.Translate(db, mapping, lambda, wrapConverterReads: true);
+        string raw = BareSqlTranslator.Translate(db, mapping, lambda, wrapConverterReads: false);
+
+        Assert.Equal("json(\"Data\")", wrapped);
+        Assert.Equal("\"Data\"", raw);
+    }
+#endif
 
     [Fact]
     public void SetOperationAlignment_InnerQuery_IsSkipped()
@@ -2766,4 +2794,13 @@ public class DirectUnsetPart
 public class DirectUnsetHolder
 {
     public DirectUnsetPart? P { get; set; }
+}
+
+[Table("DirectJsonbColumnRows")]
+public class DirectJsonbColumnRow
+{
+    [Key]
+    public int Id { get; set; }
+
+    public Address Data { get; set; } = new();
 }

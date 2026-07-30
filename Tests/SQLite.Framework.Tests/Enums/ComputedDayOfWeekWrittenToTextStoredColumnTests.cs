@@ -35,6 +35,19 @@ public class H25qDowCopyTarget
     public DayOfWeek Dow { get; set; }
 }
 
+public enum H26cBlankKind
+{
+}
+
+[Table("H26cBlankTargets")]
+public class H26cBlankTarget
+{
+    [Key]
+    public int Id { get; set; }
+
+    public H26cBlankKind Mark { get; set; }
+}
+
 public class ComputedDayOfWeekWrittenToTextStoredColumnTests
 {
     [Fact]
@@ -88,6 +101,32 @@ public class ComputedDayOfWeekWrittenToTextStoredColumnTests
             .Where(t => t.Dow == DayOfWeek.Monday)
             .Select(t => t.Id)
             .OrderBy(v => v)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void InsertFromQueryWritingAComputedDayOfWeekIntoAnEnumWithoutNamesStoresTheNumberText()
+    {
+        using TestDatabase db = new(b => b.UseEnumStorage(EnumStorageMode.Text), nameof(InsertFromQueryWritingAComputedDayOfWeekIntoAnEnumWithoutNamesStoresTheNumberText));
+        db.Table<H25qDowCopySource>().Schema.CreateTable();
+        db.Table<H26cBlankTarget>().Schema.CreateTable();
+        db.Table<H25qDowCopySource>().AddRange(CopySources());
+
+        db.Table<H26cBlankTarget>().InsertFromQuery(
+            db.Table<H25qDowCopySource>().Select(s => new H26cBlankTarget { Id = s.Id, Mark = (H26cBlankKind)s.When.DayOfWeek }));
+
+        List<H26cBlankKind> expected = CopySources()
+            .OrderBy(s => s.Id)
+            .Select(s => (H26cBlankKind)s.When.DayOfWeek)
+            .ToList();
+
+        Assert.Equal([(H26cBlankKind)1, (H26cBlankKind)2, (H26cBlankKind)1], expected);
+
+        List<H26cBlankKind> actual = db.Table<H26cBlankTarget>()
+            .OrderBy(t => t.Id)
+            .Select(t => t.Mark)
             .ToList();
 
         Assert.Equal(expected, actual);

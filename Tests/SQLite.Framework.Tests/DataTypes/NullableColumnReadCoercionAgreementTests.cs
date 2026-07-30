@@ -76,6 +76,20 @@ public class NullableColumnReadCoercionAgreementTests
     }
 
     [Fact]
+    public void NullableLongReadsAStoredEmptyTextTheSameWayALongDoes()
+    {
+        using TestDatabase db = Setup(nameof(NullableLongReadsAStoredEmptyTextTheSameWayALongDoes), "''", "1", "1.5", "1");
+
+        long viaReader = ReadInt64(db, "Big");
+        long? viaPlainColumn = db.Table<H25hPlainRead>().Single().Big;
+        long? viaNullableColumn = db.Table<H25hMaybeRead>().Single().Big;
+
+        Assert.Equal(0L, viaReader);
+        Assert.Equal<long?>(viaReader, viaPlainColumn);
+        Assert.Equal<long?>(viaReader, viaNullableColumn);
+    }
+
+    [Fact]
     public void AnUnsignedLongReadsAStoredRealBelowTheLongRangeTheSameWayTheReaderDoes()
     {
         using TestDatabase db = Setup(nameof(AnUnsignedLongReadsAStoredRealBelowTheLongRangeTheSameWayTheReaderDoes), "1", "1", "1.5", "-9.3e18");

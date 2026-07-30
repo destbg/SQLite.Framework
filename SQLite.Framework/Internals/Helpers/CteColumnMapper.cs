@@ -176,9 +176,9 @@ internal static class CteColumnMapper
             visitor.ConstructedProjectionPaths[columns] = [.. info.ConstructedPaths];
         }
 
-        if (info.ConstructedNodes != null && info.BodySelects != null)
+        if (info.ConstructedNodes != null)
         {
-            CteClientColumnRewriter rewriter = new(info.BodySelects, info.ColumnNames, alias, visitor.Counters);
+            CteClientColumnRewriter rewriter = new(info.BodySelects!, info.ColumnNames, alias, visitor.Counters);
             foreach (KeyValuePair<string, Expression> node in info.ConstructedNodes)
             {
                 rewriter.Seed(node.Value);

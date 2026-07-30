@@ -16,7 +16,7 @@ internal partial class QueryableVisitor
                     "Materialize the values with ToList and aggregate in memory.");
             }
 
-            if (IsDistinct || Take != null || Skip != null || ClientTake != null || ClientSkip != null)
+            if (ClientTake != null || ClientSkip != null || IsDistinct || Take != null || Skip != null)
             {
                 ClientCount = true;
                 return node;

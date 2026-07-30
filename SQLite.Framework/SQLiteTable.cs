@@ -459,11 +459,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                     SQLiteExpression numberLeaf = SQLiteExpression.Leaf(target.PropertyType, translator.Visitor.Counters.NextIdentifier(), quoted);
                     SQLiteExpression nameText = EnumMemberVisitor.BuildEnumToNameText(translator.Visitor, target.PropertyType, numberLeaf);
                     rewrittenSelects.Add($"{nameText} AS {quoted}");
-                    if (nameText.Parameters != null)
-                    {
-                        sourceParameters.AddRange(nameText.Parameters);
-                    }
-
+                    sourceParameters.AddRange(nameText.Parameters!);
                     needsDayOfWeekText = true;
                 }
                 else

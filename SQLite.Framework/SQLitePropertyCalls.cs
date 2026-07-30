@@ -95,9 +95,7 @@ public class SQLitePropertyCalls<T>
                 "Compute the value first and pass it as a constant.");
         }
 
-        if (expr.IsDayOfWeekInteger
-            && targetColumn.PropertyType.IsEnum
-            && visitor.Database.Options.EnumStorage == EnumStorageMode.Text)
+        if (expr.IsDayOfWeekInteger && visitor.Database.Options.EnumStorage == EnumStorageMode.Text)
         {
             expr = EnumMemberVisitor.BuildEnumToNameText(visitor, targetColumn.PropertyType, expr);
         }

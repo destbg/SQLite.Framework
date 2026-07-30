@@ -497,17 +497,17 @@ internal partial class JsonCollectionVisitor
 
     private void SelectGroupKeyForGroupingResult()
     {
-        if (groupBys.Count > 0 && groupKeySql != null
-            && currentElementType is { IsGenericType: true }
+        if (groupBys.Count > 0
+            && currentElementType.IsGenericType
             && currentElementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
         {
-            selectExpr = groupKeySql;
+            selectExpr = groupKeySql!;
         }
     }
 
     private void SelectEntryObjectForDictionaryResult()
     {
-        if (currentElementType is { IsGenericType: true }
+        if (currentElementType.IsGenericType
             && currentElementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
         {
             selectExpr = $"json_object('Key', {keyColumn}, 'Value', {selectExpr})";

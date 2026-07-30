@@ -22,6 +22,15 @@ public class H24qStoreRow
     public H24qStoreKind Kind { get; set; }
 }
 
+[Table("H26dStoreRows")]
+public class H26dStoreRow
+{
+    [Key]
+    public int Id { get; set; }
+
+    public H24qStoreKind? Kind { get; set; }
+}
+
 public class MigrationStorageModeChangeReencodeTests
 {
     [Theory]
@@ -64,6 +73,39 @@ public class MigrationStorageModeChangeReencodeTests
         H24qStoreKind kind = db.Table<H24qStoreRow>().Select(r => r.Kind).Single();
 
         Assert.Equal(H24qStoreKind.Magazine, kind);
+    }
+
+    [Theory]
+    [InlineData(MigrateMode.InPlace)]
+    [InlineData(MigrateMode.Rebuild)]
+    public void NullableEnumColumnMovedToTextStorageKeepsValuesAndNulls(MigrateMode mode)
+    {
+        using ModelTestDatabase db = new(
+            model => model.Entity<H26dStoreRow>(),
+            b => b.UseEnumStorage(EnumStorageMode.Text));
+        db.Execute("CREATE TABLE \"H26dStoreRows\" (\"Id\" INTEGER PRIMARY KEY, \"Kind\" INTEGER)");
+        db.Execute("INSERT INTO \"H26dStoreRows\" (\"Id\", \"Kind\") VALUES (1, 1), (2, 0), (3, NULL)");
+
+        db.Table<H26dStoreRow>().Schema.Migrate(mode);
+
+        List<H26dStoreRow> materialized = db.Table<H26dStoreRow>().OrderBy(r => r.Id).ToList();
+
+        Assert.Equal(
+            new List<H24qStoreKind?> { H24qStoreKind.Magazine, H24qStoreKind.Newspaper, null },
+            materialized.Select(r => r.Kind).ToList());
+
+        List<int> expected = materialized
+            .Where(r => r.Kind == H24qStoreKind.Magazine)
+            .Select(r => r.Id)
+            .ToList();
+
+        List<int> actual = db.Table<H26dStoreRow>()
+            .Where(r => r.Kind == H24qStoreKind.Magazine)
+            .OrderBy(r => r.Id)
+            .Select(r => r.Id)
+            .ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     [Theory]

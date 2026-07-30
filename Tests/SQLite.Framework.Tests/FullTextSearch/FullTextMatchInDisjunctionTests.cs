@@ -18,6 +18,11 @@ public class H25rDisjunctionDoc
     public string Body { get; set; } = "";
 }
 
+public static class H26eDisjunctionDocHolder
+{
+    public static H25rDisjunctionDoc Doc { get; } = new();
+}
+
 public class FullTextMatchInDisjunctionTests
 {
     [Fact]
@@ -75,6 +80,16 @@ public class FullTextMatchInDisjunctionTests
             .ToList();
 
         Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void MatchOnAStaticEntityReferenceInADisjunctionIsRejected()
+    {
+        using TestDatabase db = Setup();
+
+        Assert.Throws<NotSupportedException>(() => db.Table<H25rDisjunctionDoc>()
+            .Where(d => SQLiteFTS5Functions.Match(H26eDisjunctionDocHolder.Doc, "apple") || d.Title == "banana")
+            .ToList());
     }
 
     private static List<H25rDisjunctionDoc> Rows()

@@ -1481,8 +1481,13 @@ public sealed class SQLiteMigrationRunner
     private static string ApplyEnumStorageReencode(TableMapping mapping, List<PragmaTableInfo> liveInfo, string columnName, string copyExpression)
     {
         TableColumn? column = mapping.Columns.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
-        Type? enumType = column == null ? null : Nullable.GetUnderlyingType(column.PropertyType) ?? column.PropertyType;
-        if (column == null || enumType is not { IsEnum: true } || enumType.IsDefined(typeof(FlagsAttribute), inherit: false))
+        if (column == null)
+        {
+            return copyExpression;
+        }
+
+        Type enumType = column.PropertyType;
+        if (!enumType.IsEnum || enumType.IsDefined(typeof(FlagsAttribute), inherit: false))
         {
             return copyExpression;
         }

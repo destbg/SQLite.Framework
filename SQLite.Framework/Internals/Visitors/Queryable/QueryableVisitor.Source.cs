@@ -7,18 +7,18 @@ internal partial class QueryableVisitor
         ThrowIfReverse(node.Method.Name);
         ComparerArgumentGuard.ThrowIfComparer(node);
 
+        if (ClientTake != null || ClientSkip != null || OrderBys.Count > 0 || Take != null || Skip != null)
+        {
+            throw new NotSupportedException(
+                $"{node.Method.Name} after OrderBy, Take or Skip is not supported because it would require wrapping the operand in a subquery. " +
+                "Materialize the ordered or paged operand into a list before combining.");
+        }
+
         if ((ClientProjection || (IsDistinct && LastSelectIsClient)) && !IsInnerQuery)
         {
             throw new NotSupportedException(
                 $"{node.Method.Name} after a projection that runs in memory is not supported, " +
                 "because SQLite cannot combine values the database never computes.");
-        }
-
-        if (OrderBys.Count > 0 || Take != null || Skip != null || ClientTake != null || ClientSkip != null)
-        {
-            throw new NotSupportedException(
-                $"{node.Method.Name} after OrderBy, Take or Skip is not supported because it would require wrapping the operand in a subquery. " +
-                "Materialize the ordered or paged operand into a list before combining.");
         }
 
         SQLTranslator sqlTranslator = visitor.CloneDeeper(visitor.Level);

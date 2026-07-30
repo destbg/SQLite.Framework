@@ -70,6 +70,48 @@ public class JoinClientProjectionDistinctCountTests
     }
 
     [Fact]
+    public void CountAfterATakeOnADistinctJoinClientProjectionCountsTheTakenRows()
+    {
+        using TestDatabase db = Setup(nameof(CountAfterATakeOnADistinctJoinClientProjectionCountsTheTakenRows));
+
+        int expected = Lefts()
+            .Join(Rights(), l => l.LK, r => r.RK, (l, r) => new { L = l.LId, T = BucketLabel(r.V) })
+            .Distinct()
+            .Take(2)
+            .Count();
+
+        int actual = db.Table<H24jCountLeft>()
+            .Join(db.Table<H24jCountRight>(), l => l.LK, r => r.RK, (l, r) => new { L = l.LId, T = BucketLabel(r.V) })
+            .Distinct()
+            .Take(2)
+            .Count();
+
+        Assert.Equal(2, expected);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CountAfterASkipOnADistinctJoinClientProjectionCountsTheRemainingRows()
+    {
+        using TestDatabase db = Setup(nameof(CountAfterASkipOnADistinctJoinClientProjectionCountsTheRemainingRows));
+
+        int expected = Lefts()
+            .Join(Rights(), l => l.LK, r => r.RK, (l, r) => new { L = l.LId, T = BucketLabel(r.V) })
+            .Distinct()
+            .Skip(2)
+            .Count();
+
+        int actual = db.Table<H24jCountLeft>()
+            .Join(db.Table<H24jCountRight>(), l => l.LK, r => r.RK, (l, r) => new { L = l.LId, T = BucketLabel(r.V) })
+            .Distinct()
+            .Skip(2)
+            .Count();
+
+        Assert.Equal(4, expected);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void CountAfterDistinctOverACrossJoinClientProjectionCountsDistinctProjectedValues()
     {
         using TestDatabase db = Setup(nameof(CountAfterDistinctOverACrossJoinClientProjectionCountsDistinctProjectedValues));

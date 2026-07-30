@@ -145,7 +145,7 @@ internal class SQLTranslator
             Visit(node);
         }
 
-        if (Visitor.ExcludedSelectColumns is { Count: > 0 } excluded)
+        if (Visitor.ExcludedSelectColumns is { } excluded)
         {
             queryableMethodVisitor.Selects.RemoveAll(s => excluded.Contains(s.IdentifierText));
         }
@@ -1143,7 +1143,7 @@ internal class SQLTranslator
             }
         }
 
-        if (selectExpression == null && queryableMethodVisitor.ClientCount && methodCalls.Count > 0)
+        if (selectExpression == null && queryableMethodVisitor.ClientCount)
         {
             Type clientElementType = methodCalls[0].Arguments[0].Type.GetGenericArguments()[0];
             MethodCallExpression identitySelect = CreateIdentitySelectExpression(clientElementType);

@@ -208,7 +208,7 @@ internal partial class QueryableVisitor
 
     private void ThrowIfReverse(string methodName)
     {
-        if (Reverse || (ReverseBeforeDistinct && !(IsDistinct && LastSelectIsClient)))
+        if (Reverse || (ReverseBeforeDistinct && !LastSelectIsClient))
         {
             throw new NotSupportedException(
                 $"{methodName} after Reverse is not supported because Reverse is applied in memory after the SQL query runs, " +
